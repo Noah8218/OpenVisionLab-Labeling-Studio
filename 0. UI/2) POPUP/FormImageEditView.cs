@@ -8,7 +8,6 @@ using Cyotek.Windows.Forms;
 using RJCodeUI_M1.RJForms;
 using System.Drawing.Imaging;
 using MvcVisionSystem._1._Core;
-using Vila.Win32;
 using static MvcVisionSystem.DrawObject.CEnum;
 using static MvcVisionSystem._2._Common.CParameterManager;
 using MvcVisionSystem.DrawObject;

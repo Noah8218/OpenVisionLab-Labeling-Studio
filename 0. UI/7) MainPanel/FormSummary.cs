@@ -1,14 +1,6 @@
-﻿using MvcVisionSystem._1._Core;
-using MvcVisionSystem._2._Common;
-using MvcVisionSystem._3._Device.DB;
-using OpenCvSharp;
-using System;
+﻿using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
-using System.Reflection;
-using System.Windows.Forms;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace MvcVisionSystem
 {

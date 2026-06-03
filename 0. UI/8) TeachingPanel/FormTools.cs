@@ -1,24 +1,6 @@
-﻿using Accord.Math;
-using MvcVisionSystem._1._Core;
-using MvcVisionSystem._2._Common;
-using Lib.Common;
-using Lib.OpenCV;
-using Lib.OpenCV.Blob;
-using Lib.OpenCV.Result;
-using Lib.OpenCV.Tool;
-using OpenCvSharp;
-using RJCodeUI_M1.RJControls;
-using Sunny.UI;
+﻿using MvcVisionSystem._1._Core;
 using System;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
-using System.IO;
-using System.Linq;
-using System.Reflection;
-using System.Threading.Tasks;
-using System.Windows.Forms;
 
 namespace MvcVisionSystem
 {

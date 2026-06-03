@@ -33,8 +33,6 @@ namespace MvcVisionSystem
 
         public bool _ViewCross { get; set; } = false;
 
-        private FormVision_Result _FormVision_Result = new FormVision_Result();
-
         public RoiMode _Mode { get; set; } = RoiMode.Rectangle;
 
         public System.Drawing.Point _Position { get; set; } = new System.Drawing.Point();
@@ -585,12 +583,6 @@ namespace MvcVisionSystem
                         }
                         break;
                     case "Image Compare":
-                        FormImageCompare formCompare = new FormImageCompare();
-                        formCompare.TopLevel = true;
-                        formCompare.TopMost = true;
-                        formCompare.StartPosition = FormStartPosition.CenterParent;
-                        if (!CUtil.OpenCheckForm(formCompare)) return;
-                        formCompare.Show();
                         break;
                     default:
                         break;
@@ -760,24 +752,6 @@ namespace MvcVisionSystem
                         ClearROI();
                         break;
                     case "Roi List":
-                        _FormVision_Result = new FormVision_Result();
-                        _FormVision_Result.StartPosition = FormStartPosition.CenterScreen;
-                        if (!CUtil.OpenCheckForm(_FormVision_Result)) return;
-                        switch (_Mode)
-                        {
-                            case RoiMode.Rectangle:
-                                //List<CRectangle> Rois = new List<CRectangle>();
-                                //for (int i= 0; i < _RoisOb.Count; i++)
-                                //{
-                                //    CRectangle cRectangle = new CRectangle();
-                                //    cRectangle.Index = i + 1;
-                                //    cRectangle.Roi = _RoisOb[i].Roi;
-                                //    Rois.Add(cRectangle);
-                                //}
-                                //_FormVision_Result.SetBindingRois(Rois);
-                                break;
-                        }
-                        _FormVision_Result.Show();
                         break;
                     default:
                         break;

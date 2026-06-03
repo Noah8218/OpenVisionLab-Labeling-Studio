@@ -137,10 +137,6 @@ namespace MvcVisionSystem
 
             Forms.Add(VISION_DOCK_FORM.IMAGELIST, new FormImageList());
             Forms.Add(VISION_DOCK_FORM.CLASSLIST, new FormClassList());
-            Forms.Add(VISION_DOCK_FORM.BLOB, new FormBlob());
-            Forms.Add(VISION_DOCK_FORM.LINE, new FormLine());
-            Forms.Add(VISION_DOCK_FORM.PROPERTY, new FormProperty());
-            Forms.Add(VISION_DOCK_FORM.THRESHOLD, new FormThreshold());            
             Forms.Add(VISION_DOCK_FORM.TOOLS, new FormTools());
             Forms.Add(VISION_DOCK_FORM.LOG, new FormLog());            
             ShowVisionForms();

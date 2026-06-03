@@ -312,7 +312,7 @@ namespace MvcVisionSystem
             try
             {
                 Stopwatch stopwatch = Stopwatch.StartNew();
-                double getEncoder = CGlobal.Inst.Device.ENC600.GetEncoderValue;
+                double getEncoder = 0;
                 CLOG.NORMAL($"Grab Complete, Encoder => {getEncoder}");
 
                 //지금 콜백에 들어온 Image Buffer ID 가져오기
@@ -416,7 +416,7 @@ namespace MvcVisionSystem
                 if (Property.TRIGGER_MODE == CPropertyCamera.TRIGGER_MODE_TYPE.ON_HW) { return; }
                 if (IsOpen)
                 {
-                    int getEncoder = CGlobal.Inst.Device.ENC600.GetEncoder();
+                    int getEncoder = 0;
                     CLOG.NORMAL($"Grab Complete, Encoder => {getEncoder}");
 
                     //Thread 로 구성해야될 필요가 있습니다.

@@ -599,6 +599,7 @@
             this.btnUserOptions.TextAlign = System.Drawing.ContentAlignment.BottomCenter;
             this.btnUserOptions.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageAboveText;
             this.btnUserOptions.UseVisualStyleBackColor = false;
+            this.btnUserOptions.Click += new System.EventHandler(this.btnClassSetting_Click);
             // 
             // btnScreenCapture
             // 

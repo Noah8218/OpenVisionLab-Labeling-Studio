@@ -15,7 +15,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Windows.Media;
-using Vila.Win32;
 using WeifenLuo.WinFormsUI.Docking;
 using static KtemVisionSystem.CAXIS_AJIN;
 using static KtemVisionSystem.CNodeAlarm;

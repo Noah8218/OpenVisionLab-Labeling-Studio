@@ -1,5 +1,4 @@
-﻿using MvcVisionSystem.Common;
-using Lib.Common;
+﻿using Lib.Common;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -12,7 +11,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using System.Xml;
-using static MCProtocol.Mitsubishi;
 
 namespace MvcVisionSystem
 {
@@ -219,8 +217,6 @@ namespace MvcVisionSystem
 
             LoadConfig();
 
-            if (strName.Contains("DI")) { CDIO_PLC.Inputs.Add(this); }
-            else if (strName.Contains("DO")) { CDIO_PLC.Outputs.Add(this); }
         }
 
         public CSignal(string strName, string strAddr, bool bIsContactA = true)
@@ -238,9 +234,6 @@ namespace MvcVisionSystem
             this.IS_CONTACT_A = bIsContactA;
 
             LoadConfig();
-
-            if (strName.Contains("DI")) { CDIO_CONTEC.Inputs.Add(this); }
-            else if (strName.Contains("DO")) { CDIO_CONTEC.Outputs.Add(this); }
 
         }
 

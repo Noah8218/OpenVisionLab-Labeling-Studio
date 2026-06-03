@@ -133,8 +133,6 @@ namespace MvcVisionSystem
             }
             else
             {
-                FormPowerGraphConfig formPowerGraphConfig = new FormPowerGraphConfig(iGraph.Config);
-                ShowForm(formPowerGraphConfig);
             }
         }        
 

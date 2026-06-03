@@ -114,25 +114,6 @@
     <OutputPath>bin\x64\Side_2\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Reference Include="Accord, Version=3.8.0.0, Culture=neutral, PublicKeyToken=fa1a88e29555ccf7, processorArchitecture=MSIL">
-      <HintPath>packages\Accord.3.8.0\lib\net462\Accord.dll</HintPath>
-    </Reference>
-    <Reference Include="Accord.MachineLearning, Version=3.8.0.0, Culture=neutral, PublicKeyToken=fa1a88e29555ccf7, processorArchitecture=MSIL">
-      <HintPath>packages\Accord.MachineLearning.3.8.0\lib\net462\Accord.MachineLearning.dll</HintPath>
-    </Reference>
-    <Reference Include="Accord.Math, Version=3.8.0.0, Culture=neutral, PublicKeyToken=fa1a88e29555ccf7, processorArchitecture=MSIL">
-      <HintPath>packages\Accord.Math.3.8.0\lib\net462\Accord.Math.dll</HintPath>
-    </Reference>
-    <Reference Include="Accord.Math.Core, Version=3.8.0.0, Culture=neutral, PublicKeyToken=fa1a88e29555ccf7, processorArchitecture=MSIL">
-      <HintPath>packages\Accord.Math.3.8.0\lib\net462\Accord.Math.Core.dll</HintPath>
-    </Reference>
-    <Reference Include="Accord.Statistics, Version=3.8.0.0, Culture=neutral, PublicKeyToken=fa1a88e29555ccf7, processorArchitecture=MSIL">
-      <HintPath>packages\Accord.Statistics.3.8.0\lib\net462\Accord.Statistics.dll</HintPath>
-    </Reference>
-    <Reference Include="Automation.BDaq4, Version=4.0.0.0, Culture=neutral, PublicKeyToken=463f5928d60183a0, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>dll\Automation.BDaq4.dll</HintPath>
-    </Reference>
     <Reference Include="CircularProgressBar">
       <HintPath>dll\CircularProgressBar.dll</HintPath>
     </Reference>
@@ -146,14 +127,6 @@
     </Reference>
     <Reference Include="ImageListView, Version=13.8.2.0, Culture=neutral, processorArchitecture=MSIL">
       <HintPath>packages\ImageListView.13.8.2\lib\net35\ImageListView.dll</HintPath>
-    </Reference>
-    <Reference Include="Interop.ACTMULTILib">
-      <HintPath>dll\Interop.ACTMULTILib.dll</HintPath>
-      <EmbedInteropTypes>True</EmbedInteropTypes>
-    </Reference>
-    <Reference Include="Interop.ActUtlTypeLib">
-      <HintPath>dll\Interop.ActUtlTypeLib.dll</HintPath>
-      <EmbedInteropTypes>True</EmbedInteropTypes>
     </Reference>
     <Reference Include="Lib.Common, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
       <SpecificVersion>False</SpecificVersion>
@@ -186,18 +159,6 @@
       <HintPath>packages\MetroModernUI.1.4.0.0\lib\net\MetroFramework.Fonts.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="MultiCam_NetApi">
-      <HintPath>dll\MultiCam_NetApi.dll</HintPath>
-    </Reference>
-    <Reference Include="MvCameraControl.Net">
-      <HintPath>C:\Program Files (x86)\MVS\Development\DotNet\AnyCpu\MvCameraControl.Net.dll</HintPath>
-    </Reference>
-    <Reference Include="MySqlBackupNet.MySqlConnector, Version=2.3.8.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\MySqlBackup.NET.MySqlConnector.2.3.8\lib\net471\MySqlBackupNet.MySqlConnector.dll</HintPath>
-    </Reference>
-    <Reference Include="MySqlConnector, Version=2.0.0.0, Culture=neutral, PublicKeyToken=d33d3e53aa5f8c92, processorArchitecture=MSIL">
-      <HintPath>packages\MySqlConnector.2.2.5\lib\net471\MySqlConnector.dll</HintPath>
-    </Reference>
     <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
       <HintPath>packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
     </Reference>
@@ -210,10 +171,6 @@
     <Reference Include="OpenCvSharp.UserInterface">
       <HintPath>Dll\OpenCvSharp.UserInterface.dll</HintPath>
       <Private>True</Private>
-    </Reference>
-    <Reference Include="PACNET, Version=2.1.0.5, Culture=neutral, processorArchitecture=x86">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>dll\PACNET.dll</HintPath>
     </Reference>
     <Reference Include="PresentationCore" />
     <Reference Include="PresentationFramework" />
@@ -281,9 +238,6 @@
     <Reference Include="System.Net.Http" />
     <Reference Include="System.Windows.Forms" />
     <Reference Include="System.Xml" />
-    <Reference Include="Vila.Core">
-      <HintPath>dll\Vila.Core.dll</HintPath>
-    </Reference>
     <Reference Include="WeifenLuo.WinFormsUI.Docking, Version=1.0.0.0, Culture=neutral, PublicKeyToken=5cded1a1a0a7b481, processorArchitecture=MSIL">
       <HintPath>packages\DockPanelSuite.3.1.0\lib\net40\WeifenLuo.WinFormsUI.Docking.dll</HintPath>
     </Reference>
@@ -304,59 +258,11 @@
     </Reference>
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="0. UI\0%29 MENU\FormRecipeManager.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\0%29 MENU\FormRecipeManager.Designer.cs">
-      <DependentUpon>FormRecipeManager.cs</DependentUpon>
-    </Compile>
     <Compile Include="0. UI\0%29 MENU\FormTeachingVision.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="0. UI\0%29 MENU\FormTeachingVision.Designer.cs">
       <DependentUpon>FormTeachingVision.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\0%29 MENU\LoginForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\0%29 MENU\LoginForm.designer.cs">
-      <DependentUpon>LoginForm.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormPowerGraphConfig.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormPowerGraphConfig.Designer.cs">
-      <DependentUpon>FormPowerGraphConfig.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormSetting_llumination.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormSetting_llumination.Designer.cs">
-      <DependentUpon>FormSetting_llumination.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormSetting_UTIL.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormSetting_UTIL.Designer.cs">
-      <DependentUpon>FormSetting_UTIL.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormSetting_Camera.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormSetting_Camera.Designer.cs">
-      <DependentUpon>FormSetting_Camera.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormViewer_Alarm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormViewer_Alarm.Designer.cs">
-      <DependentUpon>FormViewer_Alarm.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormAlarm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormAlarm.Designer.cs">
-      <DependentUpon>FormAlarm.cs</DependentUpon>
     </Compile>
     <Compile Include="0. UI\2%29 POPUP\FormInit.cs">
       <SubType>Form</SubType>
@@ -364,59 +270,11 @@
     <Compile Include="0. UI\2%29 POPUP\FormInit.Designer.cs">
       <DependentUpon>FormInit.cs</DependentUpon>
     </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormVisionAlarm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormVisionAlarm.Designer.cs">
-      <DependentUpon>FormVisionAlarm.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormImageCompare.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormImageCompare.Designer.cs">
-      <DependentUpon>FormImageCompare.cs</DependentUpon>
-    </Compile>
     <Compile Include="0. UI\2%29 POPUP\FormMeasure.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="0. UI\2%29 POPUP\FormMeasure.Designer.cs">
       <DependentUpon>FormMeasure.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormCSV.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormCSV.designer.cs">
-      <DependentUpon>FormCSV.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormPLC.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormPLC.Designer.cs">
-      <DependentUpon>FormPLC.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormLabel.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormLabel.Designer.cs">
-      <DependentUpon>FormLabel.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormSummary.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormSummary.Designer.cs">
-      <DependentUpon>FormSummary.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormMainGraph.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormMainGraph.Designer.cs">
-      <DependentUpon>FormMainGraph.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormVision_LotOpen.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormVision_LotOpen.Designer.cs">
-      <DependentUpon>FormVision_LotOpen.cs</DependentUpon>
     </Compile>
     <Compile Include="0. UI\8%29 TeachingPanel\FormVision_NewPanel.cs">
       <SubType>Form</SubType>
@@ -424,24 +282,12 @@
     <Compile Include="0. UI\8%29 TeachingPanel\FormVision_NewPanel.Designer.cs">
       <DependentUpon>FormVision_NewPanel.cs</DependentUpon>
     </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormVision_Result.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormVision_Result.Designer.cs">
-      <DependentUpon>FormVision_Result.cs</DependentUpon>
-    </Compile>
     <Compile Include="Yolo\CYolov5.cs" />
     <Compile Include="Yolo\FormVision_ClassMenu.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="Yolo\FormVision_ClassMenu.Designer.cs">
       <DependentUpon>FormVision_ClassMenu.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormContour.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormContour.Designer.cs">
-      <DependentUpon>FormContour.cs</DependentUpon>
     </Compile>
     <Compile Include="0. UI\8%29 TeachingPanel\FormClassList.cs">
       <SubType>Form</SubType>
@@ -455,59 +301,11 @@
     <Compile Include="0. UI\8%29 TeachingPanel\FormTools.Designer.cs">
       <DependentUpon>FormTools.cs</DependentUpon>
     </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormProperty.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormProperty.Designer.cs">
-      <DependentUpon>FormProperty.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormSearchDB.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormSearchDB.Designer.cs">
-      <DependentUpon>FormSearchDB.cs</DependentUpon>
-    </Compile>
     <Compile Include="0. UI\8%29 TeachingPanel\FormImageList.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="0. UI\8%29 TeachingPanel\FormImageList.Designer.cs">
       <DependentUpon>FormImageList.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormLine.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormLine.Designer.cs">
-      <DependentUpon>FormLine.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormBlob.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormBlob.Designer.cs">
-      <DependentUpon>FormBlob.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormThreshold.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormThreshold.Designer.cs">
-      <DependentUpon>FormThreshold.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormIO.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormIO.Designer.cs">
-      <DependentUpon>FormIO.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormMainButton.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormMainButton.Designer.cs">
-      <DependentUpon>FormMainButton.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormMainDefect.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormMainDefect.Designer.cs">
-      <DependentUpon>FormMainDefect.cs</DependentUpon>
     </Compile>
     <Compile Include="0. UI\7%29 MainPanel\FormLog.cs">
       <SubType>Form</SubType>
@@ -515,65 +313,25 @@
     <Compile Include="0. UI\7%29 MainPanel\FormLog.Designer.cs">
       <DependentUpon>FormLog.cs</DependentUpon>
     </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormMainSystem.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormMainSystem.Designer.cs">
-      <DependentUpon>FormMainSystem.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormKeyboard.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormKeyboard.Designer.cs">
-      <DependentUpon>FormKeyboard.cs</DependentUpon>
-    </Compile>
     <Compile Include="0. UI\2%29 POPUP\FormLayerDisplay.cs">
       <SubType>Form</SubType>
     </Compile>
     <Compile Include="0. UI\2%29 POPUP\FormLayerDisplay.Designer.cs">
       <DependentUpon>FormLayerDisplay.cs</DependentUpon>
     </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormSettings_Devices.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormSettings_Devices.Designer.cs">
-      <DependentUpon>FormSettings_Devices.cs</DependentUpon>
-    </Compile>
     <Compile Include="1. Core\CDisplayManager.cs" />
     <Compile Include="1. Core\CInspectionAlgorithm.cs" />
     <Compile Include="1. Core\CSeqThread.cs" />
-    <Compile Include="1. Core\CVisionTools.cs" />
-    <Compile Include="1. Core\CSequence.cs" />
-    <Compile Include="2. Common\CAccountManager.cs" />
-    <Compile Include="2. Common\CAlarm.cs" />
-    <Compile Include="2. Common\CAlignCalculration.cs" />
-    <Compile Include="2. Common\CAlignParameter.cs" />
     <Compile Include="2. Common\CDrawBitmap.cs" />
-    <Compile Include="2. Common\CEdgeList_Line.cs" />
-    <Compile Include="2. Common\CDefectList_Blob.cs" />
-    <Compile Include="2. Common\CDeleteImages.cs" />
-    <Compile Include="2. Common\CAttatchLabelling.cs" />
     <Compile Include="2. Common\CCommon.cs" />
     <Compile Include="2. Common\CParameterManager.cs" />
     <Compile Include="2. Common\CDefectList.cs" />
     <Compile Include="2. Common\CPropertyGridEditor.cs" />
     <Compile Include="2. Common\CRecipeModel.cs" />
-    <Compile Include="2. Common\CSaveImages.cs" />
     <Compile Include="2. Common\CWpgEvent.cs" />
     <Compile Include="2. Common\SerializeHelper.cs" />
     <Compile Include="2. Common\UIThreadInvokeClass.cs" />
     <Compile Include="3. Device\CAMERA\CGrabberMatrox.cs" />
-    <Compile Include="3. Device\DB\CDefect.cs" />
-    <Compile Include="3. Device\DB\CDefectSummary.cs" />
-    <Compile Include="3. Device\DB\CMariaDB.cs" />
-    <Compile Include="3. Device\DB\CProduct.cs" />
-    <Compile Include="3. Device\DIO\CDIO_CONTEC.cs" />
-    <Compile Include="3. Device\LIGHT\CLightControler_KVP400.cs" />
-    <Compile Include="3. Device\MOTION\CMOTION_AJIN_ENC600.cs" />
-    <Compile Include="3. Device\MOTION\enc600.cs" />
-    <Compile Include="3. Device\PLC\CCommMelsec.cs" />
-    <Compile Include="3. Device\PLC\CDIO_PLC.cs" />
-    <Compile Include="3. Device\PLC\MCProtocol.cs" />
     <Compile Include="3. Device\TCP\CCommunicationLearning.cs" />
     <Compile Include="3. Device\TCP\CTCPAsync.cs" />
     <Compile Include="4. Sequence\CSeqBase.cs" />
@@ -585,8 +343,6 @@
     <Compile Include="5. Property\CPropertyLot.cs" />
     <Compile Include="5. Property\CPropertyMotion.cs" />
     <Compile Include="5. Property\CPropertyCamera.cs" />
-    <Compile Include="1. Core\CImageFileManager.cs" />
-    <Compile Include="3. Device\CAMERA\CCameraHikVision.cs" />
     <Compile Include="2. Common\CArgument.cs" />
     <Compile Include="2. Common\DEFINE.cs" />
     <Compile Include="1. Core\CData.cs" />
@@ -594,12 +350,6 @@
     <Compile Include="1. Core\CGlobal.cs" />
     <Compile Include="1. Core\CRecipe.cs" />
     <Compile Include="2. Common\CSignal.cs" />
-    <Compile Include="0. UI\2%29 POPUP\FormIO_PLC.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormIO_PLC.Designer.cs">
-      <DependentUpon>FormIO_PLC.cs</DependentUpon>
-    </Compile>
     <Compile Include="1. Core\CSystem.cs" />
     <Compile Include="Library\DrawObject\CDrawObject.cs" />
     <Compile Include="Library\DrawObject\CEnum.cs" />
@@ -728,12 +478,6 @@
     <Compile Include="0. UI\0%29 MENU\FormMetroFrame.Designer.cs">
       <DependentUpon>FormMetroFrame.cs</DependentUpon>
     </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormAuthorization.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormAuthorization.Designer.cs">
-      <DependentUpon>FormAuthorization.cs</DependentUpon>
-    </Compile>
     <Compile Include="0. UI\2%29 POPUP\FormMessageBox.cs">
       <SubType>Form</SubType>
     </Compile>
@@ -768,75 +512,20 @@
     <Compile Include="Yolo\FormVision_Yolov5ParamSetting.Designer.cs">
       <DependentUpon>FormVision_Yolov5ParamSetting.cs</DependentUpon>
     </Compile>
-    <EmbeddedResource Include="0. UI\0%29 MENU\FormRecipeManager.resx">
-      <DependentUpon>FormRecipeManager.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="0. UI\0%29 MENU\FormTeachingVision.resx">
       <DependentUpon>FormTeachingVision.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\0%29 MENU\LoginForm.resx">
-      <DependentUpon>LoginForm.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormPowerGraphConfig.resx">
-      <DependentUpon>FormPowerGraphConfig.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormSetting_llumination.resx">
-      <DependentUpon>FormSetting_llumination.cs</DependentUpon>
-      <SubType>Designer</SubType>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormSetting_UTIL.resx">
-      <DependentUpon>FormSetting_UTIL.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormSetting_Camera.resx">
-      <DependentUpon>FormSetting_Camera.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormViewer_Alarm.resx">
-      <DependentUpon>FormViewer_Alarm.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormAlarm.resx">
-      <DependentUpon>FormAlarm.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="0. UI\2%29 POPUP\FormInit.resx">
       <DependentUpon>FormInit.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormVisionAlarm.resx">
-      <DependentUpon>FormVisionAlarm.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormImageCompare.resx">
-      <DependentUpon>FormImageCompare.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="0. UI\2%29 POPUP\FormMeasure.resx">
       <DependentUpon>FormMeasure.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\7%29 MainPanel\FormCSV.resx">
-      <DependentUpon>FormCSV.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\7%29 MainPanel\FormPLC.resx">
-      <DependentUpon>FormPLC.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\7%29 MainPanel\FormLabel.resx">
-      <DependentUpon>FormLabel.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\7%29 MainPanel\FormSummary.resx">
-      <DependentUpon>FormSummary.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\7%29 MainPanel\FormMainGraph.resx">
-      <DependentUpon>FormMainGraph.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\7%29 MainPanel\FormVision_LotOpen.resx">
-      <DependentUpon>FormVision_LotOpen.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="0. UI\8%29 TeachingPanel\FormVision_NewPanel.resx">
       <DependentUpon>FormVision_NewPanel.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\8%29 TeachingPanel\FormVision_Result.resx">
-      <DependentUpon>FormVision_Result.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="Yolo\FormVision_ClassMenu.resx">
       <DependentUpon>FormVision_ClassMenu.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\8%29 TeachingPanel\FormContour.resx">
-      <DependentUpon>FormContour.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="0. UI\8%29 TeachingPanel\FormClassList.resx">
       <DependentUpon>FormClassList.cs</DependentUpon>
@@ -844,51 +533,14 @@
     <EmbeddedResource Include="0. UI\8%29 TeachingPanel\FormTools.resx">
       <DependentUpon>FormTools.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\8%29 TeachingPanel\FormProperty.resx">
-      <DependentUpon>FormProperty.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\7%29 MainPanel\FormSearchDB.resx">
-      <DependentUpon>FormSearchDB.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="0. UI\8%29 TeachingPanel\FormImageList.resx">
       <DependentUpon>FormImageList.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\8%29 TeachingPanel\FormLine.resx">
-      <DependentUpon>FormLine.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\8%29 TeachingPanel\FormBlob.resx">
-      <DependentUpon>FormBlob.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\8%29 TeachingPanel\FormThreshold.resx">
-      <DependentUpon>FormThreshold.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\7%29 MainPanel\FormIO.resx">
-      <DependentUpon>FormIO.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\7%29 MainPanel\FormMainButton.resx">
-      <DependentUpon>FormMainButton.cs</DependentUpon>
-      <SubType>Designer</SubType>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\7%29 MainPanel\FormMainDefect.resx">
-      <DependentUpon>FormMainDefect.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="0. UI\7%29 MainPanel\FormLog.resx">
       <DependentUpon>FormLog.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\7%29 MainPanel\FormMainSystem.resx">
-      <DependentUpon>FormMainSystem.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormKeyboard.resx">
-      <DependentUpon>FormKeyboard.cs</DependentUpon>
-    </EmbeddedResource>
     <EmbeddedResource Include="0. UI\2%29 POPUP\FormLayerDisplay.resx">
       <DependentUpon>FormLayerDisplay.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormSettings_Devices.resx">
-      <DependentUpon>FormSettings_Devices.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormIO_PLC.resx">
-      <DependentUpon>FormIO_PLC.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Library\CViewer.resx">
       <DependentUpon>CViewer.cs</DependentUpon>
@@ -899,9 +551,6 @@
     <EmbeddedResource Include="0. UI\0%29 MENU\FormMetroFrame.resx">
       <DependentUpon>FormMetroFrame.cs</DependentUpon>
       <SubType>Designer</SubType>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormAuthorization.resx">
-      <DependentUpon>FormAuthorization.cs</DependentUpon>
     </EmbeddedResource>
     <EmbeddedResource Include="Library\CMvcGraph.resx">
       <DependentUpon>CMvcGraph.cs</DependentUpon>
@@ -1088,23 +737,6 @@
   </ItemGroup>
   <ItemGroup />
   <ItemGroup>
-    <COMReference Include="ADOX">
-      <Guid>{00000600-0000-0010-8000-00AA006D2EA4}</Guid>
-      <VersionMajor>6</VersionMajor>
-      <VersionMinor>0</VersionMinor>
-      <Lcid>0</Lcid>
-      <WrapperTool>tlbimp</WrapperTool>
-      <Isolated>False</Isolated>
-      <EmbedInteropTypes>False</EmbedInteropTypes>
-    </COMReference>
-    <COMReference Include="AxCognexDisplay">
-      <Guid>{0ACBBD11-6E21-11D4-9751-0060089571FC}</Guid>
-      <VersionMajor>1</VersionMajor>
-      <VersionMinor>0</VersionMinor>
-      <Lcid>0</Lcid>
-      <WrapperTool>aximp</WrapperTool>
-      <Isolated>False</Isolated>
-    </COMReference>
     <COMReference Include="stdole">
       <Guid>{00020430-0000-0000-C000-000000000046}</Guid>
       <VersionMajor>2</VersionMajor>

@@ -35,7 +35,6 @@ namespace MvcVisionSystem
             this.timePixelData = new System.Windows.Forms.Timer(this.components);
             this.toolTip1 = new System.Windows.Forms.ToolTip(this.components);
             this.timer1 = new System.Windows.Forms.Timer(this.components);
-            this.mySqlCommand1 = new MySqlConnector.MySqlCommand();
             this.uiMillisecondTimer1 = new Sunny.UI.UIMillisecondTimer(this.components);
             this.cbLogItems = new Sunny.UI.UIComboBox();
             this.pnLog = new System.Windows.Forms.Panel();
@@ -56,13 +55,6 @@ namespace MvcVisionSystem
             // timer1
             // 
             this.timer1.Enabled = true;
-            // 
-            // mySqlCommand1
-            // 
-            this.mySqlCommand1.CommandTimeout = 0;
-            this.mySqlCommand1.Connection = null;
-            this.mySqlCommand1.Transaction = null;
-            this.mySqlCommand1.UpdatedRowSource = System.Data.UpdateRowSource.None;
             // 
             // cbLogItems
             // 
@@ -112,7 +104,6 @@ namespace MvcVisionSystem
         private System.Windows.Forms.Timer timePixelData;
         private System.Windows.Forms.ToolTip toolTip1;
         private System.Windows.Forms.Timer timer1;
-        private MySqlConnector.MySqlCommand mySqlCommand1;
         private Sunny.UI.UIMillisecondTimer uiMillisecondTimer1;
         private Sunny.UI.UIComboBox cbLogItems;
         private System.Windows.Forms.Panel pnLog;

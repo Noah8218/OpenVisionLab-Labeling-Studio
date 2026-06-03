@@ -12,7 +12,6 @@ using static MvcVisionSystem.DEFINE;
 using MvcVisionSystem._2._Common;
 using System.ComponentModel;
 using System.Drawing;
-using MvcVisionSystem._3._Device.DB;
 using OpenCvSharp.Aruco;
 using Lib.Common;
 using MvcVisionSystem.Yolo;

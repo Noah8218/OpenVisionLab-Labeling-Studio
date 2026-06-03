@@ -89,8 +89,6 @@ namespace MvcVisionSystem
         {
             try
             {                
-                CImageManager.LoadConfig(Name);
-                CVisionTools.LoadTools(Name);
                 CGlobal.Inst.Device.LoadDevices(Name);
                 CGlobal.Inst.Data = CGlobal.Inst.Data.LoadConfig(Name);
 
@@ -107,8 +105,6 @@ namespace MvcVisionSystem
         {
             try
             {                
-                CImageManager.SaveConfig(Name);
-                CVisionTools.SaveTools(Name);
                 CGlobal.Inst.Data.SaveConfig(Name);
                 return true;
             }

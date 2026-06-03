@@ -191,8 +191,6 @@ namespace MvcVisionSystem
             }
         }
 
-        // Key : ID, Value : Password
-        public CAccountManager AccountManager { get; set; } = new CAccountManager();
         #endregion
 
         public CSystem()
@@ -204,7 +202,6 @@ namespace MvcVisionSystem
             CUtil.InitDirectory("CONFIG");            
 
             LoadConfig();
-            AccountManager.LoadConfig();
         }
 
         public void Close() { }        

@@ -12,7 +12,6 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Markup;
 using System.Windows.Media;
-using Vila.Communication.Net;
 
 namespace MvcVisionSystem._3._Device.TCP
 {

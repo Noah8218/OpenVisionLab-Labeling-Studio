@@ -1,23 +1,11 @@
-﻿using Accord.Math;
-using MvcVisionSystem._1._Core;
-using MvcVisionSystem._2._Common;
+﻿using MvcVisionSystem._1._Core;
 using Lib.Common;
-using Lib.OpenCV;
-using Lib.OpenCV.Blob;
-using Lib.OpenCV.Result;
-using Lib.OpenCV.Tool;
-using OpenCvSharp;
-using RJCodeUI_M1.RJControls;
-using Sunny.UI;
 using System;
-using System.Collections.Concurrent;
+using System.Collections;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Reflection;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using Manina.Windows.Forms;
 using SortOrder = Manina.Windows.Forms.SortOrder;
@@ -337,6 +325,38 @@ namespace MvcVisionSystem
             CDisplayManager.ImageSrc = Lib.Common.CImageConverter.ToMat((Bitmap)image);
             CDisplayManager.CreateLayerDisplay((Bitmap)image, "Main", true);
             CDisplayManager.ZoomToFit("Main");
+        }
+    }
+
+    internal class RendererComboBoxItem
+    {
+        public RendererComboBoxItem(Type rendererType)
+        {
+            FullName = rendererType.FullName;
+            Name = rendererType.Name;
+        }
+
+        public string FullName { get; }
+        public string Name { get; }
+        public override string ToString() => Name;
+    }
+
+    internal class ColorComboBoxItem
+    {
+        public ColorComboBoxItem(PropertyInfo field)
+        {
+            Field = field;
+        }
+
+        public PropertyInfo Field { get; }
+        public override string ToString() => Field.Name;
+    }
+
+    internal class RandomColumnComparer : IComparer<ImageListViewItem>
+    {
+        public int Compare(ImageListViewItem x, ImageListViewItem y)
+        {
+            return string.Compare(x?.Text, y?.Text, StringComparison.Ordinal);
         }
     }
 }

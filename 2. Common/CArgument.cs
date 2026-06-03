@@ -5,13 +5,11 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Serialization;
-using MvcVisionSystem._3._Device.DB;
 using Lib.OpenCV;
 using Lib.OpenCV.Blob;
 using Lib.OpenCV.Result;
 using Matrox.MatroxImagingLibrary;
 using OpenCvSharp;
-using Vila.Extensions;
 
 namespace MvcVisionSystem
 {
@@ -65,15 +63,6 @@ namespace MvcVisionSystem
         }
     }
 
-    public class AlaramEventArgs : EventArgs
-    {
-        public CNodeAlarm cNodeAlarm = new CNodeAlarm();
-        public AlaramEventArgs(CNodeAlarm cNodeAlarm)
-        {
-            this.cNodeAlarm = cNodeAlarm;
-        }
-    }
-
     public class InspResultArgs : EventArgs
     {
         public int Index = 0;
@@ -82,11 +71,6 @@ namespace MvcVisionSystem
         public string resultData = "";
         public DEFINE.RESULT result = DEFINE.RESULT.NA;
         public double tackTime = 0;
-
-        public Dictionary<string, CDefectSummary> DefectSummaries = new Dictionary<string, CDefectSummary>();
-
-        public List<List<CAttatchLabelling>> Attaches = new List<List<CAttatchLabelling>>();
-        public List<CAttatchLabelling> Already_AttachedList = new List<CAttatchLabelling>();
 
         public List<CResultBlob> black_Result = new List<CResultBlob>();
         public List<CResultBlob> white_Result = new List<CResultBlob>();
@@ -118,8 +102,7 @@ namespace MvcVisionSystem
         }
 
         public InspResultArgs(Bitmap imageOriginal, Bitmap imageResult, int Index, double TackTime, DEFINE.RESULT result, List<CResultBlob> black_Result, List<CResultBlob> white_Result, List<CResultBlob> totalResults,
-            List<double> AvgMM, List<List<CAttatchLabelling>> Attaches, List<CAttatchLabelling> Already_AttachedList,
-            Dictionary<string, CDefectSummary> DefectSummaries)
+            List<double> AvgMM)
         {
             this.imageOri = (Bitmap)imageOriginal;
             this.imageResult = (Bitmap)imageResult;            
@@ -132,20 +115,6 @@ namespace MvcVisionSystem
             this.totalResults = totalResults;
             this.totalResults = totalResults;
             this.avgMM = AvgMM;
-            this.Attaches = Attaches.ConvertAll(s => s);
-            this.Already_AttachedList = Already_AttachedList.ConvertAll(s => s);
-            this.DefectSummaries = new Dictionary<string, CDefectSummary>(DefectSummaries);
-        }
-    }
-
-    public class LabelResultArgs : EventArgs
-    {
-        public List<List<CAttatchLabelling>> Attaches = new List<List<CAttatchLabelling>>();
-        public List<CAttatchLabelling> Already_AttachedList = new List<CAttatchLabelling>();
-        public LabelResultArgs(List<List<CAttatchLabelling>> Attaches, List<CAttatchLabelling> Already_AttachedList)
-        {
-            this.Attaches = Attaches.ConvertAll(s => s);
-            this.Already_AttachedList = Already_AttachedList.ConvertAll(s => s);
         }
     }
 
