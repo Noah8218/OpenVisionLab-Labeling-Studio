@@ -74,19 +74,35 @@ namespace MvcVisionSystem
 
             Color frameColor = Color.FromArgb(64, 73, 108);
             Color accentColor = Color.FromArgb(83, 97, 212);
-            Color buttonColor = Color.FromArgb(104, 116, 221);
-            Color buttonDownColor = Color.FromArgb(84, 94, 190);
-            Color buttonHoverColor = Color.FromArgb(92, 104, 205);
+            Color buttonColor = frameColor;
+            Color buttonDownColor = Color.FromArgb(54, 62, 92);
+            Color buttonHoverColor = Color.FromArgb(76, 86, 126);
 
             BackColor = frameColor;
             pnlTitleBar.BackColor = frameColor;
             pnStatusBar.BackColor = frameColor;
             pnFormMain.BackColor = accentColor;
             OperatorPanel.BackColor = Color.Black;
+            ApplyPanelTheme(pnlTitleBar, frameColor);
 
             ApplyButtonTheme(pnlTitleBar, buttonColor, buttonDownColor, buttonHoverColor);
         }
 
+        private void ApplyPanelTheme(Control parent, Color backColor)
+        {
+            foreach (Control control in parent.Controls)
+            {
+                if (control is Panel)
+                {
+                    control.BackColor = backColor;
+                }
+
+                if (control.HasChildren)
+                {
+                    ApplyPanelTheme(control, backColor);
+                }
+            }
+        }
         private void ApplyButtonTheme(Control parent, Color backColor, Color downColor, Color hoverColor)
         {
             foreach (Control control in parent.Controls)

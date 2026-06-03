@@ -364,107 +364,53 @@
     <Compile Include="Library\Log4netView.designer.cs">
       <DependentUpon>Log4netView.cs</DependentUpon>
     </Compile>
-    <Compile Include="Library\RJControls\RJComboBox.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
+    
     <Compile Include="Properties\Resources.Designer.cs">
       <AutoGen>True</AutoGen>
       <DesignTime>True</DesignTime>
       <DependentUpon>Resources.resx</DependentUpon>
     </Compile>
-    <Compile Include="Library\RJControls\Design\ButtonDesign.cs" />
-    <Compile Include="Library\RJControls\Design\ControlStyle.cs" />
-    <Compile Include="Library\RJControls\Design\DropdownMenuColors.cs" />
-    <Compile Include="Library\RJControls\Design\DropdownMenuPosition.cs" />
-    <Compile Include="Library\RJControls\Design\DropdownMenuRenderer.cs" />
-    <Compile Include="Library\RJControls\Design\LabelStyle.cs" />
-    <Compile Include="Library\RJControls\Design\TextBoxStyle.cs" />
-    <Compile Include="Library\RJControls\Design\TextPosition.cs" />
-    <Compile Include="Library\RJControls\RJButton.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJChart.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJCheckBox.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJCircularPictureBox.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJDataGridView.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJDatePicker.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJDragControl.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJDropdownMenu.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJImageColorOverlay.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJLabel.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJMenuButton.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJMenuIcon.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJPanel.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJPictureBox.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJProgressBar.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJRadioButton.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJTextBox.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJToggleButton.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJTrackBar.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJForms\RJBaseForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJForms\RJSettingsForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJForms\RJSettingsForm.Designer.cs">
-      <DependentUpon>RJSettingsForm.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Library\RJControls\RJForms\VisionTestForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\RJForms\RJChildForm.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Library\RJControls\Settings\RJColors.cs" />
-    <Compile Include="Library\RJControls\Settings\SettingsManager.cs" />
-    <Compile Include="Library\RJControls\Settings\UIAppearance.cs" />
-    <Compile Include="Library\RJControls\Settings\UIAppearanceSettings.Designer.cs" />
-    <Compile Include="Library\RJControls\Settings\UIAppearanceSettings1.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTimeSharedInput>True</DesignTimeSharedInput>
-      <DependentUpon>UIAppearanceSettings.settings</DependentUpon>
-    </Compile>
-    <Compile Include="Library\RJControls\Settings\UIStyle.cs" />
-    <Compile Include="Library\RJControls\Settings\UITheme.cs" />
-    <Compile Include="Library\RJControls\Utils\ColorEditor.cs" />
-    <Compile Include="Library\RJControls\Utils\RoundedControl.cs" />
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     <Compile Include="Vision\OpenCV\COpenCVPropertyBase.cs" />
     <Compile Include="Vision\OpenCV\CPropertyContour.cs" />
     <Compile Include="Vision\OpenCV\CPropertyBlob.cs" />
@@ -569,12 +515,8 @@
     <EmbeddedResource Include="0. UI\2%29 POPUP\FormImageEditView.resx">
       <DependentUpon>FormImageEditView.cs</DependentUpon>
     </EmbeddedResource>
-    <EmbeddedResource Include="Library\RJControls\RJPanel.resx">
-      <DependentUpon>RJPanel.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Library\RJControls\RJForms\RJSettingsForm.resx">
-      <DependentUpon>RJSettingsForm.cs</DependentUpon>
-    </EmbeddedResource>
+    
+    
     <EmbeddedResource Include="Yolo\FormVision_Yolov5ParamSetting.resx">
       <DependentUpon>FormVision_Yolov5ParamSetting.cs</DependentUpon>
     </EmbeddedResource>
@@ -589,10 +531,7 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
-    <None Include="Library\RJControls\Settings\UIAppearanceSettings.settings">
-      <Generator>SettingsSingleFileGenerator</Generator>
-      <LastGenOutput>UIAppearanceSettings1.Designer.cs</LastGenOutput>
-    </None>
+    
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config" />
@@ -750,7 +689,7 @@
   <ItemGroup>
     <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
   </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+  <ItemGroup><ProjectReference Include="Library\RJControls\RJControls.csproj"><Project>{6A607464-07C8-4C53-A238-E2F4D7E44E18}</Project><Name>RJControls</Name></ProjectReference></ItemGroup><Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
     <PropertyGroup>
       <ErrorText>이 프로젝트는 이 컴퓨터에 없는 NuGet 패키지를 참조합니다. 해당 패키지를 다운로드하려면 NuGet 패키지 복원을 사용하십시오. 자세한 내용은 http://go.microsoft.com/fwlink/?LinkID=322105를 참조하십시오. 누락된 파일은 {0}입니다.</ErrorText>
