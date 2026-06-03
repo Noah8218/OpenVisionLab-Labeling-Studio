@@ -8,19 +8,12 @@ using System.Xml.Serialization;
 namespace MvcVisionSystem
 {
     public static class CVersion
-    {
-        #region VERSION HISTORY
-        //VER 1.0.0 ==> 2022/08/04 초기 싱글톤 패턴을 적용 --> 현장 검증은 어느정도 완료        
-        #endregion
-        public static string APP_NAME { get; set; } = "KTEM_VISION";
-        public static string VERSION { get; set; } = "1.1.0";
-        public static string DATETIME_UPDATED { get; set; } = "2023/07/11 /*20:00*/";
+    {        
+        public static string VERSION { get; set; } = "1.5.0";
+        public static string DATETIME_UPDATED { get; set; } = "2026/06/03 /*20:00*/";
         public static string MANAGER { get; set; } = "NOAH";
     }
-
-    // Global 클래스
-    // 해당 클래스안에 장치,레시피,검사 등 전역적으로 접근 가능하도록 UI 구성
-    // CGlobal.Inst.... 
+    
     public class CGlobal
     {               
         // 싱글톤(객체 접근시에만 객체를 생성)->지연 생성

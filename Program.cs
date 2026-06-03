@@ -45,7 +45,11 @@ namespace MvcVisionSystem
 
                     SettingsManager.LoadApperanceSettings();//Load current appearance settings.
 
-                    FormInit formInit = new FormInit();
+                    FormInit formInit = new FormInit
+                    {
+                        VersionText = $"VERSION : {CVersion.VERSION} - {CVersion.DATETIME_UPDATED} ({CVersion.MANAGER})",
+                        VersionLogAction = message => CLOG.NORMAL(message)
+                    };
 #if Release
 
 #endif
