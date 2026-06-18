@@ -61,8 +61,6 @@ namespace MvcVisionSystem
                     catch { }
 
                     CUtil.InitDirectory($"RECIPE\\{m_strName}\\VISION");
-                    CUtil.InitDirectory($"RECIPE\\{m_strName}\\DEVICE");
-                    CUtil.InitDirectory($"RECIPE\\{m_strName}\\MOTION");
 
                     LoadToolsTask = Task.Run(() =>
                     {
@@ -89,14 +87,13 @@ namespace MvcVisionSystem
         {
             try
             {                
-                CGlobal.Inst.Device.LoadDevices(Name);
                 CGlobal.Inst.Data = CGlobal.Inst.Data.LoadConfig(Name);
 
                 return true;
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL( $"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                AppLog.ABNORMAL( $"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Exception ==> {Desc.Message}");
                 return false;
             }
         }
@@ -110,7 +107,7 @@ namespace MvcVisionSystem
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL( $"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                AppLog.ABNORMAL( $"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Exception ==> {Desc.Message}");
                 return false;
             }
         }
@@ -131,7 +128,7 @@ namespace MvcVisionSystem
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL( $"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                AppLog.ABNORMAL( $"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Exception ==> {Desc.Message}");
                 return false;
             }
         }        

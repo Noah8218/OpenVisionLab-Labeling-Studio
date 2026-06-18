@@ -14,9 +14,10 @@ namespace MvcVisionSystem
         /// <param name="disposing">관리되는 리소스를 삭제해야 하면 true이고, 그렇지 않으면 false입니다.</param>
         protected override void Dispose(bool disposing)
         {
-            if (disposing && (components != null))
+            if (disposing)
             {
-                components.Dispose();
+                DisposeViewerResources();
+                components?.Dispose();
             }
             base.Dispose(disposing);
         }
@@ -38,15 +39,7 @@ namespace MvcVisionSystem
             this.iconMenuItem1 = new FontAwesome.Sharp.IconMenuItem();
             this.iconMenuItem2 = new FontAwesome.Sharp.IconMenuItem();
             this.iconMenuItem3 = new FontAwesome.Sharp.IconMenuItem();
-            this.iconMenuItem4 = new FontAwesome.Sharp.IconMenuItem();
-            this.iconMenuItem5 = new FontAwesome.Sharp.IconMenuItem();
             this.iconMenuItem6 = new FontAwesome.Sharp.IconMenuItem();
-            this.ItemROI = new FontAwesome.Sharp.IconMenuItem();
-            this.ItemTrainROI = new FontAwesome.Sharp.IconMenuItem();
-            this.ItemMultiROI = new FontAwesome.Sharp.IconMenuItem();
-            this.ItemDrag = new FontAwesome.Sharp.IconMenuItem();
-            this.iconMenuItem7 = new FontAwesome.Sharp.IconMenuItem();
-            this.iconMenuItem8 = new FontAwesome.Sharp.IconMenuItem();
             this.ddmImageMenu.SuspendLayout();
             this.ddmDelete.SuspendLayout();
             // 
@@ -65,10 +58,8 @@ namespace MvcVisionSystem
             this.iconMenuItem1,
             this.iconMenuItem2,
             this.iconMenuItem3,
-            this.iconMenuItem4,
-            this.iconMenuItem5,
             this.iconMenuItem6});
-            this.ddmImageMenu.Name = "ddmDevice";
+            this.ddmImageMenu.Name = "ddmImageMenu";
             this.ddmImageMenu.OwnerIsMenuButton = false;
             this.ddmImageMenu.Size = new System.Drawing.Size(196, 136);
             // 
@@ -88,13 +79,13 @@ namespace MvcVisionSystem
             // 
             this.toolStripMenuItem9.Name = "toolStripMenuItem9";
             this.toolStripMenuItem9.Size = new System.Drawing.Size(123, 22);
-            this.toolStripMenuItem9.Text = "Delete";
+            this.toolStripMenuItem9.Text = "라벨 삭제";
             // 
             // toolStripMenuItem10
             // 
             this.toolStripMenuItem10.Name = "toolStripMenuItem10";
             this.toolStripMenuItem10.Size = new System.Drawing.Size(123, 22);
-            this.toolStripMenuItem10.Text = "Roi List";
+            this.toolStripMenuItem10.Text = "라벨 목록";
             // 
             // iconMenuItem1
             // 
@@ -103,7 +94,7 @@ namespace MvcVisionSystem
             this.iconMenuItem1.IconFont = FontAwesome.Sharp.IconFont.Auto;
             this.iconMenuItem1.Name = "iconMenuItem1";
             this.iconMenuItem1.Size = new System.Drawing.Size(195, 22);
-            this.iconMenuItem1.Text = "Image Load";
+            this.iconMenuItem1.Text = "이미지 열기";
             // 
             // iconMenuItem2
             // 
@@ -112,7 +103,7 @@ namespace MvcVisionSystem
             this.iconMenuItem2.IconFont = FontAwesome.Sharp.IconFont.Auto;
             this.iconMenuItem2.Name = "iconMenuItem2";
             this.iconMenuItem2.Size = new System.Drawing.Size(195, 22);
-            this.iconMenuItem2.Text = "Image Save";
+            this.iconMenuItem2.Text = "이미지 저장";
             // 
             // iconMenuItem3
             // 
@@ -121,33 +112,7 @@ namespace MvcVisionSystem
             this.iconMenuItem3.IconFont = FontAwesome.Sharp.IconFont.Auto;
             this.iconMenuItem3.Name = "iconMenuItem3";
             this.iconMenuItem3.Size = new System.Drawing.Size(195, 22);
-            this.iconMenuItem3.Text = "Show Folder";
-            // 
-            // iconMenuItem4
-            // 
-            this.iconMenuItem4.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.iconMenuItem7,
-            this.iconMenuItem8});
-            this.iconMenuItem4.IconChar = FontAwesome.Sharp.IconChar.ListUl;
-            this.iconMenuItem4.IconColor = System.Drawing.Color.Black;
-            this.iconMenuItem4.IconFont = FontAwesome.Sharp.IconFont.Auto;
-            this.iconMenuItem4.Name = "iconMenuItem4";
-            this.iconMenuItem4.Size = new System.Drawing.Size(195, 22);
-            this.iconMenuItem4.Text = "Function Collection";
-            // 
-            // iconMenuItem5
-            // 
-            this.iconMenuItem5.DropDownItems.AddRange(new System.Windows.Forms.ToolStripItem[] {
-            this.ItemDrag,
-            this.ItemROI,
-            this.ItemTrainROI,
-            this.ItemMultiROI});
-            this.iconMenuItem5.IconChar = FontAwesome.Sharp.IconChar.ObjectGroup;
-            this.iconMenuItem5.IconColor = System.Drawing.Color.Black;
-            this.iconMenuItem5.IconFont = FontAwesome.Sharp.IconFont.Auto;
-            this.iconMenuItem5.Name = "iconMenuItem5";
-            this.iconMenuItem5.Size = new System.Drawing.Size(195, 22);
-            this.iconMenuItem5.Text = "ROI";
+            this.iconMenuItem3.Text = "폴더 열기";
             // 
             // iconMenuItem6
             // 
@@ -156,61 +121,8 @@ namespace MvcVisionSystem
             this.iconMenuItem6.IconFont = FontAwesome.Sharp.IconFont.Auto;
             this.iconMenuItem6.Name = "iconMenuItem6";
             this.iconMenuItem6.Size = new System.Drawing.Size(195, 22);
-            this.iconMenuItem6.Text = "CROSS";
+            this.iconMenuItem6.Text = "십자선";
             // 
-            // ItemROI
-            // 
-            this.ItemROI.IconChar = FontAwesome.Sharp.IconChar.None;
-            this.ItemROI.IconColor = System.Drawing.Color.Black;
-            this.ItemROI.IconFont = FontAwesome.Sharp.IconFont.Auto;
-            this.ItemROI.Name = "ItemROI";
-            this.ItemROI.Size = new System.Drawing.Size(171, 22);
-            this.ItemROI.Text = "ROI";
-            // 
-            // ItemTrainROI
-            // 
-            this.ItemTrainROI.IconChar = FontAwesome.Sharp.IconChar.None;
-            this.ItemTrainROI.IconColor = System.Drawing.Color.Black;
-            this.ItemTrainROI.IconFont = FontAwesome.Sharp.IconFont.Auto;
-            this.ItemTrainROI.Name = "ItemTrainROI";
-            this.ItemTrainROI.Size = new System.Drawing.Size(171, 22);
-            this.ItemTrainROI.Text = "Train ROI";
-            // 
-            // ItemMultiROI
-            // 
-            this.ItemMultiROI.IconChar = FontAwesome.Sharp.IconChar.None;
-            this.ItemMultiROI.IconColor = System.Drawing.Color.Black;
-            this.ItemMultiROI.IconFont = FontAwesome.Sharp.IconFont.Auto;
-            this.ItemMultiROI.Name = "ItemMultiROI";
-            this.ItemMultiROI.Size = new System.Drawing.Size(137, 22);
-            this.ItemMultiROI.Text = "Multi ROI";
-            // 
-            // ItemDrag
-            // 
-            this.ItemDrag.IconChar = FontAwesome.Sharp.IconChar.None;
-            this.ItemDrag.IconColor = System.Drawing.Color.Black;
-            this.ItemDrag.IconFont = FontAwesome.Sharp.IconFont.Auto;
-            this.ItemDrag.Name = "ItemDrag";
-            this.ItemDrag.Size = new System.Drawing.Size(171, 22);
-            this.ItemDrag.Text = "Drag";
-            // 
-            // iconMenuItem7
-            // 
-            this.iconMenuItem7.IconChar = FontAwesome.Sharp.IconChar.None;
-            this.iconMenuItem7.IconColor = System.Drawing.Color.Black;
-            this.iconMenuItem7.IconFont = FontAwesome.Sharp.IconFont.Auto;
-            this.iconMenuItem7.Name = "iconMenuItem7";
-            this.iconMenuItem7.Size = new System.Drawing.Size(179, 22);
-            this.iconMenuItem7.Text = "3 Point Measure";
-            // 
-            // iconMenuItem8
-            // 
-            this.iconMenuItem8.IconChar = FontAwesome.Sharp.IconChar.None;
-            this.iconMenuItem8.IconColor = System.Drawing.Color.Black;
-            this.iconMenuItem8.IconFont = FontAwesome.Sharp.IconFont.Auto;
-            this.iconMenuItem8.Name = "iconMenuItem8";
-            this.iconMenuItem8.Size = new System.Drawing.Size(179, 22);
-            this.iconMenuItem8.Text = "Image Compare";
             this.ddmImageMenu.ResumeLayout(false);
             this.ddmDelete.ResumeLayout(false);
 
@@ -226,14 +138,6 @@ namespace MvcVisionSystem
         private FontAwesome.Sharp.IconMenuItem iconMenuItem1;
         private FontAwesome.Sharp.IconMenuItem iconMenuItem2;
         private FontAwesome.Sharp.IconMenuItem iconMenuItem3;
-        private FontAwesome.Sharp.IconMenuItem iconMenuItem4;
-        private FontAwesome.Sharp.IconMenuItem iconMenuItem5;
         private FontAwesome.Sharp.IconMenuItem iconMenuItem6;
-        private FontAwesome.Sharp.IconMenuItem ItemROI;
-        private FontAwesome.Sharp.IconMenuItem ItemTrainROI;
-        private FontAwesome.Sharp.IconMenuItem ItemMultiROI;
-        private FontAwesome.Sharp.IconMenuItem ItemDrag;
-        private FontAwesome.Sharp.IconMenuItem iconMenuItem7;
-        private FontAwesome.Sharp.IconMenuItem iconMenuItem8;
     }
 }

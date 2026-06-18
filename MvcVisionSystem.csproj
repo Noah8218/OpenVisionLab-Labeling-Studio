@@ -1,707 +1,267 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
-<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <Import Project="packages\OpenCvSharp4.runtime.win.4.5.5.20211231\build\netstandard\OpenCvSharp4.runtime.win.props" Condition="Exists('packages\OpenCvSharp4.runtime.win.4.5.5.20211231\build\netstandard\OpenCvSharp4.runtime.win.props')" />
-  <Import Project="$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props" Condition="Exists('$(MSBuildExtensionsPath)\$(MSBuildToolsVersion)\Microsoft.Common.props')" />
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
-    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
-    <ProjectGuid>{8A4C00DB-1734-4DD1-BF8C-C6C4DFFA571F}</ProjectGuid>
     <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- Required only for ElementHost hosting of OpenVisionLab.Logging.Controls. The application remains WinForms. -->
+    <UseWPF>true</UseWPF>
+    <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
     <RootNamespace>MvcVisionSystem</RootNamespace>
     <AssemblyName>MvcVisionSystem</AssemblyName>
-    <TargetFrameworkVersion>v4.7.2</TargetFrameworkVersion>
-    <FileAlignment>512</FileAlignment>
-    <AutoGenerateBindingRedirects>true</AutoGenerateBindingRedirects>
-    <Deterministic>false</Deterministic>
-    <NuGetPackageImportStamp>
-    </NuGetPackageImportStamp>
-    <IsWebBootstrapper>false</IsWebBootstrapper>
-    <PublishUrl>게시\</PublishUrl>
-    <Install>true</Install>
-    <InstallFrom>Disk</InstallFrom>
-    <UpdateEnabled>false</UpdateEnabled>
-    <UpdateMode>Foreground</UpdateMode>
-    <UpdateInterval>7</UpdateInterval>
-    <UpdateIntervalUnits>Days</UpdateIntervalUnits>
-    <UpdatePeriodically>false</UpdatePeriodically>
-    <UpdateRequired>false</UpdateRequired>
-    <MapFileExtensions>true</MapFileExtensions>
-    <ApplicationRevision>0</ApplicationRevision>
-    <ApplicationVersion>1.0.0.%2a</ApplicationVersion>
-    <UseApplicationTrust>false</UseApplicationTrust>
-    <BootstrapperEnabled>true</BootstrapperEnabled>
-  </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <ApplicationIcon>lens.ico</ApplicationIcon>
+    <Platforms>AnyCPU;x86;x64</Platforms>
+    <LibraryNoahSourceRoot Condition="'$(LibraryNoahSourceRoot)' == ''">$(MSBuildProjectDirectory)\..\Library-Noah</LibraryNoahSourceRoot>
+    <OpenVisionLabSourceRoot Condition="'$(OpenVisionLabSourceRoot)' == ''">$(MSBuildProjectDirectory)\OpenVisionLab</OpenVisionLabSourceRoot>
     <PlatformTarget>x64</PlatformTarget>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <GenerateResourceUsePreserializedResources>true</GenerateResourceUsePreserializedResources>
+    <Deterministic>false</Deterministic>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <ArtifactsRoot>$(MSBuildProjectDirectory)\artifacts</ArtifactsRoot>
+    <OutputPath>$(ArtifactsRoot)\run\$(Configuration)\</OutputPath>
+  </PropertyGroup>
+
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
     <DebugSymbols>true</DebugSymbols>
     <DebugType>full</DebugType>
     <Optimize>false</Optimize>
-    <OutputPath>..\..\실행폴더\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;Dbug, TEST, _EURESYS, OPENCV, DPS, EGRABBER, DIO_ADLINK, _DIO_AJIN, _MOTION_AJIN, _DIO_TOWERLAMP, HIKVISION, BCR, !NON_MIL</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Prefer32Bit>false</Prefer32Bit>
+    <DefineConstants>TRACE;DEBUG;TEST;OPENCV</DefineConstants>
   </PropertyGroup>
-  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
-    <PlatformTarget>x64</PlatformTarget>
+  <PropertyGroup Condition="'$(Configuration)' == 'Release'">
     <DebugType>pdbonly</DebugType>
     <Optimize>true</Optimize>
-    <OutputPath>C:\[0.Project]\3. 슬리터검사비전\실행폴더\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;Release, Dbug, TEST, _EURESYS, OPENCV, DPS, EGRABBER, DIO_ADLINK, _DIO_AJIN, _MOTION_AJIN, _DIO_TOWERLAMP, HIKVISION, BCR, !NON_MIL</DefineConstants>
-    <ErrorReport>prompt</ErrorReport>
-    <WarningLevel>4</WarningLevel>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Prefer32Bit>true</Prefer32Bit>
+    <DefineConstants>TRACE;TEST;OPENCV</DefineConstants>
   </PropertyGroup>
-  <PropertyGroup>
-    <ApplicationIcon>lens.ico</ApplicationIcon>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x86'">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>..\2. 실행경로\HAN-DNG-IFV-001-20210403\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;TEST, NO_CAMERA</DefineConstants>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DebugType>full</DebugType>
+  <PropertyGroup Condition="'$(Platform)' == 'x86'">
     <PlatformTarget>x86</PlatformTarget>
-    <LangVersion>7.3</LangVersion>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x86'">
-    <OutputPath>D:\2. 실행경로\HAN-DNG-IFV-001-20210412\</OutputPath>
-    <DefineConstants>TRACE;TEST, NO_CAMERA</DefineConstants>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>x86</PlatformTarget>
-    <LangVersion>7.3</LangVersion>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Debug|x64'">
-    <DebugSymbols>true</DebugSymbols>
-    <OutputPath>..\..\SDIV_IF_SIDEV_0804\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;TEST, MIL, OPENCV, MATROX_SOLIOS, _BASLER_AREA, MATROX, EGRABBER</DefineConstants>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <DebugType>full</DebugType>
+  <PropertyGroup Condition="'$(Platform)' == 'x64'">
     <PlatformTarget>x64</PlatformTarget>
-    <LangVersion>7.3</LangVersion>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
   </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Release|x64'">
-    <OutputPath>..\PLS_IF_0804\</OutputPath>
-    <DefineConstants>TRACE;TEST, _MIL, OPENCV, _MATROX_SOLIOS, _BASLER_AREA, _MATROX</DefineConstants>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-    <Optimize>true</Optimize>
-    <DebugType>pdbonly</DebugType>
-    <PlatformTarget>x64</PlatformTarget>
-    <LangVersion>7.3</LangVersion>
-    <ErrorReport>prompt</ErrorReport>
-    <CodeAnalysisRuleSet>MinimumRecommendedRules.ruleset</CodeAnalysisRuleSet>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Side_2|AnyCPU'">
-    <OutputPath>..\ExcutePath\</OutputPath>
-    <DefineConstants>TRACE;DEBUG;TEST, _EURESYS, OPENCV, DPS, EGRABBER, DIO_ADLINK, _DIO_AJIN, _MOTION_AJIN, _DIO_TOWERLAMP, HIKVISION, BCR, NON_MIL</DefineConstants>
-    <Prefer32Bit>false</Prefer32Bit>
-    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Side_2|x86'">
-    <OutputPath>bin\x86\Side_2\</OutputPath>
-  </PropertyGroup>
-  <PropertyGroup Condition="'$(Configuration)|$(Platform)' == 'Side_2|x64'">
-    <OutputPath>bin\x64\Side_2\</OutputPath>
-  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Remove="OpenVisionLab\**\*.cs" />
+    <EmbeddedResource Remove="OpenVisionLab\**\*.resx" />
+    <Page Remove="OpenVisionLab\**\*.xaml" />
+    <None Remove="OpenVisionLab\**\*" />
+    <Compile Remove="tests\**\*.cs" />
+    <EmbeddedResource Remove="tests\**\*.resx" />
+    <None Remove="tests\**\*" />
+  </ItemGroup>
+
   <ItemGroup>
     <Reference Include="CircularProgressBar">
       <HintPath>dll\CircularProgressBar.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="Cyotek.Windows.Forms.ImageBox, Version=1.2.0.0, Culture=neutral, PublicKeyToken=58daa28b0b2de221, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>dll\Cyotek.Windows.Forms.ImageBox.dll</HintPath>
-    </Reference>
-    <Reference Include="FontAwesome.Sharp, Version=5.15.3.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
+    <Reference Include="FontAwesome.Sharp">
       <HintPath>dll\FontAwesome.Sharp.dll</HintPath>
-    </Reference>
-    <Reference Include="ImageListView, Version=13.8.2.0, Culture=neutral, processorArchitecture=MSIL">
-      <HintPath>packages\ImageListView.13.8.2\lib\net35\ImageListView.dll</HintPath>
-    </Reference>
-    <Reference Include="Lib.Common, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\Library-Noah\Lib.Common\bin\Debug\netstandard2.0\Lib.Common.dll</HintPath>
-    </Reference>
-    <Reference Include="Lib.OpenCV, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\Library-Noah\Lib.OpenCV\bin\Debug\netstandard2.0\Lib.OpenCV.dll</HintPath>
-    </Reference>
-    <Reference Include="Lib.OpenCV.Blob, Version=1.0.0.0, Culture=neutral, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>..\Library-Noah\Lib.OpenCV.Blob\bin\Debug\netstandard2.0\Lib.OpenCV.Blob.dll</HintPath>
-    </Reference>
-    <Reference Include="log4net, Version=2.0.15.0, Culture=neutral, PublicKeyToken=669e0ddf0bb1aa2a, processorArchitecture=MSIL">
-      <HintPath>packages\log4net.2.0.15\lib\net45\log4net.dll</HintPath>
-    </Reference>
-    <Reference Include="Matrox.MatroxImagingLibrary, Version=10.40.881.1281, Culture=neutral, PublicKeyToken=5a83d419d44a9d98, processorArchitecture=AMD64">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>dll\Matrox.MatroxImagingLibrary.dll</HintPath>
-    </Reference>
-    <Reference Include="MetroFramework, Version=1.4.0.0, Culture=neutral, PublicKeyToken=5f91a84759bf584a, processorArchitecture=MSIL">
-      <HintPath>packages\MetroModernUI.1.4.0.0\lib\net\MetroFramework.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="MetroFramework.Design, Version=1.4.0.0, Culture=neutral, PublicKeyToken=5f91a84759bf584a, processorArchitecture=MSIL">
-      <HintPath>packages\MetroModernUI.1.4.0.0\lib\net\MetroFramework.Design.dll</HintPath>
+    <Reference Include="RJControls" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\RJControls\RJControls.csproj')">
+      <HintPath>dll\RJControls.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="MetroFramework.Fonts, Version=1.4.0.0, Culture=neutral, PublicKeyToken=5f91a84759bf584a, processorArchitecture=MSIL">
-      <HintPath>packages\MetroModernUI.1.4.0.0\lib\net\MetroFramework.Fonts.dll</HintPath>
+    <Reference Include="OpenVisionLab.Logging" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Logging\OpenVisionLab.Logging.csproj')">
+      <HintPath>dll\OpenVisionLab.Logging.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed, processorArchitecture=MSIL">
-      <HintPath>packages\Newtonsoft.Json.13.0.3\lib\net45\Newtonsoft.Json.dll</HintPath>
-    </Reference>
-    <Reference Include="OpenCvSharp, Version=1.0.0.0, Culture=neutral, PublicKeyToken=6adad1e807fea099, processorArchitecture=MSIL">
-      <HintPath>packages\OpenCvSharp4.4.4.0.20200915\lib\net461\OpenCvSharp.dll</HintPath>
-    </Reference>
-    <Reference Include="OpenCvSharp.Extensions, Version=1.0.0.0, Culture=neutral, PublicKeyToken=6adad1e807fea099, processorArchitecture=MSIL">
-      <HintPath>packages\OpenCvSharp4.4.4.0.20200915\lib\net461\OpenCvSharp.Extensions.dll</HintPath>
-    </Reference>
-    <Reference Include="OpenCvSharp.UserInterface">
-      <HintPath>Dll\OpenCvSharp.UserInterface.dll</HintPath>
+    <Reference Include="OpenVisionLab.Logging.Controls" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Logging.Controls\OpenVisionLab.Logging.Controls.csproj')">
+      <HintPath>dll\OpenVisionLab.Logging.Controls.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="PresentationCore" />
-    <Reference Include="PresentationFramework" />
-    <Reference Include="Prism, Version=8.1.97.5141, Culture=neutral, PublicKeyToken=40ee6c3a2184dc59, processorArchitecture=MSIL">
-      <HintPath>packages\Prism.Core.8.1.97\lib\net47\Prism.dll</HintPath>
+    <Reference Include="OpenVisionLab.ImageSpace.Core" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageSpace.Core\OpenVisionLab.ImageSpace.Core.csproj')">
+      <HintPath>dll\OpenVisionLab.ImageSpace.Core.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="SunnyUI, Version=3.3.4.0, Culture=neutral, PublicKeyToken=27d7d2e821d97aeb, processorArchitecture=MSIL">
-      <HintPath>packages\SunnyUI.3.3.4\lib\net472\SunnyUI.dll</HintPath>
+    <Reference Include="OpenVisionLab.ImageCanvas" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageCanvas\OpenVisionLab.ImageCanvas.csproj')">
+      <HintPath>dll\OpenVisionLab.ImageCanvas.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="SunnyUI.Common, Version=3.3.2.0, Culture=neutral, PublicKeyToken=5a271fb7ba597231, processorArchitecture=MSIL">
-      <HintPath>packages\SunnyUI.Common.3.3.2\lib\net472\SunnyUI.Common.dll</HintPath>
+    <Reference Include="OpenVisionLab.Controls.Init" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Controls.Init\OpenVisionLab.Controls.Init.csproj')">
+      <HintPath>dll\OpenVisionLab.Controls.Init.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="System">
-      <HintPath>..\..\..\Program Files (x86)\Reference Assemblies\Microsoft\Framework\.NETFramework\v4.7.2\System.dll</HintPath>
+    <Reference Include="OpenVisionLab.DrawObject" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\DrawObject\RectangleDrawObject.cs')">
+      <HintPath>dll\OpenVisionLab.DrawObject.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="System.Buffers, Version=4.0.3.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>packages\System.Buffers.4.5.1\lib\net461\System.Buffers.dll</HintPath>
+    <Reference Include="OpenVisionLab.MessageBox" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.MessageBox\OpenVisionLab.MessageBox.csproj')">
+      <HintPath>dll\OpenVisionLab.MessageBox.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="System.Collections.Immutable, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>packages\System.Collections.Immutable.6.0.0\lib\net461\System.Collections.Immutable.dll</HintPath>
+    <Reference Include="OpenCvSharp">
+      <HintPath>$(LibraryNoahSourceRoot)\Lib.Common\DLL\OpenCvSharp.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="System.ComponentModel.DataAnnotations" />
-    <Reference Include="System.Configuration" />
-    <Reference Include="System.Core" />
-    <Reference Include="System.Design" />
-    <Reference Include="System.Diagnostics.DiagnosticSource, Version=6.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>packages\System.Diagnostics.DiagnosticSource.6.0.0\lib\net461\System.Diagnostics.DiagnosticSource.dll</HintPath>
+    <Reference Include="OpenCvSharp.Extensions">
+      <HintPath>$(LibraryNoahSourceRoot)\Lib.Common\DLL\OpenCvSharp.Extensions.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="System.Drawing.Common, Version=6.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>packages\System.Drawing.Common.6.0.0\lib\net461\System.Drawing.Common.dll</HintPath>
+    <Reference Include="SharpGL" Condition="Exists('$(OpenVisionLabSourceRoot)\dll\SharpGL\SharpGL.dll')">
+      <HintPath>$(OpenVisionLabSourceRoot)\dll\SharpGL\SharpGL.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="System.Memory, Version=4.0.1.2, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>packages\System.Memory.4.5.5\lib\net461\System.Memory.dll</HintPath>
+    <Reference Include="SharpGL" Condition="!Exists('$(OpenVisionLabSourceRoot)\dll\SharpGL\SharpGL.dll') And Exists('dll\SharpGL.dll')">
+      <HintPath>dll\SharpGL.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="System.Numerics" />
-    <Reference Include="System.Numerics.Vectors, Version=4.1.4.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>packages\System.Numerics.Vectors.4.5.0\lib\net46\System.Numerics.Vectors.dll</HintPath>
+    <Reference Include="SharpGL.WinForms" Condition="Exists('$(OpenVisionLabSourceRoot)\dll\SharpGL\SharpGL.WinForms.dll')">
+      <HintPath>$(OpenVisionLabSourceRoot)\dll\SharpGL\SharpGL.WinForms.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="System.Reflection.Metadata, Version=6.0.0.1, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>packages\System.Reflection.Metadata.6.0.1\lib\net461\System.Reflection.Metadata.dll</HintPath>
+    <Reference Include="SharpGL.WinForms" Condition="!Exists('$(OpenVisionLabSourceRoot)\dll\SharpGL\SharpGL.WinForms.dll') And Exists('dll\SharpGL.WinForms.dll')">
+      <HintPath>dll\SharpGL.WinForms.dll</HintPath>
+      <Private>True</Private>
     </Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe, Version=6.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a, processorArchitecture=MSIL">
-      <HintPath>packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\net461\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Runtime.Serialization" />
-    <Reference Include="System.Security" />
-    <Reference Include="System.Threading.Tasks.Extensions, Version=4.2.0.1, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51, processorArchitecture=MSIL">
-      <HintPath>packages\System.Threading.Tasks.Extensions.4.5.4\lib\net461\System.Threading.Tasks.Extensions.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Transactions" />
-    <Reference Include="System.Web" />
-    <Reference Include="System.Web.Extensions" />
-    <Reference Include="System.Windows.Controls.WpfPropertyGrid, Version=2010.11.10.0, Culture=neutral, PublicKeyToken=be4b71144cd8a3e5, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>dll\System.Windows.Controls.WpfPropertyGrid.dll</HintPath>
-    </Reference>
-    <Reference Include="System.Windows.Forms.DataVisualization" />
-    <Reference Include="System.Xaml" />
-    <Reference Include="System.Xml.Linq" />
-    <Reference Include="System.Data.DataSetExtensions" />
-    <Reference Include="Microsoft.CSharp" />
-    <Reference Include="System.Data" />
-    <Reference Include="System.Deployment" />
-    <Reference Include="System.Drawing" />
-    <Reference Include="System.Net.Http" />
-    <Reference Include="System.Windows.Forms" />
-    <Reference Include="System.Xml" />
-    <Reference Include="WeifenLuo.WinFormsUI.Docking, Version=1.0.0.0, Culture=neutral, PublicKeyToken=5cded1a1a0a7b481, processorArchitecture=MSIL">
-      <HintPath>packages\DockPanelSuite.3.1.0\lib\net40\WeifenLuo.WinFormsUI.Docking.dll</HintPath>
-    </Reference>
-    <Reference Include="WeifenLuo.WinFormsUI.Docking.ThemeVS2015, Version=1.0.0.0, Culture=neutral, PublicKeyToken=5cded1a1a0a7b481, processorArchitecture=MSIL">
-      <HintPath>packages\DockPanelSuite.ThemeVS2015.3.1.0\lib\net40\WeifenLuo.WinFormsUI.Docking.ThemeVS2015.dll</HintPath>
-    </Reference>
-    <Reference Include="WibuCmNET, Version=7.20.4407.502, Culture=neutral, PublicKeyToken=01d86e1eb0c69c23, processorArchitecture=MSIL">
-      <SpecificVersion>False</SpecificVersion>
-      <HintPath>C:\Program Files\Cognex\VisionPro Deep Learning\1.1\Parameter Search\WibuCmNET.dll</HintPath>
-    </Reference>
-    <Reference Include="WindowsBase" />
-    <Reference Include="WindowsFormsIntegration" />
     <Reference Include="WinFormAnimation">
       <HintPath>dll\WinFormAnimation.dll</HintPath>
-    </Reference>
-    <Reference Include="YamlDotNet, Version=13.0.0.0, Culture=neutral, PublicKeyToken=ec19458f3c15af5e, processorArchitecture=MSIL">
-      <HintPath>packages\YamlDotNet.13.1.1\lib\net47\YamlDotNet.dll</HintPath>
+      <Private>True</Private>
     </Reference>
   </ItemGroup>
+
   <ItemGroup>
-    <Compile Include="0. UI\0%29 MENU\FormTeachingVision.cs">
+    <PackageReference Include="DockPanelSuite" Version="3.1.0" />
+    <PackageReference Include="DockPanelSuite.ThemeVS2015" Version="3.1.0" />
+    <PackageReference Include="log4net" Version="3.3.1" />
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.8" />
+    <PackageReference Include="System.Drawing.Common" Version="8.0.27" />
+    <PackageReference Include="YamlDotNet" Version="13.1.1" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="$(LibraryNoahSourceRoot)\Lib.Common\Lib.Common.csproj" />
+    <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Logging\OpenVisionLab.Logging.csproj"
+                      Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Logging\OpenVisionLab.Logging.csproj')" />
+    <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Logging.Controls\OpenVisionLab.Logging.Controls.csproj"
+                      Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Logging.Controls\OpenVisionLab.Logging.Controls.csproj')" />
+    <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageSpace.Core\OpenVisionLab.ImageSpace.Core.csproj"
+                      Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageSpace.Core\OpenVisionLab.ImageSpace.Core.csproj')" />
+    <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageCanvas\OpenVisionLab.ImageCanvas.csproj"
+                      AdditionalProperties="ImageCanvasCopyEmguNativeRuntime=false;ImageCanvasCopyOpenCvVideoRuntime=false"
+                      Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageCanvas\OpenVisionLab.ImageCanvas.csproj')" />
+    <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Controls.Init\OpenVisionLab.Controls.Init.csproj"
+                      Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Controls.Init\OpenVisionLab.Controls.Init.csproj')" />
+    <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.MessageBox\OpenVisionLab.MessageBox.csproj"
+                      Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.MessageBox\OpenVisionLab.MessageBox.csproj')" />
+    <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\RJControls\RJControls.csproj"
+                      Condition="Exists('$(OpenVisionLabSourceRoot)\Library\RJControls\RJControls.csproj')" />
+  </ItemGroup>
+
+  <ItemGroup Condition="Exists('$(OpenVisionLabSourceRoot)\Library\DrawObject\RectangleDrawObject.cs')">
+    <Compile Include="$(OpenVisionLabSourceRoot)\Library\DrawObject\DrawObjectBase.cs">
+      <Link>OpenVisionLab.DrawObject\DrawObjectBase.cs</Link>
+    </Compile>
+    <Compile Include="$(OpenVisionLabSourceRoot)\Library\DrawObject\DrawObjectEnums.cs">
+      <Link>OpenVisionLab.DrawObject\DrawObjectEnums.cs</Link>
+    </Compile>
+    <Compile Include="$(OpenVisionLabSourceRoot)\Library\DrawObject\RectangleDrawObject.cs">
+      <Link>OpenVisionLab.DrawObject\RectangleDrawObject.cs</Link>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Update="0. UI\0) MENU\FormMainFrame.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="0. UI\0%29 MENU\FormTeachingVision.Designer.cs">
+    <Compile Update="0. UI\0) MENU\FormMainFrame.Designer.cs">
+      <DependentUpon>FormMainFrame.cs</DependentUpon>
+    </Compile>
+    <Compile Update="0. UI\0) MENU\FormTeachingVision.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="0. UI\0) MENU\FormTeachingVision.Designer.cs">
       <DependentUpon>FormTeachingVision.cs</DependentUpon>
     </Compile>
-    
-    
-    <Compile Include="0. UI\2%29 POPUP\FormMeasure.cs">
+    <Compile Update="0. UI\2) POPUP\FormLayerDisplay.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormMeasure.Designer.cs">
-      <DependentUpon>FormMeasure.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormVision_NewPanel.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormVision_NewPanel.Designer.cs">
-      <DependentUpon>FormVision_NewPanel.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Yolo\CYolov5.cs" />
-    <Compile Include="Yolo\FormVision_ClassMenu.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Yolo\FormVision_ClassMenu.Designer.cs">
-      <DependentUpon>FormVision_ClassMenu.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormClassList.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormClassList.Designer.cs">
-      <DependentUpon>FormClassList.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormTools.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormTools.Designer.cs">
-      <DependentUpon>FormTools.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormImageList.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\8%29 TeachingPanel\FormImageList.Designer.cs">
-      <DependentUpon>FormImageList.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormLog.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\7%29 MainPanel\FormLog.Designer.cs">
-      <DependentUpon>FormLog.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormLayerDisplay.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormLayerDisplay.Designer.cs">
+    <Compile Update="0. UI\2) POPUP\FormLayerDisplay.Designer.cs">
       <DependentUpon>FormLayerDisplay.cs</DependentUpon>
     </Compile>
-    <Compile Include="1. Core\CDisplayManager.cs" />
-    <Compile Include="1. Core\CInspectionAlgorithm.cs" />
-    <Compile Include="1. Core\CSeqThread.cs" />
-    <Compile Include="2. Common\CDrawBitmap.cs" />
-    <Compile Include="2. Common\CCommon.cs" />
-    <Compile Include="2. Common\CParameterManager.cs" />
-    <Compile Include="2. Common\CDefectList.cs" />
-    <Compile Include="2. Common\CPropertyGridEditor.cs" />
-    <Compile Include="2. Common\CRecipeModel.cs" />
-    <Compile Include="2. Common\CWpgEvent.cs" />
-    <Compile Include="2. Common\SerializeHelper.cs" />
-    <Compile Include="2. Common\UIThreadInvokeClass.cs" />
-    <Compile Include="3. Device\CAMERA\CGrabberMatrox.cs" />
-    <Compile Include="3. Device\TCP\CCommunicationLearning.cs" />
-    <Compile Include="3. Device\TCP\CTCPAsync.cs" />
-    <Compile Include="4. Sequence\CSeqBase.cs" />
-    <Compile Include="5. Property\CPropertyParam.cs" />
-    <Compile Include="5. Property\CPropertyPlcSetting.cs" />
-    <Compile Include="5. Property\CPropertySetting.cs" />
-    <Compile Include="5. Property\CPropertySpec.cs" />
-    <Compile Include="5. Property\CPropertySocket.cs" />
-    <Compile Include="5. Property\CPropertyLot.cs" />
-    <Compile Include="5. Property\CPropertyMotion.cs" />
-    <Compile Include="5. Property\CPropertyCamera.cs" />
-    <Compile Include="2. Common\CArgument.cs" />
-    <Compile Include="2. Common\DEFINE.cs" />
-    <Compile Include="1. Core\CData.cs" />
-    <Compile Include="1. Core\CDevice.cs" />
-    <Compile Include="1. Core\CGlobal.cs" />
-    <Compile Include="1. Core\CRecipe.cs" />
-    <Compile Include="2. Common\CSignal.cs" />
-    <Compile Include="1. Core\CSystem.cs" />
-    <Compile Include="Library\DrawObject\CDrawObject.cs" />
-    <Compile Include="Library\DrawObject\CEnum.cs" />
-    <Compile Include="Library\DrawObject\CRectangleObject.cs" />
-    <Compile Include="Library\CViewer.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Library\CViewer.Designer.cs">
-      <DependentUpon>CViewer.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Library\Log4netView.cs" />
-    <Compile Include="Library\Log4netView.designer.cs">
-      <DependentUpon>Log4netView.cs</DependentUpon>
-    </Compile>
-    
-    <Compile Include="Properties\Resources.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DesignTime>True</DesignTime>
-      <DependentUpon>Resources.resx</DependentUpon>
-    </Compile>
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    
-    <Compile Include="Vision\OpenCV\COpenCVPropertyBase.cs" />
-    <Compile Include="Vision\OpenCV\CPropertyContour.cs" />
-    <Compile Include="Vision\OpenCV\CPropertyBlob.cs" />
-    <Compile Include="Vision\OpenCV\CPropertyFeatureMatching.cs" />
-    <Compile Include="Vision\OpenCV\CPropertyLineGuage.cs" />
-    <Compile Include="Vision\OpenCV\CPropertyMatching.cs" />
-    <Compile Include="Vision\OpenCV\CPropertyMean.cs" />
-    <Compile Include="0. UI\0%29 MENU\FormMetroFrame.cs">
+    <Compile Update="0. UI\7) MainPanel\FormLog.cs">
       <SubType>Form</SubType>
     </Compile>
-    <Compile Include="0. UI\0%29 MENU\FormMetroFrame.Designer.cs">
-      <DependentUpon>FormMetroFrame.cs</DependentUpon>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormMessageBox.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormMessageBox.Designer.cs">
-      <DependentUpon>FormMessageBox.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Library\CMvcGraph.cs">
-      <SubType>UserControl</SubType>
-    </Compile>
-    <Compile Include="Library\CMvcGraph.Designer.cs">
-      <DependentUpon>CMvcGraph.cs</DependentUpon>
-    </Compile>
-    <Compile Include="Library\CThreadStatus.cs" />
-    <Compile Include="Library\RichTextBoxEx.cs">
-      <SubType>Component</SubType>
-    </Compile>
-    <Compile Include="Program.cs" />
-    <Compile Include="Properties\AssemblyInfo.cs" />
-    <Compile Include="5. Property\CPropertyImageView.cs" />
-    <Compile Include="0. UI\2%29 POPUP\FormImageEditView.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="0. UI\2%29 POPUP\FormImageEditView.Designer.cs">
-      <DependentUpon>FormImageEditView.cs</DependentUpon>
-    </Compile>
-    <Compile Include="4. Sequence\CSeqVision.cs" />
-    <Compile Include="Vision\OpenCV\CPropertyVision.cs" />
-    <Compile Include="Yolo\CClassList.cs" />
-    <Compile Include="Yolo\FormVision_Yolov5ParamSetting.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Include="Yolo\FormVision_Yolov5ParamSetting.Designer.cs">
-      <DependentUpon>FormVision_Yolov5ParamSetting.cs</DependentUpon>
-    </Compile>
-    <EmbeddedResource Include="0. UI\0%29 MENU\FormTeachingVision.resx">
-      <DependentUpon>FormTeachingVision.cs</DependentUpon>
-    </EmbeddedResource>
-    
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormMeasure.resx">
-      <DependentUpon>FormMeasure.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\8%29 TeachingPanel\FormVision_NewPanel.resx">
-      <DependentUpon>FormVision_NewPanel.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Yolo\FormVision_ClassMenu.resx">
-      <DependentUpon>FormVision_ClassMenu.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\8%29 TeachingPanel\FormClassList.resx">
-      <DependentUpon>FormClassList.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\8%29 TeachingPanel\FormTools.resx">
-      <DependentUpon>FormTools.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\8%29 TeachingPanel\FormImageList.resx">
-      <DependentUpon>FormImageList.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\7%29 MainPanel\FormLog.resx">
+    <Compile Update="0. UI\7) MainPanel\FormLog.Designer.cs">
       <DependentUpon>FormLog.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormLayerDisplay.resx">
-      <DependentUpon>FormLayerDisplay.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Library\CViewer.resx">
+    </Compile>
+    <Compile Update="0. UI\8) TeachingPanel\FormClassList.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="0. UI\8) TeachingPanel\FormClassList.Designer.cs">
+      <DependentUpon>FormClassList.cs</DependentUpon>
+    </Compile>
+    <Compile Update="0. UI\8) TeachingPanel\FormImageList.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="0. UI\8) TeachingPanel\FormImageList.Designer.cs">
+      <DependentUpon>FormImageList.cs</DependentUpon>
+    </Compile>
+    <Compile Update="0. UI\8) TeachingPanel\FormVision_NewPanel.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="0. UI\8) TeachingPanel\FormVision_NewPanel.Designer.cs">
+      <DependentUpon>FormVision_NewPanel.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Library\CViewer.cs">
+      <SubType>Component</SubType>
+    </Compile>
+    <Compile Update="Library\CViewer.Designer.cs">
       <DependentUpon>CViewer.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormMessageBox.resx">
-      <DependentUpon>FormMessageBox.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\0%29 MENU\FormMetroFrame.resx">
-      <DependentUpon>FormMetroFrame.cs</DependentUpon>
-      <SubType>Designer</SubType>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Library\CMvcGraph.resx">
-      <DependentUpon>CMvcGraph.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Library\Log4netView.resx">
-      <DependentUpon>Log4netView.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Library\RichTextBoxEx.resx">
-      <DependentUpon>RichTextBoxEx.cs</DependentUpon>
-    </EmbeddedResource>
-    <EmbeddedResource Include="Properties\Resources.resx">
-      <Generator>ResXFileCodeGenerator</Generator>
-      <SubType>Designer</SubType>
-      <LastGenOutput>Resources.Designer.cs</LastGenOutput>
-    </EmbeddedResource>
-    <EmbeddedResource Include="0. UI\2%29 POPUP\FormImageEditView.resx">
-      <DependentUpon>FormImageEditView.cs</DependentUpon>
-    </EmbeddedResource>
-    
-    
-    <EmbeddedResource Include="Yolo\FormVision_Yolov5ParamSetting.resx">
+    </Compile>
+    <Compile Update="Yolo\FormVision_ClassMenu.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Yolo\FormVision_ClassMenu.Designer.cs">
+      <DependentUpon>FormVision_ClassMenu.cs</DependentUpon>
+    </Compile>
+    <Compile Update="Yolo\FormVision_Yolov5ParamSetting.cs">
+      <SubType>Form</SubType>
+    </Compile>
+    <Compile Update="Yolo\FormVision_Yolov5ParamSetting.Designer.cs">
       <DependentUpon>FormVision_Yolov5ParamSetting.cs</DependentUpon>
-    </EmbeddedResource>
-    <None Include="log4net.config" />
-    <None Include="packages.config" />
-    <None Include="Properties\Settings.settings">
-      <Generator>SettingsSingleFileGenerator</Generator>
-      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="log4net.config">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <Compile Include="Properties\Settings.Designer.cs">
-      <AutoGen>True</AutoGen>
-      <DependentUpon>Settings.settings</DependentUpon>
-      <DesignTimeSharedInput>True</DesignTimeSharedInput>
-    </Compile>
-    
+    <Content Include="$(LibraryNoahSourceRoot)\Lib.Common\DLL\OpenCvSharp.dll">
+      <Link>OpenCvSharp.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(LibraryNoahSourceRoot)\Lib.Common\DLL\OpenCvSharp.Extensions.dll">
+      <Link>OpenCvSharp.Extensions.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="$(LibraryNoahSourceRoot)\Lib.Common\DLL\OpenCvSharpExtern.dll">
+      <Link>OpenCvSharpExtern.dll</Link>
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
   </ItemGroup>
-  <ItemGroup>
-    <None Include="App.config" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\ButtonBackGround.jpg" />
-    <None Include="Resources\Reset_1.png" />
-    <None Include="Resources\Play_1.png" />
-    <None Include="Resources\Stop_1.png" />
-    <None Include="Resources\icons8-play-64.png" />
-    <None Include="Resources\Recipe_1.png" />
-    <None Include="Resources\Setting_1.png" />
-    <None Include="Resources\Main_1.png" />
-    <None Include="Resources\Disconnected.png" />
-    <None Include="Resources\Chart_1_1.png" />
-    <None Include="Resources\Background1.png" />
-    <None Include="Resources\Chart_1.png" />
-    <None Include="Resources\Chart_1.5.png" />
-    <None Include="Resources\Chart_2.png" />
-    <None Include="Resources\Background.png" />
-    <None Include="Resources\Camera.ico" />
-    <None Include="Resources\Title Background.jpg" />
-    <None Include="Resources\Stop_MouseOff.jpg" />
-    <None Include="Resources\Live_MouseOff.jpg" />
-    <None Include="Resources\ImageSave_MouseOff.jpg" />
-    <None Include="Resources\Apply_MouseOn.jpg" />
-    <None Include="Resources\Train_1.png" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Resources\Apply_MouseOff.jpg" />
-  </ItemGroup>
-  <ItemGroup>
-    <None Include="Images\권한%2864%29.png" />
-    <None Include="Images\user %28256%29.png" />
-    <None Include="Images\user%28128%29.png" />
-    <None Include="Images\play.png" />
-    <None Include="Images\stop-button.png" />
-    <None Include="Images\reset.png" />
-    <None Include="Images\calendarDark.png" />
-    <None Include="Images\calendarWhite.png" />
-    <None Include="Images\motion-graphics.png" />
-    <None Include="Images\connection.png" />
-    <None Include="Images\connection_64.png" />
-    <None Include="Images\disconnection_64.png" />
-    <None Include="Images\save-75.png" />
-    <None Include="Images\play_100.png" />
-    <None Include="Images\reset_100.png" />
-    <None Include="Images\play_150.png" />
-    <None Include="Images\recycle_150.png" />
-    <None Include="Images\grab_150.png" />
-    <None Include="Images\LIVE_150.png" />
-    <None Include="Images\grab_50.png" />
-    <None Include="Images\LIVE_50.png" />
-    <None Include="Images\stop-button_150.png" />
-    <None Include="Images\Add.png" />
-    <None Include="Images\Close.png" />
-    <None Include="Images\CloseDark.png" />
-    <None Include="Images\CloseWhite.png" />
-    <None Include="Images\MaximizeDark.png" />
-    <None Include="Images\MaximizeWhite.png" />
-    <None Include="Images\MinimizeDark.png" />
-    <None Include="Images\MinimizeWhite.png" />
-    <Content Include="lens.ico" />
-    <None Include="Images\output.png" />
-    <None Include="Images\Model.png" />
-    <None Include="Images\close2.png" />
-    <None Include="Images\close1.png" />
-    <None Include="Images\ktem.png" />
-    <None Include="Images\settings_none.png" />
-    <None Include="Images\edit-image_76.png" />
-    <None Include="Images\automation_none.png" />
-    <None Include="Images\settings_Gray.png" />
-    <None Include="Images\edit-image_gray.png" />
-    <None Include="Images\automation_gray.png" />
-    <None Include="Resources\씨앤아이시스템.JPG" />
-    <None Include="Resources\error-50.png" />
-    <None Include="Resources\icons8-window-search-50.png" />
-    <None Include="Resources\move-down-50.png" />
-    <None Include="Resources\move-up-50.png" />
-    <None Include="Resources\Vision-50.png" />
-    <None Include="Resources\save-50.png" />
-    <None Include="Resources\DNC_BASE_UI.PNG" />
-    <None Include="Resources\form-50.png" />
-    <None Include="Resources\delete-50.png" />
-    <None Include="Resources\all-out-50.png" />
-    <None Include="Resources\switches-50.png" />
-    <None Include="Resources\move-right-50.png" />
-    <None Include="Resources\move-left-50.png" />
-    <None Include="Resources\icons8-home-50.png" />
-    <None Include="Resources\이프_로고.png" />
-    <None Include="Resources\삼성SDI 로고.PNG" />
-    <None Include="Resources\webcam-4-321.png" />
-    <None Include="Resources\switch-481.png" />
-    <None Include="Resources\settings-5-481.png" />
-    <None Include="Resources\settings-12-481.png" />
-    <None Include="Resources\private-481.png" />
-    <None Include="Resources\monitor-481.png" />
-    <None Include="Resources\keyboard-5-481.png" />
-    <None Include="Resources\close-window-241.png" />
-    <None Include="Resources\brain-641.png" />
-    <None Include="Resources\webcam-4-32.png" />
-    <None Include="Resources\Train_11.png" />
-    <None Include="Resources\switch-48.png" />
-    <None Include="Resources\Stop_MouseOff1.jpg" />
-    <None Include="Resources\Stop_11.png" />
-    <None Include="Resources\settings-5-48.png" />
-    <None Include="Resources\settings-12-48.png" />
-    <None Include="Resources\Setting_11.png" />
-    <None Include="Resources\Reset_11.png" />
-    <None Include="Resources\Recipe_11.png" />
-    <None Include="Resources\private-48.png" />
-    <None Include="Resources\Play_11.png" />
-    <None Include="Resources\monitor-48.png" />
-    <None Include="Resources\Main_11.png" />
-    <None Include="Resources\Live_MouseOff1.jpg" />
-    <None Include="Resources\keyboard-5-48.png" />
-    <None Include="Resources\ImageSave_MouseOff1.jpg" />
-    <None Include="Resources\Disconnected1.png" />
-    <None Include="Resources\Title Background1.jpg" />
-    <None Include="Resources\close-window-24.png" />
-    <None Include="Resources\Chart_1_11.png" />
-    <None Include="Resources\ButtonBackGround1.jpg" />
-    <None Include="Resources\brain-64.png" />
-    <None Include="Resources\Background2.png" />
-    <None Include="Resources\Apply_MouseOn1.jpg" />
-    <None Include="Resources\Apply_MouseOff1.jpg" />
-  </ItemGroup>
-  <ItemGroup>
-    <WCFMetadata Include="Connected Services\" />
-  </ItemGroup>
-  <ItemGroup>
-    <BootstrapperPackage Include=".NETFramework,Version=v4.7.2">
-      <Visible>False</Visible>
-      <ProductName>Microsoft .NET Framework 4.7.2%28x86 및 x64%29</ProductName>
-      <Install>true</Install>
-    </BootstrapperPackage>
-    <BootstrapperPackage Include="Microsoft.Net.Framework.3.5.SP1">
-      <Visible>False</Visible>
-      <ProductName>.NET Framework 3.5 SP1</ProductName>
-      <Install>false</Install>
-    </BootstrapperPackage>
-  </ItemGroup>
-  <ItemGroup />
-  <ItemGroup>
-    <COMReference Include="stdole">
-      <Guid>{00020430-0000-0000-C000-000000000046}</Guid>
-      <VersionMajor>2</VersionMajor>
-      <VersionMinor>0</VersionMinor>
-      <Lcid>0</Lcid>
-      <WrapperTool>primary</WrapperTool>
-      <Isolated>False</Isolated>
-      <EmbedInteropTypes>True</EmbedInteropTypes>
-    </COMReference>
-  </ItemGroup>
-  <ItemGroup>
-    <Service Include="{508349B6-6B84-4DF5-91F0-309BEEBAD82D}" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="Library\RJControls\RJControls.csproj">
-      <Project>{6A607464-07C8-4C53-A238-E2F4D7E44E18}</Project>
-      <Name>RJControls</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="Library\MvcVisionSystem.Controls.Init\MvcVisionSystem.Controls.Init.csproj">
-      <Project>{E0C79C20-B137-4F06-8B2B-6E5934699C4C}</Project>
-      <Name>MvcVisionSystem.Controls.Init</Name>
-    </ProjectReference>
-  </ItemGroup>
-  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
-  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
-    <PropertyGroup>
-      <ErrorText>이 프로젝트는 이 컴퓨터에 없는 NuGet 패키지를 참조합니다. 해당 패키지를 다운로드하려면 NuGet 패키지 복원을 사용하십시오. 자세한 내용은 http://go.microsoft.com/fwlink/?LinkID=322105를 참조하십시오. 누락된 파일은 {0}입니다.</ErrorText>
-    </PropertyGroup>
-    <Error Condition="!Exists('packages\Accord.3.8.0\build\Accord.targets')" Text="$([System.String]::Format('$(ErrorText)', 'packages\Accord.3.8.0\build\Accord.targets'))" />
-    <Error Condition="!Exists('packages\OpenCvSharp4.runtime.win.4.5.5.20211231\build\netstandard\OpenCvSharp4.runtime.win.props')" Text="$([System.String]::Format('$(ErrorText)', 'packages\OpenCvSharp4.runtime.win.4.5.5.20211231\build\netstandard\OpenCvSharp4.runtime.win.props'))" />
+
+  <Target Name="CopyApplicationLogConfigToOutput" AfterTargets="CopyFilesToOutputDirectory">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\log4net.config"
+          DestinationFiles="$(OutDir)log4net.config"
+          SkipUnchangedFiles="false" />
   </Target>
-  <Import Project="packages\Accord.3.8.0\build\Accord.targets" Condition="Exists('packages\Accord.3.8.0\build\Accord.targets')" />
+
+  <Target Name="RemoveOpenVisionLabLogConfigFromPublish" BeforeTargets="_HandleFileConflictsForPublish">
+    <ItemGroup>
+      <ResolvedFileToPublish Remove="$([System.IO.Path]::GetFullPath('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Logging\log4net.config'))" />
+      <ResolvedFileToPublish Remove="$([System.IO.Path]::GetFullPath('$(OpenVisionLabSourceRoot)\dll\OpenCVSharp\OpenCvSharpExtern.dll'))" />
+      <ResolvedFileToPublish Remove="$([System.IO.Path]::GetFullPath('$(OpenVisionLabSourceRoot)\dll\EmguCV\cvextern.dll'))" />
+      <ResolvedFileToPublish Remove="$([System.IO.Path]::GetFullPath('$(OpenVisionLabSourceRoot)\dll\OpenCVSharp\opencv_ffmpeg400_64.dll'))" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="CopyApplicationLogConfigToPublish" AfterTargets="Publish" Condition="'$(PublishDir)' != ''">
+    <Copy SourceFiles="$(MSBuildProjectDirectory)\log4net.config"
+          DestinationFiles="$(PublishDir)log4net.config"
+          SkipUnchangedFiles="false" />
+  </Target>
 </Project>

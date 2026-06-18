@@ -1,0 +1,29 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <!-- Mirrors the app project because tests reference WinForms/WPF interop types through MvcVisionSystem. -->
+    <UseWPF>true</UseWPF>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+    <LibraryNoahSourceRoot Condition="'$(LibraryNoahSourceRoot)' == ''">$(MSBuildProjectDirectory)\..\..\..\Library-Noah</LibraryNoahSourceRoot>
+    <OpenVisionLabSourceRoot Condition="'$(OpenVisionLabSourceRoot)' == ''">$(MSBuildProjectDirectory)\..\..\OpenVisionLab</OpenVisionLabSourceRoot>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\MvcVisionSystem.csproj" />
+    <Reference Include="OpenVisionLab.DrawObject" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\DrawObject\RectangleDrawObject.cs')">
+      <HintPath>..\..\dll\OpenVisionLab.DrawObject.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="OpenVisionLab.ImageCanvas" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageCanvas\OpenVisionLab.ImageCanvas.csproj')">
+      <HintPath>..\..\dll\OpenVisionLab.ImageCanvas.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="OpenCvSharp">
+      <HintPath>$(LibraryNoahSourceRoot)\Lib.Common\DLL\OpenCvSharp.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

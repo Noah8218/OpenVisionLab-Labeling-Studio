@@ -9,24 +9,86 @@ namespace MvcVisionSystem
 {
     public static class UIThreadInvokeClass
     {
-        static public void UIThreadBeginInvoke(this Control control, Action code)
+        static public bool UIThreadBeginInvoke(this Control control, Action code)
         {
-            if (control.InvokeRequired)
+            if (control == null || code == null || control.IsDisposed || control.Disposing)
             {
-                control.BeginInvoke(code);
-                return;
+                return false;
             }
-            code.Invoke();
+
+            try
+            {
+                if (control.InvokeRequired)
+                {
+                    if (!control.IsHandleCreated)
+                    {
+                        return false;
+                    }
+
+                    control.BeginInvoke((MethodInvoker)(() =>
+                    {
+                        if (control.IsDisposed || control.Disposing)
+                        {
+                            return;
+                        }
+
+                        code.Invoke();
+                    }));
+                    return true;
+                }
+
+                code.Invoke();
+                return true;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
         }
 
-        static public void UIThreadInvoke(this Control control, Action code)
+        static public bool UIThreadInvoke(this Control control, Action code)
         {
-            if (control.InvokeRequired)
+            if (control == null || code == null || control.IsDisposed || control.Disposing)
             {
-                control.Invoke(code);
-                return;
+                return false;
             }
-            code.Invoke();
+
+            try
+            {
+                if (control.InvokeRequired)
+                {
+                    if (!control.IsHandleCreated)
+                    {
+                        return false;
+                    }
+
+                    control.Invoke((MethodInvoker)(() =>
+                    {
+                        if (control.IsDisposed || control.Disposing)
+                        {
+                            return;
+                        }
+
+                        code.Invoke();
+                    }));
+                    return true;
+                }
+
+                code.Invoke();
+                return true;
+            }
+            catch (ObjectDisposedException)
+            {
+                return false;
+            }
+            catch (InvalidOperationException)
+            {
+                return false;
+            }
         }
     }
 }

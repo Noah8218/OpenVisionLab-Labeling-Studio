@@ -1,15 +1,13 @@
-﻿using System;
+﻿﻿using System;
 using System.Windows.Forms;
 using System.Reflection;
 using Keys = System.Windows.Forms.Keys;
 using RJCodeUI_M1.RJForms;
-using System.Text;
 using Lib.Common;
 using System.Linq;
 using System.Drawing;
 using static MvcVisionSystem.CSystem;
 using MvcVisionSystem.Yolo;
-using Sunny.UI;
 using System.Collections.Generic;
 using System.IO;
 
@@ -23,10 +21,92 @@ namespace MvcVisionSystem
         public FormVision_ClassMenu()
         {
             InitializeComponent();                                    
+            ApplyLabelingDialogTheme();
             this.TopLevel = true;
             this.TopMost = true;
 
             ShowImagesList();
+        }
+
+        private void ApplyLabelingDialogTheme()
+        {
+            Text = "클래스 설정";
+            BackColor = LabelingWorkbenchPalette.Frame;
+            pnlClientArea.BackColor = LabelingWorkbenchPalette.Panel;
+            rjPanel1.BackColor = LabelingWorkbenchPalette.Panel;
+            rjPanel1.BorderRadius = 0;
+
+            rjLabel1.Text = "클래스";
+            rjLabel2.Text = "저장 경로";
+            rjLabel1.ForeColor = LabelingWorkbenchPalette.MutedText;
+            rjLabel2.ForeColor = LabelingWorkbenchPalette.MutedText;
+
+            StyleTextBox(txtNames);
+            StyleTextBox(tbOutputPath);
+            StyleDialogButton(btnCreate, "추가", LabelingWorkbenchPalette.Selection, LabelingWorkbenchPalette.AccentHover);
+            StyleDialogButton(btnDelete, "삭제", LabelingWorkbenchPalette.Error, Color.FromArgb(179, 84, 60));
+            StyleDialogButton(btnExportPath, "경로", LabelingWorkbenchPalette.SurfaceAlt, LabelingWorkbenchPalette.PanelHeader);
+            StyleDialogButton(btnCancel, "닫기", Color.FromArgb(82, 87, 96), LabelingWorkbenchPalette.PanelHeader);
+            StyleClassGrid();
+        }
+
+        private static void StyleTextBox(RJCodeUI_M1.RJControls.RJTextBox textBox)
+        {
+            if (textBox == null)
+            {
+                return;
+            }
+
+            textBox.BackColor = LabelingWorkbenchPalette.Surface;
+            textBox.BorderColor = LabelingWorkbenchPalette.Divider;
+            textBox.BorderFocusColor = LabelingWorkbenchPalette.Accent;
+            textBox.ForeColor = LabelingWorkbenchPalette.Text;
+            textBox.PlaceHolderColor = LabelingWorkbenchPalette.MutedText;
+            textBox.BorderRadius = 4;
+        }
+
+        private static void StyleDialogButton(RJCodeUI_M1.RJControls.RJButton button, string text, Color backColor, Color hoverColor)
+        {
+            if (button == null)
+            {
+                return;
+            }
+
+            button.Text = text;
+            button.BackColor = backColor;
+            button.BorderColor = backColor;
+            button.BorderRadius = 4;
+            button.FlatAppearance.BorderColor = backColor;
+            button.FlatAppearance.MouseDownBackColor = LabelingWorkbenchPalette.Surface;
+            button.FlatAppearance.MouseOverBackColor = hoverColor;
+            button.ForeColor = Color.White;
+            button.IconColor = Color.White;
+            button.Font = new Font("Segoe UI", 9F, FontStyle.Regular, GraphicsUnit.Point);
+        }
+
+        private void StyleClassGrid()
+        {
+            dgvImagesList.BackgroundColor = LabelingWorkbenchPalette.Surface;
+            dgvImagesList.DgvBackColor = LabelingWorkbenchPalette.Surface;
+            dgvImagesList.ColumnHeaderColor = LabelingWorkbenchPalette.PanelHeader;
+            dgvImagesList.ColumnHeaderTextColor = Color.White;
+            dgvImagesList.RowsColor = LabelingWorkbenchPalette.SurfaceAlt;
+            dgvImagesList.RowsTextColor = LabelingWorkbenchPalette.Text;
+            dgvImagesList.SelectionBackColor = LabelingWorkbenchPalette.Selection;
+            dgvImagesList.SelectionTextColor = Color.White;
+            dgvImagesList.GridColor = LabelingWorkbenchPalette.Divider;
+            dgvImagesList.BorderRadius = 0;
+            dgvImagesList.EnableHeadersVisualStyles = false;
+            dgvImagesList.ColumnsMode = DataGridViewAutoSizeColumnsMode.Fill;
+            Column2.HeaderText = "No";
+            Column1.HeaderText = "클래스";
+
+            dgvImagesList.ColumnHeadersDefaultCellStyle.BackColor = LabelingWorkbenchPalette.PanelHeader;
+            dgvImagesList.ColumnHeadersDefaultCellStyle.ForeColor = Color.White;
+            dgvImagesList.DefaultCellStyle.BackColor = LabelingWorkbenchPalette.SurfaceAlt;
+            dgvImagesList.DefaultCellStyle.ForeColor = LabelingWorkbenchPalette.Text;
+            dgvImagesList.DefaultCellStyle.SelectionBackColor = LabelingWorkbenchPalette.Selection;
+            dgvImagesList.DefaultCellStyle.SelectionForeColor = Color.White;
         }
 
         private void ShowImagesList()
@@ -44,7 +124,8 @@ namespace MvcVisionSystem
 
         private void FormSettings_Camera_Load(object sender, EventArgs e)
         {
-            tbOutputPath.Text = CGlobal.Inst.Data.OutputDataYamlPath;
+            CGlobal.Inst.Data.NormalizeOutputPaths();
+            tbOutputPath.Text = CGlobal.Inst.Data.OutputRootPath;
             InitEvent();                        
         }
 
@@ -82,15 +163,22 @@ namespace MvcVisionSystem
             {
                 this.KeyPreview = true;
                 this.KeyDown += Form_KeyDown;
-                CLOG.NORMAL( $"[OK] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}");
+                AppLog.NORMAL( $"[OK] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}");
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL( $"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                AppLog.ABNORMAL( $"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Exception ==> {Desc.Message}");
                 return false;
             }
 
             return true;
+        }
+
+        private void SaveClassConfigAndYaml()
+        {
+            CGlobal.Inst.Data.SaveYoloDataYaml();
+            CGlobal.Inst.Data.SaveConfig(CGlobal.Inst.Recipe.Name);
+            tbOutputPath.Text = CGlobal.Inst.Data.OutputRootPath;
         }
 
         private void btnNewCancel_Click(object sender, EventArgs e)
@@ -101,56 +189,16 @@ namespace MvcVisionSystem
 
         private void btnNewCreate_Click(object sender, EventArgs e)
         {
-            string names = txtNames.Text;
+            string names = txtNames.Text.Trim();
 
-            List<Color> colors = new List<Color>();
-            colors.Add(Color.Green);
-            colors.Add(Color.Red);
-            colors.Add(Color.Blue);
-            colors.Add(Color.Orange);
-            colors.Add(Color.Pink);
-            colors.Add(Color.Purple);
-            colors.Add(Color.Navy);
-            colors.Add(Color.LightSkyBlue);
-
-            Random rand = new Random();
-
-            Color GetRandomColor()
+            if (string.IsNullOrWhiteSpace(names))
             {
-                if (colors.Count == 0)
-                    return Color.Green;
-
-                int index = rand.Next(colors.Count);
-                Color randomColor = colors[index];
-                colors.RemoveAt(index);
-
-                return randomColor;
+                return;
             }
 
-            // Text와 Color 둘 다 중복되지 않는지 확인
-            if (!CGlobal.Inst.Data.ClassNamedList.Any(x => x.Text == names))
+            if (ClassCatalogService.TryAddClass(CGlobal.Inst.Data, names, out CClassItem _))
             {
-                Color randomColor = GetRandomColor();
-
-                // 이미 추가된 색상인지 확인
-                while (CGlobal.Inst.Data.ClassNamedList.Any(x => x.DrawColor == randomColor))
-                {
-                    if (randomColor == Color.Green && CGlobal.Inst.Data.ClassNamedList.Any(x => x.DrawColor == Color.Green))
-                        break;
-
-                    randomColor = GetRandomColor();
-                }
-
-                CGlobal.Inst.Data.ClassNamedList.Add(new Yolo.CClassItem() { Text = names, DrawColor = randomColor });
-                CGlobal.Inst.Data.SaveConfig(CGlobal.Inst.Recipe.Name);
-
-                string trainPath = Path.Combine(CGlobal.Inst.Data.OutputDataImageAndTxtPath, "train");
-                string valPath = Path.Combine(CGlobal.Inst.Data.OutputDataImageAndTxtPath, "valid");
-                List<string> textList = CGlobal.Inst.Data.ClassNamedList.Select(item => item.Text).ToList();
-
-                string basePath = Path.Combine(CGlobal.Inst.Data.OutputDataYamlPath, "data.yaml");
-
-                CYolov5.CreateYaml(trainPath, valPath, textList, basePath);
+                SaveClassConfigAndYaml();
             }
 
             ShowImagesList();
@@ -161,17 +209,18 @@ namespace MvcVisionSystem
         }
 
         private void btnDelete_Click(object sender, EventArgs e)
-        {            
-             DataGridViewRow row = dgvImagesList.SelectedRows[0]; //선택된 Row 값 가져옴.
+        {
+            if (dgvImagesList.SelectedRows.Count == 0)
+            {
+                return;
+            }
+
+            DataGridViewRow row = dgvImagesList.SelectedRows[0]; //선택된 Row 값 가져옴.
             string targetText = row.Cells[1].Value.ToString(); // row의 컬럼
-            CGlobal.Inst.Data.ClassNamedList.RemoveAll(x => x.Text == targetText);
-            CGlobal.Inst.Data.SaveConfig(CGlobal.Inst.Recipe.Name);
-
-            string trainPath = Application.StartupPath + "\\train";
-            string valPath = Application.StartupPath + "\\valid";
-            List<string> textList = CGlobal.Inst.Data.ClassNamedList.Select(item => item.Text).ToList();
-
-            CYolov5.CreateYaml(trainPath, valPath, textList, Application.StartupPath + "\\data.yaml");
+            if (ClassCatalogService.RemoveClass(CGlobal.Inst.Data, targetText))
+            {
+                SaveClassConfigAndYaml();
+            }
 
             ShowImagesList();
         }
@@ -193,9 +242,8 @@ namespace MvcVisionSystem
             LoadFolderPath(out string folderPath);
             if (folderPath != "")
             {
-                CGlobal.Inst.Data.OutputDataYamlPath = folderPath;
-                CGlobal.Inst.Data.SaveConfig(CGlobal.Inst.Recipe.Name);
-                tbOutputPath.Text = CGlobal.Inst.Data.OutputDataYamlPath;
+                CGlobal.Inst.Data.ConfigureOutputRoot(folderPath);
+                SaveClassConfigAndYaml();
             }
         }
 
@@ -223,12 +271,12 @@ namespace MvcVisionSystem
                     }
                 }
 
-                CLOG.NORMAL($"[OK] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}");
+                AppLog.NORMAL($"[OK] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}");
                 return true;
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                AppLog.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Exception ==> {Desc.Message}");
                 return false;
             }
         }

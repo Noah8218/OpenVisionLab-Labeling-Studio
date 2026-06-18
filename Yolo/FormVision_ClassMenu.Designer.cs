@@ -1,4 +1,4 @@
-﻿namespace MvcVisionSystem
+﻿﻿namespace MvcVisionSystem
 {
     partial class FormVision_ClassMenu
     {
@@ -32,7 +32,6 @@
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle4 = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle5 = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle6 = new System.Windows.Forms.DataGridViewCellStyle();
-            this.metroStyleManager = new MetroFramework.Components.MetroStyleManager(this.components);
             this.btnCancel = new RJCodeUI_M1.RJControls.RJButton();
             this.btnCreate = new RJCodeUI_M1.RJControls.RJButton();
             this.timer1 = new System.Windows.Forms.Timer(this.components);
@@ -47,7 +46,6 @@
             this.rjLabel1 = new RJCodeUI_M1.RJControls.RJLabel();
             this.txtNames = new RJCodeUI_M1.RJControls.RJTextBox();
             this.pnlClientArea.SuspendLayout();
-            ((System.ComponentModel.ISupportInitialize)(this.metroStyleManager)).BeginInit();
             this.rjPanel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvImagesList)).BeginInit();
             this.SuspendLayout();
@@ -59,11 +57,7 @@
             this.pnlClientArea.Location = new System.Drawing.Point(1, 41);
             this.pnlClientArea.Size = new System.Drawing.Size(400, 491);
             // 
-            // metroStyleManager
             // 
-            this.metroStyleManager.Owner = this;
-            this.metroStyleManager.Style = MetroFramework.MetroColorStyle.Teal;
-            this.metroStyleManager.Theme = MetroFramework.MetroThemeStyle.Dark;
             // 
             // btnCancel
             // 
@@ -90,7 +84,7 @@
             this.btnCancel.Size = new System.Drawing.Size(90, 35);
             this.btnCancel.Style = RJCodeUI_M1.RJControls.ControlStyle.Solid;
             this.btnCancel.TabIndex = 2153;
-            this.btnCancel.Text = "Cancel";
+            this.btnCancel.Text = "닫기";
             this.btnCancel.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             this.btnCancel.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
             this.btnCancel.UseVisualStyleBackColor = false;
@@ -121,7 +115,7 @@
             this.btnCreate.Size = new System.Drawing.Size(90, 35);
             this.btnCreate.Style = RJCodeUI_M1.RJControls.ControlStyle.Solid;
             this.btnCreate.TabIndex = 2154;
-            this.btnCreate.Text = "Add";
+            this.btnCreate.Text = "추가";
             this.btnCreate.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             this.btnCreate.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
             this.btnCreate.UseVisualStyleBackColor = false;
@@ -216,7 +210,7 @@
             this.rjLabel2.Size = new System.Drawing.Size(57, 16);
             this.rjLabel2.Style = RJCodeUI_M1.RJControls.LabelStyle.Normal;
             this.rjLabel2.TabIndex = 2159;
-            this.rjLabel2.Text = "저장경로:";
+            this.rjLabel2.Text = "저장 경로";
             // 
             // dgvImagesList
             // 
@@ -296,7 +290,7 @@
             // 
             // Column1
             // 
-            this.Column1.HeaderText = "Class";
+            this.Column1.HeaderText = "클래스";
             this.Column1.Name = "Column1";
             this.Column1.Width = 225;
             // 
@@ -324,7 +318,7 @@
             this.btnDelete.Size = new System.Drawing.Size(90, 35);
             this.btnDelete.Style = RJCodeUI_M1.RJControls.ControlStyle.Solid;
             this.btnDelete.TabIndex = 2157;
-            this.btnDelete.Text = "Delete";
+            this.btnDelete.Text = "삭제";
             this.btnDelete.TextAlign = System.Drawing.ContentAlignment.MiddleRight;
             this.btnDelete.TextImageRelation = System.Windows.Forms.TextImageRelation.ImageBeforeText;
             this.btnDelete.UseVisualStyleBackColor = false;
@@ -342,7 +336,7 @@
             this.rjLabel1.Size = new System.Drawing.Size(56, 16);
             this.rjLabel1.Style = RJCodeUI_M1.RJControls.LabelStyle.Normal;
             this.rjLabel1.TabIndex = 2156;
-            this.rjLabel1.Text = "Names:";
+            this.rjLabel1.Text = "클래스";
             // 
             // txtNames
             // 
@@ -373,15 +367,14 @@
             this.AutoScaleMode = System.Windows.Forms.AutoScaleMode.Font;
             this.BorderColor = System.Drawing.Color.FromArgb(((int)(((byte)(83)))), ((int)(((byte)(97)))), ((int)(((byte)(212)))));
             this.BorderSize = 1;
-            this.Caption = "Class Edit";
+            this.Caption = "클래스 설정";
             this.ClientSize = new System.Drawing.Size(402, 533);
             this.Name = "FormVision_ClassMenu";
             this.Padding = new System.Windows.Forms.Padding(1);
             this.Resizable = false;
-            this.Text = "Class Edit";
+            this.Text = "클래스 설정";
             this.Load += new System.EventHandler(this.FormSettings_Camera_Load);
             this.pnlClientArea.ResumeLayout(false);
-            ((System.ComponentModel.ISupportInitialize)(this.metroStyleManager)).EndInit();
             this.rjPanel1.ResumeLayout(false);
             this.rjPanel1.PerformLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvImagesList)).EndInit();
@@ -391,7 +384,6 @@
 
         #endregion
 
-        private MetroFramework.Components.MetroStyleManager metroStyleManager;
         private RJCodeUI_M1.RJControls.RJButton btnCancel;
         private RJCodeUI_M1.RJControls.RJButton btnCreate;
         private System.Windows.Forms.Timer timer1;

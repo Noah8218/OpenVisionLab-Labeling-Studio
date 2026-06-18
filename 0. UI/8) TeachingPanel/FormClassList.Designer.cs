@@ -1,5 +1,3 @@
-Ôªøusing Cyotek.Windows.Forms;
-
 namespace MvcVisionSystem
 {
     partial class FormClassList
@@ -35,7 +33,6 @@ namespace MvcVisionSystem
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle2 = new System.Windows.Forms.DataGridViewCellStyle();
             System.Windows.Forms.DataGridViewCellStyle dataGridViewCellStyle3 = new System.Windows.Forms.DataGridViewCellStyle();
             System.ComponentModel.ComponentResourceManager resources = new System.ComponentModel.ComponentResourceManager(typeof(FormClassList));
-            this.timePixelData = new System.Windows.Forms.Timer(this.components);
             this.rjPanel1 = new RJCodeUI_M1.RJControls.RJPanel();
             this.dgvImagesList = new RJCodeUI_M1.RJControls.RJDataGridView();
             this.Column2 = new System.Windows.Forms.DataGridViewTextBoxColumn();
@@ -44,12 +41,6 @@ namespace MvcVisionSystem
             this.rjPanel1.SuspendLayout();
             ((System.ComponentModel.ISupportInitialize)(this.dgvImagesList)).BeginInit();
             this.SuspendLayout();
-            // 
-            // timePixelData
-            // 
-            this.timePixelData.Enabled = true;
-            this.timePixelData.Interval = 10;
-            // 
             // rjPanel1
             // 
             this.rjPanel1.BackColor = System.Drawing.Color.FromArgb(((int)(((byte)(250)))), ((int)(((byte)(252)))), ((int)(((byte)(253)))));
@@ -140,13 +131,13 @@ namespace MvcVisionSystem
             // 
             // Column1
             // 
-            this.Column1.HeaderText = "ÌÅ¥ÎûòÏä§";
+            this.Column1.HeaderText = "≈¨∑°Ω∫";
             this.Column1.Name = "Column1";
             this.Column1.Width = 150;
             // 
             // Column3
             // 
-            this.Column3.HeaderText = "ÏúÑÏπò";
+            this.Column3.HeaderText = "¿ßƒ°";
             this.Column3.Name = "Column3";
             this.Column3.Width = 150;
             // 
@@ -161,8 +152,7 @@ namespace MvcVisionSystem
             this.Icon = ((System.Drawing.Icon)(resources.GetObject("$this.Icon")));
             this.Margin = new System.Windows.Forms.Padding(3, 2, 3, 2);
             this.Name = "FormClassList";
-            this.Text = "ÌÅ¥ÎûòÏä§ Î¶¨Ïä§Ìä∏";
-            this.Load += new System.EventHandler(this.Form_Load);
+            this.Text = "≈¨∑°Ω∫ ∏ÆΩ∫∆Æ";
             this.VisibleChanged += new System.EventHandler(this.Form_VisibleChanged);
             this.rjPanel1.ResumeLayout(false);
             ((System.ComponentModel.ISupportInitialize)(this.dgvImagesList)).EndInit();
@@ -171,7 +161,6 @@ namespace MvcVisionSystem
         }
 
         #endregion
-        private System.Windows.Forms.Timer timePixelData;
         private RJCodeUI_M1.RJControls.RJPanel rjPanel1;
         private RJCodeUI_M1.RJControls.RJDataGridView dgvImagesList;
         private System.Windows.Forms.DataGridViewTextBoxColumn Column2;

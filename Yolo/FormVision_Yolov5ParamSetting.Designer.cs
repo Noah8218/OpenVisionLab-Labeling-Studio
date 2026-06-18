@@ -86,7 +86,7 @@
             this.rjLabel1.Size = new System.Drawing.Size(249, 23);
             this.rjLabel1.Style = RJCodeUI_M1.RJControls.LabelStyle.Title;
             this.rjLabel1.TabIndex = 1;
-            this.rjLabel1.Text = "Yolov5 Tranning Settings";
+            this.rjLabel1.Text = "YOLO Training Settings";
             // 
             // rjLabel2
             // 

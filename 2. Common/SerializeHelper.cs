@@ -46,7 +46,7 @@ namespace MvcVisionSystem
             {
                 //VTS.Logger.Error(ex, string.Format("[VTS.MySerialize.ToByte] error. type({0})", typeof(T).ToString()));
 
-                CLOG.ABNORMAL( $"[{MethodBase.GetCurrentMethod().ReflectedType.Name}]==>{MethodBase.GetCurrentMethod().Name}]   Ex = {Desc.Message}");
+                AppLog.ABNORMAL( $"[{MethodBase.GetCurrentMethod().ReflectedType.Name}]==>{MethodBase.GetCurrentMethod().Name}]   Ex = {Desc.Message}");
 
             }
 
@@ -72,7 +72,7 @@ namespace MvcVisionSystem
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL( $"[{MethodBase.GetCurrentMethod().ReflectedType.Name}]==>{MethodBase.GetCurrentMethod().Name}]   Ex = {Desc.Message}");
+                AppLog.ABNORMAL( $"[{MethodBase.GetCurrentMethod().ReflectedType.Name}]==>{MethodBase.GetCurrentMethod().Name}]   Ex = {Desc.Message}");
             }
 
             return default(T);
@@ -107,11 +107,11 @@ namespace MvcVisionSystem
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL( $"[{MethodBase.GetCurrentMethod().ReflectedType.Name}]==>{MethodBase.GetCurrentMethod().Name}], type({typeof(T).ToString()}), path={path}, Ex = {Desc.Message}");
+                AppLog.ABNORMAL( $"[{MethodBase.GetCurrentMethod().ReflectedType.Name}]==>{MethodBase.GetCurrentMethod().Name}], type({typeof(T).ToString()}), path={path}, Ex = {Desc.Message}");
                 //VTS.Logger.Error(ex, string.Format(
                 //    "[VTS.MySerialize.FromXmlFile] error. type({0}), path={1}",
                 //    typeof(T).ToString(), path));
-                CCommon.ShowMessageBox("EXCEPTION", string.Format($"[{MethodBase.GetCurrentMethod().ReflectedType.Name}]==>{MethodBase.GetCurrentMethod().Name}], type({typeof(T).ToString()}), path={path}, Ex = {Desc.Message}"), FormMessageBox.MESSAGEBOX_TYPE.Waring);
+                CCommon.ShowMessageBox("EXCEPTION", string.Format($"[{MethodBase.GetCurrentMethod().ReflectedType.Name}]==>{MethodBase.GetCurrentMethod().Name}], type({typeof(T).ToString()}), path={path}, Ex = {Desc.Message}"), CCommon.MessageBoxType.Warning);
             }
 
             return default(T);
@@ -130,9 +130,9 @@ namespace MvcVisionSystem
             }
             catch (Exception Desc)
             {                
-                CLOG.ABNORMAL( $"[{MethodBase.GetCurrentMethod().ReflectedType.Name}]==>{MethodBase.GetCurrentMethod().Name}], type({typeof(T).ToString()}), path={path}, Ex = {Desc.Message}");
+                AppLog.ABNORMAL( $"[{MethodBase.GetCurrentMethod().ReflectedType.Name}]==>{MethodBase.GetCurrentMethod().Name}], type({typeof(T).ToString()}), path={path}, Ex = {Desc.Message}");
 
-                //CCommon.ShowMessageBox("EXCEPTION", string.Format($"[{MethodBase.GetCurrentMethod().ReflectedType.Name}]==>{MethodBase.GetCurrentMethod().Name}], type({typeof(T).ToString()}), path={path}, Ex = {Desc.Message}"), FormMessageBox.MESSAGEBOX_TYPE.Waring);
+                //CCommon.ShowMessageBox("EXCEPTION", string.Format($"[{MethodBase.GetCurrentMethod().ReflectedType.Name}]==>{MethodBase.GetCurrentMethod().Name}], type({typeof(T).ToString()}), path={path}, Ex = {Desc.Message}"), CCommon.MessageBoxType.Warning);
                 //VTS.Logger.Error(ex, string.Format(
                 //    "[VTS.MySerialize.ToXmlFile] error. type({0}), path={1}",
                 //    typeof(T).ToString(), path));

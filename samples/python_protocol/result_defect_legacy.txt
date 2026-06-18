@@ -1,0 +1,1 @@
+ResultDefect [{"ClassName":"NG","Confidence":0.98,"X":10,"Y":20,"Width":80,"Height":40},{"ClassName":"OK","Confidence":0.87,"X":120,"Y":60,"Width":45,"Height":35}]

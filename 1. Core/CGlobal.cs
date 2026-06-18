@@ -2,8 +2,9 @@
 using Lib.Common;
 using System;
 using System.Reflection;
-using MvcVisionSystem._3._Device.TCP;
-using System.Xml.Serialization;
+using MvcVisionSystem._3._Communication.TCP;
+using System.Threading;
+using System.Threading.Tasks;
 
 namespace MvcVisionSystem
 {
@@ -24,21 +25,129 @@ namespace MvcVisionSystem
             get { return instance.Value; }
         }
         
-        // 레시피 관리 클래스(실행폴더//Recipe)
-        // 레시피가 변경되면, 장치,스팩,파라미터 등 관련 값들을 Load
+        // 레시피 관리 클래스(애플리케이션 실행 경로/RECIPE)
         public CRecipe Recipe { get; set; } = new CRecipe();
         // 모드, 권한, 창 변경 등 System 관련 클래스
         public CSystem System { get; set; } = new CSystem();
-        // 장치(카메라,io,조명,모션) 등 관리 클래스
-        public CDevice Device { get; set; } = new CDevice();
-        // 상시로 스레드가 돌면서 큐에 이미지가 들어오면 검사
-        // 유동적으로 알아서 변경 사용
-        //public CSeqVision SeqVision { get; set; } = new CSeqVision();        
-        // 스팩,파라미터, 판정값등 각종 검사에 사용되는 값들을 관리
+        // 라벨링 데이터와 YOLO 학습 설정 관리
         public CData Data { get; set; } = new CData();
-        public CSeqThread Thread { get; set; } = new CSeqThread();
 
-        public CCommunicationLearning DeepLearning { get; set; } = new CCommunicationLearning();
+        public LabelingImageWorkspace ImageWorkspace { get; } = new LabelingImageWorkspace();
+
+        public LabelingWorkflowService LabelingWorkflow { get; } = new LabelingWorkflowService();
+
+        public DetectionResultApplicationService DetectionResults { get; } = new DetectionResultApplicationService();
+
+        public YoloDetectionWorkflowService DetectionWorkflow { get; } = new YoloDetectionWorkflowService();
+
+        public YoloTrainingWorkflowService TrainingWorkflow { get; } = new YoloTrainingWorkflowService();
+
+        public YoloPythonClientProcessService PythonClientProcess { get; } = new YoloPythonClientProcessService();
+
+        private CCommunicationLearning deepLearning;
+
+        public CCommunicationLearning DeepLearning
+        {
+            get
+            {
+                deepLearning ??= new CCommunicationLearning();
+                return deepLearning;
+            }
+            set => deepLearning = value;
+        }
+
+        public PythonCommunicationStatus GetPythonCommunicationStatusSnapshot()
+        {
+            return deepLearning?.GetStatusSnapshot() ?? new PythonCommunicationStatus();
+        }
+
+        public bool EnsurePythonModelClientStarted()
+        {
+            Data ??= new CData();
+            Data.ProjectSettings ??= new LabelingProjectSettings();
+            Data.ProjectSettings.EnsureDefaults();
+
+            PythonModelSettings settings = Data.ProjectSettings.PythonModel;
+            if (!settings.AutoStartClient)
+            {
+                return true;
+            }
+
+            return PythonClientProcess.EnsureStarted(settings);
+        }
+
+        public bool StartPythonModelClientConnection(int timeoutMilliseconds = 5000)
+        {
+            DeepLearning.Start();
+            return EnsurePythonModelClientReady(timeoutMilliseconds);
+        }
+
+        public Task<bool> StartPythonModelClientConnectionAsync(int timeoutMilliseconds = 5000)
+        {
+            return Task.Run(() => StartPythonModelClientConnection(timeoutMilliseconds));
+        }
+
+        public void StopPythonModelClientConnection()
+        {
+            deepLearning?.Close();
+            PythonClientProcess.Stop();
+        }
+
+        public Task StopPythonModelClientConnectionAsync()
+        {
+            return Task.Run(StopPythonModelClientConnection);
+        }
+
+        public bool RestartPythonModelClientConnection(int timeoutMilliseconds = 5000)
+        {
+            StopPythonModelClientConnection();
+            return StartPythonModelClientConnection(timeoutMilliseconds);
+        }
+
+        public Task<bool> RestartPythonModelClientConnectionAsync(int timeoutMilliseconds = 5000)
+        {
+            return Task.Run(() => RestartPythonModelClientConnection(timeoutMilliseconds));
+        }
+
+        public bool EnsurePythonModelClientReady(int timeoutMilliseconds = 5000)
+        {
+            DeepLearning.Start();
+
+            PythonCommunicationStatus currentStatus = GetPythonCommunicationStatusSnapshot();
+            if (currentStatus.IsClientConnected)
+            {
+                return true;
+            }
+
+            if (!EnsurePythonModelClientStarted())
+            {
+                return false;
+            }
+
+            bool autoStartClient = Data?.ProjectSettings?.PythonModel?.AutoStartClient != false;
+            DateTime? requiredConnectionUtc = autoStartClient ? PythonClientProcess.LastStartedAtUtc : null;
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(Math.Max(0, timeoutMilliseconds));
+            while (DateTime.UtcNow <= deadline)
+            {
+                PythonCommunicationStatus status = GetPythonCommunicationStatusSnapshot();
+                bool connectedAfterClientStart = !requiredConnectionUtc.HasValue
+                    || (status.LastConnectedAtUtc.HasValue && status.LastConnectedAtUtc.Value >= requiredConnectionUtc.Value);
+                if (status.IsClientConnected && connectedAfterClientStart)
+                {
+                    return true;
+                }
+
+                Thread.Sleep(100);
+            }
+
+            AppLog.ABNORMAL($"YOLOv5 Python client did not connect within {timeoutMilliseconds}ms.");
+            return false;
+        }
+
+        public Task<bool> EnsurePythonModelClientReadyAsync(int timeoutMilliseconds = 5000)
+        {
+            return Task.Run(() => EnsurePythonModelClientReady(timeoutMilliseconds));
+        }
 
         public CGlobal() { }        
 
@@ -46,16 +155,20 @@ namespace MvcVisionSystem
         {
             try
             {
-                Thread.Stop();
+                StopPythonModelClientConnection();
                 System.Close();
-                Device.Close();                                
                 return true;
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL( $"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                AppLog.ABNORMAL( $"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Exception ==> {Desc.Message}");
                 return false;
             }
+        }
+
+        public Task<bool> CloseAsync()
+        {
+            return Task.Run(Close);
         }
     }
 }

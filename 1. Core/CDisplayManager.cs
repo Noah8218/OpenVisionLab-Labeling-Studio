@@ -3,10 +3,6 @@ using OpenCvSharp;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
-using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 using WeifenLuo.WinFormsUI.Docking;
 
@@ -16,28 +12,29 @@ namespace MvcVisionSystem._1._Core
     {
         public static EventHandler<EventArgs> EventUpdateParameter;
         public static EventHandler<EventArgs> EventUpdateResult;
-        public static EventHandler<EventArgs> EventUpdateCam;
-
-        private static DockPanel DockPanel;
-        private static Form Frm;
+        private static readonly DisplayDockHost DisplayHost = new DisplayDockHost();
+        private static readonly DisplayLayerStore LayerStore = new DisplayLayerStore(() => Displays);
+        private static Mat _imageSrc = new Mat();
         public static List<FormLayerDisplay> Displays { get; set; } = new List<FormLayerDisplay>();        
-        public static Mat ImageSrc { get; set; } = new Mat();
-        public static string SelecteItem { get; set; } = "Main";
-        private static int m_CameraIndex;
-        public static int CameraIndex
+        public static event EventHandler<DisplayAnnotationSelectionChangedEventArgs> AnnotationSelectionChanged;
+        public static Mat ImageSrc
         {
-            get { return m_CameraIndex; }
-            set 
+            get => _imageSrc;
+            set
             {
-                m_CameraIndex = value;  
-                if(EventUpdateCam != null)
+                if (ReferenceEquals(_imageSrc, value))
                 {
-                    EventUpdateCam(null, null);
+                    return;
                 }
+
+                Mat previous = _imageSrc;
+                _imageSrc = value ?? new Mat();
+                previous?.Dispose();
             }
         }
-
+        public static string SelecteItem { get; set; } = "Main";
         public static string FocusItem { get; set; } = "";
+        public static int LayerCount => LayerStore.Count;
 
 
         private static string m_TackTime;
@@ -57,182 +54,250 @@ namespace MvcVisionSystem._1._Core
             }
         }
         
-        public static void SetForm(Form form) => Frm = form;        
-        public static void SetDockPanel(DockPanel dockPanel) => DockPanel = dockPanel;         
-        public static void SetDisplayLayerList(List<FormLayerDisplay> Display) => Displays = Display;       
+        public static void SetForm(Form form) => DisplayHost.SetOwner(form);        
+        public static void SetDockPanel(DockPanel dockPanel) => DisplayHost.SetDockPanel(dockPanel);         
+        public static void SetDisplayPanel(Control panel) => DisplayHost.SetDisplayPanel(panel);
+        public static void SetDisplayLayerList(List<FormLayerDisplay> Display) => Displays = Display ?? new List<FormLayerDisplay>();
+
+        public static IReadOnlyList<DisplayLayerInfo> GetLayerInfos() => LayerStore.GetInfos();
+
+        public static string GetLayerTitle(int index) => LayerStore.GetTitle(index);
+
+        public static FormLayerDisplay GetLayerDisplayOrNull(string title) => LayerStore.GetByTitleOrFirst(title);
+
+        public static FormLayerDisplay GetLayerDisplayOrNull(int index) => LayerStore.GetOrNull(index);
+
+        public static FormLayerDisplay GetMainDisplayOrNull() => LayerStore.GetOrNull(DEFINE.Main);
+
+        public static FormLayerDisplay GetSelectedDisplayOrNull() => LayerStore.GetByTitleOrFirst(SelecteItem);
+
+        public static bool IsDisplayInvokeRequired => DisplayHost.IsInvokeRequired;
+
         public static void CreatePanel(Bitmap bitmap = null)
         {
-            FormVision_NewPanel formVision_NewPanel = new FormVision_NewPanel(Displays.Count);
-            if (formVision_NewPanel.ShowDialog() == DialogResult.OK)
+            InvokeOnDisplayThread(() =>
             {
-                if (bitmap == null) { CreateLayerDisplay(new Bitmap(10, 10), formVision_NewPanel.PanelName, true); }
-                else { CreateLayerDisplay(bitmap, formVision_NewPanel.PanelName, true); }                               
-            }
+                FormVision_NewPanel formVision_NewPanel = new FormVision_NewPanel(LayerCount);
+                if (formVision_NewPanel.ShowDialog() == DialogResult.OK)
+                {
+                    if (bitmap == null)
+                    {
+                        using (Bitmap placeholder = new Bitmap(10, 10))
+                        {
+                            CreateLayerDisplay(placeholder, formVision_NewPanel.PanelName, true);
+                        }
+                    }
+                    else
+                    {
+                        CreateLayerDisplay(bitmap, formVision_NewPanel.PanelName, true);
+                    }
+                }
+            });
         }
 
         public static int FindIndex(string strTitle)
         {
-            for (int i = 0; i < Displays.Count; i++)
-            {
-                if (Displays[i].Text == strTitle) { return i; }
-            }
-
-            return 0;
+            int index = LayerStore.FindIndex(strTitle);
+            return index >= 0 ? index : 0;
         }
 
         public static int FindIndex()
         {
-            for (int i = 0; i < Displays.Count; i++)
-            {
-                if (Displays[i].Text == SelecteItem) { return i; }
-            }
-
-            return 0;
+            int index = LayerStore.FindIndex(SelecteItem);
+            return index >= 0 ? index : 0;
         }
 
         private static void ClearEmptyDisplay()
         {
-            object _ob = new object();
-            Frm.Invoke((MethodInvoker)delegate ()
+            InvokeOnDisplayThread(() =>
             {
-                lock (_ob)
-                {
-                    int Count = Displays.Count;
-                    for (int i = 0; i < Count; i++)
-                    {
-                        if (Displays[i].Text == "")
-                        {
-                            Displays.RemoveAt(i);
-                        }
-                    }
-                }
+                LayerStore.RemoveEmpty();
             });
         }
 
-        public static void CreateLayerDisplay(Mat ImageSource, string strTitle, bool bUseClose = true)
+        public static void CreateLayerDisplay(Mat ImageSource, string strTitle, bool bUseClose = true, bool activate = true)
         {
-            ClearEmptyDisplay();
-
-            object _ob = new object();
-            Frm.Invoke((MethodInvoker)delegate ()
+            using (Bitmap image = CImageConverter.ToBitmap(ImageSource))
             {
-                lock (_ob)
-                {
-                    bool bIsLayer = false;
-                    int ExsitIndex = 0;
-
-                    for (int i = 0; i < Displays.Count; i++)
-                    {
-                        if (Displays[i].Text == strTitle)
-                        {
-                            bIsLayer = true;
-                            ExsitIndex = i;
-                        }
-                    }
-
-                    if (!bIsLayer)
-                    {
-                        Displays.Add(new FormLayerDisplay(CImageConverter.ToBitmap(ImageSource), Displays.Count, Displays, bUseClose, strTitle));
-                        Displays[Displays.Count - 1].Show(DockPanel, DockState.Document);
-                        Displays[Displays.Count - 1].ibSource.ZoomToFit();
-                    }
-                    else
-                    {
-                        Displays[ExsitIndex].viewer._Ib.Image = CImageConverter.ToBitmap(ImageSource);
-                        //Displays[ExsitIndex].viewer._Ib.ZoomToFit();
-                        if (DockPanel.ActiveDocument.DockHandler.TabText != strTitle)
-                        {
-                            Displays[ExsitIndex].Activate();
-                        }
-                        //SwitchDockpanelDocument(ExsitIndex);                        
-                    }
-
-
-                }
-            });
+                CreateLayerDisplay(image, strTitle, bUseClose, null, activate);
+            }
         }
 
-        public static void CreateLayerDisplay(Bitmap ImageSource, string strTitle, bool bUseClose = true)
+        public static void CreateLayerDisplay(Bitmap ImageSource, string strTitle, bool bUseClose = true, IEnumerable<DetectionOverlayItem> detectionOverlays = null, bool activate = true)
         {
             ClearEmptyDisplay();
 
-            object _ob = new object();
-            Frm.Invoke((MethodInvoker)delegate ()
+            InvokeOnDisplayThread(() =>
             {
-                lock (_ob)
-                {
-                    bool bIsLayer = false;
-                    int ExsitIndex = 0;
+                string previousSelectedTitle = SelecteItem;
+                FormLayerDisplay previousDisplay = LayerStore.GetByTitleOrFirst(previousSelectedTitle);
+                int existingIndex = LayerStore.FindIndex(strTitle);
 
-                    for (int i = 0; i < Displays.Count; i++)
+                if (existingIndex < 0)
+                {
+                    FormLayerDisplay display = LayerStore.Create(ImageSource, bUseClose, strTitle);
+                    display.SetDetectionOverlays(detectionOverlays);
+                    DisplayHost.ShowDisplay(display);
+                    display.ZoomToFit();
+                    if (activate)
                     {
-                        if (Displays[i].Text == strTitle)
-                        {
-                            bIsLayer = true;
-                            ExsitIndex = i;
-                        }
+                        DisplayHost.ActivateDisplay(display);
+                        FocusItem = display.Text;
+                        SelecteItem = display.Text;
                     }
-                    
-                    if (!bIsLayer)
+                    else if (previousDisplay != null)
                     {
-                        Displays.Add(new FormLayerDisplay(ImageSource, Displays.Count, Displays, bUseClose, strTitle));
-                        Displays[Displays.Count - 1].Show(DockPanel, DockState.Document);
-                        Displays[Displays.Count - 1].ibSource.ZoomToFit();
+                        DisplayHost.ActivateDisplay(previousDisplay);
+                        FocusItem = previousDisplay.Text;
+                        SelecteItem = previousDisplay.Text;
                     }
                     else
                     {
-                        Displays[ExsitIndex].viewer._Ib.Image = ImageSource;
-                        //Displays[ExsitIndex].viewer._Ib.ZoomToFit();
-                        if(DockPanel.ActiveDocument.DockHandler.TabText != strTitle)
-                        {
-                            Displays[ExsitIndex].Activate();
-                        }
-                        //SwitchDockpanelDocument(ExsitIndex);                        
+                        SelecteItem = previousSelectedTitle;
                     }
+                    return;
+                }
 
-                    
+                FormLayerDisplay existingDisplay = LayerStore.GetOrNull(existingIndex);
+                if (existingDisplay == null)
+                {
+                    return;
+                }
+
+                if (string.Equals(strTitle, "Main", StringComparison.OrdinalIgnoreCase))
+                {
+                    existingDisplay.ResetAnnotations();
+                }
+
+                existingDisplay.SetImage(ImageSource);
+                existingDisplay.SetDetectionOverlays(detectionOverlays);
+
+                if (activate && DisplayHost.ActiveDocumentTitle != strTitle)
+                {
+                    DisplayHost.ActivateDisplay(existingDisplay);
+                    FocusItem = existingDisplay.Text;
+                    SelecteItem = existingDisplay.Text;
+                }
+                else if (!activate && previousDisplay != null && DisplayHost.ActiveDocumentTitle != previousDisplay.Text)
+                {
+                    DisplayHost.ActivateDisplay(previousDisplay);
+                    FocusItem = previousDisplay.Text;
+                    SelecteItem = previousDisplay.Text;
                 }
             });
         }
 
         public static void ZoomToFit(string strTitle)
         {
-            bool bIsLayer = false;
-            int ExsitIndex = 0;
-
-            for (int i = 0; i < Displays.Count; i++)
-            {
-                if (Displays[i].Text == strTitle)
-                {
-                    bIsLayer = true;
-                    ExsitIndex = i;
-                    Displays[ExsitIndex].viewer._Ib.ZoomToFit();
-                }
-            }
+            FormLayerDisplay display = GetLayerDisplayOrNull(strTitle);
+            display?.ZoomToFit();
         }
 
-        private static void SwitchDockpanelDocument(int tag)
+        public static bool SetDetectionOverlays(string title, IEnumerable<DetectionOverlayItem> detectionOverlays)
         {
-            if (tag == 0) return;
+            bool updated = false;
+            InvokeOnDisplayThread(() =>
+            {
+                int index = LayerStore.FindIndex(title);
+                FormLayerDisplay display = LayerStore.GetOrNull(index);
+                if (display == null)
+                {
+                    return;
+                }
 
-            var documentList = DockPanel.Documents.ToList();
-            var index = documentList.IndexOf(DockPanel.ActiveDocument);
-            System.Diagnostics.Debug.WriteLine($"current window index: {index}");
-            var nextIndex = -1;
-            if (tag > 0)
-            {
-                System.Diagnostics.Debug.WriteLine("switch to next window");
-                nextIndex = (index + 1) % DockPanel.DocumentsCount;
-            }
-            else if (tag < 0)
-            {
-                System.Diagnostics.Debug.WriteLine("switch to previous window");
-                nextIndex = (index - 1 + DockPanel.DocumentsCount) % DockPanel.DocumentsCount;
-            }
-            System.Diagnostics.Debug.WriteLine($"next window index: {nextIndex}");
-            if (nextIndex == index) return;
-            var document = documentList[nextIndex];
-            ((DockContent)document).Activate();
+                display.SetDetectionOverlays(detectionOverlays);
+                updated = true;
+            });
+
+            return updated;
         }
+
+        public static void NotifyAnnotationSelectionChanged(FormLayerDisplay display, LabelingAnnotationSelectionChangedEventArgs selection)
+        {
+            AnnotationSelectionChanged?.Invoke(
+                null,
+                new DisplayAnnotationSelectionChangedEventArgs(display, selection));
+        }
+
+        public static void ActivateLayer(string title)
+        {
+            InvokeOnDisplayThread(() =>
+            {
+                FormLayerDisplay display = GetLayerDisplayOrNull(title);
+                if (display == null)
+                {
+                    return;
+                }
+
+                DisplayHost.ActivateDisplay(display);
+                FocusItem = display.Text;
+                SelecteItem = display.Text;
+            });
+        }
+
+        public static void ActivateLayer(int index)
+        {
+            InvokeOnDisplayThread(() =>
+            {
+                FormLayerDisplay display = GetLayerDisplayOrNull(index);
+                if (display == null)
+                {
+                    return;
+                }
+
+                DisplayHost.ActivateDisplay(display);
+                FocusItem = display.Text;
+                SelecteItem = display.Text;
+            });
+        }
+
+        public static void RefreshLayer(int index)
+        {
+            InvokeOnDisplayThread(() => LayerStore.GetOrNull(index)?.RefreshViewer());
+        }
+
+        public static Bitmap GetLayerImage(string title)
+        {
+            return GetLayerDisplayOrNull(title)?.GetCurrentImage();
+        }
+
+        public static Bitmap GetLayerImage(int index)
+        {
+            return GetLayerDisplayOrNull(index)?.GetCurrentImage();
+        }
+
+        public static bool IsLayerImageChanged(string title)
+        {
+            return GetLayerDisplayOrNull(title)?.ImageChanged == true;
+        }
+
+        public static void AcceptLayerImageChanged(string title)
+        {
+            FormLayerDisplay display = GetLayerDisplayOrNull(title);
+            display?.AcceptImageChanged();
+        }
+
+        public static void InvokeOnDisplayThread(Action action)
+        {
+            DisplayHost.InvokeOnUiThread(action);
+        }
+
+        public static TResult InvokeOnDisplayThread<TResult>(Func<TResult> action)
+        {
+            return DisplayHost.InvokeOnUiThread(action);
+        }
+    }
+
+    public sealed class DisplayAnnotationSelectionChangedEventArgs : EventArgs
+    {
+        public DisplayAnnotationSelectionChangedEventArgs(FormLayerDisplay display, LabelingAnnotationSelectionChangedEventArgs selection)
+        {
+            Display = display;
+            Selection = selection;
+        }
+
+        public FormLayerDisplay Display { get; }
+
+        public LabelingAnnotationSelectionChangedEventArgs Selection { get; }
     }
 }

@@ -1,429 +1,1116 @@
-﻿using System;
+using Lib.Common;
+using MvcVisionSystem._1._Core;
+using MvcVisionSystem.DrawObject;
+using OpenVisionLab.ImageCanvas;
+using OpenVisionLab.ImageCanvas.Canvas;
+using OpenVisionLab.ImageCanvas.Rendering;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Drawing;
-using System.Windows.Forms;
-using System.Reflection;
-using System.Drawing.Drawing2D;
-using Cyotek.Windows.Forms;
-using MvcVisionSystem._1._Core;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
-using MouseEventArgs = System.Windows.Forms.MouseEventArgs;
-using KeyEventArgs = System.Windows.Forms.KeyEventArgs;
-using MouseEventHandler = System.Windows.Forms.MouseEventHandler;
+using System.Linq;
+using System.Reflection;
+using System.Windows.Forms;
+using static OpenVisionLab.DrawObject.DrawObjectEnums;
 using Point = System.Drawing.Point;
-using static MvcVisionSystem.DrawObject.CEnum;
-using static MvcVisionSystem._2._Common.CParameterManager;
-using MvcVisionSystem.DrawObject;
-using Lib.Common;
-using System.Web;
 
 namespace MvcVisionSystem
 {
     public partial class CViewer : Component
     {
-        private PosSizableRect _MouseOperation = PosSizableRect.None;
+        private const string TextureName = "LabelingViewerImage";
+        private const int DefaultSegmentationBrushRadius = 8;
+        private const int MinSegmentationBrushRadius = 2;
+        private const int MaxSegmentationBrushRadius = 48;
+        private const int MaxUndoSnapshotCount = 30;
+        private const int InteractiveRefreshIntervalMilliseconds = 33;
 
-        public CRectangleObject _TempOb = new CRectangleObject();
-        private int _ExcuteCount { get; set; } = 0;
-        private System.Drawing.Point _StartPt = new System.Drawing.Point(0, 0);
-        private System.Drawing.Point _EndPt = new System.Drawing.Point(0, 0);
-        private System.Drawing.Point _MouseDown = new System.Drawing.Point(0, 0);
-
-        public bool _ViewCross { get; set; } = false;
-
-        public RoiMode _Mode { get; set; } = RoiMode.Rectangle;
-
-        public System.Drawing.Point _Position { get; set; } = new System.Drawing.Point();
-        public System.Drawing.Color _Rgb { get; set; } = new System.Drawing.Color();
-        public int _GrayValue { get; set; } = 0;
-
-        public ImageBox _Ib = new ImageBox();
-        /// <summary>
-        /// 마우스의 마지막 위치
-        /// </summary>
-        private System.Drawing.Point _LastPoint = new System.Drawing.Point(0, 0);
-
-        private Rectangle TempROI
+        private enum ViewerMenuCommand
         {
-            get { return _TempOb.Roi; }
-            set { _TempOb.Roi = value; }
+            None,
+            ImageLoad,
+            ImageSave,
+            ShowFolder,
+            ToggleCross,
+            DeleteRoi,
+            RoiList
         }
 
-        public Dictionary<string, List<CRectangleObject>> _RoiDic = new Dictionary<string, List<CRectangleObject>>();
-
-        public string _SelectedClass { get; set; } = "";
-        
+        private PosSizableRect _MouseOperation = PosSizableRect.None;
+        private Point _StartPt = Point.Empty;
+        private Point _EndPt = Point.Empty;
+        private Point _MouseDown = Point.Empty;
+        private Point _LastPoint = Point.Empty;
+        private int _SelectROiIndex;
+        private int _SelectSegmentIndex = -1;
+        private int _ExcuteCount;
         private int _MinY = 0;
         private int _MaxY = 10000;
         private int _MinX = 0;
         private int _MaxX = 10000;
-        private int _SelectROiIndex = 0;
-        public bool _ImageChanged = false;
-        private bool _OnlyDragMode = false;
+        private bool _OnlyDragMode;
+        private bool _pendingImageLoad;
+        private bool _pendingZoomToFit = true;
+        private Size _imageSize = Size.Empty;
+        private Bitmap _currentImage;
+        private bool isDrawing;
+        private bool segmentationEditDirty;
+        private int segmentationBrushRadius = DefaultSegmentationBrushRadius;
+        private AnnotationSnapshot annotationEditSnapshot;
+        private Point? _measureLineStart;
+        private Point? _measureLineEnd;
+        private Point? _measureDistanceStart;
+        private Point? _measureDistanceEnd;
+        private float _measurePixelPermm = 1F;
+        private List<Point> currentPoints = new List<Point>();
+        private readonly List<DetectionOverlayItem> _detectionOverlays = new List<DetectionOverlayItem>();
+        private readonly Stopwatch interactiveRefreshStopwatch = Stopwatch.StartNew();
+
+        private CRectangleObject _TempOb = new CRectangleObject();
+        private bool _ViewCross;
+        private LabelingRoiMode _Mode = LabelingRoiMode.Rectangle;
+        private Point _Position = Point.Empty;
+        private Color _Rgb = Color.Empty;
+        private int _GrayValue;
+        private Dictionary<string, List<CRectangleObject>> _RoiDic = new Dictionary<string, List<CRectangleObject>>();
+        private Dictionary<string, List<LabelingSegmentationObject>> _SegmentationDic = new Dictionary<string, List<LabelingSegmentationObject>>();
+        private readonly Stack<AnnotationSnapshot> undoSnapshots = new Stack<AnnotationSnapshot>();
+        private readonly Stack<AnnotationSnapshot> redoSnapshots = new Stack<AnnotationSnapshot>();
+        private string _SelectedClass = string.Empty;
+        private string _SelectedSegmentClass = string.Empty;
+        private bool _ImageChanged;
+        public ImageCanvasControl Canvas { get; private set; }
+        public Bitmap CurrentImage => _currentImage;
+        public float ZoomPercent => Canvas == null ? 0F : Canvas.ZoomScale * 100F;
+        public bool ImageChanged => _ImageChanged;
+        public Point ImagePosition => _Position;
+        public Color PixelRgb => _Rgb;
+        public int GrayValue => _GrayValue;
+        public int DetectionOverlayCount => _detectionOverlays.Count;
+        public int SegmentationBrushRadius
+        {
+            get => segmentationBrushRadius;
+            set
+            {
+                segmentationBrushRadius = Math.Clamp(value, MinSegmentationBrushRadius, MaxSegmentationBrushRadius);
+                Canvas?.RefreshGL();
+            }
+        }
+        public bool CanUndoAnnotationChange => undoSnapshots.Count > 0;
+        public bool CanRedoAnnotationChange => redoSnapshots.Count > 0;
+        public LabelingRoiMode CurrentMode => _OnlyDragMode ? LabelingRoiMode.Drag : _Mode;
+        public string ModeDisplayText => GetUiModeDisplayText(CurrentMode);
+        public int SelectedAnnotationListIndex => FindSelectedAnnotationListIndex();
+        internal IReadOnlyDictionary<string, List<CRectangleObject>> RoiByClass => _RoiDic;
+        internal IReadOnlyDictionary<string, List<LabelingSegmentationObject>> SegmentsByClass => _SegmentationDic;
+        public event EventHandler<LabelingAnnotationSelectionChangedEventArgs> AnnotationSelectionChanged;
+
+        private Rectangle TempROI
+        {
+            get => _TempOb.Roi;
+            set => _TempOb.Roi = value;
+        }
+
+        private void ClearTemporaryDrawingState(bool clearEditSnapshot = false)
+        {
+            isDrawing = false;
+            segmentationEditDirty = false;
+            TempROI = Rectangle.Empty;
+            currentPoints.Clear();
+            _StartPt = Point.Empty;
+            _EndPt = Point.Empty;
+            _MouseDown = Point.Empty;
+            _LastPoint = Point.Empty;
+            _MouseOperation = PosSizableRect.None;
+
+            if (clearEditSnapshot)
+            {
+                annotationEditSnapshot = null;
+            }
+        }
 
         public CViewer(bool bCenter = true)
         {
             InitializeComponent();
+            ConfigureReadableWorkbenchContextMenu();
         }
 
-        private bool isDrawing = false;
-        private List<Point> currentPoints = new List<Point>();
-        private List<List<Point>> lines = new List<List<Point>>();
-
-        private void Ib_Paint(object sender, PaintEventArgs e)
+        public ImageCanvasControl AttachTo(Control host, bool onlyDragmode = false)
         {
-            Graphics g;
-            GraphicsState originalState;
-
-            System.Drawing.Size scaledSizeTempROI;
-            System.Drawing.Size drawSizeTempTrain;
-
-            g = e.Graphics;
-
-            originalState = g.Save();
-
-            scaledSizeTempROI = new System.Drawing.Size(TempROI.Width, TempROI.Height);
-            drawSizeTempTrain = _Ib.GetScaledSize(scaledSizeTempROI);
-
-            System.Drawing.Point locationTemp;
-
-            // Work out the location of the marker graphic according to the current zoom level and scroll offset
-            locationTemp = _Ib.GetOffsetPoint(TempROI.X, TempROI.Y);
-
-            foreach (var Roi in _RoiDic)
+            if (host == null)
             {
-                for (int i = 0; i < Roi.Value.Count; i++)
+                throw new ArgumentNullException(nameof(host));
+            }
+
+            DisposeCanvas();
+            _OnlyDragMode = onlyDragmode;
+
+            Canvas = new ImageCanvasControl
+            {
+                Dock = DockStyle.Fill,
+                BackColor = Color.Black,
+                IsShowCrossLine = false,
+                AllowDrop = true
+            };
+
+            Canvas.Draw += OnCanvasDraw;
+            Canvas.MouseDoubleClicked += OnCanvasMouseDoubleClicked;
+            Canvas.MouseDown += OnCanvasMouseDown;
+            Canvas.MouseMove += OnCanvasMouseMove;
+            Canvas.MouseUp += OnCanvasMouseUp;
+            Canvas.MouseWheel += OnCanvasMouseWheel;
+            Canvas.KeyDown += OnCanvasKeyDown;
+            Canvas.Load += OnCanvasLoad;
+            Canvas.DragEnter += OnCanvasDragEnter;
+            Canvas.DragDrop += OnCanvasDragDrop;
+
+            DisposeHostControls(host);
+            host.Controls.Add(Canvas);
+
+            SetModeDrag();
+            return Canvas;
+        }
+
+        private void OnCanvasLoad(object sender, EventArgs e)
+        {
+            LoadPendingImage();
+        }
+
+        public void ZoomToFit()
+        {
+            Canvas?.ZoomToFit();
+        }
+
+        public void ZoomIn()
+        {
+            Canvas?.ZoomAt(GetCanvasCenter(), 120);
+        }
+
+        public void ZoomOut()
+        {
+            Canvas?.ZoomAt(GetCanvasCenter(), -120);
+        }
+
+        public Point PointToImage(Point location)
+        {
+            if (_currentImage == null || Canvas == null)
+            {
+                return Point.Empty;
+            }
+
+            PointF robotPoint = Canvas.GetCurrentRobotPosf(location.X, location.Y);
+            PointF imagePoint = Canvas.ConvertOpenGlToImagePoint(robotPoint);
+            int x = Math.Clamp((int)Math.Round(imagePoint.X), 0, _currentImage.Width - 1);
+            int y = Math.Clamp((int)Math.Round(imagePoint.Y), 0, _currentImage.Height - 1);
+            return new Point(x, y);
+        }
+
+        public void ResetAnnotations()
+        {
+            ClearRasterMaskTextureCache();
+            _RoiDic.Clear();
+            _SegmentationDic.Clear();
+            _SelectROiIndex = 0;
+            _SelectSegmentIndex = -1;
+            _SelectedSegmentClass = string.Empty;
+            ClearTemporaryDrawingState(clearEditSnapshot: true);
+            _MouseOperation = PosSizableRect.None;
+            ClearUndoHistory();
+            RaiseAnnotationSelectionChanged();
+            Canvas?.RefreshGL();
+        }
+
+        public void AcceptImageChanged()
+        {
+            _ImageChanged = false;
+        }
+
+        public void SetSelectedClass(Yolo.CClassItem classItem)
+        {
+            _SelectedClass = classItem?.Text ?? string.Empty;
+            _TempOb.cClassItem = classItem ?? new Yolo.CClassItem { Text = _SelectedClass };
+            _TempOb.Color = classItem?.DrawColor ?? Color.LimeGreen;
+            _TempOb.Title = _SelectedClass;
+            Canvas?.RefreshGL();
+        }
+
+        public void SetRoiRectangles(IEnumerable<Rectangle> rectangles, Yolo.CClassItem classItem = null, bool reset = true)
+        {
+            if (reset)
+            {
+                _RoiDic.Clear();
+            }
+
+            Yolo.CClassItem targetClass = ResolveRoiClass(classItem);
+            string className = targetClass.Text;
+
+            if (!_RoiDic.TryGetValue(className, out List<CRectangleObject> rois))
+            {
+                rois = new List<CRectangleObject>();
+                _RoiDic.Add(className, rois);
+            }
+
+            foreach (Rectangle rectangle in rectangles)
+            {
+                if (rectangle.Width <= 0 || rectangle.Height <= 0)
                 {
-                    System.Drawing.Point Location2 = _Ib.GetOffsetPoint(Roi.Value[i].Roi.X, Roi.Value[i].Roi.Y);
-                    System.Drawing.Size scaledSize2 = _Ib.GetScaledSize(Roi.Value[i].Roi.Width, Roi.Value[i].Roi.Height);
-                    System.Drawing.Color color = i != _SelectROiIndex ? System.Drawing.Color.Green : System.Drawing.Color.Red;
-                    Roi.Value[i].SetParameter(color, scaledSize2, Location2, false);
-                    Roi.Value[i].Draw(g, _Ib);
+                    continue;
+                }
+
+                rois.Add(new CRectangleObject
+                {
+                    Roi = rectangle,
+                    cClassItem = targetClass,
+                    Selected = false
+                });
+            }
+
+            Canvas?.RefreshGL();
+        }
+
+        public bool UndoAnnotationChange()
+        {
+            if (undoSnapshots.Count == 0)
+            {
+                return false;
+            }
+
+            redoSnapshots.Push(CaptureAnnotationSnapshot());
+            RestoreAnnotationSnapshot(undoSnapshots.Pop());
+            Canvas?.RefreshGL();
+            return true;
+        }
+
+        public bool RedoAnnotationChange()
+        {
+            if (redoSnapshots.Count == 0)
+            {
+                return false;
+            }
+
+            undoSnapshots.Push(CaptureAnnotationSnapshot());
+            RestoreAnnotationSnapshot(redoSnapshots.Pop());
+            Canvas?.RefreshGL();
+            return true;
+        }
+
+        public bool DeleteSelectedAnnotation()
+        {
+            return ClearROI();
+        }
+
+        public void ClearUndoHistory()
+        {
+            undoSnapshots.Clear();
+            redoSnapshots.Clear();
+            annotationEditSnapshot = null;
+        }
+
+        public List<Rectangle> GetRoiRectangles()
+        {
+            var rectangles = new List<Rectangle>();
+            foreach (KeyValuePair<string, List<CRectangleObject>> roiGroup in _RoiDic)
+            {
+                for (int i = 0; i < roiGroup.Value.Count; i++)
+                {
+                    if (!roiGroup.Value[i].Roi.IsEmpty)
+                    {
+                        rectangles.Add(roiGroup.Value[i].Roi);
+                    }
                 }
             }
 
-            _TempOb.SetParameter(drawSizeTempTrain, locationTemp);
-            _TempOb.Draw(g, _Ib);
-
-            if (_ViewCross)
-            {
-                int crossSize = (int)(3 * _Ib.ZoomFactor);
-
-                System.Drawing.Point CrossLocationVerStart = _Ib.GetOffsetPoint(0, (_Ib.Image.Height / 2));
-                System.Drawing.Point CrossLocationVerEnd = _Ib.GetOffsetPoint(_Ib.Image.Width, (_Ib.Image.Height / 2));
-                System.Drawing.Point CrossLocationHorStart = _Ib.GetOffsetPoint((_Ib.Image.Width / 2), 0);
-                System.Drawing.Point CrossLocationHorEnd = _Ib.GetOffsetPoint((_Ib.Image.Width / 2), _Ib.Image.Height);
-
-                g.DrawLine(new System.Drawing.Pen(System.Drawing.Color.Yellow, crossSize), CrossLocationVerStart, CrossLocationVerEnd);
-                g.DrawLine(new Pen(System.Drawing.Color.Yellow, crossSize), CrossLocationHorStart, CrossLocationHorEnd);
-            }
-
-            if (!_Position.IsEmpty && _Position.X > 0 && _Position.Y > 0
-             && _Position.X < _Ib.Image.Width && _Position.Y < _Ib.Image.Height)
-            {
-                System.Drawing.Point CrossLocationVerStart = _Ib.GetOffsetPoint(new Point(0, _Position.Y));
-                System.Drawing.Point CrossLocationVerEnd = _Ib.GetOffsetPoint(new Point(_Ib.Image.Width, _Position.Y));
-                System.Drawing.Point CrossLocationHorStart = _Ib.GetOffsetPoint(new Point(_Position.X, 0));
-                System.Drawing.Point CrossLocationHorEnd = _Ib.GetOffsetPoint(new Point(_Position.X, _Ib.Image.Height));
-
-                int crossSize = (int)(1 * _Ib.ZoomFactor);
-
-                g.DrawLine(new System.Drawing.Pen(System.Drawing.Color.Yellow, crossSize), CrossLocationVerStart, CrossLocationVerEnd);
-                // y 축을 따라 라인을 그립니다.
-                g.DrawLine(new System.Drawing.Pen(System.Drawing.Color.Yellow, crossSize), CrossLocationHorStart, CrossLocationHorEnd);
-            }
-
-            switch (_Mode)
-            {               
-                case RoiMode.Segmentation:
-                    int brushSize = (int)(15 * _Ib.ZoomFactor);
-
-                    // 그리는 영역을 저장하는 Rectangle 리스트를 생성합니다.
-                    List<Rectangle> dirtyRectangles = new List<Rectangle>();
-
-                    // 그리기 시작할 때마다 시작점과 끝점을 기준으로 Rectangle을 만들고 리스트에 추가합니다.
-                    foreach (var line in lines)
-                    {
-                        for (int i = 0; i < line.Count - 1; i++)
-                        {
-                            var start = _Ib.GetOffsetPoint(line[i]);
-                            var end = _Ib.GetOffsetPoint(line[i + 1]);
-
-                            // Rectangle을 생성합니다. Rectangle의 좌표는 시작점과 끝점의 최소/최대 값입니다.
-                            var rect = new Rectangle(
-                                Math.Min(start.X, end.X),
-                                Math.Min(start.Y, end.Y),
-                                Math.Abs(start.X - end.X) + brushSize,
-                                Math.Abs(start.Y - end.Y) + brushSize);
-
-                            // Rectangle을 리스트에 추가합니다.
-                            dirtyRectangles.Add(rect);
-                        }
-                    }
-
-                    // 그리기 중일 때도 동일하게 적용합니다.
-                    if (isDrawing && currentPoints.Count > 1)
-                    {
-                        for (int i = 0; i < currentPoints.Count - 1; i++)
-                        {
-                            var start = _Ib.GetOffsetPoint(currentPoints[i]);
-                            var end = _Ib.GetOffsetPoint(currentPoints[i + 1]);
-
-                            var rect = new Rectangle(
-                                Math.Min(start.X, end.X),
-                                Math.Min(start.Y, end.Y),
-                                Math.Abs(start.X - end.X) + brushSize,
-                                Math.Abs(start.Y - end.Y) + brushSize);
-
-                            dirtyRectangles.Add(rect);
-                        }
-                    }
-
-                    using (SolidBrush brush = new SolidBrush(Color.FromArgb(64, Color.GreenYellow)))  // 브러시 색상 설정
-                    {
-                        // 변경된 부분만 그립니다.
-                        foreach (var rect in dirtyRectangles)
-                        {
-                            e.Graphics.FillRectangle(brush, rect);
-                        }
-                    }
-
-                    // 그려진 사각형들을 리스트에서 제거합니다.
-                    dirtyRectangles.Clear();
-
-                    break;
-            }
-
-          
-
-            g.Restore(originalState);
+            return rectangles;
         }
 
-        private void Ib_MouseDown(object sender, MouseEventArgs e)
-        {            
+        public void SetSegmentationPolygons(
+            IReadOnlyDictionary<string, List<List<Point>>> polygonsByClass,
+            IReadOnlyList<Yolo.CClassItem> classes,
+            bool reset = true)
+        {
+            if (reset)
+            {
+                _SegmentationDic.Clear();
+                _SelectedSegmentClass = string.Empty;
+                _SelectSegmentIndex = -1;
+            }
+
+            if (polygonsByClass == null)
+            {
+                Canvas?.RefreshGL();
+                return;
+            }
+
+            foreach (KeyValuePair<string, List<List<Point>>> group in polygonsByClass)
+            {
+                Yolo.CClassItem classItem = ResolveClassItem(group.Key, classes);
+                SetSegmentationPolygons(group.Value, classItem, reset: false);
+            }
+
+            Canvas?.RefreshGL();
+        }
+
+        public void SetSegmentationPolygons(IEnumerable<IEnumerable<Point>> polygons, Yolo.CClassItem classItem = null, bool reset = true)
+        {
+            if (reset)
+            {
+                _SegmentationDic.Clear();
+                _SelectedSegmentClass = string.Empty;
+                _SelectSegmentIndex = -1;
+            }
+
+            foreach (IEnumerable<Point> polygon in polygons ?? Enumerable.Empty<IEnumerable<Point>>())
+            {
+                AddSegmentationPolygon(polygon, classItem, refresh: false, select: false, recordUndo: false);
+            }
+
+            Canvas?.RefreshGL();
+        }
+
+        public void SetSegmentationObjects(
+            IReadOnlyDictionary<string, List<LabelingSegmentationObject>> segmentsByClass,
+            IReadOnlyList<Yolo.CClassItem> classes,
+            bool reset = true)
+        {
+            if (reset)
+            {
+                _SegmentationDic.Clear();
+                _SelectedSegmentClass = string.Empty;
+                _SelectSegmentIndex = -1;
+            }
+
+            if (segmentsByClass == null)
+            {
+                Canvas?.RefreshGL();
+                return;
+            }
+
+            foreach (KeyValuePair<string, List<LabelingSegmentationObject>> group in segmentsByClass)
+            {
+                Yolo.CClassItem classItem = ResolveClassItem(group.Key, classes);
+                if (!_SegmentationDic.TryGetValue(group.Key, out List<LabelingSegmentationObject> segments))
+                {
+                    segments = new List<LabelingSegmentationObject>();
+                    _SegmentationDic[group.Key] = segments;
+                }
+
+                foreach (LabelingSegmentationObject item in group.Value ?? new List<LabelingSegmentationObject>())
+                {
+                    List<Point> points = SegmentationGeometry.NormalizePolygon(item?.Points, _currentImage?.Size ?? Size.Empty, simplificationTolerance: 1.5D);
+                    if (points.Count < 3)
+                    {
+                        continue;
+                    }
+
+                    segments.Add(CreateSegmentObject(points, classItem, group.Key, selected: false, item?.CutoutPolygons));
+                }
+            }
+
+            Canvas?.RefreshGL();
+        }
+
+        public bool AddSegmentationPolygon(IEnumerable<Point> polygon, Yolo.CClassItem classItem = null, bool refresh = true, bool select = true, bool recordUndo = true)
+        {
+            if (_currentImage == null)
+            {
+                return false;
+            }
+
+            List<Point> points = SegmentationGeometry.NormalizePolygon(polygon, _currentImage.Size, simplificationTolerance: 1.5D);
+            if (points.Count < 3)
+            {
+                return false;
+            }
+
+            AnnotationSnapshot before = recordUndo ? CaptureAnnotationSnapshot() : null;
+            Yolo.CClassItem targetClass = ResolveSegmentationClass(classItem);
+            string className = targetClass.Text;
+            if (!_SegmentationDic.TryGetValue(className, out List<LabelingSegmentationObject> segments))
+            {
+                segments = new List<LabelingSegmentationObject>();
+                _SegmentationDic.Add(className, segments);
+            }
+
+            if (select)
+            {
+                ClearSegmentSelection();
+            }
+
+            var segment = CreateSegmentObject(points, targetClass, className, select);
+            segments.Add(segment);
+            if (select)
+            {
+                _SelectedSegmentClass = className;
+                _SelectSegmentIndex = segments.Count - 1;
+            }
+
+            if (refresh)
+            {
+                Canvas?.RefreshGL();
+            }
+
+            if (recordUndo)
+            {
+                PushUndoSnapshot(before);
+            }
+
+            return true;
+        }
+
+        public int AddSegmentationRectangles(IEnumerable<Rectangle> rectangles, Yolo.CClassItem classItem = null, bool reset = false)
+        {
+            if (_currentImage == null)
+            {
+                return 0;
+            }
+
+            AnnotationSnapshot before = CaptureAnnotationSnapshot();
+            if (reset)
+            {
+                _SegmentationDic.Clear();
+                _SelectedSegmentClass = string.Empty;
+                _SelectSegmentIndex = -1;
+            }
+
+            int added = 0;
+            foreach (Rectangle rectangle in rectangles ?? Enumerable.Empty<Rectangle>())
+            {
+                List<Point> polygon = SegmentationGeometry.RectangleToPolygon(rectangle, _currentImage.Size);
+                if (AddSegmentationPolygon(polygon, classItem, refresh: false, recordUndo: false))
+                {
+                    added++;
+                }
+            }
+
+            if (added > 0)
+            {
+                PushUndoSnapshot(before);
+                Canvas?.RefreshGL();
+            }
+
+            return added;
+        }
+
+        public int AddSegmentationBrushStamps(IEnumerable<Point> centers, int radius = DefaultSegmentationBrushRadius, Yolo.CClassItem classItem = null)
+        {
+            if (_currentImage == null)
+            {
+                return 0;
+            }
+
+            AnnotationSnapshot before = CaptureAnnotationSnapshot();
+            int safeRadius = Math.Max(2, radius);
+            int added = AddBrushStroke(centers, safeRadius, classItem);
+
+            if (added > 0)
+            {
+                PushUndoSnapshot(before);
+                Canvas?.RefreshGL();
+            }
+
+            return added;
+        }
+
+        public int EraseSegmentationAt(Point center, int radius = DefaultSegmentationBrushRadius)
+        {
+            AnnotationSnapshot before = CaptureAnnotationSnapshot();
+            int removed = RemoveSegmentsByStroke(new[] { center }, Math.Max(2, radius));
+            if (removed > 0)
+            {
+                PushUndoSnapshot(before);
+                Canvas?.RefreshGL();
+            }
+
+            return removed;
+        }
+
+        public int EraseSegmentationStroke(IEnumerable<Point> centers, int radius = DefaultSegmentationBrushRadius)
+        {
+            AnnotationSnapshot before = CaptureAnnotationSnapshot();
+            int removed = RemoveSegmentsByStroke(centers, Math.Max(2, radius));
+            if (removed > 0)
+            {
+                PushUndoSnapshot(before);
+                Canvas?.RefreshGL();
+            }
+
+            return removed;
+        }
+
+        public int AddAutoSegmentationFromRois(Yolo.CClassItem classItem = null, bool onlySelected = true)
+        {
+            if (_currentImage == null)
+            {
+                return 0;
+            }
+
+            List<CRectangleObject> rois = _RoiDic
+                .SelectMany(group => group.Value ?? new List<CRectangleObject>())
+                .Where(roi => roi != null && !roi.Roi.IsEmpty && (!onlySelected || roi.Selected))
+                .ToList();
+            if (rois.Count == 0 && onlySelected)
+            {
+                return 0;
+            }
+
+            AnnotationSnapshot before = CaptureAnnotationSnapshot();
+            int added = 0;
+            foreach (CRectangleObject roi in rois)
+            {
+                List<Point> polygon = SegmentationGeometry.ExtractDarkRegionPolygon(_currentImage, roi.Roi);
+                if (AddSegmentationPolygon(polygon, roi.cClassItem ?? classItem, refresh: false, recordUndo: false))
+                {
+                    added++;
+                }
+            }
+
+            if (added > 0)
+            {
+                PushUndoSnapshot(before);
+                Canvas?.RefreshGL();
+            }
+
+            return added;
+        }
+
+        public int MergeSegmentationSegments(string className = null)
+        {
+            if (_currentImage == null || _SegmentationDic.Count == 0)
+            {
+                return 0;
+            }
+
+            string targetClassName = ResolveMergeClassName(className);
+            if (string.IsNullOrWhiteSpace(targetClassName)
+                || !_SegmentationDic.TryGetValue(targetClassName, out List<LabelingSegmentationObject> segments))
+            {
+                return 0;
+            }
+
+            List<LabelingSegmentationObject> mergeTargets = segments
+                .Where(segment => segment?.Points != null && segment.Points.Count >= 3)
+                .ToList();
+            if (mergeTargets.Count <= 1)
+            {
+                return 0;
+            }
+
+            List<Point> mergedPolygon = SegmentationGeometry.MergePolygonsToHull(
+                mergeTargets.Select(segment => segment.Points),
+                _currentImage.Size);
+            if (mergedPolygon.Count < 3)
+            {
+                return 0;
+            }
+
+            AnnotationSnapshot before = CaptureAnnotationSnapshot();
+            Yolo.CClassItem targetClass = mergeTargets.FirstOrDefault(segment => segment?.ClassItem != null)?.ClassItem
+                ?? ResolveSegmentationClass(new Yolo.CClassItem { Text = targetClassName });
+
+            ClearSegmentSelection();
+            List<List<Point>> mergedCutouts = mergeTargets
+                .SelectMany(segment => segment.CutoutPolygons ?? new List<List<Point>>())
+                .Where(cutout => cutout != null
+                    && cutout.Count >= 3
+                    && cutout.Any(point => SegmentationGeometry.ContainsPoint(mergedPolygon, point)))
+                .Select(cutout => new List<Point>(cutout))
+                .ToList();
+            segments.Clear();
+            segments.Add(CreateSegmentObject(mergedPolygon, targetClass, targetClass.Text, selected: true, mergedCutouts));
+            _SelectedSegmentClass = targetClassName;
+            _SelectSegmentIndex = 0;
+
+            PushUndoSnapshot(before);
+            Canvas?.RefreshGL();
+            return mergeTargets.Count;
+        }
+
+        public List<List<Point>> GetSegmentationPolygons()
+        {
+            return _SegmentationDic.Values
+                .Where(list => list != null)
+                .SelectMany(list => list)
+                .Where(IsSelectableSegment)
+                .SelectMany(item => item.IsRasterMask
+                    ? SegmentationGeometry.RasterMaskToRegions(item.MaskData, item.MaskSize, _currentImage?.Size ?? item.MaskSize)
+                        .Select(region => new List<Point>(region.Points))
+                    : new[] { new List<Point>(item.Points) })
+                .ToList();
+        }
+
+        public List<List<Point>> GetSegmentationCutoutPolygons()
+        {
+            return _SegmentationDic.Values
+                .Where(list => list != null)
+                .SelectMany(list => list)
+                .Where(item => item?.CutoutPolygons != null)
+                .SelectMany(item => item.IsRasterMask
+                    ? SegmentationGeometry.RasterMaskToRegions(item.MaskData, item.MaskSize, _currentImage?.Size ?? item.MaskSize)
+                        .SelectMany(region => region.Cutouts)
+                    : item.CutoutPolygons)
+                .Where(cutout => cutout != null && cutout.Count >= 3)
+                .Select(cutout => new List<Point>(cutout))
+                .ToList();
+        }
+
+        public List<LabelingRoiListItem> GetRoiListItems()
+        {
+            var items = new List<LabelingRoiListItem>();
+            foreach (KeyValuePair<string, List<CRectangleObject>> roiGroup in _RoiDic)
+            {
+                for (int i = 0; i < roiGroup.Value.Count; i++)
+                {
+                    CRectangleObject roi = roiGroup.Value[i];
+                    if (roi == null || roi.Roi.IsEmpty)
+                    {
+                        continue;
+                    }
+
+                    string className = roi.cClassItem?.Text ?? roiGroup.Key;
+                    items.Add(new LabelingRoiListItem(
+                        items.Count + 1,
+                        className,
+                        roi.Roi,
+                        LabelingAnnotationKind.Rectangle,
+                        i,
+                        roi.Selected));
+                }
+            }
+
+            foreach (KeyValuePair<string, List<LabelingSegmentationObject>> segmentGroup in _SegmentationDic)
+            {
+                for (int i = 0; i < segmentGroup.Value.Count; i++)
+                {
+                    LabelingSegmentationObject segment = segmentGroup.Value[i];
+                    if (!IsSelectableSegment(segment))
+                    {
+                        continue;
+                    }
+
+                    string className = segment.ClassItem?.Text ?? segment.ClassName ?? segmentGroup.Key;
+                    items.Add(new LabelingRoiListItem(
+                        items.Count + 1,
+                        className,
+                        segment.Bounds,
+                        LabelingAnnotationKind.Segmentation,
+                        i,
+                        segment.Selected));
+                }
+            }
+
+            return items;
+        }
+
+        public bool SelectAnnotationListItem(int listIndex)
+        {
+            if (listIndex <= 0)
+            {
+                return false;
+            }
+
+            int currentListIndex = 1;
+            foreach (KeyValuePair<string, List<CRectangleObject>> roiGroup in _RoiDic)
+            {
+                for (int i = 0; i < roiGroup.Value.Count; i++)
+                {
+                    CRectangleObject roi = roiGroup.Value[i];
+                    if (roi == null || roi.Roi.IsEmpty)
+                    {
+                        continue;
+                    }
+
+                    if (currentListIndex == listIndex)
+                    {
+                        UnSelectAll();
+                        roi.Selected = true;
+                        _SelectedClass = roiGroup.Key;
+                        _TempOb.cClassItem = roi.cClassItem;
+                        _SelectROiIndex = i;
+                        _SelectedSegmentClass = string.Empty;
+                        _SelectSegmentIndex = -1;
+                        RaiseAnnotationSelectionChanged();
+                        Canvas?.RefreshGL();
+                        return true;
+                    }
+
+                    currentListIndex++;
+                }
+            }
+
+            foreach (KeyValuePair<string, List<LabelingSegmentationObject>> segmentGroup in _SegmentationDic)
+            {
+                for (int i = 0; i < segmentGroup.Value.Count; i++)
+                {
+                    LabelingSegmentationObject segment = segmentGroup.Value[i];
+                    if (!IsSelectableSegment(segment))
+                    {
+                        continue;
+                    }
+
+                    if (currentListIndex == listIndex)
+                    {
+                        UnSelectAll();
+                        segment.Selected = true;
+                        _SelectedSegmentClass = segmentGroup.Key;
+                        _SelectSegmentIndex = i;
+                        _SelectROiIndex = -1;
+                        RaiseAnnotationSelectionChanged();
+                        Canvas?.RefreshGL();
+                        return true;
+                    }
+
+                    currentListIndex++;
+                }
+            }
+
+            return false;
+        }
+
+        public void SetMeasurementOverlay(Point lineStart, Point lineEnd, Point? distanceStart = null, Point? distanceEnd = null, float pixelPermm = 1F)
+        {
+            _measureLineStart = lineStart;
+            _measureLineEnd = lineEnd;
+            _measureDistanceStart = distanceStart;
+            _measureDistanceEnd = distanceEnd;
+            _measurePixelPermm = pixelPermm;
+
+            if (Canvas != null)
+            {
+                Canvas.PixelPermm = pixelPermm;
+                Canvas.RefreshGL();
+            }
+        }
+
+        public void ClearMeasurementOverlay()
+        {
+            _measureLineStart = null;
+            _measureLineEnd = null;
+            _measureDistanceStart = null;
+            _measureDistanceEnd = null;
+            Canvas?.RefreshGL();
+        }
+
+        public void SetDetectionOverlays(IEnumerable<DetectionOverlayItem> overlays)
+        {
+            _detectionOverlays.Clear();
+            if (overlays != null)
+            {
+                _detectionOverlays.AddRange(overlays);
+            }
+
+            Canvas?.RefreshGL();
+        }
+
+        public IReadOnlyList<DetectionOverlayItem> GetDetectionOverlays()
+        {
+            return new List<DetectionOverlayItem>(_detectionOverlays);
+        }
+
+        public void ClearDetectionOverlays()
+        {
+            _detectionOverlays.Clear();
+            Canvas?.RefreshGL();
+        }
+
+        public void SetModeMultiRoi()
+        {
+            if (_OnlyDragMode)
+            {
+                SetModeDrag();
+                return;
+            }
+
+            ClearTemporaryDrawingState(clearEditSnapshot: true);
+            _Mode = LabelingRoiMode.Rectangle;
+            Canvas?.SetViewMode(CanvasInteractionMode.None);
+        }
+
+        public void SetModeSegmentation()
+        {
+            if (_OnlyDragMode)
+            {
+                SetModeDrag();
+                return;
+            }
+
+            ClearTemporaryDrawingState(clearEditSnapshot: true);
+            _Mode = LabelingRoiMode.Segmentation;
+            Canvas?.SetViewMode(CanvasInteractionMode.None);
+        }
+
+        public void SetModeSegmentationBrush()
+        {
+            if (_OnlyDragMode)
+            {
+                SetModeDrag();
+                return;
+            }
+
+            ClearTemporaryDrawingState(clearEditSnapshot: true);
+            _Mode = LabelingRoiMode.SegmentationBrush;
+            Canvas?.SetViewMode(CanvasInteractionMode.None);
+        }
+
+        public void SetModeSegmentationEraser()
+        {
+            if (_OnlyDragMode)
+            {
+                SetModeDrag();
+                return;
+            }
+
+            ClearTemporaryDrawingState(clearEditSnapshot: true);
+            _Mode = LabelingRoiMode.SegmentationEraser;
+            Canvas?.SetViewMode(CanvasInteractionMode.None);
+        }
+
+        public void SetModeDrag()
+        {
+            ClearTemporaryDrawingState(clearEditSnapshot: true);
+            _Mode = LabelingRoiMode.Drag;
+            Canvas?.SetViewMode(CanvasInteractionMode.None);
+        }
+
+        internal static string GetUiModeDisplayText(LabelingRoiMode mode)
+        {
+            return mode switch
+            {
+                LabelingRoiMode.Rectangle => "\uBAA8\uB4DC ROI",
+                LabelingRoiMode.Segmentation => "\uBAA8\uB4DC \uD3F4\uB9AC\uACE4",
+                LabelingRoiMode.SegmentationBrush => "\uBAA8\uB4DC \uBE0C\uB7EC\uC2DC",
+                LabelingRoiMode.SegmentationEraser => "\uBAA8\uB4DC \uC9C0\uC6B0\uAC1C",
+                _ => "\uBAA8\uB4DC \uC774\uB3D9"
+            };
+        }
+
+        private void OnCanvasMouseDown(object sender, CanvasMouseEventArgs e)
+        {
+            if (_currentImage == null)
+            {
+                return;
+            }
+
+            if (e.Button == MouseButtons.Left && (_Mode == LabelingRoiMode.Drag || _OnlyDragMode))
+            {
+                Canvas.PreMousePos = Canvas.GetCurrentRobotPos(e.X, e.Y);
+                Canvas.SetViewMode(CanvasInteractionMode.Drag);
+                return;
+            }
+
             SettingParameter();
             UnSelectAll();
-            _StartPt = _Ib.PointToImage(e.Location);
-            
-            switch (_Mode)
+            _StartPt = PointToImage(e.Location);
+            _LastPoint = _StartPt;
+            _MouseDown = _StartPt;
+
+            if (e.Button == MouseButtons.Right)
             {
-                case RoiMode.Rectangle:
-                    _MouseOperation = _TempOb.GetNodeSelectable(_StartPt, TempROI, _Ib);
-                    List<CRectangleObject> RoisOb = new List<CRectangleObject>();
-                    if (_RoiDic.TryGetValue(_SelectedClass, out RoisOb))
-                    {
-                        for (int i = 0; i < RoisOb.Count; i++)
-                        {
-                            _MouseOperation = RoisOb[i].GetNodeSelectable(_StartPt, RoisOb[i].Roi, _Ib);
-                            if (_MouseOperation != PosSizableRect.None)
-                            {
-                                _SelectROiIndex = i;
-                                RoisOb[i].Selected = true;
-                                break;
-                            }
-                        }
-                    }
-              
-                    break;
-                case RoiMode.Segmentation:
-                    isDrawing = true;
-                    if (!_Position.IsEmpty) { currentPoints.Add(_StartPt); }
-                    break;
+                switch (_Mode)
+                {
+                    case LabelingRoiMode.Rectangle:
+                        SelectRoiAt(_StartPt);
+                        break;
+                    case LabelingRoiMode.Segmentation:
+                        SelectSegmentAt(_StartPt);
+                        break;
+                }
+
+                Canvas?.RefreshGL();
+                return;
             }
 
-            _LastPoint = _Ib.PointToImage(e.Location);
-            _MouseDown = _Ib.PointToImage(e.Location);
+            if (e.Button != MouseButtons.Left)
+            {
+                return;
+            }
+
+            switch (_Mode)
+            {
+                case LabelingRoiMode.Rectangle:
+                    currentPoints.Clear();
+                    isDrawing = false;
+                    SelectRoiAt(_StartPt);
+                    if (_MouseOperation != PosSizableRect.None)
+                    {
+                        annotationEditSnapshot = CaptureAnnotationSnapshot();
+                    }
+                    break;
+                case LabelingRoiMode.Segmentation:
+                    TempROI = Rectangle.Empty;
+                    isDrawing = true;
+                    currentPoints.Clear();
+                    if (!_StartPt.IsEmpty)
+                    {
+                        currentPoints.Add(_StartPt);
+                    }
+                    break;
+                case LabelingRoiMode.SegmentationBrush:
+                    TempROI = Rectangle.Empty;
+                    isDrawing = true;
+                    segmentationEditDirty = false;
+                    annotationEditSnapshot = CaptureAnnotationSnapshot();
+                    currentPoints.Clear();
+                    if (!_StartPt.IsEmpty)
+                    {
+                        currentPoints.Add(_StartPt);
+                        segmentationEditDirty |= PaintSegmentationBrushAt(_StartPt);
+                        RefreshCanvasInteractive(force: true);
+                    }
+                    break;
+                case LabelingRoiMode.SegmentationEraser:
+                    TempROI = Rectangle.Empty;
+                    isDrawing = true;
+                    segmentationEditDirty = false;
+                    annotationEditSnapshot = CaptureAnnotationSnapshot();
+                    currentPoints.Clear();
+                    if (!_StartPt.IsEmpty)
+                    {
+                        currentPoints.Add(_StartPt);
+                        segmentationEditDirty |= EraseSegmentationBrushAt(_StartPt);
+                        RefreshCanvasInteractive(force: true);
+                    }
+                    break;
+            }
         }
 
-        private void IbSource_MouseMove(object sender, MouseEventArgs e)
+        private void OnCanvasMouseMove(object sender, CanvasMouseEventArgs e)
         {
-            if (_Ib.Image == null) { return; }
-            if (_Ib.Image.Width == 10 || _Ib.Image.Width == 10) { return; }
+            if (_currentImage == null)
+            {
+                return;
+            }
 
-            _Position = _Ib.PointToImage(e.Location);
-
+            _Position = PointToImage(e.Location);
             GetPixelData(_Position);
             ChangeCursor();
 
+            bool interactiveRefresh = _Mode == LabelingRoiMode.SegmentationBrush || _Mode == LabelingRoiMode.SegmentationEraser;
             if (e.Button == MouseButtons.Left)
             {
-                //마우스의 현재 위치에서 마지막 위치를 뺀 값을 저장한다.
                 int distanceX = _Position.X - _LastPoint.X;
                 int distanceY = _Position.Y - _LastPoint.Y;
-
                 _LastPoint = _Position;
 
                 switch (_Mode)
                 {
-                    case RoiMode.Rectangle:
-
-                        if (_MouseOperation == PosSizableRect.None)
+                    case LabelingRoiMode.Rectangle:
+                        UpdateRectangleDrawing(e, distanceX, distanceY);
+                        break;
+                    case LabelingRoiMode.Segmentation:
+                        if (isDrawing && !_Position.IsEmpty)
                         {
-                            SetToRectangle(e, ref _TempOb.Roi);
-                            _TempOb.MoveHandleTo(_Position, _MouseOperation);
-                        }
-
-                        if (_MouseOperation != PosSizableRect.None)
-                        {
-                            List<CRectangleObject> RoisOb = new List<CRectangleObject>();
-                            if (_RoiDic.TryGetValue(_SelectedClass, out RoisOb))
-                            {
-                                SetToRectangle(e, ref RoisOb[_SelectROiIndex].Roi);
-                                RoisOb[_SelectROiIndex].MoveHandleTo(_Position, _MouseOperation);
-                                if (_MouseOperation == PosSizableRect.SizeAll)
-                                {
-                                    RoisOb[_SelectROiIndex].Move(distanceX, distanceY);
-                                }
-                            }
+                            currentPoints.Add(_Position);
                         }
                         break;
-                    case RoiMode.Segmentation:
-                        if (isDrawing)
-                        {
-                            if (!_Position.IsEmpty) { currentPoints.Add(_Position); }
-                        }
-
+                    case LabelingRoiMode.SegmentationBrush:
+                        segmentationEditDirty |= ApplyInteractiveBrushStroke(_Position, paint: true);
+                        break;
+                    case LabelingRoiMode.SegmentationEraser:
+                        segmentationEditDirty |= ApplyInteractiveBrushStroke(_Position, paint: false);
                         break;
                 }
             }
-            _Ib.Invalidate();
+
+            if (interactiveRefresh)
+            {
+                RefreshCanvasInteractive();
+                return;
+            }
+
+            Canvas.RefreshGL();
         }
 
-        private void IbSource_MouseUp(object sender, MouseEventArgs e)
+        private void OnCanvasMouseUp(object sender, CanvasMouseEventArgs e)
         {
             try
             {
+                if (_Mode == LabelingRoiMode.Drag || _OnlyDragMode)
+                {
+                    Canvas?.SetViewMode(CanvasInteractionMode.None);
+                }
+
                 switch (e.Button)
                 {
-                    case MouseButtons.Left:                        
-                        switch (_Mode)
-                        {
-                            case RoiMode.Rectangle:
-                                if (!TempROI.IsEmpty && TempROI.Width > 15 && TempROI.Height > 15)
-                                {
-                                    CRectangleObject rectangleObject = new CRectangleObject();
-                                    rectangleObject.Roi = TempROI;
-                                    rectangleObject.cClassItem = _TempOb.cClassItem;
-
-                                    List<CRectangleObject> list = new List<CRectangleObject>();
-
-                                    if(_RoiDic.TryGetValue(_TempOb.cClassItem.Text, out list))
-                                    {
-                                        list.Add(rectangleObject);
-                                        _RoiDic[_TempOb.cClassItem.Text] = list;
-                                        _SelectROiIndex = list.Count - 1;
-                                    }   
-                                    else
-                                    {
-                                        list = new List<CRectangleObject>();
-                                        list.Add(rectangleObject);
-                                        _RoiDic.Add(_TempOb.cClassItem.Text, list);
-                                        _SelectROiIndex = 0;
-                                    }
-
-                                    CGlobal.Inst.System.UpdateData();                                    
-                                }
-                                TempROI = new Rectangle();
-                                break;
-                            case RoiMode.Segmentation:
-                                isDrawing = false;
-                                if (!_Position.IsEmpty)
-                                {
-                                    currentPoints = new List<Point>();
-                                    lines.Add(currentPoints);
-                                }
-                                break;
-                        }
+                    case MouseButtons.Left:
+                        CompleteLeftMouseOperation();
                         break;
                     case MouseButtons.Right:
                         _ExcuteCount = 1;
-                        if (_MouseOperation == PosSizableRect.SizeAll) { Open_DropdownMenu(ddmDelete, sender, e); }
-                        else { Open_DropdownMenu(ddmImageMenu, sender, e); }
+                        Open_DropdownMenu(_MouseOperation == PosSizableRect.SizeAll ? ddmDelete : ddmImageMenu, e);
                         break;
                 }
+
                 _MouseOperation = PosSizableRect.None;
+                Canvas?.RefreshGL();
             }
-            catch (Exception Desc)
+            catch (Exception ex)
             {
-                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                AppLog.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name} Exception ==> {ex.Message}");
             }
         }
 
-        public void LoadImageBox(ImageBox ImageBox, bool ControlROI = true, bool onlyDragmode = false)
+        private void OnCanvasMouseWheel(object sender, CanvasMouseEventArgs e)
         {
-            _Ib = ImageBox;
-            _Ib.MouseWheel += new MouseEventHandler(MouseWheelEvent);
-            _Ib.MouseDoubleClick += Ib_MouseDoubleClick;
-            _Ib.MouseDown += Ib_MouseDown;
-            _Ib.MouseMove += IbSource_MouseMove;
-            _Ib.MouseUp += IbSource_MouseUp;
-            _Ib.KeyDown += IbSource_KeyDown;
-            _Ib.ImageChanged += Ib_ImageChanged;
-            _Ib.Paint += Ib_Paint;
-            _Ib.AllowDrop = true;
-            _Ib.DragEnter += Ib_DragEnter;
-            _Ib.DragDrop += new DragEventHandler(Form1_DragDrop);
-            _Ib.AllowClickZoom = false;
-            _Ib.AllowDoubleClick = true;
-            _Ib.SelectionMode = ImageBoxSelectionMode.None;
-            _Ib.GridColor = System.Drawing.Color.FromArgb(20, 20, 20);
-            _Ib.GridColorAlternate = System.Drawing.Color.FromArgb(20, 20, 20);
-            _Ib.HorizontalScroll.Visible = true;
-            _Ib.VerticalScroll.Visible = true;
-
-            ItemROI.Click += ItemROI_Click;
-            ItemTrainROI.Click += ItemROI_Click;
-            ItemMultiROI.Click += ItemROI_Click;
-            ItemDrag.Click += ItemROI_Click;
-
-            iconMenuItem7.Click += ItemCollection_Click;
-            iconMenuItem8.Click += ItemCollection_Click;
-
-            _Ib.Font = new System.Drawing.Font("Verdana", 20F);
-            _Ib.TextAlign = ContentAlignment.TopLeft;
-            _Ib.ForeColor = System.Drawing.Color.White;
-
-            this._OnlyDragMode = onlyDragmode;
-
-            SetModeDrag();
+            Canvas?.ZoomAt(e.Location, e.Delta);
         }
 
-        private void Ib_DragEnter(object sender, DragEventArgs e)
+        private void OnCanvasMouseDoubleClicked(object sender, EventArgs e)
         {
-            if (e.Data.GetDataPresent(DataFormats.FileDrop)) e.Effect = DragDropEffects.Copy;
+            ZoomToFit();
         }
 
-        public void LoadImageBoxOnlyViewer(ImageBox ImageBox, bool ControlROI = true)
+        private void OnCanvasKeyDown(object sender, KeyEventArgs e)
         {
-            _Ib = ImageBox;
-
-            for (int i = 0; i < 10; i++) { _Ib.ZoomOut(); }
-            _Ib.MouseWheel += new MouseEventHandler(MouseWheelEvent);
-            _Ib.MouseDoubleClick += Ib_MouseDoubleClick;
-            _Ib.AllowClickZoom = false;
-            _Ib.AllowDoubleClick = true;
-            _Ib.SelectionMode = ImageBoxSelectionMode.None;
-
-            System.Drawing.Color color = System.Drawing.Color.FromArgb(20, 20, 20);
-
-            _Ib.GridColor = color;
-            _Ib.GridColorAlternate = color;
-            _Ib.ShowPixelGrid = true;
-
-            _Ib.Font = new System.Drawing.Font("Verdana", 20F);
-            _Ib.TextAlign = ContentAlignment.TopLeft;
-            _Ib.ForeColor = System.Drawing.Color.White;
+            switch (e.KeyCode)
+            {
+                case Keys.D1:
+                case Keys.V:
+                case Keys.Space:
+                    SetModeDrag();
+                    e.Handled = true;
+                    break;
+                case Keys.D2:
+                case Keys.R:
+                    SetModeMultiRoi();
+                    e.Handled = true;
+                    break;
+                case Keys.D3:
+                case Keys.S:
+                    SetModeSegmentation();
+                    e.Handled = true;
+                    break;
+                case Keys.B:
+                    SetModeSegmentationBrush();
+                    e.Handled = true;
+                    break;
+                case Keys.E:
+                    SetModeSegmentationEraser();
+                    e.Handled = true;
+                    break;
+                case Keys.Delete:
+                    ClearROI();
+                    e.Handled = true;
+                    break;
+            }
         }
 
-        void Form1_DragDrop(object sender, DragEventArgs e)
+        private void OnCanvasDragEnter(object sender, DragEventArgs e)
+        {
+            if (e.Data.GetDataPresent(DataFormats.FileDrop))
+            {
+                e.Effect = DragDropEffects.Copy;
+            }
+        }
+
+        private void OnCanvasDragDrop(object sender, DragEventArgs e)
         {
             string[] files = (string[])e.Data.GetData(DataFormats.FileDrop);
             foreach (string file in files)
             {
                 string extension = Path.GetExtension(file);
-                switch (extension.ToLower())
+                switch (extension.ToLowerInvariant())
                 {
                     case ".bmp":
                     case ".exif":
@@ -433,284 +1120,1249 @@ namespace MvcVisionSystem
                     case ".png":
                     case ".tif":
                     case ".tiff":
-                        Bitmap Image = new Bitmap(file);
-                        _Ib.Image = Image;
-                        //this.Image = Image;
-                        CDisplayManager.ImageSrc = Lib.Common.CImageConverter.ToMat(Image);
-                        _Ib.ZoomToFit();
-                        break;
-                    default:
-                        throw new NotSupportedException(
-                            "Unknown file extension " + extension);
-                }
-            }
-        }
-
-        public void SetModeMultiRoi()
-        {
-            ItemMultiROI.IconColor = System.Drawing.Color.Red;
-            ItemMultiROI.IconChar = FontAwesome.Sharp.IconChar.Check;
-            ItemTrainROI.IconChar = FontAwesome.Sharp.IconChar.None;
-            ItemROI.IconChar = FontAwesome.Sharp.IconChar.None;
-            ItemDrag.IconChar = FontAwesome.Sharp.IconChar.None;
-            _Mode = RoiMode.Rectangle;
-
-            _Ib.PanMode = ImageBoxPanMode.Middle;
-        }
-
-        public void SetModeSegmentation()
-        {
-            ItemMultiROI.IconColor = System.Drawing.Color.Red;
-            ItemMultiROI.IconChar = FontAwesome.Sharp.IconChar.Check;
-            ItemTrainROI.IconChar = FontAwesome.Sharp.IconChar.None;
-            ItemROI.IconChar = FontAwesome.Sharp.IconChar.None;
-            ItemDrag.IconChar = FontAwesome.Sharp.IconChar.None;
-            _Mode = RoiMode.Segmentation;
-
-            _Ib.PanMode = ImageBoxPanMode.Middle;
-        }
-
-        public void SetModeDrag()
-        {
-            ItemDrag.IconColor = System.Drawing.Color.Red;
-            ItemDrag.IconChar = FontAwesome.Sharp.IconChar.Check;
-            ItemTrainROI.IconChar = FontAwesome.Sharp.IconChar.None;
-            ItemROI.IconChar = FontAwesome.Sharp.IconChar.None;
-            ItemMultiROI.IconChar = FontAwesome.Sharp.IconChar.None;
-            _Mode = RoiMode.Drag;
-
-            _Ib.PanMode = ImageBoxPanMode.Both;
-        }
-
-        private void SetToRectangle(MouseEventArgs e, ref Rectangle ROI)
-        {
-            if (e.Button == MouseButtons.Left)
-            {
-                _EndPt = _Ib.PointToImage(e.Location);
-                if (_MouseOperation != PosSizableRect.None) { return; }
-                if (_MouseOperation == PosSizableRect.SizeAll) { return; }
-
-                OpenCvSharp.Point ptStart = new OpenCvSharp.Point(_StartPt.X, _StartPt.Y);
-                OpenCvSharp.Point ptEnd = new OpenCvSharp.Point(_EndPt.X, _EndPt.Y);
-
-                if (ptStart.X > ptEnd.X)
-                {
-                    if (ptStart.Y < ptEnd.Y) { ROI = new Rectangle(ptEnd.X, ptStart.Y, ptStart.X - ptEnd.X, ptEnd.Y - ptStart.Y); }
-                    else { ROI = new Rectangle(ptEnd.X, ptEnd.Y, ptStart.X - ptEnd.X, ptStart.Y - ptEnd.Y); }
-                }
-                else
-                {
-                    if (ptStart.Y < ptEnd.Y)
-                    {
-                        if (ptStart.X < ptEnd.X) { ROI = new Rectangle(ptStart.X, ptStart.Y, ptEnd.X - ptStart.X, ptEnd.Y - ptStart.Y); }
-                        else { ROI = new Rectangle(ptStart.X, ptStart.Y, ptEnd.X - ptStart.X, ptEnd.Y - ptStart.Y); }
-                    }
-                    else
-                    {
-                        if (ptStart.X < ptEnd.X) { ROI = new Rectangle(ptStart.X, ptEnd.Y, ptEnd.X - ptStart.X, ptStart.Y - ptEnd.Y); }
-                        else { ROI = new Rectangle(ptEnd.X, ptEnd.Y, ptStart.X - ptEnd.X, ptStart.Y - ptEnd.Y); }
-                    }
-                }
-
-                if (ROI.Y < _MinY) ROI = new Rectangle(ROI.X, _MinY, ROI.Width, ROI.Height);
-                if (ROI.X < _MinX) ROI = new Rectangle(_MinX, ROI.Y, ROI.Width, ROI.Height);
-                if (ROI.Bottom > _MaxY)
-                {
-                    int Max_H = _MaxY - ROI.Y;
-                    ROI = new Rectangle(ROI.X, ROI.Y, ROI.Width, Max_H);
-                }
-                if (ROI.Right > _MaxX)
-                {
-                    int Max_W = _MaxX - ROI.X;
-                    ROI = new Rectangle(ROI.X, ROI.Y, Max_W, ROI.Height);
-                }
-            }
-        }
-
-        private void IbSource_KeyDown(object sender, KeyEventArgs e)
-        {
-            switch (e.KeyCode)
-            {
-                case Keys.D1:
-                    SetModeDrag();
-                    break;
-                case Keys.D2:
-                    SetModeMultiRoi();
-                    break;
-                case Keys.D3:
-                    SetModeSegmentation();
-                    break;
-                case Keys.D4:
-                    break;
-
-                case Keys.ShiftKey:
-                case Keys.ControlKey:
-                    // ib.PanMode = ImageBoxPanMode.Middle;
-                    break;
-                case Keys.Enter:
-                    break;
-                case Keys.Delete:
-                    ClearROI();
-                    break;
-            }
-        }
-
-        private void Ib_MouseDoubleClick(object sender, MouseEventArgs e)
-        {
-            for (int i = 0; i < 50; i++) { _Ib.ZoomOut(); }
-            _Ib.ZoomToFit();
-            _Ib.Update();
-        }
-
-        private void ItemCollection_Click(object sender, EventArgs e)
-        {
-            try
-            {
-                string strIndex = (sender as ToolStripMenuItem).Text;
-                if (_ExcuteCount != 1) { return; }
-                ddmImageMenu.Hide();
-                switch (strIndex)
-                {
-                    case "3 Point Measure":
-                        if (_Ib.Image.Width != 10 && _Ib.Image.Height != 10)
+                        using (Bitmap image = AppImageLoader.LoadBitmap(file))
+                        using (Bitmap mainImage = new Bitmap(image))
                         {
-                            FormMeasure formMeasure = new FormMeasure((Bitmap)_Ib.Image);
-                            formMeasure.TopLevel = true;
-                            formMeasure.TopMost = true;
-                            formMeasure.StartPosition = FormStartPosition.CenterParent;
-                            if (!CUtil.OpenCheckForm(formMeasure)) return;
-                            formMeasure.Show();
+                            LoadMainImage(mainImage, Path.GetFileNameWithoutExtension(file), file);
                         }
                         break;
-                    case "Image Compare":
-                        break;
                     default:
-                        break;
+                        throw new NotSupportedException("Unknown file extension " + extension);
                 }
             }
-            catch (Exception Desc)
-            {
-                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
-            }
-            _ExcuteCount++;
         }
 
-        private void ItemROI_Click(object sender, EventArgs e)
+        private void SelectRoiAt(Point imagePoint)
         {
-            try
+            _MouseOperation = PosSizableRect.None;
+            int handleSize = GetImageHandleSize();
+            foreach (KeyValuePair<string, List<CRectangleObject>> roiGroup in _RoiDic.Reverse())
             {
-                string strIndex = (sender as FontAwesome.Sharp.IconMenuItem).Text;
-                if (_ExcuteCount != 1) { return; }
-                ddmImageMenu.Hide();
-                ddmDelete.Hide();
-                switch (strIndex)
+                List<CRectangleObject> rois = roiGroup.Value;
+                if (rois == null || rois.Count == 0)
                 {
-                    case "Drag":
-                        SetModeDrag();
-                        break;
-                    case "Multi ROI":
-                        SetModeMultiRoi();
-                        break;
-                    default:
-                        break;
+                    continue;
+                }
+
+                if (RoiInteractionController.TrySelect(rois, imagePoint, handleSize, out int selectedIndex, out PosSizableRect operation))
+                {
+                    UnSelectAll();
+                    rois[selectedIndex].Selected = true;
+                    _MouseOperation = operation;
+                    _SelectROiIndex = selectedIndex;
+                    _SelectedClass = roiGroup.Key;
+                    _TempOb.cClassItem = rois[selectedIndex]?.cClassItem ?? _TempOb.cClassItem;
+                    RaiseAnnotationSelectionChanged();
+                    return;
                 }
             }
-            catch (Exception Desc)
+
+            if (SelectedAnnotationListIndex > 0)
             {
-                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                UnSelectAll();
+                _SelectROiIndex = -1;
+                _SelectedClass = string.Empty;
+                _MouseOperation = PosSizableRect.None;
+                RaiseAnnotationSelectionChanged();
             }
-            _ExcuteCount++;
         }
 
-        private void ClearROI()
+        private void UpdateRectangleDrawing(MouseEventArgs e, int distanceX, int distanceY)
+        {
+            if (_MouseOperation == PosSizableRect.None)
+            {
+                SetToRectangle(e, ref _TempOb.Roi);
+                return;
+            }
+
+            if (!_RoiDic.TryGetValue(_SelectedClass, out List<CRectangleObject> rois))
+            {
+                return;
+            }
+
+            if (_SelectROiIndex < 0 || _SelectROiIndex >= rois.Count)
+            {
+                return;
+            }
+
+            if (_MouseOperation == PosSizableRect.SizeAll)
+            {
+                rois[_SelectROiIndex].Move(distanceX, distanceY);
+                return;
+            }
+
+            rois[_SelectROiIndex].MoveHandleTo(_Position, _MouseOperation);
+        }
+
+        private void CompleteLeftMouseOperation()
         {
             switch (_Mode)
             {
-                case RoiMode.Rectangle:
-                    List<CRectangleObject> rois = new List<CRectangleObject>();
-                    if (_RoiDic.TryGetValue(_SelectedClass, out rois))
+                case LabelingRoiMode.Rectangle:
+                    bool modifiedExistingRoi = _MouseOperation != PosSizableRect.None;
+                    if (!TempROI.IsEmpty && TempROI.Width > 15 && TempROI.Height > 15)
                     {
-                        int index = rois.FindIndex(x => x.Selected == true);
-                        if (index < 0) { return; }
-
-                        rois.RemoveAt(index);
-                        CGlobal.Inst.System.UpdateData();
+                        AnnotationSnapshot before = CaptureAnnotationSnapshot();
+                        AddTempRectangle();
+                        PushUndoSnapshot(before);
+                        CommitCurrentAnnotations();
                     }
-
+                    else if (modifiedExistingRoi)
+                    {
+                        PushUndoSnapshot(annotationEditSnapshot);
+                        CommitCurrentAnnotations();
+                    }
+                    annotationEditSnapshot = null;
+                    TempROI = Rectangle.Empty;
+                    _StartPt = Point.Empty;
+                    _EndPt = Point.Empty;
+                    RaiseAnnotationSelectionChanged();
+                    break;
+                case LabelingRoiMode.Segmentation:
+                    isDrawing = false;
+                    if (!_Position.IsEmpty && currentPoints.Count > 2)
+                    {
+                        AddCurrentSegmentationPolygon();
+                        CommitCurrentAnnotations();
+                    }
+                    currentPoints.Clear();
+                    TempROI = Rectangle.Empty;
+                    RaiseAnnotationSelectionChanged();
+                    break;
+                case LabelingRoiMode.SegmentationBrush:
+                    isDrawing = false;
+                    if (segmentationEditDirty)
+                    {
+                        PushUndoSnapshot(annotationEditSnapshot);
+                        CommitCurrentAnnotations();
+                    }
+                    segmentationEditDirty = false;
+                    annotationEditSnapshot = null;
+                    currentPoints.Clear();
+                    TempROI = Rectangle.Empty;
+                    RaiseAnnotationSelectionChanged();
+                    break;
+                case LabelingRoiMode.SegmentationEraser:
+                    isDrawing = false;
+                    if (segmentationEditDirty)
+                    {
+                        PushUndoSnapshot(annotationEditSnapshot);
+                        CommitCurrentAnnotations();
+                    }
+                    segmentationEditDirty = false;
+                    annotationEditSnapshot = null;
+                    currentPoints.Clear();
+                    TempROI = Rectangle.Empty;
+                    RaiseAnnotationSelectionChanged();
                     break;
             }
-            _MouseDown = Point.Empty;
-            _StartPt = new System.Drawing.Point();
-            _EndPt = new System.Drawing.Point();
-
-            _Ib.Invalidate();
         }
 
-        private void Ib_ImageChanged(object sender, EventArgs e) => _ImageChanged = true;
+        private void RefreshCanvasInteractive(bool force = false)
+        {
+            if (Canvas == null)
+            {
+                return;
+            }
+
+            if (!force && interactiveRefreshStopwatch.ElapsedMilliseconds < InteractiveRefreshIntervalMilliseconds)
+            {
+                return;
+            }
+
+            interactiveRefreshStopwatch.Restart();
+            Canvas.RefreshGL();
+        }
+
+        private void AddCurrentSegmentationPolygon()
+        {
+            AddSegmentationPolygon(currentPoints, _TempOb.cClassItem, refresh: false);
+        }
+
+        private bool ShouldAppendBrushPoint(Point point)
+        {
+            if (point.IsEmpty)
+            {
+                return false;
+            }
+
+            if (currentPoints.Count == 0)
+            {
+                return true;
+            }
+
+            Point lastPoint = currentPoints[^1];
+            int minDistance = Math.Max(2, SegmentationBrushRadius / 2);
+            int dx = point.X - lastPoint.X;
+            int dy = point.Y - lastPoint.Y;
+            return (dx * dx) + (dy * dy) >= minDistance * minDistance;
+        }
+
+        private bool ApplyInteractiveBrushStroke(Point point, bool paint)
+        {
+            if (!isDrawing || point.IsEmpty)
+            {
+                return false;
+            }
+
+            if (currentPoints.Count == 0)
+            {
+                currentPoints.Add(point);
+                return paint ? PaintSegmentationBrushAt(point) : EraseSegmentationBrushAt(point);
+            }
+
+            if (!ShouldAppendBrushPoint(point))
+            {
+                return false;
+            }
+
+            List<Point> strokePoints = BuildInterpolatedBrushPoints(currentPoints[^1], point);
+            if (strokePoints.Count == 0)
+            {
+                return false;
+            }
+
+            currentPoints.AddRange(strokePoints);
+            return paint ? PaintSegmentationBrushStroke(strokePoints) : EraseSegmentationBrushStroke(strokePoints);
+        }
+
+        private List<Point> BuildInterpolatedBrushPoints(Point from, Point to)
+        {
+            var points = new List<Point>();
+            int dx = to.X - from.X;
+            int dy = to.Y - from.Y;
+            double distance = Math.Sqrt((dx * dx) + (dy * dy));
+            if (distance <= 0)
+            {
+                return points;
+            }
+
+            int step = Math.Max(1, SegmentationBrushRadius / 2);
+            int count = Math.Max(1, (int)Math.Ceiling(distance / step));
+            Point last = from;
+            for (int i = 1; i <= count; i++)
+            {
+                double ratio = i / (double)count;
+                var point = new Point(
+                    (int)Math.Round(from.X + (dx * ratio)),
+                    (int)Math.Round(from.Y + (dy * ratio)));
+                if (point.IsEmpty || point == last)
+                {
+                    continue;
+                }
+
+                points.Add(point);
+                last = point;
+            }
+
+            return points;
+        }
+
+        private bool PaintSegmentationBrushAt(Point center)
+        {
+            return PaintSegmentationBrushStroke(new[] { center });
+        }
+
+        private bool PaintSegmentationBrushStroke(IReadOnlyCollection<Point> centers)
+        {
+            if (_currentImage == null || centers == null || centers.Count == 0)
+            {
+                return false;
+            }
+
+            Yolo.CClassItem targetClass = ResolveSegmentationClass(_TempOb.cClassItem);
+            string className = targetClass.Text;
+            LabelingSegmentationObject rasterSegment = GetOrCreateRasterSegment(className, targetClass);
+            if (!ApplyBrushToRasterSegment(rasterSegment, centers, SegmentationBrushRadius, paint: true))
+            {
+                return false;
+            }
+
+            SelectRasterSegment(className, rasterSegment);
+            return true;
+        }
+
+        private bool EraseSegmentationBrushAt(Point center)
+        {
+            return EraseSegmentationBrushStroke(new[] { center });
+        }
+
+        private bool EraseSegmentationBrushStroke(IReadOnlyCollection<Point> centers)
+        {
+            return RemoveSegmentsByStroke(centers, SegmentationBrushRadius) > 0;
+        }
+
+        private int AddBrushStroke(IEnumerable<Point> centers, int radius, Yolo.CClassItem classItem)
+        {
+            if (_currentImage == null)
+            {
+                return 0;
+            }
+
+            List<Point> strokeCenters = centers?
+                .Where(point => !point.IsEmpty)
+                .Distinct()
+                .ToList() ?? new List<Point>();
+            if (strokeCenters.Count == 0)
+            {
+                return 0;
+            }
+
+            Yolo.CClassItem targetClass = ResolveSegmentationClass(classItem);
+            string className = targetClass.Text;
+            LabelingSegmentationObject rasterSegment = GetOrCreateRasterSegment(className, targetClass);
+            if (!ApplyBrushToRasterSegment(rasterSegment, strokeCenters, Math.Max(2, radius), paint: true))
+            {
+                return 0;
+            }
+
+            SelectRasterSegment(className, rasterSegment);
+
+            return 1;
+        }
+
+        private int RemoveSegmentsNear(Point center, int radius)
+        {
+            return RemoveSegmentsByStroke(new[] { center }, radius);
+        }
+
+        private int RemoveSegmentsByStroke(IEnumerable<Point> centers, int radius)
+        {
+            if (_currentImage == null || _SegmentationDic.Count == 0)
+            {
+                return 0;
+            }
+
+            List<Point> strokeCenters = centers?
+                .Where(point => !point.IsEmpty)
+                .Distinct()
+                .ToList() ?? new List<Point>();
+            if (strokeCenters.Count == 0)
+            {
+                return 0;
+            }
+
+            int changed = 0;
+            int safeRadius = Math.Max(2, radius);
+            foreach (string className in _SegmentationDic.Keys.ToList())
+            {
+                List<LabelingSegmentationObject> segments = _SegmentationDic[className];
+                if (segments == null || segments.Count == 0)
+                {
+                    continue;
+                }
+
+                Yolo.CClassItem classItem = segments.FirstOrDefault(segment => segment?.ClassItem != null)?.ClassItem
+                    ?? new Yolo.CClassItem { Text = className, DrawColor = Color.LimeGreen };
+                LabelingSegmentationObject rasterSegment = GetOrCreateRasterSegment(className, classItem);
+                Rectangle strokeBounds = GetStrokeBounds(strokeCenters, safeRadius, rasterSegment.MaskSize);
+                if (!rasterSegment.Bounds.IntersectsWith(strokeBounds))
+                {
+                    continue;
+                }
+
+                if (!ApplyBrushToRasterSegment(rasterSegment, strokeCenters, safeRadius, paint: false))
+                {
+                    continue;
+                }
+
+                changed++;
+                if (rasterSegment.MaskBounds.IsEmpty)
+                {
+                    _SegmentationDic.Remove(className);
+                }
+            }
+
+            if (changed > 0)
+            {
+                _SelectedSegmentClass = string.Empty;
+                _SelectSegmentIndex = -1;
+                ClearSegmentSelection();
+            }
+
+            return changed;
+        }
+
+        private bool ApplyBrushToRasterSegment(
+            LabelingSegmentationObject rasterSegment,
+            IReadOnlyCollection<Point> centers,
+            int radius,
+            bool paint)
+        {
+            if (rasterSegment?.IsRasterMask != true)
+            {
+                return false;
+            }
+
+            if (!ApplyBrushToMask(rasterSegment.MaskData, rasterSegment.MaskSize, centers, Math.Max(2, radius), paint, out Rectangle changedBounds))
+            {
+                return false;
+            }
+
+            if (paint)
+            {
+                rasterSegment.MaskBounds = rasterSegment.MaskBounds.IsEmpty
+                    ? changedBounds
+                    : Rectangle.Union(rasterSegment.MaskBounds, changedBounds);
+                MarkRasterSegmentRenderDirty(rasterSegment, changedBounds);
+                return true;
+            }
+
+            rasterSegment.MaskBounds = ShouldRecalculateMaskBoundsAfterErase(rasterSegment.MaskBounds, changedBounds)
+                ? SegmentationGeometry.GetMaskBounds(rasterSegment.MaskData, rasterSegment.MaskSize)
+                : rasterSegment.MaskBounds;
+            MarkRasterSegmentRenderDirty(rasterSegment, changedBounds);
+            return true;
+        }
+
+        private static void MarkRasterSegmentRenderDirty(LabelingSegmentationObject rasterSegment, Rectangle changedBounds)
+        {
+            if (rasterSegment == null || changedBounds.IsEmpty)
+            {
+                return;
+            }
+
+            rasterSegment.RenderDirtyBounds = rasterSegment.RenderDirtyBounds.IsEmpty
+                ? changedBounds
+                : Rectangle.Union(rasterSegment.RenderDirtyBounds, changedBounds);
+            rasterSegment.RenderVersion++;
+        }
+
+        private void SelectRasterSegment(string className, LabelingSegmentationObject rasterSegment)
+        {
+            if (string.IsNullOrWhiteSpace(className)
+                || rasterSegment == null
+                || !_SegmentationDic.TryGetValue(className, out List<LabelingSegmentationObject> segments))
+            {
+                return;
+            }
+
+            int index = segments.IndexOf(rasterSegment);
+            if (index < 0)
+            {
+                return;
+            }
+
+            if (_SelectedSegmentClass == className && _SelectSegmentIndex == index && rasterSegment.Selected)
+            {
+                return;
+            }
+
+            ClearSegmentSelection();
+            rasterSegment.Selected = true;
+            _SelectedSegmentClass = className;
+            _SelectSegmentIndex = index;
+        }
+
+        private LabelingSegmentationObject GetOrCreateRasterSegment(string className, Yolo.CClassItem classItem)
+        {
+            if (!_SegmentationDic.TryGetValue(className, out List<LabelingSegmentationObject> segments))
+            {
+                segments = new List<LabelingSegmentationObject>();
+                _SegmentationDic[className] = segments;
+            }
+
+            if (segments.Count == 1 && segments[0]?.IsRasterMask == true)
+            {
+                segments[0].ClassName = className;
+                segments[0].ClassItem = classItem;
+                return segments[0];
+            }
+
+            byte[] mask = segments.Count == 0
+                ? new byte[Math.Max(0, _currentImage.Width * _currentImage.Height)]
+                : RasterizeSegmentsToMask(segments, _currentImage.Size);
+            var rasterSegment = new LabelingSegmentationObject(Array.Empty<Point>(), classItem)
+            {
+                ClassName = className,
+                ClassItem = classItem,
+                MaskData = mask,
+                MaskSize = _currentImage.Size,
+                MaskBounds = SegmentationGeometry.GetMaskBounds(mask, _currentImage.Size),
+                RenderVersion = 1,
+                RenderDirtyBounds = new Rectangle(Point.Empty, _currentImage.Size)
+            };
+
+            segments.Clear();
+            segments.Add(rasterSegment);
+            return rasterSegment;
+        }
+
+        private static bool ApplyBrushToMask(byte[] mask, Size maskSize, IEnumerable<Point> centers, int radius, bool paint)
+        {
+            return ApplyBrushToMask(mask, maskSize, centers, radius, paint, out _);
+        }
+
+        private static bool ApplyBrushToMask(byte[] mask, Size maskSize, IEnumerable<Point> centers, int radius, bool paint, out Rectangle changedBounds)
+        {
+            if (mask == null || maskSize.Width <= 0 || maskSize.Height <= 0 || mask.Length != maskSize.Width * maskSize.Height)
+            {
+                changedBounds = Rectangle.Empty;
+                return false;
+            }
+
+            int safeRadius = Math.Max(1, radius);
+            double radiusSquared = safeRadius * safeRadius;
+            byte target = paint ? (byte)1 : (byte)0;
+            bool changed = false;
+            int changedLeft = int.MaxValue;
+            int changedTop = int.MaxValue;
+            int changedRight = int.MinValue;
+            int changedBottom = int.MinValue;
+            foreach (Point center in centers ?? Enumerable.Empty<Point>())
+            {
+                int left = Math.Max(0, center.X - safeRadius - 1);
+                int top = Math.Max(0, center.Y - safeRadius - 1);
+                int right = Math.Min(maskSize.Width - 1, center.X + safeRadius + 1);
+                int bottom = Math.Min(maskSize.Height - 1, center.Y + safeRadius + 1);
+                for (int y = top; y <= bottom; y++)
+                {
+                    int rowOffset = y * maskSize.Width;
+                    for (int x = left; x <= right; x++)
+                    {
+                        if (!DoesPixelCellIntersectCircle(x, y, center, radiusSquared))
+                        {
+                            continue;
+                        }
+
+                        int index = rowOffset + x;
+                        if (mask[index] == target)
+                        {
+                            continue;
+                        }
+
+                        mask[index] = target;
+                        changed = true;
+                        if (x < changedLeft)
+                        {
+                            changedLeft = x;
+                        }
+
+                        if (y < changedTop)
+                        {
+                            changedTop = y;
+                        }
+
+                        if (x > changedRight)
+                        {
+                            changedRight = x;
+                        }
+
+                        if (y > changedBottom)
+                        {
+                            changedBottom = y;
+                        }
+                    }
+                }
+            }
+
+            changedBounds = changed
+                ? Rectangle.FromLTRB(changedLeft, changedTop, changedRight + 1, changedBottom + 1)
+                : Rectangle.Empty;
+            return changed;
+        }
+
+        private static bool DoesPixelCellIntersectCircle(int x, int y, Point center, double radiusSquared)
+        {
+            double nearestX = Math.Clamp(center.X, x - 0.5D, x + 0.5D);
+            double nearestY = Math.Clamp(center.Y, y - 0.5D, y + 0.5D);
+            double dx = nearestX - center.X;
+            double dy = nearestY - center.Y;
+            return (dx * dx) + (dy * dy) <= radiusSquared;
+        }
+
+        private static bool ShouldRecalculateMaskBoundsAfterErase(Rectangle currentBounds, Rectangle changedBounds)
+        {
+            if (currentBounds.IsEmpty || changedBounds.IsEmpty)
+            {
+                return true;
+            }
+
+            return changedBounds.Left <= currentBounds.Left
+                || changedBounds.Top <= currentBounds.Top
+                || changedBounds.Right >= currentBounds.Right
+                || changedBounds.Bottom >= currentBounds.Bottom;
+        }
+
+        private static Rectangle GetStrokeBounds(IReadOnlyCollection<Point> centers, int radius, Size imageSize)
+        {
+            if (centers == null || centers.Count == 0 || imageSize.Width <= 0 || imageSize.Height <= 0)
+            {
+                return Rectangle.Empty;
+            }
+
+            int left = Math.Max(0, centers.Min(point => point.X) - radius - 1);
+            int top = Math.Max(0, centers.Min(point => point.Y) - radius - 1);
+            int right = Math.Min(imageSize.Width, centers.Max(point => point.X) + radius + 2);
+            int bottom = Math.Min(imageSize.Height, centers.Max(point => point.Y) + radius + 2);
+            return Rectangle.FromLTRB(left, top, Math.Max(left, right), Math.Max(top, bottom));
+        }
+
+        private static bool HasMaskPixels(byte[] mask)
+        {
+            return mask != null && mask.Any(value => value != 0);
+        }
+
+        private static byte[] RasterizeSegmentsToMask(IEnumerable<LabelingSegmentationObject> segments, Size imageSize)
+        {
+            byte[] mask = new byte[Math.Max(0, imageSize.Width * imageSize.Height)];
+            if (imageSize.Width <= 0 || imageSize.Height <= 0)
+            {
+                return mask;
+            }
+
+            using var bitmap = new Bitmap(imageSize.Width, imageSize.Height);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            {
+                graphics.Clear(Color.Black);
+                using var fillBrush = new SolidBrush(Color.White);
+                using var eraseBrush = new SolidBrush(Color.Black);
+                foreach (LabelingSegmentationObject segment in segments ?? Enumerable.Empty<LabelingSegmentationObject>())
+                {
+                    if (segment == null)
+                    {
+                        continue;
+                    }
+
+                    if (segment.IsRasterMask)
+                    {
+                        for (int y = 0; y < Math.Min(imageSize.Height, segment.MaskSize.Height); y++)
+                        {
+                            int sourceOffset = y * segment.MaskSize.Width;
+                            for (int x = 0; x < Math.Min(imageSize.Width, segment.MaskSize.Width); x++)
+                            {
+                                if (segment.MaskData[sourceOffset + x] != 0)
+                                {
+                                    bitmap.SetPixel(x, y, Color.White);
+                                }
+                            }
+                        }
+
+                        continue;
+                    }
+
+                    if (segment.Points?.Count >= 3)
+                    {
+                        graphics.FillPolygon(fillBrush, segment.Points.ToArray());
+                    }
+
+                    foreach (List<Point> cutout in segment.CutoutPolygons ?? new List<List<Point>>())
+                    {
+                        if (cutout?.Count >= 3)
+                        {
+                            graphics.FillPolygon(eraseBrush, cutout.ToArray());
+                        }
+                    }
+                }
+            }
+
+            for (int y = 0; y < imageSize.Height; y++)
+            {
+                int rowOffset = y * imageSize.Width;
+                for (int x = 0; x < imageSize.Width; x++)
+                {
+                    mask[rowOffset + x] = bitmap.GetPixel(x, y).R > 0 ? (byte)1 : (byte)0;
+                }
+            }
+
+            return mask;
+        }
+
+        private LabelingSegmentationObject CreateSegmentObject(
+            IEnumerable<Point> points,
+            Yolo.CClassItem classItem,
+            string className,
+            bool selected,
+            IEnumerable<IEnumerable<Point>> cutouts = null)
+        {
+            var segment = new LabelingSegmentationObject(points, classItem)
+            {
+                ClassName = string.IsNullOrWhiteSpace(className) ? classItem?.Text ?? string.Empty : className,
+                Selected = selected
+            };
+
+            if (_currentImage != null)
+            {
+                foreach (IEnumerable<Point> cutout in cutouts ?? Enumerable.Empty<IEnumerable<Point>>())
+                {
+                    List<Point> normalized = SegmentationGeometry.NormalizePolygon(
+                        cutout,
+                        _currentImage.Size,
+                        minimumDistance: 1,
+                        simplificationTolerance: 0.75D);
+                    if (normalized.Count >= 3)
+                    {
+                        segment.CutoutPolygons.Add(normalized);
+                    }
+                }
+            }
+
+            return segment;
+        }
+
+        private string ResolveMergeClassName(string className)
+        {
+            if (!string.IsNullOrWhiteSpace(className))
+            {
+                return className;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_SelectedSegmentClass))
+            {
+                return _SelectedSegmentClass;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_SelectedClass) && _SegmentationDic.ContainsKey(_SelectedClass))
+            {
+                return _SelectedClass;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_TempOb.cClassItem?.Text) && _SegmentationDic.ContainsKey(_TempOb.cClassItem.Text))
+            {
+                return _TempOb.cClassItem.Text;
+            }
+
+            return _SegmentationDic
+                .Where(group => group.Value != null && group.Value.Count > 0)
+                .Select(group => group.Key)
+                .FirstOrDefault() ?? string.Empty;
+        }
+
+        private void AddTempRectangle()
+        {
+            Yolo.CClassItem targetClass = ResolveRoiClass(_TempOb.cClassItem);
+            UnSelectAll();
+            CRectangleObject rectangleObject = new CRectangleObject
+            {
+                Roi = TempROI,
+                cClassItem = targetClass,
+                Selected = true
+            };
+
+            string className = targetClass.Text;
+            if (!_RoiDic.TryGetValue(className, out List<CRectangleObject> list))
+            {
+                list = new List<CRectangleObject>();
+                _RoiDic.Add(className, list);
+            }
+
+            list.Add(rectangleObject);
+            _SelectROiIndex = list.Count - 1;
+        }
+
+        private void SetToRectangle(MouseEventArgs e, ref Rectangle roi)
+        {
+            if (e.Button != MouseButtons.Left)
+            {
+                return;
+            }
+
+            _EndPt = PointToImage(e.Location);
+            Rectangle bounds = Rectangle.FromLTRB(_MinX, _MinY, _MaxX, _MaxY);
+            roi = RoiGeometry.CreateBoundedRectangle(_StartPt, _EndPt, bounds);
+        }
+
+        private bool ClearROI()
+        {
+            AnnotationSnapshot before = CaptureAnnotationSnapshot();
+            bool removed = RemoveSelectedRoi() || RemoveSelectedSegmentation();
+
+            if (removed)
+            {
+                PushUndoSnapshot(before);
+                CommitCurrentAnnotations();
+                RaiseAnnotationSelectionChanged();
+            }
+
+            _MouseDown = Point.Empty;
+            _StartPt = Point.Empty;
+            _EndPt = Point.Empty;
+            Canvas?.RefreshGL();
+            return removed;
+        }
+
+        private bool RemoveSelectedRoi()
+        {
+            foreach (string className in _RoiDic.Keys.ToList())
+            {
+                List<CRectangleObject> rois = _RoiDic[className];
+                int selectedIndex = rois.FindIndex(roi => roi?.Selected == true);
+                if (selectedIndex < 0)
+                {
+                    continue;
+                }
+
+                rois.RemoveAt(selectedIndex);
+                if (rois.Count == 0)
+                {
+                    _RoiDic.Remove(className);
+                }
+
+                _SelectROiIndex = -1;
+                _SelectedClass = string.Empty;
+                _MouseOperation = PosSizableRect.None;
+                UnSelectAll();
+                return true;
+            }
+
+            if (!string.IsNullOrWhiteSpace(_SelectedClass)
+                && _RoiDic.TryGetValue(_SelectedClass, out List<CRectangleObject> selectedClassRois)
+                && _SelectROiIndex >= 0
+                && _SelectROiIndex < selectedClassRois.Count)
+            {
+                selectedClassRois.RemoveAt(_SelectROiIndex);
+                if (selectedClassRois.Count == 0)
+                {
+                    _RoiDic.Remove(_SelectedClass);
+                }
+
+                _SelectROiIndex = -1;
+                _SelectedClass = string.Empty;
+                _MouseOperation = PosSizableRect.None;
+                UnSelectAll();
+                return true;
+            }
+
+            return false;
+        }
+
+        private bool RemoveLastSegmentation(string className)
+        {
+            string targetClassName = string.IsNullOrWhiteSpace(className) ? _SelectedSegmentClass : className;
+            if (string.IsNullOrWhiteSpace(targetClassName))
+            {
+                targetClassName = _SegmentationDic
+                    .Where(group => group.Value != null && group.Value.Count > 0)
+                    .Select(group => group.Key)
+                    .LastOrDefault() ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(targetClassName) || !_SegmentationDic.TryGetValue(targetClassName, out List<LabelingSegmentationObject> segments))
+            {
+                return false;
+            }
+
+            if (segments.Count == 0)
+            {
+                return false;
+            }
+
+            segments.RemoveAt(segments.Count - 1);
+            _SelectedSegmentClass = string.Empty;
+            _SelectSegmentIndex = -1;
+            return true;
+        }
+
+        private bool RemoveSelectedSegmentation()
+        {
+            if (string.IsNullOrWhiteSpace(_SelectedSegmentClass)
+                || !_SegmentationDic.TryGetValue(_SelectedSegmentClass, out List<LabelingSegmentationObject> segments)
+                || _SelectSegmentIndex < 0
+                || _SelectSegmentIndex >= segments.Count)
+            {
+                return false;
+            }
+
+            segments.RemoveAt(_SelectSegmentIndex);
+            _SelectedSegmentClass = string.Empty;
+            _SelectSegmentIndex = -1;
+            UnSelectAll();
+            return true;
+        }
+
+        private bool SelectSegmentAt(Point imagePoint)
+        {
+            bool hadSelection = SelectedAnnotationListIndex > 0;
+            UnSelectAll();
+            _MouseOperation = PosSizableRect.None;
+            _SelectedSegmentClass = string.Empty;
+            _SelectSegmentIndex = -1;
+
+            foreach (KeyValuePair<string, List<LabelingSegmentationObject>> group in _SegmentationDic.Reverse())
+            {
+                List<LabelingSegmentationObject> segments = group.Value;
+                if (segments == null)
+                {
+                    continue;
+                }
+
+                for (int i = segments.Count - 1; i >= 0; i--)
+                {
+                    LabelingSegmentationObject segment = segments[i];
+                    if (!IsSelectableSegment(segment))
+                    {
+                        continue;
+                    }
+
+                    if (!ContainsSegmentPoint(segment, imagePoint))
+                    {
+                        continue;
+                    }
+
+                    segment.Selected = true;
+                    _SelectedSegmentClass = group.Key;
+                    _SelectSegmentIndex = i;
+                    _MouseOperation = PosSizableRect.SizeAll;
+                    RaiseAnnotationSelectionChanged();
+                    return true;
+                }
+            }
+
+            if (hadSelection)
+            {
+                RaiseAnnotationSelectionChanged();
+            }
+
+            return false;
+        }
+
+        private int FindSelectedAnnotationListIndex()
+        {
+            int listIndex = 1;
+            foreach (KeyValuePair<string, List<CRectangleObject>> roiGroup in _RoiDic)
+            {
+                foreach (CRectangleObject roi in roiGroup.Value ?? new List<CRectangleObject>())
+                {
+                    if (roi == null || roi.Roi.IsEmpty)
+                    {
+                        continue;
+                    }
+
+                    if (roi.Selected)
+                    {
+                        return listIndex;
+                    }
+
+                    listIndex++;
+                }
+            }
+
+            foreach (KeyValuePair<string, List<LabelingSegmentationObject>> segmentGroup in _SegmentationDic)
+            {
+                foreach (LabelingSegmentationObject segment in segmentGroup.Value ?? new List<LabelingSegmentationObject>())
+                {
+                    if (!IsSelectableSegment(segment))
+                    {
+                        continue;
+                    }
+
+                    if (segment.Selected)
+                    {
+                        return listIndex;
+                    }
+
+                    listIndex++;
+                }
+            }
+
+            return -1;
+        }
+
+        private void RaiseAnnotationSelectionChanged()
+        {
+            int selectedIndex = FindSelectedAnnotationListIndex();
+            LabelingAnnotationKind? selectedKind = null;
+            string className = string.Empty;
+
+            if (selectedIndex > 0)
+            {
+                LabelingRoiListItem item = GetRoiListItems().FirstOrDefault(x => x.Index == selectedIndex);
+                selectedKind = item?.Kind;
+                className = item?.ClassName ?? string.Empty;
+            }
+
+            AnnotationSelectionChanged?.Invoke(
+                this,
+                new LabelingAnnotationSelectionChangedEventArgs(selectedIndex, selectedKind, className));
+        }
+
+        private AnnotationSnapshot CaptureAnnotationSnapshot()
+        {
+            return new AnnotationSnapshot
+            {
+                SelectedClass = _SelectedClass,
+                SelectedSegmentClass = _SelectedSegmentClass,
+                SelectedSegmentIndex = _SelectSegmentIndex,
+                SelectedRoiIndex = _SelectROiIndex,
+                Rois = _RoiDic.ToDictionary(
+                    group => group.Key,
+                    group => group.Value?
+                        .Where(item => item != null)
+                        .Select(item => new RoiSnapshot
+                        {
+                            Roi = item.Roi,
+                            ClassName = item.cClassItem?.Text ?? group.Key,
+                            DrawColor = item.cClassItem?.DrawColor ?? Color.LimeGreen,
+                            Selected = item.Selected
+                        })
+                        .ToList() ?? new List<RoiSnapshot>()),
+                Segments = _SegmentationDic.ToDictionary(
+                    group => group.Key,
+                    group => group.Value?
+                        .Where(IsSelectableSegment)
+                        .Select(item => new SegmentSnapshot
+                        {
+                            Points = item.Points != null ? new List<Point>(item.Points) : new List<Point>(),
+                            Cutouts = item.CutoutPolygons?
+                                .Where(cutout => cutout != null)
+                                .Select(cutout => new List<Point>(cutout))
+                                .ToList() ?? new List<List<Point>>(),
+                            MaskData = item.MaskData != null ? (byte[])item.MaskData.Clone() : null,
+                            MaskSize = item.MaskSize,
+                            ClassName = item.ClassItem?.Text ?? item.ClassName ?? group.Key,
+                            DrawColor = item.ClassItem?.DrawColor ?? item.Color,
+                            Selected = item.Selected
+                        })
+                        .ToList() ?? new List<SegmentSnapshot>())
+            };
+        }
+
+        private void RestoreAnnotationSnapshot(AnnotationSnapshot snapshot)
+        {
+            ClearRasterMaskTextureCache();
+            _RoiDic = new Dictionary<string, List<CRectangleObject>>();
+            _SegmentationDic = new Dictionary<string, List<LabelingSegmentationObject>>();
+            _SelectedClass = snapshot?.SelectedClass ?? _SelectedClass;
+            _SelectedSegmentClass = snapshot?.SelectedSegmentClass ?? string.Empty;
+            _SelectSegmentIndex = snapshot?.SelectedSegmentIndex ?? -1;
+            _SelectROiIndex = snapshot?.SelectedRoiIndex ?? 0;
+
+            foreach (KeyValuePair<string, List<RoiSnapshot>> group in snapshot?.Rois ?? new Dictionary<string, List<RoiSnapshot>>())
+            {
+                var rois = new List<CRectangleObject>();
+                foreach (RoiSnapshot item in group.Value ?? new List<RoiSnapshot>())
+                {
+                    var classItem = new Yolo.CClassItem
+                    {
+                        Text = string.IsNullOrWhiteSpace(item.ClassName) ? group.Key : item.ClassName,
+                        DrawColor = item.DrawColor.IsEmpty ? Color.LimeGreen : item.DrawColor
+                    };
+                    rois.Add(new CRectangleObject
+                    {
+                        Roi = item.Roi,
+                        cClassItem = classItem,
+                        Selected = item.Selected
+                    });
+                }
+
+                if (rois.Count > 0)
+                {
+                    _RoiDic[group.Key] = rois;
+                }
+            }
+
+            foreach (KeyValuePair<string, List<SegmentSnapshot>> group in snapshot?.Segments ?? new Dictionary<string, List<SegmentSnapshot>>())
+            {
+                var segments = new List<LabelingSegmentationObject>();
+                foreach (SegmentSnapshot item in group.Value ?? new List<SegmentSnapshot>())
+                {
+                    if ((item.Points == null || item.Points.Count < 3)
+                        && (item.MaskData == null || item.MaskData.Length == 0))
+                    {
+                        continue;
+                    }
+
+                    var classItem = new Yolo.CClassItem
+                    {
+                        Text = string.IsNullOrWhiteSpace(item.ClassName) ? group.Key : item.ClassName,
+                        DrawColor = item.DrawColor.IsEmpty ? Color.LimeGreen : item.DrawColor
+                    };
+                    LabelingSegmentationObject segment = item.MaskData != null && item.MaskData.Length > 0
+                        ? new LabelingSegmentationObject(Array.Empty<Point>(), classItem)
+                        {
+                            ClassName = classItem.Text,
+                            ClassItem = classItem,
+                            Selected = item.Selected,
+                            MaskData = (byte[])item.MaskData.Clone(),
+                            MaskSize = item.MaskSize,
+                            MaskBounds = SegmentationGeometry.GetMaskBounds(item.MaskData, item.MaskSize),
+                            RenderVersion = 1,
+                            RenderDirtyBounds = new Rectangle(Point.Empty, item.MaskSize)
+                        }
+                        : CreateSegmentObject(item.Points, classItem, classItem.Text, item.Selected, item.Cutouts);
+                    segments.Add(segment);
+                }
+
+                if (segments.Count > 0)
+                {
+                    _SegmentationDic[group.Key] = segments;
+                }
+            }
+        }
+
+        private void PushUndoSnapshot(AnnotationSnapshot snapshot)
+        {
+            if (snapshot == null)
+            {
+                return;
+            }
+
+            undoSnapshots.Push(snapshot);
+            while (undoSnapshots.Count > MaxUndoSnapshotCount)
+            {
+                TrimOldestUndoSnapshot();
+            }
+
+            redoSnapshots.Clear();
+        }
+
+        private void TrimOldestUndoSnapshot()
+        {
+            if (undoSnapshots.Count <= MaxUndoSnapshotCount)
+            {
+                return;
+            }
+
+            AnnotationSnapshot[] snapshots = undoSnapshots.ToArray();
+            undoSnapshots.Clear();
+            for (int i = snapshots.Length - 2; i >= 0; i--)
+            {
+                undoSnapshots.Push(snapshots[i]);
+            }
+        }
+
+        private sealed class AnnotationSnapshot
+        {
+            public Dictionary<string, List<RoiSnapshot>> Rois { get; set; } = new Dictionary<string, List<RoiSnapshot>>();
+            public Dictionary<string, List<SegmentSnapshot>> Segments { get; set; } = new Dictionary<string, List<SegmentSnapshot>>();
+            public string SelectedClass { get; set; } = string.Empty;
+            public string SelectedSegmentClass { get; set; } = string.Empty;
+            public int SelectedRoiIndex { get; set; }
+            public int SelectedSegmentIndex { get; set; }
+        }
+
+        private sealed class RoiSnapshot
+        {
+            public Rectangle Roi { get; set; }
+            public string ClassName { get; set; } = string.Empty;
+            public Color DrawColor { get; set; } = Color.LimeGreen;
+            public bool Selected { get; set; }
+        }
+
+        private sealed class SegmentSnapshot
+        {
+            public List<Point> Points { get; set; } = new List<Point>();
+            public List<List<Point>> Cutouts { get; set; } = new List<List<Point>>();
+            public byte[] MaskData { get; set; }
+            public Size MaskSize { get; set; }
+            public string ClassName { get; set; } = string.Empty;
+            public Color DrawColor { get; set; } = Color.LimeGreen;
+            public bool Selected { get; set; }
+        }
+
+        private static bool IsSelectableSegment(LabelingSegmentationObject segment)
+        {
+            return segment != null && (!segment.Bounds.IsEmpty || segment.Points?.Count >= 3);
+        }
+
+        private static bool ContainsSegmentPoint(LabelingSegmentationObject segment, Point imagePoint)
+        {
+            if (segment == null || !segment.Bounds.Contains(imagePoint))
+            {
+                return false;
+            }
+
+            if (segment.IsRasterMask)
+            {
+                if (imagePoint.X < 0 || imagePoint.Y < 0 || imagePoint.X >= segment.MaskSize.Width || imagePoint.Y >= segment.MaskSize.Height)
+                {
+                    return false;
+                }
+
+                return segment.MaskData[(imagePoint.Y * segment.MaskSize.Width) + imagePoint.X] != 0;
+            }
+
+            return SegmentationGeometry.ContainsPoint(segment.Points, imagePoint);
+        }
 
         private void ChangeCursor()
         {
-            switch (_Mode)
+            if (Canvas == null)
             {
-                case RoiMode.Rectangle:
-                    List<CRectangleObject> RoisOb = new List<CRectangleObject>();
-                    if (_RoiDic.TryGetValue(_SelectedClass, out RoisOb))
-                    {
-                        if (_SelectROiIndex > RoisOb.Count) { return; }
-                        if (RoisOb.Count == 0) { return; }
-
-                        int index = RoisOb.FindIndex(x => x.Selected == true);
-
-                        if (index < 0) { return; }
-
-                        _Ib.Cursor = RoisOb[index].ChangeCursor(_Position, RoisOb[index].Roi, _Ib);
-                    }
-                    break;
+                return;
             }
+
+            if (_Mode == LabelingRoiMode.SegmentationBrush || _Mode == LabelingRoiMode.SegmentationEraser)
+            {
+                Canvas.Cursor = Cursors.Cross;
+                return;
+            }
+
+            if (_Mode != LabelingRoiMode.Rectangle)
+            {
+                Canvas.Cursor = Cursors.Default;
+                return;
+            }
+
+            CRectangleObject selected = _RoiDic.Values
+                .Where(list => list != null)
+                .SelectMany(list => list)
+                .FirstOrDefault(x => x?.Selected == true);
+            Canvas.Cursor = selected == null ? Cursors.Default : selected.ChangeCursor(_Position, GetImageHandleSize());
         }
 
-        /// <summary>
-        /// 그려진 모든 DrawObject의 선택을 해제한다.
-        /// </summary>
         private void UnSelectAll()
         {
-            foreach (var item in _RoiDic)
+            RoiInteractionController.ClearSelection(_RoiDic);
+            ClearSegmentSelection();
+        }
+
+        private void ClearSegmentSelection()
+        {
+            foreach (List<LabelingSegmentationObject> segments in _SegmentationDic.Values)
             {
-                for (int i = 0; i < item.Value.Count; i++)
+                if (segments == null)
                 {
-                    item.Value[i].Selected = false;
+                    continue;
+                }
+
+                foreach (LabelingSegmentationObject segment in segments.Where(item => item != null))
+                {
+                    segment.Selected = false;
                 }
             }
         }
 
         private void SettingParameter()
         {
-            if (_Ib.Image == null) { return; }
-            _MaxX = _Ib.Image.Width;
-            _MaxY = _Ib.Image.Height;
-            _TempOb._MaxX = _Ib.Image.Width;
-            _TempOb._MaxY = _Ib.Image.Height;
-            _TempOb.OriginalSize = new System.Drawing.Size(this._Ib.Image.Width, this._Ib.Image.Height);
-
-            foreach (var item in _RoiDic)
+            if (_currentImage == null)
             {
-                for (int i = 0; i < item.Value.Count; i++)
-                {
-                    item.Value[i]._MaxX = _Ib.Image.Width;
-                    item.Value[i]._MaxY = _Ib.Image.Height;
-                    item.Value[i].OriginalSize = new System.Drawing.Size(this._Ib.Image.Width, this._Ib.Image.Height);
-                }
+                return;
             }
+
+            _MaxX = _currentImage.Width;
+            _MaxY = _currentImage.Height;
+            _TempOb._MaxX = _currentImage.Width;
+            _TempOb._MaxY = _currentImage.Height;
+            _TempOb.OriginalSize = _currentImage.Size;
+
+            RoiInteractionController.ApplyImageBounds(_RoiDic, _currentImage.Size);
         }
 
-        private void GetPixelData(System.Drawing.Point _POSITION)
+        private void GetPixelData(Point position)
         {
-            if (_POSITION.X > 0 && _POSITION.Y > 0 && _POSITION.X < _Ib.Image.Width && _POSITION.Y < _Ib.Image.Height)
+            if (_currentImage == null || position.X <= 0 || position.Y <= 0 || position.X >= _currentImage.Width || position.Y >= _currentImage.Height)
             {
-                Bitmap Image = (Bitmap)_Ib.Image;
-                _Rgb = Image.GetPixel(_POSITION.X, _POSITION.Y);
-                _GrayValue = (_Rgb.R + _Rgb.G + _Rgb.B) / 3;
+                return;
             }
+
+            _Rgb = _currentImage.GetPixel(position.X, position.Y);
+            _GrayValue = (_Rgb.R + _Rgb.G + _Rgb.B) / 3;
+        }
+
+        private Point GetCanvasCenter()
+        {
+            if (Canvas == null)
+            {
+                return Point.Empty;
+            }
+
+            return new Point(Math.Max(0, Canvas.Width / 2), Math.Max(0, Canvas.Height / 2));
+        }
+
+        private void CommitCurrentAnnotations()
+        {
+            CGlobal.Inst.LabelingWorkflow.CommitMainAnnotations(CGlobal.Inst.Data, CGlobal.Inst.System);
         }
 
         private void ImageMenuClicked(object sender, ToolStripItemClickedEventArgs e)
@@ -720,105 +2372,214 @@ namespace MvcVisionSystem
                 if (_ExcuteCount != 1) { return; }
                 ddmImageMenu.Hide();
                 ddmDelete.Hide();
-                switch (e.ClickedItem.Text)
+                switch (GetViewerMenuCommand(e.ClickedItem))
                 {
-                    case "Image Load":
-                        string ImagePath = CUtil.LoadImageFilePath();
-
-                        if (ImagePath != "")
+                    case ViewerMenuCommand.ImageLoad:
+                        string imagePath = CUtil.LoadImageFilePath();
+                        if (!string.IsNullOrEmpty(imagePath))
                         {
-                            Bitmap Image = new Bitmap(ImagePath);
-                            _Ib.Image = Image;
-                            //this.Image = Image;
-                            CDisplayManager.ImageSrc = Lib.Common.CImageConverter.ToMat(Image);
-                            _Ib.ZoomToFit();
+                            using (Bitmap image = AppImageLoader.LoadBitmap(imagePath))
+                            using (Bitmap mainImage = new Bitmap(image))
+                            {
+                                LoadMainImage(mainImage, Path.GetFileNameWithoutExtension(imagePath), imagePath);
+                            }
                         }
                         break;
-                    case "Image Save":
-                        if (_Ib.Image.Width != 10 && _Ib.Image.Height != 10)
+                    case ViewerMenuCommand.ImageSave:
+                        if (_currentImage != null && _currentImage.Width != 10 && _currentImage.Height != 10)
                         {
-                            ImagePath = CUtil.SaveImageFilePath();
-
-                            if (ImagePath != "") { _Ib.Image.Save(ImagePath); }
+                            imagePath = CUtil.SaveImageFilePath();
+                            if (!string.IsNullOrEmpty(imagePath)) { _currentImage.Save(imagePath); }
                         }
                         break;
-                    case "Show Folder":
+                    case ViewerMenuCommand.ShowFolder:
                         Process.Start(Application.StartupPath + "\\");
                         break;
-                    case "CROSS":
+                    case ViewerMenuCommand.ToggleCross:
                         _ViewCross = !_ViewCross;
+                        Canvas?.RefreshGL();
                         break;
-                    case "Delete":
+                    case ViewerMenuCommand.DeleteRoi:
                         ClearROI();
-                        break;
-                    case "Roi List":
-                        break;
-                    default:
                         break;
                 }
             }
-            catch (Exception Desc)
+            catch (Exception ex)
             {
-                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                AppLog.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name} Exception ==> {ex.Message}");
             }
             _ExcuteCount++;
         }
 
-
-        private void Open_DropdownMenu(RJCodeUI_M1.RJControls.RJDropdownMenu dropdownMenu, object sender, MouseEventArgs e)
+        private void ConfigureReadableWorkbenchContextMenu()
         {
-            Control control = (Control)sender;
+            toolStripMenuItem9.Text = "\uB77C\uBCA8 \uC0AD\uC81C";
+            toolStripMenuItem9.Tag = ViewerMenuCommand.DeleteRoi;
+            toolStripMenuItem10.Text = "\uB77C\uBCA8 \uBAA9\uB85D";
+            toolStripMenuItem10.Tag = ViewerMenuCommand.RoiList;
 
-            dropdownMenu.VisibleChanged += new EventHandler((sender2, ev)
-             => DropdownMenu_VisibleChanged(sender2, ev, control));
-            dropdownMenu.ItemClicked += new ToolStripItemClickedEventHandler(ImageMenuClicked);
-            dropdownMenu.Show(control, e.X, e.Y);
+            iconMenuItem1.Text = "\uC774\uBBF8\uC9C0 \uC5F4\uAE30";
+            iconMenuItem1.Tag = ViewerMenuCommand.ImageLoad;
+            iconMenuItem2.Text = "\uC774\uBBF8\uC9C0 \uC800\uC7A5";
+            iconMenuItem2.Tag = ViewerMenuCommand.ImageSave;
+            iconMenuItem3.Text = "\uD3F4\uB354 \uC5F4\uAE30";
+            iconMenuItem3.Tag = ViewerMenuCommand.ShowFolder;
+            iconMenuItem6.Text = "\uC2ED\uC790\uC120";
+            iconMenuItem6.Tag = ViewerMenuCommand.ToggleCross;
         }
 
-        private void DropdownMenu_VisibleChanged(object sender, EventArgs e, Control ctrl)
+        private static ViewerMenuCommand GetViewerMenuCommand(ToolStripItem item)
         {
-            RJCodeUI_M1.RJControls.RJDropdownMenu dropdownMenu = (RJCodeUI_M1.RJControls.RJDropdownMenu)sender;
-            if (!DesignMode)
+            if (item?.Tag is ViewerMenuCommand command)
             {
-                if (dropdownMenu.Visible)
-                    ctrl.BackColor = DEFINE.MOUSEHOVER_COLOR;
-                else ctrl.BackColor = System.Drawing.Color.FromArgb(49, 42, 81);
+                return command;
             }
-        }
 
-        #region ImageBox
-        private void MouseWheelEvent(object sender, MouseEventArgs e)
-        {
-            if ((e.Delta / 120) > 0) { ZoomInImage(); }
-            else { ZoomOutImage(); }
-        }
-
-        #region Display
-        private void ZoomInImage() => _Ib.ZoomIn();
-        private void ZoomOutImage() => _Ib.ZoomOut();
-        #endregion
-
-        #endregion
-        private void timer1_Tick(object sender, EventArgs e)
-        {
-            if (this._OnlyDragMode)
+            return item?.Text switch
             {
-                _Mode = RoiMode.Drag;
-                _Ib.Text = "";
+                "Image Load" or "이미지 열기" => ViewerMenuCommand.ImageLoad,
+                "Image Save" or "이미지 저장" => ViewerMenuCommand.ImageSave,
+                "Show Folder" or "폴더 열기" => ViewerMenuCommand.ShowFolder,
+                "CROSS" or "십자선" => ViewerMenuCommand.ToggleCross,
+                "Delete" or "라벨 삭제" => ViewerMenuCommand.DeleteRoi,
+                "Roi List" or "라벨 목록" => ViewerMenuCommand.RoiList,
+                _ => ViewerMenuCommand.None
+            };
+        }
+
+        private void Open_DropdownMenu(RJCodeUI_M1.RJControls.RJDropdownMenu dropdownMenu, MouseEventArgs e)
+        {
+            if (Canvas == null)
+            {
                 return;
             }
 
-            switch (_Mode)
+            dropdownMenu.ItemClicked -= ImageMenuClicked;
+            dropdownMenu.ItemClicked += ImageMenuClicked;
+            dropdownMenu.Show(Canvas, e.X, e.Y);
+        }
+
+        private void timer1_Tick(object sender, EventArgs e)
+        {
+            if (_OnlyDragMode)
             {
-                case RoiMode.Drag:
-                    _Ib.Text = "이동 모드";
-                    break;
-                case RoiMode.Rectangle:
-                    _Ib.Text = "사각형 모드";
-                    break;
-                case RoiMode.Segmentation:
-                    _Ib.Text = "브러쉬 모드";
-                    break;
+                _Mode = LabelingRoiMode.Drag;
+            }
+        }
+
+        private void DisposeViewerResources()
+        {
+            ClearRasterMaskTextureCache();
+            DisposeCanvas();
+            ddmImageMenu.ItemClicked -= ImageMenuClicked;
+            ddmDelete.ItemClicked -= ImageMenuClicked;
+            timer1.Stop();
+
+            _currentImage?.Dispose();
+            _currentImage = null;
+            _RoiDic.Clear();
+            _SegmentationDic.Clear();
+            currentPoints.Clear();
+            _detectionOverlays.Clear();
+        }
+
+        private Yolo.CClassItem ResolveSegmentationClass(Yolo.CClassItem classItem)
+        {
+            Yolo.CClassItem targetClass = classItem ?? _TempOb.cClassItem ?? new Yolo.CClassItem { Text = _SelectedClass };
+            string className = targetClass.Text ?? _SelectedClass ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(className))
+            {
+                className = "Defect";
+            }
+
+            targetClass.Text = className;
+            targetClass.DrawColor = ResolveVisibleClassColor(className, targetClass.DrawColor);
+            return targetClass;
+        }
+
+        private Yolo.CClassItem ResolveRoiClass(Yolo.CClassItem classItem)
+        {
+            Yolo.CClassItem targetClass = classItem ?? _TempOb.cClassItem ?? new Yolo.CClassItem { Text = _SelectedClass };
+            string className = targetClass.Text ?? _SelectedClass ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(className))
+            {
+                className = "Defect";
+            }
+
+            targetClass.Text = className;
+            targetClass.DrawColor = ResolveVisibleClassColor(className, targetClass.DrawColor);
+            _SelectedClass = className;
+            _TempOb.cClassItem = targetClass;
+            _TempOb.Title = className;
+            return targetClass;
+        }
+
+        private Color ResolveVisibleClassColor(string className, Color fallbackColor)
+        {
+            Color classColor = CGlobal.Inst?.Data?.ClassNamedList?
+                .FirstOrDefault(item => string.Equals(item?.Text, className, StringComparison.OrdinalIgnoreCase))
+                ?.DrawColor ?? fallbackColor;
+            return EnsureVisibleAnnotationColor(classColor);
+        }
+
+        private static Yolo.CClassItem ResolveClassItem(string className, IReadOnlyList<Yolo.CClassItem> classes)
+        {
+            Yolo.CClassItem classItem = classes?.FirstOrDefault(item => string.Equals(item?.Text, className, StringComparison.OrdinalIgnoreCase))
+                ?? new Yolo.CClassItem { Text = className, DrawColor = Color.LimeGreen };
+            classItem.DrawColor = EnsureVisibleAnnotationColor(classItem.DrawColor);
+            return classItem;
+        }
+
+        private static Color EnsureVisibleAnnotationColor(Color color)
+        {
+            if (color.IsEmpty || color.ToArgb() == Color.Black.ToArgb() || (color.R + color.G + color.B) < 72)
+            {
+                return Color.LimeGreen;
+            }
+
+            return color;
+        }
+
+        private void DisposeCanvas()
+        {
+            if (Canvas == null)
+            {
+                return;
+            }
+
+            DetachCanvasEvents(Canvas);
+
+            Control parent = Canvas.Parent;
+            if (parent != null)
+            {
+                parent.Controls.Remove(Canvas);
+            }
+
+            Canvas.Dispose();
+            Canvas = null;
+        }
+
+        private void DetachCanvasEvents(ImageCanvasControl canvas)
+        {
+            canvas.Draw -= OnCanvasDraw;
+            canvas.MouseDoubleClicked -= OnCanvasMouseDoubleClicked;
+            canvas.MouseDown -= OnCanvasMouseDown;
+            canvas.MouseMove -= OnCanvasMouseMove;
+            canvas.MouseUp -= OnCanvasMouseUp;
+            canvas.MouseWheel -= OnCanvasMouseWheel;
+            canvas.KeyDown -= OnCanvasKeyDown;
+            canvas.Load -= OnCanvasLoad;
+            canvas.DragEnter -= OnCanvasDragEnter;
+            canvas.DragDrop -= OnCanvasDragDrop;
+        }
+
+        private static void DisposeHostControls(Control host)
+        {
+            while (host.Controls.Count > 0)
+            {
+                Control control = host.Controls[0];
+                host.Controls.RemoveAt(0);
+                control.Dispose();
             }
         }
     }

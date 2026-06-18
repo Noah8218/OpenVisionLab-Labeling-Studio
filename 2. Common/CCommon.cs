@@ -1,231 +1,106 @@
-﻿using Lib.Common;
-using RJCodeUI_M1.RJControls;
+﻿using OpenVisionLab.MessageDialogs;
 using System;
-using System.Collections.Generic;
-using System.IO;
 using System.Linq;
 using System.Reflection;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace MvcVisionSystem
 {
     public class CCommon
     {
-        public static bool ShowdialogMessageBox(string strHead, string strMessage, FormMessageBox.MESSAGEBOX_TYPE type = FormMessageBox.MESSAGEBOX_TYPE.Normal)
+        public enum MessageBoxType
+        {
+            Normal = 0,
+            Info,
+            Quit,
+            Stop,
+            Waring,
+            Warning = Waring
+        }
+
+        public static bool ShowdialogMessageBox(string strHead, string strMessage, MessageBoxType type = MessageBoxType.Normal)
         {
             try
             {
-                FormMessageBox FrmMessageBox = new FormMessageBox(strHead, strMessage, type);
-
-                CLOG.NORMAL($"[{strHead}] ==> {strMessage}");
-
-                if (FrmMessageBox.ShowDialog() == DialogResult.OK) { return true; }
-                else { return false; }
+                AppLog.NORMAL($"[{strHead}] ==> {strMessage}");
+                DialogResult result = VisionMessageBox.Show(GetMessageBoxOwner(), CreateOptions(strHead, strMessage, type, MessageBoxButtons.OK));
+                return result == DialogResult.OK || result == DialogResult.Yes;
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                AppLog.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Exception ==> {Desc.Message}");
                 return false;
             }
         }
 
-        public static bool ShowMessageBox(string strHead, string strMessage, FormMessageBox.MESSAGEBOX_TYPE type = FormMessageBox.MESSAGEBOX_TYPE.Normal)
+        public static bool ShowMessageBox(string strHead, string strMessage, MessageBoxType type = MessageBoxType.Normal)
         {
             try
             {
-                FormMessageBox FrmMessageBox = new FormMessageBox(strHead, strMessage, type);
+                AppLog.NORMAL($"[{strHead}] ==> {strMessage}");
+                Form owner = GetMessageBoxOwner();
 
-                CLOG.NORMAL($"[{strHead}] ==> {strMessage}");
-
-                FrmMessageBox.UIThreadInvoke(() =>
+                void Show()
                 {
-                    FrmMessageBox.Show();//You GUI code here         
-                });
+                    VisionMessageBoxForm form = new VisionMessageBoxForm(CreateOptions(strHead, strMessage, type, MessageBoxButtons.OK));
+                    if (owner != null && !owner.IsDisposed)
+                    {
+                        form.Show(owner);
+                    }
+                    else
+                    {
+                        form.Show();
+                    }
+                }
+
+                if (owner != null && owner.InvokeRequired)
+                {
+                    owner.UIThreadBeginInvoke(Show);
+                }
+                else
+                {
+                    Show();
+                }
 
                 return true;
             }
             catch (Exception Desc)
             {
-                CLOG.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Execption ==> {Desc.Message}");
+                AppLog.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Exception ==> {Desc.Message}");
                 return false;
             }
         }
 
-        public static void SetButtonBlue(RJButton rJButton)
+        private static VisionMessageOptions CreateOptions(string title, string message, MessageBoxType type, MessageBoxButtons buttons)
         {
-            rJButton.ForeColor = DEFINE.ButtonColorBlue;
-            rJButton.IconColor = DEFINE.ButtonColorBlue;
-            rJButton.BorderColor = DEFINE.ButtonColorBlue;
-        }
-
-        public static void SetButtonRed(RJButton rJButton)
-        {
-            rJButton.ForeColor = DEFINE.ButtonColorRed;
-            rJButton.IconColor = DEFINE.ButtonColorRed;
-            rJButton.BorderColor = DEFINE.ButtonColorRed;
-        }
-
-        static object m_ob = new object();
-
-        public static string SaveLotIDPath()
-        {
-            lock (m_ob)
+            return new VisionMessageOptions
             {
-                string strLogPath = Application.StartupPath;
-                string strPath = Application.StartupPath + "\\" + "LOT\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd");
-                CUtil.InitDirectory("LOT\\" + DateTime.Now.ToString("yyyy"));
-                CUtil.InitDirectory("LOT\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM"));
-                CUtil.InitDirectory("LOT\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd"));
-
-                DirectoryInfo dir = new DirectoryInfo(strPath);
-                if (dir.Exists == false) dir.Create();
-
-                return strLogPath = Application.StartupPath + "\\" + "LOT\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\";
-            }
+                Title = title,
+                Message = message,
+                Kind = ToVisionMessageKind(type),
+                Buttons = buttons,
+                TopMost = true
+            };
         }
 
-        public static string GetPathOK()
+        private static VisionMessageKind ToVisionMessageKind(MessageBoxType type)
         {
-            lock (m_ob)
+            return type switch
             {
-                string strLogPath = Application.StartupPath;
-                string strPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "OK";
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "OK");
-
-                DirectoryInfo dir = new DirectoryInfo(strPath);
-                if (dir.Exists == false) dir.Create();
-
-                return strLogPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "OK" + "\\";
-            }
+                MessageBoxType.Info => VisionMessageKind.Info,
+                MessageBoxType.Quit => VisionMessageKind.Question,
+                MessageBoxType.Stop => VisionMessageKind.Stop,
+                MessageBoxType.Waring => VisionMessageKind.Warning,
+                _ => VisionMessageKind.Normal
+            };
         }
 
-        public static string GetPathOK_Ori()
+        private static Form GetMessageBoxOwner()
         {
-            lock (m_ob)
-            {
-                string strLogPath = Application.StartupPath;
-                string strPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "OK" + "\\Ori";
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "OK");
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "OK" + "\\Ori");
-                DirectoryInfo dir = new DirectoryInfo(strPath);
-                if (dir.Exists == false) dir.Create();
-
-                return strLogPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "OK" + "\\Ori" + "\\";
-            }
-        }
-
-        public static string GetPath_Crop()
-        {
-            lock (m_ob)
-            {
-                string strLogPath = Application.StartupPath;
-                string strPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\Crop";
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "Crop");
-                DirectoryInfo dir = new DirectoryInfo(strPath);
-                if (dir.Exists == false) dir.Create();
-
-                return strLogPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\Crop" + "\\";
-            }
-        }
-
-        public static string GetPath_Screen()
-        {
-            lock (m_ob)
-            {
-                string strLogPath = Application.StartupPath;
-                string strPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\Screen";
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "Screen");
-                DirectoryInfo dir = new DirectoryInfo(strPath);
-                if (dir.Exists == false) dir.Create();
-
-                return strLogPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\Screen" + "\\";
-            }
-        }
-
-        public static string GetPathOK_Insp()
-        {
-            lock (m_ob)
-            {
-                string strLogPath = Application.StartupPath;
-                string strPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "OK" + "\\Insp";
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "OK");
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "OK" + "\\Insp");
-                DirectoryInfo dir = new DirectoryInfo(strPath);
-                if (dir.Exists == false) dir.Create();
-
-                return strLogPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "OK" + "\\Insp" + "\\";
-            }
-        }
-
-        public static string GetPathNG()
-        {
-            lock (m_ob)
-            {
-                string strLogPath = Application.StartupPath;
-                string strPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "NG";
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "NG");
-                DirectoryInfo dir = new DirectoryInfo(strPath);
-                if (dir.Exists == false) dir.Create();
-
-                return strLogPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "NG" + "\\";
-            }
-
-        }
-
-        public static string GetPathNG_Ori()
-        {
-            lock (m_ob)
-            {
-                string strLogPath = Application.StartupPath;
-                string strPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "NG" + "\\Ori";
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "NG");
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "NG" + "\\Ori");
-                DirectoryInfo dir = new DirectoryInfo(strPath);
-                if (dir.Exists == false) dir.Create();
-
-                return strLogPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "NG" + "\\Ori" + "\\";
-            }
-        }
-
-        public static string GetPathNG_Insp()
-        {
-            lock (m_ob)
-            {
-                string strLogPath = Application.StartupPath;
-                string strPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "NG" + "\\Insp";
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd"));
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "NG");
-                CUtil.InitDirectory("Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "NG" + "\\Insp");
-                DirectoryInfo dir = new DirectoryInfo(strPath);
-                if (dir.Exists == false) dir.Create();
-
-                return strLogPath = Application.StartupPath + "\\" + "Image\\" + DateTime.Now.ToString("yyyy") + "\\" + DateTime.Now.ToString("MM") + "\\" + DateTime.Now.ToString("dd") + "\\" + "NG" + "\\Insp" + "\\";
-            }
+            return Form.ActiveForm
+                ?? Application.OpenForms
+                    .Cast<Form>()
+                    .FirstOrDefault(form => form.Visible && !form.IsDisposed && !(form is VisionMessageBoxForm));
         }
     }
 }
