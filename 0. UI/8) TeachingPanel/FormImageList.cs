@@ -19,6 +19,7 @@ namespace MvcVisionSystem
     {
         private readonly List<string> currentImagePaths = new List<string>();
         private readonly Dictionary<string, Image> thumbnailCache = new Dictionary<string, Image>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, DataGridViewRow> imageRowByPath = new Dictionary<string, DataGridViewRow>(StringComparer.OrdinalIgnoreCase);
         private readonly YoloImageReviewStatusService imageReviewStatus = new YoloImageReviewStatusService();
         private int thumbnailSize = 72;
         private bool imageGridConfigured;
@@ -1418,6 +1419,7 @@ namespace MvcVisionSystem
             try
             {
                 imageGridView.Rows.Clear();
+                imageRowByPath.Clear();
                 ClearThumbnails();
                 imageGridView.RowTemplate.Height = thumbnailSize + 16;
                 ApplyImageGridColumnLayout(Width < 520 || uiSplitContainer1.Panel1.ClientSize.Width < 520);
@@ -1556,13 +1558,9 @@ namespace MvcVisionSystem
                 return;
             }
 
-            foreach (DataGridViewRow row in imageGridView.Rows)
+            DataGridViewRow row = FindImageRow(activeImagePath);
+            if (row != null)
             {
-                if (!string.Equals(row.Tag as string, activeImagePath, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
                 bool hasActiveCandidates = CGlobal.Inst.DetectionResults
                     .GetLastCandidateReviewItems(CGlobal.Inst.Data)
                     .Any();
@@ -1651,16 +1649,11 @@ namespace MvcVisionSystem
             }
 
             bool rowUpdated = false;
-            foreach (DataGridViewRow row in imageGridView.Rows)
+            DataGridViewRow row = FindImageRow(status.ImagePath);
+            if (row != null)
             {
-                if (!string.Equals(row.Tag as string, status.ImagePath, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
                 ApplyStatusToRow(row, status);
                 rowUpdated = true;
-                break;
             }
 
             imageReviewStatus.SaveReviewStatus(CGlobal.Inst.Data);
@@ -1854,6 +1847,7 @@ namespace MvcVisionSystem
 
                 DataGridViewRow row = imageGridView.Rows[rowIndex];
                 row.Tag = imagePath;
+                imageRowByPath[imagePath] = row;
                 row.Height = thumbnailSize + 16;
                 ApplyImageGridRowVisualStyle(row);
                 ApplyStatusToRow(row, imageReviewStatus.GetOrCreate(imagePath));
@@ -1920,7 +1914,12 @@ namespace MvcVisionSystem
             isImageGridDetailLoading = true;
             imageGridDetailTotalCount = imagePaths.Count;
             imageGridDetailLoadedCount = 0;
-            UpdateListStatusText();
+            if (!isImageGridDetailLoading
+                || imageGridDetailLoadedCount == 1
+                || imageGridDetailLoadedCount % 10 == 0)
+            {
+                UpdateListStatusText();
+            }
 
             CancellationToken token = imageGridDetailLoadCts.Token;
             _ = LoadImageGridDetailsAsync(imagePaths, token);
@@ -2438,14 +2437,25 @@ namespace MvcVisionSystem
                 return null;
             }
 
+            if (imageRowByPath.TryGetValue(imagePath, out DataGridViewRow cachedRow)
+                && cachedRow != null
+                && !cachedRow.IsNewRow
+                && cachedRow.DataGridView == imageGridView
+                && string.Equals(cachedRow.Tag as string, imagePath, StringComparison.OrdinalIgnoreCase))
+            {
+                return cachedRow;
+            }
+
             foreach (DataGridViewRow row in imageGridView.Rows)
             {
                 if (string.Equals(row.Tag as string, imagePath, StringComparison.OrdinalIgnoreCase))
                 {
+                    imageRowByPath[imagePath] = row;
                     return row;
                 }
             }
 
+            imageRowByPath.Remove(imagePath);
             return null;
         }
 
@@ -2662,6 +2672,7 @@ namespace MvcVisionSystem
             imageGridDetailTotalCount = 0;
             imageGridDetailLoadedCount = 0;
             imageGridView?.Rows.Clear();
+            imageRowByPath.Clear();
             ClearThumbnails();
         }
 

@@ -116,7 +116,8 @@ internal static class Program
             ("Detection result service ignores boxes for a stale image", TestDetectionResultRejectsStaleImage),
             ("Detection result service rejects stale boxes during confirmation", TestDetectionResultRejectsStaleConfirmation),
             ("Measurement geometry calculates distance and vertical projection", TestMeasurementGeometry),
-            ("Detection results build OpenGL overlays", TestDetectionOverlays)
+            ("Detection results build OpenGL overlays", TestDetectionOverlays),
+            ("CViewer renders detection overlay labels and disposes textures", TestCViewerDetectionOverlayRenderLifecycle)
         };
 
         foreach ((string name, Action test) in tests)
@@ -4109,6 +4110,66 @@ internal static class Program
 
         Color fallbackOverlayColor = InvokePrivateStaticResult<Color>(typeof(CViewer), "EnsureReadableOverlayColor", Color.Black);
         AssertEqual(Color.FromArgb(72, 190, 255), fallbackOverlayColor);
+    }
+
+    private static void TestCViewerDetectionOverlayRenderLifecycle()
+    {
+        using var form = new Form
+        {
+            Size = new Size(640, 480),
+            StartPosition = FormStartPosition.Manual,
+            Location = new Point(-2000, 100),
+            ShowInTaskbar = false,
+            Text = "OverlayRenderLifecycle"
+        };
+        using var host = new Panel { Dock = DockStyle.Fill };
+        form.Controls.Add(host);
+        using var viewer = new CViewer();
+        viewer.AttachTo(host);
+
+        using var image = new Bitmap(120, 100);
+        using (Graphics graphics = Graphics.FromImage(image))
+        {
+            graphics.Clear(Color.FromArgb(70, 70, 70));
+            using var fill = new SolidBrush(Color.FromArgb(150, 150, 150));
+            graphics.FillEllipse(fill, 30, 25, 65, 55);
+        }
+
+        form.Show();
+        Application.DoEvents();
+        viewer.LoadMainImage(image, "overlay_lifecycle.bmp");
+        viewer.SetDetectionOverlays(new[]
+        {
+            new DetectionOverlayItem
+            {
+                CandidateIndex = 1,
+                ClassName = "OK",
+                Confidence = 0.95F,
+                Bounds = new RectangleF(20, 20, 80, 55),
+                Color = Color.LimeGreen
+            },
+            new DetectionOverlayItem
+            {
+                CandidateIndex = 2,
+                ClassName = "NG",
+                Confidence = 0.91F,
+                Bounds = new RectangleF(50, 38, 22, 34),
+                Color = Color.Red,
+                IsSelected = true
+            }
+        });
+
+        for (int i = 0; i < 8; i++)
+        {
+            viewer.Canvas.RefreshGL();
+            Application.DoEvents();
+            Thread.Sleep(20);
+        }
+
+        AssertEqual(2, viewer.DetectionOverlayCount);
+        viewer.Dispose();
+        Application.DoEvents();
+        form.Close();
     }
 
     private static int GetAvailableTcpPort()

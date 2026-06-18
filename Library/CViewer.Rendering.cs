@@ -7,22 +7,26 @@ using SharpGL;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Drawing2D;
+using System.Drawing.Imaging;
 using System.Linq;
 using System.Runtime.InteropServices;
+using System.Windows.Forms;
 using Point = System.Drawing.Point;
 
 namespace MvcVisionSystem
 {
     public partial class CViewer
     {
-        private const int OverlayLabelFontSize = 16;
-        private const float OverlayLabelPaddingX = 7F;
-        private const float OverlayLabelPaddingY = 4F;
+        private const int OverlayLabelFontSize = 22;
+        private const int OverlayLabelPaddingX = 10;
+        private const int OverlayLabelPaddingY = 6;
         private const float OverlayLabelGap = 5F;
-        private const float OverlayLabelAccentWidth = 4F;
+        private const int OverlayLabelAccentWidth = 5;
+        private const string OverlayLabelFontFamily = "Segoe UI Semibold";
 
         private readonly Dictionary<LabelingSegmentationObject, RasterMaskTextureCache> rasterMaskTextureCaches = new Dictionary<LabelingSegmentationObject, RasterMaskTextureCache>();
-        private readonly Dictionary<string, SizeF> overlayLabelSizeCache = new Dictionary<string, SizeF>(StringComparer.Ordinal);
+        private readonly Dictionary<string, OverlayLabelTextureCache> overlayLabelTextureCaches = new Dictionary<string, OverlayLabelTextureCache>(StringComparer.Ordinal);
 
         private void OnCanvasDraw(object sender, CanvasRenderEventArgs e)
         {
@@ -145,15 +149,19 @@ namespace MvcVisionSystem
 
         private void DrawScreenLabel(OpenGL gl, string title, PointF anchorScreenPoint, Color accentColor)
         {
-            var options = Canvas.GetOpenGlTextDrawOptions();
-            SizeF textSize = MeasureOverlayLabel(title);
+            OverlayLabelTextureCache cache = GetOrCreateOverlayLabelTexture(gl, title, accentColor);
+            if (cache?.TextureId == 0 || cache?.Width <= 0 || cache?.Height <= 0)
+            {
+                return;
+            }
+
             int[] viewport = new int[4];
             gl.GetInteger(OpenGL.GL_VIEWPORT, viewport);
             float viewportWidth = Math.Max(1F, viewport[2]);
             float viewportHeight = Math.Max(1F, viewport[3]);
 
-            float labelWidth = Math.Min(viewportWidth - 4F, textSize.Width + (OverlayLabelPaddingX * 2F) + OverlayLabelAccentWidth);
-            float labelHeight = textSize.Height + (OverlayLabelPaddingY * 2F);
+            float labelWidth = Math.Min(viewportWidth - 4F, cache.Width);
+            float labelHeight = cache.Height;
             float x = Clamp(anchorScreenPoint.X, 2F, Math.Max(2F, viewportWidth - labelWidth - 2F));
             float y = anchorScreenPoint.Y - labelHeight - OverlayLabelGap;
             if (y < 2F)
@@ -163,42 +171,128 @@ namespace MvcVisionSystem
 
             y = Clamp(y, 2F, Math.Max(2F, viewportHeight - labelHeight - 2F));
 
-            DrawScreenLabelBackground(gl, new RectangleF(x, y, labelWidth, labelHeight), accentColor);
-
-            float textX = x + OverlayLabelAccentWidth + OverlayLabelPaddingX;
-            float textY = y + OverlayLabelPaddingY + OverlayLabelFontSize;
-            OpenGlDrawing.DrawTextAt(gl, options.FontBitmapEntries, title, textX + 1F, textY + 1F, OverlayLabelFontSize, Color.Black, true);
-            OpenGlDrawing.DrawTextAt(gl, options.FontBitmapEntries, title, textX, textY, OverlayLabelFontSize, Color.White, true);
+            DrawScreenTexture(gl, cache.TextureId, new RectangleF(x, y, labelWidth, labelHeight));
         }
 
-        private SizeF MeasureOverlayLabel(string title)
+        private OverlayLabelTextureCache GetOrCreateOverlayLabelTexture(OpenGL gl, string title, Color accentColor)
         {
-            if (overlayLabelSizeCache.TryGetValue(title, out SizeF cachedSize))
+            Color accent = EnsureReadableOverlayColor(accentColor);
+            string key = $"{title}\u001F{accent.ToArgb()}";
+            IntPtr renderContext = gl.RenderContextProvider.RenderContextHandle;
+            if (overlayLabelTextureCaches.TryGetValue(key, out OverlayLabelTextureCache cached)
+                && cached.TextureId != 0
+                && cached.RenderContext == renderContext)
             {
-                return cachedSize;
+                return cached;
             }
 
-            if (overlayLabelSizeCache.Count > 512)
+            if (cached?.TextureId != 0)
             {
-                overlayLabelSizeCache.Clear();
+                DeleteOverlayLabelTexture(gl, cached);
             }
 
-            using var bitmap = new Bitmap(1, 1);
-            using Graphics graphics = Graphics.FromImage(bitmap);
-            using var font = new Font("Arial", OverlayLabelFontSize, FontStyle.Regular, GraphicsUnit.Pixel);
-            SizeF measured = graphics.MeasureString(title, font);
-            SizeF size = new SizeF(Math.Max(1F, measured.Width), Math.Max(OverlayLabelFontSize + 2F, measured.Height));
-            overlayLabelSizeCache[title] = size;
-            return size;
+            if (overlayLabelTextureCaches.Count > 256)
+            {
+                ClearOverlayLabelTextureCache(gl);
+            }
+
+            OverlayLabelTextureCache texture = CreateOverlayLabelTexture(gl, title, accent);
+            overlayLabelTextureCaches[key] = texture;
+            return texture;
         }
 
-        private static void DrawScreenLabelBackground(OpenGL gl, RectangleF rect, Color accentColor)
+        private static OverlayLabelTextureCache CreateOverlayLabelTexture(OpenGL gl, string title, Color accent)
+        {
+            using Font font = CreateOverlayLabelFont();
+            Size textSize = TextRenderer.MeasureText(title, font, Size.Empty, TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
+            int width = Math.Max(1, textSize.Width + (OverlayLabelPaddingX * 2) + OverlayLabelAccentWidth);
+            int height = Math.Max(OverlayLabelFontSize + (OverlayLabelPaddingY * 2), textSize.Height + (OverlayLabelPaddingY * 2));
+
+            using var bitmap = new Bitmap(width, height, PixelFormat.Format32bppArgb);
+            using (Graphics graphics = Graphics.FromImage(bitmap))
+            {
+                graphics.SmoothingMode = SmoothingMode.AntiAlias;
+                graphics.CompositingQuality = CompositingQuality.HighQuality;
+                graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+                graphics.Clear(Color.Transparent);
+
+                using var backgroundBrush = new SolidBrush(Color.FromArgb(235, 7, 10, 13));
+                using var accentBrush = new SolidBrush(accent);
+                using var borderPen = new Pen(Color.FromArgb(220, accent), 1F);
+                graphics.FillRectangle(backgroundBrush, 0, 0, width, height);
+                graphics.FillRectangle(accentBrush, 0, 0, OverlayLabelAccentWidth, height);
+                graphics.DrawRectangle(borderPen, 0, 0, width - 1, height - 1);
+
+                Rectangle textRect = new Rectangle(
+                    OverlayLabelAccentWidth + OverlayLabelPaddingX,
+                    0,
+                    Math.Max(1, width - OverlayLabelAccentWidth - (OverlayLabelPaddingX * 2)),
+                    height);
+
+                TextRenderer.DrawText(
+                    graphics,
+                    title,
+                    font,
+                    textRect,
+                    Color.White,
+                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
+            }
+
+            uint textureId = CreateTextureFromBitmap(gl, bitmap);
+            return new OverlayLabelTextureCache
+            {
+                TextureId = textureId,
+                Width = width,
+                Height = height,
+                RenderContext = gl.RenderContextProvider.RenderContextHandle
+            };
+        }
+
+        private static Font CreateOverlayLabelFont()
+        {
+            try
+            {
+                return new Font(OverlayLabelFontFamily, OverlayLabelFontSize, FontStyle.Regular, GraphicsUnit.Pixel);
+            }
+            catch
+            {
+                return new Font(FontFamily.GenericSansSerif, OverlayLabelFontSize, FontStyle.Bold, GraphicsUnit.Pixel);
+            }
+        }
+
+        private static uint CreateTextureFromBitmap(OpenGL gl, Bitmap bitmap)
+        {
+            BitmapData data = bitmap.LockBits(
+                new Rectangle(0, 0, bitmap.Width, bitmap.Height),
+                ImageLockMode.ReadOnly,
+                PixelFormat.Format32bppArgb);
+
+            try
+            {
+                uint[] texture = new uint[1];
+                gl.GenTextures(1, texture);
+                gl.BindTexture(OpenGL.GL_TEXTURE_2D, texture[0]);
+                gl.PixelStore(OpenGL.GL_UNPACK_ALIGNMENT, 4);
+                gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_MIN_FILTER, OpenGL.GL_LINEAR);
+                gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_MAG_FILTER, OpenGL.GL_LINEAR);
+                gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_WRAP_S, OpenGL.GL_CLAMP_TO_EDGE);
+                gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_WRAP_T, OpenGL.GL_CLAMP_TO_EDGE);
+                gl.TexImage2D(OpenGL.GL_TEXTURE_2D, 0, (int)OpenGL.GL_RGBA, bitmap.Width, bitmap.Height, 0, OpenGL.GL_BGRA, OpenGL.GL_UNSIGNED_BYTE, data.Scan0);
+                return texture[0];
+            }
+            finally
+            {
+                bitmap.UnlockBits(data);
+                gl.BindTexture(OpenGL.GL_TEXTURE_2D, 0);
+            }
+        }
+
+        private static void DrawScreenTexture(OpenGL gl, uint textureId, RectangleF rect)
         {
             int[] viewport = new int[4];
             gl.GetInteger(OpenGL.GL_VIEWPORT, viewport);
             float viewportWidth = Math.Max(1F, viewport[2]);
             float viewportHeight = Math.Max(1F, viewport[3]);
-            Color accent = EnsureReadableOverlayColor(accentColor);
 
             gl.PushAttrib(OpenGL.GL_ALL_ATTRIB_BITS);
             gl.MatrixMode(OpenGL.GL_PROJECTION);
@@ -209,41 +303,29 @@ namespace MvcVisionSystem
             gl.MatrixMode(OpenGL.GL_MODELVIEW);
             gl.PushMatrix();
             gl.LoadIdentity();
-            gl.Disable(OpenGL.GL_TEXTURE_2D);
             gl.Disable(OpenGL.GL_DEPTH_TEST);
+            gl.Enable(OpenGL.GL_TEXTURE_2D);
             gl.Enable(OpenGL.GL_BLEND);
             gl.BlendFunc(OpenGL.GL_SRC_ALPHA, OpenGL.GL_ONE_MINUS_SRC_ALPHA);
-
-            gl.Color(0.03f, 0.04f, 0.05f, 0.88f);
-            DrawScreenQuad(gl, rect.Left, rect.Top, rect.Right, rect.Bottom);
-
-            gl.Color(accent.R / 255F, accent.G / 255F, accent.B / 255F, 1F);
-            DrawScreenQuad(gl, rect.Left, rect.Top, rect.Left + OverlayLabelAccentWidth, rect.Bottom);
-
-            gl.LineWidth(1F);
-            gl.Color(accent.R / 255F, accent.G / 255F, accent.B / 255F, 0.72F);
-            gl.Begin(OpenGL.GL_LINE_LOOP);
+            gl.Color(1F, 1F, 1F, 1F);
+            gl.BindTexture(OpenGL.GL_TEXTURE_2D, textureId);
+            gl.Begin(OpenGL.GL_QUADS);
+            gl.TexCoord(0F, 0F);
             gl.Vertex(rect.Left, rect.Top);
+            gl.TexCoord(1F, 0F);
             gl.Vertex(rect.Right, rect.Top);
+            gl.TexCoord(1F, 1F);
             gl.Vertex(rect.Right, rect.Bottom);
+            gl.TexCoord(0F, 1F);
             gl.Vertex(rect.Left, rect.Bottom);
             gl.End();
+            gl.BindTexture(OpenGL.GL_TEXTURE_2D, 0);
 
             gl.PopMatrix();
             gl.MatrixMode(OpenGL.GL_PROJECTION);
             gl.PopMatrix();
             gl.MatrixMode(OpenGL.GL_MODELVIEW);
             gl.PopAttrib();
-        }
-
-        private static void DrawScreenQuad(OpenGL gl, float left, float top, float right, float bottom)
-        {
-            gl.Begin(OpenGL.GL_QUADS);
-            gl.Vertex(left, top);
-            gl.Vertex(right, top);
-            gl.Vertex(right, bottom);
-            gl.Vertex(left, bottom);
-            gl.End();
         }
 
         private static float Clamp(float value, float min, float max)
@@ -432,7 +514,7 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            byte[] textureData = BuildRasterMaskTextureData(segment, bounds, color, alpha);
+            byte[] textureData = RentRasterMaskTextureData(segment, bounds, color, alpha, cache);
             if (textureData.Length == 0)
             {
                 return false;
@@ -482,14 +564,24 @@ namespace MvcVisionSystem
             return true;
         }
 
-        private static byte[] BuildRasterMaskTextureData(LabelingSegmentationObject segment, Rectangle bounds, Color color, byte alpha)
+        private static byte[] RentRasterMaskTextureData(LabelingSegmentationObject segment, Rectangle bounds, Color color, byte alpha, RasterMaskTextureCache cache)
         {
             if (bounds.Width <= 0 || bounds.Height <= 0)
             {
                 return Array.Empty<byte>();
             }
 
-            byte[] pixels = new byte[bounds.Width * bounds.Height * 4];
+            int requiredLength = bounds.Width * bounds.Height * 4;
+            if (cache.TexturePixels == null || cache.TexturePixels.Length != requiredLength)
+            {
+                cache.TexturePixels = new byte[requiredLength];
+            }
+            else
+            {
+                Array.Clear(cache.TexturePixels, 0, cache.TexturePixels.Length);
+            }
+
+            byte[] pixels = cache.TexturePixels;
             for (int y = 0; y < bounds.Height; y++)
             {
                 int sourceY = bounds.Top + y;
@@ -515,6 +607,18 @@ namespace MvcVisionSystem
 
         private void ClearRasterMaskTextureCache()
         {
+            OpenGL gl = null;
+            try
+            {
+                gl = Canvas?.GetOpenGL();
+            }
+            catch
+            {
+                // The GL context may already be disposed during application shutdown.
+            }
+
+            ClearOverlayLabelTextureCache(gl);
+
             if (rasterMaskTextureCaches.Count == 0)
             {
                 return;
@@ -522,7 +626,6 @@ namespace MvcVisionSystem
 
             try
             {
-                OpenGL gl = Canvas?.GetOpenGL();
                 if (gl != null)
                 {
                     foreach (RasterMaskTextureCache cache in rasterMaskTextureCaches.Values)
@@ -545,6 +648,43 @@ namespace MvcVisionSystem
             rasterMaskTextureCaches.Clear();
         }
 
+        private void ClearOverlayLabelTextureCache(OpenGL gl)
+        {
+            if (overlayLabelTextureCaches.Count == 0)
+            {
+                return;
+            }
+
+            if (gl != null)
+            {
+                foreach (OverlayLabelTextureCache cache in overlayLabelTextureCaches.Values)
+                {
+                    DeleteOverlayLabelTexture(gl, cache);
+                }
+            }
+
+            overlayLabelTextureCaches.Clear();
+        }
+
+        private static void DeleteOverlayLabelTexture(OpenGL gl, OverlayLabelTextureCache cache)
+        {
+            if (gl == null || cache == null || cache.TextureId == 0)
+            {
+                return;
+            }
+
+            try
+            {
+                uint[] texture = { cache.TextureId };
+                gl.DeleteTextures(1, texture);
+                cache.TextureId = 0;
+            }
+            catch
+            {
+                // The GL context may already be disposed during application shutdown.
+            }
+        }
+
         private void PruneRasterMaskTextureCache(OpenGL gl)
         {
             if (rasterMaskTextureCaches.Count == 0)
@@ -552,11 +692,22 @@ namespace MvcVisionSystem
                 return;
             }
 
-            var activeSegments = new HashSet<LabelingSegmentationObject>(
-                _SegmentationDic.Values
-                    .Where(list => list != null)
-                    .SelectMany(list => list)
-                    .Where(segment => segment?.IsRasterMask == true));
+            var activeSegments = new HashSet<LabelingSegmentationObject>();
+            foreach (List<LabelingSegmentationObject> segments in _SegmentationDic.Values)
+            {
+                if (segments == null)
+                {
+                    continue;
+                }
+
+                foreach (LabelingSegmentationObject segment in segments)
+                {
+                    if (segment?.IsRasterMask == true)
+                    {
+                        activeSegments.Add(segment);
+                    }
+                }
+            }
 
             foreach (LabelingSegmentationObject staleSegment in rasterMaskTextureCaches.Keys.Where(segment => !activeSegments.Contains(segment)).ToList())
             {
@@ -586,6 +737,19 @@ namespace MvcVisionSystem
             public int ColorKey { get; set; }
 
             public byte Alpha { get; set; }
+
+            public byte[] TexturePixels { get; set; }
+        }
+
+        private sealed class OverlayLabelTextureCache
+        {
+            public uint TextureId { get; set; }
+
+            public int Width { get; set; }
+
+            public int Height { get; set; }
+
+            public IntPtr RenderContext { get; set; }
         }
 
         private int GetRasterMaskRenderStep(Rectangle bounds)
