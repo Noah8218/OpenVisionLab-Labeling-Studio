@@ -1,0 +1,127 @@
+<UserControl x:Class="MvcVisionSystem.WpfYoloStatusPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+    <UserControl.Resources>
+        <Style x:Key="YoloStatusIconStyle" TargetType="{x:Type iconPacks:PackIconMaterial}">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="YoloStatusButtonStyle" TargetType="{x:Type ui:Button}">
+            <Setter Property="Height" Value="30" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Margin" Value="0,0,5,5" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+                    <Setter Property="Opacity" Value="0.45" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <StackPanel>
+        <TextBlock x:Name="YoloSettingsSummaryText"
+                   Text="{Binding SummaryText}"
+                   Foreground="{DynamicResource PrimaryTextBrush}"
+                   FontFamily="Segoe UI"
+                   FontSize="12"
+                   FontWeight="SemiBold"
+                   TextWrapping="Wrap" />
+        <TextBlock x:Name="YoloSettingsDetailText"
+                   Text="{Binding DetailText}"
+                   Foreground="{DynamicResource SecondaryTextBrush}"
+                   FontFamily="Consolas"
+                   FontSize="11"
+                   TextWrapping="Wrap"
+                   Margin="0,8,0,0" />
+        <WrapPanel Margin="0,10,0,0">
+            <ui:Button x:Name="FirstCheckYoloButton"
+                       Style="{StaticResource YoloStatusButtonStyle}"
+                       IsEnabled="{Binding IsFirstCheckEnabled}"
+                       MinWidth="106"
+                       AutomationProperties.Name="&#xCCAB; &#xC810;&#xAC80;"
+                       ToolTip="Python, model, image, and package path check"
+                       Click="CheckYoloButton_Click">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <iconPacks:PackIconMaterial Style="{StaticResource YoloStatusIconStyle}" Kind="TestTube" />
+                    <TextBlock Text="&#xCCAB; &#xC810;&#xAC80;" VerticalAlignment="Center" />
+                </StackPanel>
+            </ui:Button>
+            <ui:Button x:Name="InstallRequirementsButton"
+                       Style="{StaticResource YoloStatusButtonStyle}"
+                       IsEnabled="{Binding IsInstallRequirementsEnabled}"
+                       MinWidth="90"
+                       AutomationProperties.Name="&#xC124;&#xCE58;"
+                       ToolTip="Install missing Python packages"
+                       Click="InstallRequirementsButton_Click">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <iconPacks:PackIconMaterial Style="{StaticResource YoloStatusIconStyle}" Kind="TrayArrowDown" />
+                    <TextBlock Text="&#xC124;&#xCE58;" VerticalAlignment="Center" />
+                </StackPanel>
+            </ui:Button>
+            <ui:Button x:Name="RunYoloSmokeButton"
+                       Style="{StaticResource YoloStatusButtonStyle}"
+                       IsEnabled="{Binding IsRunSmokeEnabled}"
+                       MinWidth="78"
+                       AutomationProperties.Name="&#xD14C;&#xC2A4;&#xD2B8;"
+                       ToolTip="Run YOLO smoke inference with current settings"
+                       Click="RunYoloSmokeButton_Click">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <iconPacks:PackIconMaterial Style="{StaticResource YoloStatusIconStyle}" Kind="PlayCircleOutline" />
+                    <TextBlock Text="&#xD14C;&#xC2A4;&#xD2B8;" VerticalAlignment="Center" />
+                </StackPanel>
+            </ui:Button>
+            <ui:Button x:Name="RestartPythonWorkerButton"
+                       Style="{StaticResource YoloStatusButtonStyle}"
+                       IsEnabled="{Binding IsRestartWorkerEnabled}"
+                       MinWidth="92"
+                       AutomationProperties.Name="&#xC7AC;&#xC2DC;&#xC791;"
+                       ToolTip="Restart Python worker"
+                       Click="RestartPythonWorkerButton_Click">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <iconPacks:PackIconMaterial Style="{StaticResource YoloStatusIconStyle}" Kind="CogRefreshOutline" />
+                    <TextBlock Text="&#xC7AC;&#xC2DC;&#xC791;" VerticalAlignment="Center" />
+                </StackPanel>
+            </ui:Button>
+            <ui:Button x:Name="StopPythonWorkerButton"
+                       Style="{StaticResource YoloStatusButtonStyle}"
+                       IsEnabled="{Binding IsStopWorkerEnabled}"
+                       MinWidth="72"
+                       AutomationProperties.Name="&#xC911;&#xC9C0;"
+                       ToolTip="Stop Python worker"
+                       Click="StopPythonWorkerButton_Click">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <iconPacks:PackIconMaterial Style="{StaticResource YoloStatusIconStyle}" Kind="StopCircleOutline" />
+                    <TextBlock Text="&#xC911;&#xC9C0;" VerticalAlignment="Center" />
+                </StackPanel>
+            </ui:Button>
+        </WrapPanel>
+        <TextBlock x:Name="YoloCommandStatusText"
+                   Text="{Binding CommandStatusText}"
+                   Foreground="{DynamicResource SecondaryTextBrush}"
+                   FontFamily="Segoe UI"
+                   FontSize="11"
+                   TextWrapping="Wrap"
+                   Margin="0,5,0,0" />
+        <ProgressBar x:Name="YoloCommandProgressBar"
+                     Height="5"
+                     Minimum="0"
+                     Maximum="100"
+                     Value="{Binding CommandProgressValue}"
+                     Visibility="{Binding CommandProgressVisibility}"
+                     IsIndeterminate="{Binding CommandProgressIsIndeterminate}"
+                     Margin="0,5,0,0" />
+    </StackPanel>
+</UserControl>

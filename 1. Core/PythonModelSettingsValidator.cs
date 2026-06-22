@@ -26,6 +26,8 @@ namespace MvcVisionSystem._1._Core
             var errors = new List<string>();
             var warnings = new List<string>();
             float configuredMinimumConfidence = settings?.MinimumDetectionConfidence ?? 0.25F;
+            int configuredMaximumCandidates = settings?.MaximumDetectionCandidates ?? 20;
+            int configuredInferenceImageSize = settings?.InferenceImageSize ?? 320;
             int configuredDetectionTimeoutSeconds = settings?.DetectionTimeoutSeconds ?? 30;
 
             settings ??= new PythonModelSettings();
@@ -69,6 +71,16 @@ namespace MvcVisionSystem._1._Core
             if (configuredDetectionTimeoutSeconds < 1 || configuredDetectionTimeoutSeconds > 600)
             {
                 errors.Add($"Detection timeout seconds must be between 1 and 600: {configuredDetectionTimeoutSeconds}");
+            }
+
+            if (configuredMaximumCandidates < 1 || configuredMaximumCandidates > 200)
+            {
+                errors.Add($"Maximum detection candidates must be between 1 and 200: {configuredMaximumCandidates}");
+            }
+
+            if (configuredInferenceImageSize < 64 || configuredInferenceImageSize > 2048)
+            {
+                errors.Add($"Inference image size must be between 64 and 2048: {configuredInferenceImageSize}");
             }
 
             return new PythonModelValidationResult(errors, warnings);

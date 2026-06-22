@@ -67,6 +67,8 @@ namespace MvcVisionSystem
         private List<Point> currentPoints = new List<Point>();
         private readonly List<DetectionOverlayItem> _detectionOverlays = new List<DetectionOverlayItem>();
         private readonly Stopwatch interactiveRefreshStopwatch = Stopwatch.StartNew();
+        private readonly ContextMenuStrip imageContextMenu = new ContextMenuStrip();
+        private readonly ContextMenuStrip roiContextMenu = new ContextMenuStrip();
 
         private CRectangleObject _TempOb = new CRectangleObject();
         private bool _ViewCross;
@@ -133,11 +135,20 @@ namespace MvcVisionSystem
 
         public CViewer(bool bCenter = true)
         {
-            InitializeComponent();
             ConfigureReadableWorkbenchContextMenu();
         }
 
-        public ImageCanvasControl AttachTo(Control host, bool onlyDragmode = false)
+        protected override void Dispose(bool disposing)
+        {
+            if (disposing)
+            {
+                DisposeViewerResources();
+            }
+
+            base.Dispose(disposing);
+        }
+
+        internal ImageCanvasControl AttachToWinFormsHost(Control host, bool onlyDragmode = false)
         {
             if (host == null)
             {
@@ -171,6 +182,16 @@ namespace MvcVisionSystem
 
             SetModeDrag();
             return Canvas;
+        }
+
+        internal void DetachWinFormsCanvas(ImageCanvasControl canvas)
+        {
+            if (canvas == null || !ReferenceEquals(Canvas, canvas))
+            {
+                return;
+            }
+
+            DisposeCanvas();
         }
 
         private void OnCanvasLoad(object sender, EventArgs e)
@@ -984,9 +1005,11 @@ namespace MvcVisionSystem
 
             _Position = PointToImage(e.Location);
             GetPixelData(_Position);
-            ChangeCursor();
+            UpdateCanvasCursor();
 
-            bool interactiveRefresh = _Mode == LabelingRoiMode.SegmentationBrush || _Mode == LabelingRoiMode.SegmentationEraser;
+            bool isPointerDown = e.Button == MouseButtons.Left;
+            bool interactiveRefresh = isPointerDown
+                && (_Mode == LabelingRoiMode.SegmentationBrush || _Mode == LabelingRoiMode.SegmentationEraser);
             if (e.Button == MouseButtons.Left)
             {
                 int distanceX = _Position.X - _LastPoint.X;
@@ -1011,6 +1034,13 @@ namespace MvcVisionSystem
                         segmentationEditDirty |= ApplyInteractiveBrushStroke(_Position, paint: false);
                         break;
                 }
+            }
+
+            if (!isPointerDown)
+            {
+                // Legacy CViewer hover updates status/cursor only. Repainting here makes
+                // texture MouseMove feel slow even though no annotation geometry changed.
+                return;
             }
 
             if (interactiveRefresh)
@@ -1038,7 +1068,7 @@ namespace MvcVisionSystem
                         break;
                     case MouseButtons.Right:
                         _ExcuteCount = 1;
-                        Open_DropdownMenu(_MouseOperation == PosSizableRect.SizeAll ? ddmDelete : ddmImageMenu, e);
+                        Open_DropdownMenu(_MouseOperation == PosSizableRect.SizeAll ? roiContextMenu : imageContextMenu, e);
                         break;
                 }
 
@@ -2275,7 +2305,7 @@ namespace MvcVisionSystem
             return SegmentationGeometry.ContainsPoint(segment.Points, imagePoint);
         }
 
-        private void ChangeCursor()
+        private void UpdateCanvasCursor()
         {
             if (Canvas == null)
             {
@@ -2294,11 +2324,30 @@ namespace MvcVisionSystem
                 return;
             }
 
-            CRectangleObject selected = _RoiDic.Values
-                .Where(list => list != null)
-                .SelectMany(list => list)
-                .FirstOrDefault(x => x?.Selected == true);
-            Canvas.Cursor = selected == null ? Cursors.Default : selected.ChangeCursor(_Position, GetImageHandleSize());
+            CRectangleObject selected = GetSelectedRoiObject();
+            if (selected == null)
+            {
+                Canvas.Cursor = Cursors.Default;
+                return;
+            }
+
+            PosSizableRect handle = selected.GetNodeSelectable(_Position, GetImageHandleSize());
+            Canvas.Cursor = ResolveRoiCursor(handle, selected.Angle);
+        }
+
+        private CRectangleObject GetSelectedRoiObject()
+        {
+            if (string.IsNullOrEmpty(_SelectedClass)
+                || !_RoiDic.TryGetValue(_SelectedClass, out List<CRectangleObject> selectedList)
+                || selectedList == null
+                || _SelectROiIndex < 0
+                || _SelectROiIndex >= selectedList.Count)
+            {
+                return null;
+            }
+
+            CRectangleObject selected = selectedList[_SelectROiIndex];
+            return selected?.Selected == true ? selected : null;
         }
 
         private void UnSelectAll()
@@ -2370,8 +2419,8 @@ namespace MvcVisionSystem
             try
             {
                 if (_ExcuteCount != 1) { return; }
-                ddmImageMenu.Hide();
-                ddmDelete.Hide();
+                imageContextMenu.Hide();
+                roiContextMenu.Hide();
                 switch (GetViewerMenuCommand(e.ClickedItem))
                 {
                     case ViewerMenuCommand.ImageLoad:
@@ -2393,7 +2442,11 @@ namespace MvcVisionSystem
                         }
                         break;
                     case ViewerMenuCommand.ShowFolder:
-                        Process.Start(Application.StartupPath + "\\");
+                        Process.Start(new ProcessStartInfo
+                        {
+                            FileName = AppContext.BaseDirectory,
+                            UseShellExecute = true
+                        });
                         break;
                     case ViewerMenuCommand.ToggleCross:
                         _ViewCross = !_ViewCross;
@@ -2413,19 +2466,31 @@ namespace MvcVisionSystem
 
         private void ConfigureReadableWorkbenchContextMenu()
         {
-            toolStripMenuItem9.Text = "\uB77C\uBCA8 \uC0AD\uC81C";
-            toolStripMenuItem9.Tag = ViewerMenuCommand.DeleteRoi;
-            toolStripMenuItem10.Text = "\uB77C\uBCA8 \uBAA9\uB85D";
-            toolStripMenuItem10.Tag = ViewerMenuCommand.RoiList;
+            ConfigureContextMenu(
+                imageContextMenu,
+                (ViewerMenuCommand.ImageLoad, "\uC774\uBBF8\uC9C0 \uC5F4\uAE30"),
+                (ViewerMenuCommand.ImageSave, "\uC774\uBBF8\uC9C0 \uC800\uC7A5"),
+                (ViewerMenuCommand.ShowFolder, "\uD3F4\uB354 \uC5F4\uAE30"),
+                (ViewerMenuCommand.ToggleCross, "\uC2ED\uC790\uC120"));
 
-            iconMenuItem1.Text = "\uC774\uBBF8\uC9C0 \uC5F4\uAE30";
-            iconMenuItem1.Tag = ViewerMenuCommand.ImageLoad;
-            iconMenuItem2.Text = "\uC774\uBBF8\uC9C0 \uC800\uC7A5";
-            iconMenuItem2.Tag = ViewerMenuCommand.ImageSave;
-            iconMenuItem3.Text = "\uD3F4\uB354 \uC5F4\uAE30";
-            iconMenuItem3.Tag = ViewerMenuCommand.ShowFolder;
-            iconMenuItem6.Text = "\uC2ED\uC790\uC120";
-            iconMenuItem6.Tag = ViewerMenuCommand.ToggleCross;
+            ConfigureContextMenu(
+                roiContextMenu,
+                (ViewerMenuCommand.DeleteRoi, "\uB77C\uBCA8 \uC0AD\uC81C"),
+                (ViewerMenuCommand.RoiList, "\uB77C\uBCA8 \uBAA9\uB85D"));
+        }
+
+        private void ConfigureContextMenu(ContextMenuStrip menu, params (ViewerMenuCommand Command, string Text)[] items)
+        {
+            menu.Items.Clear();
+            menu.BackColor = Color.White;
+            menu.Font = new Font("Microsoft Sans Serif", 10F, FontStyle.Regular, GraphicsUnit.Point);
+            foreach ((ViewerMenuCommand command, string text) in items)
+            {
+                menu.Items.Add(new ToolStripMenuItem(text) { Tag = command });
+            }
+
+            menu.ItemClicked -= ImageMenuClicked;
+            menu.ItemClicked += ImageMenuClicked;
         }
 
         private static ViewerMenuCommand GetViewerMenuCommand(ToolStripItem item)
@@ -2447,33 +2512,64 @@ namespace MvcVisionSystem
             };
         }
 
-        private void Open_DropdownMenu(RJCodeUI_M1.RJControls.RJDropdownMenu dropdownMenu, MouseEventArgs e)
+        private void Open_DropdownMenu(ContextMenuStrip dropdownMenu, MouseEventArgs e)
         {
             if (Canvas == null)
             {
                 return;
             }
 
-            dropdownMenu.ItemClicked -= ImageMenuClicked;
-            dropdownMenu.ItemClicked += ImageMenuClicked;
             dropdownMenu.Show(Canvas, e.X, e.Y);
         }
 
-        private void timer1_Tick(object sender, EventArgs e)
+        private static Cursor ResolveRoiCursor(PosSizableRect handle, double angle)
         {
-            if (_OnlyDragMode)
+            double cursorAngle = angle;
+
+            switch (handle)
             {
-                _Mode = LabelingRoiMode.Drag;
+                case PosSizableRect.Rotate:
+                    return Cursors.NoMove2D;
+                case PosSizableRect.SizeAll:
+                    return Cursors.SizeAll;
+                case PosSizableRect.None:
+                    return Cursors.Default;
+                case PosSizableRect.LeftUp:
+                case PosSizableRect.RightBottom:
+                    cursorAngle += 45;
+                    break;
+                case PosSizableRect.UpMiddle:
+                case PosSizableRect.BottomMiddle:
+                    cursorAngle += 90;
+                    break;
+                case PosSizableRect.LeftBottom:
+                case PosSizableRect.RightUp:
+                    cursorAngle += 135;
+                    break;
             }
+
+            if (cursorAngle > 360)
+            {
+                cursorAngle -= 360;
+            }
+
+            return cursorAngle switch
+            {
+                > 26 and < 68 or > 204 and < 248 => Cursors.SizeNWSE,
+                > 69 and < 113 or > 249 and < 293 => Cursors.SizeNS,
+                > 114 and < 158 or > 294 and < 338 => Cursors.SizeNESW,
+                _ => Cursors.SizeWE
+            };
         }
 
         private void DisposeViewerResources()
         {
             ClearRasterMaskTextureCache();
             DisposeCanvas();
-            ddmImageMenu.ItemClicked -= ImageMenuClicked;
-            ddmDelete.ItemClicked -= ImageMenuClicked;
-            timer1.Stop();
+            imageContextMenu.ItemClicked -= ImageMenuClicked;
+            roiContextMenu.ItemClicked -= ImageMenuClicked;
+            imageContextMenu.Dispose();
+            roiContextMenu.Dispose();
 
             _currentImage?.Dispose();
             _currentImage = null;

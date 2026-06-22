@@ -1,0 +1,238 @@
+<UserControl x:Class="MvcVisionSystem.WpfYoloModelSettingsPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+    <UserControl.Resources>
+        <Style x:Key="YoloModelLabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,6,8,0" />
+        </Style>
+
+        <Style x:Key="YoloModelTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Padding" Value="6,3" />
+            <Setter Property="Margin" Value="0,5,0,0" />
+        </Style>
+
+        <Style x:Key="YoloModelIconStyle" TargetType="{x:Type iconPacks:PackIconMaterial}">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="YoloModelBrowseButtonStyle" TargetType="{x:Type ui:Button}">
+            <Setter Property="Width" Value="30" />
+            <Setter Property="MinWidth" Value="30" />
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="5,5,0,0" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+        </Style>
+
+        <Style x:Key="YoloModelCommandButtonStyle" TargetType="{x:Type ui:Button}">
+            <Setter Property="Height" Value="30" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Margin" Value="0,0,5,5" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+                    <Setter Property="Opacity" Value="0.45" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Expander x:Name="YoloModelSettingsExpander"
+              Header="모델 설정"
+              Foreground="{DynamicResource PrimaryTextBrush}"
+              Margin="0,12,0,0">
+        <StackPanel Margin="0,8,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="82" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="Python" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBox x:Name="YoloPythonPathBox"
+                         Grid.Column="1"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding PythonExecutablePath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{Binding PythonExecutablePath}" />
+                <ui:Button x:Name="BrowseYoloPythonButton"
+                           Grid.Column="2"
+                           Style="{StaticResource YoloModelBrowseButtonStyle}"
+                           IsEnabled="{Binding IsBrowsePythonEnabled}"
+                           ToolTip="Python 실행 파일 선택"
+                           Click="BrowseYoloPythonButton_Click">
+                    <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
+                </ui:Button>
+
+                <TextBlock Grid.Row="1" Text="프로젝트" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBox x:Name="YoloProjectRootBox"
+                         Grid.Row="1"
+                         Grid.Column="1"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding ProjectRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{Binding ProjectRootPath}" />
+                <ui:Button x:Name="BrowseYoloProjectRootButton"
+                           Grid.Row="1"
+                           Grid.Column="2"
+                           Style="{StaticResource YoloModelBrowseButtonStyle}"
+                           IsEnabled="{Binding IsBrowseProjectRootEnabled}"
+                           ToolTip="YOLO 프로젝트 폴더 선택"
+                           Click="BrowseYoloProjectRootButton_Click">
+                    <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
+                </ui:Button>
+
+                <TextBlock Grid.Row="2" Text="클라이언트" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBox x:Name="YoloClientScriptBox"
+                         Grid.Row="2"
+                         Grid.Column="1"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding ClientScriptPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{Binding ClientScriptPath}" />
+                <ui:Button x:Name="BrowseYoloClientScriptButton"
+                           Grid.Row="2"
+                           Grid.Column="2"
+                           Style="{StaticResource YoloModelBrowseButtonStyle}"
+                           IsEnabled="{Binding IsBrowseClientScriptEnabled}"
+                           ToolTip="YOLO 클라이언트 Python script 선택"
+                           Click="BrowseYoloClientScriptButton_Click">
+                    <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
+                </ui:Button>
+
+                <TextBlock Grid.Row="3" Text="가중치" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBox x:Name="YoloWeightsPathBox"
+                         Grid.Row="3"
+                         Grid.Column="1"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding WeightsPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{Binding WeightsPath}" />
+                <ui:Button x:Name="BrowseYoloWeightsButton"
+                           Grid.Row="3"
+                           Grid.Column="2"
+                           Style="{StaticResource YoloModelBrowseButtonStyle}"
+                           IsEnabled="{Binding IsBrowseWeightsEnabled}"
+                           ToolTip="YOLO weights 파일 선택"
+                           Click="BrowseYoloWeightsButton_Click">
+                    <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
+                </ui:Button>
+
+                <TextBlock Grid.Row="4" Text="이미지" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBox x:Name="YoloImageRootBox"
+                         Grid.Row="4"
+                         Grid.Column="1"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding ImageRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="{Binding ImageRootPath}" />
+                <ui:Button x:Name="BrowseYoloImageRootButton"
+                           Grid.Row="4"
+                           Grid.Column="2"
+                           Style="{StaticResource YoloModelBrowseButtonStyle}"
+                           IsEnabled="{Binding IsBrowseImageRootEnabled}"
+                           ToolTip="이미지 루트 폴더 선택"
+                           Click="BrowseYoloImageRootButton_Click">
+                    <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
+                </ui:Button>
+
+                <TextBlock Grid.Row="5" Text="신뢰도" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBox x:Name="YoloConfidenceBox"
+                         Grid.Row="5"
+                         Grid.Column="1"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding MinimumConfidenceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="0~1 사이 신뢰도 값"
+                         PreviewTextInput="DecimalTextBox_PreviewTextInput" />
+
+                <TextBlock Grid.Row="6" Text="시간 제한" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBox x:Name="YoloTimeoutBox"
+                         Grid.Row="6"
+                         Grid.Column="1"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding TimeoutSecondsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="1~600초"
+                         PreviewTextInput="IntegerTextBox_PreviewTextInput" />
+
+                <TextBlock Grid.Row="8" Text="Infer size" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBox x:Name="YoloInferenceImageSizeBox"
+                         Grid.Row="8"
+                         Grid.Column="1"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding InferenceImageSizeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="64~2048"
+                         PreviewTextInput="IntegerTextBox_PreviewTextInput" />
+
+                <TextBlock Grid.Row="9" Text="Max candidates" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBox x:Name="YoloMaxCandidatesBox"
+                         Grid.Row="9"
+                         Grid.Column="1"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding MaximumCandidatesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="1~200"
+                         PreviewTextInput="IntegerTextBox_PreviewTextInput" />
+
+                <TextBlock Grid.Row="7" Text="검출 자동 시작" Style="{StaticResource YoloModelLabelStyle}" />
+                <CheckBox x:Name="YoloAutoStartCheckBox"
+                          Grid.Row="7"
+                          Grid.Column="1"
+                          IsChecked="{Binding AutoStartClient, Mode=TwoWay}"
+                          Foreground="{DynamicResource SecondaryTextBrush}"
+                          FontFamily="Segoe UI"
+                          FontSize="11"
+                          VerticalAlignment="Center"
+                          Margin="0,7,0,0" />
+            </Grid>
+
+            <WrapPanel Margin="0,8,0,0">
+                <ui:Button x:Name="SaveYoloSettingsButton"
+                           Style="{StaticResource YoloModelCommandButtonStyle}"
+                           IsEnabled="{Binding IsSaveSettingsEnabled}"
+                           MinWidth="80"
+                           Content="저장"
+                           ToolTip="현재 YOLO 경로와 추론 설정 저장"
+                           Click="SaveYoloSettingsButton_Click" />
+                <ui:Button x:Name="ResetYoloSettingsButton"
+                           Style="{StaticResource YoloModelCommandButtonStyle}"
+                           IsEnabled="{Binding IsResetSettingsEnabled}"
+                           MinWidth="82"
+                           Content="기본값"
+                           ToolTip="YOLO 기본 경로와 기본값 복원"
+                           Click="ResetYoloSettingsButton_Click" />
+            </WrapPanel>
+        </StackPanel>
+    </Expander>
+</UserControl>

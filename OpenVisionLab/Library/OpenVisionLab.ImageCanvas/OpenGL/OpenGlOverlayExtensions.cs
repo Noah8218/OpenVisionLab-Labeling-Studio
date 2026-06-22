@@ -12,6 +12,8 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 {
 	public static class OpenGlOverlayExtensions
 	{
+		private const int ImmediateGroupBoundsRefreshLimit = 10_000;
+
 		#region Overlay
 		public static void AddOverlay(this ImageCanvasControl canvasViewer, string parentType, string childType, CanvasShape shape, string uniqueId, EnumInspWindowType InspType = EnumInspWindowType.Unit, EnumItemType itemType = EnumItemType.Window, bool isExtentionRectange = false, bool isGroupRectangle = false)
 		{
@@ -19,13 +21,40 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			shape.GroupType = childType;
 
 			// 새로운 Shape를 추가합니다.
-			canvasViewer.GetCanvasOverlayManager().AddOverlayItem(parentType, CreateNewCanvasOverlayItem(canvasViewer, childType, shape, InspType, itemType, isExtentionRectange, isGroupRectangle));
+			CanvasOverlayItem overlayItem = CreateNewCanvasOverlayItem(canvasViewer, childType, shape, InspType, itemType, isExtentionRectange, isGroupRectangle);
+			canvasViewer.GetCanvasOverlayManager().AddOverlayItem(parentType, overlayItem);
 
-			// 추가한 Group(Type)에 여러 ROI들이 들어가 있는 상황입니다.
-			// 해당 Group Roi 사이즈를 다시 계산합니다.
-			ResizeGroupRectangle(canvasViewer, parentType);
-			// Panel은 전체를 감싸야 합니다.
-			ResizeGroupRectangle(canvasViewer, EnumInspWindowType.Panel.ToString());
+			if (ShouldRefreshGroupBoundsImmediately(canvasViewer, parentType))
+			{
+				ResizeGroupRectangle(canvasViewer, parentType);
+				canvasViewer.InvalidateVisibleOverlayCache();
+			}
+			else
+			{
+				canvasViewer.AddVisibleOverlayIfInViewport(overlayItem);
+			}
+		}
+
+		private static bool ShouldRefreshGroupBounds(ImageCanvasControl canvasViewer, string groupType)
+		{
+			if (string.IsNullOrWhiteSpace(groupType))
+			{
+				return false;
+			}
+
+			CanvasOverlayItem group = canvasViewer.GetCanvasOverlayManager().GetGroupToType(groupType);
+			return group?.IsVisible == true;
+		}
+
+		private static bool ShouldRefreshGroupBoundsImmediately(ImageCanvasControl canvasViewer, string groupType)
+		{
+			if (!ShouldRefreshGroupBounds(canvasViewer, groupType))
+			{
+				return false;
+			}
+
+			CanvasOverlayItem group = canvasViewer.GetCanvasOverlayManager().GetGroupToType(groupType);
+			return group == null || group.ChildObjects.Count <= ImmediateGroupBoundsRefreshLimit;
 		}
 
 		private static CanvasOverlayItem CreateNewCanvasOverlayItem(ImageCanvasControl canvasViewer, string childType, CanvasShape shape, EnumInspWindowType InspType, EnumItemType itemType, bool isExtentionRectange, bool isGroupRectangle)
@@ -67,6 +96,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				}
 			};
 			newObject.Shape.IsChanged = true;
+			newObject.Shape.OnChanged?.Invoke();
 		}
 
 		public static void DeleteOverlay(this ImageCanvasControl canvasViewer, string uniqueId = "", string groupName = "")
@@ -76,7 +106,17 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			bool removed = canvasViewer.GetCanvasOverlayManager().RemoveOverlayByUniqueId(uniqueId);
 			if (removed)
 			{
-				ResizeGroupRectangle(canvasViewer, groupName);
+				if (ShouldRefreshGroupBoundsImmediately(canvasViewer, groupName))
+				{
+					ResizeGroupRectangle(canvasViewer, groupName);
+					canvasViewer.InvalidateVisibleOverlayCache();
+				}
+				else
+				{
+					// Single ROI delete must stay object-local. Large visible groups refresh their
+					// decorative bounds on the next explicit group refresh instead of scanning all children here.
+					canvasViewer.RemoveVisibleOverlay(overlayItem);
+				}
 			}
 			canvasViewer.RefreshGL();
 		}
@@ -108,6 +148,32 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			CanvasRect<float> check = (CanvasRect<float>)roi.Clone();
 			check.OffsetMove(moveSize, false);
 			return IsRoiWithinImageBounds(check, imageSize);
+		}
+
+		private static CanvasSize<float> ClampMoveWithinBounds(CanvasRect<float> roi, CanvasSize<float> moveSize, Size imageSize)
+		{
+			float width = moveSize.Width;
+			float height = moveSize.Height;
+
+			if (roi.Left + width < 0)
+			{
+				width = -roi.Left;
+			}
+			else if (roi.Right + width > imageSize.Width)
+			{
+				width = imageSize.Width - roi.Right;
+			}
+
+			if (roi.Bottom + height < 0)
+			{
+				height = -roi.Bottom;
+			}
+			else if (roi.Top + height > imageSize.Height)
+			{
+				height = imageSize.Height - roi.Top;
+			}
+
+			return new CanvasSize<float>(width, height);
 		}
 
 		/// <summary>
@@ -152,13 +218,14 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 		/// <param name="roi"></param>
 		/// <param name="size"></param>
 		/// <param name="imageSize"></param>
-		public static void PerformRoiMove(this ImageCanvasControl canvasViewer, CanvasRect<float> roi, CanvasSize<float> size, Size imageSize, bool canMoveRoi)
+		public static void PerformRoiMove(this ImageCanvasControl canvasViewer, CanvasRect<float> roi, CanvasSize<float> size, Size imageSize, bool canMoveRoi, bool notify = true)
 		{
 			if (IsRoiWithinImageBounds(roi, imageSize))
 			{
-				if (CheckMoveWithinBounds(roi, size, imageSize))
+				CanvasSize<float> boundedMove = ClampMoveWithinBounds(roi, size, imageSize);
+				if (boundedMove.Width != 0 || boundedMove.Height != 0)
 				{
-					roi.OffsetMove(size); // roi move
+					roi.OffsetMove(boundedMove, notify); // roi move
 				}
 			}
 			else
@@ -166,12 +233,12 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				CanvasSize<float> move = GetPossibleMoveDirection(roi, size, imageSize);
 				if (move.Width != 0 || move.Height != 0 || !canMoveRoi)
 				{
-					roi.OffsetMove(move);
+					roi.OffsetMove(move, notify);
 				}
 				else
 				{
 					// 이동할 수 없는 경우 처리
-					roi.OffsetMove(size);
+					roi.OffsetMove(size, notify);
 				}
 			}
 		}
@@ -213,13 +280,23 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				(target as CanvasRect<float>).UpdateRectangle(0, 0, 0, 0);
 				(target as CanvasRect<float>).UpdateRectangle(rt.Left, rt.Top, rt.Right, rt.Bottom);
 				target.IsChanged = true;
+				canvasViewer.UpdateInteractiveOverlayIndex(target);
 			}
 		}
 
 		public static void SetLockControl(this ImageCanvasControl canvasViewer, string type, bool isControlLock) => canvasViewer.GetCanvasOverlayManager().SetLockControl(type, isControlLock);
 		public static void SetLastGroupType(this ImageCanvasControl canvasViewer, string type) => canvasViewer.GetCanvasOverlayManager().LastGroupType = type;
-		public static void SetVisible(this ImageCanvasControl canvasViewer, string type, bool visible) => canvasViewer.GetCanvasOverlayManager().SetVisible(type, visible);
-		public static void SetAllVisible(this ImageCanvasControl canvasViewer, bool visible) => canvasViewer.GetCanvasOverlayManager().SetAllVisible(visible);
+		public static void SetVisible(this ImageCanvasControl canvasViewer, string type, bool visible)
+		{
+			canvasViewer.GetCanvasOverlayManager().SetVisible(type, visible);
+			canvasViewer.InvalidateVisibleOverlayCache();
+		}
+
+		public static void SetAllVisible(this ImageCanvasControl canvasViewer, bool visible)
+		{
+			canvasViewer.GetCanvasOverlayManager().SetAllVisible(visible);
+			canvasViewer.InvalidateVisibleOverlayCache();
+		}
 		public static CanvasOverlayItem GetLastGroup(this ImageCanvasControl canvasViewer) => canvasViewer.GetCanvasOverlayManager().GetGroupToType(canvasViewer.GetCanvasOverlayManager().LastGroupType);
 		public static CanvasOverlayItem GetGroupToType(this ImageCanvasControl canvasViewer, string childType) => canvasViewer.GetCanvasOverlayManager().GetGroupToType(childType);
 		public static CanvasOverlayItem GetOverlayByUniqueId(this ImageCanvasControl canvasViewer, string uniqueid) => canvasViewer.GetCanvasOverlayManager().GetOverlayByUniqueId(uniqueid);
@@ -229,6 +306,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 		{
 			ReleaseDisplayLists(canvasViewer);
 			canvasViewer.GetCanvasOverlayManager().Clear();
+			canvasViewer.InvalidateVisibleOverlayCache();
 			canvasViewer.RefreshGL();
 		}
 

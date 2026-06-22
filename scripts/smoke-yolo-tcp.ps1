@@ -6,25 +6,40 @@ param(
     [string]$ImageRoot = "",
     [string]$ImagePath = "",
     [string]$Device = "cpu",
-    [int]$ImgSize = 640,
+    [int]$ImgSize = 320,
     [double]$Confidence = 0.25,
     [double]$Iou = 0.45,
     [int]$Port = 0,
     [int]$TimeoutSeconds = 180,
     [int]$MinDetections = 1,
-    [string]$OutputDirectory = "artifacts\python-smoke"
+    [string]$OutputDirectory = "artifacts\python-smoke",
+    [switch]$UseDetectImage,
+    [int]$Repeat = 1
 )
 
 $ErrorActionPreference = "Stop"
 
 $projectRoot = "C:\Git\yolov5"
-$defaultImageRoot = "C:\Git\py\KtemData"
+$defaultImageRoot = Join-Path $projectRoot "data\train\images"
+if (-not (Test-Path -LiteralPath $defaultImageRoot -PathType Container)) {
+    $defaultImageRoot = "C:\Git\py\KtemData"
+}
 if ([string]::IsNullOrWhiteSpace($PythonExe)) { $PythonExe = Join-Path $projectRoot ".venv\Scripts\python.exe" }
 if ([string]::IsNullOrWhiteSpace($ClientScript)) { $ClientScript = Join-Path $projectRoot "labelling_tcp_client.py" }
 if ([string]::IsNullOrWhiteSpace($ModelRoot)) { $ModelRoot = Join-Path $projectRoot "yolov5Master" }
 if ([string]::IsNullOrWhiteSpace($WeightsPath)) { $WeightsPath = Join-Path $projectRoot "best.pt" }
 if ([string]::IsNullOrWhiteSpace($ImageRoot)) { $ImageRoot = $defaultImageRoot }
-if ([string]::IsNullOrWhiteSpace($ImagePath)) { $ImagePath = Join-Path $defaultImageRoot "Teaching_0.bmp" }
+if ($Repeat -lt 1) { $Repeat = 1 }
+if ($Repeat -gt 1 -and -not $UseDetectImage) {
+    throw "-Repeat currently requires -UseDetectImage so the smoke can send framed JSON requests on one worker connection."
+}
+if ([string]::IsNullOrWhiteSpace($ImagePath)) {
+    $firstImage = Get-ChildItem -LiteralPath $ImageRoot -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -in @(".bmp", ".jpg", ".jpeg", ".png") } |
+        Sort-Object Name |
+        Select-Object -First 1
+    $ImagePath = if ($null -ne $firstImage) { $firstImage.FullName } else { Join-Path $ImageRoot "Teaching_0.jpeg" }
+}
 
 function Assert-FileExists([string]$Path, [string]$Name) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
@@ -112,6 +127,24 @@ function Split-JsonObjectStream([string]$Text) {
     return $objects
 }
 
+function Get-DetectionResultObjects([string]$Text) {
+    $results = @()
+    foreach ($json in (Split-JsonObjectStream $Text)) {
+        try {
+            $parsed = $json | ConvertFrom-Json
+        }
+        catch {
+            continue
+        }
+
+        if ($parsed.type -in @("ResultDefect", "DetectImageResult")) {
+            $results += $parsed
+        }
+    }
+
+    return @($results)
+}
+
 function Quote-ProcessArgument([string]$Value) {
     if ($null -eq $Value) {
         return '""'
@@ -126,6 +159,20 @@ function Quote-ProcessArgument([string]$Value) {
 
 function Join-ProcessArguments([string[]]$Values) {
     return (($Values | ForEach-Object { Quote-ProcessArgument $_ }) -join " ")
+}
+
+function Build-DetectImagePacket([string]$Path, [double]$Confidence) {
+    $request = [ordered]@{
+        type = "DetectImage"
+        requestId = [guid]::NewGuid().ToString("N")
+        imageId = [System.IO.Path]::GetFileNameWithoutExtension($Path)
+        imagePath = $Path
+        confidence = $Confidence
+        model = "yolov5"
+    }
+
+    $json = $request | ConvertTo-Json -Compress
+    return [System.Text.Encoding]::UTF8.GetBytes($json + "`n")
 }
 
 Assert-FileExists $PythonExe "Python executable"
@@ -154,7 +201,7 @@ try {
     $startInfo.RedirectStandardOutput = $true
     $startInfo.RedirectStandardError = $true
 
-    $startInfo.Arguments = Join-ProcessArguments @(
+    $clientArguments = @(
         $ClientScript,
         "--host",
         "127.0.0.1",
@@ -175,9 +222,13 @@ try {
         "--conf",
         $Confidence.ToString([System.Globalization.CultureInfo]::InvariantCulture),
         "--iou",
-        $Iou.ToString([System.Globalization.CultureInfo]::InvariantCulture),
-        "--once"
+        $Iou.ToString([System.Globalization.CultureInfo]::InvariantCulture)
     )
+    if (-not ($UseDetectImage -and $Repeat -gt 1)) {
+        $clientArguments += "--once"
+    }
+
+    $startInfo.Arguments = Join-ProcessArguments $clientArguments
 
     $process = [System.Diagnostics.Process]::Start($startInfo)
     $acceptTask = $listener.AcceptTcpClientAsync()
@@ -190,13 +241,21 @@ try {
     $stream.ReadTimeout = 1000
     $stream.WriteTimeout = 10000
 
-    $pngBytes = Convert-ImageToPngBytes $ImagePath
-    $headerBytes = [System.Text.Encoding]::ASCII.GetBytes("StartDefect`n`n")
-    $packet = New-Object byte[] ($headerBytes.Length + $pngBytes.Length)
-    [System.Buffer]::BlockCopy($headerBytes, 0, $packet, 0, $headerBytes.Length)
-    [System.Buffer]::BlockCopy($pngBytes, 0, $packet, $headerBytes.Length, $pngBytes.Length)
-    $stream.Write($packet, 0, $packet.Length)
-    $stream.Flush()
+    for ($requestIndex = 0; $requestIndex -lt $Repeat; $requestIndex++) {
+        if ($UseDetectImage) {
+            $packet = Build-DetectImagePacket $ImagePath $Confidence
+        }
+        else {
+            $pngBytes = Convert-ImageToPngBytes $ImagePath
+            $headerBytes = [System.Text.Encoding]::ASCII.GetBytes("StartDefect`n`n")
+            $packet = New-Object byte[] ($headerBytes.Length + $pngBytes.Length)
+            [System.Buffer]::BlockCopy($headerBytes, 0, $packet, 0, $headerBytes.Length)
+            [System.Buffer]::BlockCopy($pngBytes, 0, $packet, $headerBytes.Length, $pngBytes.Length)
+        }
+
+        $stream.Write($packet, 0, $packet.Length)
+        $stream.Flush()
+    }
 
     $buffer = New-Object byte[] 65536
     $response = New-Object System.IO.MemoryStream
@@ -210,6 +269,12 @@ try {
                 }
 
                 $response.Write($buffer, 0, $read)
+                if ($UseDetectImage -and $Repeat -gt 1) {
+                    $currentText = [System.Text.Encoding]::UTF8.GetString($response.ToArray())
+                    if (@(Get-DetectionResultObjects $currentText).Count -ge $Repeat) {
+                        break
+                    }
+                }
             }
             catch [System.IO.IOException] {
                 if ($process.HasExited -and $response.Length -gt 0) {
@@ -220,6 +285,11 @@ try {
             if ($process.HasExited -and $response.Length -gt 0) {
                 break
             }
+        }
+
+        if ($UseDetectImage -and $Repeat -gt 1 -and $client -ne $null) {
+            $client.Close()
+            $client = $null
         }
 
         if (-not $process.WaitForExit(5000)) {
@@ -252,31 +322,38 @@ try {
         throw "YOLO TCP client exited with code $($process.ExitCode). See $stderrPath"
     }
 
-    $jsonObjects = Split-JsonObjectStream $responseText
-    $parsed = @()
-    foreach ($json in $jsonObjects) {
-        $parsed += ($json | ConvertFrom-Json)
+    $results = @(Get-DetectionResultObjects $responseText)
+    if ($results.Count -lt $Repeat) {
+        throw "Detection result response was not received. See $responsePath"
     }
 
-    $result = $parsed | Where-Object { $_.type -eq "ResultDefect" } | Select-Object -First 1
-    if ($null -eq $result) {
-        throw "ResultDefect response was not received. See $responsePath"
+    $items = @()
+    foreach ($result in $results) {
+        if ($result.PSObject.Properties.Name -contains "error" -and -not [string]::IsNullOrWhiteSpace($result.error)) {
+            throw "$($result.type) returned an error: $($result.error)"
+        }
+
+        if ($result.type -eq "DetectImageResult") {
+            $items += @($result.candidates)
+        }
+        else {
+            $items += @($result.items)
+        }
     }
 
-    if ($result.PSObject.Properties.Name -contains "error" -and -not [string]::IsNullOrWhiteSpace($result.error)) {
-        throw "ResultDefect returned an error: $($result.error)"
-    }
-
-    $items = @($result.items)
-    if ($items.Count -lt $MinDetections) {
-        throw "Expected at least $MinDetections detections, got $($items.Count). See $responsePath"
+    $itemCount = @($items).Count
+    if ($itemCount -lt $MinDetections) {
+        throw "Expected at least $MinDetections detections, got $itemCount. See $responsePath"
     }
 
     $summary = [ordered]@{
         image = $ImagePath
+        requestMode = if ($UseDetectImage) { "DetectImage" } else { "StartDefect" }
+        requestCount = $Repeat
+        resultCount = $results.Count
         port = $actualPort
-        detectionCount = $items.Count
-        firstClass = if ($items.Count -gt 0) { $items[0].className } else { "" }
+        detectionCount = $itemCount
+        firstClass = if ($itemCount -gt 0) { @($items)[0].className } else { "" }
         responsePath = $responsePath
         stdoutPath = $stdoutPath
         stderrPath = $stderrPath

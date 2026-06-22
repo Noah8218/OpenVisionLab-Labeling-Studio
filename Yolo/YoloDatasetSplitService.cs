@@ -7,13 +7,21 @@ namespace MvcVisionSystem.Yolo
     {
         public const string TrainMode = "train";
         public const string ValidMode = "valid";
+        public const string TestMode = "test";
 
         public static IReadOnlyList<string> SelectModesForImage(string imageName, YoloDatasetSettings settings)
         {
             int validationPercent = Math.Clamp(settings?.ValidationPercent ?? 20, 0, 100);
-            if (validationPercent <= 0)
+            int testPercent = Math.Clamp(settings?.TestPercent ?? 0, 0, 100);
+            int reservedPercent = Math.Clamp(validationPercent + testPercent, 0, 100);
+            if (reservedPercent <= 0)
             {
                 return new[] { TrainMode };
+            }
+
+            if (testPercent >= 100)
+            {
+                return new[] { TestMode };
             }
 
             if (validationPercent >= 100)
@@ -22,7 +30,12 @@ namespace MvcVisionSystem.Yolo
             }
 
             uint bucket = StableBucket(imageName, settings?.SplitSeed ?? 17);
-            return bucket < validationPercent
+            if (bucket < testPercent)
+            {
+                return new[] { TestMode };
+            }
+
+            return bucket < reservedPercent
                 ? new[] { ValidMode }
                 : new[] { TrainMode };
         }

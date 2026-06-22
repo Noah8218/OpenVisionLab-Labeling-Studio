@@ -1,0 +1,27 @@
+<UserControl x:Class="MvcVisionSystem.WpfShellLogPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:logView="clr-namespace:OpenVisionLab.Logging.Controls.View;assembly=OpenVisionLab.Logging.Controls">
+    <Border Style="{DynamicResource PanelBorderStyle}">
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="34" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <Border Background="{DynamicResource PanelHeaderBrush}"
+                    CornerRadius="6,6,0,0"
+                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    BorderThickness="0,0,0,1">
+                <TextBlock Text="로그"
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Margin="12,0"
+                           VerticalAlignment="Center" />
+            </Border>
+            <logView:LogPanelView x:Name="ShellLogPanel"
+                                  Grid.Row="1" />
+        </Grid>
+    </Border>
+</UserControl>

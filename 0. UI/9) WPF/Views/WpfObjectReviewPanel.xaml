@@ -1,0 +1,201 @@
+<UserControl x:Class="MvcVisionSystem.WpfObjectReviewPanel"
+             x:Name="ObjectReviewRoot"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:MvcVisionSystem"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+    <UserControl.Resources>
+        <Style x:Key="ObjectReviewButtonStyle" TargetType="{x:Type ui:Button}">
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="MinHeight" Value="26" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+                    <Setter Property="Opacity" Value="0.45" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ObjectReviewComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Margin" Value="0,3,0,0" />
+            <Setter Property="MaxDropDownHeight" Value="220" />
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                        <Setter Property="Padding" Value="6,3" />
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ComboBox}">
+                        <Grid MinWidth="{TemplateBinding ActualWidth}">
+                            <ToggleButton x:Name="ToggleButton"
+                                          Focusable="False"
+                                          ClickMode="Press"
+                                          HorizontalAlignment="Stretch"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Background="{TemplateBinding Background}"
+                                          BorderBrush="{TemplateBinding BorderBrush}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                        <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="2">
+                                            <ContentPresenter />
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                                <Grid>
+                                    <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                                      Margin="6,2,24,2"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Left" />
+                                    <Path Data="M 0 0 L 4 4 L 8 0 Z"
+                                          Width="8"
+                                          Height="4"
+                                          Stretch="Fill"
+                                          Fill="{TemplateBinding Foreground}"
+                                          HorizontalAlignment="Right"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,8,0" />
+                                </Grid>
+                            </ToggleButton>
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False">
+                                <Border MinWidth="{TemplateBinding ActualWidth}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                        Background="{DynamicResource InputBrush}"
+                                        BorderBrush="{DynamicResource InputBorderBrush}"
+                                        BorderThickness="1">
+                                    <ScrollViewer CanContentScroll="True">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Resources>
+                <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#202833" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#202833" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#334052" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#F4F7FB" />
+            </Style.Resources>
+        </Style>
+
+        <Style x:Key="ObjectReviewListBoxItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid Margin="0,0,0,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="ObjectReviewSummaryText"
+                       Text="{Binding ViewModel.SummaryText, ElementName=ObjectReviewRoot}"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       FontFamily="Segoe UI"
+                       FontSize="11"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis" />
+            <ui:Button x:Name="DeleteObjectButton"
+                       Grid.Column="1"
+                       Style="{StaticResource ObjectReviewButtonStyle}"
+                       MinWidth="68"
+                       Height="26"
+                       Padding="8,0"
+                       Content="&#xC0AD;&#xC81C;"
+                       ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xD604;&#xC7AC; &#xB77C;&#xBCA8; &#xC0AD;&#xC81C;"
+                       IsEnabled="{Binding ViewModel.IsDeleteEnabled, ElementName=ObjectReviewRoot}"
+                       Click="DeleteObjectButton_Click" />
+        </Grid>
+        <Grid Grid.Row="1" Margin="0,0,0,6">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ComboBox x:Name="ObjectClassBox"
+                      Style="{StaticResource ObjectReviewComboBoxStyle}"
+                      ItemsSource="{Binding ViewModel.ClassNames, ElementName=ObjectReviewRoot}"
+                      SelectedItem="{Binding ViewModel.SelectedClassName, ElementName=ObjectReviewRoot, Mode=TwoWay}"
+                      ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xD604;&#xC7AC; &#xB77C;&#xBCA8;&#xC5D0; &#xC801;&#xC6A9;&#xD560; &#xD074;&#xB798;&#xC2A4;" />
+            <ui:Button x:Name="ApplyObjectClassButton"
+                       Grid.Column="1"
+                       Style="{StaticResource ObjectReviewButtonStyle}"
+                       MinWidth="62"
+                       Height="26"
+                       Padding="8,0"
+                       Margin="6,0,0,0"
+                       Content="&#xC801;&#xC6A9;"
+                       ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xD604;&#xC7AC; &#xB77C;&#xBCA8; &#xD074;&#xB798;&#xC2A4; &#xBCC0;&#xACBD;"
+                       IsEnabled="{Binding ViewModel.IsApplyClassEnabled, ElementName=ObjectReviewRoot}"
+                       Click="ApplyObjectClassButton_Click" />
+        </Grid>
+        <ListBox x:Name="ObjectListBox"
+                 Grid.Row="2"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 Foreground="{DynamicResource SecondaryTextBrush}"
+                 ItemsSource="{Binding ViewModel.Objects, ElementName=ObjectReviewRoot}"
+                 SelectedItem="{Binding ViewModel.SelectedObject, ElementName=ObjectReviewRoot, Mode=TwoWay}"
+                 ItemContainerStyle="{StaticResource ObjectReviewListBoxItemStyle}"
+                 ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                 ScrollViewer.CanContentScroll="True"
+                 VirtualizingPanel.IsVirtualizing="True"
+                 VirtualizingPanel.VirtualizationMode="Recycling"
+                 SelectionChanged="ObjectListBox_SelectionChanged"
+                 PreviewKeyDown="ObjectListBox_PreviewKeyDown">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding DisplayText}"
+                               ToolTip="{Binding ToolTip}"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</UserControl>

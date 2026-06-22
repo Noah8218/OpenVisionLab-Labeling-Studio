@@ -21,6 +21,14 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			UpdateView(_fitRect);
 		}
 
+		public void ZoomToActualSize()
+		{
+			if (!CanUseOpenGlControl() || _fitRect.IsEmpty) return;
+			_zoom = GetControlMinSize();
+			OpenGlDrawing.ZoomFactor = ZoomScale;
+			UpdateView(_fitRect);
+		}
+
 		public CanvasViewState CaptureViewState()
 		{
 			return new CanvasViewState(_zoom, _offsetSize);
@@ -32,6 +40,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 			_zoom = viewState.Zoom;
 			_offsetSize = viewState.OffsetSize;
+			InvalidateVisibleOverlayCache();
 			Reshape();
 			RefreshGL();
 		}
@@ -42,6 +51,9 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			if (oldZoom == 0) { return; }
 
 			AdjustOffsetForZoom(mousePos, oldZoom);
+			// Zoom changes viewport bounds, so the visible ROI cache must be rebuilt
+			// through the spatial index instead of reusing the previous view.
+			InvalidateVisibleOverlayCache();
 			Reshape();
 			RefreshGL();
 		}
@@ -54,6 +66,11 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 		private new void Move(PointF pt)
 		{
+			if (!CanUseOpenGlControl() || openGLControl.Height <= 0)
+			{
+				return;
+			}
+
 			_aspectRatio = ((float)openGLControl.Width) / openGLControl.Height;
 			_xSpan = _zoom;
 			_ySpan = _zoom;
@@ -69,11 +86,21 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 			_offsetSize.Width = _xSpan / 2 - pt.X;
 			_offsetSize.Height = _ySpan / 2 - pt.Y;
-			openGLControl.Refresh();
+			InvalidateVisibleOverlayCache();
+			RefreshGL();
 		}
 
 		private void SetZoomValue(RectangleF rect)
 		{
+			if (!CanUseOpenGlControl()
+				|| rect.Width <= 0F
+				|| rect.Height <= 0F
+				|| openGLControl.Width <= 0
+				|| openGLControl.Height <= 0)
+			{
+				return;
+			}
+
 			float scaleWidth = (float)openGLControl.Width / rect.Width;
 			float scaleHeight = (float)openGLControl.Height / rect.Height;
 			float zoomFactor = 1.1f;
@@ -153,10 +180,37 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 		public PointF GetScreenPosFromPixelCoordf(int pixelX, int pixelY)
 		{
-			float screenX = (pixelX + _offsetSize.Width) * GetControlMinSize() / _zoom;
-			float screenY = openGLControl.Size.Height - ((pixelY + _offsetSize.Height) * GetControlMinSize() / _zoom);
+			return GetScreenPosFromWorldCoordf(pixelX, pixelY);
+		}
+
+		public PointF GetScreenPosFromWorldCoordf(float worldX, float worldY)
+		{
+			float screenX = (worldX + _offsetSize.Width) * GetControlMinSize() / _zoom;
+			float screenY = openGLControl.Size.Height - ((worldY + _offsetSize.Height) * GetControlMinSize() / _zoom);
 
 			return new PointF(screenX, screenY);
+		}
+
+		public RectangleF GetScreenRectFromImagePixelBounds(RectangleF imagePixelBounds)
+		{
+			RectangleF textureBounds = CalculateBoundingRectangle(_textureAreas);
+			if (textureBounds.Width <= 0 || textureBounds.Height <= 0)
+			{
+				textureBounds = new RectangleF(0, 0, imagePixelBounds.Right, imagePixelBounds.Bottom);
+			}
+
+			float worldLeft = textureBounds.Left + imagePixelBounds.Left;
+			float worldRight = textureBounds.Left + imagePixelBounds.Right;
+			float worldTop = textureBounds.Bottom - imagePixelBounds.Top;
+			float worldBottom = textureBounds.Bottom - imagePixelBounds.Bottom;
+			PointF topLeft = GetScreenPosFromWorldCoordf(worldLeft, worldTop);
+			PointF bottomRight = GetScreenPosFromWorldCoordf(worldRight, worldBottom);
+
+			return RectangleF.FromLTRB(
+				Math.Min(topLeft.X, bottomRight.X),
+				Math.Min(topLeft.Y, bottomRight.Y),
+				Math.Max(topLeft.X, bottomRight.X),
+				Math.Max(topLeft.Y, bottomRight.Y));
 		}
 
 		public Point GetCurrentRobotPos(int mouseLocationX, int mouseLocationY)

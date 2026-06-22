@@ -28,8 +28,20 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			if (newObject.Shape is CanvasRect<float>)
 			{
 				CanvasRect<float> canvasRect = newObject.Shape as CanvasRect<float>;
+				bool renderedAsEllipse = false;
 
-				DrawShape(gl, canvasRect, newObject.Color, isDotted, false, canvasRect.LineWidth);
+				if (canvasRect.ShapeKind == CanvasRoiShapeKind.Ellipse && !newObject.IsGroupRectangle)
+				{
+					EnumFillMode fillMode = newObject.IsFill || canvasRect.IsFill
+						? EnumFillMode.InFill
+						: EnumFillMode.None;
+					DrawEllipse(gl, canvasRect, canvasRect.LineWidth, new SolidColorBrush(ToMediaColor(newObject.Color)), fillMode);
+					renderedAsEllipse = true;
+				}
+				else
+				{
+					DrawShape(gl, canvasRect, newObject.Color, isDotted, false, canvasRect.LineWidth);
+				}
 
 				if (canvasRect.ExtendedRectangle != null)
 				{
@@ -37,7 +49,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 					System.Drawing.Color newColor = newObject.Color;
 					if (canvasRect.IsEditing)
 					{
-						newColor = System.Drawing.Color.Yellow;
+						newColor = System.Drawing.Color.DeepSkyBlue;
 						DrawShape(gl, canvasRect.ExtendedRectangle, newColor, true, false);
 					}
 					else
@@ -48,7 +60,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 						}
 					}
 				}
-				if (newObject.IsFill)
+				if (newObject.IsFill && !renderedAsEllipse)
 				{
 					System.Drawing.PointF start = new System.Drawing.PointF(canvasRect.LeftBottom.X, canvasRect.LeftBottom.Y);
 					System.Drawing.PointF end = new System.Drawing.PointF(canvasRect.RightTop.X, canvasRect.RightTop.Y);

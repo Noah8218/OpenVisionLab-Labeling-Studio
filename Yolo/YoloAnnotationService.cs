@@ -10,7 +10,12 @@ namespace MvcVisionSystem.Yolo
 {
     public static class YoloAnnotationService
     {
-        private static readonly string[] DatasetModes = { "train", "valid" };
+        private static readonly string[] DatasetModes =
+        {
+            YoloDatasetSplitService.TrainMode,
+            YoloDatasetSplitService.ValidMode,
+            YoloDatasetSplitService.TestMode
+        };
 
         public static void SaveAnnotations(
             string imageName,
@@ -270,6 +275,7 @@ namespace MvcVisionSystem.Yolo
                 data.NormalizeOutputPaths();
                 yield return Path.Combine(data.OutputRootPath, "data", "train", "labels", $"{fileStem}.txt");
                 yield return Path.Combine(data.OutputRootPath, "data", "valid", "labels", $"{fileStem}.txt");
+                yield return Path.Combine(data.OutputRootPath, "data", "test", "labels", $"{fileStem}.txt");
             }
 
             yield return Path.ChangeExtension(imagePath, ".txt");

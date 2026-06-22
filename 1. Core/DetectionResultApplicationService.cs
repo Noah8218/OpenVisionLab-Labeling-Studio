@@ -116,7 +116,7 @@ namespace MvcVisionSystem._1._Core
                 return Array.Empty<DetectionCandidateReviewItem>();
             }
 
-            FormLayerDisplay mainDisplay = CDisplayManager.GetMainDisplayOrNull();
+            DisplayLayerDocument mainDisplay = CDisplayManager.GetMainDisplayOrNull();
             Bitmap currentImage = mainDisplay?.GetCurrentImage();
             if (currentImage == null)
             {
@@ -165,7 +165,7 @@ namespace MvcVisionSystem._1._Core
                 return false;
             }
 
-            FormLayerDisplay mainDisplay = CDisplayManager.GetMainDisplayOrNull();
+            DisplayLayerDocument mainDisplay = CDisplayManager.GetMainDisplayOrNull();
             Bitmap currentImage = mainDisplay?.GetCurrentImage();
             if (currentImage == null)
             {
@@ -206,7 +206,9 @@ namespace MvcVisionSystem._1._Core
 
             if (CDisplayManager.ImageSrc == null || CDisplayManager.ImageSrc.Empty())
             {
-                AppLog.COMM("StartDefect skipped because source image is empty.");
+                const string message = "StartDefect skipped because source image is empty.";
+                communication.SetLastError(message);
+                AppLog.COMM(message);
                 return false;
             }
 
@@ -227,11 +229,71 @@ namespace MvcVisionSystem._1._Core
                 if (!sent)
                 {
                     ClearPendingDetectionContext();
-                    AppLog.ABNORMAL("DetectImage was not sent because the Python model client is not connected.");
+                    const string message = "DetectImage was not sent because the Python model client is not connected.";
+                    communication.SetLastError(message);
+                    AppLog.ABNORMAL(message);
                     return false;
                 }
+
+                communication.SetLastError("");
             }
 
+            return true;
+        }
+
+        public bool TrySendImagePathForDetection(
+            CCommunicationLearning communication,
+            CData data,
+            string imagePath,
+            Size imageSize,
+            int detectionTimeoutSeconds = 30)
+        {
+            if (communication == null)
+            {
+                AppLog.ABNORMAL("YOLO detection communication is not initialized.");
+                return false;
+            }
+
+            if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
+            {
+                string message = $"DetectImage skipped because image path is missing: {imagePath}";
+                communication.SetLastError(message);
+                AppLog.COMM(message);
+                return false;
+            }
+
+            if (imageSize.IsEmpty)
+            {
+                string message = $"DetectImage skipped because image size is empty: {imagePath}";
+                communication.SetLastError(message);
+                AppLog.COMM(message);
+                return false;
+            }
+
+            string requestId = Guid.NewGuid().ToString("N");
+            var context = new DetectionImageContext(
+                Path.GetFileNameWithoutExtension(imagePath),
+                imagePath,
+                imageSize,
+                requestId,
+                Path.GetFileNameWithoutExtension(imagePath));
+            RegisterPendingDetectionContext(context, detectionTimeoutSeconds);
+
+            bool sent = communication.SendDetectImage(
+                requestId,
+                context.ImageId,
+                imagePath,
+                data?.ProjectSettings?.PythonModel?.MinimumDetectionConfidence ?? 0.25F);
+            if (!sent)
+            {
+                ClearPendingDetectionContext();
+                const string message = "DetectImage was not sent because the Python model client is not connected.";
+                communication.SetLastError(message);
+                AppLog.ABNORMAL(message);
+                return false;
+            }
+
+            communication.SetLastError("");
             return true;
         }
 
@@ -243,6 +305,13 @@ namespace MvcVisionSystem._1._Core
             string imageId = "")
         {
             DetectionImageContext context = CaptureCurrentContext(data, imageSize, requestId, imageId);
+            RegisterPendingDetectionContext(context, detectionTimeoutSeconds);
+        }
+
+        private void RegisterPendingDetectionContext(
+            DetectionImageContext context,
+            int detectionTimeoutSeconds = 30)
+        {
             int generation;
             lock (sync)
             {
@@ -308,45 +377,59 @@ namespace MvcVisionSystem._1._Core
                 return false;
             }
 
-            if (CDisplayManager.ImageSrc == null || CDisplayManager.ImageSrc.Empty())
+            List<DefectInfo> reviewDefects = NormalizeDetectionCandidates(defects);
+            if (reviewDefects.Count == 0)
             {
-                AppLog.COMM("ResultDefect ignored because source image is empty.");
-                ClearLastResult();
+                SetLastResult(reviewDefects, detectionContext);
+                CDisplayManager.SetDetectionOverlays("Main", null);
+                AppLog.NORMAL($"YOLO detection completed, but no reviewable candidates were produced. Image:{detectionContext.DisplayName}, Raw:{defects.Count}");
+                RaiseDetectionCandidatesUpdated(detectionContext, 0, DetectionCandidateUpdateReason.ResultCompleted);
                 return false;
             }
 
-            List<DetectionOverlayItem> overlays = PythonDetectionResultProtocol.BuildDetectionOverlays(defects, ResolveClassColor);
+            if (CDisplayManager.ImageSrc == null || CDisplayManager.ImageSrc.Empty())
+            {
+                SetLastResult(reviewDefects, detectionContext);
+                AppLog.NORMAL($"YOLO detection completed without active overlay source. Image:{detectionContext.DisplayName}, Candidates:{reviewDefects.Count}, Raw:{defects.Count}");
+                RaiseDetectionCandidatesUpdated(detectionContext, reviewDefects.Count, DetectionCandidateUpdateReason.ResultCompleted);
+                return true;
+            }
+
+            List<DetectionOverlayItem> overlays = PythonDetectionResultProtocol.BuildDetectionOverlays(reviewDefects, ResolveClassColor);
             if (overlays.Count == 0)
             {
-                SetLastResult(defects, detectionContext);
+                SetLastResult(reviewDefects, detectionContext);
                 AppLog.NORMAL($"YOLO detection completed, but no drawable candidates were produced. Image:{detectionContext.DisplayName}, Raw:{defects.Count}");
                 RaiseDetectionCandidatesUpdated(detectionContext, 0, DetectionCandidateUpdateReason.ResultCompleted);
                 return false;
             }
 
-            using (Bitmap source = CImageConverter.ToBitmap(CDisplayManager.ImageSrc))
-            using (Bitmap image = CDrawBitmap.GetBitmapFormat24bppRgb(source))
+            var activeImageSize = new Size(CDisplayManager.ImageSrc.Width, CDisplayManager.ImageSrc.Height);
+            DetectionImageContext activeContext = CaptureCurrentContext(CGlobal.Inst.Data, activeImageSize);
+            if (!detectionContext.Matches(activeContext))
             {
-                DetectionImageContext activeContext = CaptureCurrentContext(CGlobal.Inst.Data, source.Size);
-                if (!detectionContext.Matches(activeContext))
-                {
-                    AppLog.COMM($"ResultDefect ignored because active image changed. Detection:{detectionContext.DisplayName}, Current:{activeContext.DisplayName}");
-                    ClearLastResult();
-                    return false;
-                }
+                SetLastResult(reviewDefects, detectionContext);
+                AppLog.NORMAL($"YOLO detection completed for non-active image. Image:{detectionContext.DisplayName}, Current:{activeContext.DisplayName}, Candidates:{reviewDefects.Count}, Raw:{defects.Count}");
+                RaiseDetectionCandidatesUpdated(detectionContext, reviewDefects.Count, DetectionCandidateUpdateReason.ResultCompleted);
+                return false;
+            }
 
-                SetLastResult(defects, detectionContext);
-                if (CDisplayManager.GetMainDisplayOrNull() == null)
+            SetLastResult(reviewDefects, detectionContext);
+            if (CDisplayManager.GetMainDisplayOrNull() == null)
+            {
+                using (Bitmap source = CImageConverter.ToBitmap(CDisplayManager.ImageSrc))
+                using (Bitmap image = CDrawBitmap.GetBitmapFormat24bppRgb(source))
                 {
                     CDisplayManager.CreateLayerDisplay(image, "Main", false, overlays, activate: true);
                 }
-                else
-                {
-                    CDisplayManager.SetDetectionOverlays("Main", overlays);
-                }
-                CDisplayManager.ActivateLayer("Main");
-                RaiseDetectionCandidatesUpdated(detectionContext, overlays.Count, DetectionCandidateUpdateReason.ResultCompleted);
             }
+            else
+            {
+                CDisplayManager.SetDetectionOverlays("Main", overlays);
+            }
+
+            CDisplayManager.ActivateLayer("Main");
+            RaiseDetectionCandidatesUpdated(detectionContext, overlays.Count, DetectionCandidateUpdateReason.ResultCompleted);
 
             return true;
         }
@@ -364,7 +447,7 @@ namespace MvcVisionSystem._1._Core
                 return false;
             }
 
-            FormLayerDisplay mainDisplay = CDisplayManager.GetMainDisplayOrNull();
+            DisplayLayerDocument mainDisplay = CDisplayManager.GetMainDisplayOrNull();
             Bitmap currentImage = mainDisplay?.GetCurrentImage();
             if (mainDisplay == null || currentImage == null)
             {
@@ -539,7 +622,7 @@ namespace MvcVisionSystem._1._Core
                 return false;
             }
 
-            FormLayerDisplay mainDisplay = CDisplayManager.GetMainDisplayOrNull();
+            DisplayLayerDocument mainDisplay = CDisplayManager.GetMainDisplayOrNull();
             Bitmap currentImage = mainDisplay?.GetCurrentImage();
             if (currentImage == null)
             {
@@ -577,6 +660,27 @@ namespace MvcVisionSystem._1._Core
             CClassItem classItem = CGlobal.Inst.Data?.ClassNamedList?
                 .FirstOrDefault(item => string.Equals(item.Text, className, System.StringComparison.OrdinalIgnoreCase));
             return classItem?.DrawColor;
+        }
+
+        private static List<DefectInfo> NormalizeDetectionCandidates(IReadOnlyList<DefectInfo> defects)
+        {
+            int maximumCandidates = CGlobal.Inst.Data?.ProjectSettings?.PythonModel?.MaximumDetectionCandidates ?? 20;
+            maximumCandidates = Math.Clamp(maximumCandidates, 1, 200);
+
+            List<DefectInfo> reviewDefects = (defects ?? Array.Empty<DefectInfo>())
+                .Where(defect => defect != null)
+                .ToList();
+
+            if (reviewDefects.Count <= maximumCandidates)
+            {
+                return reviewDefects;
+            }
+
+            return reviewDefects
+                .OrderByDescending(defect => defect.Confidence)
+                .ThenBy(defect => defect.ClassName ?? string.Empty, StringComparer.OrdinalIgnoreCase)
+                .Take(maximumCandidates)
+                .ToList();
         }
 
         private void UpdateDetectionStateAfterCommit(

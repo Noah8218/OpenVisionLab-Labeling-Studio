@@ -1,4 +1,3 @@
-﻿using RJCodeUI_M1.RJControls;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
@@ -6,7 +5,6 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using System.Windows.Forms;
 using YamlDotNet.Serialization;
 using static MvcVisionSystem.DEFINE;
 
@@ -16,6 +14,7 @@ namespace MvcVisionSystem.Yolo
     {
         public string train { get; set; }
         public string val { get; set; }
+        public string test { get; set; }
         public int nc { get; set; }
         public List<string> names { get; set; }
     }
@@ -58,6 +57,11 @@ namespace MvcVisionSystem.Yolo
     {
         public static void CreateYaml(string trainImagesPath, string valImagesPath, List<string> classNames, string outputYamlPath)
         {
+            CreateYaml(trainImagesPath, valImagesPath, "", classNames, outputYamlPath);
+        }
+
+        public static void CreateYaml(string trainImagesPath, string valImagesPath, string testImagesPath, List<string> classNames, string outputYamlPath)
+        {
             if (string.IsNullOrWhiteSpace(outputYamlPath))
             {
                 throw new ArgumentException("YAML output path is required.", nameof(outputYamlPath));
@@ -75,12 +79,15 @@ namespace MvcVisionSystem.Yolo
             {
                 train = NormalizeYamlPath(trainImagesPath),
                 val = NormalizeYamlPath(valImagesPath),
+                test = string.IsNullOrWhiteSpace(testImagesPath) ? null : NormalizeYamlPath(testImagesPath),
                 nc = classNames.Count,
                 names = classNames
             };
 
             // Create a new SerializerBuilder and serialize the data
-            var serializer = new SerializerBuilder().Build();
+            var serializer = new SerializerBuilder()
+                .ConfigureDefaultValuesHandling(DefaultValuesHandling.OmitNull)
+                .Build();
             var yaml = serializer.Serialize(data);
 
             if (File.Exists(outputYamlPath)

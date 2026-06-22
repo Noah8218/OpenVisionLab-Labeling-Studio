@@ -340,6 +340,9 @@ ASALocalRun/
 # Local History for Visual Studio
 .localhistory/
 
+# Local runtime paths
+config/labeling-runtime.local.json
+
 # BeatPulse healthcheck temp database
 healthchecksdb
 

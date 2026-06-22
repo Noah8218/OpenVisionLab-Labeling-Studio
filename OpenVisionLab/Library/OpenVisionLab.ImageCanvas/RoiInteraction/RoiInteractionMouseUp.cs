@@ -14,6 +14,16 @@ namespace OpenVisionLab.ImageCanvas
 	{
 		public static bool AddRectangleToOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, System.Drawing.PointF preMousePos, System.Drawing.PointF postMousePos, ref CanvasRect<float> activeRoiRect, OverlayAddedCallback callbackRoiAdded)
 		{
+			return AddRectShapeToOverlay(imageViewer, preMousePos, postMousePos, CanvasRoiShapeKind.Rectangle, ref activeRoiRect, callbackRoiAdded);
+		}
+
+		public static bool AddEllipseToOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, System.Drawing.PointF preMousePos, System.Drawing.PointF postMousePos, ref CanvasRect<float> activeRoiRect, OverlayAddedCallback callbackRoiAdded)
+		{
+			return AddRectShapeToOverlay(imageViewer, preMousePos, postMousePos, CanvasRoiShapeKind.Ellipse, ref activeRoiRect, callbackRoiAdded);
+		}
+
+		private static bool AddRectShapeToOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, System.Drawing.PointF preMousePos, System.Drawing.PointF postMousePos, CanvasRoiShapeKind shapeKind, ref CanvasRect<float> activeRoiRect, OverlayAddedCallback callbackRoiAdded)
+		{
 			if (imageViewer.GetViewMode() != CanvasInteractionMode.Drawing) return false;
 
 			// ROI瑜??뺤쓽?섎뒗 RectangleF 媛앹껜 ?앹꽦
@@ -23,7 +33,9 @@ namespace OpenVisionLab.ImageCanvas
 			// _activeRoiRect??吏곸젒 珥덇린?뷀븯怨? UniqueId ?ㅼ젙
 			activeRoiRect = new CanvasRect<float>(roi.Left, roi.Top, roi.Right, roi.Bottom)
 			{
-				UniqueId = Guid.NewGuid().ToString()
+				UniqueId = Guid.NewGuid().ToString(),
+				ShapeKind = shapeKind,
+				IsFill = shapeKind == CanvasRoiShapeKind.Ellipse
 			};
 
 			// 留덉?留?洹몃９??媛?몄샂
@@ -35,6 +47,7 @@ namespace OpenVisionLab.ImageCanvas
 
 			// MouseUp ?대깽??泥섎━瑜??꾪븳 異붽? 濡쒖쭅
 			callbackRoiAdded?.Invoke(activeRoiRect, parentOverlay);
+			imageViewer.RefreshGL();
 			return true;
 		}
 

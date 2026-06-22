@@ -63,46 +63,94 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 
 			float r, g, b, a;
 			(r, g, b, a) = ConvertColorToOpenGLRGB(color);
-			gl.Color(r, g, b);
 
-			if (zoomScale > 0.5) { maxHandleSize = 30; }
-			else { maxHandleSize = 3; }
-
-			minHandleSize = 3;
-
-			float handlesizeResize = 0;
-			handlesizeResize = Math.Max(minHandleSize, Math.Min(handlesizeResize, maxHandleSize));
-			canvasRect.LineWidth = (int)handlesizeResize;
-			canvasRect.InitializeHandleRects(handlesizeResize);
-			DrawRectangleWithHandles(gl, canvasRect.Points.Select(x => new PointF(x.X, x.Y)), handlesizeResize, 2, new float[] { r, g, b });
+			float handleSize = Math.Min(8.0f * Math.Max(zoomScale, 0.001f), maxHandleSize);
+			DrawRectangleWithHandles(gl, canvasRect.Points.Select(x => new PointF(x.X, x.Y)), handleSize, 2, new float[] { r, g, b });
 		}
 
 		public static void DrawRectangleWithHandles(OpenGL gl, IEnumerable<PointF> mainRectPoints, float handleSize, float lineWidth, float[] lineColorRGB)
 		{
-			//float handlesizeResize = (handleSize / _zoomScale);
-
-			DrawStippleLineLoop(gl, mainRectPoints, lineWidth, lineColorRGB);
-
 			var pointsList = mainRectPoints.ToList();
-			PointF topCenter = new PointF((pointsList[0].X + pointsList[1].X) / 2, pointsList[0].Y);
-			PointF bottomCenter = new PointF((pointsList[2].X + pointsList[3].X) / 2, pointsList[2].Y);
-			PointF leftCenter = new PointF(pointsList[0].X, (pointsList[0].Y + pointsList[3].Y) / 2);
-			PointF rightCenter = new PointF(pointsList[1].X, (pointsList[1].Y + pointsList[2].Y) / 2);
-
-			var allPoints = pointsList.Concat(new[] { topCenter, bottomCenter, leftCenter, rightCenter });
-			foreach (var center in allPoints)
+			if (pointsList.Count < 4)
 			{
-				float halfSize = handleSize / 2.0f;
-				List<PointF> handleRectPoints = new List<PointF>
-					{
-						new PointF(center.X - halfSize, center.Y - halfSize),
-						new PointF(center.X + halfSize, center.Y - halfSize),
-						new PointF(center.X + halfSize, center.Y + halfSize),
-						new PointF(center.X - halfSize, center.Y + halfSize)
-					};
-
-				DrawStippleLineLoop(gl, handleRectPoints, lineWidth, lineColorRGB);
+				return;
 			}
+
+			gl.PushAttrib(OpenGL.GL_ENABLE_BIT | OpenGL.GL_LINE_BIT | OpenGL.GL_CURRENT_BIT | OpenGL.GL_COLOR_BUFFER_BIT);
+			try
+			{
+				gl.Disable(OpenGL.GL_LINE_STIPPLE);
+				gl.Disable(OpenGL.GL_TEXTURE_2D);
+				gl.Enable(OpenGL.GL_BLEND);
+				gl.BlendFunc(OpenGL.GL_SRC_ALPHA, OpenGL.GL_ONE_MINUS_SRC_ALPHA);
+
+				// Selection handles are editor affordances, not labels. Draw a dark halo
+				// plus a stable accent color so the ROI class color remains meaningful.
+				DrawSolidLineLoop(gl, pointsList, lineWidth + 2.0f, new float[] { 0f, 0f, 0f }, 0.50f);
+				DrawSolidLineLoop(gl, pointsList, lineWidth, lineColorRGB, 1.0f);
+
+				PointF topCenter = new PointF((pointsList[0].X + pointsList[1].X) / 2, pointsList[0].Y);
+				PointF bottomCenter = new PointF((pointsList[2].X + pointsList[3].X) / 2, pointsList[2].Y);
+				PointF leftCenter = new PointF(pointsList[0].X, (pointsList[0].Y + pointsList[3].Y) / 2);
+				PointF rightCenter = new PointF(pointsList[1].X, (pointsList[1].Y + pointsList[2].Y) / 2);
+
+				var allPoints = pointsList.Concat(new[] { topCenter, bottomCenter, leftCenter, rightCenter });
+				foreach (var center in allPoints)
+				{
+					float halfSize = handleSize / 2.0f;
+					DrawFilledHandle(gl, center, halfSize, lineColorRGB);
+				}
+			}
+			finally
+			{
+				gl.PopAttrib();
+			}
+		}
+
+		private static void DrawSolidLineLoop(OpenGL gl, IReadOnlyList<PointF> points, float lineWidth, float[] lineColorRGB, float alpha)
+		{
+			gl.LineWidth(lineWidth);
+			SetGlRgb(gl, lineColorRGB, alpha);
+			gl.Begin(OpenGL.GL_LINE_LOOP);
+			foreach (var pt in points)
+			{
+				gl.Vertex(pt.X, pt.Y);
+			}
+			gl.End();
+		}
+
+		private static void DrawFilledHandle(OpenGL gl, PointF center, float halfSize, float[] lineColorRGB)
+		{
+			float haloHalfSize = halfSize + 1.5f;
+			DrawFilledRect(gl, center, haloHalfSize, new float[] { 0f, 0f, 0f }, 0.55f);
+			DrawFilledRect(gl, center, halfSize, lineColorRGB, 0.92f);
+			var handlePoints = new List<PointF>
+			{
+				new PointF(center.X - halfSize, center.Y - halfSize),
+				new PointF(center.X + halfSize, center.Y - halfSize),
+				new PointF(center.X + halfSize, center.Y + halfSize),
+				new PointF(center.X - halfSize, center.Y + halfSize)
+			};
+			DrawSolidLineLoop(gl, handlePoints, 1.25f, new float[] { 1f, 1f, 1f }, 0.95f);
+		}
+
+		private static void DrawFilledRect(OpenGL gl, PointF center, float halfSize, float[] colorRGB, float alpha)
+		{
+			SetGlRgb(gl, colorRGB, alpha);
+			gl.Begin(OpenGL.GL_QUADS);
+			gl.Vertex(center.X - halfSize, center.Y - halfSize);
+			gl.Vertex(center.X + halfSize, center.Y - halfSize);
+			gl.Vertex(center.X + halfSize, center.Y + halfSize);
+			gl.Vertex(center.X - halfSize, center.Y + halfSize);
+			gl.End();
+		}
+
+		private static void SetGlRgb(OpenGL gl, float[] colorRGB, float alpha)
+		{
+			float r = colorRGB != null && colorRGB.Length > 0 ? colorRGB[0] : 1f;
+			float g = colorRGB != null && colorRGB.Length > 1 ? colorRGB[1] : 1f;
+			float b = colorRGB != null && colorRGB.Length > 2 ? colorRGB[2] : 1f;
+			gl.Color(r, g, b, alpha);
 		}
 
 		public static void DrawStippleLineLoop(OpenGL gl, IEnumerable<PointF> points, float lineWidth, float[] lineColorRGB)
@@ -309,6 +357,61 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			EnumFillMode enumFillMode = useFill == true ? EnumFillMode.InFill : EnumFillMode.None;
 
 			DrawCircle(gl, start, end, lineWidth, color, enumFillMode);
+		}
+
+		public static void DrawEllipse(OpenGL gl, CanvasRect<float> rect, float lineWidth, System.Windows.Media.SolidColorBrush color, EnumFillMode enumFillMode)
+		{
+			if (rect == null || rect.IsEmpty()) { return; }
+
+			float r, g, b, a;
+			(r, g, b, a) = ConvertColorToOpenGLRGB(color);
+			float centerX = (rect.Left + rect.Right) / 2F;
+			float centerY = (rect.Bottom + rect.Top) / 2F;
+			float radiusX = Math.Abs(rect.Right - rect.Left) / 2F;
+			float radiusY = Math.Abs(rect.Top - rect.Bottom) / 2F;
+			int segments = 96;
+
+			gl.PushAttrib(OpenGL.GL_ENABLE_BIT | OpenGL.GL_COLOR_BUFFER_BIT | OpenGL.GL_LINE_BIT | OpenGL.GL_CURRENT_BIT);
+			try
+			{
+				gl.Disable(OpenGL.GL_TEXTURE_2D);
+
+				if (enumFillMode == EnumFillMode.InFill)
+				{
+					gl.Enable(OpenGL.GL_BLEND);
+					gl.BlendFunc(OpenGL.GL_SRC_ALPHA, OpenGL.GL_ONE_MINUS_SRC_ALPHA);
+					gl.Color(r, g, b, Math.Min(a, 0.24F));
+					gl.Begin(OpenGL.GL_TRIANGLE_FAN);
+					gl.Vertex(centerX, centerY);
+
+					for (int i = 0; i <= segments; i++)
+					{
+						double angle = Math.PI * 2D * i / segments;
+						gl.Vertex(
+							centerX + (float)Math.Cos(angle) * radiusX,
+							centerY + (float)Math.Sin(angle) * radiusY);
+					}
+
+					gl.End();
+				}
+
+				gl.Color(r, g, b, a);
+				gl.LineWidth(Math.Max(1F, lineWidth));
+				gl.Begin(OpenGL.GL_LINE_LOOP);
+				for (int i = 0; i < segments; i++)
+				{
+					double angle = Math.PI * 2D * i / segments;
+					gl.Vertex(
+						centerX + (float)Math.Cos(angle) * radiusX,
+						centerY + (float)Math.Sin(angle) * radiusY);
+				}
+
+				gl.End();
+			}
+			finally
+			{
+				gl.PopAttrib();
+			}
 		}
 
 		public static List<System.Drawing.Point> GetThickLinePoint(PointF startPoint, PointF endPoint, float lineWidth)
@@ -1232,14 +1335,6 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			gl.Color(r, g, b, a);
 
 			gl.LineWidth(lineWidth);
-
-			if (shape is CanvasRect<float>)
-			{
-				if ((shape as CanvasRect<float>).IsEditing)
-				{
-					gl.Color(System.Drawing.Color.Yellow.R / 255.0f, System.Drawing.Color.Yellow.G / 255.0f, System.Drawing.Color.Yellow.B / 255.0f);
-				}
-			}
 
 			if (isDotted)
 			{

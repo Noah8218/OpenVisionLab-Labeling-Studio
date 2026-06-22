@@ -11,7 +11,6 @@ using System.Drawing.Drawing2D;
 using System.Drawing.Imaging;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Windows.Forms;
 using Point = System.Drawing.Point;
 
 namespace MvcVisionSystem
@@ -204,7 +203,8 @@ namespace MvcVisionSystem
         private static OverlayLabelTextureCache CreateOverlayLabelTexture(OpenGL gl, string title, Color accent)
         {
             using Font font = CreateOverlayLabelFont();
-            Size textSize = TextRenderer.MeasureText(title, font, Size.Empty, TextFormatFlags.NoPadding | TextFormatFlags.SingleLine);
+            using StringFormat textFormat = CreateOverlayLabelStringFormat();
+            Size textSize = MeasureOverlayLabelText(title, font, textFormat);
             int width = Math.Max(1, textSize.Width + (OverlayLabelPaddingX * 2) + OverlayLabelAccentWidth);
             int height = Math.Max(OverlayLabelFontSize + (OverlayLabelPaddingY * 2), textSize.Height + (OverlayLabelPaddingY * 2));
 
@@ -223,19 +223,14 @@ namespace MvcVisionSystem
                 graphics.FillRectangle(accentBrush, 0, 0, OverlayLabelAccentWidth, height);
                 graphics.DrawRectangle(borderPen, 0, 0, width - 1, height - 1);
 
-                Rectangle textRect = new Rectangle(
+                RectangleF textRect = new RectangleF(
                     OverlayLabelAccentWidth + OverlayLabelPaddingX,
                     0,
                     Math.Max(1, width - OverlayLabelAccentWidth - (OverlayLabelPaddingX * 2)),
                     height);
 
-                TextRenderer.DrawText(
-                    graphics,
-                    title,
-                    font,
-                    textRect,
-                    Color.White,
-                    TextFormatFlags.Left | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine | TextFormatFlags.NoPadding);
+                using var textBrush = new SolidBrush(Color.White);
+                graphics.DrawString(title, font, textBrush, textRect, textFormat);
             }
 
             uint textureId = CreateTextureFromBitmap(gl, bitmap);
@@ -245,6 +240,26 @@ namespace MvcVisionSystem
                 Width = width,
                 Height = height,
                 RenderContext = gl.RenderContextProvider.RenderContextHandle
+            };
+        }
+
+        private static Size MeasureOverlayLabelText(string title, Font font, StringFormat textFormat)
+        {
+            using var bitmap = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
+            using Graphics graphics = Graphics.FromImage(bitmap);
+            graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+            SizeF measured = graphics.MeasureString(title, font, int.MaxValue, textFormat);
+            return Size.Ceiling(measured);
+        }
+
+        private static StringFormat CreateOverlayLabelStringFormat()
+        {
+            return new StringFormat(StringFormat.GenericTypographic)
+            {
+                Alignment = StringAlignment.Near,
+                LineAlignment = StringAlignment.Center,
+                FormatFlags = StringFormatFlags.NoWrap,
+                Trimming = StringTrimming.EllipsisCharacter
             };
         }
 
@@ -893,7 +908,10 @@ namespace MvcVisionSystem
                 return;
             }
 
-            Color baseColor = overlay.IsSelected ? Color.Yellow : EnsureReadableOverlayColor(overlay.Color);
+            // Keep the candidate/class color stable. Selection is expressed by stronger
+            // opacity, stroke width, and corner markers so a click does not change the
+            // object's semantic color from green to yellow.
+            Color baseColor = EnsureReadableOverlayColor(overlay.Color);
             RectangleF rect = ToOpenGlRectangle(roi);
 
             gl.PushAttrib(OpenGL.GL_ALL_ATTRIB_BITS);

@@ -126,7 +126,8 @@ namespace MvcVisionSystem
 
             bool autoStartClient = Data?.ProjectSettings?.PythonModel?.AutoStartClient != false;
             DateTime? requiredConnectionUtc = autoStartClient ? PythonClientProcess.LastStartedAtUtc : null;
-            DateTime deadline = DateTime.UtcNow.AddMilliseconds(Math.Max(0, timeoutMilliseconds));
+            int safeTimeoutMilliseconds = Math.Max(0, timeoutMilliseconds);
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(safeTimeoutMilliseconds);
             while (DateTime.UtcNow <= deadline)
             {
                 PythonCommunicationStatus status = GetPythonCommunicationStatusSnapshot();
@@ -140,13 +141,30 @@ namespace MvcVisionSystem
                 Thread.Sleep(100);
             }
 
-            AppLog.ABNORMAL($"YOLOv5 Python client did not connect within {timeoutMilliseconds}ms.");
+            PythonCommunicationStatus finalStatus = GetPythonCommunicationStatusSnapshot();
+            string error = FirstNonEmpty(finalStatus.LastError, PythonClientProcess.LastError, "none");
+            string message = $"YOLOv5 Python client did not connect within {safeTimeoutMilliseconds}ms. Listener:{finalStatus.IsListening}, Client:{finalStatus.IsClientConnected}, ProcessRunning:{PythonClientProcess.IsRunning}, Error:{error}";
+            DeepLearning.SetLastError(message);
+            AppLog.ABNORMAL(message);
             return false;
         }
 
         public Task<bool> EnsurePythonModelClientReadyAsync(int timeoutMilliseconds = 5000)
         {
             return Task.Run(() => EnsurePythonModelClientReady(timeoutMilliseconds));
+        }
+
+        private static string FirstNonEmpty(params string[] values)
+        {
+            foreach (string value in values)
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return value.Trim();
+                }
+            }
+
+            return "";
         }
 
         public CGlobal() { }        

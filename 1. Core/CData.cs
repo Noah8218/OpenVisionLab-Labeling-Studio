@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Windows.Forms;
 using System.Collections.Generic;
 using System.Linq;
 using System.Xml.Serialization;
@@ -40,10 +39,12 @@ namespace MvcVisionSystem
 
         [XmlIgnore] public string ValidImagesPath => Path.Combine(OutputRootPath, "data", "valid", "images");
 
+        [XmlIgnore] public string TestImagesPath => Path.Combine(OutputRootPath, "data", "test", "images");
+
         public CData() { CUtil.InitDirectory("DATA"); }
         public CData LoadConfig(string RecipeName)
         {
-            string strPath = Application.StartupPath + "\\RECIPE\\" + RecipeName + "\\" + "VISION" + ".xml";
+            string strPath = GetRecipeConfigPath(RecipeName);
             CData newData = null;
 
             if (File.Exists(strPath))
@@ -65,7 +66,8 @@ namespace MvcVisionSystem
         {
             NormalizeOutputPaths();
             NormalizeTrainingSettings();
-            string strPath = Application.StartupPath + "\\RECIPE\\" + RecipeName + "\\" + "VISION" + ".xml";
+            string strPath = GetRecipeConfigPath(RecipeName);
+            Directory.CreateDirectory(Path.GetDirectoryName(strPath));
             SerializeHelper.ToXmlFile(strPath, this);
         }
 
@@ -108,7 +110,7 @@ namespace MvcVisionSystem
             NormalizeOutputPaths();
             EnsureYoloOutputDirectories();
             List<string> classNames = ClassNamedList.Select(item => item.Text).ToList();
-            CYolov5.CreateYaml(TrainImagesPath, ValidImagesPath, classNames, DataYamlFilePath);
+            CYolov5.CreateYaml(TrainImagesPath, ValidImagesPath, TestImagesPath, classNames, DataYamlFilePath);
         }
 
         public void EnsureYoloOutputDirectories()
@@ -118,6 +120,8 @@ namespace MvcVisionSystem
             Directory.CreateDirectory(Path.Combine(OutputRootPath, "data", "train", "labels"));
             Directory.CreateDirectory(ValidImagesPath);
             Directory.CreateDirectory(Path.Combine(OutputRootPath, "data", "valid", "labels"));
+            Directory.CreateDirectory(TestImagesPath);
+            Directory.CreateDirectory(Path.Combine(OutputRootPath, "data", "test", "labels"));
         }
 
         private string ResolveOutputRootPath()
@@ -148,7 +152,7 @@ namespace MvcVisionSystem
                 return OutputDataYamlPath;
             }
 
-            return Path.Combine(Application.StartupPath, "DATA");
+            return Path.Combine(AppContext.BaseDirectory, "DATA");
         }
 
         private string ResolveDataYamlFilePath()
@@ -166,6 +170,11 @@ namespace MvcVisionSystem
             }
 
             return Path.Combine(OutputRootPath, "data.yaml");
+        }
+
+        private static string GetRecipeConfigPath(string recipeName)
+        {
+            return Path.Combine(AppContext.BaseDirectory, "RECIPE", recipeName ?? string.Empty, "VISION.xml");
         }
 
         private static bool IsYamlFilePath(string path)

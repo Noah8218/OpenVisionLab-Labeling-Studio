@@ -1,5 +1,8 @@
 ﻿using OpenVisionLab.ImageCanvas;
+using OpenVisionLab.ImageCanvas.CanvasShapes;
+using System;
 using System.Collections.Generic;
+using System.Drawing;
 using System.Linq;
 using System.Threading;
 
@@ -12,6 +15,9 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 	{
 		#region Field		
 		private List<CanvasOverlayItem> _overlayItems = new List<CanvasOverlayItem>();
+		private readonly Dictionary<string, CanvasOverlayItem> _overlayByUniqueId = new Dictionary<string, CanvasOverlayItem>();
+		private readonly Dictionary<CanvasShape, CanvasOverlayItem> _overlayByShape = new Dictionary<CanvasShape, CanvasOverlayItem>();
+		private readonly CanvasOverlaySpatialIndex _spatialIndex = new CanvasOverlaySpatialIndex();
 		private string _lastGroupType = EnumInspWindowType.Module.ToString();
 		#endregion
 		#region Properties
@@ -243,6 +249,19 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 		/// </summary>
 		public CanvasOverlayItem GetOverlayByUniqueId(string uniqueId)
 		{
+			if (string.IsNullOrWhiteSpace(uniqueId))
+			{
+				return null;
+			}
+
+			lock (_lock)
+			{
+				if (_overlayByUniqueId.TryGetValue(uniqueId, out CanvasOverlayItem indexedOverlay))
+				{
+					return indexedOverlay;
+				}
+			}
+
 			foreach (var group in GetOrderedGroups())
 			{
 
@@ -287,13 +306,13 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 				if (overlayItem == null) { return false; }
 				if (overlayItem.Parent != null)
 				{
-					CanvasOverlayItem parent = GetOverlayByUniqueId(overlayItem.Parent.Shape.UniqueId);
-					parent?.ChildObjects.Remove(overlayItem);
+					overlayItem.Parent.ChildObjects.Remove(overlayItem);
 				}
 				else
 				{
 					_overlayItems.Remove(overlayItem);
 				}
+				UnregisterOverlayTree(overlayItem);
 				return true;
 			}
 		}
@@ -320,6 +339,77 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 					{
 						_overlayItems.Add(newObject);						
 					}
+				}
+				RegisterOverlayTree(newObject);
+			}
+		}
+
+		public List<CanvasOverlayItem> FindInteractiveOverlaysNearPoint(PointF point, float hitRadius, bool includeGroupRectangles = false)
+		{
+			lock (_lock)
+			{
+				return _spatialIndex.QueryPoint(point, hitRadius, includeGroupRectangles);
+			}
+		}
+
+		public void VisitInteractiveOverlaysNearPoint(PointF point, float hitRadius, bool includeGroupRectangles, Action<CanvasOverlayItem> visitor)
+		{
+			lock (_lock)
+			{
+				_spatialIndex.VisitPoint(point, hitRadius, includeGroupRectangles, visitor);
+			}
+		}
+
+		public CanvasOverlayItem FindBestInteractiveRectAtPoint(PointF point, float hitRadius, bool includeGroupRectangles, bool groupOnly, float zoomScale, float handleSize)
+		{
+			lock (_lock)
+			{
+				return _spatialIndex.FindBestRectAtPoint(point, hitRadius, includeGroupRectangles, groupOnly, zoomScale, handleSize);
+			}
+		}
+
+		public List<CanvasOverlayItem> GetVisibleOverlaysInBounds(RectangleF bounds)
+		{
+			lock (_lock)
+			{
+				return _spatialIndex.QueryBounds(bounds, includeGroupRectangles: true);
+			}
+		}
+
+		public int VisitVisibleOverlaysInBounds(RectangleF bounds, int maxCandidates, Action<CanvasOverlayItem> visitor)
+		{
+			lock (_lock)
+			{
+				return _spatialIndex.VisitBounds(bounds, includeGroupRectangles: true, maxCandidates, visitor);
+			}
+		}
+
+		public void UpdateInteractiveOverlayIndex(CanvasShape shape)
+		{
+			if (shape == null)
+			{
+				return;
+			}
+
+			lock (_lock)
+			{
+				if (_overlayByShape.TryGetValue(shape, out CanvasOverlayItem overlayItem))
+				{
+					_spatialIndex.Update(overlayItem);
+				}
+			}
+		}
+
+		public void RebuildInteractiveOverlayIndex()
+		{
+			lock (_lock)
+			{
+				_overlayByUniqueId.Clear();
+				_overlayByShape.Clear();
+				_spatialIndex.Clear();
+				foreach (CanvasOverlayItem overlayItem in _overlayItems)
+				{
+					RegisterOverlayTree(overlayItem);
 				}
 			}
 		}
@@ -446,6 +536,69 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 			}
 		}
 
+		private void RegisterOverlayTree(CanvasOverlayItem overlayItem)
+		{
+			if (overlayItem == null)
+			{
+				return;
+			}
+
+			RegisterOverlay(overlayItem);
+			foreach (CanvasOverlayItem child in overlayItem.ChildObjects)
+			{
+				child.Parent = overlayItem;
+				RegisterOverlayTree(child);
+			}
+		}
+
+		private void RegisterOverlay(CanvasOverlayItem overlayItem)
+		{
+			if (overlayItem?.Shape == null)
+			{
+				return;
+			}
+
+			if (!string.IsNullOrWhiteSpace(overlayItem.Shape.UniqueId))
+			{
+				_overlayByUniqueId[overlayItem.Shape.UniqueId] = overlayItem;
+			}
+
+			_overlayByShape[overlayItem.Shape] = overlayItem;
+			_spatialIndex.Add(overlayItem);
+		}
+
+		private void UnregisterOverlayTree(CanvasOverlayItem overlayItem)
+		{
+			if (overlayItem == null)
+			{
+				return;
+			}
+
+			foreach (CanvasOverlayItem child in overlayItem.ChildObjects)
+			{
+				UnregisterOverlayTree(child);
+			}
+
+			UnregisterOverlay(overlayItem);
+			overlayItem.Parent = null;
+		}
+
+		private void UnregisterOverlay(CanvasOverlayItem overlayItem)
+		{
+			if (overlayItem?.Shape == null)
+			{
+				return;
+			}
+
+			if (!string.IsNullOrWhiteSpace(overlayItem.Shape.UniqueId))
+			{
+				_overlayByUniqueId.Remove(overlayItem.Shape.UniqueId);
+			}
+
+			_overlayByShape.Remove(overlayItem.Shape);
+			_spatialIndex.Remove(overlayItem);
+		}
+
 		public void Clear()
 		{
 			lock (_lock)
@@ -456,6 +609,9 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 				}
 
 				_overlayItems.Clear();
+				_overlayByUniqueId.Clear();
+				_overlayByShape.Clear();
+				_spatialIndex.Clear();
 				_lastGroupType = EnumInspWindowType.Module.ToString();
 			}
 		}

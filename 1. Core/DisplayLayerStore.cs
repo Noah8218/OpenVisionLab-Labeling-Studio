@@ -7,14 +7,14 @@ namespace MvcVisionSystem._1._Core
 {
     internal sealed class DisplayLayerStore
     {
-        private readonly Func<List<FormLayerDisplay>> layersAccessor;
+        private readonly Func<List<DisplayLayerDocument>> layersAccessor;
 
-        public DisplayLayerStore(Func<List<FormLayerDisplay>> layersAccessor)
+        public DisplayLayerStore(Func<List<DisplayLayerDocument>> layersAccessor)
         {
             this.layersAccessor = layersAccessor ?? throw new ArgumentNullException(nameof(layersAccessor));
         }
 
-        private List<FormLayerDisplay> Layers => layersAccessor() ?? new List<FormLayerDisplay>();
+        private List<DisplayLayerDocument> Layers => layersAccessor() ?? new List<DisplayLayerDocument>();
 
         public int Count => Layers.Count;
 
@@ -38,10 +38,10 @@ namespace MvcVisionSystem._1._Core
                 return -1;
             }
 
-            List<FormLayerDisplay> layers = Layers;
+            List<DisplayLayerDocument> layers = Layers;
             for (int i = 0; i < layers.Count; i++)
             {
-                FormLayerDisplay display = layers[i];
+                DisplayLayerDocument display = layers[i];
                 if (display != null && !display.IsDisposed && string.Equals(display.Text, title, StringComparison.OrdinalIgnoreCase))
                 {
                     return i;
@@ -51,17 +51,17 @@ namespace MvcVisionSystem._1._Core
             return -1;
         }
 
-        public FormLayerDisplay Create(Bitmap imageSource, bool useClose, string title)
+        public DisplayLayerDocument Create(Bitmap imageSource, bool useClose, string title)
         {
-            List<FormLayerDisplay> layers = Layers;
-            var display = new FormLayerDisplay(imageSource, layers.Count, layers, useClose, title);
+            List<DisplayLayerDocument> layers = Layers;
+            var display = new DisplayLayerDocument(imageSource, layers.Count, title);
             layers.Add(display);
             return display;
         }
 
         public void RemoveEmpty()
         {
-            List<FormLayerDisplay> layers = Layers;
+            List<DisplayLayerDocument> layers = Layers;
             for (int i = layers.Count - 1; i >= 0; i--)
             {
                 if (layers[i] == null || layers[i].IsDisposed || string.IsNullOrEmpty(layers[i].Text))
@@ -71,19 +71,19 @@ namespace MvcVisionSystem._1._Core
             }
         }
 
-        public FormLayerDisplay GetOrNull(int index)
+        public DisplayLayerDocument GetOrNull(int index)
         {
-            List<FormLayerDisplay> layers = Layers;
+            List<DisplayLayerDocument> layers = Layers;
             if (index < 0 || index >= layers.Count)
             {
                 return null;
             }
 
-            FormLayerDisplay display = layers[index];
+            DisplayLayerDocument display = layers[index];
             return display == null || display.IsDisposed ? null : display;
         }
 
-        public FormLayerDisplay GetByTitleOrFirst(string title)
+        public DisplayLayerDocument GetByTitleOrFirst(string title)
         {
             int index = FindIndex(title);
             if (index >= 0)

@@ -1,6 +1,5 @@
 ﻿using System;
 using System.IO;
-using System.Windows.Forms;
 using System.Reflection;
 using System.Xml;
 using System.Xml.Serialization;
@@ -116,11 +115,11 @@ namespace MvcVisionSystem
         {
             try
             {
-                string strRecipePath = Application.StartupPath + "\\" + RECIPE_DIRECTORY + "\\";
+                string strRecipePath = Path.Combine(AppContext.BaseDirectory, RECIPE_DIRECTORY);
                 DirectoryInfo dirRecipe = new DirectoryInfo(strRecipePath);
                 if (dirRecipe.Exists == false) dirRecipe.Create();
 
-                string strRecipeNamePath = Application.StartupPath + "\\" + RECIPE_DIRECTORY + "\\" + strRecipeName;
+                string strRecipeNamePath = Path.Combine(AppContext.BaseDirectory, RECIPE_DIRECTORY, strRecipeName ?? string.Empty);
                 DirectoryInfo dirRecipeName = new DirectoryInfo(strRecipeNamePath);
                 if (dirRecipeName.Exists == false) dirRecipeName.Create();
 

@@ -9,6 +9,7 @@ using SharpGL.Enumerations;
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Data;
 using System.Diagnostics;
 using System.Drawing;
@@ -37,6 +38,9 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		public new event EventHandler<CanvasMouseEventArgs> MouseUp = delegate { };
 		public new event EventHandler<CanvasMouseEventArgs> MouseWheel = delegate { };
 		#endregion
+
+		private OpenGLControl openGLControl;
+		private ImageCanvasOpenGlHostAdapter openGlHostAdapter;
 
 		#region Constants
 		private const float MIN_ZOOM_SCALE = 5000F;
@@ -112,10 +116,15 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		/// </summary>
 		private readonly List<OpenGlFontBitmapEntry> _fontBitmapEntries = new List<OpenGlFontBitmapEntry>();
 		private readonly object _pixelDatalock = new object();
+		private readonly byte[] _pixelReadbackBuffer = new byte[4];
+		private static readonly long PixelReadbackIntervalTicks = Math.Max(1L, Stopwatch.Frequency / 30);
+		private static readonly long DragOverlayRefreshIntervalTicks = Math.Max(1L, Stopwatch.Frequency / 20);
+		private static readonly long MouseMoveRepaintIntervalTicks = Math.Max(1L, Stopwatch.Frequency / 60);
+		private const int MaxVisibleOverlayShapes = 10_000;
 
 		private System.Drawing.PointF _pixelPos;
 		private System.Drawing.PointF _imagePixelPos;
-		private System.Drawing.Color _pixelColor;
+		private System.Drawing.Color _pixelColor = System.Drawing.Color.Black;
 		private int _grayValue;
 		private bool _isShowCrossLine = false;
 		protected int _invertValue = 1; // Y축 방향이 좌하단 기준일 때 좌표를 반전하기 위한 값입니다.
@@ -127,9 +136,24 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		private CanvasOverlayManager _overlayManager = new CanvasOverlayManager();
 		private List<CanvasShape> _shapesViewPort = new List<CanvasShape>();
 		private bool _suppressRefresh;
+		private bool _visibleOverlayCacheDirty = true;
+		private bool _fastOverlaySceneDirty = true;
+		private bool _isVisibleOverlayLodActive;
+		private int _visibleOverlayShapeCount;
+		private int _visibleOverlayShapeLimit = MaxVisibleOverlayShapes;
+		private uint _fastOverlaySceneListId;
+		private CanvasShape _fastOverlaySceneLiveShape;
+		private long _lastPixelReadbackTicks;
+		private long _lastDragOverlayRefreshTicks;
+		private long _lastMouseMoveRepaintTicks;
+		private System.Drawing.Point _lastPixelReadbackPoint = System.Drawing.Point.Empty;
 
 		public float PixelPermm { get; set; } = 0.001f;
 		public float HandleSize = 10; // 기본 핸들 크기
+		public bool IsVisibleOverlayLodActive => _isVisibleOverlayLodActive;
+		public int VisibleOverlayShapeCount => _visibleOverlayShapeCount;
+		public int VisibleOverlayShapeLimit => _visibleOverlayShapeLimit;
+		public event EventHandler VisibleOverlayLodChanged = delegate { };
 
 		#endregion
 
@@ -192,22 +216,48 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		#region Contructor
 		public ImageCanvasControl()
 		{
-			InitializeComponent();
+			InitializeOpenGlHost();
 
 			DoubleBuffered = false;
+		}
 
-			openGLControl.Load += OnLoad;
-			openGLControl.Resized += OnResized;
-			openGLControl.MouseDoubleClick += OnMouseDoubleClick;
-			openGLControl.OpenGLDraw += OnDraw;
-			openGLControl.KeyUp += OnKeyUp;
-			openGLControl.KeyDown += OnKeyDown;
-			openGLControl.MouseClick += OnMouseClick;
-			openGLControl.MouseDown += OnMouseDown;
-			openGLControl.MouseMove += OnMouseMove;
-			openGLControl.MouseUp += OnMouseUp;
-			openGLControl.MouseWheel += OnMouseWheel;
-			openGLControl.MouseLeave += OnMouseLeave;
+		protected override void Dispose(bool disposing)
+		{
+			if (disposing)
+			{
+				openGlHostAdapter?.Dispose();
+				openGlHostAdapter = null;
+			}
+
+			base.Dispose(disposing);
+		}
+
+		private void InitializeOpenGlHost()
+		{
+			SuspendLayout();
+			AutoScaleDimensions = new SizeF(7F, 12F);
+			AutoScaleMode = AutoScaleMode.Font;
+			Margin = new Padding(3, 2, 3, 2);
+			Name = nameof(ImageCanvasControl);
+			Size = new Size(859, 562);
+
+			openGlHostAdapter = new ImageCanvasOpenGlHostAdapter(
+				OnLoad,
+				OnResized,
+				OnMouseDoubleClick,
+				OnDraw,
+				OnKeyUp,
+				OnKeyDown,
+				OnMouseClick,
+				OnMouseDown,
+				OnMouseMove,
+				OnMouseUp,
+				OnMouseWheel,
+				OnMouseLeave);
+			openGLControl = openGlHostAdapter.Control;
+			Controls.Add(openGLControl);
+			ResumeLayout(false);
+			PerformLayout();
 		}
 		#endregion
 
@@ -231,21 +281,70 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		protected void OnKeyUp(object sender, KeyEventArgs e) => KeyUp(sender, e);
 		protected void OnKeyDown(object sender, KeyEventArgs e) => KeyDown(sender, e);
 		protected void OnMouseClick(object sender, MouseEventArgs e) => MouseClicked(sender, e);
-		protected void OnMouseDown(object sender, MouseEventArgs e) => MouseDown(sender, new CanvasMouseEventArgs(e.Button, e.Clicks, e.X, e.Y, e.Delta));
+		protected void OnMouseDown(object sender, MouseEventArgs e)
+		{
+			_lastMouseMoveRepaintTicks = 0;
+			_lastDragOverlayRefreshTicks = 0;
+			MouseDown(sender, new CanvasMouseEventArgs(e.Button, e.Clicks, e.X, e.Y, e.Delta));
+		}
 
 		protected void OnMouseMove(object sender, MouseEventArgs e)
 		{
-			UpdatePixelStatus(e);
-			if (_viewMode == CanvasInteractionMode.Drag) { DragViewMovement(e); }
+			bool isDraggingView = _viewMode == CanvasInteractionMode.Drag;
+			bool isManipulatingOverlay = IsOverlayMouseManipulationMode(_viewMode) && e.Button != MouseButtons.None;
+			if (isDraggingView && e.Button != MouseButtons.None)
+			{
+				DragViewMovement(e);
+				if (ShouldRecalculateVisibleOverlaysOnMouseMove(isDraggingView))
+				{
+					InvalidateVisibleOverlayCache();
+					RebuildVisibleOverlayCacheIfNeeded();
+				}
+				if (ShouldRequestOpenGlRepaintOnMouseMove(isDraggingView, isPointerDown: true))
+				{
+					RequestOpenGlRepaint();
+				}
+
+				return;
+			}
+			if (isManipulatingOverlay)
+			{
+				// ROI drag/resize must not do status readback or overlay cache work per event.
+				// The ViewModel updates only the active ROI; repaint is frame-limited below.
+				MouseMove(sender, new CanvasMouseEventArgs(e.Button, e.Clicks, e.X, e.Y, e.Delta));
+				if (ShouldRefreshMouseMoveRepaint())
+				{
+					RequestOpenGlRepaint();
+				}
+
+				return;
+			}
+
+			bool shouldReadPixel = e.Button == MouseButtons.None && ShouldReadPixelStatus(e);
+			UpdatePixelStatus(e, shouldReadPixel);
 			MouseMove(sender, new CanvasMouseEventArgs(e.Button, e.Clicks, e.X, e.Y, e.Delta));
-			CalculatorVisibleOverlays();
-			openGLControl.Refresh();
+			if (ShouldRecalculateVisibleOverlaysOnMouseMove(isDraggingView))
+			{
+				InvalidateVisibleOverlayCache();
+				RebuildVisibleOverlayCacheIfNeeded();
+			}
+			if (ShouldRequestOpenGlRepaintOnMouseMove(isDraggingView, e.Button != MouseButtons.None))
+			{
+				RequestOpenGlRepaint();
+			}
 		}
 
 		protected void OnMouseUp(object sender, MouseEventArgs e)
 		{
+			bool shouldRefreshVisibleOverlayCacheAfterMouseUp = IsOverlayGeometryInteractionMode(_viewMode);
 			MouseUp(sender, new CanvasMouseEventArgs(e.Button, e.Clicks, e.X, e.Y, e.Delta));
 			ResetMousePositions();
+			if (shouldRefreshVisibleOverlayCacheAfterMouseUp)
+			{
+				InvalidateVisibleOverlayCache();
+			}
+			RebuildVisibleOverlayCacheIfNeeded();
+			RequestOpenGlRepaint();
 		}
 
 		protected void OnMouseLeave(object sender, EventArgs e) => MouseLeave(sender, e);
@@ -274,6 +373,13 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		public OpenGL GetOpenGL() => openGLControl.OpenGL;
 		public OpenGLControl GetOpenGLControl() => openGLControl;
 		public CanvasOverlayManager GetCanvasOverlayManager() => _overlayManager;
+		public List<CanvasOverlayItem> FindInteractiveOverlaysNearPoint(PointF point, float hitRadius, bool includeGroupRectangles = false) => _overlayManager.FindInteractiveOverlaysNearPoint(point, hitRadius, includeGroupRectangles);
+		public void VisitInteractiveOverlaysNearPoint(PointF point, float hitRadius, bool includeGroupRectangles, Action<CanvasOverlayItem> visitor) => _overlayManager.VisitInteractiveOverlaysNearPoint(point, hitRadius, includeGroupRectangles, visitor);
+		public CanvasOverlayItem FindBestInteractiveRectAtPoint(PointF point, float hitRadius, bool includeGroupRectangles, bool groupOnly) => _overlayManager.FindBestInteractiveRectAtPoint(point, hitRadius, includeGroupRectangles, groupOnly, ZoomScale, HandleSize);
+		public List<CanvasOverlayItem> GetVisibleOverlaysInBounds(RectangleF bounds) => _overlayManager.GetVisibleOverlaysInBounds(bounds);
+		public int VisitVisibleOverlaysInBounds(RectangleF bounds, int maxCandidates, Action<CanvasOverlayItem> visitor) => _overlayManager.VisitVisibleOverlaysInBounds(bounds, maxCandidates, visitor);
+		public void UpdateInteractiveOverlayIndex(CanvasShape shape) => _overlayManager.UpdateInteractiveOverlayIndex(shape);
+		public void RebuildInteractiveOverlayIndex() => _overlayManager.RebuildInteractiveOverlayIndex();
 		public void SetViewMode(CanvasInteractionMode enumViewMode) => _viewMode = enumViewMode;
 		public CanvasInteractionMode GetViewMode() => _viewMode;
 		public void SetToFitRect(System.Drawing.RectangleF rect) => _fitRect = rect;
@@ -285,10 +391,26 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 		public System.Drawing.Size GetMaxTextureSize()
 		{
-			OpenGL gl = GetOpenGL();
-
 			int[] maxTextureSize = new int[1];
-			gl.GetInteger(OpenGL.GL_MAX_TEXTURE_SIZE, maxTextureSize);
+			Action action = delegate
+			{
+				OpenGL gl = GetOpenGL();
+				gl.GetInteger(OpenGL.GL_MAX_TEXTURE_SIZE, maxTextureSize);
+			};
+
+			if (!CanUseOpenGlControl())
+			{
+				return new System.Drawing.Size(0, 0);
+			}
+
+			if (openGLControl.InvokeRequired)
+			{
+				openGLControl.Invoke(action);
+			}
+			else
+			{
+				action();
+			}
 
 			return new System.Drawing.Size(maxTextureSize[0], maxTextureSize[0]);
 		}
@@ -300,18 +422,140 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 				return;
 			}
 
-			if (this.InvokeRequired)
+			if (!CanUseOpenGlControl())
 			{
-				this.BeginInvoke(new MethodInvoker(() =>
+				return;
+			}
+
+			try
+			{
+				if (openGLControl.InvokeRequired)
 				{
-					RefreshGL();
-				}));
+					openGLControl.BeginInvoke(new MethodInvoker(RefreshGL));
+					return;
+				}
+
+				RebuildVisibleOverlayCacheIfNeeded();
+				RequestOpenGlRepaint();
 			}
-			else
+			catch (ObjectDisposedException)
 			{
-				CalculatorVisibleOverlays();
-				openGLControl.Refresh();
 			}
+			catch (InvalidOperationException)
+			{
+			}
+			catch (InvalidAsynchronousStateException)
+			{
+			}
+		}
+
+		private bool CanUseOpenGlControl()
+		{
+			return openGLControl != null
+				&& !openGLControl.IsDisposed
+				&& openGLControl.IsHandleCreated;
+		}
+
+		private void RequestOpenGlRepaint()
+		{
+			if (!CanUseOpenGlControl())
+			{
+				return;
+			}
+
+			try
+			{
+				openGLControl.Invalidate();
+			}
+			catch (ObjectDisposedException)
+			{
+			}
+			catch (InvalidOperationException)
+			{
+			}
+			catch (InvalidAsynchronousStateException)
+			{
+			}
+		}
+
+		public void InvalidateVisibleOverlayCache()
+		{
+			_visibleOverlayCacheDirty = true;
+			InvalidateFastOverlayScene();
+		}
+
+		public void InvalidateFastOverlayScene()
+		{
+			_fastOverlaySceneDirty = true;
+		}
+
+		private void RebuildVisibleOverlayCacheIfNeeded()
+		{
+			if (!_visibleOverlayCacheDirty)
+			{
+				return;
+			}
+
+			CalculatorVisibleOverlays();
+			_visibleOverlayCacheDirty = false;
+			InvalidateFastOverlayScene();
+		}
+
+		public void AddVisibleOverlayIfInViewport(CanvasOverlayItem overlayItem)
+		{
+			if (_visibleOverlayCacheDirty)
+			{
+				return;
+			}
+
+			EnsureVisibleOverlayCapacityForIncrementalAdd();
+			AddVisibleOverlayShapesIfInViewport(overlayItem, _shapesViewPort, MaxVisibleOverlayShapes);
+			UpdateVisibleOverlayLodState(_shapesViewPort.Count, _shapesViewPort.Count >= MaxVisibleOverlayShapes);
+			InvalidateFastOverlayScene();
+		}
+
+		public void RemoveVisibleOverlay(CanvasOverlayItem overlayItem)
+		{
+			if (overlayItem?.Shape == null)
+			{
+				return;
+			}
+
+			CanvasShape shape = overlayItem.Shape;
+			_shapesViewPort.RemoveAll(candidate =>
+				ReferenceEquals(candidate, shape)
+				|| (shape is CanvasRect<float> rect && ReferenceEquals(candidate, rect.ExtendedRectangle)));
+			UpdateVisibleOverlayLodState(_shapesViewPort.Count, _shapesViewPort.Count >= MaxVisibleOverlayShapes);
+			InvalidateFastOverlayScene();
+		}
+
+		private void EnsureVisibleOverlayCapacityForIncrementalAdd()
+		{
+			if (_shapesViewPort == null)
+			{
+				_shapesViewPort = new List<CanvasShape>();
+				return;
+			}
+
+			while (_shapesViewPort.Count >= MaxVisibleOverlayShapes)
+			{
+				_shapesViewPort.RemoveAt(0);
+			}
+		}
+
+		private void UpdateVisibleOverlayLodState(int shapeCount, bool isLodActive)
+		{
+			if (_visibleOverlayShapeCount == shapeCount
+				&& _isVisibleOverlayLodActive == isLodActive
+				&& _visibleOverlayShapeLimit == MaxVisibleOverlayShapes)
+			{
+				return;
+			}
+
+			_visibleOverlayShapeCount = shapeCount;
+			_visibleOverlayShapeLimit = MaxVisibleOverlayShapes;
+			_isVisibleOverlayLodActive = isLodActive;
+			VisibleOverlayLodChanged(this, EventArgs.Empty);
 		}
 
 		public uint AddODBTexture(IntPtr monoData, IntPtr colorData, IntPtr maskData, IntPtr maskSetColorData, int x, int y, int width, int height, int imageWidth, int imageHeight, int offsetHeight,
@@ -460,6 +704,73 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			return oriTextureId;
 		}
 
+		public bool TryReplaceSingleTexture(IntPtr data, int x, int y, int width, int height, int imageWidth, int imageHeight, int offsetHeight,
+			uint bpp, string imageName, System.Drawing.Size fullScreen, System.Drawing.Size titleSize)
+		{
+			if (!CanUseOpenGlControl())
+			{
+				return false;
+			}
+
+			if (openGLControl.InvokeRequired)
+			{
+				bool updated = false;
+				openGLControl.Invoke(new Action(() =>
+				{
+					updated = TryReplaceSingleTexture(data, x, y, width, height, imageWidth, imageHeight, offsetHeight, bpp, imageName, fullScreen, titleSize);
+				}));
+				return updated;
+			}
+
+			if (_textureAreas.Count != 1 || _textureKeysOrder.Count != 1)
+			{
+				return false;
+			}
+
+			string currentKey = _textureKeysOrder[0];
+			if (!_textureAreas.TryGetValue(currentKey, out List<OpenGlTextureDrawingParam> currentTextures)
+				|| currentTextures == null
+				|| currentTextures.Count != 1)
+			{
+				return false;
+			}
+
+			OpenGlTextureDrawingParam param = currentTextures[0];
+			if (param.BppOriginal != bpp
+				|| param.ImageTexutreArea.Width != imageWidth
+				|| param.ImageTexutreArea.Height != imageHeight)
+			{
+				return false;
+			}
+
+			UpdateTexture(data, width, height, bpp, param.OriTextureId);
+
+			int textureY = offsetHeight - y;
+			param.ImageName = imageName;
+			param.GLDrawingTextureArea = new System.Drawing.RectangleF(x, textureY, width, height * -1);
+			param.GLTextureArea = new RectangleF(x, textureY - height, width, height);
+			param.ImageTexutreArea = new Rectangle(x, y, width, height);
+			param.TextureFullScreen = fullScreen;
+			param.TitleSize = titleSize;
+			param.IsVisible = true;
+
+			int offsetX = (int)(param.GLTextureArea.X / titleSize.Width) * titleSize.Width;
+			int offsetY = titleSize.Height > param.GLTextureArea.Y + param.GLTextureArea.Height
+				? 0
+				: (int)param.GLTextureArea.Y;
+			param.ImageTitleOffset = new DotInfo(offsetX, offsetY);
+
+			_textureAreas.TryRemove(currentKey, out _);
+			_textureAreas[imageName] = currentTextures;
+			_textureKeysOrder.Remove(currentKey);
+			_textureKeysOrder.Remove(imageName);
+			_textureKeysOrder.Insert(0, imageName);
+
+			System.Drawing.RectangleF imageArea = CalculateBoundingRectangle(_textureAreas);
+			SetToFitRect(imageArea);
+			return true;
+		}
+
 		public uint AddTexture(IntPtr monoData, IntPtr colorData, int x, int y, int width, int height, int imageWidth, int imageHeight, int offsetHeight,
 			uint bpp1, uint bpp2, string imageName, System.Drawing.Size fullScreen, System.Drawing.Size titleSize, bool useMaskBackgroundWhite = true)
 		{
@@ -542,20 +853,55 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 		public void DeleteTexture(string imageName)
 		{
-			if (_textureAreas.ContainsKey(imageName))
+			if (!_textureAreas.ContainsKey(imageName))
 			{
-				ImageCanvasTextureStore.DeleteTextures(openGLControl.OpenGL, ImageCanvasTextureStore.CollectTextureIds(_textureAreas[imageName]));
-				List<OpenGlTextureDrawingParam> glTextureDrawingParams = new List<OpenGlTextureDrawingParam>();
-				_textureAreas.TryRemove(imageName, out glTextureDrawingParams);
-				_textureKeysOrder.Remove(imageName);
-
-				RefreshGL();
+				return;
 			}
+
+			Action action = delegate
+			{
+				List<OpenGlTextureDrawingParam> glTextureDrawingParams = _textureAreas[imageName];
+				if (CanUseOpenGlControl())
+				{
+					ImageCanvasTextureStore.DeleteTextures(openGLControl.OpenGL, ImageCanvasTextureStore.CollectTextureIds(glTextureDrawingParams));
+				}
+
+				_textureAreas.TryRemove(imageName, out _);
+				_textureKeysOrder.Remove(imageName);
+			};
+
+			if (CanUseOpenGlControl() && openGLControl.InvokeRequired)
+			{
+				openGLControl.Invoke(action);
+			}
+			else
+			{
+				action();
+			}
+
+			RefreshGL();
 		}
 
 		public void DeleteTexture(List<uint> textureIds)
 		{
-			ImageCanvasTextureStore.DeleteTextures(openGLControl.OpenGL, textureIds);
+			if (textureIds == null || textureIds.Count == 0 || !CanUseOpenGlControl())
+			{
+				return;
+			}
+
+			Action action = delegate
+			{
+				ImageCanvasTextureStore.DeleteTextures(openGLControl.OpenGL, textureIds);
+			};
+
+			if (openGLControl.InvokeRequired)
+			{
+				openGLControl.Invoke(action);
+			}
+			else
+			{
+				action();
+			}
 		}
 
 		public uint? GetTextureIdAtPoint(int mouseX, int mouseY)
@@ -902,20 +1248,146 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		#endregion
 
 		#region // private methods
-		private void UpdatePixelStatus(MouseEventArgs e, float scale = 1f)
+		private void UpdatePixelStatus(MouseEventArgs e, bool samplePixel, float scale = 1f)
 		{
 			lock (_pixelDatalock)
 			{
-				GrayValue = GetGrayValue(openGLControl.OpenGL, (int)(e.X / scale), (int)(e.Y / scale));
-				PixelColor = GetScreenColor(openGLControl.OpenGL, (int)(e.X / scale), (int)(e.Y / scale));
-				PixelPos = GetRoundPointF(GetCurrentRobotPos((int)(e.X / scale), (int)(e.Y / scale)));
-				PixelPos = new System.Drawing.PointF(PixelPos.X, PixelPos.Y);
+				int x = (int)(e.X / scale);
+				int y = (int)(e.Y / scale);
+				if (samplePixel && TryReadScreenPixel(openGLControl.OpenGL, x, y, out System.Drawing.Color screenColor, out int grayValue))
+				{
+					GrayValue = grayValue;
+					PixelColor = screenColor;
+				}
+
+				PixelPos = GetRoundPointF(GetCurrentRobotPos(x, y));
 				ImagePixelPos = GetRoundPointF(ConvertOpenGlToImagePoint(PixelPos));
 
 				//Console.WriteLine($"UpdatePixelStatus Ori: {e.X},{e.Y}");
 				//Console.WriteLine($"UpdatePixelStatus Curr: {PixelPos.X},{PixelPos.Y}");
 			}
 
+		}
+
+		private bool ShouldReadPixelStatus(MouseEventArgs e)
+		{
+			if (!IsPointInsideOpenGlControl(e.X, e.Y))
+			{
+				return false;
+			}
+
+			long now = Stopwatch.GetTimestamp();
+			if (_lastPixelReadbackTicks != 0 && now - _lastPixelReadbackTicks < PixelReadbackIntervalTicks)
+			{
+				return false;
+			}
+
+			if (_lastPixelReadbackPoint.X == e.X
+				&& _lastPixelReadbackPoint.Y == e.Y
+				&& _lastPixelReadbackTicks != 0)
+			{
+				return false;
+			}
+
+			_lastPixelReadbackTicks = now;
+			_lastPixelReadbackPoint = new System.Drawing.Point(e.X, e.Y);
+			return true;
+		}
+
+		private bool ShouldRefreshDragOverlays()
+		{
+			long now = Stopwatch.GetTimestamp();
+			if (_lastDragOverlayRefreshTicks != 0 && now - _lastDragOverlayRefreshTicks < DragOverlayRefreshIntervalTicks)
+			{
+				return false;
+			}
+
+			_lastDragOverlayRefreshTicks = now;
+			return true;
+		}
+
+		private bool ShouldRecalculateVisibleOverlaysOnMouseMove(bool isDraggingView)
+		{
+			// Pan should keep newly visible ROI roughly in sync, but rebuilding the
+			// visible cache for every raw MouseMove brings back the original lag.
+			return isDraggingView && ShouldRefreshDragOverlays();
+		}
+
+		private bool ShouldRequestOpenGlRepaintOnMouseMove(bool isDraggingView, bool isPointerDown)
+		{
+			if (isDraggingView)
+			{
+				return ShouldRefreshMouseMoveRepaint();
+			}
+
+			if (!isPointerDown)
+			{
+				// Hover only updates cursor/status state. Repainting the OpenGL scene here
+				// makes large labeling sessions feel slow even when no ROI geometry changed.
+				return false;
+			}
+
+			if (_viewMode == CanvasInteractionMode.Drawing)
+			{
+				// Drawing preview is live feedback only; keep it frame-limited and do not
+				// rebuild committed ROI display lists while the pointer is moving.
+				return isPointerDown && ShouldRefreshMouseMoveRepaint();
+			}
+
+			return _viewMode != CanvasInteractionMode.None && ShouldRefreshMouseMoveRepaint();
+		}
+
+		private bool ShouldRefreshMouseMoveRepaint()
+		{
+			long now = Stopwatch.GetTimestamp();
+			if (_lastMouseMoveRepaintTicks != 0 && now - _lastMouseMoveRepaintTicks < MouseMoveRepaintIntervalTicks)
+			{
+				return false;
+			}
+
+			_lastMouseMoveRepaintTicks = now;
+			return true;
+		}
+
+		private static bool IsOverlayGeometryInteractionMode(CanvasInteractionMode viewMode)
+		{
+			return viewMode == CanvasInteractionMode.Edit
+				|| viewMode == CanvasInteractionMode.Move
+				|| viewMode == CanvasInteractionMode.Drag;
+		}
+
+		private static bool IsOverlayMouseManipulationMode(CanvasInteractionMode viewMode)
+		{
+			return viewMode == CanvasInteractionMode.Edit
+				|| viewMode == CanvasInteractionMode.Move;
+		}
+
+		private bool IsPointInsideOpenGlControl(int x, int y)
+		{
+			return openGLControl != null
+				&& x >= 0
+				&& y >= 0
+				&& x < openGLControl.Width
+				&& y < openGLControl.Height;
+		}
+
+		private bool TryReadScreenPixel(OpenGL gl, int x, int y, out System.Drawing.Color color, out int grayValue)
+		{
+			color = System.Drawing.Color.Empty;
+			grayValue = 0;
+			if (gl == null || !IsPointInsideOpenGlControl(x, y))
+			{
+				return false;
+			}
+
+			// Status hover is throttled, but it still runs throughout long labeling
+			// sessions. Reuse one 1px buffer so MouseMove does not allocate per readback.
+			byte[] pixelData = _pixelReadbackBuffer;
+			int invertedY = Math.Max(0, Math.Min(gl.RenderContextProvider.Height - 1, gl.RenderContextProvider.Height - y - 1));
+			gl.ReadPixels(x, invertedY, 1, 1, OpenGL.GL_RGBA, OpenGL.GL_UNSIGNED_BYTE, pixelData);
+			color = System.Drawing.Color.FromArgb(pixelData[3], pixelData[0], pixelData[1], pixelData[2]);
+			grayValue = (pixelData[0] + pixelData[1] + pixelData[2]) / 3;
+			return true;
 		}
 
 		private int GetGrayValue(OpenGL gl, int x, int y)
@@ -1447,90 +1919,103 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		/// </summary>
 		public void Reshape()
 		{
-			if (this.InvokeRequired)
+			if (!CanUseOpenGlControl())
 			{
-				this.BeginInvoke(new MethodInvoker(() =>
-				{
-					Reshape();
-				}));
+				return;
+			}
+
+			if (openGLControl.InvokeRequired)
+			{
+				openGLControl.BeginInvoke(new MethodInvoker(Reshape));
+				return;
+			}
+
+			var gl = openGLControl.OpenGL;
+
+			if (openGLControl.Width <= 0 || openGLControl.Height <= 0)
+			{
+				return;
+			}
+
+			if (_zoom == 100000) { return; }
+			gl.SetDimensions(this.openGLControl.Width, this.openGLControl.Height);
+			gl.Viewport(0, 0, this.openGLControl.Width, this.openGLControl.Height);
+
+			gl.MatrixMode(MatrixMode.Projection);
+			gl.LoadIdentity();
+
+			_aspectRatio = ((float)this.openGLControl.Width) / this.openGLControl.Height;
+			_xSpan = _zoom;
+			_ySpan = _zoom;
+
+			if (_aspectRatio > 1)
+			{
+				_xSpan *= _aspectRatio;
 			}
 			else
 			{
-				var gl = openGLControl.OpenGL;
-
-				if (_zoom == 100000) { return; }
-				gl.SetDimensions(this.openGLControl.Width, this.openGLControl.Height);
-				gl.Viewport(0, 0, this.openGLControl.Width, this.openGLControl.Height);
-
-				gl.MatrixMode(MatrixMode.Projection);
-				gl.LoadIdentity();
-
-				_aspectRatio = ((float)this.openGLControl.Width) / this.openGLControl.Height;
-				_xSpan = _zoom;
-				_ySpan = _zoom;
-
-				if (_aspectRatio > 1)
-				{
-					_xSpan *= _aspectRatio;
-				}
-				else
-				{
-					_ySpan /= _aspectRatio;
-				}
-
-				gl.Ortho2D(0, openGLControl.Width * ZoomScale, 0, openGLControl.Height * ZoomScale);
-
-				gl.MatrixMode(MatrixMode.Modelview);
-				gl.LoadIdentity();
-
-				RefreshGL();
+				_ySpan /= _aspectRatio;
 			}
+
+			gl.Ortho2D(0, openGLControl.Width * ZoomScale, 0, openGLControl.Height * ZoomScale);
+
+			gl.MatrixMode(MatrixMode.Modelview);
+			gl.LoadIdentity();
+
+			InvalidateVisibleOverlayCache();
+			RefreshGL();
 		}
 
 		public void ReshapeNonRefresh()
 		{
-			if (this.InvokeRequired)
+			if (!CanUseOpenGlControl())
 			{
-				this.BeginInvoke(new MethodInvoker(() =>
-				{
-					ReshapeNonRefresh();
-				}));
+				return;
+			}
+
+			if (openGLControl.InvokeRequired)
+			{
+				openGLControl.Invoke(new MethodInvoker(ReshapeNonRefresh));
+				return;
+			}
+
+			var gl = openGLControl.OpenGL;
+
+			if (openGLControl.Width <= 0 || openGLControl.Height <= 0)
+			{
+				return;
+			}
+
+			if (_zoom == 100000) { return; }
+			gl.SetDimensions(this.openGLControl.Width, this.openGLControl.Height);
+			gl.Viewport(0, 0, this.openGLControl.Width, this.openGLControl.Height);
+
+			gl.MatrixMode(MatrixMode.Projection);
+			gl.LoadIdentity();
+
+			_aspectRatio = ((float)this.openGLControl.Width) / this.openGLControl.Height;
+			_xSpan = _zoom;
+			_ySpan = _zoom;
+
+			if (_aspectRatio > 1)
+			{
+				_xSpan *= _aspectRatio;
 			}
 			else
 			{
-				var gl = openGLControl.OpenGL;
-
-				if (_zoom == 100000) { return; }
-				gl.SetDimensions(this.openGLControl.Width, this.openGLControl.Height);
-				gl.Viewport(0, 0, this.openGLControl.Width, this.openGLControl.Height);
-
-				gl.MatrixMode(MatrixMode.Projection);
-				gl.LoadIdentity();
-
-				_aspectRatio = ((float)this.openGLControl.Width) / this.openGLControl.Height;
-				_xSpan = _zoom;
-				_ySpan = _zoom;
-
-				if (_aspectRatio > 1)
-				{
-					_xSpan *= _aspectRatio;
-				}
-				else
-				{
-					_ySpan /= _aspectRatio;
-				}
-
-				//gl.Ortho2D(0, openGLControl.Width * ZoomScale, 0, openGLControl.Height * ZoomScale);
-
-				gl.Ortho2D(0, openGLControl.Width * ZoomScale, 0, openGLControl.Height * ZoomScale);
-
-				//gl.Ortho2D(0, _xSpan, 0, _ySpan);
-				//gl.Ortho2D(0, 100, 0, 100);
-
-				//  Back to the modelview.
-				gl.MatrixMode(MatrixMode.Modelview);
-				gl.LoadIdentity();
+				_ySpan /= _aspectRatio;
 			}
+
+			//gl.Ortho2D(0, openGLControl.Width * ZoomScale, 0, openGLControl.Height * ZoomScale);
+
+			gl.Ortho2D(0, openGLControl.Width * ZoomScale, 0, openGLControl.Height * ZoomScale);
+
+			//gl.Ortho2D(0, _xSpan, 0, _ySpan);
+			//gl.Ortho2D(0, 100, 0, 100);
+
+			//  Back to the modelview.
+			gl.MatrixMode(MatrixMode.Modelview);
+			gl.LoadIdentity();
 		}
 
 		[Obsolete("Use ReshapeNonRefresh instead.")]
@@ -1547,9 +2032,14 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		{
 			Func<int> func = delegate
 			{
-				return Math.Min(this.openGLControl.Height, this.openGLControl.Width); ;
+				return Math.Max(1, Math.Min(this.openGLControl.Height, this.openGLControl.Width));
 			};
 			int minSize = -1;
+			if (!CanUseOpenGlControl())
+			{
+				return Math.Min(Math.Max(1, Height), Math.Max(1, Width));
+			}
+
 			if (openGLControl.InvokeRequired == true)
 			{
 				openGLControl.Invoke(new MethodInvoker(delegate
@@ -1658,46 +2148,47 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 		public void UpdateTexture(IntPtr data, int width, int height, uint bpp, uint textureId)
 		{
-			if (this.InvokeRequired)
+			if (!CanUseOpenGlControl())
 			{
-				this.BeginInvoke(new MethodInvoker(() =>
-				{
-					UpdateTexture(data, width, height, bpp, textureId);
-				}));
+				return;
 			}
-			else
+
+			if (openGLControl.InvokeRequired)
 			{
-				OpenGL gl = GetOpenGL();
-
-				gl.BindTexture(SharpGL.OpenGL.GL_TEXTURE_2D, textureId);
-
-				// OpenGL 텍스처를 생성합니다.
-				if (bpp == 3)
-				{
-					// for colors
-					glTexSubImage2D(SharpGL.OpenGL.GL_TEXTURE_2D, 0, 0, 0, width, height, SharpGL.OpenGL.GL_BGR, OpenGL.GL_UNSIGNED_BYTE, data);
-				}
-				else if (bpp == 4)
-				{
-					// for RGBA colors
-					glTexSubImage2D(SharpGL.OpenGL.GL_TEXTURE_2D, 0, 0, 0, width, height, SharpGL.OpenGL.GL_BGRA, OpenGL.GL_UNSIGNED_BYTE, data);
-				}
-				else if (bpp == 1)
-				{
-					// for mono
-					glTexSubImage2D(SharpGL.OpenGL.GL_TEXTURE_2D, 0, 0, 0, width, height, SharpGL.OpenGL.GL_LUMINANCE, OpenGL.GL_UNSIGNED_BYTE, data);
-				}
-
-				gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_WRAP_S, OpenGL.GL_CLAMP);
-				gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_WRAP_T, OpenGL.GL_CLAMP);
-
-				gl.TexParameter(SharpGL.OpenGL.GL_TEXTURE_2D, SharpGL.OpenGL.GL_TEXTURE_MIN_FILTER, SharpGL.OpenGL.GL_LINEAR);
-				gl.TexParameter(SharpGL.OpenGL.GL_TEXTURE_2D, SharpGL.OpenGL.GL_TEXTURE_MAG_FILTER, SharpGL.OpenGL.GL_NEAREST);
-
-				gl.GenerateMipmapEXT(SharpGL.OpenGL.GL_TEXTURE_2D);
-
-				gl.BindTexture(SharpGL.OpenGL.GL_TEXTURE_2D, textureId);
+				openGLControl.Invoke(new MethodInvoker(() => UpdateTexture(data, width, height, bpp, textureId)));
+				return;
 			}
+
+			OpenGL gl = GetOpenGL();
+
+			gl.BindTexture(SharpGL.OpenGL.GL_TEXTURE_2D, textureId);
+
+			// OpenGL 텍스처를 생성합니다.
+			if (bpp == 3)
+			{
+				// for colors
+				glTexSubImage2D(SharpGL.OpenGL.GL_TEXTURE_2D, 0, 0, 0, width, height, SharpGL.OpenGL.GL_BGR, OpenGL.GL_UNSIGNED_BYTE, data);
+			}
+			else if (bpp == 4)
+			{
+				// for RGBA colors
+				glTexSubImage2D(SharpGL.OpenGL.GL_TEXTURE_2D, 0, 0, 0, width, height, SharpGL.OpenGL.GL_BGRA, OpenGL.GL_UNSIGNED_BYTE, data);
+			}
+			else if (bpp == 1)
+			{
+				// for mono
+				glTexSubImage2D(SharpGL.OpenGL.GL_TEXTURE_2D, 0, 0, 0, width, height, SharpGL.OpenGL.GL_LUMINANCE, OpenGL.GL_UNSIGNED_BYTE, data);
+			}
+
+			gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_WRAP_S, OpenGL.GL_CLAMP);
+			gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_WRAP_T, OpenGL.GL_CLAMP);
+
+			gl.TexParameter(SharpGL.OpenGL.GL_TEXTURE_2D, SharpGL.OpenGL.GL_TEXTURE_MIN_FILTER, SharpGL.OpenGL.GL_LINEAR);
+			gl.TexParameter(SharpGL.OpenGL.GL_TEXTURE_2D, SharpGL.OpenGL.GL_TEXTURE_MAG_FILTER, SharpGL.OpenGL.GL_NEAREST);
+
+			gl.GenerateMipmapEXT(SharpGL.OpenGL.GL_TEXTURE_2D);
+
+			gl.BindTexture(SharpGL.OpenGL.GL_TEXTURE_2D, textureId);
 		}
 
 
@@ -1710,11 +2201,15 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		/// <returns></returns>
 		public uint GenerateOpenGLTexture(int width, int height, uint bpp)
 		{
-			OpenGL gl = GetOpenGL();
+			if (!CanUseOpenGlControl())
+			{
+				return 0;
+			}
 
 			uint textureId = 0;
 			Func<uint> action = delegate
 			{
+				OpenGL gl = GetOpenGL();
 				uint[] gtexture = new uint[1];
 
 				gl.GenTextures(1, gtexture); // 텍스처 관련 값입니다.
@@ -1865,9 +2360,22 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		#region Draw Object
 		public void DrawContent()
 		{
+			DrawContent(drawOverlays: true);
+		}
+
+		public void DrawContent(bool drawOverlays)
+		{
+			DrawContent(drawOverlays, liveOverlay: null);
+		}
+
+		public void DrawContent(bool drawOverlays, CanvasShape liveOverlay)
+		{
 			OpenGL gl = GetOpenGL();
 			OpenGlDrawing.DrawTexture(gl, _textureAreas, _textureKeysOrder);
-			DrawVisibleOverlays(gl);
+			if (drawOverlays)
+			{
+				DrawVisibleOverlaysFast(gl, liveOverlay);
+			}
 			if (IsShowCrossLine) { OpenGlDrawing.DrawCrossOfImage(gl, _textureAreas); }
 		}
 
@@ -2193,9 +2701,89 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		public void DrawVisibleOverlays(OpenGL gl)
 		{
 			// 이미지 캔버스의 좌표와 텍스처 상태를 처리합니다.
-			foreach (var shape in _shapesViewPort)
+			if (_shapesViewPort == null) { return; }
+			foreach (CanvasShape shape in _shapesViewPort)
 			{
+				if (shape == null || shape.DisplayListId == 0) { continue; }
 				gl.CallList(shape.DisplayListId);
+			}
+		}
+
+		public void DrawVisibleOverlaysFast(OpenGL gl, CanvasShape liveOverlay)
+		{
+			if (_shapesViewPort == null || _shapesViewPort.Count == 0)
+			{
+				DrawLiveOverlay(gl, liveOverlay);
+				return;
+			}
+
+			if (_fastOverlaySceneDirty || !ReferenceEquals(_fastOverlaySceneLiveShape, liveOverlay) || _fastOverlaySceneListId == 0)
+			{
+				CompileFastOverlayScene(gl, liveOverlay);
+			}
+
+			if (_fastOverlaySceneListId != 0)
+			{
+				gl.CallList(_fastOverlaySceneListId);
+			}
+
+			DrawLiveOverlay(gl, liveOverlay);
+		}
+
+		private void CompileFastOverlayScene(OpenGL gl, CanvasShape liveOverlay)
+		{
+			if (gl == null) { return; }
+
+			// During ROI drag, static overlays are compiled once and the moving ROI is drawn live.
+			// This avoids replaying every visible object on every MouseMove frame.
+			if (_fastOverlaySceneListId != 0)
+			{
+				gl.DeleteLists(_fastOverlaySceneListId, 1);
+				_fastOverlaySceneListId = 0;
+			}
+
+			_fastOverlaySceneListId = gl.GenLists(1);
+			_fastOverlaySceneLiveShape = liveOverlay;
+			gl.NewList(_fastOverlaySceneListId, OpenGL.GL_COMPILE);
+			foreach (CanvasShape shape in _shapesViewPort)
+			{
+				if (shape == null || shape.DisplayListId == 0 || ReferenceEquals(shape, liveOverlay))
+				{
+					continue;
+				}
+
+				gl.CallList(shape.DisplayListId);
+			}
+			gl.EndList();
+			_fastOverlaySceneDirty = false;
+		}
+
+		private static void DrawLiveOverlay(OpenGL gl, CanvasShape liveOverlay)
+		{
+			if (gl == null || liveOverlay == null)
+			{
+				return;
+			}
+
+			if (liveOverlay is CanvasRect<float> rect && !rect.IsEmpty())
+			{
+				// The active ROI geometry changes every MouseMove. Draw it directly and compile
+				// its display list once on mouse-up, otherwise resize feels sticky.
+				if (rect.ShapeKind == CanvasRoiShapeKind.Ellipse)
+				{
+					EnumFillMode fillMode = rect.IsFill ? EnumFillMode.InFill : EnumFillMode.None;
+					OpenGlDrawing.DrawEllipse(gl, rect, rect.LineWidth, System.Windows.Media.Brushes.DeepSkyBlue, fillMode);
+				}
+				else
+				{
+					OpenGlDrawing.DrawShape(gl, rect, Color.DeepSkyBlue, false, false, rect.LineWidth);
+				}
+				return;
+			}
+
+			if (liveOverlay.DisplayListId != 0)
+			{
+				gl.CallList(liveOverlay.DisplayListId);
 			}
 		}
 
@@ -2204,56 +2792,84 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		/// </summary>
 		private void CalculatorVisibleOverlays()
 		{
-			// 생성한 텍스처 데이터를 업데이트합니다.
+			List<CanvasShape> visibleShapes = new List<CanvasShape>(Math.Min(MaxVisibleOverlayShapes, 4096));
+			// A zoomed-out labeling screen can contain hundreds of thousands of ROI.
+			// Hit-testing still uses the full spatial index; the visual cache is capped
+			// so repaint and pan/zoom never try to replay every label in one frame.
+			int visitedCount = _overlayManager.VisitVisibleOverlaysInBounds(GetViewportBounds(), MaxVisibleOverlayShapes + 1, overlayItem =>
+			{
+				if (visibleShapes.Count < MaxVisibleOverlayShapes)
+				{
+					AddVisibleOverlayShapesIfInViewport(overlayItem, visibleShapes, MaxVisibleOverlayShapes);
+				}
+			});
+
+			_shapesViewPort = visibleShapes;
+			UpdateVisibleOverlayLodState(visibleShapes.Count, visitedCount > MaxVisibleOverlayShapes);
+		}
+
+		private RectangleF GetViewportBounds()
+		{
+			float viewportLeft = 0 - _offsetSize.Width;
+			float viewportRight = _xSpan - _offsetSize.Width;
+			float viewportTop = _ySpan - _offsetSize.Height;
+			float viewportBottom = 0 - _offsetSize.Height;
+			return RectangleF.FromLTRB(viewportLeft, viewportBottom, viewportRight, viewportTop);
+		}
+
+		private void AddVisibleOverlayShapesIfInViewport(CanvasOverlayItem overlayItem, List<CanvasShape> visibleShapes, int maxShapes)
+		{
+			CanvasShape shape = overlayItem?.Shape;
+			if (shape == null || visibleShapes == null || visibleShapes.Count >= maxShapes || !IsShapeInViewport(shape))
+			{
+				return;
+			}
+
+			if (overlayItem.IsExtentionRectange && shape is CanvasRect<float> rect && rect.ExtendedRectangle != null)
+			{
+				visibleShapes.Add(rect.ExtendedRectangle);
+				if (visibleShapes.Count >= maxShapes)
+				{
+					// Extended rectangles count toward the same visual LOD budget.
+					// Selection and editing still query the full spatial index.
+					return;
+				}
+			}
+
+			visibleShapes.Add(shape);
+		}
+
+		private bool IsShapeInViewport(CanvasShape shape)
+		{
+			bool hasPoint = false;
+			float shapeLeft = float.MaxValue;
+			float shapeRight = float.MinValue;
+			float shapeTop = float.MinValue;
+			float shapeBottom = float.MaxValue;
+
+			foreach (DotInfo dot in shape.ShapePoints)
+			{
+				hasPoint = true;
+				if (dot.X < shapeLeft) { shapeLeft = dot.X; }
+				if (dot.X > shapeRight) { shapeRight = dot.X; }
+				if (dot.Y > shapeTop) { shapeTop = dot.Y; }
+				if (dot.Y < shapeBottom) { shapeBottom = dot.Y; }
+			}
+
+			if (!hasPoint)
+			{
+				return false;
+			}
+
 			float viewportLeft = 0 - _offsetSize.Width;
 			float viewportRight = _xSpan - _offsetSize.Width;
 			float viewportTop = _ySpan - _offsetSize.Height;
 			float viewportBottom = 0 - _offsetSize.Height;
 
-			// 마우스 이동량을 계산합니다.
-			var visibleOverlays = _overlayManager.GetAllVisibleOverlays();
-
-			if (!visibleOverlays.Any())
-			{
-				_shapesViewPort = new List<CanvasShape>();
-				return;
-			}
-			// 이미지 영역을 좌하단 기준으로 설정합니다.
-			ConcurrentBag<CanvasShape> concurrentBag = new ConcurrentBag<CanvasShape>();
-			Parallel.ForEach(visibleOverlays, d =>
-			{
-				if (d.IsExtentionRectange)
-				{
-					//if ((d.Shape is CanvasRect<float>))
-					//{
-					//	(d.Shape as CanvasRect<float>).CreateExtendedRectangleFromSize();
-					//}
-				}
-				//var validDots = d.Shape.ShapePoints.Where(dot => dot != null).ToArray();
-				var dots = d.Shape.ShapePoints.ToArray();
-				if (dots.Length != 0)
-				{
-					float shapeLeft = dots.Min(dot => dot.X);
-					float shapeRight = dots.Max(dot => dot.X);
-					float shapeTop = dots.Max(dot => dot.Y);
-					float shapeBottom = dots.Min(dot => dot.Y);
-
-					if (shapeLeft < viewportRight &&
-						shapeRight > viewportLeft &&
-						shapeTop > viewportBottom &&
-						shapeBottom < viewportTop)
-					{
-						if (d.IsExtentionRectange)
-						{
-							concurrentBag.Add((d.Shape as CanvasRect<float>).ExtendedRectangle);
-						}
-
-						concurrentBag.Add(d.Shape);
-					}
-				}
-			});
-
-			_shapesViewPort = concurrentBag.ToList();
+			return shapeLeft < viewportRight
+				&& shapeRight > viewportLeft
+				&& shapeTop > viewportBottom
+				&& shapeBottom < viewportTop;
 		}
 		#endregion
 	}

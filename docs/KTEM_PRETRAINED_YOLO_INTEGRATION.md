@@ -5,12 +5,11 @@
 The current local assets for pretrained detection are under:
 
 - C# project: `C:\Git\Labelling_Application`
-- Python UI/data project: `C:\Git\py`
 - YOLO runtime project: `C:\Git\yolov5`
-- Detection images: `C:\Git\py\KtemData`
+- Detection images: `C:\Git\yolov5\data\train\images`
 - Trained weights: `C:\Git\yolov5\best.pt`
 
-`C:\Git\py\best.pt` and `C:\Git\yolov5\best.pt` have the same size. The labeling app uses the `yolov5` copy as the default runtime weight.
+The labeling app uses `C:\Git\yolov5\best.pt` as the default runtime weight.
 
 ## Current App Defaults
 
@@ -19,7 +18,7 @@ New or legacy-default Python model settings resolve to:
 - `ProjectRootPath`: `C:\Git\yolov5`
 - `ClientScriptPath`: `C:\Git\yolov5\labelling_tcp_client.py`
 - `WeightsPath`: `C:\Git\yolov5\best.pt`
-- `ImageRootPath`: `C:\Git\py\KtemData`
+- `ImageRootPath`: `C:\Git\yolov5\data\train\images`
 
 The image list folder picker starts from `ImageRootPath` when it exists.
 
@@ -70,7 +69,7 @@ Parser and packet smoke test:
 Single-image model smoke test, when the selected Python has `torch`, `torchvision`, and YOLOv5 requirements installed:
 
 ```powershell
-& "C:\Git\yolov5\.venv\Scripts\python.exe" "C:\Git\yolov5\labelling_tcp_client.py" --detect-file "C:\Git\py\KtemData\Teaching_0.bmp"
+& "C:\Git\yolov5\.venv\Scripts\python.exe" "C:\Git\yolov5\labelling_tcp_client.py" --smoke-test --weights "C:\Git\yolov5\best.pt" --model-root "C:\Git\yolov5\yolov5Master" --image "C:\Git\yolov5\data\train\images\Teaching_0.jpeg"
 ```
 
 Protocol-level TCP smoke test from the C# workspace:
@@ -98,7 +97,7 @@ Verified local smoke result after installing the venv:
 Latest TCP smoke artifact:
 
 ```json
-{"image":"C:\\Git\\py\\KtemData\\Teaching_0.bmp","detectionCount":1,"firstClass":"OK","responsePath":"C:\\Git\\Labelling_Application\\artifacts\\python-smoke\\yolo-tcp-response.txt"}
+{"image":"C:\\Git\\yolov5\\data\\train\\images\\Teaching_0.jpeg","detectionCount":1,"firstClass":"OK","responsePath":"C:\\Git\\Labelling_Application\\artifacts\\python-smoke\\yolo-tcp-response.txt"}
 ```
 
 Latest C# workflow smoke artifact:

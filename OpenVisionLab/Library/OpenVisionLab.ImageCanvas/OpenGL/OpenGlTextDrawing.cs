@@ -102,37 +102,53 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				fontBitmapEntry = CreateOpenGlFontBitmapEntry(gl, fontBitmapEntries, "Arial", fontSize);
 
 			gl.PushAttrib(OpenGL.GL_ALL_ATTRIB_BITS);
+			try
+			{
+				gl.MatrixMode(OpenGL.GL_PROJECTION);
+				gl.PushMatrix();
+				try
+				{
+					gl.LoadIdentity();
 
-			gl.MatrixMode(OpenGL.GL_PROJECTION);
-			gl.PushMatrix();
-			gl.LoadIdentity();
+					if (originTop)
+						gl.Ortho2D(0, screenWidth, screenHeight, 0);
+					else
+						gl.Ortho2D(0, screenWidth, 0, screenHeight);
 
-			if (originTop)
-				gl.Ortho2D(0, screenWidth, screenHeight, 0);
-			else
-				gl.Ortho2D(0, screenWidth, 0, screenHeight);
+					gl.MatrixMode(OpenGL.GL_MODELVIEW);
+					gl.PushMatrix();
+					try
+					{
+						gl.LoadIdentity();
 
-			gl.MatrixMode(OpenGL.GL_MODELVIEW);
-			gl.PushMatrix();
-			gl.LoadIdentity();
+						gl.Disable(OpenGL.GL_LIGHTING);
+						gl.Disable(OpenGL.GL_TEXTURE_2D);
+						gl.Disable(OpenGL.GL_DEPTH_TEST);
+						gl.Color(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
 
-			gl.Disable(OpenGL.GL_LIGHTING);
-			gl.Disable(OpenGL.GL_TEXTURE_2D);
-			gl.Disable(OpenGL.GL_DEPTH_TEST);
-			gl.Color(color.R / 255f, color.G / 255f, color.B / 255f, color.A / 255f);
+						gl.RasterPos(x, y);
 
-			gl.RasterPos(x, y);
-
-			gl.ListBase(fontBitmapEntry.ListBase);
-			var lists = text.Select(c => (byte)c).ToArray();
-			gl.CallLists(lists.Length, lists);
-
-			// 9. 복구
-			gl.MatrixMode(OpenGL.GL_MODELVIEW);
-			gl.PopMatrix();
-			gl.MatrixMode(OpenGL.GL_PROJECTION);
-			gl.PopMatrix();
-			gl.PopAttrib();
+						gl.ListBase(fontBitmapEntry.ListBase);
+						var lists = text.Select(c => (byte)c).ToArray();
+						gl.CallLists(lists.Length, lists);
+					}
+					finally
+					{
+						gl.MatrixMode(OpenGL.GL_MODELVIEW);
+						gl.PopMatrix();
+					}
+				}
+				finally
+				{
+					gl.MatrixMode(OpenGL.GL_PROJECTION);
+					gl.PopMatrix();
+				}
+			}
+			finally
+			{
+				gl.MatrixMode(OpenGL.GL_MODELVIEW);
+				gl.PopAttrib();
+			}
 		}
 
 		public static void DrawFixedText(OpenGL gl, List<OpenGlFontBitmapEntry> fontBitmapEntries, float x, float y, SizeF offsetSize, System.Drawing.Color color, string faceName, float fontSize, string text)

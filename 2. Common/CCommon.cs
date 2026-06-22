@@ -1,8 +1,13 @@
-﻿using OpenVisionLab.MessageDialogs;
 using System;
 using System.Linq;
 using System.Reflection;
-using System.Windows.Forms;
+using System.Windows.Threading;
+using WpfApplication = System.Windows.Application;
+using WpfMessageBox = System.Windows.MessageBox;
+using WpfMessageBoxButton = System.Windows.MessageBoxButton;
+using WpfMessageBoxImage = System.Windows.MessageBoxImage;
+using WpfMessageBoxResult = System.Windows.MessageBoxResult;
+using WpfWindow = System.Windows.Window;
 
 namespace MvcVisionSystem
 {
@@ -23,8 +28,8 @@ namespace MvcVisionSystem
             try
             {
                 AppLog.NORMAL($"[{strHead}] ==> {strMessage}");
-                DialogResult result = VisionMessageBox.Show(GetMessageBoxOwner(), CreateOptions(strHead, strMessage, type, MessageBoxButtons.OK));
-                return result == DialogResult.OK || result == DialogResult.Yes;
+                WpfMessageBoxResult result = ShowBlockingMessageBox(strHead, strMessage, type);
+                return result == WpfMessageBoxResult.OK || result == WpfMessageBoxResult.Yes;
             }
             catch (Exception Desc)
             {
@@ -38,30 +43,7 @@ namespace MvcVisionSystem
             try
             {
                 AppLog.NORMAL($"[{strHead}] ==> {strMessage}");
-                Form owner = GetMessageBoxOwner();
-
-                void Show()
-                {
-                    VisionMessageBoxForm form = new VisionMessageBoxForm(CreateOptions(strHead, strMessage, type, MessageBoxButtons.OK));
-                    if (owner != null && !owner.IsDisposed)
-                    {
-                        form.Show(owner);
-                    }
-                    else
-                    {
-                        form.Show();
-                    }
-                }
-
-                if (owner != null && owner.InvokeRequired)
-                {
-                    owner.UIThreadBeginInvoke(Show);
-                }
-                else
-                {
-                    Show();
-                }
-
+                BeginShowMessageBox(strHead, strMessage, type);
                 return true;
             }
             catch (Exception Desc)
@@ -71,36 +53,74 @@ namespace MvcVisionSystem
             }
         }
 
-        private static VisionMessageOptions CreateOptions(string title, string message, MessageBoxType type, MessageBoxButtons buttons)
+        private static WpfMessageBoxResult ShowBlockingMessageBox(string title, string message, MessageBoxType type)
         {
-            return new VisionMessageOptions
+            Dispatcher dispatcher = WpfApplication.Current?.Dispatcher;
+            if (dispatcher != null
+                && !dispatcher.CheckAccess()
+                && !dispatcher.HasShutdownStarted
+                && !dispatcher.HasShutdownFinished)
             {
-                Title = title,
-                Message = message,
-                Kind = ToVisionMessageKind(type),
-                Buttons = buttons,
-                TopMost = true
-            };
+                return dispatcher.Invoke(() => ShowMessageBoxOnCurrentThread(title, message, type));
+            }
+
+            return ShowMessageBoxOnCurrentThread(title, message, type);
         }
 
-        private static VisionMessageKind ToVisionMessageKind(MessageBoxType type)
+        private static void BeginShowMessageBox(string title, string message, MessageBoxType type)
+        {
+            Dispatcher dispatcher = WpfApplication.Current?.Dispatcher;
+            if (dispatcher == null || dispatcher.HasShutdownStarted || dispatcher.HasShutdownFinished)
+            {
+                ShowMessageBoxOnCurrentThread(title, message, type);
+                return;
+            }
+
+            dispatcher.BeginInvoke(
+                new Action(() => ShowMessageBoxOnCurrentThread(title, message, type)),
+                DispatcherPriority.Normal);
+        }
+
+        private static WpfMessageBoxResult ShowMessageBoxOnCurrentThread(string title, string message, MessageBoxType type)
+        {
+            WpfWindow owner = GetMessageBoxOwner();
+            WpfMessageBoxImage image = ToWpfMessageBoxImage(type);
+            if (owner != null)
+            {
+                return WpfMessageBox.Show(
+                    owner,
+                    message ?? string.Empty,
+                    title ?? string.Empty,
+                    WpfMessageBoxButton.OK,
+                    image);
+            }
+
+            return WpfMessageBox.Show(
+                message ?? string.Empty,
+                title ?? string.Empty,
+                WpfMessageBoxButton.OK,
+                image);
+        }
+
+        private static WpfMessageBoxImage ToWpfMessageBoxImage(MessageBoxType type)
         {
             return type switch
             {
-                MessageBoxType.Info => VisionMessageKind.Info,
-                MessageBoxType.Quit => VisionMessageKind.Question,
-                MessageBoxType.Stop => VisionMessageKind.Stop,
-                MessageBoxType.Waring => VisionMessageKind.Warning,
-                _ => VisionMessageKind.Normal
+                MessageBoxType.Info => WpfMessageBoxImage.Information,
+                MessageBoxType.Quit => WpfMessageBoxImage.Question,
+                MessageBoxType.Stop => WpfMessageBoxImage.Stop,
+                MessageBoxType.Waring => WpfMessageBoxImage.Warning,
+                _ => WpfMessageBoxImage.None
             };
         }
 
-        private static Form GetMessageBoxOwner()
+        private static WpfWindow GetMessageBoxOwner()
         {
-            return Form.ActiveForm
-                ?? Application.OpenForms
-                    .Cast<Form>()
-                    .FirstOrDefault(form => form.Visible && !form.IsDisposed && !(form is VisionMessageBoxForm));
+            WpfApplication application = WpfApplication.Current;
+            return application?.Windows
+                .OfType<WpfWindow>()
+                .FirstOrDefault(window => window.IsActive)
+                ?? application?.MainWindow;
         }
     }
 }

@@ -2,9 +2,9 @@
   <PropertyGroup>
     <OutputType>WinExe</OutputType>
     <TargetFramework>net8.0-windows</TargetFramework>
-    <UseWindowsForms>true</UseWindowsForms>
-    <!-- Required only for ElementHost hosting of OpenVisionLab.Logging.Controls. The application remains WinForms. -->
     <UseWPF>true</UseWPF>
+    <!-- WPF is the primary app surface. WinForms stays enabled only while legacy screens are migrated. -->
+    <UseWindowsForms>true</UseWindowsForms>
     <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
     <RootNamespace>MvcVisionSystem</RootNamespace>
@@ -56,14 +56,6 @@
       <HintPath>dll\CircularProgressBar.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="FontAwesome.Sharp">
-      <HintPath>dll\FontAwesome.Sharp.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="RJControls" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\RJControls\RJControls.csproj')">
-      <HintPath>dll\RJControls.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="OpenVisionLab.Logging" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Logging\OpenVisionLab.Logging.csproj')">
       <HintPath>dll\OpenVisionLab.Logging.dll</HintPath>
       <Private>True</Private>
@@ -80,16 +72,8 @@
       <HintPath>dll\OpenVisionLab.ImageCanvas.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="OpenVisionLab.Controls.Init" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Controls.Init\OpenVisionLab.Controls.Init.csproj')">
-      <HintPath>dll\OpenVisionLab.Controls.Init.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="OpenVisionLab.DrawObject" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\DrawObject\RectangleDrawObject.cs')">
       <HintPath>dll\OpenVisionLab.DrawObject.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="OpenVisionLab.MessageBox" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.MessageBox\OpenVisionLab.MessageBox.csproj')">
-      <HintPath>dll\OpenVisionLab.MessageBox.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="OpenCvSharp">
@@ -123,12 +107,12 @@
   </ItemGroup>
 
   <ItemGroup>
-    <PackageReference Include="DockPanelSuite" Version="3.1.0" />
-    <PackageReference Include="DockPanelSuite.ThemeVS2015" Version="3.1.0" />
     <PackageReference Include="log4net" Version="3.3.1" />
+    <PackageReference Include="MahApps.Metro.IconPacks.Material" Version="6.2.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.8" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.27" />
+    <PackageReference Include="WPF-UI" Version="4.3.0" />
     <PackageReference Include="YamlDotNet" Version="13.1.1" />
   </ItemGroup>
 
@@ -143,12 +127,6 @@
     <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageCanvas\OpenVisionLab.ImageCanvas.csproj"
                       AdditionalProperties="ImageCanvasCopyEmguNativeRuntime=false;ImageCanvasCopyOpenCvVideoRuntime=false"
                       Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageCanvas\OpenVisionLab.ImageCanvas.csproj')" />
-    <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Controls.Init\OpenVisionLab.Controls.Init.csproj"
-                      Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Controls.Init\OpenVisionLab.Controls.Init.csproj')" />
-    <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.MessageBox\OpenVisionLab.MessageBox.csproj"
-                      Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.MessageBox\OpenVisionLab.MessageBox.csproj')" />
-    <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\RJControls\RJControls.csproj"
-                      Condition="Exists('$(OpenVisionLabSourceRoot)\Library\RJControls\RJControls.csproj')" />
   </ItemGroup>
 
   <ItemGroup Condition="Exists('$(OpenVisionLabSourceRoot)\Library\DrawObject\RectangleDrawObject.cs')">
@@ -164,65 +142,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="0. UI\0) MENU\FormMainFrame.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Update="0. UI\0) MENU\FormMainFrame.Designer.cs">
-      <DependentUpon>FormMainFrame.cs</DependentUpon>
-    </Compile>
-    <Compile Update="0. UI\0) MENU\FormTeachingVision.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Update="0. UI\0) MENU\FormTeachingVision.Designer.cs">
-      <DependentUpon>FormTeachingVision.cs</DependentUpon>
-    </Compile>
-    <Compile Update="0. UI\2) POPUP\FormLayerDisplay.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Update="0. UI\2) POPUP\FormLayerDisplay.Designer.cs">
-      <DependentUpon>FormLayerDisplay.cs</DependentUpon>
-    </Compile>
-    <Compile Update="0. UI\7) MainPanel\FormLog.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Update="0. UI\7) MainPanel\FormLog.Designer.cs">
-      <DependentUpon>FormLog.cs</DependentUpon>
-    </Compile>
-    <Compile Update="0. UI\8) TeachingPanel\FormClassList.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Update="0. UI\8) TeachingPanel\FormClassList.Designer.cs">
-      <DependentUpon>FormClassList.cs</DependentUpon>
-    </Compile>
-    <Compile Update="0. UI\8) TeachingPanel\FormImageList.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Update="0. UI\8) TeachingPanel\FormImageList.Designer.cs">
-      <DependentUpon>FormImageList.cs</DependentUpon>
-    </Compile>
-    <Compile Update="0. UI\8) TeachingPanel\FormVision_NewPanel.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Update="0. UI\8) TeachingPanel\FormVision_NewPanel.Designer.cs">
-      <DependentUpon>FormVision_NewPanel.cs</DependentUpon>
-    </Compile>
     <Compile Update="Library\CViewer.cs">
       <SubType>Component</SubType>
-    </Compile>
-    <Compile Update="Library\CViewer.Designer.cs">
-      <DependentUpon>CViewer.cs</DependentUpon>
-    </Compile>
-    <Compile Update="Yolo\FormVision_ClassMenu.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Update="Yolo\FormVision_ClassMenu.Designer.cs">
-      <DependentUpon>FormVision_ClassMenu.cs</DependentUpon>
-    </Compile>
-    <Compile Update="Yolo\FormVision_Yolov5ParamSetting.cs">
-      <SubType>Form</SubType>
-    </Compile>
-    <Compile Update="Yolo\FormVision_Yolov5ParamSetting.Designer.cs">
-      <DependentUpon>FormVision_Yolov5ParamSetting.cs</DependentUpon>
     </Compile>
   </ItemGroup>
 

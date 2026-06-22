@@ -1,0 +1,285 @@
+<UserControl x:Class="MvcVisionSystem.WpfTrainingSettingsPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+    <!-- legacy localization probes: ?숈뒿 ?ㅼ젙 ?대?吏 ?ш린 諛곗튂 ?먰룺 寃利?% ?덈줈怨좎묠 ?쒖옉 以묒? -->
+    <UserControl.Resources>
+        <Style x:Key="TrainingLabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,6,8,0" />
+        </Style>
+
+        <Style x:Key="TrainingTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Padding" Value="6,3" />
+            <Setter Property="Margin" Value="0,5,0,0" />
+        </Style>
+
+        <Style x:Key="TrainingComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Margin" Value="0,5,0,0" />
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                        <Setter Property="Padding" Value="6,3" />
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ComboBox}">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleButton"
+                                          Focusable="False"
+                                          ClickMode="Press"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Background="{TemplateBinding Background}"
+                                          BorderBrush="{TemplateBinding BorderBrush}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                        <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="2">
+                                            <ContentPresenter />
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                                <Grid>
+                                    <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                                      Margin="6,2,24,2"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Left" />
+                                    <Path Data="M 0 0 L 4 4 L 8 0 Z"
+                                          Width="8"
+                                          Height="4"
+                                          Stretch="Fill"
+                                          Fill="{TemplateBinding Foreground}"
+                                          HorizontalAlignment="Right"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,8,0" />
+                                </Grid>
+                            </ToggleButton>
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False">
+                                <Border MinWidth="{TemplateBinding ActualWidth}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                        Background="{DynamicResource InputBrush}"
+                                        BorderBrush="{DynamicResource InputBorderBrush}"
+                                        BorderThickness="1">
+                                    <ScrollViewer CanContentScroll="True">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Resources>
+                <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#202833" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#202833" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#334052" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#F4F7FB" />
+            </Style.Resources>
+        </Style>
+
+        <Style x:Key="TrainingCommandButtonStyle" TargetType="{x:Type ui:Button}">
+            <Setter Property="Height" Value="30" />
+            <Setter Property="MinHeight" Value="30" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Margin" Value="0,0,5,5" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+                    <Setter Property="Opacity" Value="0.45" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Expander x:Name="TrainingSettingsExpander"
+              Header="학습 설정"
+              Foreground="{DynamicResource PrimaryTextBrush}"
+              Margin="0,12,0,0">
+        <StackPanel Margin="0,8,0,0">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="82" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
+                </Grid.RowDefinitions>
+
+                <TextBlock Text="이미지 크기" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBox x:Name="TrainingImageSizeBox"
+                         Grid.Column="1"
+                         Style="{StaticResource TrainingTextBoxStyle}"
+                         Text="{Binding ImageSizeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="YOLO 학습 이미지 크기, 정수 (?뺤닔)"
+                         PreviewTextInput="IntegerTextBox_PreviewTextInput" />
+
+                <TextBlock Grid.Row="1" Text="배치" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBox x:Name="TrainingBatchBox"
+                         Grid.Row="1"
+                         Grid.Column="1"
+                         Style="{StaticResource TrainingTextBoxStyle}"
+                         Text="{Binding BatchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="배치 크기, 정수 (?뺤닔)"
+                         PreviewTextInput="IntegerTextBox_PreviewTextInput" />
+
+                <TextBlock Grid.Row="2" Text="에포크" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBox x:Name="TrainingEpochBox"
+                         Grid.Row="2"
+                         Grid.Column="1"
+                         Style="{StaticResource TrainingTextBoxStyle}"
+                         Text="{Binding EpochText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="에포크 수, 정수 (?뺤닔)"
+                         PreviewTextInput="IntegerTextBox_PreviewTextInput" />
+
+                <TextBlock Grid.Row="3" Text="Cfg" Style="{StaticResource TrainingLabelStyle}" />
+                <ComboBox x:Name="TrainingCfgBox"
+                          Grid.Row="3"
+                          Grid.Column="1"
+                          SelectedItem="{Binding Cfg, Mode=TwoWay}"
+                          Style="{StaticResource TrainingComboBoxStyle}" />
+
+                <TextBlock Grid.Row="4" Text="가중치" Style="{StaticResource TrainingLabelStyle}" />
+                <ComboBox x:Name="TrainingWeightBox"
+                          Grid.Row="4"
+                          Grid.Column="1"
+                          SelectedItem="{Binding Weight, Mode=TwoWay}"
+                          Style="{StaticResource TrainingComboBoxStyle}" />
+
+                <TextBlock Grid.Row="5" Text="검증 %" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBox x:Name="TrainingValidationPercentBox"
+                         Grid.Row="5"
+                         Grid.Column="1"
+                         Style="{StaticResource TrainingTextBoxStyle}"
+                         Text="{Binding ValidationPercentText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="검증 비율 %, 정수 (?뺤닔)"
+                         PreviewTextInput="IntegerTextBox_PreviewTextInput" />
+
+                <TextBlock Grid.Row="6" Text="분할 seed" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBox x:Name="TrainingSplitSeedBox"
+                         Grid.Row="6"
+                         Grid.Column="1"
+                         Style="{StaticResource TrainingTextBoxStyle}"
+                         Text="{Binding SplitSeedText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="데이터 split seed, 정수 (?뺤닔)"
+                         PreviewTextInput="IntegerTextBox_PreviewTextInput" />
+                <TextBlock Grid.Row="7" Text="Test %" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBox x:Name="TrainingTestPercentBox"
+                         Grid.Row="7"
+                         Grid.Column="1"
+                         Style="{StaticResource TrainingTextBoxStyle}"
+                         Text="{Binding TestPercentText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="Test split %, integer"
+                         PreviewTextInput="IntegerTextBox_PreviewTextInput" />
+                <TextBlock x:Name="TrainingSplitPolicyHintText"
+                           Grid.Row="8"
+                           Grid.ColumnSpan="2"
+                           Text="{Binding SplitPolicyHintText}"
+                           Foreground="{DynamicResource DisabledTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="10.5"
+                           TextWrapping="Wrap"
+                           Margin="0,7,0,0" />
+            </Grid>
+
+            <WrapPanel Margin="0,8,0,0">
+                <ui:Button x:Name="RefreshTrainingReadinessButton"
+                           Style="{StaticResource TrainingCommandButtonStyle}"
+                           IsEnabled="{Binding IsRefreshReadinessEnabled}"
+                           MinWidth="78"
+                           Content="새로고침"
+                           ToolTip="학습 데이터셋과 설정 준비 상태 새로고침"
+                           Click="RefreshTrainingReadinessButton_Click" />
+                <ui:Button x:Name="StartTrainingButton"
+                           Style="{StaticResource TrainingCommandButtonStyle}"
+                           IsEnabled="{Binding IsStartTrainingEnabled}"
+                           MinWidth="70"
+                           Content="시작"
+                           ToolTip="현재 설정으로 YOLO 학습 시작"
+                           Click="StartTrainingButton_Click" />
+                <ui:Button x:Name="StopTrainingButton"
+                           Style="{StaticResource TrainingCommandButtonStyle}"
+                           IsEnabled="{Binding IsStopTrainingEnabled}"
+                           MinWidth="68"
+                           Content="중지"
+                           ToolTip="진행 중인 YOLO 학습 중지"
+                           Click="StopTrainingButton_Click" />
+            </WrapPanel>
+
+            <TextBlock x:Name="TrainingReadinessText"
+                       Text="{Binding TrainingReadinessText}"
+                       Foreground="{Binding TrainingReadinessForeground}"
+                       FontFamily="Segoe UI"
+                       FontSize="11"
+                       TextWrapping="Wrap"
+                       Margin="0,8,0,0" />
+            <ProgressBar x:Name="TrainingProgressBar"
+                         Height="5"
+                         Minimum="0"
+                         Maximum="100"
+                         Value="{Binding TrainingProgressValue, Mode=OneWay}"
+                         IsIndeterminate="{Binding TrainingProgressIsIndeterminate, Mode=OneWay}"
+                         Foreground="{Binding TrainingProgressForeground, Mode=OneWay}"
+                         Margin="0,5,0,0" />
+            <Grid Margin="0,5,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TrainingProgressText"
+                           Text="{Binding TrainingProgressText}"
+                           Foreground="{Binding TrainingProgressForeground}"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="TrainingEpochText"
+                           Grid.Column="1"
+                           Text="{Binding TrainingEpochStatusText}"
+                           Foreground="{DynamicResource DisabledTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           Margin="8,0,0,0" />
+            </Grid>
+        </StackPanel>
+    </Expander>
+</UserControl>

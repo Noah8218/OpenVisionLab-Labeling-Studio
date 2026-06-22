@@ -19,7 +19,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 	public static partial class OpenGlDrawing
 	{		public static void DrawGroupName(OpenGL gl, CanvasOverlayManager overlayManager, OpenGlTextDrawOptions glDrawTextOptions)
 		{
-			foreach (var overlayItem in overlayManager.GetAllVisibleOverlays())
+			foreach (var overlayItem in overlayManager.GetVisibleOverlaysInBounds(GetTextViewportBounds(glDrawTextOptions)))
 			{
 				if (!overlayItem.IsGroupRectangle) { continue; }
 
@@ -37,7 +37,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 		public static void DrawRoiItemName(OpenGL gl, CanvasOverlayManager overlayManager, OpenGlTextDrawOptions glDrawTextOptions)
 		{
 			int index = 1;
-			foreach (var overlayItem in overlayManager.GetAllVisibleOverlays())
+			foreach (var overlayItem in overlayManager.GetVisibleOverlaysInBounds(GetTextViewportBounds(glDrawTextOptions)))
 			{
 				if (overlayItem.IsGroupRectangle) { continue; }
 				EnumInspWindowType groupType = overlayItem.InspWindowType;
@@ -52,6 +52,15 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				DrawText(gl, glDrawTextOptions.FontBitmapEntries, glDrawTextOptions.XSpan, glDrawTextOptions.YSpan, glDrawTextOptions.OffsetSize, (int)midX, (int)midY, overlayItem.Color, faceName, fontSize, $"{index}");
 				index++;
 			}
+		}
+
+		private static RectangleF GetTextViewportBounds(OpenGlTextDrawOptions glDrawTextOptions)
+		{
+			float viewportLeft = 0 - glDrawTextOptions.OffsetSize.Width;
+			float viewportRight = glDrawTextOptions.XSpan - glDrawTextOptions.OffsetSize.Width;
+			float viewportTop = glDrawTextOptions.YSpan - glDrawTextOptions.OffsetSize.Height;
+			float viewportBottom = 0 - glDrawTextOptions.OffsetSize.Height;
+			return RectangleF.FromLTRB(viewportLeft, viewportBottom, viewportRight, viewportTop);
 		}
 
 		public static uint CreateTextTexture(OpenGL gl, string text, Font font, System.Drawing.Color textColor)

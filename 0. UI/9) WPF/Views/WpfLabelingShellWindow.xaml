@@ -1,0 +1,620 @@
+<ui:FluentWindow x:Class="MvcVisionSystem.WpfLabelingShellWindow"
+                 xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                 xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                 xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+                 xmlns:local="clr-namespace:MvcVisionSystem"
+                 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+                 Title="OpenVisionLab Labeling Studio"
+                 Width="1440"
+                 Height="900"
+                 MinWidth="1100"
+                 MinHeight="720"
+                 Background="{DynamicResource AppBackgroundBrush}"
+                 ExtendsContentIntoTitleBar="True"
+                 WindowBackdropType="None"
+                 WindowCornerPreference="Round"
+                 WindowStartupLocation="CenterScreen"
+                 Loaded="Window_Loaded"
+                 Closed="Window_Closed">
+    <ui:FluentWindow.Resources>
+        <ResourceDictionary>
+        <ResourceDictionary.MergedDictionaries>
+            <ui:ThemesDictionary Theme="Dark" />
+            <ui:ControlsDictionary />
+        </ResourceDictionary.MergedDictionaries>
+
+        <SolidColorBrush x:Key="AppBackgroundBrush" Color="#0C0D0F" />
+        <SolidColorBrush x:Key="FrameBrush" Color="#0A0B0D" />
+        <SolidColorBrush x:Key="PanelBrush" Color="#171717" />
+        <SolidColorBrush x:Key="PanelHeaderBrush" Color="#1F1F1F" />
+        <SolidColorBrush x:Key="CanvasBrush" Color="#101820" />
+        <SolidColorBrush x:Key="StatusBarBrush" Color="#0F1115" />
+        <SolidColorBrush x:Key="BorderBrushDark" Color="#303030" />
+        <SolidColorBrush x:Key="PrimaryTextBrush" Color="#F7F7F7" />
+        <SolidColorBrush x:Key="SecondaryTextBrush" Color="#B7B7B7" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#E53935" />
+        <SolidColorBrush x:Key="ToolbarButtonBrush" Color="#252525" />
+        <SolidColorBrush x:Key="ToolbarButtonBorderBrush" Color="#3A3A3A" />
+        <SolidColorBrush x:Key="ToolbarButtonHoverBrush" Color="#333333" />
+        <SolidColorBrush x:Key="ToolbarButtonPressedBrush" Color="#1D1D1D" />
+        <SolidColorBrush x:Key="ToolbarButtonDisabledBrush" Color="#20242A" />
+        <SolidColorBrush x:Key="ToolbarButtonDisabledBorderBrush" Color="#2B3038" />
+        <SolidColorBrush x:Key="DisabledTextBrush" Color="#69707A" />
+        <SolidColorBrush x:Key="InputBrush" Color="#242424" />
+        <SolidColorBrush x:Key="InputBorderBrush" Color="#3A3A3A" />
+        <SolidColorBrush x:Key="GridLineBrush" Color="#2A2A2A" />
+        <SolidColorBrush x:Key="GridHeaderBrush" Color="#202020" />
+        <SolidColorBrush x:Key="RowHoverBrush" Color="#222A33" />
+        <SolidColorBrush x:Key="SelectedRowBrush" Color="#26384F" />
+        <SolidColorBrush x:Key="SelectedRowTextBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="DetectionOverlayBackgroundBrush" Color="#F00B1320" />
+        <SolidColorBrush x:Key="DetectionOverlayBorderBrush" Color="#5524D366" />
+        <SolidColorBrush x:Key="DetectionOverlayTitleTextBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="DetectionOverlaySummaryTextBrush" Color="#BEEBD0" />
+        <SolidColorBrush x:Key="DetectionOverlaySelectedBackgroundBrush" Color="#1F24D366" />
+        <SolidColorBrush x:Key="DetectionOverlaySelectedTextBrush" Color="#FFFFFF" />
+        <SolidColorBrush x:Key="DetectionOverlayDetailTextBrush" Color="#C9D4E2" />
+
+        <Style x:Key="PanelBorderStyle" TargetType="Border">
+            <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+        </Style>
+
+        <Style x:Key="ToolbarButtonStyle" TargetType="Button">
+            <Setter Property="Height" Value="30" />
+            <Setter Property="MinWidth" Value="68" />
+            <Setter Property="Margin" Value="3,0,0,0" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type Button}">
+                        <Border x:Name="ButtonChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}"
+                                              RecognizesAccessKey="True" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource ToolbarButtonHoverBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource ToolbarButtonPressedBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource ToolbarButtonDisabledBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource ToolbarButtonDisabledBorderBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style x:Key="ToolbarIconStyle" TargetType="{x:Type iconPacks:PackIconMaterial}">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="WpfUiToolbarButtonStyle" TargetType="{x:Type ui:Button}">
+            <Setter Property="Height" Value="30" />
+            <Setter Property="MinWidth" Value="68" />
+            <Setter Property="Margin" Value="4,0,0,0" />
+            <Setter Property="Padding" Value="10,0" />
+            <Setter Property="Appearance" Value="Transparent" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource ToolbarButtonHoverBrush}" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+                    <Setter Property="Opacity" Value="0.45" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="WorkflowModeToolbarButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource WpfUiToolbarButtonStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="Foreground" Value="White" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="QueueIconStyle" TargetType="{x:Type iconPacks:PackIconMaterial}">
+            <Setter Property="Width" Value="15" />
+            <Setter Property="Height" Value="15" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="QueueIconButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource WpfUiToolbarButtonStyle}">
+            <Setter Property="Width" Value="36" />
+            <Setter Property="MinWidth" Value="36" />
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+        </Style>
+
+        <Style x:Key="QueueQuickFilterButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource WpfUiToolbarButtonStyle}">
+            <Setter Property="Height" Value="24" />
+            <Setter Property="MinWidth" Value="42" />
+            <Setter Property="Padding" Value="2,0" />
+            <Setter Property="Margin" Value="0,0,2,0" />
+            <Setter Property="FontSize" Value="10" />
+        </Style>
+
+        <Style x:Key="SettingsTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Padding" Value="5,2" />
+            <Setter Property="Margin" Value="0,3,0,0" />
+        </Style>
+
+        <Style x:Key="SettingsComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Margin" Value="0,3,0,0" />
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                        <Setter Property="Padding" Value="6,3" />
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ComboBox}">
+                        <Grid>
+                            <ToggleButton x:Name="ToggleButton"
+                                          Focusable="False"
+                                          ClickMode="Press"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Background="{TemplateBinding Background}"
+                                          BorderBrush="{TemplateBinding BorderBrush}">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                        <Border Background="{TemplateBinding Background}"
+                                                BorderBrush="{TemplateBinding BorderBrush}"
+                                                BorderThickness="1"
+                                                CornerRadius="2">
+                                            <ContentPresenter />
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                                <Grid>
+                                    <ContentPresenter Content="{TemplateBinding SelectionBoxItem}"
+                                                      ContentStringFormat="{TemplateBinding SelectionBoxItemStringFormat}"
+                                                      Margin="6,2,24,2"
+                                                      VerticalAlignment="Center"
+                                                      HorizontalAlignment="Left" />
+                                    <Path Data="M 0 0 L 4 4 L 8 0 Z"
+                                          Width="8"
+                                          Height="4"
+                                          Stretch="Fill"
+                                          Fill="{TemplateBinding Foreground}"
+                                          HorizontalAlignment="Right"
+                                          VerticalAlignment="Center"
+                                          Margin="0,0,8,0" />
+                                </Grid>
+                            </ToggleButton>
+                            <Popup x:Name="Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False">
+                                <Border MinWidth="{TemplateBinding ActualWidth}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                        Background="{DynamicResource InputBrush}"
+                                        BorderBrush="{DynamicResource InputBorderBrush}"
+                                        BorderThickness="1">
+                                    <ScrollViewer CanContentScroll="True">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Resources>
+                <SolidColorBrush x:Key="{x:Static SystemColors.WindowBrushKey}" Color="#202833" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.ControlBrushKey}" Color="#202833" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.HighlightBrushKey}" Color="#334052" />
+                <SolidColorBrush x:Key="{x:Static SystemColors.ControlTextBrushKey}" Color="#F4F7FB" />
+            </Style.Resources>
+        </Style>
+
+        <Style x:Key="SettingsLabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="0,3,8,0" />
+        </Style>
+
+        <Style x:Key="SettingsBrowseButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource WpfUiToolbarButtonStyle}">
+            <Setter Property="Width" Value="32" />
+            <Setter Property="MinWidth" Value="32" />
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Margin" Value="4,3,0,0" />
+        </Style>
+
+        <Style x:Key="ImageQueueColumnHeaderStyle" TargetType="DataGridColumnHeader">
+            <Setter Property="Background" Value="{DynamicResource GridHeaderBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource GridLineBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,1,1" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Padding" Value="5,4" />
+        </Style>
+
+        <Style x:Key="ImageQueueRowStyle" TargetType="DataGridRow">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource GridLineBrush}" />
+            <Setter Property="BorderThickness" Value="0,0,0,1" />
+            <Setter Property="MinHeight" Value="34" />
+        </Style>
+
+        <Style x:Key="ImageQueueCellStyle" TargetType="DataGridCell">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource GridLineBrush}" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Style.Triggers>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="QueueStatusBadgeStyle" TargetType="Border">
+            <Setter Property="MinWidth" Value="34" />
+            <Setter Property="Height" Value="16" />
+            <Setter Property="Padding" Value="5,0" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="BorderBrush" Value="{Binding QueueIconBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding QueueBadgeText}" Value="">
+                    <Setter Property="Visibility" Value="Collapsed" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ReviewListBoxItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ItemBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource RowHoverBrush}" />
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ImageQueueTextStyle" TargetType="TextBlock">
+            <Setter Property="Margin" Value="5,1" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="ToolTip" Value="{Binding Detail}" />
+        </Style>
+        </ResourceDictionary>
+    </ui:FluentWindow.Resources>
+
+    <DockPanel LastChildFill="True">
+        <ui:TitleBar x:Name="ShellTitleBar"
+                     DockPanel.Dock="Top"
+                     Height="36"
+                     Title="OpenVisionLab Labeling Studio"
+                     Background="{DynamicResource FrameBrush}"
+                     Foreground="{DynamicResource PrimaryTextBrush}"
+                     ButtonsForeground="{DynamicResource PrimaryTextBrush}"
+                     ButtonsBackground="{DynamicResource ToolbarButtonHoverBrush}" />
+
+        <Border DockPanel.Dock="Top"
+                Height="54"
+                Background="{DynamicResource FrameBrush}"
+                BorderBrush="{DynamicResource AccentBrush}"
+                BorderThickness="0,0,0,1">
+            <Grid Margin="16,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="160" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="250" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="라벨링 워크벤치"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="16"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="큐 / 캔버스 / YOLO"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="11"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            HorizontalAlignment="Stretch"
+                            ClipToBounds="True">
+                    <ui:Button x:Name="ThemeToggleButton"
+                               Style="{StaticResource WpfUiToolbarButtonStyle}"
+                               MinWidth="112"
+                               AutomationProperties.Name="Theme"
+                               ToolTip="다크/라이트 테마 전환"
+                               Click="ThemeToggleButton_Click">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ThemeLightDark" />
+                            <TextBlock x:Name="ThemeToggleText" Text="테마: 다크" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ui:Button>
+                    <ui:Button Style="{StaticResource WpfUiToolbarButtonStyle}" AutomationProperties.Name="샘플" ToolTip="설정된 샘플 이미지 다시 불러오기" Click="LoadSampleButton_Click">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ImageSearch" />
+                            <TextBlock Text="샘플" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ui:Button>
+                    <ui:Button Style="{StaticResource WpfUiToolbarButtonStyle}" AutomationProperties.Name="ROI" ToolTip="현재 이미지 중앙에 새 ROI 추가" Click="AddSampleRoiButton_Click">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ShapeSquareRoundedPlus" />
+                            <TextBlock Text="ROI" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ui:Button>
+                    <ui:Button x:Name="SaveAnnotationsButton" Style="{StaticResource WpfUiToolbarButtonStyle}" AutomationProperties.Name="저장" ToolTip="현재 ROI와 확정 라벨 저장" Click="SaveAnnotationsButton_Click">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ContentSave" />
+                            <TextBlock Text="저장" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ui:Button>
+                    <Border Width="1" Height="24" Margin="6,0" Background="{DynamicResource BorderBrushDark}" />
+                    <ui:Button x:Name="TeachingModeButton" Style="{StaticResource WorkflowModeToolbarButtonStyle}" AutomationProperties.Name="라벨링" ToolTip="이미지 선택과 ROI 편집에 집중" IsEnabled="{Binding IsLabelingModeButtonEnabled}" Tag="{Binding IsLabelingModeActive}" Click="TeachingModeButton_Click">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="SchoolOutline" />
+                            <TextBlock Text="라벨링" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ui:Button>
+                    <ui:Button x:Name="InferenceModeButton" Style="{StaticResource WorkflowModeToolbarButtonStyle}" AutomationProperties.Name="추론 검토" ToolTip="현재 이미지와 큐 검출 버튼을 활성화" IsEnabled="{Binding IsInferenceModeButtonEnabled}" Tag="{Binding IsInferenceModeActive}" Click="InferenceModeButton_Click">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="RobotIndustrial" />
+                            <TextBlock Text="추론 검토" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ui:Button>
+                    <Border Width="1" Height="24" Margin="6,0" Background="{DynamicResource BorderBrushDark}" />
+                    <ui:Button Style="{StaticResource WpfUiToolbarButtonStyle}" AutomationProperties.Name="YOLO" ToolTip="YOLO 경로와 Python 환경 점검" Click="CheckYoloButton_Click">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="Tune" />
+                            <TextBlock Text="YOLO" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ui:Button>
+                    <ui:Button x:Name="DetectButton" Style="{StaticResource WpfUiToolbarButtonStyle}" AutomationProperties.Name="현재 이미지 검사" ToolTip="현재 이미지로 YOLO 검출 실행" IsEnabled="{Binding IsCurrentImageDetectionEnabled}" Click="DetectButton_Click">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ImageSearch" />
+                            <TextBlock Text="현재 검사" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ui:Button>
+                </StackPanel>
+
+                <Border x:Name="InferenceStatusBorder"
+                        Grid.Column="2"
+                        Height="34"
+                        Margin="10,0,0,0"
+                        Padding="9,4"
+                        Background="{DynamicResource ToolbarButtonBrush}"
+                        BorderBrush="{DynamicResource BorderBrushDark}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        VerticalAlignment="Center"
+                        ToolTip="현재 추론 실행 상태">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="20" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="60" />
+                        </Grid.ColumnDefinitions>
+                        <iconPacks:PackIconMaterial x:Name="InferenceStatusIcon"
+                                                    Width="15"
+                                                    Height="15"
+                                                    Kind="RobotIndustrial"
+                                                    Foreground="{DynamicResource PrimaryTextBrush}"
+                                                    HorizontalAlignment="Left"
+                                                    VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1"
+                                    VerticalAlignment="Center">
+                            <TextBlock Text="추론 상태"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="InferenceStatusText"
+                                       Text="대기"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <ProgressBar x:Name="InferenceStatusProgressBar"
+                                     Grid.Column="2"
+                                     Width="54"
+                                     Height="6"
+                                     Minimum="0"
+                                     Maximum="100"
+                                     Value="0"
+                                     IsIndeterminate="False"
+                                     Visibility="Collapsed"
+                                     VerticalAlignment="Center" />
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <local:WpfStatusBarPanel x:Name="StatusBarPanelControl"
+                                 DockPanel.Dock="Bottom" />
+
+        <Grid Margin="10">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="300" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="10" />
+                <ColumnDefinition Width="340" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="*" />
+                <RowDefinition Height="10" />
+                <RowDefinition Height="160" />
+            </Grid.RowDefinitions>
+
+            <local:WpfImageQueuePanel x:Name="ImageQueuePanelControl" Grid.RowSpan="3" />
+
+            <local:WpfCanvasPanel x:Name="CanvasPanelControl" Grid.Column="2" />
+
+            <Border Grid.Column="4" Style="{StaticResource PanelBorderStyle}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="34" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <Border Background="{DynamicResource PanelHeaderBrush}"
+                            CornerRadius="6,6,0,0"
+                            BorderBrush="{DynamicResource BorderBrushDark}"
+                            BorderThickness="0,0,0,1">
+                        <TextBlock Text="객체 검토"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   Margin="12,0"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <TabControl x:Name="ReviewTabControl"
+                                Grid.Row="1"
+                                Background="Transparent"
+                                BorderThickness="0"
+                                FontFamily="Segoe UI"
+                                FontSize="12">
+                        <TabItem x:Name="ObjectsReviewTab" Header="객체">
+                            <local:WpfObjectReviewPanel x:Name="ObjectReviewPanelControl" />
+                        </TabItem>
+                        <TabItem x:Name="CandidatesReviewTab" Header="후보">
+                            <local:WpfCandidateReviewPanel x:Name="CandidateReviewPanelControl" />
+                        </TabItem>
+                        <TabItem x:Name="LearningReviewTab" Header="&#xAC00;&#xC774;&#xB4DC;">
+                            <local:WpfLearningWorkflowPanel x:Name="LearningWorkflowPanelControl" />
+                        </TabItem>
+                        <TabItem x:Name="ClassesReviewTab" Header="클래스">
+                            <local:WpfClassCatalogPanel x:Name="ClassCatalogPanelControl" />
+                        </TabItem>
+                        <TabItem x:Name="YoloSettingsReviewTab" Header="YOLO">
+                            <ScrollViewer x:Name="YoloSettingsScrollViewer" VerticalScrollBarVisibility="Auto">
+                                <StackPanel Margin="10">
+                                    <local:WpfYoloStatusPanel x:Name="YoloStatusPanelControl" />
+                                    <local:WpfProjectConfigPanel x:Name="ProjectConfigPanelControl" />
+                                    <local:WpfYoloModelSettingsPanel x:Name="YoloModelSettingsPanelControl" />
+                                    <local:WpfTrainingSettingsPanel x:Name="TrainingSettingsPanelControl" />
+                                </StackPanel>
+                            </ScrollViewer>
+                        </TabItem>
+                    </TabControl>
+                </Grid>
+            </Border>
+
+            <local:WpfShellLogPanel x:Name="ShellLogPanelControl"
+                                    Grid.Column="2"
+                                    Grid.ColumnSpan="3"
+                                    Grid.Row="2" />
+        </Grid>
+    </DockPanel>
+</ui:FluentWindow>

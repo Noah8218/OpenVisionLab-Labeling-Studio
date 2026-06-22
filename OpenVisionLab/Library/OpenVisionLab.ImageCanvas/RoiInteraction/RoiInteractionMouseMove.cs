@@ -47,7 +47,7 @@ namespace OpenVisionLab.ImageCanvas
 		/// <param name="activeRoiRect"></param>
 		/// <param name="currentRobotyPos"></param>
 		/// <param name="imageSize"></param>
-		public static void MoveRoiRect(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasRect<float> activeRoiRect, System.Drawing.PointF currentRobotyPos, System.Drawing.Size imageSize, bool canMoveRoi, OverlayEditingCompletedCallback callbackOverlayEditingComleted)
+		public static void MoveRoiRect(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasRect<float> activeRoiRect, System.Drawing.PointF currentRobotyPos, System.Drawing.Size imageSize, bool canMoveRoi, OverlayEditingCompletedCallback callbackOverlayEditingComleted, bool notifyEditingCompleted = true)
 		{
 			if (activeRoiRect == null) { return; }
 			var offsetX = currentRobotyPos.X - imageViewer.PreMousePos.X;
@@ -61,14 +61,15 @@ namespace OpenVisionLab.ImageCanvas
 					Height = (float)offsetY
 				};
 
-				imageViewer.PerformRoiMove(activeRoiRect, size, imageSize, canMoveRoi);
-				UpdateRoiRect(imageViewer, activeRoiRect, callbackOverlayEditingComleted);
+				// During mouse drag, the caller can suppress GL display-list rebuilds and external UI callbacks.
+				imageViewer.PerformRoiMove(activeRoiRect, size, imageSize, canMoveRoi, notifyEditingCompleted);
+				UpdateRoiRect(imageViewer, activeRoiRect, notifyEditingCompleted ? callbackOverlayEditingComleted : null);
 			}
 
 			imageViewer.PreMousePos = currentRobotyPos;
 		}
 
-		public static void MoveOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasRect<float> activeRoiRect, System.Drawing.PointF currentRobotyPos, System.Drawing.Size imageSize, bool canMoveRoi, OverlayEditingCompletedCallback callbackOverlayEditingComleted, bool isGroup = false)
+		public static void MoveOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasRect<float> activeRoiRect, System.Drawing.PointF currentRobotyPos, System.Drawing.Size imageSize, bool canMoveRoi, OverlayEditingCompletedCallback callbackOverlayEditingComleted, bool isGroup = false, bool notifyEditingCompleted = true)
 		{
 			try
 			{
@@ -84,8 +85,9 @@ namespace OpenVisionLab.ImageCanvas
 				// 怨듯넻 濡쒖쭅: ?대룞 泥섎━
 				Action<CanvasRect<float>> moveAction = rect =>
 				{
-					imageViewer.PerformRoiMove(rect, size, imageSize, canMoveRoi);
-					UpdateRoiRect(imageViewer, rect, callbackOverlayEditingComleted);
+					// MouseMove should update geometry/index only; commit display-list/UI updates on mouse-up.
+					imageViewer.PerformRoiMove(rect, size, imageSize, canMoveRoi, notifyEditingCompleted);
+					UpdateRoiRect(imageViewer, rect, notifyEditingCompleted ? callbackOverlayEditingComleted : null);
 				};
 
 				if (isGroup)
@@ -151,12 +153,12 @@ namespace OpenVisionLab.ImageCanvas
 		/// <param name="activeRoiRect"></param>
 		/// <param name="currentRobotyPos"></param>
 		/// <param name="imageSize"></param>
-		public static void ResizeRoiRect(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasRect<float> activeRoiRect, System.Drawing.PointF currentRobotyPos, System.Drawing.Size imageSize, OverlayEditingCompletedCallback callbackOverlayEditingComleted)
+		public static void ResizeRoiRect(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasRect<float> activeRoiRect, System.Drawing.PointF currentRobotyPos, System.Drawing.Size imageSize, OverlayEditingCompletedCallback callbackOverlayEditingComleted, bool notifyEditingCompleted = true)
 		{
 			if (activeRoiRect == null) { return; }
-			activeRoiRect.Move(currentRobotyPos.X, currentRobotyPos.Y, imageSize); // roi ?ъ씠利?議곗젅									
-			UpdateRoiRect(imageViewer, activeRoiRect, callbackOverlayEditingComleted);
-			callbackOverlayEditingComleted?.Invoke(activeRoiRect);
+			// Resize MouseMove updates only geometry; display-list rebuild happens once on mouse-up.
+			activeRoiRect.Move(currentRobotyPos.X, currentRobotyPos.Y, imageSize, notifyEditingCompleted);
+			UpdateRoiRect(imageViewer, activeRoiRect, notifyEditingCompleted ? callbackOverlayEditingComleted : null);
 		}
 
 		private static void UpdateRoiRect(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasRect<float> activeRoiRect, OverlayEditingCompletedCallback callbackOverlayEditingComleted)
@@ -164,9 +166,8 @@ namespace OpenVisionLab.ImageCanvas
 			if (activeRoiRect != null)
 			{
 				//_activeRoiRect = _targetOverlay;
+				imageViewer.UpdateInteractiveOverlayIndex(activeRoiRect);
 				activeRoiRect.IsChanged = true;
-				imageViewer.ResizeGroupRectangle(activeRoiRect.GroupType);
-				imageViewer.ResizeGroupRectangle(EnumInspWindowType.Panel.ToString());
 				callbackOverlayEditingComleted?.Invoke(activeRoiRect);
 			}
 		}

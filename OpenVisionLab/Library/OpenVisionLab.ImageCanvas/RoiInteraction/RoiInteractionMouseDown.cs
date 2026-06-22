@@ -68,28 +68,16 @@ namespace OpenVisionLab.ImageCanvas
 
 		public static (CanvasRect<float> Overlay, bool IsGroupOverlay) FindOverlayAtPosition(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, System.Drawing.PointF currentRobotyPos, bool includeGroupRectangles = false)
 		{
-			List<CanvasOverlayItem> overlayItems = imageViewer.GetVisibleUnlockedOverlays();
-
 			// ?ъ슜?먭? 吏곸젒 ?몄쭛?????덈뒗 ?ㅼ젣 Window ROI留??먯깋?⑸땲??
-			CanvasRect<float> targetOverlay = overlayItems
-				.Where(x => !x.IsGroupRectangle && x.ItemType == EnumItemType.Window)
-				.Select(x => x.Shape)
-				.OfType<CanvasRect<float>>()
-				.Where(rect => rect.CheckHandleContainsPosition(currentRobotyPos.X, currentRobotyPos.Y, imageViewer.ZoomScale, imageViewer.HandleSize) != LineOverType.None)
-				.OrderBy(rect => Math.Sqrt(Math.Pow(rect.Center.X - currentRobotyPos.X, 2) + Math.Pow(rect.Center.Y - currentRobotyPos.Y, 2)))
-				.FirstOrDefault();
+			CanvasOverlayItem targetItem = FindBestHitOverlay(imageViewer, currentRobotyPos, includeGroupRectangles, groupOnly: false);
+			CanvasRect<float> targetOverlay = targetItem?.Shape as CanvasRect<float>;
 
 			bool isGroupOverlay = false;
 
 			if (targetOverlay == null && includeGroupRectangles)
 			{
-				targetOverlay = overlayItems
-					.Where(x => x.IsGroupRectangle)
-					.Select(x => x.Shape)
-					.OfType<CanvasRect<float>>()
-					.Where(rect => rect.CheckHandleContainsPosition(currentRobotyPos.X, currentRobotyPos.Y, imageViewer.ZoomScale, imageViewer.HandleSize) != LineOverType.None)
-					.OrderBy(rect => CalculateDistanceToRectangle(currentRobotyPos, new System.Drawing.RectangleF(rect.Left, rect.Top, rect.Width, rect.Height)))
-					.FirstOrDefault();
+				targetItem = FindBestHitOverlay(imageViewer, currentRobotyPos, includeGroupRectangles, groupOnly: true);
+				targetOverlay = targetItem?.Shape as CanvasRect<float>;
 
 				if (targetOverlay != null)
 				{
@@ -98,10 +86,25 @@ namespace OpenVisionLab.ImageCanvas
 			}
 			else
 			{
-				isGroupOverlay = overlayItems.Find(x => x.Shape == targetOverlay)?.IsGroupRectangle ?? false;
+				isGroupOverlay = targetItem?.IsGroupRectangle ?? false;
 			}
 
 			return (targetOverlay, isGroupOverlay);
+		}
+
+		private static CanvasOverlayItem FindBestHitOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, System.Drawing.PointF currentRobotyPos, bool includeGroupRectangles, bool groupOnly)
+		{
+			return imageViewer.FindBestInteractiveRectAtPoint(
+				currentRobotyPos,
+				CalculateHitSearchRadius(imageViewer),
+				includeGroupRectangles,
+				groupOnly);
+		}
+
+		private static float CalculateHitSearchRadius(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer)
+		{
+			float zoomScale = Math.Max(imageViewer.ZoomScale, 0.0001f);
+			return Math.Max(12.0f, imageViewer.HandleSize / zoomScale + 2.0f);
 		}
 
 		private static (CanvasRect<float>, bool) GetLeftClickOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasMouseEventArgs e)
@@ -111,13 +114,5 @@ namespace OpenVisionLab.ImageCanvas
 			var (targetOverlay, isGroupOverlay) = FindOverlayAtPosition(imageViewer, currentRobotyPos);
 			return (targetOverlay, isGroupOverlay);
 		}
-
-		public static double CalculateDistanceToRectangle(System.Drawing.PointF point, System.Drawing.RectangleF rect)
-		{
-			float dx = Math.Max(Math.Max(rect.Left - point.X, 0), point.X - rect.Right);
-			float dy = Math.Max(Math.Max(rect.Top - point.Y, 0), point.Y - rect.Bottom);
-			return Math.Sqrt(dx * dx + dy * dy);
-		}
-
 	}
 }

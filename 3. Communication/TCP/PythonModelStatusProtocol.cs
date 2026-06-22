@@ -61,6 +61,8 @@ namespace MvcVisionSystem._3._Communication.TCP
     public static class PythonModelStatusProtocol
     {
         public const string TrainingStatusType = "TrainingStatus";
+        public const string TaskStatusType = "TaskStatus";
+        public const string TrainYoloResultType = "TrainYoloResult";
         public const string DetectionStatusType = "DetectionStatus";
         public const string HealthCheckResultType = "HealthCheckResult";
         public const string ModelStatusResultType = "ModelStatusResult";
@@ -85,7 +87,16 @@ namespace MvcVisionSystem._3._Communication.TCP
                     ? ParseHealthCheckResult(root)
                     : string.Equals(type, ModelStatusResultType, StringComparison.OrdinalIgnoreCase)
                         ? ParseModelStatusResult(root)
-                        : root.ToObject<PythonModelStatusMessage>();
+                        : string.Equals(type, TaskStatusType, StringComparison.OrdinalIgnoreCase)
+                            ? ParseTaskStatus(root)
+                            : string.Equals(type, TrainYoloResultType, StringComparison.OrdinalIgnoreCase)
+                                ? ParseTrainYoloResult(root)
+                                : root.ToObject<PythonModelStatusMessage>();
+                if (status == null)
+                {
+                    return PythonModelStatusParseResult.NotStatus();
+                }
+
                 return PythonModelStatusParseResult.Parsed(status);
             }
             catch (JsonException ex)
@@ -106,6 +117,46 @@ namespace MvcVisionSystem._3._Communication.TCP
                 Message = BuildHealthSummary(root),
                 Error = FormatError(root["error"]),
                 Ok = ok
+            };
+        }
+
+        private static PythonModelStatusMessage ParseTaskStatus(JObject root)
+        {
+            string taskType = root["taskType"]?.Value<string>() ?? string.Empty;
+            if (!IsTrainTaskType(taskType))
+            {
+                return null;
+            }
+
+            return new PythonModelStatusMessage
+            {
+                Type = TrainingStatusType,
+                Version = root["version"]?.Value<int?>() ?? 1,
+                State = root["state"]?.Value<string>() ?? string.Empty,
+                Message = root["message"]?.Value<string>() ?? string.Empty,
+                ProgressPercent = root["progressPercent"]?.Value<int?>(),
+                Epoch = root["epoch"]?.Value<int?>(),
+                TotalEpochs = root["totalEpochs"]?.Value<int?>(),
+                Error = FormatError(root["error"])
+            };
+        }
+
+        private static PythonModelStatusMessage ParseTrainYoloResult(JObject root)
+        {
+            bool ok = root["ok"]?.Value<bool?>() ?? false;
+            string state = root["state"]?.Value<string>() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(state))
+            {
+                state = ok ? "started" : "failed";
+            }
+
+            return new PythonModelStatusMessage
+            {
+                Type = TrainingStatusType,
+                Version = root["version"]?.Value<int?>() ?? 1,
+                State = state,
+                Message = ok ? "YOLOv5 training accepted by worker." : "YOLOv5 training could not start.",
+                Error = FormatError(root["error"])
             };
         }
 
@@ -168,9 +219,18 @@ namespace MvcVisionSystem._3._Communication.TCP
         private static bool IsKnownStatusType(string type)
         {
             return string.Equals(type, TrainingStatusType, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(type, TaskStatusType, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(type, TrainYoloResultType, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(type, DetectionStatusType, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(type, HealthCheckResultType, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(type, ModelStatusResultType, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static bool IsTrainTaskType(string taskType)
+        {
+            return string.Equals(taskType, "TrainYolo", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(taskType, "Training", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(taskType, "Train", StringComparison.OrdinalIgnoreCase);
         }
     }
 }

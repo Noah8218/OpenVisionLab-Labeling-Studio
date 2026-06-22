@@ -1,7 +1,6 @@
 using OpenVisionLab.DrawObject;
 using System;
 using System.Drawing;
-using System.Windows.Forms;
 using static OpenVisionLab.DrawObject.DrawObjectEnums;
 
 namespace MvcVisionSystem.DrawObject
@@ -42,11 +41,6 @@ namespace MvcVisionSystem.DrawObject
             return Roi.Contains(imagePoint) ? PosSizableRect.SizeAll : PosSizableRect.None;
         }
 
-        public Cursor ChangeCursor(Point imagePoint, int handleSize = DefaultHandleSize)
-        {
-            return AnchorToCursor(GetNodeSelectable(imagePoint, handleSize), Angle);
-        }
-
         private void ApplyLabelStyle(Size size, Point location, bool isRotate)
         {
             Color = cClassItem?.DrawColor ?? Color.Green;
@@ -54,46 +48,6 @@ namespace MvcVisionSystem.DrawObject
             Size = size;
             Location = location;
             IsRotate = isRotate;
-        }
-
-        private static Cursor AnchorToCursor(PosSizableRect handle, double angle)
-        {
-            double cursorAngle = angle;
-
-            switch (handle)
-            {
-                case PosSizableRect.Rotate:
-                    return Cursors.NoMove2D;
-                case PosSizableRect.SizeAll:
-                    return Cursors.SizeAll;
-                case PosSizableRect.None:
-                    return Cursors.Default;
-                case PosSizableRect.LeftUp:
-                case PosSizableRect.RightBottom:
-                    cursorAngle += 45;
-                    break;
-                case PosSizableRect.UpMiddle:
-                case PosSizableRect.BottomMiddle:
-                    cursorAngle += 90;
-                    break;
-                case PosSizableRect.LeftBottom:
-                case PosSizableRect.RightUp:
-                    cursorAngle += 135;
-                    break;
-            }
-
-            if (cursorAngle > 360)
-            {
-                cursorAngle -= 360;
-            }
-
-            return cursorAngle switch
-            {
-                > 26 and < 68 or > 204 and < 248 => Cursors.SizeNWSE,
-                > 69 and < 113 or > 249 and < 293 => Cursors.SizeNS,
-                > 114 and < 158 or > 294 and < 338 => Cursors.SizeNESW,
-                _ => Cursors.SizeWE
-            };
         }
 
         private static Rectangle GetHandleRectangle(PosSizableRect position, Rectangle rectangle, int handleSize)

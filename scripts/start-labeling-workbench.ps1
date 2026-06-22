@@ -3,7 +3,8 @@ param(
     [ValidateSet("Debug", "Publish")]
     [string]$AppMode = "Debug",
     [switch]$StartYolo,
-    [switch]$StartPythonUi
+    [switch]$StartPythonUi,
+    [switch]$CheckYolo
 )
 
 $ErrorActionPreference = "Stop"
@@ -28,11 +29,23 @@ function Resolve-RepoPath([string]$Path) {
         return ""
     }
 
-    if ([System.IO.Path]::IsPathRooted($Path)) {
-        return [System.IO.Path]::GetFullPath($Path)
+    $expandedPath = Expand-PathTokens $Path
+    if ([System.IO.Path]::IsPathRooted($expandedPath)) {
+        return [System.IO.Path]::GetFullPath($expandedPath)
     }
 
-    return [System.IO.Path]::GetFullPath((Join-Path $repoRoot $Path))
+    return [System.IO.Path]::GetFullPath((Join-Path $repoRoot $expandedPath))
+}
+
+function Expand-PathTokens([string]$Path) {
+    if ([string]::IsNullOrWhiteSpace($Path)) {
+        return ""
+    }
+
+    $repoParent = Split-Path -Parent $repoRoot
+    $expanded = $Path.Replace('${repoRoot}', $repoRoot)
+    $expanded = $expanded.Replace('${repoParent}', $repoParent)
+    return $expanded
 }
 
 function Start-CheckedProcess([string]$FilePath, [string[]]$ArgumentList, [string]$WorkingDirectory) {
@@ -57,14 +70,113 @@ function Start-CheckedProcess([string]$FilePath, [string[]]$ArgumentList, [strin
     Start-Process @startInfo
 }
 
+function Resolve-FirstImage([string]$ImageRoot) {
+    if ([string]::IsNullOrWhiteSpace($ImageRoot) -or -not (Test-Path -LiteralPath $ImageRoot -PathType Container)) {
+        return ""
+    }
+
+    $image = Get-ChildItem -LiteralPath $ImageRoot -File -ErrorAction SilentlyContinue |
+        Where-Object { $_.Extension -in @(".bmp", ".jpg", ".jpeg", ".png") } |
+        Sort-Object Name |
+        Select-Object -First 1
+
+    if ($null -eq $image) {
+        return ""
+    }
+
+    return $image.FullName
+}
+
+function Resolve-PythonExecutable {
+    $python = $config.python
+    $projectRoot = Resolve-RepoPath $python.projectRoot
+    $configured = Resolve-RepoPath $python.pythonExecutable
+    if (-not [string]::IsNullOrWhiteSpace($configured) -and (Test-Path -LiteralPath $configured -PathType Leaf)) {
+        return $configured
+    }
+
+    $venvPython = Join-Path $projectRoot ".venv\Scripts\python.exe"
+    if (Test-Path -LiteralPath $venvPython -PathType Leaf) {
+        return $venvPython
+    }
+
+    $command = Get-Command "python.exe" -ErrorAction SilentlyContinue
+    if ($null -ne $command) {
+        return $command.Source
+    }
+
+    throw "Python executable was not found. Install the YOLO venv or set python.pythonExecutable in $ConfigPath."
+}
+
+function Invoke-YoloSmokeCheck {
+    $python = $config.python
+    $projectRoot = Resolve-RepoPath $python.projectRoot
+    $pythonExe = Resolve-PythonExecutable
+    $clientScript = Resolve-RepoPath $python.clientScript
+    $modelRoot = Join-Path $projectRoot "yolov5Master"
+    $weightsPath = Resolve-RepoPath $python.weights
+    $imageRoot = Resolve-RepoPath $python.imageRoot
+    $imageSize = if ($null -ne $python.imageSize) { [string]$python.imageSize } else { "320" }
+    $imagePath = Resolve-FirstImage $imageRoot
+
+    if (-not (Test-Path -LiteralPath $clientScript -PathType Leaf)) {
+        throw "YOLO client script not found: $clientScript"
+    }
+    if (-not (Test-Path -LiteralPath $modelRoot -PathType Container)) {
+        throw "YOLO model root not found: $modelRoot"
+    }
+    if (-not (Test-Path -LiteralPath $weightsPath -PathType Leaf)) {
+        throw "YOLO weights not found: $weightsPath"
+    }
+    if ([string]::IsNullOrWhiteSpace($imagePath)) {
+        throw "Sample image not found under: $imageRoot"
+    }
+
+    Write-Host "YOLO smoke check image: $imagePath"
+    & $pythonExe $clientScript --smoke-test --weights $weightsPath --model-root $modelRoot --image $imagePath --img-size $imageSize --conf ([string]$python.confidence)
+    if ($LASTEXITCODE -ne 0) {
+        throw "YOLO smoke check failed with exit code $LASTEXITCODE"
+    }
+}
+
 function Start-YoloRuntime {
     $python = $config.python
     $launcherExe = Resolve-RepoPath $python.launcherExe
     $launcherScript = Resolve-RepoPath $python.launcherScript
     $projectRoot = Resolve-RepoPath $python.projectRoot
+    $pythonExe = Resolve-PythonExecutable
+    $clientScript = Resolve-RepoPath $python.clientScript
+    $weightsPath = Resolve-RepoPath $python.weights
+    $imageRoot = Resolve-RepoPath $python.imageRoot
+    $modelRoot = Join-Path $projectRoot "yolov5Master"
+    $imageSize = if ($null -ne $python.imageSize) { [string]$python.imageSize } else { "320" }
 
     if (Test-Path -LiteralPath $launcherExe -PathType Leaf) {
-        Start-CheckedProcess $launcherExe ([string[]]@()) $projectRoot
+        $launcherArguments = @(
+            "--project-root",
+            $projectRoot,
+            "--python",
+            $pythonExe,
+            "--script",
+            $clientScript,
+            "--weights",
+            $weightsPath,
+            "--model-root",
+            $modelRoot,
+            "--image-root",
+            $imageRoot,
+            "--conf",
+            [string]$python.confidence,
+            "--img-size",
+            $imageSize,
+            "--preload"
+        )
+
+        if (-not [string]::IsNullOrWhiteSpace([string]$python.device)) {
+            $launcherArguments += @("--device", [string]$python.device)
+        }
+
+        Start-CheckedProcess $launcherExe ([string[]]$launcherArguments) $projectRoot
         return
     }
 
@@ -84,6 +196,9 @@ function Start-YoloRuntime {
         [string]$python.port,
         "-Confidence",
         [string]$python.confidence,
+        "-ImageSize",
+        $imageSize,
+        "-Preload",
         "-Device",
         [string]$python.device
     )
@@ -117,6 +232,10 @@ if ($StartPythonUi) {
     Start-PythonUiRuntime
 }
 
+if ($CheckYolo) {
+    Invoke-YoloSmokeCheck
+}
+
 Start-CheckedProcess $appPath ([string[]]@()) (Split-Path -Parent $appPath)
 
 Write-Host "Labeling app started: $appPath"
@@ -125,4 +244,7 @@ if ($StartYolo) {
 }
 if ($StartPythonUi) {
     Write-Host "Python UI start requested."
+}
+if ($CheckYolo) {
+    Write-Host "YOLO smoke check completed."
 }

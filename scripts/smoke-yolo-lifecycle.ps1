@@ -5,6 +5,7 @@ param(
     [string]$WeightsPath = "",
     [string]$ImageRoot = "",
     [string]$Device = "cpu",
+    [int]$ImageSize = 320,
     [double]$Confidence = 0.25,
     [int]$Iterations = 3,
     [int]$ConnectTimeoutSeconds = 90,
@@ -15,7 +16,10 @@ param(
 $ErrorActionPreference = "Stop"
 
 $projectRoot = "C:\Git\yolov5"
-$defaultImageRoot = "C:\Git\py\KtemData"
+$defaultImageRoot = Join-Path $projectRoot "data\train\images"
+if (-not (Test-Path -LiteralPath $defaultImageRoot -PathType Container)) {
+    $defaultImageRoot = "C:\Git\py\KtemData"
+}
 if ([string]::IsNullOrWhiteSpace($PythonExe)) { $PythonExe = Join-Path $projectRoot ".venv\Scripts\python.exe" }
 if ([string]::IsNullOrWhiteSpace($ClientScript)) { $ClientScript = Join-Path $projectRoot "labelling_tcp_client.py" }
 if ([string]::IsNullOrWhiteSpace($ModelRoot)) { $ModelRoot = Join-Path $projectRoot "yolov5Master" }
@@ -110,6 +114,8 @@ for ($index = 1; $index -le $Iterations; $index++) {
             $ImageRoot,
             "--device",
             $Device,
+            "--img-size",
+            $ImageSize.ToString(),
             "--conf",
             $Confidence.ToString([System.Globalization.CultureInfo]::InvariantCulture),
             "--retry"

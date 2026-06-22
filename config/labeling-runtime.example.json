@@ -4,16 +4,19 @@
     "publishExecutable": "artifacts/publish/Release/win-x64/MvcVisionSystem.exe"
   },
   "python": {
-    "projectRoot": "C:/Git/yolov5",
-    "launcherExe": "C:/Git/yolov5/dist/YoloTcpClientLauncher/YoloTcpClientLauncher.exe",
-    "launcherScript": "C:/Git/yolov5/launchers/start-yolo-tcp-client.ps1",
-    "uiScript": "C:/Git/yolov5/launchers/start-python-ui.ps1",
-    "clientScript": "C:/Git/yolov5/labelling_tcp_client.py",
-    "weights": "C:/Git/yolov5/best.pt",
-    "imageRoot": "C:/Git/py/KtemData",
+    "pythonExecutable": "${repoParent}/yolov5/.venv/Scripts/python.exe",
+    "projectRoot": "${repoParent}/yolov5",
+    "launcherExe": "${repoParent}/yolov5/dist/YoloTcpClientLauncher/YoloTcpClientLauncher.exe",
+    "launcherScript": "${repoParent}/yolov5/launchers/start-yolo-tcp-client.ps1",
+    "uiScript": "${repoParent}/yolov5/launchers/start-python-ui.ps1",
+    "clientScript": "${repoParent}/yolov5/labelling_tcp_client.py",
+    "weights": "${repoParent}/yolov5/best.pt",
+    "imageRoot": "${repoParent}/yolov5/data/train/images",
     "host": "127.0.0.1",
     "port": 5000,
     "confidence": "0.25",
+    "imageSize": 320,
+    "maxCandidates": 20,
     "device": "cpu"
   }
 }

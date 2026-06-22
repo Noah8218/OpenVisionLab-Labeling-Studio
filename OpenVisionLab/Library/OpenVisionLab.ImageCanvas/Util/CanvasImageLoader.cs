@@ -24,12 +24,10 @@ namespace OpenVisionLab.ImageCanvas
 			return img;
 		}
 
-		public static void UploadMatAsTexture(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, OpenCvSharp.Mat mat, string imageName, ref System.Drawing.Size imageSize, bool zoomToFit = true)
+		public static void UploadMatAsTexture(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, OpenCvSharp.Mat mat, string imageName, ref System.Drawing.Size imageSize, bool zoomToFit = true, bool replaceExistingTextures = false)
 		{
 			using (imageViewer.SuppressRefresh())
 			{
-				imageViewer.DeleteTexture(imageName);
-				//_imageViewer.ClearTexture();
 				// 31800 * 96800 사이즈
 				//  X,Y,W,H가 (0,0,31800,32768),  (0,32768,31800,32768), (0,64032,31800,31264)
 				imageSize = new System.Drawing.Size(mat.Size().Width, mat.Size().Height);
@@ -37,33 +35,105 @@ namespace OpenVisionLab.ImageCanvas
 				//System.Drawing.Size maxSize = new System.Drawing.Size(10240, 10240);
 				int tileWidth = 5000;
 				int tileHeight = 5000;
+				System.Drawing.Size titleSize = new System.Drawing.Size(tileWidth, tileHeight);
 
 				int offsetHeight = imageSize.Height;
-
-				for (int actualY = 0; actualY < mat.Rows; actualY += tileHeight)
+				bool updatedSingleTexture = false;
+				if (replaceExistingTextures && mat.Rows <= tileHeight && mat.Cols <= tileWidth)
 				{
-					int actualTileHeight = Math.Min(tileHeight, mat.Rows - actualY);
-					for (int actualX = 0; actualX < mat.Cols; actualX += tileWidth)
+					Mat uploadMat = UseContinuousMatForTextureUpload(mat, out bool disposeUploadMat);
+					try
 					{
-						int actualTileWidth = Math.Min(tileWidth, mat.Cols - actualX);
-						// 분할된 영역의 Mat 객체 생성						
-						OpenCvSharp.Rect tileRect = new OpenCvSharp.Rect(actualX, actualY, actualTileWidth, actualTileHeight);
-
-						using (Mat tileMat = mat.SubMat(tileRect))
+						uint oriBpp = uploadMat.Type() == MatType.CV_8UC1 ? (uint)1 : (uint)3;
+						updatedSingleTexture = imageViewer.TryReplaceSingleTexture(
+							uploadMat.Data,
+							0,
+							0,
+							uploadMat.Width,
+							uploadMat.Height,
+							uploadMat.Width,
+							uploadMat.Height,
+							offsetHeight,
+							oriBpp,
+							imageName,
+							imageSize,
+							titleSize);
+					}
+					finally
+					{
+						if (disposeUploadMat)
 						{
-							uint oriBpp = tileMat.Type() == MatType.CV_8UC1 ? (uint)1 : (uint)3;
-							System.Drawing.Size titleSize = new System.Drawing.Size(tileWidth, tileHeight);
-
-							imageViewer.AddTexture(tileMat.Clone().Data, actualX, actualY, actualTileWidth, actualTileHeight, tileMat.Width, tileMat.Height, offsetHeight, oriBpp,
-								 imageName, imageSize, titleSize);
+							uploadMat?.Dispose();
 						}
 					}
 				}
+
+				if (!updatedSingleTexture)
+				{
+					if (replaceExistingTextures)
+					{
+						imageViewer.ClearTexture();
+					}
+					else
+					{
+						imageViewer.DeleteTexture(imageName);
+					}
+
+					for (int actualY = 0; actualY < mat.Rows; actualY += tileHeight)
+					{
+						int actualTileHeight = Math.Min(tileHeight, mat.Rows - actualY);
+						for (int actualX = 0; actualX < mat.Cols; actualX += tileWidth)
+						{
+							int actualTileWidth = Math.Min(tileWidth, mat.Cols - actualX);
+							// 분할된 영역의 Mat 객체 생성
+							OpenCvSharp.Rect tileRect = new OpenCvSharp.Rect(actualX, actualY, actualTileWidth, actualTileHeight);
+
+							using (Mat tileMat = mat.SubMat(tileRect))
+							{
+								Mat uploadMat = UseContinuousMatForTextureUpload(tileMat, out bool disposeUploadMat);
+								try
+								{
+									uint oriBpp = uploadMat.Type() == MatType.CV_8UC1 ? (uint)1 : (uint)3;
+
+									imageViewer.AddTexture(uploadMat.Data, actualX, actualY, actualTileWidth, actualTileHeight, uploadMat.Width, uploadMat.Height, offsetHeight, oriBpp,
+										 imageName, imageSize, titleSize);
+								}
+								finally
+								{
+									if (disposeUploadMat)
+									{
+										uploadMat?.Dispose();
+									}
+								}
+							}
+						}
+					}
+				}
+				if (zoomToFit)
+				{
+					imageViewer.ZoomToFit();
+				}
 			}
-			if (zoomToFit)
+
+			imageViewer.RefreshGL();
+		}
+
+		private static Mat UseContinuousMatForTextureUpload(Mat mat, out bool disposeUploadMat)
+		{
+			if (mat == null)
 			{
-				imageViewer.ZoomToFit();
+				disposeUploadMat = true;
+				return new Mat();
 			}
+
+			if (mat.IsContinuous())
+			{
+				disposeUploadMat = false;
+				return mat;
+			}
+
+			disposeUploadMat = true;
+			return mat.Clone();
 		}
 
 
@@ -118,10 +188,28 @@ namespace OpenVisionLab.ImageCanvas
 
 		public static OpenCvSharp.Mat LoadMatFromFile(string path)
 		{
-			LoadImageType imReadMode = LoadImageType.Unchanged;
-			Emgu.CV.Mat mat = new Emgu.CV.Mat(path, imReadMode);
-			MatType cvMT = mat.NumberOfChannels == 1 ? OpenCvSharp.MatType.CV_8UC1 : OpenCvSharp.MatType.CV_8UC3;
-			return new OpenCvSharp.Mat(mat.Rows, mat.Cols, cvMT, mat.DataPointer);
+			Mat loaded = Cv2.ImRead(path, ImreadModes.Unchanged);
+			if (loaded.Empty())
+			{
+				loaded.Dispose();
+				return new Mat();
+			}
+
+			if (loaded.Channels() == 1 || loaded.Channels() == 3)
+			{
+				return loaded;
+			}
+
+			if (loaded.Channels() != 4)
+			{
+				loaded.Dispose();
+				return new Mat();
+			}
+
+			Mat converted = new Mat();
+			Cv2.CvtColor(loaded, converted, ColorConversionCodes.BGRA2BGR);
+			loaded.Dispose();
+			return converted;
 		}
 
 	}

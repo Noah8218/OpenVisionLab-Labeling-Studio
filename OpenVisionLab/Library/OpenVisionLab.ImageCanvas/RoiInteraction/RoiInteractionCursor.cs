@@ -26,7 +26,7 @@ namespace OpenVisionLab.ImageCanvas
 					cursor = System.Windows.Forms.Cursors.SizeNESW;
 					break;
 				case LineOverType.Move2D:
-					cursor = System.Windows.Forms.Cursors.NoMove2D;
+					cursor = System.Windows.Forms.Cursors.SizeAll;
 					break;
 			}
 

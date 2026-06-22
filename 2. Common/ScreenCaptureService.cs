@@ -3,18 +3,20 @@ using System.ComponentModel;
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
-using System.Windows.Forms;
 
 namespace MvcVisionSystem
 {
     public static class ScreenCaptureService
     {
         private const int SrcCopy = 0x00CC0020;
+        private const int SmCxScreen = 0;
+        private const int SmCyScreen = 1;
 
         public static Bitmap CapturePrimaryScreen()
         {
-            Rectangle bounds = Screen.PrimaryScreen.Bounds;
-            return Capture(bounds);
+            int width = GetSystemMetrics(SmCxScreen);
+            int height = GetSystemMetrics(SmCyScreen);
+            return Capture(new Rectangle(0, 0, width, height));
         }
 
         public static string GetCaptureDirectory(string startupPath)
@@ -117,6 +119,9 @@ namespace MvcVisionSystem
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern IntPtr GetDC(IntPtr hwnd);
+
+        [DllImport("user32.dll")]
+        private static extern int GetSystemMetrics(int nIndex);
 
         [DllImport("user32.dll", SetLastError = true)]
         private static extern int ReleaseDC(IntPtr hwnd, IntPtr hdc);

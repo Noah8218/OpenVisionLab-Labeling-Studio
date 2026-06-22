@@ -11,7 +11,12 @@ namespace MvcVisionSystem.Yolo
 {
     public static class YoloSegmentationAnnotationService
     {
-        private static readonly string[] DatasetModes = { "train", "valid" };
+        private static readonly string[] DatasetModes =
+        {
+            YoloDatasetSplitService.TrainMode,
+            YoloDatasetSplitService.ValidMode,
+            YoloDatasetSplitService.TestMode
+        };
 
         public static void SaveSegmentationAnnotations(
             string imageName,
@@ -270,6 +275,7 @@ namespace MvcVisionSystem.Yolo
                 data.NormalizeOutputPaths();
                 yield return Path.Combine(data.OutputRootPath, "data", "train", "segments", $"{fileStem}.json");
                 yield return Path.Combine(data.OutputRootPath, "data", "valid", "segments", $"{fileStem}.json");
+                yield return Path.Combine(data.OutputRootPath, "data", "test", "segments", $"{fileStem}.json");
             }
 
             yield return Path.Combine(Path.GetDirectoryName(imagePath) ?? string.Empty, $"{fileStem}.segments.json");

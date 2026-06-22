@@ -13,31 +13,31 @@ namespace MvcVisionSystem._1._Core
     {
         public void ApplySelectedClass(CClassItem classItem)
         {
-            FormLayerDisplay mainDisplay = CDisplayManager.GetMainDisplayOrNull();
+            DisplayLayerDocument mainDisplay = CDisplayManager.GetMainDisplayOrNull();
             mainDisplay?.SetSelectedClass(classItem);
         }
 
         public IReadOnlyList<LabelingRoiListItem> GetMainRoiItems()
         {
-            FormLayerDisplay mainDisplay = CDisplayManager.GetMainDisplayOrNull();
+            DisplayLayerDocument mainDisplay = CDisplayManager.GetMainDisplayOrNull();
             return mainDisplay?.GetRoiListItems() ?? new List<LabelingRoiListItem>();
         }
 
         public int GetMainSelectedRoiListIndex()
         {
-            FormLayerDisplay mainDisplay = CDisplayManager.GetMainDisplayOrNull();
+            DisplayLayerDocument mainDisplay = CDisplayManager.GetMainDisplayOrNull();
             return mainDisplay?.SelectedAnnotationListIndex ?? -1;
         }
 
         public bool SelectMainRoiItem(int listIndex)
         {
-            FormLayerDisplay mainDisplay = CDisplayManager.GetMainDisplayOrNull();
+            DisplayLayerDocument mainDisplay = CDisplayManager.GetMainDisplayOrNull();
             return mainDisplay?.SelectAnnotationListItem(listIndex) == true;
         }
 
         public bool DeleteMainSelectedAnnotation()
         {
-            FormLayerDisplay mainDisplay = CDisplayManager.GetMainDisplayOrNull();
+            DisplayLayerDocument mainDisplay = CDisplayManager.GetMainDisplayOrNull();
             return mainDisplay?.DeleteSelectedAnnotation() == true;
         }
 
@@ -60,11 +60,11 @@ namespace MvcVisionSystem._1._Core
 
         public bool CommitMainAnnotations(CData data, CSystem system)
         {
-            FormLayerDisplay mainDisplay = CDisplayManager.GetMainDisplayOrNull();
+            DisplayLayerDocument mainDisplay = CDisplayManager.GetMainDisplayOrNull();
             return CommitDisplayAnnotations(mainDisplay, data, system);
         }
 
-        public bool CommitDisplayAnnotations(FormLayerDisplay display, CData data, CSystem system)
+        public bool CommitDisplayAnnotations(DisplayLayerDocument display, CData data, CSystem system)
         {
             if (display == null)
             {
@@ -144,7 +144,7 @@ namespace MvcVisionSystem._1._Core
                 return false;
             }
 
-            FormLayerDisplay mainDisplay = CDisplayManager.GetMainDisplayOrNull();
+            DisplayLayerDocument mainDisplay = CDisplayManager.GetMainDisplayOrNull();
             if (mainDisplay == null)
             {
                 return false;

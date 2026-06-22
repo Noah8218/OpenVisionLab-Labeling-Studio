@@ -1,0 +1,195 @@
+<UserControl x:Class="MvcVisionSystem.WpfClassCatalogPanel"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+    <UserControl.Resources>
+        <Style x:Key="ClassCatalogIconStyle" TargetType="{x:Type iconPacks:PackIconMaterial}">
+            <Setter Property="Width" Value="14" />
+            <Setter Property="Height" Value="14" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="ClassCatalogButtonStyle" TargetType="{x:Type ui:Button}">
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Height" Value="28" />
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Margin" Value="5,0,0,0" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+                    <Setter Property="Opacity" Value="0.45" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="ClassCatalogTextBoxStyle" TargetType="TextBox">
+            <Setter Property="Height" Value="28" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="6,4" />
+        </Style>
+
+        <Style x:Key="ClassCatalogSectionLabelStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,5" />
+        </Style>
+
+        <Style x:Key="ClassCatalogListBoxItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="ToolTip" Value="{Binding ToolTip}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+    </UserControl.Resources>
+
+    <Grid Margin="8">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <TextBlock Text="&#xD074;&#xB798;&#xC2A4;"
+                   Style="{StaticResource ClassCatalogSectionLabelStyle}" />
+        <Grid Grid.Row="1">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="ClassNameBox"
+                     Style="{StaticResource ClassCatalogTextBoxStyle}"
+                     Text="{Binding ClassName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="&#xD074;&#xB798;&#xC2A4; &#xC774;&#xB984;"
+                     KeyDown="ClassNameBox_KeyDown" />
+            <ui:Button x:Name="AddClassButton"
+                       Grid.Column="1"
+                       Style="{StaticResource ClassCatalogButtonStyle}"
+                       MinWidth="62"
+                       AutomationProperties.Name="&#xD074;&#xB798;&#xC2A4; &#xCD94;&#xAC00;"
+                       ToolTip="&#xD074;&#xB798;&#xC2A4; &#xCD94;&#xAC00;"
+                       Click="AddClassButton_Click">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <iconPacks:PackIconMaterial Style="{StaticResource ClassCatalogIconStyle}" Kind="Plus" />
+                    <TextBlock Text="&#xCD94;&#xAC00;" VerticalAlignment="Center" />
+                </StackPanel>
+            </ui:Button>
+            <ui:Button x:Name="RemoveClassButton"
+                       Grid.Column="2"
+                       Style="{StaticResource ClassCatalogButtonStyle}"
+                       MinWidth="76"
+                       AutomationProperties.Name="&#xD074;&#xB798;&#xC2A4; &#xC0AD;&#xC81C;"
+                       ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xD074;&#xB798;&#xC2A4; &#xC0AD;&#xC81C;"
+                       Click="RemoveClassButton_Click">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <iconPacks:PackIconMaterial Style="{StaticResource ClassCatalogIconStyle}" Kind="TrashCanOutline" />
+                    <TextBlock Text="&#xC0AD;&#xC81C;" VerticalAlignment="Center" />
+                </StackPanel>
+            </ui:Button>
+        </Grid>
+
+        <TextBlock Grid.Row="2"
+                   Text="&#xC800;&#xC7A5; &#xACBD;&#xB85C;"
+                   Style="{StaticResource ClassCatalogSectionLabelStyle}"
+                   Margin="0,9,0,5" />
+        <Grid Grid.Row="3">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBox x:Name="OutputRootPathBox"
+                     Style="{StaticResource ClassCatalogTextBoxStyle}"
+                     Text="{Binding OutputRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     ToolTip="{Binding OutputRootPath}" />
+            <ui:Button x:Name="BrowseOutputRootButton"
+                       Grid.Column="1"
+                       Style="{StaticResource ClassCatalogButtonStyle}"
+                       MinWidth="66"
+                       AutomationProperties.Name="&#xC800;&#xC7A5; &#xACBD;&#xB85C; &#xC120;&#xD0DD;"
+                       ToolTip="YOLO &#xB370;&#xC774;&#xD130;&#xC14B; &#xCD9C;&#xB825; &#xACBD;&#xB85C; &#xC120;&#xD0DD;"
+                       Click="BrowseOutputRootButton_Click">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <iconPacks:PackIconMaterial Style="{StaticResource ClassCatalogIconStyle}" Kind="FolderOpenOutline" />
+                    <TextBlock Text="&#xACBD;&#xB85C;" VerticalAlignment="Center" />
+                </StackPanel>
+            </ui:Button>
+            <ui:Button x:Name="SaveOutputRootButton"
+                       Grid.Column="2"
+                       Style="{StaticResource ClassCatalogButtonStyle}"
+                       MinWidth="66"
+                       AutomationProperties.Name="&#xC800;&#xC7A5; &#xACBD;&#xB85C; &#xC801;&#xC6A9;"
+                       ToolTip="YOLO &#xB370;&#xC774;&#xD130;&#xC14B; &#xCD9C;&#xB825; &#xACBD;&#xB85C; &#xC801;&#xC6A9;"
+                       Click="SaveOutputRootButton_Click">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <iconPacks:PackIconMaterial Style="{StaticResource ClassCatalogIconStyle}" Kind="ContentSaveOutline" />
+                    <TextBlock Text="&#xC801;&#xC6A9;" VerticalAlignment="Center" />
+                </StackPanel>
+            </ui:Button>
+        </Grid>
+
+        <TextBlock x:Name="ClassEditStatusText"
+                   Grid.Row="4"
+                   Text="{Binding StatusText}"
+                   Foreground="{DynamicResource SecondaryTextBrush}"
+                   FontFamily="Segoe UI"
+                   FontSize="11"
+                   TextWrapping="Wrap"
+                   Margin="0,7,0,6" />
+        <ListBox x:Name="ClassListBox"
+                 Grid.Row="5"
+                 Background="Transparent"
+                 BorderThickness="0"
+                 Foreground="{DynamicResource SecondaryTextBrush}"
+                 ItemsSource="{Binding Classes}"
+                 SelectedItem="{Binding SelectedClass, Mode=TwoWay}"
+                 ItemContainerStyle="{StaticResource ClassCatalogListBoxItemStyle}"
+                 SelectionChanged="ClassListBox_SelectionChanged">
+            <ListBox.ItemTemplate>
+                <DataTemplate>
+                    <StackPanel Orientation="Horizontal">
+                        <Border Width="10"
+                                Height="10"
+                                CornerRadius="2"
+                                Background="{Binding DrawBrush}"
+                                Margin="0,0,7,0"
+                                VerticalAlignment="Center" />
+                        <TextBlock Text="{Binding DisplayText}"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+    </Grid>
+</UserControl>

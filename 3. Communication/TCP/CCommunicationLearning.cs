@@ -194,6 +194,19 @@ namespace MvcVisionSystem._3._Communication.TCP
             }
         }
 
+        public void SetLastError(string error)
+        {
+            UpdateStatus(item =>
+            {
+                item.LastError = error ?? "";
+                if (!string.IsNullOrWhiteSpace(error))
+                {
+                    item.LastWorkerState = "error";
+                    item.LastWorkerMessage = error;
+                }
+            });
+        }
+
         public static List<DetectionOverlayItem> BuildDetectionOverlays(IEnumerable<DefectInfo> defects)
         {
             return PythonDetectionResultProtocol.BuildDetectionOverlays(defects);

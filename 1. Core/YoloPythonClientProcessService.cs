@@ -173,6 +173,7 @@ namespace MvcVisionSystem._1._Core
             };
             startInfo.ArgumentList.Add(clientScriptPath);
             startInfo.ArgumentList.Add("--retry");
+            startInfo.ArgumentList.Add("--preload");
 
             string modelRootPath = Path.Combine(projectRootPath, "yolov5Master");
             if (Directory.Exists(modelRootPath))
@@ -197,6 +198,8 @@ namespace MvcVisionSystem._1._Core
 
             startInfo.ArgumentList.Add("--conf");
             startInfo.ArgumentList.Add(settings.MinimumDetectionConfidence.ToString(CultureInfo.InvariantCulture));
+            startInfo.ArgumentList.Add("--img-size");
+            startInfo.ArgumentList.Add(settings.InferenceImageSize.ToString(CultureInfo.InvariantCulture));
 
             return true;
         }

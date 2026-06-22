@@ -195,6 +195,14 @@
                     Content="{Binding PixelColor, Converter={StaticResource colorToRGBConverter}}"
                     ContentStringFormat="{} 색상 : {0} "
                     Style="{StaticResource ViewerStatusLabelStyle}" />
+                <Label
+                    x:Name="OverlayDisplayStatusLabel"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Content="{Binding OverlayDisplayStatusText}"
+                    Visibility="{Binding IsOverlayDisplayLodActive, Converter={StaticResource BooleanToVisibilityConverter}}"
+                    ToolTip="줌아웃 상태에서는 표시 개수를 제한하고, 선택과 편집은 전체 ROI 기준으로 처리합니다."
+                    Style="{StaticResource ViewerStatusLabelStyle}" />
 
             </WrapPanel>
         </Viewbox>
