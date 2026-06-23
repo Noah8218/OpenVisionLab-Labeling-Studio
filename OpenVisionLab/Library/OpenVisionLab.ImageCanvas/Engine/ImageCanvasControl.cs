@@ -1,4 +1,4 @@
-﻿using OpenVisionLab.ImageCanvas;
+using OpenVisionLab.ImageCanvas;
 using OpenVisionLab.ImageCanvas.Model;
 using OpenVisionLab.ImageCanvas.Canvas;
 using OpenVisionLab.ImageCanvas.CanvasShapes;
@@ -136,6 +136,8 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		private CanvasOverlayManager _overlayManager = new CanvasOverlayManager();
 		private List<CanvasShape> _shapesViewPort = new List<CanvasShape>();
 		private bool _suppressRefresh;
+		private readonly Timer _deferredRefreshTimer = new Timer { Interval = 16 };
+		private bool _deferredRefreshPending;
 		private bool _visibleOverlayCacheDirty = true;
 		private bool _fastOverlaySceneDirty = true;
 		private bool _isVisibleOverlayLodActive;
@@ -217,6 +219,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		public ImageCanvasControl()
 		{
 			InitializeOpenGlHost();
+			_deferredRefreshTimer.Tick += OnDeferredRefreshTimerTick;
 
 			DoubleBuffered = false;
 		}
@@ -225,6 +228,8 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		{
 			if (disposing)
 			{
+				_deferredRefreshTimer.Tick -= OnDeferredRefreshTimerTick;
+				_deferredRefreshTimer.Dispose();
 				openGlHostAdapter?.Dispose();
 				openGlHostAdapter = null;
 			}
@@ -435,6 +440,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 					return;
 				}
 
+				CancelDeferredRefreshGL();
 				RebuildVisibleOverlayCacheIfNeeded();
 				RequestOpenGlRepaint();
 			}
@@ -449,6 +455,55 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			}
 		}
 
+		public void QueueRefreshGLAfterInput()
+		{
+			if (_suppressRefresh || !CanUseOpenGlControl())
+			{
+				return;
+			}
+
+			try
+			{
+				if (openGLControl.InvokeRequired)
+				{
+					openGLControl.BeginInvoke(new MethodInvoker(QueueRefreshGLAfterInput));
+					return;
+				}
+
+				// ROI delete should not block a wheel zoom that is already queued behind it.
+				// A normal zoom refresh will cancel this deferred repaint and include the delete.
+				_deferredRefreshPending = true;
+				_deferredRefreshTimer.Stop();
+				_deferredRefreshTimer.Start();
+			}
+			catch (ObjectDisposedException)
+			{
+			}
+			catch (InvalidOperationException)
+			{
+			}
+			catch (InvalidAsynchronousStateException)
+			{
+			}
+		}
+
+		private void OnDeferredRefreshTimerTick(object sender, EventArgs e)
+		{
+			_deferredRefreshTimer.Stop();
+			if (!_deferredRefreshPending)
+			{
+				return;
+			}
+
+			_deferredRefreshPending = false;
+			RefreshGL();
+		}
+
+		private void CancelDeferredRefreshGL()
+		{
+			_deferredRefreshPending = false;
+			_deferredRefreshTimer.Stop();
+		}
 		private bool CanUseOpenGlControl()
 		{
 			return openGLControl != null

@@ -53,7 +53,7 @@
                        MinWidth="106"
                        AutomationProperties.Name="&#xCCAB; &#xC810;&#xAC80;"
                        ToolTip="Python, model, image, and package path check"
-                       Click="CheckYoloButton_Click">
+                       Command="{Binding CheckCommand}">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloStatusIconStyle}" Kind="TestTube" />
                     <TextBlock Text="&#xCCAB; &#xC810;&#xAC80;" VerticalAlignment="Center" />
@@ -65,7 +65,7 @@
                        MinWidth="90"
                        AutomationProperties.Name="&#xC124;&#xCE58;"
                        ToolTip="Install missing Python packages"
-                       Click="InstallRequirementsButton_Click">
+                       Command="{Binding InstallRequirementsCommand}">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloStatusIconStyle}" Kind="TrayArrowDown" />
                     <TextBlock Text="&#xC124;&#xCE58;" VerticalAlignment="Center" />
@@ -77,7 +77,7 @@
                        MinWidth="78"
                        AutomationProperties.Name="&#xD14C;&#xC2A4;&#xD2B8;"
                        ToolTip="Run YOLO smoke inference with current settings"
-                       Click="RunYoloSmokeButton_Click">
+                       Command="{Binding RunSmokeCommand}">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloStatusIconStyle}" Kind="PlayCircleOutline" />
                     <TextBlock Text="&#xD14C;&#xC2A4;&#xD2B8;" VerticalAlignment="Center" />
@@ -89,7 +89,7 @@
                        MinWidth="92"
                        AutomationProperties.Name="&#xC7AC;&#xC2DC;&#xC791;"
                        ToolTip="Restart Python worker"
-                       Click="RestartPythonWorkerButton_Click">
+                       Command="{Binding RestartWorkerCommand}">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloStatusIconStyle}" Kind="CogRefreshOutline" />
                     <TextBlock Text="&#xC7AC;&#xC2DC;&#xC791;" VerticalAlignment="Center" />
@@ -101,7 +101,7 @@
                        MinWidth="72"
                        AutomationProperties.Name="&#xC911;&#xC9C0;"
                        ToolTip="Stop Python worker"
-                       Click="StopPythonWorkerButton_Click">
+                       Command="{Binding StopWorkerCommand}">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloStatusIconStyle}" Kind="StopCircleOutline" />
                     <TextBlock Text="&#xC911;&#xC9C0;" VerticalAlignment="Center" />

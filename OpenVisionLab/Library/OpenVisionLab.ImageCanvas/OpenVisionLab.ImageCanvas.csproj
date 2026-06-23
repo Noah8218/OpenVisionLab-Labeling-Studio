@@ -59,6 +59,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\OpenVisionLab.Localization\OpenVisionLab.Localization.csproj" />
+    <ProjectReference Include="..\OpenVisionLab.Mvvm\OpenVisionLab.Mvvm.csproj" />
   </ItemGroup>
 
   <ItemGroup>

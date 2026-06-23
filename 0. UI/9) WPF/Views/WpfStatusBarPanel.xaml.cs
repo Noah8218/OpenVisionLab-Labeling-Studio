@@ -7,10 +7,9 @@ namespace MvcVisionSystem
         public WpfStatusBarPanel()
         {
             InitializeComponent();
-            DataContext = ViewModel;
         }
 
-        public WpfStatusBarPanelViewModel ViewModel { get; } = new WpfStatusBarPanelViewModel();
+        public WpfStatusBarPanelViewModel ViewModel => DataContext as WpfStatusBarPanelViewModel;
 
         public TextBlock DatasetStatusTextBlock => DatasetStatusText;
         public TextBlock PythonStatusTextBlock => PythonStatusText;

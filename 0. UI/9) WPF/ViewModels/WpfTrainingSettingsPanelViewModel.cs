@@ -1,5 +1,7 @@
 using System;
 using System.Globalization;
+using System.Windows.Input;
+using OpenVisionLab.Mvvm;
 using MvcVisionSystem.Yolo;
 using MediaBrush = System.Windows.Media.Brush;
 using MediaBrushes = System.Windows.Media.Brushes;
@@ -26,12 +28,32 @@ namespace MvcVisionSystem
         private bool isRefreshReadinessEnabled = true;
         private bool isStartTrainingEnabled = true;
         private bool isStopTrainingEnabled;
+        private ICommand refreshReadinessCommand = new RelayCommand(NoOpCommand);
+        private ICommand startTrainingCommand = new RelayCommand(NoOpCommand);
+        private ICommand stopTrainingCommand = new RelayCommand(NoOpCommand);
 
         public string ViewName => nameof(WpfTrainingSettingsPanel);
 
         public string SplitPolicyHintText =>
             "Validation %\uB294 \uD559\uC2B5 \uC911 \uD655\uC778\uC6A9, Test %\uB294 \uD559\uC2B5 \uD6C4 \uCD5C\uC885 \uBAA8\uB378 \uBE44\uAD50\uC6A9\uC785\uB2C8\uB2E4. \uB450 \uAC12\uC744 \uD569\uCCD0 100% \uC774\uD558\uB85C \uC124\uC815\uD558\uC138\uC694.";
 
+        public ICommand RefreshReadinessCommand
+        {
+            get => refreshReadinessCommand;
+            private set => SetProperty(ref refreshReadinessCommand, value);
+        }
+
+        public ICommand StartTrainingCommand
+        {
+            get => startTrainingCommand;
+            private set => SetProperty(ref startTrainingCommand, value);
+        }
+
+        public ICommand StopTrainingCommand
+        {
+            get => stopTrainingCommand;
+            private set => SetProperty(ref stopTrainingCommand, value);
+        }
         public string ImageSizeText
         {
             get => imageSizeText;
@@ -140,6 +162,13 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isStopTrainingEnabled, value);
         }
 
+        public void ConfigureCommands(Action refreshReadiness, Action startTraining, Action stopTraining)
+        {
+            // Training commands stay injected so long-running workflow logic remains outside the view.
+            RefreshReadinessCommand = new RelayCommand(refreshReadiness ?? NoOpCommand);
+            StartTrainingCommand = new RelayCommand(startTraining ?? NoOpCommand);
+            StopTrainingCommand = new RelayCommand(stopTraining ?? NoOpCommand);
+        }
         public void LoadFrom(TrainingSettings training, YoloDatasetSettings dataset)
         {
             if (training == null || dataset == null)
@@ -225,6 +254,10 @@ namespace MvcVisionSystem
             IsRefreshReadinessEnabled = canRunGeneralCommands;
             IsStartTrainingEnabled = canRunGeneralCommands;
             IsStopTrainingEnabled = state?.CanStopTraining == true;
+        }
+
+        private static void NoOpCommand()
+        {
         }
     }
 }

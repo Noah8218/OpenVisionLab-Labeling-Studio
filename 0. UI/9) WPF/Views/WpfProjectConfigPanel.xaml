@@ -1,6 +1,7 @@
 <UserControl x:Class="MvcVisionSystem.WpfProjectConfigPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm"
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
     <UserControl.Resources>
@@ -168,7 +169,7 @@
                            MinWidth="56"
                            AutomationProperties.Name="Recipe 적용"
                            ToolTip="입력한 recipe로 전환하거나 새로 생성"
-                           Click="ApplyProjectRecipeButton_Click">
+                           Command="{Binding ApplyRecipeCommand}">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <iconPacks:PackIconMaterial Style="{StaticResource ProjectConfigIconStyle}" Kind="Check" />
                         <TextBlock Text="적용" VerticalAlignment="Center" />
@@ -184,7 +185,7 @@
                           Style="{StaticResource ProjectConfigComboBoxStyle}"
                           ItemsSource="{Binding RecipeNames}"
                           SelectedItem="{Binding SelectedRecipeName, Mode=TwoWay}"
-                          SelectionChanged="ProjectRecipeListBox_SelectionChanged"
+                          mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding RecipeSelectionChangedCommand}"
                           ToolTip="{Binding SelectedRecipeName}" />
                 <ui:Button x:Name="RefreshProjectRecipeListButton"
                            Grid.Row="1"
@@ -194,7 +195,7 @@
                            MinWidth="56"
                            AutomationProperties.Name="Recipe 목록 갱신"
                            ToolTip="RECIPE 폴더를 다시 읽습니다"
-                           Click="RefreshProjectRecipeListButton_Click">
+                           Command="{Binding RefreshRecipeListCommand}">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <iconPacks:PackIconMaterial Style="{StaticResource ProjectConfigIconStyle}" Kind="Refresh" />
                         <TextBlock Text="갱신" VerticalAlignment="Center" />
@@ -220,7 +221,7 @@
                            MinWidth="92"
                            AutomationProperties.Name="프로젝트 설정 저장"
                            ToolTip="현재 recipe의 VISION.xml 설정 저장"
-                           Click="SaveProjectConfigButton_Click">
+                           Command="{Binding SaveProjectConfigCommand}">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <iconPacks:PackIconMaterial Style="{StaticResource ProjectConfigIconStyle}" Kind="ContentSaveOutline" />
                         <TextBlock Text="설정 저장" VerticalAlignment="Center" />
@@ -232,7 +233,7 @@
                            MinWidth="82"
                            AutomationProperties.Name="프로젝트 설정 폴더 열기"
                            ToolTip="현재 recipe 설정 폴더 열기"
-                           Click="OpenProjectConfigFolderButton_Click">
+                           Command="{Binding OpenProjectConfigFolderCommand}">
                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <iconPacks:PackIconMaterial Style="{StaticResource ProjectConfigIconStyle}" Kind="FolderOpenOutline" />
                         <TextBlock Text="폴더" VerticalAlignment="Center" />

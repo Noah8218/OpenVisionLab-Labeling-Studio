@@ -1,9 +1,12 @@
 using MahApps.Metro.IconPacks;
+using OpenVisionLab.Mvvm;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
+using System.Windows.Input;
 using MediaBrush = System.Windows.Media.Brush;
 using MediaBrushes = System.Windows.Media.Brushes;
 
@@ -11,6 +14,10 @@ namespace MvcVisionSystem
 {
     public sealed class WpfCandidateReviewPanelViewModel : WpfObservableViewModel
     {
+        private static readonly Action NoOpCommand = () => { };
+        private static readonly Action<double> NoOpValueCommand = _ => { };
+        private static readonly Action<object> NoOpSelectionCommand = _ => { };
+        private static readonly Action<KeyInputCommandArgs> NoOpKeyCommand = _ => { };
         private string confidenceText = "0%";
         private string detailText = "AI \uD6C4\uBCF4 \uC5C6\uC74C";
         private WpfCandidateReviewListItem selectedCandidate;
@@ -27,9 +34,18 @@ namespace MvcVisionSystem
         private string comparisonCandidateText = "-";
         private string comparisonCurrentText = "-";
         private string comparisonOverlapText = "IoU\n0%";
-        private string postActionPolicyText = "확정/스킵 후 다음 후보로 이동";
+        private string postActionPolicyText = string.Empty;
         private Visibility reviewHistoryVisibility = Visibility.Collapsed;
         private bool isComparisonHighOverlap;
+        private ICommand confidenceChangedCommand = new RelayCommand<double>(NoOpValueCommand);
+        private ICommand confirmSelectedCommand = new RelayCommand(NoOpCommand);
+        private ICommand confirmAllCommand = new RelayCommand(NoOpCommand);
+        private ICommand skipSelectedCommand = new RelayCommand(NoOpCommand);
+        private ICommand previousCandidateCommand = new RelayCommand(NoOpCommand);
+        private ICommand nextCandidateCommand = new RelayCommand(NoOpCommand);
+        private ICommand focusCandidateCommand = new RelayCommand(NoOpCommand);
+        private ICommand candidateSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
+        private ICommand candidatePreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(NoOpKeyCommand);
 
         public string ViewName => nameof(WpfCandidateReviewPanel);
 
@@ -40,6 +56,60 @@ namespace MvcVisionSystem
         public WpfCandidateReviewPanelViewModel()
         {
             PostActionPolicyText = "\uD655\uC815/\uC2A4\uD0B5 \uD6C4\uC5D0\uB294 \uB2E4\uC74C \uD6C4\uBCF4\uB85C \uC774\uB3D9";
+        }
+
+        public ICommand ConfidenceChangedCommand
+        {
+            get => confidenceChangedCommand;
+            private set => SetProperty(ref confidenceChangedCommand, value);
+        }
+
+        public ICommand ConfirmSelectedCommand
+        {
+            get => confirmSelectedCommand;
+            private set => SetProperty(ref confirmSelectedCommand, value);
+        }
+
+        public ICommand ConfirmAllCommand
+        {
+            get => confirmAllCommand;
+            private set => SetProperty(ref confirmAllCommand, value);
+        }
+
+        public ICommand SkipSelectedCommand
+        {
+            get => skipSelectedCommand;
+            private set => SetProperty(ref skipSelectedCommand, value);
+        }
+
+        public ICommand PreviousCandidateCommand
+        {
+            get => previousCandidateCommand;
+            private set => SetProperty(ref previousCandidateCommand, value);
+        }
+
+        public ICommand NextCandidateCommand
+        {
+            get => nextCandidateCommand;
+            private set => SetProperty(ref nextCandidateCommand, value);
+        }
+
+        public ICommand FocusCandidateCommand
+        {
+            get => focusCandidateCommand;
+            private set => SetProperty(ref focusCandidateCommand, value);
+        }
+
+        public ICommand CandidateSelectionChangedCommand
+        {
+            get => candidateSelectionChangedCommand;
+            private set => SetProperty(ref candidateSelectionChangedCommand, value);
+        }
+
+        public ICommand CandidatePreviewKeyDownCommand
+        {
+            get => candidatePreviewKeyDownCommand;
+            private set => SetProperty(ref candidatePreviewKeyDownCommand, value);
         }
 
         public string ConfidenceText
@@ -154,6 +224,29 @@ namespace MvcVisionSystem
         {
             get => reviewHistoryVisibility;
             private set => SetProperty(ref reviewHistoryVisibility, value);
+        }
+
+        public void ConfigureCommands(
+            Action<double> confidenceChanged,
+            Action confirmSelected,
+            Action confirmAll,
+            Action skipSelected,
+            Action previousCandidate,
+            Action nextCandidate,
+            Action focusCandidate,
+            Action<object> candidateSelectionChanged,
+            Action<KeyInputCommandArgs> candidatePreviewKeyDown)
+        {
+            // Candidate review stays virtualized; commands keep the view declarative while shell owns workflow state.
+            ConfidenceChangedCommand = new RelayCommand<double>(confidenceChanged ?? NoOpValueCommand);
+            ConfirmSelectedCommand = new RelayCommand(confirmSelected ?? NoOpCommand);
+            ConfirmAllCommand = new RelayCommand(confirmAll ?? NoOpCommand);
+            SkipSelectedCommand = new RelayCommand(skipSelected ?? NoOpCommand);
+            PreviousCandidateCommand = new RelayCommand(previousCandidate ?? NoOpCommand);
+            NextCandidateCommand = new RelayCommand(nextCandidate ?? NoOpCommand);
+            FocusCandidateCommand = new RelayCommand(focusCandidate ?? NoOpCommand);
+            CandidateSelectionChangedCommand = new RelayCommand<object>(candidateSelectionChanged ?? NoOpSelectionCommand);
+            CandidatePreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(candidatePreviewKeyDown ?? NoOpKeyCommand);
         }
 
         public void SetCandidates(IEnumerable<WpfCandidateReviewListItem> candidates, string detail, object preferredPayload = null)

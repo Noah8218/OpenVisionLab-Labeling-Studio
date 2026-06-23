@@ -1,4 +1,7 @@
+using System;
 using System.Windows;
+using System.Windows.Input;
+using OpenVisionLab.Mvvm;
 
 namespace MvcVisionSystem
 {
@@ -15,8 +18,43 @@ namespace MvcVisionSystem
         private bool isRunSmokeEnabled = true;
         private bool isRestartWorkerEnabled = true;
         private bool isStopWorkerEnabled = true;
+        private ICommand checkCommand = new RelayCommand(NoOpCommand);
+        private ICommand installRequirementsCommand = new RelayCommand(NoOpCommand);
+        private ICommand runSmokeCommand = new RelayCommand(NoOpCommand);
+        private ICommand restartWorkerCommand = new RelayCommand(NoOpCommand);
+        private ICommand stopWorkerCommand = new RelayCommand(NoOpCommand);
 
         public string ViewName => nameof(WpfYoloStatusPanel);
+
+        public ICommand CheckCommand
+        {
+            get => checkCommand;
+            private set => SetProperty(ref checkCommand, value);
+        }
+
+        public ICommand InstallRequirementsCommand
+        {
+            get => installRequirementsCommand;
+            private set => SetProperty(ref installRequirementsCommand, value);
+        }
+
+        public ICommand RunSmokeCommand
+        {
+            get => runSmokeCommand;
+            private set => SetProperty(ref runSmokeCommand, value);
+        }
+
+        public ICommand RestartWorkerCommand
+        {
+            get => restartWorkerCommand;
+            private set => SetProperty(ref restartWorkerCommand, value);
+        }
+
+        public ICommand StopWorkerCommand
+        {
+            get => stopWorkerCommand;
+            private set => SetProperty(ref stopWorkerCommand, value);
+        }
 
         public string SummaryText
         {
@@ -84,6 +122,21 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isStopWorkerEnabled, value);
         }
 
+        public void ConfigureCommands(
+            Action check,
+            Action installRequirements,
+            Action runSmoke,
+            Action restartWorker,
+            Action stopWorker)
+        {
+            // YOLO status actions remain shell-owned; this panel only declares the command surface.
+            CheckCommand = new RelayCommand(check ?? NoOpCommand);
+            InstallRequirementsCommand = new RelayCommand(installRequirements ?? NoOpCommand);
+            RunSmokeCommand = new RelayCommand(runSmoke ?? NoOpCommand);
+            RestartWorkerCommand = new RelayCommand(restartWorker ?? NoOpCommand);
+            StopWorkerCommand = new RelayCommand(stopWorker ?? NoOpCommand);
+        }
+
         public void SetSettingsStatus(string summary, string detail)
         {
             SummaryText = summary;
@@ -114,6 +167,10 @@ namespace MvcVisionSystem
             IsRunSmokeEnabled = canRunGeneralCommands;
             IsRestartWorkerEnabled = canRunGeneralCommands;
             IsStopWorkerEnabled = canRunGeneralCommands;
+        }
+
+        private static void NoOpCommand()
+        {
         }
     }
 }

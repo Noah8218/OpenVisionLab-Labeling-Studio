@@ -1,4 +1,4 @@
-﻿using OpenVisionLab.ImageCanvas.SharedViewModels;
+using OpenVisionLab.ImageCanvas.SharedViewModels;
 using OpenVisionLab.ImageCanvas;
 using OpenVisionLab.ImageCanvas.Infrastructure;
 using OpenVisionLab.ImageCanvas.Commands;
@@ -11,6 +11,7 @@ using Microsoft.Win32;
 using OpenCvSharp;
 using SharpGL;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
@@ -29,6 +30,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		internal const double DrawingRefreshIntervalMilliseconds = 16.0;
 		private static readonly long PixelPropertyUpdateIntervalTicks = Math.Max(1L, Stopwatch.Frequency / 30);
 		private static readonly long BrushCursorPreviewRefreshIntervalTicks = Math.Max(1L, Stopwatch.Frequency / 60);
+		private static readonly ConcurrentDictionary<int, BrushPreviewStamp> BrushPreviewStampCache = new ConcurrentDictionary<int, BrushPreviewStamp>();
 
 		#region Event
 		public event EventHandler<object> LoadImageRequested = delegate { };
@@ -68,7 +70,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		private OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl _imageViewer = new OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl();
 		public float[] AfData3D = new float[10];
 		private AddRoiArrayViewModel _addRoiArrayVm = new AddRoiArrayViewModel();
-		private System.Timers.Timer _refreshTimer;  // ?�?�머 객체
+		private System.Timers.Timer _refreshTimer;
+		private System.Timers.Timer _reshapeTimer;
 		private readonly List<RoiImageCanvasDetectionOverlay> _detectionOverlays = new List<RoiImageCanvasDetectionOverlay>();
 		private readonly DetectionOverlaySpatialIndex _detectionOverlayHitIndex = new DetectionOverlaySpatialIndex();
 		private readonly List<RoiImageCanvasPolygonOverlay> _polygonOverlays = new List<RoiImageCanvasPolygonOverlay>();
@@ -80,6 +83,13 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		private readonly HashSet<string> _activeMaskOverlayKeys = new HashSet<string>(StringComparer.Ordinal);
 		private readonly OverlayRenderSpatialIndex _maskOverlayRenderIndex = new OverlayRenderSpatialIndex();
 		private readonly Dictionary<string, MaskOverlayTextureCache> _maskOverlayTextures = new Dictionary<string, MaskOverlayTextureCache>(StringComparer.Ordinal);
+		private readonly MaskStrokePreviewLayer _maskStrokePreviewLayer = new MaskStrokePreviewLayer();
+		private readonly Queue<MaskStrokePreviewCommand> _pendingMaskStrokePreviewCommands = new Queue<MaskStrokePreviewCommand>();
+		private bool _maskStrokePreviewVisible;
+		private System.Drawing.Size _maskStrokePreviewImageSize = System.Drawing.Size.Empty;
+		private System.Drawing.Color _maskStrokePreviewColor = System.Drawing.Color.FromArgb(150, 44, 210, 110);
+		private bool _maskStrokePreviewIsEraser;
+		private long _lastMaskStrokePreviewRefreshTicks;
 		private bool _brushCursorPreviewVisible;
 		private System.Drawing.Point _brushCursorPreviewImagePoint = System.Drawing.Point.Empty;
 		private int _brushCursorPreviewRadius;
@@ -306,6 +316,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 		public IReadOnlyList<RoiImageCanvasMaskOverlay> MaskOverlays => _maskOverlays;
 
+		public bool IsMaskStrokePreviewVisible => _maskStrokePreviewVisible;
+
 		public bool IsBrushCursorPreviewVisible => _brushCursorPreviewVisible;
 
 		public System.Drawing.Point BrushCursorPreviewImagePoint => _brushCursorPreviewImagePoint;
@@ -367,7 +379,10 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 			_refreshTimer = new System.Timers.Timer(DrawingRefreshIntervalMilliseconds);
 			_refreshTimer.AutoReset = false;
-			_refreshTimer.Elapsed += _dataTimer_Elapsed;
+			_refreshTimer.Elapsed += _refreshTimer_Elapsed;
+			_reshapeTimer = new System.Timers.Timer(DrawingRefreshIntervalMilliseconds);
+			_reshapeTimer.AutoReset = false;
+			_reshapeTimer.Elapsed += _reshapeTimer_Elapsed;
 		}
 
 		private void ImageViewer_VisibleOverlayLodChanged(object sender, EventArgs e)
@@ -417,7 +432,10 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				return;
 			}
 
-			DrawMaskOverlays(gl);
+			if (!DrawMaskStrokePreviewLayer(gl))
+			{
+				DrawMaskOverlays(gl);
+			}
 			DrawDetectionOverlays(gl);
 			DrawPolygonOverlays(gl);
 			OpenGlDrawing.DrawRoiEditHandles(gl, GetOverlayRect(), _imageViewer.ZoomScale, System.Windows.Media.Brushes.DeepSkyBlue);
@@ -758,12 +776,14 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 			if (!needsUpload)
 			{
+				overlay.NotifyDirtyBoundsUploaded();
 				return true;
 			}
 
 			if (canPartialUpload && UpdateMaskOverlayTextureRegion(gl, overlay, dirtyBounds, bounds, opacity, cache))
 			{
 				cache.RenderVersion = overlay.RenderVersion;
+				overlay.NotifyDirtyBoundsUploaded();
 				return true;
 			}
 
@@ -831,6 +851,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			cache.RenderVersion = overlay.RenderVersion;
 			cache.ColorArgb = colorArgb;
 			cache.Opacity = opacity;
+			overlay.NotifyDirtyBoundsUploaded();
 			return true;
 		}
 
@@ -963,6 +984,284 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			cache.TextureId = 0;
 		}
 
+		private bool DrawMaskStrokePreviewLayer(OpenGL gl)
+		{
+			if (_imageSize.IsEmpty || _maskStrokePreviewImageSize.IsEmpty)
+			{
+				ReleaseMaskStrokePreviewLayer(gl);
+				return false;
+			}
+
+			bool hasPreviewWork = _pendingMaskStrokePreviewCommands.Count > 0
+				|| _maskStrokePreviewLayer.ClearRequested
+				|| _maskStrokePreviewLayer.BaseRefreshRequested
+				|| (_maskStrokePreviewVisible && _maskStrokePreviewLayer.TextureId == 0);
+			if (!hasPreviewWork && !_maskStrokePreviewVisible)
+			{
+				return false;
+			}
+
+			ProcessMaskStrokePreviewCommands(gl);
+			if (!_maskStrokePreviewVisible || _maskStrokePreviewLayer.TextureId == 0)
+			{
+				return false;
+			}
+
+			int[] viewport = new int[4];
+			gl.GetInteger(OpenGL.GL_VIEWPORT, viewport);
+			float screenWidth = viewport[2];
+			float screenHeight = viewport[3];
+			if (screenWidth <= 0F || screenHeight <= 0F)
+			{
+				return false;
+			}
+
+			RectangleF screenBounds = NormalizeScreenRect(_imageViewer.GetScreenRectFromImagePixelBounds(
+				new RectangleF(0F, 0F, _maskStrokePreviewImageSize.Width, _maskStrokePreviewImageSize.Height)));
+			if (!IntersectsViewport(screenBounds, screenWidth, screenHeight))
+			{
+				return false;
+			}
+
+			gl.PushAttrib(OpenGL.GL_ENABLE_BIT | OpenGL.GL_CURRENT_BIT | OpenGL.GL_COLOR_BUFFER_BIT);
+			try
+			{
+				gl.MatrixMode(OpenGL.GL_PROJECTION);
+				gl.PushMatrix();
+				try
+				{
+					gl.LoadIdentity();
+					gl.Ortho2D(0, screenWidth, screenHeight, 0);
+					gl.MatrixMode(OpenGL.GL_MODELVIEW);
+					gl.PushMatrix();
+					try
+					{
+						gl.LoadIdentity();
+						gl.Enable(OpenGL.GL_TEXTURE_2D);
+						gl.Disable(OpenGL.GL_DEPTH_TEST);
+						gl.Enable(OpenGL.GL_BLEND);
+						gl.BlendFunc(OpenGL.GL_SRC_ALPHA, OpenGL.GL_ONE_MINUS_SRC_ALPHA);
+						gl.Color(1F, 1F, 1F, 1F);
+						DrawTexturedScreenRect(gl, _maskStrokePreviewLayer.TextureId, screenBounds);
+					}
+					finally
+					{
+						gl.BindTexture(OpenGL.GL_TEXTURE_2D, 0);
+						gl.MatrixMode(OpenGL.GL_MODELVIEW);
+						gl.PopMatrix();
+					}
+				}
+				finally
+				{
+					gl.MatrixMode(OpenGL.GL_PROJECTION);
+					gl.PopMatrix();
+				}
+			}
+			finally
+			{
+				gl.MatrixMode(OpenGL.GL_MODELVIEW);
+				gl.PopAttrib();
+			}
+
+			return true;
+		}
+
+		private void ProcessMaskStrokePreviewCommands(OpenGL gl)
+		{
+			bool needsLayer = _maskStrokePreviewVisible
+				|| _pendingMaskStrokePreviewCommands.Count > 0
+				|| _maskStrokePreviewLayer.ClearRequested
+				|| _maskStrokePreviewLayer.BaseRefreshRequested;
+			if (!needsLayer)
+			{
+				return;
+			}
+
+			if (!_maskStrokePreviewLayer.Ensure(gl, _maskStrokePreviewImageSize))
+			{
+				_pendingMaskStrokePreviewCommands.Clear();
+				_maskStrokePreviewVisible = false;
+				return;
+			}
+
+			int[] viewport = new int[4];
+			gl.GetInteger(OpenGL.GL_VIEWPORT, viewport);
+			gl.PushAttrib(OpenGL.GL_ENABLE_BIT | OpenGL.GL_CURRENT_BIT | OpenGL.GL_COLOR_BUFFER_BIT);
+			try
+			{
+				gl.BindFramebufferEXT(OpenGL.GL_FRAMEBUFFER_EXT, _maskStrokePreviewLayer.FrameBufferId);
+				gl.Viewport(0, 0, _maskStrokePreviewImageSize.Width, _maskStrokePreviewImageSize.Height);
+				gl.MatrixMode(OpenGL.GL_PROJECTION);
+				gl.PushMatrix();
+				try
+				{
+					gl.LoadIdentity();
+					gl.Ortho2D(0, _maskStrokePreviewImageSize.Width, _maskStrokePreviewImageSize.Height, 0);
+					gl.MatrixMode(OpenGL.GL_MODELVIEW);
+					gl.PushMatrix();
+					try
+					{
+						gl.LoadIdentity();
+						if (_maskStrokePreviewLayer.ClearRequested)
+						{
+							gl.ClearColor(0F, 0F, 0F, 0F);
+							gl.Clear(OpenGL.GL_COLOR_BUFFER_BIT);
+							_maskStrokePreviewLayer.ClearRequested = false;
+						}
+
+						if (_maskStrokePreviewLayer.BaseRefreshRequested)
+						{
+							RenderMaskStrokePreviewBase(gl);
+							_maskStrokePreviewLayer.BaseRefreshRequested = false;
+						}
+
+						while (_pendingMaskStrokePreviewCommands.Count > 0)
+						{
+							MaskStrokePreviewCommand command = _pendingMaskStrokePreviewCommands.Dequeue();
+							gl.Disable(OpenGL.GL_TEXTURE_2D);
+							gl.Disable(OpenGL.GL_DEPTH_TEST);
+							gl.Disable(OpenGL.GL_BLEND);
+							System.Drawing.Color stampColor = command.IsEraser
+								? System.Drawing.Color.FromArgb(0, 0, 0, 0)
+								: command.Color;
+							DrawBrushStampPreview(gl, command.Centers, command.Radius, stampColor);
+						}
+					}
+					finally
+					{
+						gl.MatrixMode(OpenGL.GL_MODELVIEW);
+						gl.PopMatrix();
+					}
+				}
+				finally
+				{
+					gl.MatrixMode(OpenGL.GL_PROJECTION);
+					gl.PopMatrix();
+				}
+			}
+			finally
+			{
+				gl.BindFramebufferEXT(OpenGL.GL_FRAMEBUFFER_EXT, 0);
+				gl.BindTexture(OpenGL.GL_TEXTURE_2D, 0);
+				gl.Viewport(viewport[0], viewport[1], viewport[2], viewport[3]);
+				gl.MatrixMode(OpenGL.GL_MODELVIEW);
+				gl.PopAttrib();
+			}
+		}
+
+		private void RenderMaskStrokePreviewBase(OpenGL gl)
+		{
+			gl.ClearColor(0F, 0F, 0F, 0F);
+			gl.Clear(OpenGL.GL_COLOR_BUFFER_BIT);
+			if (_maskOverlays.Count == 0)
+			{
+				return;
+			}
+
+			gl.Enable(OpenGL.GL_TEXTURE_2D);
+			gl.Disable(OpenGL.GL_DEPTH_TEST);
+			gl.Enable(OpenGL.GL_BLEND);
+			gl.BlendFunc(OpenGL.GL_SRC_ALPHA, OpenGL.GL_ONE_MINUS_SRC_ALPHA);
+			gl.Color(1F, 1F, 1F, 1F);
+			foreach (RoiImageCanvasMaskOverlay overlay in _maskOverlays)
+			{
+				if (overlay?.IsValid != true)
+				{
+					continue;
+				}
+
+				Rectangle maskBounds = ClipMaskOverlayBounds(overlay);
+				if (maskBounds.Width <= 0 || maskBounds.Height <= 0)
+				{
+					continue;
+				}
+
+				string key = overlay.Key;
+				if (!_maskOverlayTextures.TryGetValue(key, out MaskOverlayTextureCache cache))
+				{
+					cache = new MaskOverlayTextureCache();
+					_maskOverlayTextures[key] = cache;
+				}
+
+				if (!UpdateMaskOverlayTexture(gl, overlay, maskBounds, cache))
+				{
+					continue;
+				}
+
+				DrawTexturedScreenRect(
+					gl,
+					cache.TextureId,
+					new RectangleF(maskBounds.X, maskBounds.Y, maskBounds.Width, maskBounds.Height));
+			}
+
+			ReleaseStaleMaskOverlayTextures(gl, _activeMaskOverlayKeys);
+		}
+
+		private void ReleaseMaskStrokePreviewLayer(OpenGL gl)
+		{
+			_pendingMaskStrokePreviewCommands.Clear();
+			_maskStrokePreviewVisible = false;
+			_maskStrokePreviewImageSize = System.Drawing.Size.Empty;
+			_maskStrokePreviewLayer.Release(gl);
+		}
+
+		private static void DrawBrushStampPreview(OpenGL gl, IReadOnlyList<System.Drawing.Point> centers, int radius, System.Drawing.Color color)
+		{
+			if (gl == null || centers == null || centers.Count == 0)
+			{
+				return;
+			}
+
+			BrushPreviewStamp stamp = BrushPreviewStampCache.GetOrAdd(Math.Max(1, radius), CreateBrushPreviewStamp);
+			SetGlColor(gl, color);
+			gl.Begin(OpenGL.GL_QUADS);
+			try
+			{
+				foreach (System.Drawing.Point center in centers)
+				{
+					foreach (BrushPreviewStampRow row in stamp.Rows)
+					{
+						float left = center.X + row.LeftDeltaX;
+						float top = center.Y + row.DeltaY;
+						float right = center.X + row.RightDeltaX + 1F;
+						float bottom = top + 1F;
+						gl.Vertex(left, top);
+						gl.Vertex(right, top);
+						gl.Vertex(right, bottom);
+						gl.Vertex(left, bottom);
+					}
+				}
+			}
+			finally
+			{
+				gl.End();
+			}
+		}
+
+		private static BrushPreviewStamp CreateBrushPreviewStamp(int radius)
+		{
+			int safeRadius = Math.Max(1, radius);
+			int maxOffset = safeRadius + 1;
+			double radiusSquared = safeRadius * safeRadius;
+			var rows = new List<BrushPreviewStampRow>((maxOffset * 2) + 1);
+			for (int dy = -maxOffset; dy <= maxOffset; dy++)
+			{
+				double yDistance = GetPreviewPixelCellDistanceFromBrushCenter(dy);
+				double remaining = radiusSquared - (yDistance * yDistance);
+				if (remaining < 0D)
+				{
+					continue;
+				}
+
+				int maxDx = Math.Min(maxOffset, (int)Math.Floor(Math.Sqrt(remaining) + 0.5D));
+				rows.Add(new BrushPreviewStampRow(dy, -maxDx, maxDx));
+			}
+
+			return new BrushPreviewStamp(rows.ToArray());
+		}
+
+		private static double GetPreviewPixelCellDistanceFromBrushCenter(int offset)
+			=> Math.Max(0D, Math.Abs(offset) - 0.5D);
 		private void DrawBrushCursorPreview(OpenGL gl)
 		{
 			if (!_brushCursorPreviewVisible || _imageSize.IsEmpty || _brushCursorPreviewRadius <= 0)
@@ -1669,6 +1968,32 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			public int FontSize { get; }
 		}
 
+		private sealed class BrushPreviewStamp
+		{
+			public BrushPreviewStamp(BrushPreviewStampRow[] rows)
+			{
+				Rows = rows ?? Array.Empty<BrushPreviewStampRow>();
+			}
+
+			public BrushPreviewStampRow[] Rows { get; }
+		}
+
+		private readonly struct BrushPreviewStampRow
+		{
+			public BrushPreviewStampRow(int deltaY, int leftDeltaX, int rightDeltaX)
+			{
+				DeltaY = deltaY;
+				LeftDeltaX = leftDeltaX;
+				RightDeltaX = rightDeltaX;
+			}
+
+			public int DeltaY { get; }
+
+			public int LeftDeltaX { get; }
+
+			public int RightDeltaX { get; }
+		}
+
 		private sealed class MaskOverlayTextureCache
 		{
 			public uint TextureId { get; set; }
@@ -1684,6 +2009,133 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			public byte[] DirtyPixels { get; set; }
 		}
 
+		private sealed class MaskStrokePreviewCommand
+		{
+			public MaskStrokePreviewCommand(IReadOnlyList<System.Drawing.Point> centers, int radius, System.Drawing.Color color, bool isEraser)
+			{
+				Centers = centers ?? Array.Empty<System.Drawing.Point>();
+				Radius = Math.Max(1, radius);
+				Color = color;
+				IsEraser = isEraser;
+			}
+
+			public IReadOnlyList<System.Drawing.Point> Centers { get; }
+			public int Radius { get; }
+			public System.Drawing.Color Color { get; }
+			public bool IsEraser { get; }
+		}
+
+		private sealed class MaskStrokePreviewLayer
+		{
+			public uint TextureId { get; private set; }
+			public uint FrameBufferId { get; private set; }
+			public IntPtr RenderContext { get; private set; }
+			public int Width { get; private set; }
+			public int Height { get; private set; }
+			public bool ClearRequested { get; set; } = true;
+			public bool BaseRefreshRequested { get; set; } = true;
+			public bool HasTexture => TextureId != 0 || FrameBufferId != 0;
+
+			public bool Ensure(OpenGL gl, System.Drawing.Size size)
+			{
+				if (gl == null || size.Width <= 0 || size.Height <= 0)
+				{
+					return false;
+				}
+
+				IntPtr renderContext = gl.RenderContextProvider.RenderContextHandle;
+				if (TextureId != 0
+					&& (RenderContext != renderContext || Width != size.Width || Height != size.Height))
+				{
+					Release(gl);
+				}
+
+				if (TextureId != 0 && FrameBufferId != 0)
+				{
+					return true;
+				}
+
+				uint[] textureIds = new uint[1];
+				gl.GenTextures(1, textureIds);
+				TextureId = textureIds[0];
+				gl.BindTexture(OpenGL.GL_TEXTURE_2D, TextureId);
+				gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_MIN_FILTER, OpenGL.GL_NEAREST);
+				gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_MAG_FILTER, OpenGL.GL_NEAREST);
+				gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_WRAP_S, OpenGL.GL_CLAMP_TO_EDGE);
+				gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_WRAP_T, OpenGL.GL_CLAMP_TO_EDGE);
+				gl.TexImage2D(
+					OpenGL.GL_TEXTURE_2D,
+					0,
+					OpenGL.GL_RGBA,
+					size.Width,
+					size.Height,
+					0,
+					OpenGL.GL_RGBA,
+					OpenGL.GL_UNSIGNED_BYTE,
+					IntPtr.Zero);
+
+				uint[] frameBufferIds = new uint[1];
+				gl.GenFramebuffersEXT(1, frameBufferIds);
+				FrameBufferId = frameBufferIds[0];
+				gl.BindFramebufferEXT(OpenGL.GL_FRAMEBUFFER_EXT, FrameBufferId);
+				gl.FramebufferTexture2DEXT(
+					OpenGL.GL_FRAMEBUFFER_EXT,
+					OpenGL.GL_COLOR_ATTACHMENT0_EXT,
+					OpenGL.GL_TEXTURE_2D,
+					TextureId,
+					0);
+				uint status = gl.CheckFramebufferStatusEXT(OpenGL.GL_FRAMEBUFFER_EXT);
+				gl.BindFramebufferEXT(OpenGL.GL_FRAMEBUFFER_EXT, 0);
+				gl.BindTexture(OpenGL.GL_TEXTURE_2D, 0);
+				if (status != OpenGL.GL_FRAMEBUFFER_COMPLETE_EXT)
+				{
+					Release(gl);
+					return false;
+				}
+
+				RenderContext = renderContext;
+				Width = size.Width;
+				Height = size.Height;
+				ClearRequested = false;
+				BaseRefreshRequested = true;
+				return true;
+			}
+
+			public void RequestBaseRefresh()
+			{
+				BaseRefreshRequested = true;
+				ClearRequested = false;
+			}
+
+			public void RequestClear()
+			{
+				ClearRequested = true;
+				BaseRefreshRequested = false;
+			}
+
+			public void Release(OpenGL gl)
+			{
+				if (gl != null && FrameBufferId != 0)
+				{
+					uint[] frameBufferIds = { FrameBufferId };
+					gl.DeleteFramebuffersEXT(1, frameBufferIds);
+				}
+
+				if (gl != null && TextureId != 0)
+				{
+					uint[] textureIds = { TextureId };
+					gl.DeleteTextures(1, textureIds);
+				}
+
+				TextureId = 0;
+				FrameBufferId = 0;
+				RenderContext = IntPtr.Zero;
+				Width = 0;
+				Height = 0;
+				ClearRequested = true;
+				BaseRefreshRequested = false;
+			}
+		}
 		private sealed class OverlayRenderSpatialIndex
 		{
 			private const int CellSize = 64;
@@ -2505,7 +2957,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 		private void OnResized(object sender, EventArgs e)
 		{
-			StartDrawingTimer();
+			StartReshapeTimer();
 		}
 
 		private void OnLoad(object sender, EventArgs e)
@@ -2764,6 +3216,127 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			_imageViewer.RefreshGL();
 		}
 
+		public void BeginMaskStrokePreview(System.Drawing.Size imageSize, System.Drawing.Color color, bool isEraser)
+		{
+			if (imageSize.Width <= 0 || imageSize.Height <= 0)
+			{
+				ClearMaskStrokePreview();
+				return;
+			}
+
+			bool wasVisible = _maskStrokePreviewVisible;
+			_maskStrokePreviewVisible = true;
+			_maskStrokePreviewImageSize = imageSize;
+			_maskStrokePreviewColor = NormalizeMaskStrokePreviewColor(color, isEraser);
+			_maskStrokePreviewIsEraser = isEraser;
+			_pendingMaskStrokePreviewCommands.Clear();
+			_maskStrokePreviewLayer.RequestBaseRefresh();
+			_lastMaskStrokePreviewRefreshTicks = 0;
+			if (!wasVisible)
+			{
+				OnPropertyChanged(nameof(IsMaskStrokePreviewVisible));
+			}
+		}
+
+		public void AddMaskStrokePreview(IEnumerable<System.Drawing.Point> centers, int radius, System.Drawing.Color color, bool isEraser)
+		{
+			if (_imageSize.IsEmpty || radius <= 0 || centers == null)
+			{
+				return;
+			}
+
+			if (!_maskStrokePreviewVisible)
+			{
+				BeginMaskStrokePreview(_imageSize, color, isEraser);
+			}
+
+			int clampedRadius = Math.Max(1, Math.Min(512, radius));
+			var previewCenters = new List<System.Drawing.Point>();
+			foreach (System.Drawing.Point center in centers)
+			{
+				if (center.X < -clampedRadius
+					|| center.Y < -clampedRadius
+					|| center.X >= _maskStrokePreviewImageSize.Width + clampedRadius
+					|| center.Y >= _maskStrokePreviewImageSize.Height + clampedRadius)
+				{
+					continue;
+				}
+
+				previewCenters.Add(new System.Drawing.Point(
+					Math.Max(0, Math.Min(_maskStrokePreviewImageSize.Width - 1, center.X)),
+					Math.Max(0, Math.Min(_maskStrokePreviewImageSize.Height - 1, center.Y))));
+			}
+
+			if (previewCenters.Count == 0)
+			{
+				return;
+			}
+
+			_maskStrokePreviewColor = NormalizeMaskStrokePreviewColor(color.IsEmpty ? _maskStrokePreviewColor : color, isEraser);
+			_maskStrokePreviewIsEraser = isEraser;
+			System.Drawing.Color commandColor = isEraser
+				? System.Drawing.Color.FromArgb(255, _maskStrokePreviewColor.R, _maskStrokePreviewColor.G, _maskStrokePreviewColor.B)
+				: _maskStrokePreviewColor;
+			_pendingMaskStrokePreviewCommands.Enqueue(new MaskStrokePreviewCommand(previewCenters, clampedRadius, commandColor, isEraser));
+			// CPU MaskData is committed on MouseUp for undo/save correctness. The FBO holds
+			// the live full-mask preview so brush/eraser MouseMove avoids CPU texture rebuilds.
+			if (ShouldRefreshMaskStrokePreviewFrame())
+			{
+				_refreshTimer?.Stop();
+				_imageViewer.RefreshGL();
+			}
+			else
+			{
+				StartDrawingTimer();
+			}
+		}
+
+		public void ClearMaskStrokePreview(bool refresh = true)
+		{
+			if (!_maskStrokePreviewVisible
+				&& _pendingMaskStrokePreviewCommands.Count == 0
+				&& !_maskStrokePreviewLayer.HasTexture)
+			{
+				return;
+			}
+
+			bool wasVisible = _maskStrokePreviewVisible;
+			_maskStrokePreviewVisible = false;
+			_pendingMaskStrokePreviewCommands.Clear();
+			_maskStrokePreviewLayer.RequestClear();
+			_lastMaskStrokePreviewRefreshTicks = 0;
+			if (refresh)
+			{
+				_refreshTimer?.Stop();
+				_imageViewer.RefreshGL();
+			}
+
+			if (wasVisible)
+			{
+				OnPropertyChanged(nameof(IsMaskStrokePreviewVisible));
+			}
+		}
+
+		private bool ShouldRefreshMaskStrokePreviewFrame()
+		{
+			long now = Stopwatch.GetTimestamp();
+			if (_lastMaskStrokePreviewRefreshTicks != 0 && now - _lastMaskStrokePreviewRefreshTicks < BrushCursorPreviewRefreshIntervalTicks)
+			{
+				return false;
+			}
+
+			_lastMaskStrokePreviewRefreshTicks = now;
+			return true;
+		}
+
+		private static System.Drawing.Color NormalizeMaskStrokePreviewColor(System.Drawing.Color color, bool isEraser)
+		{
+			System.Drawing.Color fallback = isEraser
+				? System.Drawing.Color.FromArgb(245, 158, 11)
+				: System.Drawing.Color.FromArgb(44, 210, 110);
+			System.Drawing.Color baseColor = color.IsEmpty ? fallback : color;
+			return System.Drawing.Color.FromArgb(isEraser ? 135 : 150, baseColor.R, baseColor.G, baseColor.B);
+		}
 		public void SetBrushCursorPreview(System.Drawing.Point imagePoint, int radius, System.Drawing.Color color, bool isEraser)
 		{
 			if (_imageSize.IsEmpty || radius <= 0)
@@ -2884,15 +3457,41 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 		public void SetSegmentationOverlays(IEnumerable<RoiImageCanvasPolygonOverlay> polygonOverlays, IEnumerable<RoiImageCanvasMaskOverlay> maskOverlays)
 		{
-			// Brush/segment MouseMove updates both lists together. Rebuild both render
-			// indices first, then request one OpenGL repaint instead of two.
+			// Committed segmentation overlays are synchronized as a batch. Brush MouseMove
+			// stays on the FBO preview path and reaches this texture path only on mouse-up.
 			ReplaceMaskOverlays(maskOverlays);
 			ReplacePolygonOverlays(polygonOverlays);
 			_imageViewer.RefreshGL();
 			OnPropertyChanged(nameof(MaskOverlays));
 			OnPropertyChanged(nameof(PolygonOverlays));
 		}
+		public bool TryUpdateMaskOverlay(RoiImageCanvasMaskOverlay overlay)
+		{
+			if (overlay?.IsValid != true)
+			{
+				return false;
+			}
 
+			int existingIndex = _maskOverlays.FindIndex(current => string.Equals(current?.Key, overlay.Key, StringComparison.Ordinal));
+			if (existingIndex < 0)
+			{
+				return false;
+			}
+
+			Rectangle maskBounds = ClipMaskOverlayBounds(overlay);
+			if (maskBounds.Width <= 0 || maskBounds.Height <= 0)
+			{
+				return false;
+			}
+
+			_maskOverlays[existingIndex] = overlay;
+			_maskOverlayBounds[existingIndex] = maskBounds;
+			RebuildSelectedMaskOverlayIndices();
+			_maskOverlayRenderIndex.Rebuild(_maskOverlayBounds);
+			_imageViewer.RefreshGL();
+			OnPropertyChanged(nameof(MaskOverlays));
+			return true;
+		}
 		private void ReplacePolygonOverlays(IEnumerable<RoiImageCanvasPolygonOverlay> overlays)
 		{
 			_polygonOverlays.Clear();
@@ -2926,7 +3525,6 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 			_polygonOverlayRenderIndex.Rebuild(_polygonOverlayBounds);
 		}
-
 		private void ReplaceMaskOverlays(IEnumerable<RoiImageCanvasMaskOverlay> overlays)
 		{
 			_maskOverlays.Clear();
@@ -2937,31 +3535,49 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			{
 				foreach (RoiImageCanvasMaskOverlay overlay in overlays)
 				{
-					if (overlay?.IsValid != true)
-					{
-						continue;
-					}
-
-					Rectangle maskBounds = ClipMaskOverlayBounds(overlay);
-					if (maskBounds.Width <= 0 || maskBounds.Height <= 0)
-					{
-						continue;
-					}
-
-					int overlayIndex = _maskOverlays.Count;
-					_maskOverlays.Add(overlay);
-					_maskOverlayBounds.Add(maskBounds);
-					_activeMaskOverlayKeys.Add(overlay.Key);
-					if (overlay.IsSelected)
-					{
-						_selectedMaskOverlayIndices.Add(overlayIndex);
-					}
+					AddMaskOverlayIfRenderable(overlay);
 				}
 			}
 
 			_maskOverlayRenderIndex.Rebuild(_maskOverlayBounds);
 		}
 
+		private bool AddMaskOverlayIfRenderable(RoiImageCanvasMaskOverlay overlay)
+		{
+			if (overlay?.IsValid != true)
+			{
+				return false;
+			}
+
+			Rectangle maskBounds = ClipMaskOverlayBounds(overlay);
+			if (maskBounds.Width <= 0 || maskBounds.Height <= 0)
+			{
+				return false;
+			}
+
+			int overlayIndex = _maskOverlays.Count;
+			_maskOverlays.Add(overlay);
+			_maskOverlayBounds.Add(maskBounds);
+			_activeMaskOverlayKeys.Add(overlay.Key);
+			if (overlay.IsSelected)
+			{
+				_selectedMaskOverlayIndices.Add(overlayIndex);
+			}
+
+			return true;
+		}
+
+		private void RebuildSelectedMaskOverlayIndices()
+		{
+			_selectedMaskOverlayIndices.Clear();
+			for (int overlayIndex = 0; overlayIndex < _maskOverlays.Count; overlayIndex++)
+			{
+				if (_maskOverlays[overlayIndex]?.IsSelected == true)
+				{
+					_selectedMaskOverlayIndices.Add(overlayIndex);
+				}
+			}
+		}
 		public CanvasRect<float> AddInitialRoi(System.Drawing.Rectangle roi, CanvasRoiShapeKind shapeKind = CanvasRoiShapeKind.Rectangle)
 		{
 			if (roi.IsEmpty || roi.Width <= 0 || roi.Height <= 0) { return null; }
@@ -3027,7 +3643,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			if (canvasRect == null || string.IsNullOrWhiteSpace(canvasRect.UniqueId)) { return; }
 
 			RemoveRoiRequested(this, canvasRect);
-			_imageViewer.DeleteOverlay(canvasRect.UniqueId, canvasRect.GroupType);
+			_imageViewer.DeleteOverlay(canvasRect.UniqueId, canvasRect.GroupType, refreshImmediately: false);
 			canvasRect = new CanvasRect<float>();
 			_drawingRect = new CanvasRect<float>();
 		}

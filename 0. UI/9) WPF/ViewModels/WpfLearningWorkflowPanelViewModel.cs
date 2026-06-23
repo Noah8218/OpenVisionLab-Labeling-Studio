@@ -1,13 +1,19 @@
 using MahApps.Metro.IconPacks;
+using OpenVisionLab.Mvvm;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Windows.Input;
 
 namespace MvcVisionSystem
 {
     public sealed class WpfLearningWorkflowPanelViewModel : WpfObservableViewModel
     {
+        private static readonly Action NoOpCommand = () => { };
+        private static readonly Action<object> NoOpSelectionCommand = _ => { };
+        private static readonly Action<WpfYoloTrainingWorkflowStepItem> NoOpTrainingStepCommand = _ => { };
+
         private WpfLearningModeItem selectedMode;
         private WpfAnnotationToolItem selectedTool;
         private WpfLearningStepItem selectedStep;
@@ -23,6 +29,14 @@ namespace MvcVisionSystem
         private bool isYoloFixDatasetEnabled = true;
         private int brushSize = 12;
         private double maskOpacity = 0.66;
+        private ICommand learningModeSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
+        private ICommand annotationToolSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
+        private ICommand learningStepSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
+        private ICommand yoloTrainingWorkflowStepCommand = new RelayCommand<WpfYoloTrainingWorkflowStepItem>(NoOpTrainingStepCommand);
+        private ICommand tutorialOpenHtmlGuideCommand = new RelayCommand(NoOpCommand);
+        private ICommand yoloFixClassesCommand = new RelayCommand(NoOpCommand);
+        private ICommand yoloFixLabelsCommand = new RelayCommand(NoOpCommand);
+        private ICommand yoloFixDatasetCommand = new RelayCommand(NoOpCommand);
 
         public WpfLearningWorkflowPanelViewModel()
         {
@@ -34,16 +48,16 @@ namespace MvcVisionSystem
             LearningModes.Add(new WpfLearningModeItem(WpfLearningMode.Infer, "\uCD94\uB860", PackIconMaterialKind.RobotIndustrial, "\uBAA8\uB378 \uC2E4\uD589\uACFC \uC608\uCE21 \uD655\uC778"));
             LearningModes.Add(new WpfLearningModeItem(WpfLearningMode.Review, "\uAC80\uD1A0", PackIconMaterialKind.CheckAll, "\uC608\uCE21\uC744 \uD655\uC815 \uB77C\uBCA8\uB85C \uC804\uD658"));
 
-            AnnotationTools.Add(new WpfAnnotationToolItem(WpfAnnotationTool.Select, "\uC120\uD0DD", PackIconMaterialKind.Tune, "\uAC1D\uCCB4 \uC120\uD0DD\uACFC \uD3B8\uC9D1"));
-            AnnotationTools.Add(new WpfAnnotationToolItem(WpfAnnotationTool.Rectangle, "\uBC15\uC2A4", PackIconMaterialKind.ShapeSquareRoundedPlus, "YOLO \uBC15\uC2A4 \uC601\uC5ED"));
-            AnnotationTools.Add(new WpfAnnotationToolItem(WpfAnnotationTool.Ellipse, "\uC6D0/\uD0C0\uC6D0", PackIconMaterialKind.ShapeSquareRoundedPlus, "\uC6D0\uD615 \uD639\uC740 \uD0C0\uC6D0 \uC601\uC5ED"));
-            AnnotationTools.Add(new WpfAnnotationToolItem(WpfAnnotationTool.Polygon, "\uD3F4\uB9AC\uACE4", PackIconMaterialKind.ViewListOutline, "\uB2E4\uAC01\uD615 \uC138\uADF8\uBA58\uD14C\uC774\uC158"));
-            AnnotationTools.Add(new WpfAnnotationToolItem(WpfAnnotationTool.Brush, "\uBE0C\uB7EC\uC2DC", PackIconMaterialKind.Tune, "\uBE0C\uB7EC\uC2DC \uB9C8\uC2A4\uD06C \uD3B8\uC9D1"));
-            AnnotationTools.Add(new WpfAnnotationToolItem(WpfAnnotationTool.Eraser, "\uC9C0\uC6B0\uAC1C", PackIconMaterialKind.TrashCanOutline, "\uB9C8\uC2A4\uD06C\uB098 \uC601\uC5ED \uC9C0\uC6B0\uAE30"));
-            AnnotationTools.Add(new WpfAnnotationToolItem(WpfAnnotationTool.PanZoom, "\uC774\uB3D9", PackIconMaterialKind.Magnify, "\uD654\uBA74 \uC774\uB3D9\uACFC \uD655\uB300"));
-            AnnotationTools.Add(new WpfAnnotationToolItem(WpfAnnotationTool.Undo, "Undo", PackIconMaterialKind.Refresh, "\uB9C8\uC9C0\uB9C9 \uD3B8\uC9D1 \uB418\uB3CC\uB9AC\uAE30"));
-            AnnotationTools.Add(new WpfAnnotationToolItem(WpfAnnotationTool.Redo, "Redo", PackIconMaterialKind.Reload, "\uB418\uB3CC\uB9B0 \uD3B8\uC9D1 \uB2E4\uC2DC \uC801\uC6A9"));
-            AnnotationTools.Add(new WpfAnnotationToolItem(WpfAnnotationTool.Delete, "\uC0AD\uC81C", PackIconMaterialKind.TrashCanOutline, "\uC120\uD0DD \uB77C\uBCA8 \uC0AD\uC81C"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Select, "\uC120\uD0DD", PackIconMaterialKind.Tune, "\uAC1D\uCCB4 \uC120\uD0DD\uACFC \uD3B8\uC9D1"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Rectangle, "\uBC15\uC2A4", PackIconMaterialKind.ShapeSquareRoundedPlus, "YOLO \uBC15\uC2A4 \uC601\uC5ED"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Ellipse, "\uC6D0/\uD0C0\uC6D0", PackIconMaterialKind.ShapeSquareRoundedPlus, "\uC6D0\uD615 \uD639\uC740 \uD0C0\uC6D0 \uC601\uC5ED"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Polygon, "\uD3F4\uB9AC\uACE4", PackIconMaterialKind.ViewListOutline, "\uB2E4\uAC01\uD615 \uC138\uADF8\uBA58\uD14C\uC774\uC158"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Brush, "\uBE0C\uB7EC\uC2DC", PackIconMaterialKind.Tune, "\uBE0C\uB7EC\uC2DC \uB9C8\uC2A4\uD06C \uD3B8\uC9D1"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Eraser, "\uC9C0\uC6B0\uAC1C", PackIconMaterialKind.TrashCanOutline, "\uB9C8\uC2A4\uD06C\uB098 \uC601\uC5ED \uC9C0\uC6B0\uAE30"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.PanZoom, "\uC774\uB3D9", PackIconMaterialKind.Magnify, "\uD654\uBA74 \uC774\uB3D9\uACFC \uD655\uB300"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Undo, "Undo", PackIconMaterialKind.Refresh, "\uB9C8\uC9C0\uB9C9 \uD3B8\uC9D1 \uB418\uB3CC\uB9AC\uAE30"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Redo, "Redo", PackIconMaterialKind.Reload, "\uB418\uB3CC\uB9B0 \uD3B8\uC9D1 \uB2E4\uC2DC \uC801\uC6A9"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Delete, "\uC0AD\uC81C", PackIconMaterialKind.TrashCanOutline, "\uC120\uD0DD \uB77C\uBCA8 \uC0AD\uC81C"));
 
             LearningSteps.Add(new WpfLearningStepItem(WpfLearningStep.Sample, "\uC0D8\uD50C", PackIconMaterialKind.FolderImage));
             LearningSteps.Add(new WpfLearningStepItem(WpfLearningStep.Label, "\uB77C\uBCA8", PackIconMaterialKind.ShapeSquareRoundedPlus));
@@ -96,16 +110,68 @@ namespace MvcVisionSystem
                 PackIconMaterialKind.RobotIndustrial));
 
             SelectedMode = LearningModes.FirstOrDefault();
-            SelectedTool = AnnotationTools.FirstOrDefault();
+            SelectedTool = SelectableAnnotationTools.FirstOrDefault();
             SelectedStep = LearningSteps.FirstOrDefault();
             SetAnnotationHistoryState(canUndo: false, canRedo: false, undoActionName: string.Empty, redoActionName: string.Empty);
         }
 
         public string ViewName => nameof(WpfLearningWorkflowPanel);
 
+        public ICommand LearningModeSelectionChangedCommand
+        {
+            get => learningModeSelectionChangedCommand;
+            private set => SetProperty(ref learningModeSelectionChangedCommand, value);
+        }
+
+        public ICommand AnnotationToolSelectionChangedCommand
+        {
+            get => annotationToolSelectionChangedCommand;
+            private set => SetProperty(ref annotationToolSelectionChangedCommand, value);
+        }
+
+        public ICommand LearningStepSelectionChangedCommand
+        {
+            get => learningStepSelectionChangedCommand;
+            private set => SetProperty(ref learningStepSelectionChangedCommand, value);
+        }
+
+        public ICommand YoloTrainingWorkflowStepCommand
+        {
+            get => yoloTrainingWorkflowStepCommand;
+            private set => SetProperty(ref yoloTrainingWorkflowStepCommand, value);
+        }
+
+        public ICommand TutorialOpenHtmlGuideCommand
+        {
+            get => tutorialOpenHtmlGuideCommand;
+            private set => SetProperty(ref tutorialOpenHtmlGuideCommand, value);
+        }
+
+        public ICommand YoloFixClassesCommand
+        {
+            get => yoloFixClassesCommand;
+            private set => SetProperty(ref yoloFixClassesCommand, value);
+        }
+
+        public ICommand YoloFixLabelsCommand
+        {
+            get => yoloFixLabelsCommand;
+            private set => SetProperty(ref yoloFixLabelsCommand, value);
+        }
+
+        public ICommand YoloFixDatasetCommand
+        {
+            get => yoloFixDatasetCommand;
+            private set => SetProperty(ref yoloFixDatasetCommand, value);
+        }
+
         public ObservableCollection<WpfLearningModeItem> LearningModes { get; } = new ObservableCollection<WpfLearningModeItem>();
 
         public ObservableCollection<WpfAnnotationToolItem> AnnotationTools { get; } = new ObservableCollection<WpfAnnotationToolItem>();
+
+        public ObservableCollection<WpfAnnotationToolItem> SelectableAnnotationTools { get; } = new ObservableCollection<WpfAnnotationToolItem>();
+
+        public ObservableCollection<WpfAnnotationToolItem> AnnotationCommandTools { get; } = new ObservableCollection<WpfAnnotationToolItem>();
 
         public ObservableCollection<WpfLearningStepItem> LearningSteps { get; } = new ObservableCollection<WpfLearningStepItem>();
 
@@ -167,6 +233,50 @@ namespace MvcVisionSystem
         {
             get => isYoloFixDatasetEnabled;
             private set => SetProperty(ref isYoloFixDatasetEnabled, value);
+        }
+
+        private void RegisterAnnotationTool(WpfAnnotationToolItem tool)
+        {
+            if (tool == null)
+            {
+                return;
+            }
+
+            AnnotationTools.Add(tool);
+            // The guide separates persistent drawing tools from one-shot edit commands;
+            // the full AnnotationTools list stays as the shared source for canvas toolbar state.
+            if (IsOneShotCommandTool(tool.Tool))
+            {
+                AnnotationCommandTools.Add(tool);
+                return;
+            }
+
+            SelectableAnnotationTools.Add(tool);
+        }
+
+        private static bool IsOneShotCommandTool(WpfAnnotationTool tool)
+            => tool == WpfAnnotationTool.Undo
+                || tool == WpfAnnotationTool.Redo
+                || tool == WpfAnnotationTool.Delete;
+        public void ConfigureCommands(
+            Action<object> learningModeSelectionChanged,
+            Action<object> annotationToolSelectionChanged,
+            Action<object> learningStepSelectionChanged,
+            Action<WpfYoloTrainingWorkflowStepItem> yoloTrainingWorkflowStep,
+            Action tutorialOpenHtmlGuide,
+            Action yoloFixClasses,
+            Action yoloFixLabels,
+            Action yoloFixDataset)
+        {
+            // Selected-item commands keep this ViewModel free of WPF EventArgs while the shell owns workflow navigation.
+            LearningModeSelectionChangedCommand = new RelayCommand<object>(learningModeSelectionChanged ?? NoOpSelectionCommand);
+            AnnotationToolSelectionChangedCommand = new RelayCommand<object>(annotationToolSelectionChanged ?? NoOpSelectionCommand);
+            LearningStepSelectionChangedCommand = new RelayCommand<object>(learningStepSelectionChanged ?? NoOpSelectionCommand);
+            YoloTrainingWorkflowStepCommand = new RelayCommand<WpfYoloTrainingWorkflowStepItem>(yoloTrainingWorkflowStep ?? NoOpTrainingStepCommand);
+            TutorialOpenHtmlGuideCommand = new RelayCommand(tutorialOpenHtmlGuide ?? NoOpCommand);
+            YoloFixClassesCommand = new RelayCommand(yoloFixClasses ?? NoOpCommand);
+            YoloFixLabelsCommand = new RelayCommand(yoloFixLabels ?? NoOpCommand);
+            YoloFixDatasetCommand = new RelayCommand(yoloFixDataset ?? NoOpCommand);
         }
 
         public void SetYoloFixActionAvailability(bool canFixClasses, bool canFixLabels, bool canFixDataset)

@@ -1,8 +1,10 @@
 <UserControl x:Class="MvcVisionSystem.WpfImageQueuePanel"
+             x:Name="ImageQueueRoot"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
-             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm">
     <UserControl.Resources>
         <Style x:Key="QueueIconStyle" TargetType="{x:Type iconPacks:PackIconMaterial}">
             <Setter Property="Width" Value="15" />
@@ -168,19 +170,19 @@
                 </Grid.RowDefinitions>
 
                 <WrapPanel VerticalAlignment="Center">
-                    <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC124;&#xC815;&#xB41C; &#xC774;&#xBBF8;&#xC9C0; &#xD3F4;&#xB354; &#xBD88;&#xB7EC;&#xC624;&#xAE30;" AutomationProperties.Name="&#xC124;&#xC815; &#xD3F4;&#xB354;" Click="LoadImageRootButton_Click">
+                    <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC124;&#xC815;&#xB41C; &#xC774;&#xBBF8;&#xC9C0; &#xD3F4;&#xB354; &#xBD88;&#xB7EC;&#xC624;&#xAE30;" AutomationProperties.Name="&#xC124;&#xC815; &#xD3F4;&#xB354;" Command="{Binding LoadImageRootCommand}">
                         <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="FolderImage" />
                     </ui:Button>
-                    <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC774;&#xBBF8;&#xC9C0; &#xD3F4;&#xB354; &#xC120;&#xD0DD;" AutomationProperties.Name="&#xD3F4;&#xB354;" Click="BrowseImageFolderButton_Click">
+                    <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC774;&#xBBF8;&#xC9C0; &#xD3F4;&#xB354; &#xC120;&#xD0DD;" AutomationProperties.Name="&#xD3F4;&#xB354;" Command="{Binding BrowseImageFolderCommand}">
                         <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="FolderOpen" />
                     </ui:Button>
-                    <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC774;&#xBBF8;&#xC9C0; &#xBAA9;&#xB85D; &#xC0C8;&#xB85C;&#xACE0;&#xCE68;" AutomationProperties.Name="&#xC0C8;&#xB85C;&#xACE0;&#xCE68;" Click="RefreshImageQueueButton_Click">
+                    <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC774;&#xBBF8;&#xC9C0; &#xBAA9;&#xB85D; &#xC0C8;&#xB85C;&#xACE0;&#xCE68;" AutomationProperties.Name="&#xC0C8;&#xB85C;&#xACE0;&#xCE68;" Command="{Binding RefreshImageQueueCommand}">
                         <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="Refresh" />
                     </ui:Button>
-                    <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xB2E4;&#xC74C; &#xBBF8;&#xB77C;&#xBCA8; &#xC774;&#xBBF8;&#xC9C0; &#xC120;&#xD0DD;" AutomationProperties.Name="&#xB2E4;&#xC74C;" Click="NextUnlabeledButton_Click">
+                    <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xB2E4;&#xC74C; &#xBBF8;&#xB77C;&#xBCA8; &#xC774;&#xBBF8;&#xC9C0; &#xC120;&#xD0DD;" AutomationProperties.Name="&#xB2E4;&#xC74C;" Command="{Binding NextUnlabeledCommand}">
                         <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="ArrowRightCircleOutline" />
                     </ui:Button>
-                    <ui:Button x:Name="OpenSelectedQueueImageButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC120;&#xD0DD; &#xC774;&#xBBF8;&#xC9C0;&#xB97C; &#xB2E4;&#xC2DC; &#xC5F4;&#xAE30;" AutomationProperties.Name="&#xC5F4;&#xAE30;" IsEnabled="{Binding IsOpenSelectedImageEnabled}" Click="OpenSelectedQueueImageButton_Click">
+                    <ui:Button x:Name="OpenSelectedQueueImageButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC120;&#xD0DD; &#xC774;&#xBBF8;&#xC9C0;&#xB97C; &#xB2E4;&#xC2DC; &#xC5F4;&#xAE30;" AutomationProperties.Name="&#xC5F4;&#xAE30;" IsEnabled="{Binding IsOpenSelectedImageEnabled}" Command="{Binding OpenSelectedQueueImageCommand}">
                         <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="ImageOutline" />
                     </ui:Button>
                 </WrapPanel>
@@ -200,7 +202,7 @@
                               FontSize="12"
                               DisplayMemberPath="Text"
                               ToolTip="&#xC0C1;&#xD0DC; &#xD544;&#xD130;"
-                              SelectionChanged="ImageQueueFilterBox_SelectionChanged" />
+                              mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding FilterSelectionChangedCommand}" />
                     <Grid Grid.Column="2">
                         <iconPacks:PackIconMaterial Width="14"
                                                     Height="14"
@@ -219,42 +221,42 @@
                                  FontSize="12"
                                  Padding="24,2,6,2"
                                  ToolTip="&#xD30C;&#xC77C;&#xBA85; &#xAC80;&#xC0C9;"
-                                 TextChanged="ImageQueueSearchBox_TextChanged" />
+                                 mvvm:InputCommandBehaviors.TextInputCommand="{Binding SearchTextChangedCommand}" />
                     </Grid>
                 </Grid>
 
                 <UniformGrid Grid.Row="2" Columns="3" Rows="2" VerticalAlignment="Center">
-                    <ui:Button x:Name="QueueFilterAllButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterAllActive}" AutomationProperties.Name="&#xC804;&#xCCB4; &#xD544;&#xD130;" ToolTip="&#xC804;&#xCCB4; &#xC774;&#xBBF8;&#xC9C0; &#xBCF4;&#xAE30;" Click="QueueFilterAllButton_Click">
+                    <ui:Button x:Name="QueueFilterAllButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterAllActive}" AutomationProperties.Name="&#xC804;&#xCCB4; &#xD544;&#xD130;" ToolTip="&#xC804;&#xCCB4; &#xC774;&#xBBF8;&#xC9C0; &#xBCF4;&#xAE30;" Command="{Binding QueueFilterAllCommand}">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ViewListOutline" />
                             <TextBlock x:Name="QueueFilterAllText" Text="{Binding QueueFilterAllText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </ui:Button>
-                    <ui:Button x:Name="QueueFilterCandidateButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterCandidateActive}" AutomationProperties.Name="&#xD6C4;&#xBCF4; &#xD544;&#xD130;" ToolTip="AI &#xD6C4;&#xBCF4;&#xAC00; &#xC788;&#xB294; &#xC774;&#xBBF8;&#xC9C0;&#xB9CC; &#xBCF4;&#xAE30;" Click="QueueFilterCandidateButton_Click">
+                    <ui:Button x:Name="QueueFilterCandidateButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterCandidateActive}" AutomationProperties.Name="&#xD6C4;&#xBCF4; &#xD544;&#xD130;" ToolTip="AI &#xD6C4;&#xBCF4;&#xAC00; &#xC788;&#xB294; &#xC774;&#xBBF8;&#xC9C0;&#xB9CC; &#xBCF4;&#xAE30;" Command="{Binding QueueFilterCandidateCommand}">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ImageSearch" />
                             <TextBlock x:Name="QueueFilterCandidateText" Text="{Binding QueueFilterCandidateText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </ui:Button>
-                    <ui:Button x:Name="QueueFilterFailedButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterFailedActive}" AutomationProperties.Name="&#xC2E4;&#xD328; &#xD544;&#xD130;" ToolTip="&#xAC80;&#xC0AC; &#xC2E4;&#xD328; &#xC774;&#xBBF8;&#xC9C0;&#xB9CC; &#xBCF4;&#xAE30;" Click="QueueFilterFailedButton_Click">
+                    <ui:Button x:Name="QueueFilterFailedButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterFailedActive}" AutomationProperties.Name="&#xC2E4;&#xD328; &#xD544;&#xD130;" ToolTip="&#xAC80;&#xC0AC; &#xC2E4;&#xD328; &#xC774;&#xBBF8;&#xC9C0;&#xB9CC; &#xBCF4;&#xAE30;" Command="{Binding QueueFilterFailedCommand}">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="AlertCircleOutline" />
                             <TextBlock x:Name="QueueFilterFailedText" Text="{Binding QueueFilterFailedText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </ui:Button>
-                    <ui:Button x:Name="QueueFilterConfirmedButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterConfirmedActive}" AutomationProperties.Name="&#xD655;&#xC815; &#xD544;&#xD130;" ToolTip="&#xD655;&#xC815;&#xB41C; &#xC774;&#xBBF8;&#xC9C0;&#xB9CC; &#xBCF4;&#xAE30;" Click="QueueFilterConfirmedButton_Click">
+                    <ui:Button x:Name="QueueFilterConfirmedButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterConfirmedActive}" AutomationProperties.Name="&#xD655;&#xC815; &#xD544;&#xD130;" ToolTip="&#xD655;&#xC815;&#xB41C; &#xC774;&#xBBF8;&#xC9C0;&#xB9CC; &#xBCF4;&#xAE30;" Command="{Binding QueueFilterConfirmedCommand}">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="CheckboxMarkedCircleOutline" />
                             <TextBlock x:Name="QueueFilterConfirmedText" Text="{Binding QueueFilterConfirmedText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </ui:Button>
-                    <ui:Button x:Name="QueueFilterSkippedButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterSkippedActive}" AutomationProperties.Name="&#xC2A4;&#xD0B5; &#xD544;&#xD130;" ToolTip="&#xC2A4;&#xD0B5;&#xD55C; &#xC774;&#xBBF8;&#xC9C0;&#xB9CC; &#xBCF4;&#xAE30;" Click="QueueFilterSkippedButton_Click">
+                    <ui:Button x:Name="QueueFilterSkippedButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterSkippedActive}" AutomationProperties.Name="&#xC2A4;&#xD0B5; &#xD544;&#xD130;" ToolTip="&#xC2A4;&#xD0B5;&#xD55C; &#xC774;&#xBBF8;&#xC9C0;&#xB9CC; &#xBCF4;&#xAE30;" Command="{Binding QueueFilterSkippedCommand}">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="SkipNext" />
                             <TextBlock x:Name="QueueFilterSkippedText" Text="{Binding QueueFilterSkippedText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </ui:Button>
-                    <ui:Button x:Name="QueueFilterNoCandidateButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterNoCandidateActive}" AutomationProperties.Name="&#xC5C6;&#xC74C; &#xD544;&#xD130;" ToolTip="&#xAC80;&#xCD9C; &#xD6C4;&#xBCF4;&#xAC00; &#xC5C6;&#xB294; &#xC774;&#xBBF8;&#xC9C0;&#xB9CC; &#xBCF4;&#xAE30;" Click="QueueFilterNoCandidateButton_Click">
+                    <ui:Button x:Name="QueueFilterNoCandidateButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterNoCandidateActive}" AutomationProperties.Name="&#xC5C6;&#xC74C; &#xD544;&#xD130;" ToolTip="&#xAC80;&#xCD9C; &#xD6C4;&#xBCF4;&#xAC00; &#xC5C6;&#xB294; &#xC774;&#xBBF8;&#xC9C0;&#xB9CC; &#xBCF4;&#xAE30;" Command="{Binding QueueFilterNoCandidateCommand}">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="MinusCircleOutline" />
                             <TextBlock x:Name="QueueFilterNoCandidateText" Text="{Binding QueueFilterNoCandidateText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
@@ -263,16 +265,16 @@
                 </UniformGrid>
 
                 <WrapPanel Grid.Row="3" VerticalAlignment="Center">
-                    <ui:Button x:Name="DetectSelectedQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC120;&#xD0DD; &#xC774;&#xBBF8;&#xC9C0; &#xAC80;&#xC0AC;" AutomationProperties.Name="&#xC120;&#xD0DD; &#xAC80;&#xC0AC;" IsEnabled="{Binding IsDetectSelectedEnabled}" Click="DetectSelectedQueueButton_Click">
+                    <ui:Button x:Name="DetectSelectedQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC120;&#xD0DD; &#xC774;&#xBBF8;&#xC9C0; &#xAC80;&#xC0AC;" AutomationProperties.Name="&#xC120;&#xD0DD; &#xAC80;&#xC0AC;" IsEnabled="{Binding IsDetectSelectedEnabled}" Command="{Binding DetectSelectedQueueCommand}">
                         <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="ImageSearch" />
                     </ui:Button>
-                    <ui:Button x:Name="BatchDetectQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xD45C;&#xC2DC; &#xBAA9;&#xB85D; &#xC77C;&#xAD04; &#xAC80;&#xC0AC;" AutomationProperties.Name="&#xC77C;&#xAD04; &#xAC80;&#xC0AC;" IsEnabled="{Binding IsBatchDetectEnabled}" Click="BatchDetectQueueButton_Click">
+                    <ui:Button x:Name="BatchDetectQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xD45C;&#xC2DC; &#xBAA9;&#xB85D; &#xC77C;&#xAD04; &#xAC80;&#xC0AC;" AutomationProperties.Name="&#xC77C;&#xAD04; &#xAC80;&#xC0AC;" IsEnabled="{Binding IsBatchDetectEnabled}" Command="{Binding BatchDetectQueueCommand}">
                         <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="PlaylistPlay" />
                     </ui:Button>
-                    <ui:Button x:Name="RetryFailedQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC2E4;&#xD328; &#xD56D;&#xBAA9; &#xC7AC;&#xC2DC;&#xB3C4;" AutomationProperties.Name="&#xC7AC;&#xC2DC;&#xB3C4;" IsEnabled="{Binding IsRetryFailedEnabled}" Click="RetryFailedQueueButton_Click">
+                    <ui:Button x:Name="RetryFailedQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC2E4;&#xD328; &#xD56D;&#xBAA9; &#xC7AC;&#xC2DC;&#xB3C4;" AutomationProperties.Name="&#xC7AC;&#xC2DC;&#xB3C4;" IsEnabled="{Binding IsRetryFailedEnabled}" Command="{Binding RetryFailedQueueCommand}">
                         <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="Reload" />
                     </ui:Button>
-                    <ui:Button x:Name="StopBatchQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC77C;&#xAD04; &#xAC80;&#xC0AC; &#xC911;&#xC9C0;" AutomationProperties.Name="&#xC911;&#xC9C0;" IsEnabled="{Binding IsStopBatchEnabled}" Click="StopBatchQueueButton_Click">
+                    <ui:Button x:Name="StopBatchQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC77C;&#xAD04; &#xAC80;&#xC0AC; &#xC911;&#xC9C0;" AutomationProperties.Name="&#xC911;&#xC9C0;" IsEnabled="{Binding IsStopBatchEnabled}" Command="{Binding StopBatchQueueCommand}">
                         <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="StopCircleOutline" />
                     </ui:Button>
                 </WrapPanel>
@@ -324,8 +326,9 @@
                       Foreground="{DynamicResource SecondaryTextBrush}"
                       FontFamily="Segoe UI"
                       FontSize="12"
-                      SelectionChanged="ImageQueueGrid_SelectionChanged"
-                      MouseDoubleClick="ImageQueueGrid_MouseDoubleClick">
+                      SelectedItem="{Binding SelectedQueueItem, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                      mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding QueueSelectionChangedCommand}"
+                      mvvm:InputCommandBehaviors.MouseDoubleClickInputCommand="{Binding QueueMouseDoubleClickCommand}">
                 <DataGrid.Columns>
                     <DataGridTemplateColumn Header="&#xD30C;&#xC77C;" Width="*" MinWidth="116">
                         <DataGridTemplateColumn.CellTemplate>

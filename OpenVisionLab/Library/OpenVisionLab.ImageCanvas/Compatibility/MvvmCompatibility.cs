@@ -1,57 +1,20 @@
-﻿using System;
+using System;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.CompilerServices;
 using System.Windows.Input;
 using System.Windows.Media;
 
 namespace OpenVisionLab.ImageCanvas.Infrastructure
 {
-	public interface IObservableObject : INotifyPropertyChanging, INotifyPropertyChanged
+	public interface IObservableObject : OpenVisionLab.Mvvm.IObservableObject
 	{
 	}
 
-	public abstract class ObservableObject : IObservableObject
+	// Keep the historical ImageCanvas namespace as a wrapper while new MVVM code uses OpenVisionLab.Mvvm directly.
+	public abstract class ObservableObject : OpenVisionLab.Mvvm.ObservableObject, IObservableObject
 	{
-		public event PropertyChangingEventHandler PropertyChanging;
-		public event PropertyChangedEventHandler PropertyChanged;
-
-		[Conditional("DEBUG")]
-		protected void VerifyProperty(string propertyName)
-		{
-			if (!string.IsNullOrEmpty(propertyName) && TypeDescriptor.GetProperties(this)[propertyName] == null)
-			{
-				Debug.WriteLine($"Unknown property: {propertyName}");
-			}
-		}
-
-		protected virtual void OnPropertyChanging([CallerMemberName] string propertyName = null)
-		{
-			VerifyProperty(propertyName);
-			PropertyChanging?.Invoke(this, new PropertyChangingEventArgs(propertyName));
-		}
-
-		protected virtual void OnPropertyChanged([CallerMemberName] string propertyName = null)
-		{
-			VerifyProperty(propertyName);
-			PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-		}
-
-		protected bool SetProperty<T>(ref T storage, T value, [CallerMemberName] string propertyName = null)
-		{
-			if (Equals(storage, value))
-			{
-				return false;
-			}
-
-			OnPropertyChanging(propertyName);
-			storage = value;
-			OnPropertyChanged(propertyName);
-			return true;
-		}
 	}
 
 	public interface IDisposableExtension : IDisposable
@@ -62,46 +25,20 @@ namespace OpenVisionLab.ImageCanvas.Infrastructure
 
 namespace OpenVisionLab.ImageCanvas.Commands
 {
-	public sealed class RelayCommand : ICommand
+	public sealed class RelayCommand : OpenVisionLab.Mvvm.RelayCommand
 	{
-		private readonly Action _execute;
-		private readonly Func<bool> _canExecute;
-
 		public RelayCommand(Action execute, Func<bool> canExecute = null)
+			: base(execute, canExecute)
 		{
-			_execute = execute ?? throw new ArgumentNullException(nameof(execute));
-			_canExecute = canExecute;
 		}
-
-		public event EventHandler CanExecuteChanged
-		{
-			add => CommandManager.RequerySuggested += value;
-			remove => CommandManager.RequerySuggested -= value;
-		}
-
-		public bool CanExecute(object parameter) => _canExecute?.Invoke() ?? true;
-		public void Execute(object parameter) => _execute();
 	}
 
-	public sealed class RelayCommand<T> : ICommand
+	public sealed class RelayCommand<T> : OpenVisionLab.Mvvm.RelayCommand<T>
 	{
-		private readonly Action<T> _execute;
-		private readonly Predicate<T> _canExecute;
-
 		public RelayCommand(Action<T> execute, Predicate<T> canExecute = null)
+			: base(execute, canExecute)
 		{
-			_execute = execute ?? throw new ArgumentNullException(nameof(execute));
-			_canExecute = canExecute;
 		}
-
-		public event EventHandler CanExecuteChanged
-		{
-			add => CommandManager.RequerySuggested += value;
-			remove => CommandManager.RequerySuggested -= value;
-		}
-
-		public bool CanExecute(object parameter) => _canExecute?.Invoke((T)parameter) ?? true;
-		public void Execute(object parameter) => _execute((T)parameter);
 	}
 }
 

@@ -1,8 +1,10 @@
 using MvcVisionSystem.Yolo;
+using OpenVisionLab.Mvvm;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Windows.Input;
 using MediaBrush = System.Windows.Media.Brush;
 using MediaColor = System.Windows.Media.Color;
 using MediaSolidColorBrush = System.Windows.Media.SolidColorBrush;
@@ -11,14 +13,59 @@ namespace MvcVisionSystem
 {
     public sealed class WpfClassCatalogPanelViewModel : WpfObservableViewModel
     {
+        private static readonly Action NoOpCommand = () => { };
+        private static readonly Action<KeyInputCommandArgs> NoOpKeyCommand = _ => { };
+        private static readonly Action<object> NoOpSelectionCommand = _ => { };
         private string className = string.Empty;
         private string outputRootPath = string.Empty;
         private string statusText = "\uD074\uB798\uC2A4 \uC774\uB984\uC744 \uC785\uB825\uD558\uACE0 \uCD94\uAC00\uB97C \uB204\uB974\uC138\uC694.";
         private WpfClassCatalogListItem selectedClass;
+        private ICommand classNamePreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(NoOpKeyCommand);
+        private ICommand addClassCommand = new RelayCommand(NoOpCommand);
+        private ICommand removeClassCommand = new RelayCommand(NoOpCommand);
+        private ICommand browseOutputRootCommand = new RelayCommand(NoOpCommand);
+        private ICommand saveOutputRootCommand = new RelayCommand(NoOpCommand);
+        private ICommand classSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
 
         public string ViewName => nameof(WpfClassCatalogPanel);
 
         public ObservableCollection<WpfClassCatalogListItem> Classes { get; } = new ObservableCollection<WpfClassCatalogListItem>();
+
+        public ICommand ClassNamePreviewKeyDownCommand
+        {
+            get => classNamePreviewKeyDownCommand;
+            private set => SetProperty(ref classNamePreviewKeyDownCommand, value);
+        }
+
+        public ICommand AddClassCommand
+        {
+            get => addClassCommand;
+            private set => SetProperty(ref addClassCommand, value);
+        }
+
+        public ICommand RemoveClassCommand
+        {
+            get => removeClassCommand;
+            private set => SetProperty(ref removeClassCommand, value);
+        }
+
+        public ICommand BrowseOutputRootCommand
+        {
+            get => browseOutputRootCommand;
+            private set => SetProperty(ref browseOutputRootCommand, value);
+        }
+
+        public ICommand SaveOutputRootCommand
+        {
+            get => saveOutputRootCommand;
+            private set => SetProperty(ref saveOutputRootCommand, value);
+        }
+
+        public ICommand ClassSelectionChangedCommand
+        {
+            get => classSelectionChangedCommand;
+            private set => SetProperty(ref classSelectionChangedCommand, value);
+        }
 
         public string ClassName
         {
@@ -48,6 +95,23 @@ namespace MvcVisionSystem
                     ClassName = value.Text;
                 }
             }
+        }
+
+        public void ConfigureCommands(
+            Action<KeyInputCommandArgs> classNamePreviewKeyDown,
+            Action addClass,
+            Action removeClass,
+            Action browseOutputRoot,
+            Action saveOutputRoot,
+            Action<object> classSelectionChanged)
+        {
+            // Class catalog commands use DTO/value parameters so this ViewModel stays independent from WPF event args.
+            ClassNamePreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(classNamePreviewKeyDown ?? NoOpKeyCommand);
+            AddClassCommand = new RelayCommand(addClass ?? NoOpCommand);
+            RemoveClassCommand = new RelayCommand(removeClass ?? NoOpCommand);
+            BrowseOutputRootCommand = new RelayCommand(browseOutputRoot ?? NoOpCommand);
+            SaveOutputRootCommand = new RelayCommand(saveOutputRoot ?? NoOpCommand);
+            ClassSelectionChangedCommand = new RelayCommand<object>(classSelectionChanged ?? NoOpSelectionCommand);
         }
 
         public void LoadOutputRoot(string path)

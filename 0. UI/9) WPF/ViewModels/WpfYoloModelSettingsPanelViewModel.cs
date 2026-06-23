@@ -1,5 +1,7 @@
 using System;
 using System.Globalization;
+using System.Windows.Input;
+using OpenVisionLab.Mvvm;
 using MvcVisionSystem._1._Core;
 
 namespace MvcVisionSystem
@@ -23,9 +25,57 @@ namespace MvcVisionSystem
         private bool isBrowseImageRootEnabled = true;
         private bool isSaveSettingsEnabled = true;
         private bool isResetSettingsEnabled = true;
+        private ICommand browsePythonCommand = new RelayCommand(NoOpCommand);
+        private ICommand browseProjectRootCommand = new RelayCommand(NoOpCommand);
+        private ICommand browseClientScriptCommand = new RelayCommand(NoOpCommand);
+        private ICommand browseWeightsCommand = new RelayCommand(NoOpCommand);
+        private ICommand browseImageRootCommand = new RelayCommand(NoOpCommand);
+        private ICommand saveSettingsCommand = new RelayCommand(NoOpCommand);
+        private ICommand resetSettingsCommand = new RelayCommand(NoOpCommand);
 
         public string ViewName => nameof(WpfYoloModelSettingsPanel);
 
+        public ICommand BrowsePythonCommand
+        {
+            get => browsePythonCommand;
+            private set => SetProperty(ref browsePythonCommand, value);
+        }
+
+        public ICommand BrowseProjectRootCommand
+        {
+            get => browseProjectRootCommand;
+            private set => SetProperty(ref browseProjectRootCommand, value);
+        }
+
+        public ICommand BrowseClientScriptCommand
+        {
+            get => browseClientScriptCommand;
+            private set => SetProperty(ref browseClientScriptCommand, value);
+        }
+
+        public ICommand BrowseWeightsCommand
+        {
+            get => browseWeightsCommand;
+            private set => SetProperty(ref browseWeightsCommand, value);
+        }
+
+        public ICommand BrowseImageRootCommand
+        {
+            get => browseImageRootCommand;
+            private set => SetProperty(ref browseImageRootCommand, value);
+        }
+
+        public ICommand SaveSettingsCommand
+        {
+            get => saveSettingsCommand;
+            private set => SetProperty(ref saveSettingsCommand, value);
+        }
+
+        public ICommand ResetSettingsCommand
+        {
+            get => resetSettingsCommand;
+            private set => SetProperty(ref resetSettingsCommand, value);
+        }
         public string PythonExecutablePath
         {
             get => pythonExecutablePath;
@@ -128,6 +178,24 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isResetSettingsEnabled, value);
         }
 
+        public void ConfigureCommands(
+            Action browsePython,
+            Action browseProjectRoot,
+            Action browseClientScript,
+            Action browseWeights,
+            Action browseImageRoot,
+            Action saveSettings,
+            Action resetSettings)
+        {
+            // Path-picker commands are injected to keep file dialogs in the shell, not in view code-behind.
+            BrowsePythonCommand = new RelayCommand(browsePython ?? NoOpCommand);
+            BrowseProjectRootCommand = new RelayCommand(browseProjectRoot ?? NoOpCommand);
+            BrowseClientScriptCommand = new RelayCommand(browseClientScript ?? NoOpCommand);
+            BrowseWeightsCommand = new RelayCommand(browseWeights ?? NoOpCommand);
+            BrowseImageRootCommand = new RelayCommand(browseImageRoot ?? NoOpCommand);
+            SaveSettingsCommand = new RelayCommand(saveSettings ?? NoOpCommand);
+            ResetSettingsCommand = new RelayCommand(resetSettings ?? NoOpCommand);
+        }
         public void LoadFrom(PythonModelSettings settings)
         {
             if (settings == null)
@@ -197,6 +265,10 @@ namespace MvcVisionSystem
             IsBrowseImageRootEnabled = canRunGeneralCommands;
             IsSaveSettingsEnabled = canRunGeneralCommands;
             IsResetSettingsEnabled = canRunGeneralCommands;
+        }
+
+        private static void NoOpCommand()
+        {
         }
     }
 }

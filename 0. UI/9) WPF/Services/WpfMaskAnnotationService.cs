@@ -1,5 +1,6 @@
 using MvcVisionSystem.Yolo;
 using System;
+using System.Collections.Concurrent;
 using System.Buffers;
 using System.Collections.Generic;
 using System.Drawing;
@@ -10,6 +11,7 @@ namespace MvcVisionSystem
     public sealed class WpfMaskAnnotationService
     {
         public const int DefaultBrushRadius = 6;
+        private static readonly ConcurrentDictionary<int, BrushStamp> BrushStampCache = new ConcurrentDictionary<int, BrushStamp>();
 
         public IReadOnlyList<Point> BuildStrokeCenters(Point? previous, Point current, int radius)
         {
@@ -87,8 +89,18 @@ namespace MvcVisionSystem
             int radius,
             Size imageSize,
             out Rectangle changedBounds)
+            => Erase(segments, centers, radius, imageSize, out changedBounds, out _);
+
+        public bool Erase(
+            IList<LabelingSegmentationObject> segments,
+            IEnumerable<Point> centers,
+            int radius,
+            Size imageSize,
+            out Rectangle changedBounds,
+            out IReadOnlyList<LabelingSegmentationObject> changedSegments)
         {
             changedBounds = Rectangle.Empty;
+            changedSegments = Array.Empty<LabelingSegmentationObject>();
             if (segments == null || segments.Count == 0 || imageSize.Width <= 0 || imageSize.Height <= 0)
             {
                 return false;
@@ -100,18 +112,29 @@ namespace MvcVisionSystem
                 return false;
             }
 
+            var changedSegmentList = new List<LabelingSegmentationObject>();
+            Rectangle strokeBounds = GetStrokeBounds(strokeCenters, radius, imageSize);
             bool changed = false;
             foreach (LabelingSegmentationObject segment in segments.Where(item => item?.IsRasterMask == true).ToList())
             {
-                if (!ApplyBrushToMask(segment.MaskData, segment.MaskSize, strokeCenters, radius, paint: false, out Rectangle segmentChangedBounds))
+                Rectangle currentBounds = segment.MaskBounds.IsEmpty ? segment.Bounds : segment.MaskBounds;
+                if (currentBounds.IsEmpty || !currentBounds.IntersectsWith(strokeBounds))
                 {
                     continue;
                 }
 
-                segment.MaskBounds = ShouldRecalculateMaskBoundsAfterErase(segment.MaskBounds, segmentChangedBounds)
-                    ? SegmentationGeometry.GetMaskBounds(segment.MaskData, segment.MaskSize)
+                if (!ApplyBrushToMask(segment.MaskData, segment.MaskSize, strokeCenters, radius, paint: false, out Rectangle segmentChangedBounds, currentBounds))
+                {
+                    continue;
+                }
+
+                // Eraser can touch large image-sized buffers. Keep edge-bound recomputation
+                // inside the active mask bounds instead of rescanning the whole image.
+                segment.MaskBounds = ShouldRecalculateMaskBoundsAfterErase(currentBounds, segmentChangedBounds)
+                    ? GetMaskBoundsWithin(segment.MaskData, segment.MaskSize, currentBounds)
                     : segment.MaskBounds;
                 MarkRenderDirty(segment, segmentChangedBounds);
+                changedSegmentList.Add(segment);
                 changedBounds = changedBounds.IsEmpty ? segmentChangedBounds : Rectangle.Union(changedBounds, segmentChangedBounds);
                 changed = true;
                 if (segment.MaskBounds.IsEmpty)
@@ -120,6 +143,7 @@ namespace MvcVisionSystem
                 }
             }
 
+            changedSegments = changedSegmentList;
             return changed;
         }
 
@@ -227,7 +251,8 @@ namespace MvcVisionSystem
             IEnumerable<Point> centers,
             int radius,
             bool paint,
-            out Rectangle changedBounds)
+            out Rectangle changedBounds,
+            Rectangle clipBounds = default)
         {
             changedBounds = Rectangle.Empty;
             if (mask == null || maskSize.Width <= 0 || maskSize.Height <= 0 || mask.Length != maskSize.Width * maskSize.Height)
@@ -235,8 +260,15 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            int safeRadius = Math.Max(1, radius);
-            double radiusSquared = safeRadius * safeRadius;
+            Rectangle safeClipBounds = clipBounds.IsEmpty
+                ? new Rectangle(Point.Empty, maskSize)
+                : Rectangle.Intersect(clipBounds, new Rectangle(Point.Empty, maskSize));
+            if (safeClipBounds.IsEmpty)
+            {
+                return false;
+            }
+
+            BrushStamp stamp = BrushStampCache.GetOrAdd(Math.Max(1, radius), CreateBrushStamp);
             byte target = paint ? (byte)1 : (byte)0;
             bool changed = false;
             int leftChanged = int.MaxValue;
@@ -244,35 +276,44 @@ namespace MvcVisionSystem
             int rightChanged = int.MinValue;
             int bottomChanged = int.MinValue;
 
-            foreach (Point center in centers ?? Enumerable.Empty<Point>())
+            // MouseUp commit replays the same geometry the FBO preview showed during drag.
+            // Merge repeated brush circles into row spans first, otherwise dense strokes
+            // revisit the same pixels hundreds of times and produce a visible release hitch.
+            Dictionary<int, List<BrushStrokeSpan>> spansByRow = BuildBrushStrokeSpans(stamp, centers, safeClipBounds);
+            foreach (KeyValuePair<int, List<BrushStrokeSpan>> rowSpans in spansByRow)
             {
-                int left = Math.Max(0, center.X - safeRadius - 1);
-                int top = Math.Max(0, center.Y - safeRadius - 1);
-                int right = Math.Min(maskSize.Width - 1, center.X + safeRadius + 1);
-                int bottom = Math.Min(maskSize.Height - 1, center.Y + safeRadius + 1);
-                for (int y = top; y <= bottom; y++)
+                int y = rowSpans.Key;
+                List<BrushStrokeSpan> spans = rowSpans.Value;
+                spans.Sort((left, right) => left.Left != right.Left
+                    ? left.Left.CompareTo(right.Left)
+                    : left.Right.CompareTo(right.Right));
+
+                int mergedLeft = -1;
+                int mergedRight = -1;
+                for (int spanIndex = 0; spanIndex < spans.Count; spanIndex++)
                 {
-                    int rowOffset = y * maskSize.Width;
-                    for (int x = left; x <= right; x++)
+                    BrushStrokeSpan span = spans[spanIndex];
+                    if (mergedLeft < 0)
                     {
-                        if (!DoesPixelCellIntersectCircle(x, y, center, radiusSquared))
-                        {
-                            continue;
-                        }
-
-                        int index = rowOffset + x;
-                        if (mask[index] == target)
-                        {
-                            continue;
-                        }
-
-                        mask[index] = target;
-                        changed = true;
-                        leftChanged = Math.Min(leftChanged, x);
-                        topChanged = Math.Min(topChanged, y);
-                        rightChanged = Math.Max(rightChanged, x);
-                        bottomChanged = Math.Max(bottomChanged, y);
+                        mergedLeft = span.Left;
+                        mergedRight = span.Right;
+                        continue;
                     }
+
+                    if (span.Left <= mergedRight + 1)
+                    {
+                        mergedRight = Math.Max(mergedRight, span.Right);
+                        continue;
+                    }
+
+                    changed |= ApplyBrushStrokeSpan(mask, maskSize.Width, y, mergedLeft, mergedRight, target, ref leftChanged, ref topChanged, ref rightChanged, ref bottomChanged);
+                    mergedLeft = span.Left;
+                    mergedRight = span.Right;
+                }
+
+                if (mergedLeft >= 0)
+                {
+                    changed |= ApplyBrushStrokeSpan(mask, maskSize.Width, y, mergedLeft, mergedRight, target, ref leftChanged, ref topChanged, ref rightChanged, ref bottomChanged);
                 }
             }
 
@@ -282,13 +323,195 @@ namespace MvcVisionSystem
             return changed;
         }
 
-        private static bool DoesPixelCellIntersectCircle(int x, int y, Point center, double radiusSquared)
+        private static Dictionary<int, List<BrushStrokeSpan>> BuildBrushStrokeSpans(
+            BrushStamp stamp,
+            IEnumerable<Point> centers,
+            Rectangle safeClipBounds)
         {
-            double nearestX = Math.Clamp(center.X, x - 0.5D, x + 0.5D);
-            double nearestY = Math.Clamp(center.Y, y - 0.5D, y + 0.5D);
-            double dx = nearestX - center.X;
-            double dy = nearestY - center.Y;
-            return (dx * dx) + (dy * dy) <= radiusSquared;
+            var spansByRow = new Dictionary<int, List<BrushStrokeSpan>>();
+            foreach (Point center in centers ?? Enumerable.Empty<Point>())
+            {
+                BrushStampRow[] rows = stamp.Rows;
+                for (int rowIndex = 0; rowIndex < rows.Length; rowIndex++)
+                {
+                    BrushStampRow row = rows[rowIndex];
+                    int y = center.Y + row.DeltaY;
+                    if (y < safeClipBounds.Top || y >= safeClipBounds.Bottom)
+                    {
+                        continue;
+                    }
+
+                    int left = Math.Max(safeClipBounds.Left, center.X + row.LeftDeltaX);
+                    int right = Math.Min(safeClipBounds.Right - 1, center.X + row.RightDeltaX);
+                    if (left > right)
+                    {
+                        continue;
+                    }
+
+                    if (!spansByRow.TryGetValue(y, out List<BrushStrokeSpan> spans))
+                    {
+                        spans = new List<BrushStrokeSpan>();
+                        spansByRow[y] = spans;
+                    }
+
+                    spans.Add(new BrushStrokeSpan(left, right));
+                }
+            }
+
+            return spansByRow;
+        }
+
+        private static bool ApplyBrushStrokeSpan(
+            byte[] mask,
+            int maskWidth,
+            int y,
+            int left,
+            int right,
+            byte target,
+            ref int leftChanged,
+            ref int topChanged,
+            ref int rightChanged,
+            ref int bottomChanged)
+        {
+            bool changed = false;
+            int rowOffset = y * maskWidth;
+            for (int x = left; x <= right; x++)
+            {
+                int index = rowOffset + x;
+                if (mask[index] == target)
+                {
+                    continue;
+                }
+
+                mask[index] = target;
+                changed = true;
+                leftChanged = Math.Min(leftChanged, x);
+                topChanged = Math.Min(topChanged, y);
+                rightChanged = Math.Max(rightChanged, x);
+                bottomChanged = Math.Max(bottomChanged, y);
+            }
+
+            return changed;
+        }
+
+        private static BrushStamp CreateBrushStamp(int radius)
+        {
+            int safeRadius = Math.Max(1, radius);
+            int maxOffset = safeRadius + 1;
+            double radiusSquared = safeRadius * safeRadius;
+            var rows = new List<BrushStampRow>((maxOffset * 2) + 1);
+            for (int dy = -maxOffset; dy <= maxOffset; dy++)
+            {
+                double yDistance = GetPixelCellDistanceFromBrushCenter(dy);
+                double remaining = radiusSquared - (yDistance * yDistance);
+                if (remaining < 0D)
+                {
+                    continue;
+                }
+
+                int maxDx = Math.Min(maxOffset, (int)Math.Floor(Math.Sqrt(remaining) + 0.5D));
+                rows.Add(new BrushStampRow(dy, -maxDx, maxDx));
+            }
+
+            return new BrushStamp(rows.ToArray());
+        }
+
+        private static double GetPixelCellDistanceFromBrushCenter(int offset)
+            => Math.Max(0D, Math.Abs(offset) - 0.5D);
+
+
+        private sealed class BrushStamp
+        {
+            public BrushStamp(BrushStampRow[] rows)
+            {
+                Rows = rows ?? Array.Empty<BrushStampRow>();
+            }
+
+            public BrushStampRow[] Rows { get; }
+        }
+
+        private readonly struct BrushStampRow
+        {
+            public BrushStampRow(int deltaY, int leftDeltaX, int rightDeltaX)
+            {
+                DeltaY = deltaY;
+                LeftDeltaX = leftDeltaX;
+                RightDeltaX = rightDeltaX;
+            }
+
+            public int DeltaY { get; }
+
+            public int LeftDeltaX { get; }
+
+            public int RightDeltaX { get; }
+        }
+
+        private readonly struct BrushStrokeSpan
+        {
+            public BrushStrokeSpan(int left, int right)
+            {
+                Left = left;
+                Right = right;
+            }
+
+            public int Left { get; }
+
+            public int Right { get; }
+        }
+        private static Rectangle GetStrokeBounds(IReadOnlyList<Point> centers, int radius, Size imageSize)
+        {
+            if (centers == null || centers.Count == 0 || imageSize.Width <= 0 || imageSize.Height <= 0)
+            {
+                return Rectangle.Empty;
+            }
+
+            int safeRadius = Math.Max(1, radius) + 1;
+            int left = centers.Min(point => point.X) - safeRadius;
+            int top = centers.Min(point => point.Y) - safeRadius;
+            int right = centers.Max(point => point.X) + safeRadius + 1;
+            int bottom = centers.Max(point => point.Y) + safeRadius + 1;
+            return Rectangle.Intersect(
+                Rectangle.FromLTRB(left, top, right, bottom),
+                new Rectangle(Point.Empty, imageSize));
+        }
+
+        private static Rectangle GetMaskBoundsWithin(byte[] maskData, Size maskSize, Rectangle searchBounds)
+        {
+            if (maskData == null || maskSize.Width <= 0 || maskSize.Height <= 0 || maskData.Length != maskSize.Width * maskSize.Height)
+            {
+                return Rectangle.Empty;
+            }
+
+            Rectangle safeBounds = Rectangle.Intersect(searchBounds, new Rectangle(Point.Empty, maskSize));
+            if (safeBounds.IsEmpty)
+            {
+                return Rectangle.Empty;
+            }
+
+            int left = int.MaxValue;
+            int top = int.MaxValue;
+            int right = int.MinValue;
+            int bottom = int.MinValue;
+            for (int y = safeBounds.Top; y < safeBounds.Bottom; y++)
+            {
+                int rowOffset = y * maskSize.Width;
+                for (int x = safeBounds.Left; x < safeBounds.Right; x++)
+                {
+                    if (maskData[rowOffset + x] == 0)
+                    {
+                        continue;
+                    }
+
+                    left = Math.Min(left, x);
+                    top = Math.Min(top, y);
+                    right = Math.Max(right, x);
+                    bottom = Math.Max(bottom, y);
+                }
+            }
+
+            return left == int.MaxValue
+                ? Rectangle.Empty
+                : Rectangle.FromLTRB(left, top, right + 1, bottom + 1);
         }
 
         private static bool ShouldRecalculateMaskBoundsAfterErase(Rectangle currentBounds, Rectangle changedBounds)

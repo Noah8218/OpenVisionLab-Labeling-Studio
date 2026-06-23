@@ -8,10 +8,9 @@ namespace MvcVisionSystem
         public WpfShellLogPanel()
         {
             InitializeComponent();
-            DataContext = ViewModel;
         }
 
-        public WpfShellLogPanelViewModel ViewModel { get; } = new WpfShellLogPanelViewModel();
+        public WpfShellLogPanelViewModel ViewModel => DataContext as WpfShellLogPanelViewModel;
 
         public FrameworkElement LogPanel => ShellLogPanel;
     }

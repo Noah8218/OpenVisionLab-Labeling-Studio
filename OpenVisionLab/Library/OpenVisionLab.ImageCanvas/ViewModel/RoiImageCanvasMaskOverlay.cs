@@ -1,3 +1,4 @@
+using System;
 using System.Drawing;
 
 namespace OpenVisionLab.ImageCanvas.ViewModels
@@ -14,7 +15,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			int renderVersion,
 			bool isSelected = false,
 			string label = "",
-			Rectangle dirtyBounds = default(Rectangle))
+			Rectangle dirtyBounds = default(Rectangle),
+			Action<int, Rectangle> dirtyBoundsUploaded = null)
 		{
 			Key = string.IsNullOrWhiteSpace(key) ? "mask" : key;
 			MaskData = maskData;
@@ -26,7 +28,10 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			IsSelected = isSelected;
 			Label = label ?? string.Empty;
 			DirtyBounds = dirtyBounds;
+			_dirtyBoundsUploaded = dirtyBoundsUploaded;
 		}
+
+		private readonly Action<int, Rectangle> _dirtyBoundsUploaded;
 
 		public string Key { get; }
 
@@ -47,6 +52,16 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		public string Label { get; }
 
 		public Rectangle DirtyBounds { get; }
+
+		public void NotifyDirtyBoundsUploaded()
+		{
+			if (!DirtyBounds.IsEmpty)
+			{
+				// The GL renderer calls back only after this render version was consumed.
+				// This keeps brush MouseMove uploads bounded to the latest dirty region.
+				_dirtyBoundsUploaded?.Invoke(RenderVersion, DirtyBounds);
+			}
+		}
 
 		public bool IsValid =>
 			MaskData != null

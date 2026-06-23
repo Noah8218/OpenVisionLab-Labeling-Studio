@@ -1,4 +1,4 @@
-﻿using OpenVisionLab.ImageCanvas;
+using OpenVisionLab.ImageCanvas;
 using OpenVisionLab.ImageCanvas.CanvasShapes;
 using OpenVisionLab.ImageCanvas.Overlays;
 using OpenVisionLab.ImageCanvas.Rendering;
@@ -20,7 +20,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			shape.UniqueId = uniqueId;
 			shape.GroupType = childType;
 
-			// 새로운 Shape를 추가합니다.
+			// ?덈줈??Shape瑜?異붽??⑸땲??
 			CanvasOverlayItem overlayItem = CreateNewCanvasOverlayItem(canvasViewer, childType, shape, InspType, itemType, isExtentionRectange, isGroupRectangle);
 			canvasViewer.GetCanvasOverlayManager().AddOverlayItem(parentType, overlayItem);
 
@@ -60,7 +60,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 		private static CanvasOverlayItem CreateNewCanvasOverlayItem(ImageCanvasControl canvasViewer, string childType, CanvasShape shape, EnumInspWindowType InspType, EnumItemType itemType, bool isExtentionRectange, bool isGroupRectangle)
 		{
 			System.Drawing.Color drawColor = System.Drawing.Color.White;
-			// Group별 색을 설정합니다.
+			// Group蹂??됱쓣 ?ㅼ젙?⑸땲??
 			if (canvasViewer.GetCanvasOverlayManager().GroupBrushes.TryGetValue(InspType, out System.Windows.Media.SolidColorBrush brush))
 			{
 				drawColor = System.Drawing.Color.FromArgb(brush.Color.A, brush.Color.R, brush.Color.G, brush.Color.B);
@@ -74,7 +74,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 
 		public static void UpdateOverlays(this ImageCanvasControl canvasViewer)
 		{
-			// 모든 CanvasShape 객체를 순회합니다.
+			// 紐⑤뱺 CanvasShape 媛앹껜瑜??쒗쉶?⑸땲??
 			foreach (CanvasOverlayItem overlayItem in canvasViewer.GetCanvasOverlayManager().GetAllOverlays())
 			{
 				overlayItem.Shape.IsChanged = true;
@@ -82,7 +82,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 		}
 
 		/// <summary>
-		/// 변경점이 감지가 되면 자동으로 업데이트하는 콜벡을 연결합니다.
+		/// 蹂寃쎌젏??媛먯?媛 ?섎㈃ ?먮룞?쇰줈 ?낅뜲?댄듃?섎뒗 肄쒕깹???곌껐?⑸땲??
 		/// </summary>
 		/// <param name="newObject"></param>
 		private static void ConnectOverlayCallback(CanvasOverlayItem newObject, OpenGL gl)
@@ -99,7 +99,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			newObject.Shape.OnChanged?.Invoke();
 		}
 
-		public static void DeleteOverlay(this ImageCanvasControl canvasViewer, string uniqueId = "", string groupName = "")
+		public static void DeleteOverlay(this ImageCanvasControl canvasViewer, string uniqueId = "", string groupName = "", bool refreshImmediately = true)
 		{
 			CanvasOverlayItem overlayItem = canvasViewer.GetCanvasOverlayManager().GetOverlayByUniqueId(uniqueId);
 			ReleaseDisplayList(canvasViewer.GetOpenGL(), overlayItem?.Shape);
@@ -118,7 +118,14 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 					canvasViewer.RemoveVisibleOverlay(overlayItem);
 				}
 			}
-			canvasViewer.RefreshGL();
+			if (refreshImmediately)
+			{
+				canvasViewer.RefreshGL();
+			}
+			else
+			{
+				canvasViewer.QueueRefreshGLAfterInput();
+			}
 		}
 
 		private static void ReleaseDisplayList(OpenGL gl, CanvasShape shape)
@@ -177,7 +184,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 		}
 
 		/// <summary>
-		/// 상하좌우 방향을 검사하여 roi가 이동 가능한지 검사합니다.
+		/// ?곹븯醫뚯슦 諛⑺뼢??寃?ы븯??roi媛 ?대룞 媛?ν븳吏 寃?ы빀?덈떎.
 		/// </summary>
 		/// <param name="roi"></param>
 		/// <param name="size"></param>
@@ -213,7 +220,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 		}
 
 		/// <summary>
-		/// ROI가 이미지 사이즈를 넘어서 Move가 안되도록 막습니다.
+		/// ROI媛 ?대?吏 ?ъ씠利덈? ?섏뼱??Move媛 ?덈릺?꾨줉 留됱뒿?덈떎.
 		/// </summary>
 		/// <param name="roi"></param>
 		/// <param name="size"></param>
@@ -237,7 +244,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				}
 				else
 				{
-					// 이동할 수 없는 경우 처리
+					// ?대룞?????녿뒗 寃쎌슦 泥섎━
 					roi.OffsetMove(size, notify);
 				}
 			}
@@ -245,7 +252,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 
 		private static bool IsRoiWithinImageBounds(CanvasRect<float> roi, Size imageSize)
 		{
-			// 이미 정렬된 ROI 점들을 사용
+			// ?대? ?뺣젹??ROI ?먮뱾???ъ슜
 			CanvasPoint<float> leftTop = roi.LeftTop;
 			CanvasPoint<float> rightTop = roi.RightTop;
 			CanvasPoint<float> rightBottom = roi.RightBottom;
@@ -254,11 +261,11 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			bool isRoiWithinImageBoundsX = false;
 			bool isRoiWithinImageBoundsY = false;
 
-			if (leftBottom.X >= 0 && rightTop.X <= imageSize.Width)// X축 체크
+			if (leftBottom.X >= 0 && rightTop.X <= imageSize.Width)// X異?泥댄겕
 			{
 				isRoiWithinImageBoundsX = true;
 			}
-			if ((leftTop.Y) <= imageSize.Height && (leftBottom.Y) >= 0)// Y축 체크
+			if ((leftTop.Y) <= imageSize.Height && (leftBottom.Y) >= 0)// Y異?泥댄겕
 			{
 				isRoiWithinImageBoundsY = true;
 			}
@@ -276,7 +283,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 
 			if (target != null)
 			{
-				// 계산된 Group Rectangle을 사용합니다.
+				// 怨꾩궛??Group Rectangle???ъ슜?⑸땲??
 				(target as CanvasRect<float>).UpdateRectangle(0, 0, 0, 0);
 				(target as CanvasRect<float>).UpdateRectangle(rt.Left, rt.Top, rt.Right, rt.Bottom);
 				target.IsChanged = true;

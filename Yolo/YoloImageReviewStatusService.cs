@@ -101,14 +101,27 @@ namespace MvcVisionSystem.Yolo
 
     public sealed class YoloImageReviewStatusService
     {
+        // Queue detail loading and delete-status refresh can run off the UI thread, so guard the shared status map.
+        private readonly object syncRoot = new object();
         private readonly Dictionary<string, YoloImageReviewStatus> statuses = new Dictionary<string, YoloImageReviewStatus>(StringComparer.OrdinalIgnoreCase);
 
         public IReadOnlyList<YoloImageReviewStatus> GetItems()
         {
-            return statuses.Values.ToList();
+            lock (syncRoot)
+            {
+                return statuses.Values.ToList();
+            }
         }
 
         public void SetImages(IEnumerable<string> imagePaths)
+        {
+            lock (syncRoot)
+            {
+                SetImagesCore(imagePaths);
+            }
+        }
+
+        private void SetImagesCore(IEnumerable<string> imagePaths)
         {
             HashSet<string> activeKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             foreach (string imagePath in imagePaths ?? Enumerable.Empty<string>())
@@ -145,7 +158,11 @@ namespace MvcVisionSystem.Yolo
 
         public void LoadReviewStatus(CData data, IEnumerable<string> imagePaths)
         {
-            SetImages(imagePaths);
+            lock (syncRoot)
+            {
+                SetImagesCore(imagePaths);
+            }
+
             string filePath = ResolveReviewStatusFilePath(data);
             if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
             {
@@ -157,25 +174,28 @@ namespace MvcVisionSystem.Yolo
                 List<PersistedReviewStatus> persistedItems = JsonConvert.DeserializeObject<List<PersistedReviewStatus>>(
                     File.ReadAllText(filePath)) ?? new List<PersistedReviewStatus>();
 
-                foreach (PersistedReviewStatus persisted in persistedItems)
+                lock (syncRoot)
                 {
-                    YoloImageReviewStatus status = FindByIdentity(persisted.ImagePath, persisted.ImageName);
-                    if (status == null)
+                    foreach (PersistedReviewStatus persisted in persistedItems)
                     {
-                        continue;
-                    }
+                        YoloImageReviewStatus status = FindByIdentity(persisted.ImagePath, persisted.ImageName);
+                        if (status == null)
+                        {
+                            continue;
+                        }
 
-                    if (!TryResolveReviewState(persisted, out YoloImageReviewState reviewState))
-                    {
-                        continue;
-                    }
+                        if (!TryResolveReviewState(persisted, out YoloImageReviewState reviewState))
+                        {
+                            continue;
+                        }
 
-                    status.DetectionCandidateCount = Math.Max(0, persisted.DetectionCandidateCount);
-                    status.DetectionAttemptCount = Math.Max(0, persisted.DetectionAttemptCount);
-                    status.LastDetectionMessage = persisted.LastDetectionMessage ?? string.Empty;
-                    status.ReviewState = reviewState;
-                    status.DetectionStatusOverride = string.Empty;
-                    status.LastUpdatedUtc = persisted.LastUpdatedUtc;
+                        status.DetectionCandidateCount = Math.Max(0, persisted.DetectionCandidateCount);
+                        status.DetectionAttemptCount = Math.Max(0, persisted.DetectionAttemptCount);
+                        status.LastDetectionMessage = persisted.LastDetectionMessage ?? string.Empty;
+                        status.ReviewState = reviewState;
+                        status.DetectionStatusOverride = string.Empty;
+                        status.LastUpdatedUtc = persisted.LastUpdatedUtc;
+                    }
                 }
             }
             catch
@@ -192,15 +212,10 @@ namespace MvcVisionSystem.Yolo
                 return;
             }
 
-            try
+            List<PersistedReviewStatus> persistedItems;
+            lock (syncRoot)
             {
-                string directory = Path.GetDirectoryName(filePath);
-                if (!string.IsNullOrWhiteSpace(directory))
-                {
-                    Directory.CreateDirectory(directory);
-                }
-
-                List<PersistedReviewStatus> persistedItems = statuses.Values
+                persistedItems = statuses.Values
                     .Where(status => status.ReviewState != YoloImageReviewState.Unreviewed)
                     .Select(status => new PersistedReviewStatus
                     {
@@ -215,6 +230,15 @@ namespace MvcVisionSystem.Yolo
                     })
                     .OrderBy(item => item.ImagePath, StringComparer.OrdinalIgnoreCase)
                     .ToList();
+            }
+
+            try
+            {
+                string directory = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrWhiteSpace(directory))
+                {
+                    Directory.CreateDirectory(directory);
+                }
 
                 string json = JsonConvert.SerializeObject(persistedItems, Formatting.Indented);
                 if (File.Exists(filePath)
@@ -233,6 +257,14 @@ namespace MvcVisionSystem.Yolo
 
         public YoloImageReviewStatus GetOrCreate(string imagePath)
         {
+            lock (syncRoot)
+            {
+                return GetOrCreateCore(imagePath);
+            }
+        }
+
+        private YoloImageReviewStatus GetOrCreateCore(string imagePath)
+        {
             if (string.IsNullOrWhiteSpace(imagePath))
             {
                 return null;
@@ -250,13 +282,56 @@ namespace MvcVisionSystem.Yolo
 
         public YoloImageReviewStatus RefreshLabelStatus(string imagePath, Size imageSize, CData data)
         {
-            YoloImageReviewStatus status = GetOrCreate(imagePath);
+            if (string.IsNullOrWhiteSpace(imagePath))
+            {
+                return null;
+            }
+
+            YoloImageLabelStatus labelStatus = YoloImageLabelStatusService.Build(imagePath, imageSize, data);
+            lock (syncRoot)
+            {
+                return ApplyLabelStatusCore(imagePath, labelStatus);
+            }
+        }
+
+        public YoloImageReviewStatus RefreshLabelStatusAndReviewState(
+            string imagePath,
+            Size imageSize,
+            CData data,
+            bool hasActiveCandidates)
+        {
+            if (string.IsNullOrWhiteSpace(imagePath))
+            {
+                return null;
+            }
+
+            YoloImageLabelStatus labelStatus = YoloImageLabelStatusService.Build(imagePath, imageSize, data);
+            lock (syncRoot)
+            {
+                YoloImageReviewStatus status = ApplyLabelStatusCore(imagePath, labelStatus);
+                if (status == null || hasActiveCandidates)
+                {
+                    return status;
+                }
+
+                if (status.IsLabeled)
+                {
+                    return SetReviewState(status.ImagePath, status.ImageName, YoloImageReviewState.Confirmed, 0, "Candidates confirmed.");
+                }
+
+                return SetDetectionCandidatesCore(status.ImagePath, status.ImageName, 0);
+            }
+        }
+
+        private YoloImageReviewStatus ApplyLabelStatusCore(string imagePath, YoloImageLabelStatus labelStatus)
+        {
+            YoloImageReviewStatus status = GetOrCreateCore(imagePath);
             if (status == null)
             {
                 return null;
             }
 
-            status.LabelStatus = YoloImageLabelStatusService.Build(imagePath, imageSize, data);
+            status.LabelStatus = labelStatus;
             if (status.LabelStatus?.HasObjects == true && status.ReviewState == YoloImageReviewState.Unreviewed)
             {
                 status.ReviewState = YoloImageReviewState.Confirmed;
@@ -270,39 +345,17 @@ namespace MvcVisionSystem.Yolo
             return status;
         }
 
-        public YoloImageReviewStatus RefreshLabelStatusAndReviewState(
-            string imagePath,
-            Size imageSize,
-            CData data,
-            bool hasActiveCandidates)
-        {
-            YoloImageReviewStatus status = RefreshLabelStatus(imagePath, imageSize, data);
-            if (status == null)
-            {
-                return null;
-            }
-
-            if (hasActiveCandidates)
-            {
-                return status;
-            }
-
-            if (status.IsLabeled)
-            {
-                return MarkConfirmed(status.ImagePath, status.ImageName);
-            }
-
-            return ClearDetectionStatus(status.ImagePath, status.ImageName);
-        }
-
         public YoloImageReviewStatus SetDetectionRequested(string imagePath)
         {
-            return SetDetectionStatus(imagePath, string.Empty, "Requested", "Detection requested.", countDetectionAttempt: true);
+            return SetDetectionRequested(imagePath, string.Empty);
         }
 
         public YoloImageReviewStatus SetDetectionRequested(string imagePath, string imageName)
         {
-            return SetDetectionStatus(imagePath, imageName, "Requested", "Detection requested.", countDetectionAttempt: true);
+            lock (syncRoot)
+            {
+                return SetDetectionStatus(imagePath, imageName, "Requested", "Detection requested.", countDetectionAttempt: true);
+            }
         }
 
         public YoloImageReviewStatus SetDetectionFailed(string imagePath)
@@ -312,40 +365,63 @@ namespace MvcVisionSystem.Yolo
 
         public YoloImageReviewStatus SetDetectionFailed(string imagePath, string imageName, string message)
         {
-            return SetDetectionStatus(imagePath, imageName, "Failed", message);
+            lock (syncRoot)
+            {
+                return SetDetectionStatus(imagePath, imageName, "Failed", message);
+            }
         }
 
         public YoloImageReviewStatus SetDetectionNoCandidates(string imagePath, string imageName)
         {
-            return SetDetectionStatus(imagePath, imageName, "No Candidate", "No candidates found.");
+            lock (syncRoot)
+            {
+                return SetDetectionStatus(imagePath, imageName, "No Candidate", "No candidates found.");
+            }
         }
 
         public YoloImageReviewStatus MarkConfirmed(string imagePath, string imageName = "")
         {
-            return SetReviewState(imagePath, imageName, YoloImageReviewState.Confirmed, 0, "Candidates confirmed.");
+            lock (syncRoot)
+            {
+                return SetReviewState(imagePath, imageName, YoloImageReviewState.Confirmed, 0, "Candidates confirmed.");
+            }
         }
 
         public YoloImageReviewStatus MarkSkipped(string imagePath, string imageName = "")
         {
-            return SetReviewState(imagePath, imageName, YoloImageReviewState.Skipped, 0, "Candidate skipped.");
+            lock (syncRoot)
+            {
+                return SetReviewState(imagePath, imageName, YoloImageReviewState.Skipped, 0, "Candidate skipped.");
+            }
         }
 
         public YoloImageReviewStatus ClearDetectionStatus(string imagePath)
         {
-            return SetDetectionCandidates(imagePath, string.Empty, 0);
+            return ClearDetectionStatus(imagePath, string.Empty);
         }
 
         public YoloImageReviewStatus ClearDetectionStatus(string imagePath, string imageName)
         {
-            return SetDetectionCandidates(imagePath, imageName, 0);
+            lock (syncRoot)
+            {
+                return SetDetectionCandidatesCore(imagePath, imageName, 0);
+            }
         }
 
         public YoloImageReviewStatus SetDetectionCandidates(string imagePath, string imageName, int candidateCount)
         {
+            lock (syncRoot)
+            {
+                return SetDetectionCandidatesCore(imagePath, imageName, candidateCount);
+            }
+        }
+
+        private YoloImageReviewStatus SetDetectionCandidatesCore(string imagePath, string imageName, int candidateCount)
+        {
             YoloImageReviewStatus status = FindByIdentity(imagePath, imageName);
             if (status == null && !string.IsNullOrWhiteSpace(imagePath))
             {
-                status = GetOrCreate(imagePath);
+                status = GetOrCreateCore(imagePath);
             }
 
             if (status == null)
@@ -367,7 +443,10 @@ namespace MvcVisionSystem.Yolo
 
         public int GetLabeledCount()
         {
-            return statuses.Values.Count(status => status.IsLabeled);
+            lock (syncRoot)
+            {
+                return statuses.Values.Count(status => status.IsLabeled);
+            }
         }
 
         public bool TryFindNextUnlabeled(IReadOnlyList<string> orderedImagePaths, string currentImagePath, out string nextImagePath)
@@ -384,15 +463,18 @@ namespace MvcVisionSystem.Yolo
                 startIndex = -1;
             }
 
-            for (int offset = 1; offset <= orderedImagePaths.Count; offset++)
+            lock (syncRoot)
             {
-                int index = (startIndex + offset) % orderedImagePaths.Count;
-                string imagePath = orderedImagePaths[index];
-                YoloImageReviewStatus status = GetOrCreate(imagePath);
-                if (status != null && !status.IsLabeled)
+                for (int offset = 1; offset <= orderedImagePaths.Count; offset++)
                 {
-                    nextImagePath = imagePath;
-                    return true;
+                    int index = (startIndex + offset) % orderedImagePaths.Count;
+                    string imagePath = orderedImagePaths[index];
+                    YoloImageReviewStatus status = GetOrCreateCore(imagePath);
+                    if (status != null && !status.IsLabeled)
+                    {
+                        nextImagePath = imagePath;
+                        return true;
+                    }
                 }
             }
 
@@ -423,7 +505,7 @@ namespace MvcVisionSystem.Yolo
             YoloImageReviewStatus status = FindByIdentity(imagePath, imageName);
             if (status == null && !string.IsNullOrWhiteSpace(imagePath))
             {
-                status = GetOrCreate(imagePath);
+                status = GetOrCreateCore(imagePath);
             }
 
             if (status == null)

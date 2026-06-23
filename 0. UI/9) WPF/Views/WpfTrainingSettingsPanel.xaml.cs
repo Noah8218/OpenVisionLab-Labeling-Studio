@@ -1,6 +1,4 @@
-using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Input;
 using WpfUiButton = Wpf.Ui.Controls.Button;
 
 namespace MvcVisionSystem
@@ -10,15 +8,9 @@ namespace MvcVisionSystem
         public WpfTrainingSettingsPanel()
         {
             InitializeComponent();
-            DataContext = ViewModel;
         }
 
-        public WpfTrainingSettingsPanelViewModel ViewModel { get; } = new WpfTrainingSettingsPanelViewModel();
-
-        public event RoutedEventHandler RefreshReadinessRequested;
-        public event RoutedEventHandler StartTrainingRequested;
-        public event RoutedEventHandler StopTrainingRequested;
-        public event TextCompositionEventHandler IntegerTextInputPreview;
+        public WpfTrainingSettingsPanelViewModel ViewModel => DataContext as WpfTrainingSettingsPanelViewModel;
 
         public Expander SettingsExpander => TrainingSettingsExpander;
         public TextBox ImageSizeBox => TrainingImageSizeBox;
@@ -37,10 +29,5 @@ namespace MvcVisionSystem
         public ProgressBar Progress => TrainingProgressBar;
         public TextBlock ProgressTextBlock => TrainingProgressText;
         public TextBlock EpochTextBlock => TrainingEpochText;
-
-        private void RefreshTrainingReadinessButton_Click(object sender, RoutedEventArgs e) => RefreshReadinessRequested?.Invoke(sender, e);
-        private void StartTrainingButton_Click(object sender, RoutedEventArgs e) => StartTrainingRequested?.Invoke(sender, e);
-        private void StopTrainingButton_Click(object sender, RoutedEventArgs e) => StopTrainingRequested?.Invoke(sender, e);
-        private void IntegerTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e) => IntegerTextInputPreview?.Invoke(sender, e);
     }
 }

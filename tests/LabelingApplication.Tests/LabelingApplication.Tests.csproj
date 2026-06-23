@@ -26,4 +26,8 @@
       <Private>True</Private>
     </Reference>
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\OpenVisionLab\Library\OpenVisionLab.Mvvm\OpenVisionLab.Mvvm.csproj" />
+  </ItemGroup>
 </Project>

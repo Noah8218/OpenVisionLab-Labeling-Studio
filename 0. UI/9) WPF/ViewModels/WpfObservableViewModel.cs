@@ -1,23 +1,9 @@
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Runtime.CompilerServices;
+using OpenVisionLab.Mvvm;
 
 namespace MvcVisionSystem
 {
-    public abstract class WpfObservableViewModel : INotifyPropertyChanged
+    // Compatibility shim: existing WPF view-models keep one base while shared MVVM logic lives in OpenVisionLab.Mvvm.
+    public abstract class WpfObservableViewModel : ObservableObject
     {
-        public event PropertyChangedEventHandler PropertyChanged;
-
-        protected bool SetProperty<T>(ref T field, T value, [CallerMemberName] string propertyName = null)
-        {
-            if (EqualityComparer<T>.Default.Equals(field, value))
-            {
-                return false;
-            }
-
-            field = value;
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
-            return true;
-        }
     }
 }

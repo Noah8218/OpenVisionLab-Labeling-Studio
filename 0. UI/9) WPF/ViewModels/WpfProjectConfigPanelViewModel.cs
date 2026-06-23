@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.Windows.Input;
+using OpenVisionLab.Mvvm;
 
 namespace MvcVisionSystem
 {
@@ -15,11 +17,45 @@ namespace MvcVisionSystem
         private bool isRefreshRecipeListEnabled = true;
         private bool isSaveProjectConfigEnabled;
         private bool isOpenProjectConfigFolderEnabled = true;
+        private ICommand applyRecipeCommand = new RelayCommand(NoOpCommand);
+        private ICommand refreshRecipeListCommand = new RelayCommand(NoOpCommand);
+        private ICommand saveProjectConfigCommand = new RelayCommand(NoOpCommand);
+        private ICommand openProjectConfigFolderCommand = new RelayCommand(NoOpCommand);
+        private ICommand recipeSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
 
         public string ViewName => nameof(WpfProjectConfigPanel);
 
         public ObservableCollection<string> RecipeNames { get; } = new ObservableCollection<string>();
 
+        public ICommand ApplyRecipeCommand
+        {
+            get => applyRecipeCommand;
+            private set => SetProperty(ref applyRecipeCommand, value);
+        }
+
+        public ICommand RefreshRecipeListCommand
+        {
+            get => refreshRecipeListCommand;
+            private set => SetProperty(ref refreshRecipeListCommand, value);
+        }
+
+        public ICommand SaveProjectConfigCommand
+        {
+            get => saveProjectConfigCommand;
+            private set => SetProperty(ref saveProjectConfigCommand, value);
+        }
+
+        public ICommand OpenProjectConfigFolderCommand
+        {
+            get => openProjectConfigFolderCommand;
+            private set => SetProperty(ref openProjectConfigFolderCommand, value);
+        }
+
+        public ICommand RecipeSelectionChangedCommand
+        {
+            get => recipeSelectionChangedCommand;
+            private set => SetProperty(ref recipeSelectionChangedCommand, value);
+        }
         public string RecipeName
         {
             get => recipeName;
@@ -74,6 +110,20 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isOpenProjectConfigFolderEnabled, value);
         }
 
+        public void ConfigureCommands(
+            Action applyRecipe,
+            Action refreshRecipeList,
+            Action saveProjectConfig,
+            Action openProjectConfigFolder,
+            Action<object> recipeSelectionChanged)
+        {
+            // Recipe selection passes the selected value instead of WPF EventArgs so the ViewModel remains reusable.
+            ApplyRecipeCommand = new RelayCommand(applyRecipe ?? NoOpCommand);
+            RefreshRecipeListCommand = new RelayCommand(refreshRecipeList ?? NoOpCommand);
+            SaveProjectConfigCommand = new RelayCommand(saveProjectConfig ?? NoOpCommand);
+            OpenProjectConfigFolderCommand = new RelayCommand(openProjectConfigFolder ?? NoOpCommand);
+            RecipeSelectionChangedCommand = new RelayCommand<object>(recipeSelectionChanged ?? NoOpSelectionCommand);
+        }
         public void LoadFrom(string currentRecipeName, string rootPath)
         {
             recipeRootPath = rootPath ?? string.Empty;
@@ -120,6 +170,14 @@ namespace MvcVisionSystem
             IsRefreshRecipeListEnabled = canRunGeneralCommands;
             IsSaveProjectConfigEnabled = state?.CanSaveProjectConfig == true;
             IsOpenProjectConfigFolderEnabled = canRunGeneralCommands;
+        }
+
+        private static void NoOpCommand()
+        {
+        }
+
+        private static void NoOpSelectionCommand(object selectedItem)
+        {
         }
     }
 }

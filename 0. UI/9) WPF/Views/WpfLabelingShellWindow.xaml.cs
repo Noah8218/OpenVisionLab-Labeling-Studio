@@ -1,12 +1,13 @@
 using Lib.Common;
 using MahApps.Metro.IconPacks;
-using Microsoft.Win32;
 using MvcVisionSystem._1._Core;
 using MvcVisionSystem._3._Communication.TCP;
 using MvcVisionSystem.DrawObject;
 using MvcVisionSystem.Yolo;
 using OpenVisionLab.ImageCanvas.Views;
 using OpenVisionLab.ImageCanvas.ViewModels;
+using OpenVisionLab.Mvvm;
+using OpenVisionLab.Mvvm.Behaviors;
 using OpenVisionLab.ImageCanvas.Canvas;
 using OpenVisionLab.ImageCanvas.CanvasShapes;
 using OpenVisionLab.Logging;
@@ -28,7 +29,6 @@ using System.Windows.Input;
 using System.Windows.Threading;
 using CvMat = OpenCvSharp.Mat;
 using DrawingBitmap = System.Drawing.Bitmap;
-using DrawingPixelFormat = System.Drawing.Imaging.PixelFormat;
 using DrawingRectangle = System.Drawing.Rectangle;
 using DrawingRectangleF = System.Drawing.RectangleF;
 using DrawingSize = System.Drawing.Size;
@@ -46,30 +46,23 @@ namespace MvcVisionSystem
 {
     public partial class WpfLabelingShellWindow : WpfUiFluentWindow
     {
-        private static readonly string[] ImageExtensions = { ".bmp", ".gif", ".jpg", ".jpeg", ".png", ".tif", ".tiff" };
         private const string TutorialHtmlGuideRelativePath = @"docs\tutorial\labeling-workbench-tutorial.html";
         private const int BatchReviewStatusSaveInterval = 10;
-        private const int ImageDecodeCacheCapacity = 8;
-        private const long ImageDecodeCacheMaxPixels = 4L * 1024L * 1024L;
-        private const long ImageDecodeCacheMaxBytes = 64L * 1024L * 1024L;
-        private const int TrainingGuideRunHistoryLimit = 8;
         private const int TrainingStatusPollTimeoutSeconds = 600;
         private const int AnnotationHistoryLimit = 50;
         private const int ObjectReviewFullRefreshDeleteLimit = 10_000;
         private readonly CGlobal global = CGlobal.Inst;
         private readonly ObservableCollection<WpfImageQueueItem> imageQueueItems = new ObservableCollection<WpfImageQueueItem>();
         private readonly YoloImageReviewStatusService imageReviewStatus = new YoloImageReviewStatusService();
-        private readonly object imageDecodeCacheLock = new object();
-        private readonly Dictionary<string, CachedDecodedImage> imageDecodeCache = new Dictionary<string, CachedDecodedImage>(StringComparer.OrdinalIgnoreCase);
-        private readonly LinkedList<string> imageDecodeCacheOrder = new LinkedList<string>();
-        private long imageDecodeCacheBytes;
-        private long imageDecodeCacheHits;
-        private long imageDecodeCacheMisses;
-        private long imageDecodeCacheStores;
-        private long imageDecodeCacheEvictions;
-        private ImageLoadDiagnostics lastImageLoadDiagnostics = ImageLoadDiagnostics.Empty;
+        private int queuedActiveImageQueueStatusRefreshVersion;
+        private readonly WpfImageQueueSelectionService imageQueueSelectionService = new WpfImageQueueSelectionService();
+        private readonly WpfImageDecodeCacheService imageDecodeCacheService = new WpfImageDecodeCacheService();
+        private readonly WpfImageDecodeService imageDecodeService = new WpfImageDecodeService();
+        private readonly WpfImageDecodePreloadService imageDecodePreloadService = new WpfImageDecodePreloadService();
+        private WpfImageLoadDiagnostics lastImageLoadDiagnostics = WpfImageLoadDiagnostics.Empty;
         private ICollectionView imageQueueView;
         private CancellationTokenSource imageQueueDetailLoadCts;
+        private Task imageQueueDetailLoadTask = Task.CompletedTask;
         private CancellationTokenSource batchDetectionCts;
         private DrawingBitmap activeImageBitmap;
         private string activeImagePath = string.Empty;
@@ -84,43 +77,43 @@ namespace MvcVisionSystem
         private readonly WpfMaskAnnotationService maskAnnotationService = new WpfMaskAnnotationService();
         private readonly List<WpfAnnotationHistorySnapshot> undoAnnotationHistory = new List<WpfAnnotationHistorySnapshot>();
         private readonly List<WpfAnnotationHistorySnapshot> redoAnnotationHistory = new List<WpfAnnotationHistorySnapshot>();
-        private readonly List<YoloWorkerSmokeCandidate> pendingDetectionCandidates = new List<YoloWorkerSmokeCandidate>();
-        private readonly List<YoloWorkerSmokeCandidate> confirmedDetectionCandidates = new List<YoloWorkerSmokeCandidate>();
+        private readonly WpfCandidateReviewStateService candidateReviewState = new WpfCandidateReviewStateService();
+        private readonly WpfCandidateReviewPresentationService candidateReviewPresentationService = new WpfCandidateReviewPresentationService();
+        private readonly WpfCandidateConfirmationService candidateConfirmationService = new WpfCandidateConfirmationService();
+        private readonly WpfDetectionResultPresentationService detectionResultPresentationService = new WpfDetectionResultPresentationService();
+        private readonly WpfDetectionTargetService detectionTargetService = new WpfDetectionTargetService();
+        private readonly WpfBatchDetectionProgressService batchDetectionProgressService = new WpfBatchDetectionProgressService();
+        private readonly WpfImageLoadPresentationService imageLoadPresentationService = new WpfImageLoadPresentationService();
+        private readonly WpfObjectReviewPresentationService objectReviewPresentationService = new WpfObjectReviewPresentationService();
+        private readonly WpfFileDialogService fileDialogService = new WpfFileDialogService();
+        private readonly WpfTrainingWeightsService trainingWeightsService = new WpfTrainingWeightsService();
+        private readonly WpfTrainingGuideHistoryService trainingGuideHistoryService = new WpfTrainingGuideHistoryService();
         private bool suppressImageQueueSelection;
         private bool isDetecting;
         private bool isBatchDetectionRunning;
         private bool isYoloEnvironmentCommandRunning;
         private bool isTrainingCommandRunning;
-        private bool imageQueuePanelEventsAttached;
-        private bool canvasPanelEventsAttached;
-        private bool learningWorkflowPanelEventsAttached;
-        private bool objectReviewPanelEventsAttached;
-        private bool suppressObjectReviewSelectionChanged;
-        private bool candidateReviewPanelEventsAttached;
-        private bool classCatalogPanelEventsAttached;
-        private bool yoloStatusPanelEventsAttached;
-        private bool projectConfigPanelEventsAttached;
         private bool suppressProjectRecipeSelection;
-        private bool yoloModelSettingsPanelEventsAttached;
-        private bool trainingSettingsPanelEventsAttached;
         private int batchDetectionTotalCount;
         private int batchDetectionCompletedCount;
         private readonly Stopwatch inferenceStatusPulseStopwatch = new Stopwatch();
         private readonly DispatcherTimer inferenceStatusPulseTimer;
         private readonly DispatcherTimer trainingStatusPollTimer;
         private DateTime trainingStatusPollStartedUtc = DateTime.MinValue;
-        private int imageDecodePreloadVersion;
         private string lastAutoAppliedTrainingWeightsPath = string.Empty;
         private bool hasPendingTrainingWeightsRecipeSave;
         private YoloDatasetReadinessReport lastYoloTrainingReadinessReport;
         private string lastRecordedTrainingGuideRunSignature = string.Empty;
-        private Task imageDecodePreloadTask = Task.CompletedTask;
         private ShellTheme currentTheme = ShellTheme.Dark;
         private WorkflowMode currentWorkflowMode = WorkflowMode.Labeling;
         private WpfAnnotationTool activeAnnotationTool = WpfAnnotationTool.Select;
+        private bool applyingAnnotationToolSelection;
         private System.Drawing.Point? lastMaskStrokePoint;
         private WpfAnnotationHistorySnapshot activeMaskStrokeSnapshot;
+        private readonly HashSet<int> activeMaskStrokeSegmentIndices = new HashSet<int>();
+        private readonly WpfMaskStrokeCommitSession activeMaskStrokeCommitSession = new WpfMaskStrokeCommitSession();
         private bool activeMaskStrokeChanged;
+        private bool activeMaskStrokeNeedsFullObjectRefresh;
         private int activeSegmentDragIndex = -1;
         private int activePolygonPointDragIndex = -1;
         private System.Drawing.Point? lastSegmentDragPoint;
@@ -129,11 +122,26 @@ namespace MvcVisionSystem
         private bool suppressAnnotationHistory;
         private string annotationDirtyReason = string.Empty;
         private string activeRoiEditHistoryOverlayId = string.Empty;
+        private readonly WpfLabelingShellViewModels viewModels;
 
         public WpfLabelingShellWindow()
+            : this(new WpfLabelingShellViewModels())
         {
+        }
+
+        private void SeedImageQueueInputCommands()
+        {
+            // The shell is the composition root; seed behavior commands so pre-Loaded queue selection uses the same path as real clicks.
+            InputCommandBehaviors.SetSelectedItemChangedCommand(ImageQueueFilterBox, ImageQueueViewModel.FilterSelectionChangedCommand);
+            InputCommandBehaviors.SetTextInputCommand(ImageQueueSearchBox, ImageQueueViewModel.SearchTextChangedCommand);
+            InputCommandBehaviors.SetSelectedItemChangedCommand(ImageQueueGrid, ImageQueueViewModel.QueueSelectionChangedCommand);
+            InputCommandBehaviors.SetMouseDoubleClickInputCommand(ImageQueueGrid, ImageQueueViewModel.QueueMouseDoubleClickCommand);
+        }
+
+        internal WpfLabelingShellWindow(WpfLabelingShellViewModels viewModels)
+        {
+            this.viewModels = viewModels ?? throw new ArgumentNullException(nameof(viewModels));
             InitializeComponent();
-            PreviewKeyDown += WpfLabelingShellWindow_PreviewKeyDown;
             inferenceStatusPulseTimer = new DispatcherTimer(DispatcherPriority.Render, Dispatcher)
             {
                 Interval = TimeSpan.FromMilliseconds(33)
@@ -144,7 +152,9 @@ namespace MvcVisionSystem
                 Interval = TimeSpan.FromMilliseconds(800)
             };
             trainingStatusPollTimer.Tick += TrainingStatusPollTimer_Tick;
-            DataContext = ShellViewModel;
+            DataContext = viewModels;
+            ComposePanelViewModels();
+            ConfigureShellCommands();
             RegisterLearningWorkflowPanelNames();
             RegisterImageQueuePanelNames();
             RegisterCanvasPanelNames();
@@ -158,7 +168,6 @@ namespace MvcVisionSystem
             RegisterStatusBarPanelNames();
             RegisterShellLogPanelNames();
             ApplyTheme(ShellTheme.Dark);
-            MainCanvasViewModel = new RoiImageCanvasViewModel("Main");
             ConfigureLabelingCanvasDefaults();
             MainCanvasViewModel.RoiAdded += MainCanvasViewModel_RoiAdded;
             MainCanvasViewModel.RoiEditingCompleted += MainCanvasViewModel_RoiEditingCompleted;
@@ -182,9 +191,10 @@ namespace MvcVisionSystem
             RefreshAnnotationHistoryToolState();
         }
 
-        private void WpfLabelingShellWindow_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void ExecuteShellPreviewKeyDownCommand(KeyInputCommandArgs e)
         {
-            if ((Keyboard.Modifiers & ModifierKeys.Control) != ModifierKeys.Control
+            if (e == null
+                || (e.Modifiers & ModifierKeys.Control) != ModifierKeys.Control
                 || IsTextEditingElement(e.OriginalSource))
             {
                 return;
@@ -209,11 +219,69 @@ namespace MvcVisionSystem
                 || source is System.Windows.Controls.Primitives.TextBoxBase;
         }
 
-        public WpfLabelingShellViewModel ShellViewModel { get; } = new WpfLabelingShellViewModel();
+        public WpfLabelingShellViewModel ShellViewModel => viewModels.ShellViewModel;
 
-        public RoiImageCanvasViewModel MainCanvasViewModel { get; }
+        public WpfLearningWorkflowPanelViewModel LearningWorkflowViewModel => viewModels.LearningWorkflowViewModel;
 
+        public WpfImageQueuePanelViewModel ImageQueueViewModel => viewModels.ImageQueueViewModel;
+
+        public WpfCanvasPanelViewModel CanvasPanelViewModel => viewModels.CanvasPanelViewModel;
+
+        public WpfObjectReviewPanelViewModel ObjectReviewViewModel => viewModels.ObjectReviewViewModel;
+
+        public WpfCandidateReviewPanelViewModel CandidateReviewViewModel => viewModels.CandidateReviewViewModel;
+
+        public WpfClassCatalogPanelViewModel ClassCatalogViewModel => viewModels.ClassCatalogViewModel;
+
+        public WpfYoloStatusPanelViewModel YoloStatusViewModel => viewModels.YoloStatusViewModel;
+
+        public WpfProjectConfigPanelViewModel ProjectConfigViewModel => viewModels.ProjectConfigViewModel;
+
+        public WpfYoloModelSettingsPanelViewModel YoloModelSettingsViewModel => viewModels.YoloModelSettingsViewModel;
+
+        public WpfTrainingSettingsPanelViewModel TrainingSettingsViewModel => viewModels.TrainingSettingsViewModel;
+
+        public WpfStatusBarPanelViewModel StatusBarViewModel => viewModels.StatusBarViewModel;
+
+        public WpfShellLogPanelViewModel ShellLogViewModel => viewModels.ShellLogViewModel;
+
+        public RoiImageCanvasViewModel MainCanvasViewModel => viewModels.MainCanvasViewModel;
         public ObservableCollection<WpfImageQueueItem> ImageQueueItems => imageQueueItems;
+
+        private IReadOnlyList<YoloWorkerSmokeCandidate> pendingDetectionCandidates => candidateReviewState.PendingCandidates;
+
+        private IReadOnlyList<YoloWorkerSmokeCandidate> confirmedDetectionCandidates => candidateReviewState.ConfirmedCandidates;
+
+        private void ComposePanelViewModels()
+        {
+            // Keep ViewModels out of UserControls; the shell composes data contexts so each View can be constructed standalone.
+            LearningWorkflowPanelControl.DataContext = LearningWorkflowViewModel;
+            ImageQueuePanelControl.DataContext = ImageQueueViewModel;
+            CanvasPanelControl.DataContext = CanvasPanelViewModel;
+            ObjectReviewPanelControl.DataContext = ObjectReviewViewModel;
+            CandidateReviewPanelControl.DataContext = CandidateReviewViewModel;
+            ClassCatalogPanelControl.DataContext = ClassCatalogViewModel;
+            YoloStatusPanelControl.DataContext = YoloStatusViewModel;
+            ProjectConfigPanelControl.DataContext = ProjectConfigViewModel;
+            YoloModelSettingsPanelControl.DataContext = YoloModelSettingsViewModel;
+            TrainingSettingsPanelControl.DataContext = TrainingSettingsViewModel;
+            StatusBarPanelControl.DataContext = StatusBarViewModel;
+            ShellLogPanelControl.DataContext = ShellLogViewModel;
+        }
+
+        private static void RefreshAttachedCommandBindings(DependencyObject target, params DependencyProperty[] properties)
+        {
+            if (target == null || properties == null)
+            {
+                return;
+            }
+
+            // Command ViewModels are injected after InitializeComponent; refresh attached-event bindings before the first user input.
+            foreach (DependencyProperty property in properties)
+            {
+                BindingOperations.GetBindingExpression(target, property)?.UpdateTarget();
+            }
+        }
 
         private void ConfigureLabelingCanvasDefaults()
         {
@@ -318,12 +386,13 @@ namespace MvcVisionSystem
                 return;
             }
 
-            RegisterAnnotationHistoryBeforeChange("Remove ROI");
+            PushAnnotationHistorySnapshot(CaptureManualRoiHistory("Remove ROI"));
             manualRois.RemoveAt(index);
             RemoveAtIfPresent(manualRoiClassNames, index);
             RemoveAtIfPresent(manualRoiShapeKinds, index);
             RemoveAtIfPresent(manualRoiOverlayIds, index);
-            RefreshObjectList();
+            // Canvas ViewModel owns the OpenGL overlay removal after this event; the shell only updates model/review state here.
+            RefreshObjectReviewAfterDelete(WpfObjectReviewSource.ManualRoi, index);
             QueueActiveImageQueueStatusRefresh(hasActiveCandidates: pendingDetectionCandidates.Count > 0);
         }
 
@@ -456,6 +525,8 @@ namespace MvcVisionSystem
 
         private void BeginMaskAnnotationMode(WpfAnnotationTool tool)
         {
+            // Tool changes should not drop a GPU-previewed brush stroke before MouseUp.
+            CompleteMaskAnnotationStroke();
             SetWorkflowMode(WorkflowMode.Labeling);
             activeAnnotationTool = tool;
             MainCanvasViewModel.IsTeachingMode = false;
@@ -464,7 +535,11 @@ namespace MvcVisionSystem
             polygonAnnotationService.Reset();
             lastMaskStrokePoint = null;
             activeMaskStrokeSnapshot = null;
+            activeMaskStrokeSegmentIndices.Clear();
+            ResetMaskStrokeCommitBuffer();
             activeMaskStrokeChanged = false;
+            activeMaskStrokeNeedsFullObjectRefresh = false;
+            MainCanvasViewModel?.ClearMaskStrokePreview(refresh: false);
             RefreshPolygonOverlays();
 
             string toolName = tool == WpfAnnotationTool.Eraser ? "eraser" : "brush";
@@ -479,6 +554,7 @@ namespace MvcVisionSystem
             CompleteMaskAnnotationStroke();
             lastMaskStrokePoint = null;
             MainCanvasViewModel?.ClearBrushCursorPreview();
+            MainCanvasViewModel?.ClearMaskStrokePreview();
             if (activeAnnotationTool == WpfAnnotationTool.Brush || activeAnnotationTool == WpfAnnotationTool.Eraser)
             {
                 activeAnnotationTool = WpfAnnotationTool.Select;
@@ -639,6 +715,7 @@ namespace MvcVisionSystem
             {
                 CompleteMaskAnnotationStroke();
                 lastMaskStrokePoint = null;
+                MainCanvasViewModel?.ClearMaskStrokePreview();
                 SetYoloCommandStatus("Mask stroke reset. Drag again to continue editing.", isBusy: false);
                 return;
             }
@@ -663,59 +740,168 @@ namespace MvcVisionSystem
 
             if (activeMaskStrokeSnapshot == null)
             {
-                // Brush/eraser MouseMove can fire hundreds of times in one stroke.
-                // Capture the undo state once and commit side-list updates on mouse-up.
+                // Match the old Viewer2D brush flow: MouseMove only feeds the GPU/FBO
+                // edit preview, while CPU MaskData and object rows are committed once on MouseUp.
                 activeMaskStrokeSnapshot = CaptureAnnotationHistory(actionName);
+                activeMaskStrokeSegmentIndices.Clear();
                 activeMaskStrokeChanged = false;
+                activeMaskStrokeNeedsFullObjectRefresh = false;
+                activeMaskStrokeCommitSession.Begin(
+                    radius,
+                    activeAnnotationTool,
+                    FirstNonEmpty(GetSelectedClassName(), "Defect"));
+                MainCanvasViewModel?.BeginMaskStrokePreview(
+                    activeImageSize,
+                    GetMaskCursorPreviewColor(activeAnnotationTool == WpfAnnotationTool.Eraser),
+                    activeAnnotationTool == WpfAnnotationTool.Eraser);
             }
 
-            bool changed;
-            if (activeAnnotationTool == WpfAnnotationTool.Brush)
-            {
-                CClassItem classItem = EnsureClassItem(FirstNonEmpty(GetSelectedClassName(), "Defect"));
-                changed = maskAnnotationService.Paint(
-                    manualSegments,
-                    centers,
-                    radius,
-                    activeImageSize,
-                    classItem,
-                    out _,
-                    out _);
-            }
-            else
-            {
-                changed = maskAnnotationService.Erase(
-                    manualSegments,
-                    centers,
-                    radius,
-                    activeImageSize,
-                    out _);
-            }
-
-            if (!changed)
+            IReadOnlyList<System.Drawing.Point> previewCenters = AppendMaskStrokeCommitCenters(centers);
+            if (previewCenters.Count == 0)
             {
                 return;
             }
 
-            activeMaskStrokeChanged = true;
-            RefreshPolygonOverlays();
-            string action = activeAnnotationTool == WpfAnnotationTool.Brush ? "Mask painted" : "Mask erased";
-            SetModelStatus($"{action}: editing {manualSegments.Count} segment object(s)");
+            MainCanvasViewModel?.AddMaskStrokePreview(
+                previewCenters,
+                radius,
+                GetMaskCursorPreviewColor(activeAnnotationTool == WpfAnnotationTool.Eraser),
+                activeAnnotationTool == WpfAnnotationTool.Eraser);
+            string action = activeAnnotationTool == WpfAnnotationTool.Brush ? "Mask paint preview" : "Mask erase preview";
+            SetModelStatus($"{action}: {activeMaskStrokeCommitSession.Count} stroke point(s)");
         }
 
         private void CompleteMaskAnnotationStroke()
         {
-            if (activeMaskStrokeSnapshot != null && activeMaskStrokeChanged)
+            bool strokeWasActive = activeMaskStrokeSnapshot != null;
+            bool commitChangedStroke = strokeWasActive && CommitMaskAnnotationStrokeCenters();
+            if (commitChangedStroke)
             {
                 PushAnnotationHistorySnapshot(activeMaskStrokeSnapshot);
-                RefreshObjectList();
+                if (!TryRefreshMaskStrokeObjectReviewRows())
+                {
+                    RefreshObjectList();
+                }
+
                 ObjectsReviewTab.IsSelected = true;
                 SetModelStatus($"Mask edit committed: {manualSegments.Count} segment object(s)");
                 RefreshActiveImageQueueStatus(hasActiveCandidates: pendingDetectionCandidates.Count > 0);
+                MainCanvasViewModel?.ClearMaskStrokePreview(refresh: false);
+                // Existing mask edits keep the OpenGL texture/cache path hot; new or removed masks still need a full rebuild.
+                if (!TryRefreshMaskStrokeCanvasOverlays())
+                {
+                    RefreshPolygonOverlays();
+                }
+            }
+            else
+            {
+                MainCanvasViewModel?.ClearMaskStrokePreview();
             }
 
             activeMaskStrokeSnapshot = null;
+            activeMaskStrokeSegmentIndices.Clear();
+            ResetMaskStrokeCommitBuffer();
             activeMaskStrokeChanged = false;
+            activeMaskStrokeNeedsFullObjectRefresh = false;
+        }
+
+        private IReadOnlyList<System.Drawing.Point> AppendMaskStrokeCommitCenters(IEnumerable<System.Drawing.Point> centers)
+            => activeMaskStrokeCommitSession.Append(centers, activeImageSize);
+
+        private bool CommitMaskAnnotationStrokeCenters()
+        {
+            if (activeMaskStrokeCommitSession.Count == 0)
+            {
+                return false;
+            }
+
+            int radius = activeMaskStrokeCommitSession.Radius > 0 ? activeMaskStrokeCommitSession.Radius : GetMaskBrushRadius();
+            bool changed;
+            if (activeMaskStrokeCommitSession.Tool == WpfAnnotationTool.Brush)
+            {
+                CClassItem classItem = EnsureClassItem(FirstNonEmpty(activeMaskStrokeCommitSession.ClassName, GetSelectedClassName(), "Defect"));
+                int segmentCountBeforePaint = manualSegments.Count;
+                changed = maskAnnotationService.Paint(
+                    manualSegments,
+                    activeMaskStrokeCommitSession.Centers,
+                    radius,
+                    activeImageSize,
+                    classItem,
+                    out LabelingSegmentationObject changedSegment,
+                    out _);
+                TrackMaskStrokeSegment(changedSegment);
+            }
+            else if (activeMaskStrokeCommitSession.Tool == WpfAnnotationTool.Eraser)
+            {
+                int segmentCountBeforeErase = manualSegments.Count;
+                changed = maskAnnotationService.Erase(
+                    manualSegments,
+                    activeMaskStrokeCommitSession.Centers,
+                    radius,
+                    activeImageSize,
+                    out _,
+                    out IReadOnlyList<LabelingSegmentationObject> changedSegments);
+                TrackMaskStrokeSegments(changedSegments);
+                activeMaskStrokeNeedsFullObjectRefresh |= manualSegments.Count != segmentCountBeforeErase;
+            }
+            else
+            {
+                changed = false;
+            }
+
+            activeMaskStrokeChanged = changed;
+            return changed;
+        }
+
+        private void ResetMaskStrokeCommitBuffer()
+            => activeMaskStrokeCommitSession.Reset();
+
+        private void TrackMaskStrokeSegment(LabelingSegmentationObject segment)
+        {
+            if (segment == null)
+            {
+                return;
+            }
+
+            int index = manualSegments.IndexOf(segment);
+            if (index >= 0)
+            {
+                activeMaskStrokeSegmentIndices.Add(index);
+                return;
+            }
+
+            activeMaskStrokeNeedsFullObjectRefresh = true;
+        }
+
+        private void TrackMaskStrokeSegments(IEnumerable<LabelingSegmentationObject> segments)
+        {
+            foreach (LabelingSegmentationObject segment in segments ?? Array.Empty<LabelingSegmentationObject>())
+            {
+                TrackMaskStrokeSegment(segment);
+            }
+        }
+
+        private bool TryRefreshMaskStrokeObjectReviewRows()
+        {
+            if (activeMaskStrokeNeedsFullObjectRefresh
+                || activeMaskStrokeSegmentIndices.Count == 0
+                || ObjectReviewViewModel == null)
+            {
+                return false;
+            }
+
+            string summary = WpfObjectReviewPresenter.BuildSummary(
+                manualRois.Count + manualSegments.Count + confirmedDetectionCandidates.Count);
+            bool selectChangedMask = activeMaskStrokeSegmentIndices.Count == 1;
+            foreach (int segmentIndex in activeMaskStrokeSegmentIndices.OrderBy(index => index))
+            {
+                if (!TryRefreshManualSegmentObjectReviewRow(segmentIndex, summary, selectChangedMask))
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private int GetMaskBrushRadius()
@@ -786,28 +972,9 @@ namespace MvcVisionSystem
                     && selectedSourceIndex == i;
                 if (segment.IsRasterMask)
                 {
-                    if (segment.MaskData == null || segment.MaskSize.IsEmpty || segment.Bounds.IsEmpty)
+                    if (TryBuildManualMaskOverlay(i, selectedSourceKey, selectedSourceIndex, maskOpacity, out RoiImageCanvasMaskOverlay maskOverlay))
                     {
-                        continue;
-                    }
-
-                    DrawingRectangle maskBounds = DrawingRectangle.Intersect(
-                        segment.Bounds,
-                        new DrawingRectangle(0, 0, segment.MaskSize.Width, segment.MaskSize.Height));
-                    if (!maskBounds.IsEmpty)
-                    {
-                        int displayIndex = manualRois.Count + i + 1;
-                        maskOverlays.Add(new RoiImageCanvasMaskOverlay(
-                            $"{activeImagePath}|mask|{i}",
-                            segment.MaskData,
-                            segment.MaskSize,
-                            maskBounds,
-                            segment.Color,
-                            maskOpacity,
-                            segment.RenderVersion,
-                            isSegmentSelected,
-                            $"MASK {displayIndex} {className}",
-                            segment.RenderDirtyBounds));
+                        maskOverlays.Add(maskOverlay);
                     }
 
                     continue;
@@ -839,6 +1006,91 @@ namespace MvcVisionSystem
             }
 
             MainCanvasViewModel.SetSegmentationOverlays(overlays, maskOverlays);
+        }
+
+        private bool TryRefreshMaskStrokeCanvasOverlays()
+        {
+            if (activeMaskStrokeNeedsFullObjectRefresh
+                || activeMaskStrokeSegmentIndices.Count == 0
+                || MainCanvasViewModel == null)
+            {
+                return false;
+            }
+
+            float maskOpacity = (float)(LearningWorkflowViewModel?.MaskOpacity ?? 0.66);
+            WpfObjectReviewListItem selectedObject = ObjectReviewViewModel?.SelectedObject;
+            string selectedSourceKey = selectedObject?.SourceKey ?? string.Empty;
+            int selectedSourceIndex = selectedObject?.SourceIndex ?? -1;
+            foreach (int segmentIndex in activeMaskStrokeSegmentIndices.OrderBy(index => index))
+            {
+                if (!TryBuildManualMaskOverlay(segmentIndex, selectedSourceKey, selectedSourceIndex, maskOpacity, out RoiImageCanvasMaskOverlay maskOverlay)
+                    || !MainCanvasViewModel.TryUpdateMaskOverlay(maskOverlay))
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+        private bool TryBuildManualMaskOverlay(
+            int segmentIndex,
+            string selectedSourceKey,
+            int selectedSourceIndex,
+            float maskOpacity,
+            out RoiImageCanvasMaskOverlay overlay)
+        {
+            overlay = null;
+            if (segmentIndex < 0 || segmentIndex >= manualSegments.Count)
+            {
+                return false;
+            }
+
+            LabelingSegmentationObject segment = manualSegments[segmentIndex];
+            if (segment?.IsRasterMask != true || segment.MaskData == null || segment.MaskSize.IsEmpty || segment.Bounds.IsEmpty)
+            {
+                return false;
+            }
+
+            DrawingRectangle maskBounds = DrawingRectangle.Intersect(
+                segment.Bounds,
+                new DrawingRectangle(0, 0, segment.MaskSize.Width, segment.MaskSize.Height));
+            if (maskBounds.IsEmpty)
+            {
+                return false;
+            }
+
+            string className = FirstNonEmpty(segment.ClassName, segment.ClassItem?.Text, "Defect");
+            bool isSegmentSelected = string.Equals(
+                selectedSourceKey,
+                WpfObjectReviewSource.ManualSegment.ToString(),
+                StringComparison.OrdinalIgnoreCase)
+                && selectedSourceIndex == segmentIndex;
+            int displayIndex = manualRois.Count + segmentIndex + 1;
+            overlay = new RoiImageCanvasMaskOverlay(
+                $"{activeImagePath}|mask|{segmentIndex}",
+                segment.MaskData,
+                segment.MaskSize,
+                maskBounds,
+                segment.Color,
+                maskOpacity,
+                segment.RenderVersion,
+                isSegmentSelected,
+                $"MASK {displayIndex} {className}",
+                segment.RenderDirtyBounds,
+                (uploadedVersion, uploadedBounds) => ClearMaskRenderDirtyBounds(segment, uploadedVersion, uploadedBounds));
+            return true;
+        }
+        private static void ClearMaskRenderDirtyBounds(LabelingSegmentationObject segment, int uploadedVersion, DrawingRectangle uploadedBounds)
+        {
+            if (segment == null || uploadedBounds.IsEmpty || segment.RenderVersion != uploadedVersion)
+            {
+                return;
+            }
+
+            // The OpenGL texture has consumed this exact render version. Keep newer
+            // stroke dirt intact so a fast MouseMove cannot clear work not uploaded yet.
+            segment.RenderDirtyBounds = DrawingRectangle.Empty;
         }
 
         private static string FormatSegmentBoundsCompact(LabelingSegmentationObject segment)
@@ -888,6 +1140,15 @@ namespace MvcVisionSystem
                 manualSegments,
                 pendingDetectionCandidates,
                 confirmedDetectionCandidates);
+        }
+
+        private WpfAnnotationHistorySnapshot CaptureManualRoiHistory(string actionName)
+        {
+            return WpfAnnotationHistoryService.CaptureManualRoiList(
+                actionName,
+                manualRois,
+                manualRoiClassNames,
+                manualRoiShapeKinds);
         }
 
         private void RegisterAnnotationHistoryBeforeChange(string actionName, bool markDirty = true)
@@ -986,6 +1247,16 @@ namespace MvcVisionSystem
             return true;
         }
 
+        private void ExecuteUndoAnnotationCommand()
+        {
+            UndoWpfAnnotationHistory();
+        }
+
+        private void ExecuteRedoAnnotationCommand()
+        {
+            RedoWpfAnnotationHistory();
+        }
+
         private bool RedoWpfAnnotationHistory()
         {
             if (redoAnnotationHistory.Count == 0)
@@ -1022,8 +1293,8 @@ namespace MvcVisionSystem
                     manualRoiShapeKinds,
                     manualRoiOverlayIds,
                     manualSegments,
-                    pendingDetectionCandidates,
-                    confirmedDetectionCandidates);
+                    candidateReviewState.MutablePendingCandidates,
+                    candidateReviewState.MutableConfirmedCandidates);
 
                 activeRoiEditHistoryOverlayId = string.Empty;
                 polygonAnnotationService.Reset();
@@ -1065,34 +1336,13 @@ namespace MvcVisionSystem
         }
 
         private int FindManualRoiIndexByOverlayId(string overlayId)
-        {
-            if (string.IsNullOrWhiteSpace(overlayId))
-            {
-                return -1;
-            }
-
-            for (int i = 0; i < manualRoiOverlayIds.Count; i++)
-            {
-                if (string.Equals(manualRoiOverlayIds[i], overlayId, StringComparison.Ordinal))
-                {
-                    return i;
-                }
-            }
-
-            return -1;
-        }
+            => WpfObjectReviewSelectionService.FindManualRoiIndexByOverlayId(manualRoiOverlayIds, overlayId);
 
         private CanvasRoiShapeKind GetManualRoiShapeKind(int index)
-        {
-            return index >= 0 && index < manualRoiShapeKinds.Count
-                ? manualRoiShapeKinds[index]
-                : CanvasRoiShapeKind.Rectangle;
-        }
+            => WpfObjectReviewPresentationService.GetManualRoiShapeKind(manualRoiShapeKinds, index);
 
         private string GetManualRoiOverlayId(int index)
-            => index >= 0 && index < manualRoiOverlayIds.Count
-                ? manualRoiOverlayIds[index] ?? string.Empty
-                : string.Empty;
+            => WpfObjectReviewSelectionService.GetManualRoiOverlayId(manualRoiOverlayIds, index);
 
         private void EnsureManualRoiMetadataCount()
         {
@@ -1116,7 +1366,7 @@ namespace MvcVisionSystem
         }
 
         private static string FormatManualRoiShapeName(CanvasRoiShapeKind shapeKind)
-            => shapeKind == CanvasRoiShapeKind.Ellipse ? "타원" : "박스";
+            => WpfObjectReviewPresentationService.FormatManualRoiShapeName(shapeKind);
 
         public void FocusYoloSettingsTab()
         {
@@ -1134,7 +1384,13 @@ namespace MvcVisionSystem
             UpdateLayout();
         }
 
-        private WpfLearningWorkflowPanelViewModel LearningWorkflowViewModel => LearningWorkflowPanelControl?.ViewModel;
+        public void FocusAnnotationToolsTab()
+        {
+            LearningReviewTab.IsSelected = true;
+            UpdateLayout();
+            LearningWorkflowPanelControl?.ShowAnnotationToolPalette();
+        }
+
         private ListBox LearningModeListBox => LearningWorkflowPanelControl?.ModeList;
         private ListBox AnnotationToolListBox => LearningWorkflowPanelControl?.ToolList;
         private ListBox LearningStepListBox => LearningWorkflowPanelControl?.StepList;
@@ -1175,6 +1431,11 @@ namespace MvcVisionSystem
         private TextBlock QueueFilterSkippedText => ImageQueuePanelControl?.QueueFilterSkippedTextBlock;
         private TextBlock QueueFilterNoCandidateText => ImageQueuePanelControl?.QueueFilterNoCandidateTextBlock;
         private RoiImageCanvasView MainCanvasView => CanvasPanelControl?.MainCanvas;
+        private ListBox CanvasAnnotationToolListBox => CanvasPanelControl?.AnnotationToolList;
+        private Border CanvasWorkflowContextStrip => CanvasPanelControl?.WorkflowContextStrip;
+        private TextBlock CanvasCurrentStepText => CanvasPanelControl?.CurrentStepText;
+        private TextBlock CanvasCurrentToolText => CanvasPanelControl?.CurrentToolText;
+        private TextBlock CanvasNextActionText => CanvasPanelControl?.NextActionText;
         private Wpf.Ui.Controls.Button FitCanvasButton => CanvasPanelControl?.FitButton;
         private Wpf.Ui.Controls.Button ActualSizeCanvasButton => CanvasPanelControl?.ActualSizeButton;
         private Wpf.Ui.Controls.Button PanCanvasButton => CanvasPanelControl?.PanButton;
@@ -1191,7 +1452,6 @@ namespace MvcVisionSystem
         private ComboBox ObjectClassBox => ObjectReviewPanelControl?.ClassBox;
         private Wpf.Ui.Controls.Button ApplyObjectClassButton => ObjectReviewPanelControl?.ApplyClassButton;
         private ListBox ObjectListBox => ObjectReviewPanelControl?.ObjectList;
-        private WpfObjectReviewPanelViewModel ObjectReviewViewModel => ObjectReviewPanelControl?.ViewModel;
         private Slider CandidateConfidenceSlider => CandidateReviewPanelControl?.ConfidenceSlider;
         private TextBlock CandidateConfidenceText => CandidateReviewPanelControl?.ConfidenceTextBlock;
         private TextBlock CandidateDetailText => CandidateReviewPanelControl?.DetailTextBlock;
@@ -1208,7 +1468,6 @@ namespace MvcVisionSystem
         private Wpf.Ui.Controls.Button NextCandidateButton => CandidateReviewPanelControl?.NextCandidate;
         private Wpf.Ui.Controls.Button FocusCandidateButton => CandidateReviewPanelControl?.FocusCandidate;
         private ListBox CandidateListBox => CandidateReviewPanelControl?.CandidateList;
-        private WpfCandidateReviewPanelViewModel CandidateReviewViewModel => CandidateReviewPanelControl?.ViewModel;
         private TextBox ClassNameBox => ClassCatalogPanelControl?.ClassNameTextBox;
         private Wpf.Ui.Controls.Button AddClassButton => ClassCatalogPanelControl?.AddClass;
         private Wpf.Ui.Controls.Button RemoveClassButton => ClassCatalogPanelControl?.RemoveClass;
@@ -1217,7 +1476,6 @@ namespace MvcVisionSystem
         private Wpf.Ui.Controls.Button SaveOutputRootButton => ClassCatalogPanelControl?.SaveOutputRoot;
         private TextBlock ClassEditStatusText => ClassCatalogPanelControl?.StatusTextBlock;
         private ListBox ClassListBox => ClassCatalogPanelControl?.ClassList;
-        private WpfClassCatalogPanelViewModel ClassCatalogViewModel => ClassCatalogPanelControl?.ViewModel;
         private TextBlock YoloSettingsSummaryText => YoloStatusPanelControl?.SummaryTextBlock;
         private TextBlock YoloSettingsDetailText => YoloStatusPanelControl?.DetailTextBlock;
         private Wpf.Ui.Controls.Button FirstCheckYoloButton => YoloStatusPanelControl?.FirstCheckButton;
@@ -1227,7 +1485,6 @@ namespace MvcVisionSystem
         private Wpf.Ui.Controls.Button StopPythonWorkerButton => YoloStatusPanelControl?.StopWorkerButton;
         private TextBlock YoloCommandStatusText => YoloStatusPanelControl?.CommandStatusTextBlock;
         private ProgressBar YoloCommandProgressBar => YoloStatusPanelControl?.CommandProgress;
-        private WpfYoloStatusPanelViewModel YoloStatusViewModel => YoloStatusPanelControl?.ViewModel;
         private Expander ProjectConfigExpander => ProjectConfigPanelControl?.SettingsExpander;
         private TextBox ProjectRecipeNameBox => ProjectConfigPanelControl?.RecipeNameBox;
         private ComboBox ProjectRecipeListBox => ProjectConfigPanelControl?.RecipeListBox;
@@ -1237,7 +1494,6 @@ namespace MvcVisionSystem
         private Wpf.Ui.Controls.Button RefreshProjectRecipeListButton => ProjectConfigPanelControl?.RefreshRecipeListButton;
         private Wpf.Ui.Controls.Button SaveProjectConfigButton => ProjectConfigPanelControl?.SaveButton;
         private Wpf.Ui.Controls.Button OpenProjectConfigFolderButton => ProjectConfigPanelControl?.OpenFolderButton;
-        private WpfProjectConfigPanelViewModel ProjectConfigViewModel => ProjectConfigPanelControl?.ViewModel;
         private TextBox YoloPythonPathBox => YoloModelSettingsPanelControl?.PythonPathBox;
         private TextBox YoloProjectRootBox => YoloModelSettingsPanelControl?.ProjectRootBox;
         private TextBox YoloClientScriptBox => YoloModelSettingsPanelControl?.ClientScriptBox;
@@ -1255,7 +1511,6 @@ namespace MvcVisionSystem
         private Wpf.Ui.Controls.Button BrowseYoloImageRootButton => YoloModelSettingsPanelControl?.BrowseImageRootButton;
         private Wpf.Ui.Controls.Button SaveYoloSettingsButton => YoloModelSettingsPanelControl?.SaveButton;
         private Wpf.Ui.Controls.Button ResetYoloSettingsButton => YoloModelSettingsPanelControl?.ResetButton;
-        private WpfYoloModelSettingsPanelViewModel YoloModelSettingsViewModel => YoloModelSettingsPanelControl?.ViewModel;
         private Expander TrainingSettingsExpander => TrainingSettingsPanelControl?.SettingsExpander;
         private TextBox TrainingImageSizeBox => TrainingSettingsPanelControl?.ImageSizeBox;
         private TextBox TrainingBatchBox => TrainingSettingsPanelControl?.BatchBox;
@@ -1273,12 +1528,10 @@ namespace MvcVisionSystem
         private ProgressBar TrainingProgressBar => TrainingSettingsPanelControl?.Progress;
         private TextBlock TrainingProgressText => TrainingSettingsPanelControl?.ProgressTextBlock;
         private TextBlock TrainingEpochText => TrainingSettingsPanelControl?.EpochTextBlock;
-        private WpfTrainingSettingsPanelViewModel TrainingSettingsViewModel => TrainingSettingsPanelControl?.ViewModel;
         private TextBlock DatasetStatusText => StatusBarPanelControl?.DatasetStatusTextBlock;
         private TextBlock PythonStatusText => StatusBarPanelControl?.PythonStatusTextBlock;
         private TextBlock AnnotationSaveStatusText => StatusBarPanelControl?.AnnotationSaveStatusTextBlock;
         private TextBlock ModelStatusText => StatusBarPanelControl?.ModelStatusTextBlock;
-        private WpfStatusBarPanelViewModel StatusBarViewModel => StatusBarPanelControl?.ViewModel;
         private FrameworkElement ShellLogPanel => ShellLogPanelControl?.LogPanel;
 
         private enum ShellTheme
@@ -1293,176 +1546,47 @@ namespace MvcVisionSystem
             Inference
         }
 
-        public sealed class ImageDecodeCacheDiagnostics
+        public WpfImageLoadDiagnostics LastImageLoadDiagnostics => lastImageLoadDiagnostics;
+
+        private void ConfigureShellCommands()
         {
-            public ImageDecodeCacheDiagnostics(int count, long bytes, long hits, long misses, long stores, long evictions, int capacity, long maxBytes)
-            {
-                Count = count;
-                Bytes = bytes;
-                Hits = hits;
-                Misses = misses;
-                Stores = stores;
-                Evictions = evictions;
-                Capacity = capacity;
-                MaxBytes = maxBytes;
-            }
-
-            public int Count { get; }
-
-            public long Bytes { get; }
-
-            public long Hits { get; }
-
-            public long Misses { get; }
-
-            public long Stores { get; }
-
-            public long Evictions { get; }
-
-            public int Capacity { get; }
-
-            public long MaxBytes { get; }
+            ShellViewModel.ConfigureCommands(
+                ExecuteToggleThemeCommand,
+                ExecuteLoadSampleCommand,
+                ExecuteAddSampleRoiCommand,
+                ExecuteSaveAnnotationsCommand,
+                ExecuteLabelingModeCommand,
+                ExecuteInferenceModeCommand,
+                ExecuteCheckYoloCommand,
+                ExecuteDetectCurrentImageCommand,
+                ExecuteLoadedCommand,
+                ExecuteClosedCommand,
+                ExecuteShellPreviewKeyDownCommand);
+            RefreshAttachedCommandBindings(
+                this,
+                WindowLifecycleCommandBehavior.LoadedCommandProperty,
+                WindowLifecycleCommandBehavior.ClosedCommandProperty,
+                InputCommandBehaviors.PreviewKeyInputCommandProperty);
         }
-
-        public sealed class ImageLoadDiagnostics
+        private void ConfigureLearningWorkflowPanelCommands()
         {
-            public static readonly ImageLoadDiagnostics Empty = new ImageLoadDiagnostics(
-                string.Empty,
-                false,
-                0D,
-                0D,
-                0D,
-                0D,
-                0D,
-                0D,
-                0D,
-                0D,
-                0D);
-
-            public ImageLoadDiagnostics(
-                string imagePath,
-                bool cacheHit,
-                double totalMilliseconds,
-                double decodeMilliseconds,
-                double canvasUploadMilliseconds,
-                double canvasRefreshMilliseconds,
-                double stateTransferMilliseconds,
-                double annotationResetMilliseconds,
-                double queuePopulateMilliseconds,
-                double reviewRefreshMilliseconds,
-                double preloadScheduleMilliseconds)
-            {
-                ImagePath = imagePath ?? string.Empty;
-                CacheHit = cacheHit;
-                TotalMilliseconds = totalMilliseconds;
-                DecodeMilliseconds = decodeMilliseconds;
-                CanvasUploadMilliseconds = canvasUploadMilliseconds;
-                CanvasRefreshMilliseconds = canvasRefreshMilliseconds;
-                StateTransferMilliseconds = stateTransferMilliseconds;
-                AnnotationResetMilliseconds = annotationResetMilliseconds;
-                QueuePopulateMilliseconds = queuePopulateMilliseconds;
-                ReviewRefreshMilliseconds = reviewRefreshMilliseconds;
-                PreloadScheduleMilliseconds = preloadScheduleMilliseconds;
-            }
-
-            public string ImagePath { get; }
-
-            public bool CacheHit { get; }
-
-            public double TotalMilliseconds { get; }
-
-            public double DecodeMilliseconds { get; }
-
-            public double CanvasUploadMilliseconds { get; }
-
-            public double CanvasRefreshMilliseconds { get; }
-
-            public double StateTransferMilliseconds { get; }
-
-            public double AnnotationResetMilliseconds { get; }
-
-            public double QueuePopulateMilliseconds { get; }
-
-            public double ReviewRefreshMilliseconds { get; }
-
-            public double PreloadScheduleMilliseconds { get; }
-        }
-
-        public ImageLoadDiagnostics LastImageLoadDiagnostics => lastImageLoadDiagnostics;
-
-        private sealed class CachedDecodedImage : IDisposable
-        {
-            public CachedDecodedImage(string imagePath, DrawingBitmap bitmap, CvMat mat)
-            {
-                ImagePath = imagePath ?? string.Empty;
-                Bitmap = bitmap;
-                Mat = mat;
-                EstimatedBytes = EstimateBytes(bitmap, mat);
-            }
-
-            public string ImagePath { get; }
-
-            public DrawingBitmap Bitmap { get; private set; }
-
-            public CvMat Mat { get; private set; }
-
-            public long EstimatedBytes { get; }
-
-            public DrawingBitmap TakeBitmap()
-            {
-                DrawingBitmap bitmap = Bitmap;
-                Bitmap = null;
-                return bitmap;
-            }
-
-            public CvMat TakeMat()
-            {
-                CvMat mat = Mat;
-                Mat = null;
-                return mat;
-            }
-
-            public void Dispose()
-            {
-                Bitmap?.Dispose();
-                Mat?.Dispose();
-                Bitmap = null;
-                Mat = null;
-            }
-
-            private static long EstimateBytes(DrawingBitmap bitmap, CvMat mat)
-            {
-                long bitmapBytes = bitmap == null
-                    ? 0L
-                    : (long)bitmap.Width * bitmap.Height * 3L;
-                long matBytes = mat == null
-                    ? 0L
-                    : (long)mat.Rows * mat.Cols * Math.Max(1, mat.Channels());
-                return bitmapBytes + matBytes;
-            }
-        }
-
-        private void AttachLearningWorkflowPanelEvents()
-        {
-            if (learningWorkflowPanelEventsAttached || LearningWorkflowPanelControl == null)
-            {
-                return;
-            }
-
-            learningWorkflowPanelEventsAttached = true;
-            LearningWorkflowPanelControl.LearningModeSelectionChanged += LearningWorkflowModeListBox_SelectionChanged;
-            LearningWorkflowPanelControl.AnnotationToolSelectionChanged += AnnotationToolListBox_SelectionChanged;
-            LearningWorkflowPanelControl.LearningStepSelectionChanged += LearningStepListBox_SelectionChanged;
-            LearningWorkflowPanelControl.YoloTrainingWorkflowStepRequested += YoloTrainingWorkflowStep_Requested;
-            LearningWorkflowPanelControl.TutorialOpenHtmlGuideRequested += TutorialOpenHtmlGuideButton_Click;
-            LearningWorkflowPanelControl.YoloFixClassesRequested += YoloFixClassesButton_Click;
-            LearningWorkflowPanelControl.YoloFixLabelsRequested += YoloFixLabelsButton_Click;
-            LearningWorkflowPanelControl.YoloFixDatasetRequested += YoloFixDatasetButton_Click;
+            LearningWorkflowViewModel.ConfigureCommands(
+                selected => LearningWorkflowModeListBox_SelectionChanged(LearningModeListBox, selected),
+                selected => AnnotationToolListBox_SelectionChanged(AnnotationToolListBox, selected),
+                selected => LearningStepListBox_SelectionChanged(LearningStepListBox, selected),
+                step => ExecuteYoloTrainingWorkflowStep(step?.Order ?? 0, LearningWorkflowPanelControl),
+                ExecuteOpenTutorialHtmlGuideCommand,
+                ExecuteFixYoloClassesCommand,
+                ExecuteFixYoloLabelsCommand,
+                ExecuteFixYoloDatasetCommand);
+            RefreshAttachedCommandBindings(LearningModeListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
+            RefreshAttachedCommandBindings(AnnotationToolListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
+            RefreshAttachedCommandBindings(LearningStepListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
         }
 
         private void RegisterLearningWorkflowPanelNames()
         {
-            AttachLearningWorkflowPanelEvents();
+            ConfigureLearningWorkflowPanelCommands();
             RegisterLearningWorkflowName(nameof(LearningModeListBox), LearningModeListBox);
             RegisterLearningWorkflowName(nameof(AnnotationToolListBox), AnnotationToolListBox);
             RegisterLearningWorkflowName(nameof(LearningStepListBox), LearningStepListBox);
@@ -1492,7 +1616,7 @@ namespace MvcVisionSystem
 
         private void InitializeImageQueuePanel()
         {
-            AttachImageQueuePanelEvents();
+            ConfigureImageQueuePanelCommands();
             ImageQueueFilterBox.ItemsSource = WpfImageQueueFilterOption.CreateDefaults();
             ImageQueueFilterBox.SelectedIndex = 0;
             imageQueueView = CollectionViewSource.GetDefaultView(imageQueueItems);
@@ -1501,33 +1625,36 @@ namespace MvcVisionSystem
             UpdateQueueQuickFilterButtons();
         }
 
-        private void AttachImageQueuePanelEvents()
+        private void ConfigureImageQueuePanelCommands()
         {
-            if (imageQueuePanelEventsAttached || ImageQueuePanelControl == null)
-            {
-                return;
-            }
-
-            imageQueuePanelEventsAttached = true;
-            ImageQueuePanelControl.LoadImageRootRequested += LoadImageRootButton_Click;
-            ImageQueuePanelControl.BrowseImageFolderRequested += BrowseImageFolderButton_Click;
-            ImageQueuePanelControl.RefreshImageQueueRequested += RefreshImageQueueButton_Click;
-            ImageQueuePanelControl.NextUnlabeledRequested += NextUnlabeledButton_Click;
-            ImageQueuePanelControl.OpenSelectedQueueImageRequested += OpenSelectedQueueImageButton_Click;
-            ImageQueuePanelControl.DetectSelectedQueueRequested += DetectSelectedQueueButton_Click;
-            ImageQueuePanelControl.BatchDetectQueueRequested += BatchDetectQueueButton_Click;
-            ImageQueuePanelControl.RetryFailedQueueRequested += RetryFailedQueueButton_Click;
-            ImageQueuePanelControl.StopBatchQueueRequested += StopBatchQueueButton_Click;
-            ImageQueuePanelControl.QueueFilterAllRequested += QueueFilterAllButton_Click;
-            ImageQueuePanelControl.QueueFilterCandidateRequested += QueueFilterCandidateButton_Click;
-            ImageQueuePanelControl.QueueFilterFailedRequested += QueueFilterFailedButton_Click;
-            ImageQueuePanelControl.QueueFilterConfirmedRequested += QueueFilterConfirmedButton_Click;
-            ImageQueuePanelControl.QueueFilterSkippedRequested += QueueFilterSkippedButton_Click;
-            ImageQueuePanelControl.QueueFilterNoCandidateRequested += QueueFilterNoCandidateButton_Click;
-            ImageQueuePanelControl.FilterSelectionChanged += ImageQueueFilterBox_SelectionChanged;
-            ImageQueuePanelControl.SearchTextChanged += ImageQueueSearchBox_TextChanged;
-            ImageQueuePanelControl.QueueSelectionChanged += ImageQueueGrid_SelectionChanged;
-            ImageQueuePanelControl.QueueMouseDoubleClick += ImageQueueGrid_MouseDoubleClick;
+            ImageQueueViewModel.ConfigureCommands(
+                ExecuteLoadImageRootQueueCommand,
+                ExecuteBrowseImageFolderCommand,
+                ExecuteRefreshImageQueueCommand,
+                ExecuteNextUnlabeledQueueCommand,
+                ExecuteOpenSelectedQueueImageCommand,
+                ExecuteDetectSelectedQueueCommand,
+                ExecuteBatchDetectQueueCommand,
+                ExecuteRetryFailedQueueCommand,
+                ExecuteStopBatchQueueCommand,
+                ExecuteQueueFilterAllCommand,
+                ExecuteQueueFilterCandidateCommand,
+                ExecuteQueueFilterFailedCommand,
+                ExecuteQueueFilterConfirmedCommand,
+                ExecuteQueueFilterSkippedCommand,
+                ExecuteQueueFilterNoCandidateCommand,
+                ExecuteSelectedQueueItemChanged,
+                selected => ImageQueueFilterBox_SelectionChanged(ImageQueueFilterBox, selected),
+                text => ImageQueueSearchBox_TextChanged(ImageQueueSearchBox, text),
+                selected => ImageQueueGrid_SelectionChanged(ImageQueueGrid, selected),
+                () => ImageQueueGrid_MouseDoubleClick(ImageQueueGrid));
+            RefreshAttachedCommandBindings(ImageQueueFilterBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
+            RefreshAttachedCommandBindings(ImageQueueSearchBox, InputCommandBehaviors.TextInputCommandProperty);
+            RefreshAttachedCommandBindings(
+                ImageQueueGrid,
+                InputCommandBehaviors.SelectedItemChangedCommandProperty,
+                InputCommandBehaviors.MouseDoubleClickInputCommandProperty);
+            SeedImageQueueInputCommands();
         }
 
         private void RegisterImageQueuePanelNames()
@@ -1564,25 +1691,75 @@ namespace MvcVisionSystem
             }
         }
 
-        private void AttachCanvasPanelEvents()
+        private void ConfigureCanvasPanelCommands()
         {
-            if (canvasPanelEventsAttached || CanvasPanelControl == null)
+            CanvasPanelViewModel.ConfigureCommands(
+                ExecuteFitCanvasCommand,
+                ExecuteActualSizeCanvasCommand,
+                ExecutePanCanvasCommand,
+                ExecuteFocusCandidateCommand,
+                ExecuteResetAiOverlayCommand);
+            CanvasPanelViewModel.ConfigureAnnotationTools(
+                LearningWorkflowViewModel.AnnotationTools,
+                LearningWorkflowViewModel.SelectedTool,
+                ExecuteCanvasAnnotationToolSelectionChanged);
+            CanvasPanelViewModel.ConfigureAnnotationCommands(
+                ExecuteUndoAnnotationCommand,
+                ExecuteRedoAnnotationCommand,
+                ExecuteDeleteObjectCommand);
+            RefreshCanvasWorkflowContext();
+            RefreshAttachedCommandBindings(
+                CanvasAnnotationToolListBox,
+                InputCommandBehaviors.SelectedItemChangedCommandProperty);
+        }
+
+        private void RefreshCanvasWorkflowContext()
+        {
+            // The shell remains the workflow composer; the canvas view only binds the summarized state.
+            WpfLearningStepItem selectedStep = LearningWorkflowViewModel?.SelectedStep;
+            WpfAnnotationToolItem selectedTool = CanvasPanelViewModel?.SelectedAnnotationTool
+                ?? LearningWorkflowViewModel?.SelectedTool;
+            CanvasPanelViewModel?.SetWorkflowContext(
+                selectedStep?.Text,
+                selectedTool?.Text,
+                BuildCanvasWorkflowActionText(selectedStep, selectedTool));
+        }
+
+        private static string BuildCanvasWorkflowActionText(WpfLearningStepItem selectedStep, WpfAnnotationToolItem selectedTool)
+        {
+            if (selectedStep?.Step == WpfLearningStep.Label)
             {
-                return;
+                return selectedTool?.Tool switch
+                {
+                    WpfAnnotationTool.Rectangle => "캔버스에서 드래그해 박스를 만들고 클래스를 확인하세요.",
+                    WpfAnnotationTool.Ellipse => "드래그해 원형 영역을 만들고 클래스와 위치를 확인하세요.",
+                    WpfAnnotationTool.Polygon => "꼭짓점을 찍어 경계를 만들고 마지막 점에서 마무리하세요.",
+                    WpfAnnotationTool.Brush => "드래그해 마스크를 칠하고 놓은 뒤 결과를 확인하세요.",
+                    WpfAnnotationTool.Eraser => "마스크 위를 드래그해 지울 영역을 정리하세요.",
+                    WpfAnnotationTool.PanZoom => "이미지를 끌어 위치를 맞춘 뒤 라벨 도구로 돌아가세요.",
+                    _ => "라벨을 클릭해 선택한 뒤 이동하거나 크기를 조절하세요."
+                };
             }
 
-            canvasPanelEventsAttached = true;
-            CanvasPanelControl.FitRequested += FitCanvasButton_Click;
-            CanvasPanelControl.ActualSizeRequested += ActualSizeCanvasButton_Click;
-            CanvasPanelControl.PanRequested += PanCanvasButton_Click;
-            CanvasPanelControl.FocusCandidateRequested += FocusCandidateButton_Click;
-            CanvasPanelControl.ResetAiOverlayRequested += ResetAiOverlayCanvasButton_Click;
+            return selectedStep?.Step switch
+            {
+                WpfLearningStep.Sample => "이미지를 열거나 왼쪽 큐에서 선택하세요.",
+                WpfLearningStep.Infer => "현재 검사로 AI 후보를 만들고 검토 탭에서 확인하세요.",
+                WpfLearningStep.Review => "후보를 확정, 전체 확정, 또는 스킵하세요.",
+                WpfLearningStep.Save => "저장 후 YOLO 폴더와 데이터셋 상태를 확인하세요.",
+                _ => "다음 작업을 선택하세요."
+            };
         }
 
         private void RegisterCanvasPanelNames()
         {
-            AttachCanvasPanelEvents();
+            ConfigureCanvasPanelCommands();
             RegisterCanvasName(nameof(MainCanvasView), MainCanvasView);
+            RegisterCanvasName(nameof(CanvasAnnotationToolListBox), CanvasAnnotationToolListBox);
+            RegisterCanvasName(nameof(CanvasWorkflowContextStrip), CanvasWorkflowContextStrip);
+            RegisterCanvasName(nameof(CanvasCurrentStepText), CanvasCurrentStepText);
+            RegisterCanvasName(nameof(CanvasCurrentToolText), CanvasCurrentToolText);
+            RegisterCanvasName(nameof(CanvasNextActionText), CanvasNextActionText);
             RegisterCanvasName(nameof(FitCanvasButton), FitCanvasButton);
             RegisterCanvasName(nameof(ActualSizeCanvasButton), ActualSizeCanvasButton);
             RegisterCanvasName(nameof(PanCanvasButton), PanCanvasButton);
@@ -1604,23 +1781,22 @@ namespace MvcVisionSystem
             }
         }
 
-        private void AttachObjectReviewPanelEvents()
+        private void ConfigureObjectReviewPanelCommands()
         {
-            if (objectReviewPanelEventsAttached || ObjectReviewPanelControl == null)
-            {
-                return;
-            }
-
-            objectReviewPanelEventsAttached = true;
-            ObjectReviewPanelControl.DeleteObjectRequested += DeleteObjectButton_Click;
-            ObjectReviewPanelControl.ApplyObjectClassRequested += ApplyObjectClassButton_Click;
-            ObjectReviewPanelControl.ObjectSelectionChanged += ObjectListBox_SelectionChanged;
-            ObjectReviewPanelControl.ObjectPreviewKeyDown += ObjectListBox_PreviewKeyDown;
+            ObjectReviewViewModel.ConfigureCommands(
+                ExecuteDeleteObjectCommand,
+                ExecuteApplyObjectClassCommand,
+                ExecuteObjectSelectionChangedCommand,
+                ExecuteObjectPreviewKeyDownCommand);
+            RefreshAttachedCommandBindings(
+                ObjectListBox,
+                InputCommandBehaviors.SelectedItemChangedCommandProperty,
+                InputCommandBehaviors.PreviewKeyInputCommandProperty);
         }
 
         private void RegisterObjectReviewPanelNames()
         {
-            AttachObjectReviewPanelEvents();
+            ConfigureObjectReviewPanelCommands();
             RegisterObjectReviewName(nameof(ObjectReviewSummaryText), ObjectReviewSummaryText);
             RegisterObjectReviewName(nameof(DeleteObjectButton), DeleteObjectButton);
             RegisterObjectReviewName(nameof(ObjectClassBox), ObjectClassBox);
@@ -1636,28 +1812,28 @@ namespace MvcVisionSystem
             }
         }
 
-        private void AttachCandidateReviewPanelEvents()
+        private void ConfigureCandidateReviewPanelCommands()
         {
-            if (candidateReviewPanelEventsAttached || CandidateReviewPanelControl == null)
-            {
-                return;
-            }
-
-            candidateReviewPanelEventsAttached = true;
-            CandidateReviewPanelControl.ConfidenceChanged += CandidateConfidenceSlider_ValueChanged;
-            CandidateReviewPanelControl.ConfirmSelectedRequested += ConfirmSelectedCandidateButton_Click;
-            CandidateReviewPanelControl.ConfirmAllRequested += ConfirmAllCandidatesButton_Click;
-            CandidateReviewPanelControl.SkipSelectedRequested += SkipSelectedCandidateButton_Click;
-            CandidateReviewPanelControl.PreviousCandidateRequested += PreviousCandidateButton_Click;
-            CandidateReviewPanelControl.NextCandidateRequested += NextCandidateButton_Click;
-            CandidateReviewPanelControl.FocusCandidateRequested += FocusCandidateButton_Click;
-            CandidateReviewPanelControl.CandidateSelectionChanged += CandidateListBox_SelectionChanged;
-            CandidateReviewPanelControl.CandidatePreviewKeyDown += CandidateListBox_PreviewKeyDown;
+            CandidateReviewViewModel.ConfigureCommands(
+                ExecuteCandidateConfidenceChangedCommand,
+                ExecuteConfirmSelectedCandidateCommand,
+                ExecuteConfirmAllCandidatesCommand,
+                ExecuteSkipSelectedCandidateCommand,
+                ExecutePreviousCandidateCommand,
+                ExecuteNextCandidateCommand,
+                ExecuteFocusCandidateCommand,
+                ExecuteCandidateSelectionChangedCommand,
+                ExecuteCandidatePreviewKeyDownCommand);
+            RefreshAttachedCommandBindings(CandidateConfidenceSlider, InputCommandBehaviors.ValueInputCommandProperty);
+            RefreshAttachedCommandBindings(
+                CandidateListBox,
+                InputCommandBehaviors.SelectedItemChangedCommandProperty,
+                InputCommandBehaviors.PreviewKeyInputCommandProperty);
         }
 
         private void RegisterCandidateReviewPanelNames()
         {
-            AttachCandidateReviewPanelEvents();
+            ConfigureCandidateReviewPanelCommands();
             RegisterCandidateReviewName(nameof(CandidateConfidenceSlider), CandidateConfidenceSlider);
             RegisterCandidateReviewName(nameof(CandidateConfidenceText), CandidateConfidenceText);
             RegisterCandidateReviewName(nameof(CandidateDetailText), CandidateDetailText);
@@ -1684,25 +1860,22 @@ namespace MvcVisionSystem
             }
         }
 
-        private void AttachClassCatalogPanelEvents()
+        private void ConfigureClassCatalogPanelCommands()
         {
-            if (classCatalogPanelEventsAttached || ClassCatalogPanelControl == null)
-            {
-                return;
-            }
-
-            classCatalogPanelEventsAttached = true;
-            ClassCatalogPanelControl.ClassNameKeyDown += ClassNameBox_KeyDown;
-            ClassCatalogPanelControl.AddClassRequested += AddClassButton_Click;
-            ClassCatalogPanelControl.RemoveClassRequested += RemoveClassButton_Click;
-            ClassCatalogPanelControl.BrowseOutputRootRequested += BrowseOutputRootButton_Click;
-            ClassCatalogPanelControl.SaveOutputRootRequested += SaveOutputRootButton_Click;
-            ClassCatalogPanelControl.ClassSelectionChanged += ClassListBox_SelectionChanged;
+            ClassCatalogViewModel.ConfigureCommands(
+                args => ClassNameBox_KeyDown(ClassNameBox, args),
+                ExecuteAddClassCommand,
+                ExecuteRemoveClassCommand,
+                ExecuteBrowseOutputRootCommand,
+                ExecuteSaveOutputRootCommand,
+                selected => ClassListBox_SelectionChanged(ClassListBox, selected));
+            RefreshAttachedCommandBindings(ClassNameBox, InputCommandBehaviors.PreviewKeyInputCommandProperty);
+            RefreshAttachedCommandBindings(ClassListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
         }
 
         private void RegisterClassCatalogPanelNames()
         {
-            AttachClassCatalogPanelEvents();
+            ConfigureClassCatalogPanelCommands();
             RegisterClassCatalogName(nameof(ClassNameBox), ClassNameBox);
             RegisterClassCatalogName(nameof(AddClassButton), AddClassButton);
             RegisterClassCatalogName(nameof(RemoveClassButton), RemoveClassButton);
@@ -1721,24 +1894,19 @@ namespace MvcVisionSystem
             }
         }
 
-        private void AttachYoloStatusPanelEvents()
+        private void ConfigureYoloStatusPanelCommands()
         {
-            if (yoloStatusPanelEventsAttached || YoloStatusPanelControl == null)
-            {
-                return;
-            }
-
-            yoloStatusPanelEventsAttached = true;
-            YoloStatusPanelControl.CheckRequested += CheckYoloButton_Click;
-            YoloStatusPanelControl.InstallRequirementsRequested += InstallRequirementsButton_Click;
-            YoloStatusPanelControl.RunSmokeRequested += RunYoloSmokeButton_Click;
-            YoloStatusPanelControl.RestartWorkerRequested += RestartPythonWorkerButton_Click;
-            YoloStatusPanelControl.StopWorkerRequested += StopPythonWorkerButton_Click;
+            YoloStatusViewModel.ConfigureCommands(
+                ExecuteCheckYoloCommand,
+                ExecuteInstallRequirementsCommand,
+                ExecuteRunYoloSmokeCommand,
+                ExecuteRestartPythonWorkerCommand,
+                ExecuteStopPythonWorkerCommand);
         }
 
         private void RegisterYoloStatusPanelNames()
         {
-            AttachYoloStatusPanelEvents();
+            ConfigureYoloStatusPanelCommands();
             RegisterYoloStatusName(nameof(YoloSettingsSummaryText), YoloSettingsSummaryText);
             RegisterYoloStatusName(nameof(YoloSettingsDetailText), YoloSettingsDetailText);
             RegisterYoloStatusName(nameof(FirstCheckYoloButton), FirstCheckYoloButton);
@@ -1758,24 +1926,20 @@ namespace MvcVisionSystem
             }
         }
 
-        private void AttachProjectConfigPanelEvents()
+        private void ConfigureProjectConfigPanelCommands()
         {
-            if (projectConfigPanelEventsAttached || ProjectConfigPanelControl == null)
-            {
-                return;
-            }
-
-            projectConfigPanelEventsAttached = true;
-            ProjectConfigPanelControl.ApplyRecipeRequested += ApplyProjectRecipeButton_Click;
-            ProjectConfigPanelControl.RecipeSelectionChanged += ProjectRecipeListBox_SelectionChanged;
-            ProjectConfigPanelControl.RefreshRecipeListRequested += RefreshProjectRecipeListButton_Click;
-            ProjectConfigPanelControl.SaveRequested += SaveProjectConfigButton_Click;
-            ProjectConfigPanelControl.OpenFolderRequested += OpenProjectConfigFolderButton_Click;
+            ProjectConfigViewModel.ConfigureCommands(
+                ExecuteApplyProjectRecipeCommand,
+                ExecuteRefreshProjectRecipeListCommand,
+                ExecuteSaveProjectConfigCommand,
+                ExecuteOpenProjectConfigFolderCommand,
+                selected => ProjectRecipeListBox_SelectionChanged(ProjectRecipeListBox, selected));
+            RefreshAttachedCommandBindings(ProjectRecipeListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
         }
 
         private void RegisterProjectConfigPanelNames()
         {
-            AttachProjectConfigPanelEvents();
+            ConfigureProjectConfigPanelCommands();
             RegisterProjectConfigName(nameof(ProjectConfigExpander), ProjectConfigExpander);
             RegisterProjectConfigName(nameof(ProjectRecipeNameBox), ProjectRecipeNameBox);
             RegisterProjectConfigName(nameof(ProjectRecipeListBox), ProjectRecipeListBox);
@@ -1795,28 +1959,21 @@ namespace MvcVisionSystem
             }
         }
 
-        private void AttachYoloModelSettingsPanelEvents()
+        private void ConfigureYoloModelSettingsPanelCommands()
         {
-            if (yoloModelSettingsPanelEventsAttached || YoloModelSettingsPanelControl == null)
-            {
-                return;
-            }
-
-            yoloModelSettingsPanelEventsAttached = true;
-            YoloModelSettingsPanelControl.BrowsePythonRequested += BrowseYoloPythonButton_Click;
-            YoloModelSettingsPanelControl.BrowseProjectRootRequested += BrowseYoloProjectRootButton_Click;
-            YoloModelSettingsPanelControl.BrowseClientScriptRequested += BrowseYoloClientScriptButton_Click;
-            YoloModelSettingsPanelControl.BrowseWeightsRequested += BrowseYoloWeightsButton_Click;
-            YoloModelSettingsPanelControl.BrowseImageRootRequested += BrowseYoloImageRootButton_Click;
-            YoloModelSettingsPanelControl.SaveRequested += SaveYoloSettingsButton_Click;
-            YoloModelSettingsPanelControl.ResetRequested += ResetYoloSettingsButton_Click;
-            YoloModelSettingsPanelControl.DecimalTextInputPreview += DecimalTextBox_PreviewTextInput;
-            YoloModelSettingsPanelControl.IntegerTextInputPreview += IntegerTextBox_PreviewTextInput;
+            YoloModelSettingsViewModel.ConfigureCommands(
+                ExecuteBrowseYoloPythonCommand,
+                ExecuteBrowseYoloProjectRootCommand,
+                ExecuteBrowseYoloClientScriptCommand,
+                ExecuteBrowseYoloWeightsCommand,
+                ExecuteBrowseYoloImageRootCommand,
+                ExecuteSaveYoloSettingsCommand,
+                ExecuteResetYoloSettingsCommand);
         }
 
         private void RegisterYoloModelSettingsPanelNames()
         {
-            AttachYoloModelSettingsPanelEvents();
+            ConfigureYoloModelSettingsPanelCommands();
             RegisterYoloModelSettingsName(nameof(YoloPythonPathBox), YoloPythonPathBox);
             RegisterYoloModelSettingsName(nameof(YoloProjectRootBox), YoloProjectRootBox);
             RegisterYoloModelSettingsName(nameof(YoloClientScriptBox), YoloClientScriptBox);
@@ -1844,23 +2001,17 @@ namespace MvcVisionSystem
             }
         }
 
-        private void AttachTrainingSettingsPanelEvents()
+        private void ConfigureTrainingSettingsPanelCommands()
         {
-            if (trainingSettingsPanelEventsAttached || TrainingSettingsPanelControl == null)
-            {
-                return;
-            }
-
-            trainingSettingsPanelEventsAttached = true;
-            TrainingSettingsPanelControl.RefreshReadinessRequested += RefreshTrainingReadinessButton_Click;
-            TrainingSettingsPanelControl.StartTrainingRequested += StartTrainingButton_Click;
-            TrainingSettingsPanelControl.StopTrainingRequested += StopTrainingButton_Click;
-            TrainingSettingsPanelControl.IntegerTextInputPreview += IntegerTextBox_PreviewTextInput;
+            TrainingSettingsViewModel.ConfigureCommands(
+                ExecuteRefreshTrainingReadinessCommand,
+                ExecuteStartTrainingCommand,
+                ExecuteStopTrainingCommand);
         }
 
         private void RegisterTrainingSettingsPanelNames()
         {
-            AttachTrainingSettingsPanelEvents();
+            ConfigureTrainingSettingsPanelCommands();
             RegisterTrainingSettingsName(nameof(TrainingSettingsExpander), TrainingSettingsExpander);
             RegisterTrainingSettingsName(nameof(TrainingImageSizeBox), TrainingImageSizeBox);
             RegisterTrainingSettingsName(nameof(TrainingBatchBox), TrainingBatchBox);
@@ -1994,8 +2145,8 @@ namespace MvcVisionSystem
             string imagePath = YoloWorkerSmokeTestService.ResolveSmokeImagePath(global.Data.ProjectSettings.PythonModel);
             if (string.IsNullOrWhiteSpace(imagePath))
             {
-                SetDatasetStatus("데이터셋: 샘플 이미지 없음");
-                AppendLog("샘플 이미지를 찾지 못했습니다. Python 모델 이미지 루트를 확인하세요.");
+                SetDatasetStatus(imageLoadPresentationService.BuildStartupSampleMissingDatasetStatus());
+                AppendLog(imageLoadPresentationService.BuildStartupSampleMissingLog());
                 return false;
             }
 
@@ -2006,7 +2157,7 @@ namespace MvcVisionSystem
         {
             if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
             {
-                AppendLog($"이미지 없음: {imagePath}");
+                AppendLog(imageLoadPresentationService.BuildMissingImageLog(imagePath));
                 return false;
             }
 
@@ -2025,7 +2176,7 @@ namespace MvcVisionSystem
             CvMat imageMat = null;
             try
             {
-                if (TryTakeCachedDecodedImage(imagePath, out CachedDecodedImage cachedImage))
+                if (imageDecodeCacheService.TryTake(imagePath, out WpfCachedDecodedImage cachedImage))
                 {
                     cacheHit = true;
                     workspaceBitmap = cachedImage.TakeBitmap();
@@ -2034,13 +2185,11 @@ namespace MvcVisionSystem
                 }
                 else
                 {
-                    using DrawingBitmap loaded = AppImageLoader.LoadBitmap(imagePath);
-                    workspaceBitmap = loaded.Clone(
-                        new DrawingRectangle(0, 0, loaded.Width, loaded.Height),
-                        DrawingPixelFormat.Format24bppRgb);
-                    imageMat = BitmapImageConverter.ToMat(workspaceBitmap);
+                    using WpfCachedDecodedImage decodedImage = imageDecodeService.DecodeForCanvas(imagePath);
+                    workspaceBitmap = decodedImage.TakeBitmap();
+                    imageMat = decodedImage.TakeMat();
                 }
-                decodeMilliseconds = TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
+                decodeMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
 
                 string imageName = Path.GetFileNameWithoutExtension(imagePath);
                 using (MainCanvasViewModel.ImageViewer.SuppressRefresh())
@@ -2051,9 +2200,9 @@ namespace MvcVisionSystem
                     MainCanvasViewModel.SetMaskOverlays(Array.Empty<RoiImageCanvasMaskOverlay>());
                     MainCanvasViewModel.SetPolygonOverlays(Array.Empty<RoiImageCanvasPolygonOverlay>());
                 }
-                canvasUploadMilliseconds = TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
+                canvasUploadMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
                 MainCanvasViewModel.ImageViewer.RefreshGL();
-                canvasRefreshMilliseconds = TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
+                canvasRefreshMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
 
                 activeImageBitmap?.Dispose();
                 activeImageBitmap = workspaceBitmap;
@@ -2066,7 +2215,7 @@ namespace MvcVisionSystem
                 global.ImageWorkspace.SetActiveImage(imageName, imagePath, activeImageBitmap);
                 CDisplayManager.ImageSrc = imageMat;
                 imageMat = null;
-                stateTransferMilliseconds = TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
+                stateTransferMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
 
                 manualRois.Clear();
                 manualRoiClassNames.Clear();
@@ -2077,19 +2226,18 @@ namespace MvcVisionSystem
                 lastMaskStrokePoint = null;
                 activeMaskStrokeSnapshot = null;
                 activeMaskStrokeChanged = false;
-                pendingDetectionCandidates.Clear();
-                confirmedDetectionCandidates.Clear();
+                candidateReviewState.ClearAll();
                 ClearAnnotationHistory();
                 UpdateDetectionResultOverlay();
-                annotationResetMilliseconds = TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
+                annotationResetMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
                 if (populateQueue)
                 {
                     PopulateImageQueue(Path.GetDirectoryName(imagePath), imagePath, refreshQueueDetails);
                 }
-                queuePopulateMilliseconds = TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
-                SetDatasetStatus($"데이터셋: {Path.GetFileName(imagePath)}  {activeImageSize.Width}x{activeImageSize.Height}");
-                SetModelStatus($"모델: {Path.GetFileName(global.Data.ProjectSettings?.PythonModel?.WeightsPath ?? string.Empty)}");
-                MarkAnnotationsSaved("\uC774\uBBF8\uC9C0 \uB85C\uB4DC: \uD604\uC7AC \uB77C\uBCA8\uC740 \uC800\uC7A5\uB41C \uC0C1\uD0DC\uB85C \uC2DC\uC791\uD569\uB2C8\uB2E4.");
+                queuePopulateMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
+                SetDatasetStatus(imageLoadPresentationService.BuildLoadedDatasetStatus(imagePath, activeImageSize));
+                SetModelStatus(imageLoadPresentationService.BuildModelStatus(global.Data.ProjectSettings?.PythonModel?.WeightsPath));
+                MarkAnnotationsSaved(imageLoadPresentationService.BuildAnnotationLoadedStatus());
                 RefreshCandidateList();
                 RefreshObjectList();
                 PopulateClassList();
@@ -2101,11 +2249,11 @@ namespace MvcVisionSystem
                 {
                     UpdateImageQueueStatusText();
                 }
-                reviewRefreshMilliseconds = TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
+                reviewRefreshMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
                 if (!appendLoadLog)
                 {
                     PreloadAdjacentQueueImages(imagePath);
-                    preloadScheduleMilliseconds = TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
+                    preloadScheduleMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
                     RecordImageLoadDiagnostics(
                         imagePath,
                         cacheHit,
@@ -2120,9 +2268,9 @@ namespace MvcVisionSystem
                         preloadScheduleMilliseconds);
                     return true;
                 }
-                AppendLog($"이미지 로드: {imagePath}");
+                AppendLog(imageLoadPresentationService.BuildLoadLog(imagePath));
                 PreloadAdjacentQueueImages(imagePath);
-                preloadScheduleMilliseconds = TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
+                preloadScheduleMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
                 RecordImageLoadDiagnostics(
                     imagePath,
                     cacheHit,
@@ -2140,8 +2288,8 @@ namespace MvcVisionSystem
             catch (Exception ex)
             {
                 workspaceBitmap?.Dispose();
-                SetDatasetStatus("데이터셋: 이미지 로드 실패");
-                AppendLog($"이미지 로드 실패: {ex.Message}");
+                SetDatasetStatus(imageLoadPresentationService.BuildLoadFailureDatasetStatus());
+                AppendLog(imageLoadPresentationService.BuildLoadFailureLog(ex.Message));
                 return false;
             }
             finally
@@ -2150,21 +2298,8 @@ namespace MvcVisionSystem
             }
         }
 
-        public ImageDecodeCacheDiagnostics GetImageDecodeCacheDiagnostics()
-        {
-            lock (imageDecodeCacheLock)
-            {
-                return new ImageDecodeCacheDiagnostics(
-                    imageDecodeCache.Count,
-                    imageDecodeCacheBytes,
-                    Interlocked.Read(ref imageDecodeCacheHits),
-                    Interlocked.Read(ref imageDecodeCacheMisses),
-                    Interlocked.Read(ref imageDecodeCacheStores),
-                    Interlocked.Read(ref imageDecodeCacheEvictions),
-                    ImageDecodeCacheCapacity,
-                    ImageDecodeCacheMaxBytes);
-            }
-        }
+        public WpfImageDecodeCacheDiagnostics GetImageDecodeCacheDiagnostics()
+            => imageDecodeCacheService.GetDiagnostics();
 
         private void RecordImageLoadDiagnostics(
             string imagePath,
@@ -2179,7 +2314,7 @@ namespace MvcVisionSystem
             double reviewRefreshMilliseconds,
             double preloadScheduleMilliseconds)
         {
-            lastImageLoadDiagnostics = new ImageLoadDiagnostics(
+            lastImageLoadDiagnostics = WpfImageLoadDiagnosticsService.Create(
                 imagePath,
                 cacheHit,
                 totalMilliseconds,
@@ -2193,188 +2328,81 @@ namespace MvcVisionSystem
                 preloadScheduleMilliseconds);
         }
 
-        private static double TakeElapsedMilliseconds(Stopwatch stopwatch, ref long previousTicks)
-        {
-            long currentTicks = stopwatch.ElapsedTicks;
-            double elapsedMilliseconds = (currentTicks - previousTicks) * 1000D / Stopwatch.Frequency;
-            previousTicks = currentTicks;
-            return elapsedMilliseconds;
-        }
 
         private void PreloadAdjacentQueueImages(string imagePath)
         {
-            if (string.IsNullOrWhiteSpace(imagePath) || imageQueueItems.Count == 0)
+            // Adjacent preload is only useful after the interactive shell is loaded; headless construction tests should not open extra image files.
+            if (!IsLoaded || string.IsNullOrWhiteSpace(imagePath) || imageQueueItems.Count == 0)
             {
                 return;
             }
 
-            List<string> orderedPaths = imageQueueItems
-                .Select(item => item.ImagePath)
-                .Where(path => !string.IsNullOrWhiteSpace(path))
-                .ToList();
-            int currentIndex = orderedPaths.FindIndex(path => string.Equals(path, imagePath, StringComparison.OrdinalIgnoreCase));
-            if (currentIndex < 0)
-            {
-                return;
-            }
-
-            List<string> preloadPaths = new List<string>();
-            foreach (int offset in new[] { 1, -1, 2, -2 })
-            {
-                int index = currentIndex + offset;
-                if (index < 0 || index >= orderedPaths.Count)
-                {
-                    continue;
-                }
-
-                string preloadPath = orderedPaths[index];
-                if (string.Equals(preloadPath, imagePath, StringComparison.OrdinalIgnoreCase)
-                    || !File.Exists(preloadPath)
-                    || IsImageDecodeCached(preloadPath))
-                {
-                    continue;
-                }
-
-                preloadPaths.Add(preloadPath);
-            }
-
-            if (preloadPaths.Count == 0)
-            {
-                return;
-            }
-
-            int version = Interlocked.Increment(ref imageDecodePreloadVersion);
-            imageDecodePreloadTask = Task.Run(() =>
-            {
-                foreach (string preloadPath in preloadPaths)
-                {
-                    if (version != Volatile.Read(ref imageDecodePreloadVersion)
-                        || IsImageDecodeCached(preloadPath))
-                    {
-                        return;
-                    }
-
-                    CachedDecodedImage decoded = TryDecodeImageForCache(preloadPath);
-                    if (version != Volatile.Read(ref imageDecodePreloadVersion))
-                    {
-                        decoded?.Dispose();
-                        return;
-                    }
-
-                    if (decoded != null)
-                    {
-                        StoreCachedDecodedImage(decoded);
-                    }
-                }
-            });
+            imageDecodePreloadService.StartAdjacentPreload(
+                imagePath,
+                imageQueueItems.Select(item => item.ImagePath),
+                imageDecodeCacheService,
+                File.Exists,
+                imageDecodeService.TryDecodeForCache);
         }
 
-        private static CachedDecodedImage TryDecodeImageForCache(string imagePath)
-        {
-            DrawingBitmap workspaceBitmap = null;
-            CvMat imageMat = null;
-            try
-            {
-                using DrawingBitmap loaded = AppImageLoader.LoadBitmap(imagePath);
-                if ((long)loaded.Width * loaded.Height > ImageDecodeCacheMaxPixels)
-                {
-                    return null;
-                }
+        // Compatibility wrappers stay thin; command wiring above must call Execute* methods directly.
+        private void Window_Loaded(object sender, RoutedEventArgs e) => ExecuteLoadedCommand();
 
-                workspaceBitmap = loaded.Clone(
-                    new DrawingRectangle(0, 0, loaded.Width, loaded.Height),
-                    DrawingPixelFormat.Format24bppRgb);
-                imageMat = BitmapImageConverter.ToMat(workspaceBitmap);
-                return new CachedDecodedImage(imagePath, workspaceBitmap, imageMat);
-            }
-            catch
-            {
-                workspaceBitmap?.Dispose();
-                imageMat?.Dispose();
-                return null;
-            }
-        }
+        private void Window_Closed(object sender, EventArgs e) => ExecuteClosedCommand();
 
-        private bool TryTakeCachedDecodedImage(string imagePath, out CachedDecodedImage cachedImage)
-        {
-            lock (imageDecodeCacheLock)
-            {
-                if (imageDecodeCache.TryGetValue(imagePath, out cachedImage))
-                {
-                    imageDecodeCache.Remove(imagePath);
-                    imageDecodeCacheOrder.Remove(imagePath);
-                    imageDecodeCacheBytes = Math.Max(0L, imageDecodeCacheBytes - cachedImage.EstimatedBytes);
-                    Interlocked.Increment(ref imageDecodeCacheHits);
-                    return true;
-                }
-            }
+        private void YoloFixClassesButton_Click(object sender, RoutedEventArgs e) => ExecuteFixYoloClassesCommand();
 
-            Interlocked.Increment(ref imageDecodeCacheMisses);
-            cachedImage = null;
-            return false;
-        }
+        private void YoloFixLabelsButton_Click(object sender, RoutedEventArgs e) => ExecuteFixYoloLabelsCommand();
 
-        private bool IsImageDecodeCached(string imagePath)
-        {
-            lock (imageDecodeCacheLock)
-            {
-                return imageDecodeCache.ContainsKey(imagePath);
-            }
-        }
+        private void YoloFixDatasetButton_Click(object sender, RoutedEventArgs e) => ExecuteFixYoloDatasetCommand();
 
-        private void StoreCachedDecodedImage(CachedDecodedImage decoded)
-        {
-            if (decoded == null || string.IsNullOrWhiteSpace(decoded.ImagePath))
-            {
-                decoded?.Dispose();
-                return;
-            }
+        private void TutorialOpenHtmlGuideButton_Click(object sender, RoutedEventArgs e) => ExecuteOpenTutorialHtmlGuideCommand();
 
-            lock (imageDecodeCacheLock)
-            {
-                if (imageDecodeCache.ContainsKey(decoded.ImagePath))
-                {
-                    decoded.Dispose();
-                    return;
-                }
+        private void AddClassButton_Click(object sender, RoutedEventArgs e) => ExecuteAddClassCommand();
 
-                imageDecodeCache[decoded.ImagePath] = decoded;
-                imageDecodeCacheOrder.AddLast(decoded.ImagePath);
-                imageDecodeCacheBytes += decoded.EstimatedBytes;
-                Interlocked.Increment(ref imageDecodeCacheStores);
+        private void RemoveClassButton_Click(object sender, RoutedEventArgs e) => ExecuteRemoveClassCommand();
 
-                while ((imageDecodeCache.Count > ImageDecodeCacheCapacity || imageDecodeCacheBytes > ImageDecodeCacheMaxBytes)
-                    && imageDecodeCacheOrder.First != null)
-                {
-                    string oldestPath = imageDecodeCacheOrder.First.Value;
-                    imageDecodeCacheOrder.RemoveFirst();
-                    if (imageDecodeCache.TryGetValue(oldestPath, out CachedDecodedImage oldest))
-                    {
-                        imageDecodeCache.Remove(oldestPath);
-                        imageDecodeCacheBytes = Math.Max(0L, imageDecodeCacheBytes - oldest.EstimatedBytes);
-                        oldest.Dispose();
-                        Interlocked.Increment(ref imageDecodeCacheEvictions);
-                    }
-                }
-            }
-        }
+        private void BrowseOutputRootButton_Click(object sender, RoutedEventArgs e) => ExecuteBrowseOutputRootCommand();
 
-        private void ClearImageDecodeCache()
-        {
-            lock (imageDecodeCacheLock)
-            {
-                foreach (CachedDecodedImage decoded in imageDecodeCache.Values)
-                {
-                    decoded.Dispose();
-                }
+        private void SaveOutputRootButton_Click(object sender, RoutedEventArgs e) => ExecuteSaveOutputRootCommand();
 
-                imageDecodeCache.Clear();
-                imageDecodeCacheOrder.Clear();
-                imageDecodeCacheBytes = 0L;
-            }
-        }
+        private void InstallRequirementsButton_Click(object sender, RoutedEventArgs e) => ExecuteInstallRequirementsCommand();
 
-        private void Window_Loaded(object sender, RoutedEventArgs e)
+        private void RunYoloSmokeButton_Click(object sender, RoutedEventArgs e) => ExecuteRunYoloSmokeCommand();
+
+        private void RestartPythonWorkerButton_Click(object sender, RoutedEventArgs e) => ExecuteRestartPythonWorkerCommand();
+
+        private void StopPythonWorkerButton_Click(object sender, RoutedEventArgs e) => ExecuteStopPythonWorkerCommand();
+
+        private void BrowseYoloPythonButton_Click(object sender, RoutedEventArgs e) => ExecuteBrowseYoloPythonCommand();
+
+        private void BrowseYoloProjectRootButton_Click(object sender, RoutedEventArgs e) => ExecuteBrowseYoloProjectRootCommand();
+
+        private void BrowseYoloClientScriptButton_Click(object sender, RoutedEventArgs e) => ExecuteBrowseYoloClientScriptCommand();
+
+        private void BrowseYoloWeightsButton_Click(object sender, RoutedEventArgs e) => ExecuteBrowseYoloWeightsCommand();
+
+        private void BrowseYoloImageRootButton_Click(object sender, RoutedEventArgs e) => ExecuteBrowseYoloImageRootCommand();
+
+        private void SaveYoloSettingsButton_Click(object sender, RoutedEventArgs e) => ExecuteSaveYoloSettingsCommand();
+
+        private void ResetYoloSettingsButton_Click(object sender, RoutedEventArgs e) => ExecuteResetYoloSettingsCommand();
+
+        private void RefreshTrainingReadinessButton_Click(object sender, RoutedEventArgs e) => ExecuteRefreshTrainingReadinessCommand();
+
+        private void StartTrainingButton_Click(object sender, RoutedEventArgs e) => ExecuteStartTrainingCommand();
+
+        private void StopTrainingButton_Click(object sender, RoutedEventArgs e) => ExecuteStopTrainingCommand();
+
+        private void SaveProjectConfigButton_Click(object sender, RoutedEventArgs e) => ExecuteSaveProjectConfigCommand();
+
+        private void ApplyProjectRecipeButton_Click(object sender, RoutedEventArgs e) => ExecuteApplyProjectRecipeCommand();
+
+        private void RefreshProjectRecipeListButton_Click(object sender, RoutedEventArgs e) => ExecuteRefreshProjectRecipeListCommand();
+
+        private void OpenProjectConfigFolderButton_Click(object sender, RoutedEventArgs e) => ExecuteOpenProjectConfigFolderCommand();
+
+        private void ExecuteLoadedCommand()
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
@@ -2386,51 +2414,98 @@ namespace MvcVisionSystem
             }), DispatcherPriority.ApplicationIdle);
         }
 
-        private void Window_Closed(object sender, EventArgs e)
+        private void ExecuteClosedCommand()
         {
             StopInferenceStatusPulse();
             inferenceStatusPulseTimer.Tick -= InferenceStatusPulseTimer_Tick;
             StopTrainingStatusPolling();
             trainingStatusPollTimer.Tick -= TrainingStatusPollTimer_Tick;
-            Interlocked.Increment(ref imageDecodePreloadVersion);
-            WaitForImageDecodePreload();
-            imageQueueDetailLoadCts?.Cancel();
-            imageQueueDetailLoadCts?.Dispose();
-            imageQueueDetailLoadCts = null;
+            imageDecodePreloadService.CancelAndWait(TimeSpan.FromSeconds(2));
+            CancelImageQueueDetailRefresh(waitForCompletion: true);
             batchDetectionCts?.Cancel();
             batchDetectionCts?.Dispose();
             batchDetectionCts = null;
-            ClearImageDecodeCache();
+            imageDecodeCacheService.Clear();
             activeImageBitmap?.Dispose();
             activeImageBitmap = null;
         }
 
-        private void WaitForImageDecodePreload()
+
+        private void CancelImageQueueDetailRefresh(bool waitForCompletion)
         {
-            Task preloadTask = imageDecodePreloadTask;
-            if (preloadTask == null || preloadTask.IsCompleted)
+            CancellationTokenSource cts = imageQueueDetailLoadCts;
+            Task detailTask = imageQueueDetailLoadTask;
+            if (cts == null)
             {
                 return;
             }
 
-            try
+            cts.Cancel();
+            if (waitForCompletion)
             {
-                preloadTask.Wait(TimeSpan.FromSeconds(2));
+                WaitForImageQueueDetailRefresh(detailTask);
             }
-            catch (AggregateException)
+
+            if (detailTask == null || detailTask.IsCompleted)
             {
+                cts.Dispose();
             }
-            catch (ObjectDisposedException)
+            else
             {
+                detailTask.ContinueWith(_ => cts.Dispose(), CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
+            }
+
+            if (ReferenceEquals(cts, imageQueueDetailLoadCts))
+            {
+                imageQueueDetailLoadCts = null;
+            }
+
+            if (ReferenceEquals(detailTask, imageQueueDetailLoadTask))
+            {
+                imageQueueDetailLoadTask = Task.CompletedTask;
             }
         }
 
-        private void LoadSampleButton_Click(object sender, RoutedEventArgs e)
+        private void WaitForImageQueueDetailRefresh(Task detailTask)
+        {
+            if (detailTask == null || detailTask.IsCompleted)
+            {
+                return;
+            }
+
+            if (!Dispatcher.CheckAccess())
+            {
+                try
+                {
+                    detailTask.Wait(TimeSpan.FromSeconds(2));
+                }
+                catch (AggregateException)
+                {
+                }
+
+                return;
+            }
+
+            Stopwatch stopwatch = Stopwatch.StartNew();
+            while (!detailTask.IsCompleted && stopwatch.Elapsed < TimeSpan.FromSeconds(2))
+            {
+                // Detail refresh resumes on the UI dispatcher; pump briefly so close can release image file handles.
+                var frame = new DispatcherFrame();
+                Dispatcher.BeginInvoke(DispatcherPriority.Background, new Action(() => frame.Continue = false));
+                Dispatcher.PushFrame(frame);
+            }
+
+            if (detailTask.IsFaulted)
+            {
+                _ = detailTask.Exception;
+            }
+        }
+        private void ExecuteLoadSampleCommand()
         {
             TryLoadStartupSampleImage();
         }
 
-        private void AddSampleRoiButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteAddSampleRoiCommand()
         {
             if (activeImageSize.IsEmpty)
             {
@@ -2455,7 +2530,7 @@ namespace MvcVisionSystem
             AppendLog($"ROI 추가: {roi.X},{roi.Y},{roi.Width},{roi.Height}");
         }
 
-        private void SaveAnnotationsButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteSaveAnnotationsCommand()
         {
             if (SaveCurrentAnnotations(out int savedCount))
             {
@@ -2467,27 +2542,23 @@ namespace MvcVisionSystem
             AppendLog("저장할 ROI 또는 확정 후보가 없습니다.");
         }
 
-        private void YoloTrainingWorkflowStep_Requested(object sender, WpfYoloTrainingWorkflowStepEventArgs e)
+
+        private void ExecuteFixYoloClassesCommand()
         {
-            ExecuteYoloTrainingWorkflowStep(e?.Step?.Order ?? 0, sender);
+            ExecuteYoloTrainingWorkflowStep(2, LearningWorkflowPanelControl);
         }
 
-        private void YoloFixClassesButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteFixYoloLabelsCommand()
         {
-            ExecuteYoloTrainingWorkflowStep(2, sender);
+            ExecuteYoloTrainingWorkflowStep(3, LearningWorkflowPanelControl);
         }
 
-        private void YoloFixLabelsButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteFixYoloDatasetCommand()
         {
-            ExecuteYoloTrainingWorkflowStep(3, sender);
+            ExecuteYoloTrainingWorkflowStep(4, LearningWorkflowPanelControl);
         }
 
-        private void YoloFixDatasetButton_Click(object sender, RoutedEventArgs e)
-        {
-            ExecuteYoloTrainingWorkflowStep(4, sender);
-        }
-
-        private void TutorialOpenHtmlGuideButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteOpenTutorialHtmlGuideCommand()
         {
             string path = ResolveTutorialHtmlGuidePath();
             if (!File.Exists(path))
@@ -2577,7 +2648,7 @@ namespace MvcVisionSystem
                 case 1:
                     SetWorkflowMode(WorkflowMode.Labeling);
                     AppendLog("YOLOv5 1단계: 학습 이미지 폴더를 선택합니다.");
-                    BrowseImageFolderButton_Click(sender, new RoutedEventArgs());
+                    ExecuteBrowseImageFolderCommand();
                     break;
 
                 case 2:
@@ -2644,9 +2715,9 @@ namespace MvcVisionSystem
             }
         }
 
-        private void LearningWorkflowModeListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void LearningWorkflowModeListBox_SelectionChanged(object sender, object selectedItem)
         {
-            WpfLearningMode? mode = LearningWorkflowViewModel?.SelectedMode?.Mode;
+            WpfLearningMode? mode = (selectedItem as WpfLearningModeItem)?.Mode ?? LearningWorkflowViewModel?.SelectedMode?.Mode;
             if (!mode.HasValue)
             {
                 return;
@@ -2671,107 +2742,149 @@ namespace MvcVisionSystem
             }
         }
 
-        private void AnnotationToolListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void AnnotationToolListBox_SelectionChanged(object sender, object selectedItem)
         {
-            WpfAnnotationTool? tool = LearningWorkflowViewModel?.SelectedTool?.Tool;
-            if (!tool.HasValue)
+            ApplyAnnotationToolSelection((selectedItem as WpfAnnotationToolItem) ?? LearningWorkflowViewModel?.SelectedTool);
+        }
+
+        private void ExecuteCanvasAnnotationToolSelectionChanged(object selectedItem)
+        {
+            ApplyAnnotationToolSelection((selectedItem as WpfAnnotationToolItem) ?? CanvasPanelViewModel?.SelectedAnnotationTool);
+        }
+
+        private void ApplyAnnotationToolSelection(WpfAnnotationToolItem selectedToolItem)
+        {
+            if (selectedToolItem == null)
             {
                 return;
             }
 
-            WpfAnnotationToolCapability capability = WpfAnnotationToolCapabilityService.Get(tool.Value);
-            if (!capability.IsConnected)
+            if (applyingAnnotationToolSelection)
             {
-                activeAnnotationTool = WpfAnnotationTool.Select;
-                EndPolygonAnnotationMode(clearDraft: true);
-                EndMaskAnnotationMode();
-                SetPendingAnnotationToolStatus(capability);
+                SynchronizeAnnotationToolSelection(selectedToolItem);
                 return;
             }
 
-            activeAnnotationTool = tool.Value;
-            if (tool.Value != WpfAnnotationTool.Polygon)
+            applyingAnnotationToolSelection = true;
+            try
             {
-                EndPolygonAnnotationMode(clearDraft: true);
-            }
+                SynchronizeAnnotationToolSelection(selectedToolItem);
+                WpfAnnotationTool tool = selectedToolItem.Tool;
+                WpfAnnotationToolCapability capability = WpfAnnotationToolCapabilityService.Get(tool);
+                if (!capability.IsConnected)
+                {
+                    activeAnnotationTool = WpfAnnotationTool.Select;
+                    EndPolygonAnnotationMode(clearDraft: true);
+                    EndMaskAnnotationMode();
+                    SetPendingAnnotationToolStatus(capability);
+                    return;
+                }
 
-            if (tool.Value != WpfAnnotationTool.Brush && tool.Value != WpfAnnotationTool.Eraser)
-            {
-                EndMaskAnnotationMode();
-            }
+                activeAnnotationTool = tool;
+                if (tool != WpfAnnotationTool.Polygon)
+                {
+                    EndPolygonAnnotationMode(clearDraft: true);
+                }
 
-            if (tool.Value == WpfAnnotationTool.Polygon)
+                if (tool != WpfAnnotationTool.Brush && tool != WpfAnnotationTool.Eraser)
+                {
+                    EndMaskAnnotationMode();
+                }
+
+                if (tool == WpfAnnotationTool.Polygon)
+                {
+                    BeginPolygonAnnotationMode();
+                    return;
+                }
+
+                if (tool == WpfAnnotationTool.Brush || tool == WpfAnnotationTool.Eraser)
+                {
+                    BeginMaskAnnotationMode(tool);
+                    return;
+                }
+
+                switch (tool)
+                {
+                    case WpfAnnotationTool.Rectangle:
+                        SetWorkflowMode(WorkflowMode.Labeling);
+                        MainCanvasViewModel.DrawingShapeKind = CanvasRoiShapeKind.Rectangle;
+                        MainCanvasViewModel.IsTeachingMode = true;
+                        SetModelStatus("도구: 박스 라벨링");
+                        SetYoloCommandStatus("박스 라벨링 도구가 활성화되었습니다. 이미지 위에서 드래그해 객체 영역을 만드세요.", isBusy: false);
+                        AppendLog("박스 라벨링 도구");
+                        break;
+
+                    case WpfAnnotationTool.Ellipse:
+                        SetWorkflowMode(WorkflowMode.Labeling);
+                        MainCanvasViewModel.DrawingShapeKind = CanvasRoiShapeKind.Ellipse;
+                        MainCanvasViewModel.IsTeachingMode = true;
+                        SetModelStatus("도구: 원/타원");
+                        SetYoloCommandStatus("원/타원은 이미지 픽셀 기준 bounding box로 저장되고 캔버스에는 채워진 타원으로 표시됩니다.", isBusy: false);
+                        AppendLog("원/타원 라벨링 도구");
+                        break;
+
+                    case WpfAnnotationTool.PanZoom:
+                        SetWorkflowMode(WorkflowMode.Labeling);
+                        ExecutePanCanvasCommand();
+                        break;
+
+                    case WpfAnnotationTool.Delete:
+                        SetWorkflowMode(WorkflowMode.Labeling);
+                        ExecuteDeleteObjectCommand();
+                        break;
+
+                    case WpfAnnotationTool.Polygon:
+                        SetPendingAnnotationToolStatus("폴리곤");
+                        break;
+
+                    case WpfAnnotationTool.Brush:
+                        SetPendingAnnotationToolStatus("브러시");
+                        break;
+
+                    case WpfAnnotationTool.Eraser:
+                        SetPendingAnnotationToolStatus("지우개");
+                        break;
+
+                    case WpfAnnotationTool.Select:
+                        MainCanvasViewModel.IsTeachingMode = false;
+                        MainCanvasViewModel.IsImagePointInputMode = ObjectReviewViewModel?.IsSelectedSource(WpfObjectReviewSource.ManualSegment) == true;
+                        SetModelStatus("도구: 선택");
+                        break;
+
+                    case WpfAnnotationTool.Undo:
+                        UndoWpfAnnotationHistory();
+                        break;
+
+                    case WpfAnnotationTool.Redo:
+                        RedoWpfAnnotationHistory();
+                        break;
+
+                    default:
+                        SetWorkflowMode(WorkflowMode.Labeling);
+                        break;
+                }
+            }
+            finally
             {
-                BeginPolygonAnnotationMode();
+                applyingAnnotationToolSelection = false;
+            }
+        }
+
+        private void SynchronizeAnnotationToolSelection(WpfAnnotationToolItem selectedToolItem)
+        {
+            if (selectedToolItem == null)
+            {
                 return;
             }
 
-            if (tool.Value == WpfAnnotationTool.Brush || tool.Value == WpfAnnotationTool.Eraser)
+            // The guide palette and canvas toolbar display the same tool source; synchronize selection without reapplying command tools.
+            if (!ReferenceEquals(LearningWorkflowViewModel?.SelectedTool, selectedToolItem))
             {
-                BeginMaskAnnotationMode(tool.Value);
-                return;
+                LearningWorkflowViewModel.SelectedTool = selectedToolItem;
             }
 
-            switch (tool.Value)
-            {
-                case WpfAnnotationTool.Rectangle:
-                    SetWorkflowMode(WorkflowMode.Labeling);
-                    MainCanvasViewModel.DrawingShapeKind = CanvasRoiShapeKind.Rectangle;
-                    MainCanvasViewModel.IsTeachingMode = true;
-                    SetModelStatus("도구: 박스 라벨링");
-                    SetYoloCommandStatus("박스 라벨링 도구가 활성화되었습니다. 이미지 위에서 드래그해 객체 영역을 만드세요.", isBusy: false);
-                    AppendLog("박스 라벨링 도구");
-                    break;
-
-                case WpfAnnotationTool.Ellipse:
-                    SetWorkflowMode(WorkflowMode.Labeling);
-                    MainCanvasViewModel.DrawingShapeKind = CanvasRoiShapeKind.Ellipse;
-                    MainCanvasViewModel.IsTeachingMode = true;
-                    SetModelStatus("도구: 원/타원");
-                    SetYoloCommandStatus("원/타원은 이미지 픽셀 기준 bounding box로 저장되고 캔버스에는 채워진 타원으로 표시됩니다.", isBusy: false);
-                    AppendLog("원/타원 라벨링 도구");
-                    break;
-
-                case WpfAnnotationTool.PanZoom:
-                    SetWorkflowMode(WorkflowMode.Labeling);
-                    PanCanvasButton_Click(sender, new RoutedEventArgs());
-                    break;
-
-                case WpfAnnotationTool.Delete:
-                    SetWorkflowMode(WorkflowMode.Labeling);
-                    DeleteObjectButton_Click(sender, new RoutedEventArgs());
-                    break;
-
-                case WpfAnnotationTool.Polygon:
-                    SetPendingAnnotationToolStatus("폴리곤");
-                    break;
-
-                case WpfAnnotationTool.Brush:
-                    SetPendingAnnotationToolStatus("브러시");
-                    break;
-
-                case WpfAnnotationTool.Eraser:
-                    SetPendingAnnotationToolStatus("지우개");
-                    break;
-
-                case WpfAnnotationTool.Select:
-                    MainCanvasViewModel.IsTeachingMode = false;
-                    MainCanvasViewModel.IsImagePointInputMode = IsSelectedManualSegment();
-                    SetModelStatus("도구: 선택");
-                    break;
-
-                case WpfAnnotationTool.Undo:
-                    UndoWpfAnnotationHistory();
-                    break;
-
-                case WpfAnnotationTool.Redo:
-                    RedoWpfAnnotationHistory();
-                    break;
-
-                default:
-                    SetWorkflowMode(WorkflowMode.Labeling);
-                    break;
-            }
+            CanvasPanelViewModel?.SetSelectedAnnotationTool(selectedToolItem);
+            RefreshCanvasWorkflowContext();
         }
 
         private void SetPendingAnnotationToolStatus(WpfAnnotationToolCapability capability)
@@ -2793,9 +2906,9 @@ namespace MvcVisionSystem
             AppendLog($"{toolName} 도구는 교육 팔레트에 준비됐고 실제 드로잉 경로는 다음 구현 대상입니다.");
         }
 
-        private void LearningStepListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void LearningStepListBox_SelectionChanged(object sender, object selectedItem)
         {
-            WpfLearningStep? step = LearningWorkflowViewModel?.SelectedStep?.Step;
+            WpfLearningStep? step = (selectedItem as WpfLearningStepItem)?.Step ?? LearningWorkflowViewModel?.SelectedStep?.Step;
             if (!step.HasValue)
             {
                 return;
@@ -2810,7 +2923,7 @@ namespace MvcVisionSystem
                 case WpfLearningStep.Label:
                     SetWorkflowMode(WorkflowMode.Labeling);
                     SelectAnnotationTool(WpfAnnotationTool.Rectangle, revealInGuide: true);
-                    AddSampleRoiButton_Click(sender, new RoutedEventArgs());
+                    ExecuteAddSampleRoiCommand();
                     break;
 
                 case WpfLearningStep.Infer:
@@ -2822,9 +2935,11 @@ namespace MvcVisionSystem
                     break;
 
                 case WpfLearningStep.Save:
-                    SaveAnnotationsButton_Click(sender, new RoutedEventArgs());
+                    ExecuteSaveAnnotationsCommand();
                     break;
             }
+
+            RefreshCanvasWorkflowContext();
         }
 
         private void SelectAnnotationTool(WpfAnnotationTool tool, bool revealInGuide = false)
@@ -2834,9 +2949,10 @@ namespace MvcVisionSystem
                 return;
             }
 
-            LearningWorkflowViewModel.SelectedTool = LearningWorkflowViewModel.AnnotationTools
+            WpfAnnotationToolItem selectedTool = LearningWorkflowViewModel.AnnotationTools
                 .FirstOrDefault(item => item.Tool == tool)
                 ?? LearningWorkflowViewModel.SelectedTool;
+            SynchronizeAnnotationToolSelection(selectedTool);
 
             if (revealInGuide)
             {
@@ -2844,32 +2960,39 @@ namespace MvcVisionSystem
             }
         }
 
-        private void FitCanvasButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteFitCanvasCommand()
         {
             MainCanvasViewModel.ImageViewer.ZoomToFit();
         }
 
-        private void ActualSizeCanvasButton_Click(object sender, RoutedEventArgs e)
+        private void FitCanvasButton_Click(object sender, RoutedEventArgs e) => ExecuteFitCanvasCommand();
+
+        private void ExecuteActualSizeCanvasCommand()
         {
             MainCanvasViewModel.ImageViewer.ZoomToActualSize();
         }
 
-        private void PanCanvasButton_Click(object sender, RoutedEventArgs e)
+        private void ActualSizeCanvasButton_Click(object sender, RoutedEventArgs e) => ExecuteActualSizeCanvasCommand();
+
+        private void ExecutePanCanvasCommand()
         {
             MainCanvasViewModel.IsTeachingMode = false;
             MainCanvasViewModel.ImageViewer.SetViewMode(CanvasInteractionMode.Drag);
             AppendLog("캔버스 이동 모드");
         }
 
-        private void FocusCandidateButton_Click(object sender, RoutedEventArgs e)
+        private void PanCanvasButton_Click(object sender, RoutedEventArgs e) => ExecutePanCanvasCommand();
+
+        private void ExecuteFocusCandidateCommand()
         {
             FocusSelectedCandidateInViewer(logIfMissing: true);
         }
 
-        private void ResetAiOverlayCanvasButton_Click(object sender, RoutedEventArgs e)
+        private void FocusCandidateButton_Click(object sender, RoutedEventArgs e) => ExecuteFocusCandidateCommand();
+
+        private void ExecuteResetAiOverlayCommand()
         {
-            int removedCount = pendingDetectionCandidates.Count;
-            pendingDetectionCandidates.Clear();
+            int removedCount = candidateReviewState.ClearPendingCandidates();
             RefreshCandidateList();
             RedrawReviewRois();
             UpdateDetectionResultOverlay();
@@ -2877,9 +3000,12 @@ namespace MvcVisionSystem
             AppendLog($"AI 후보 표시 지움: {removedCount}개");
         }
 
-        private void TeachingModeButton_Click(object sender, RoutedEventArgs e)
+        private void ResetAiOverlayCanvasButton_Click(object sender, RoutedEventArgs e) => ExecuteResetAiOverlayCommand();
+
+        private void ExecuteLabelingModeCommand()
         {
             SetWorkflowMode(WorkflowMode.Labeling);
+            FocusAnnotationToolsTab();
             if (MainCanvasViewModel.TeachingCommand?.CanExecute(null) == true)
             {
                 if (!MainCanvasViewModel.IsTeachingMode)
@@ -2891,7 +3017,7 @@ namespace MvcVisionSystem
             AppendLog("라벨링 모드로 전환했습니다. 이미지 선택만으로 추론하지 않습니다.");
         }
 
-        private void InferenceModeButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteInferenceModeCommand()
         {
             SetWorkflowMode(WorkflowMode.Inference);
             if (MainCanvasViewModel.TeachingCommand?.CanExecute(null) == true && MainCanvasViewModel.IsTeachingMode)
@@ -2902,7 +3028,7 @@ namespace MvcVisionSystem
             AppendLog("추론 검토 모드로 전환했습니다. 현재 추론 또는 큐 검사 버튼으로 YOLO를 실행하세요.");
         }
 
-        private async void CheckYoloButton_Click(object sender, RoutedEventArgs e)
+        private async void ExecuteCheckYoloCommand()
         {
             if (!BeginYoloEnvironmentCommand("YOLO 설정 점검 중..."))
             {
@@ -2942,7 +3068,7 @@ namespace MvcVisionSystem
             }
         }
 
-        private async void DetectButton_Click(object sender, RoutedEventArgs e)
+        private async void ExecuteDetectCurrentImageCommand()
         {
             if (!EnsureInferenceModeForDetection())
             {
@@ -2952,7 +3078,7 @@ namespace MvcVisionSystem
             await RunInteractiveDetectionAsync(allowSmokeFallback: false).ConfigureAwait(true);
         }
 
-        private async void InstallRequirementsButton_Click(object sender, RoutedEventArgs e)
+        private async void ExecuteInstallRequirementsCommand()
         {
             if (!BeginYoloEnvironmentCommand("Python requirements 점검 중..."))
             {
@@ -3008,7 +3134,7 @@ namespace MvcVisionSystem
             }
         }
 
-        private async void RunYoloSmokeButton_Click(object sender, RoutedEventArgs e)
+        private async void ExecuteRunYoloSmokeCommand()
         {
             if (currentWorkflowMode != WorkflowMode.Inference)
             {
@@ -3038,7 +3164,7 @@ namespace MvcVisionSystem
             }
         }
 
-        private async void RestartPythonWorkerButton_Click(object sender, RoutedEventArgs e)
+        private async void ExecuteRestartPythonWorkerCommand()
         {
             if (!BeginYoloEnvironmentCommand("Python worker 재시작 중..."))
             {
@@ -3077,7 +3203,7 @@ namespace MvcVisionSystem
             }
         }
 
-        private async void StopPythonWorkerButton_Click(object sender, RoutedEventArgs e)
+        private async void ExecuteStopPythonWorkerCommand()
         {
             if (!BeginYoloEnvironmentCommand("Python worker 중지 중..."))
             {
@@ -3102,7 +3228,7 @@ namespace MvcVisionSystem
             }
         }
 
-        private async void DetectSelectedQueueButton_Click(object sender, RoutedEventArgs e)
+        private async void ExecuteDetectSelectedQueueCommand()
         {
             if (!EnsureInferenceModeForDetection())
             {
@@ -3118,7 +3244,7 @@ namespace MvcVisionSystem
             await RunInteractiveDetectionAsync(item.ImagePath, allowSmokeFallback: false).ConfigureAwait(true);
         }
 
-        private async void BatchDetectQueueButton_Click(object sender, RoutedEventArgs e)
+        private async void ExecuteBatchDetectQueueCommand()
         {
             if (!EnsureInferenceModeForDetection())
             {
@@ -3128,7 +3254,7 @@ namespace MvcVisionSystem
             await RunBatchDetectionAsync(GetVisibleQueueItems(), "표시 행").ConfigureAwait(true);
         }
 
-        private async void RetryFailedQueueButton_Click(object sender, RoutedEventArgs e)
+        private async void ExecuteRetryFailedQueueCommand()
         {
             if (!EnsureInferenceModeForDetection())
             {
@@ -3140,13 +3266,13 @@ namespace MvcVisionSystem
                 "실패 재시도").ConfigureAwait(true);
         }
 
-        private void StopBatchQueueButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteStopBatchQueueCommand()
         {
             batchDetectionCts?.Cancel();
             AppendLog("일괄 검사 중지를 요청했습니다.");
         }
 
-        private void CandidateConfidenceSlider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+        private void ExecuteCandidateConfidenceChangedCommand(double confidence)
         {
             UpdateCandidateConfidenceText();
             if (CandidateListBox == null)
@@ -3157,39 +3283,44 @@ namespace MvcVisionSystem
             RefreshCandidateList();
         }
 
-        private void CandidateListBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void ExecuteCandidatePreviewKeyDownCommand(KeyInputCommandArgs e)
         {
+            if (e == null)
+            {
+                return;
+            }
+
             if (e.Key == Key.Enter)
             {
-                ConfirmSelectedCandidateButton_Click(sender, e);
+                ExecuteConfirmSelectedCandidateCommand();
                 e.Handled = true;
                 return;
             }
 
             if (e.Key == Key.Delete || e.Key == Key.Back)
             {
-                SkipSelectedCandidateButton_Click(sender, e);
+                ExecuteSkipSelectedCandidateCommand();
                 e.Handled = true;
                 return;
             }
 
-            if (e.Key == Key.A && (Keyboard.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            if (e.Key == Key.A && (e.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
             {
-                ConfirmAllCandidatesButton_Click(sender, e);
+                ExecuteConfirmAllCandidatesCommand();
                 e.Handled = true;
                 return;
             }
 
             if (e.Key == Key.N)
             {
-                SelectCandidateOffset(1);
+                ExecuteNextCandidateCommand();
                 e.Handled = true;
                 return;
             }
 
             if (e.Key == Key.P)
             {
-                SelectCandidateOffset(-1);
+                ExecutePreviousCandidateCommand();
                 e.Handled = true;
                 return;
             }
@@ -3201,15 +3332,21 @@ namespace MvcVisionSystem
             }
         }
 
-        private void PreviousCandidateButton_Click(object sender, RoutedEventArgs e)
+        private void ExecutePreviousCandidateCommand()
         {
             SelectCandidateOffset(-1);
         }
 
-        private void NextCandidateButton_Click(object sender, RoutedEventArgs e)
+        private void PreviousCandidateButton_Click(object sender, RoutedEventArgs e)
+            => ExecutePreviousCandidateCommand();
+
+        private void ExecuteNextCandidateCommand()
         {
             SelectCandidateOffset(1);
         }
+
+        private void NextCandidateButton_Click(object sender, RoutedEventArgs e)
+            => ExecuteNextCandidateCommand();
 
         private void SelectCandidateOffset(int offset)
         {
@@ -3218,34 +3355,24 @@ namespace MvcVisionSystem
                 return;
             }
 
-            List<WpfCandidateReviewListItem> candidates = CandidateReviewViewModel.Candidates
-                .Where(item => item?.Payload is YoloWorkerSmokeCandidate)
-                .ToList();
-            if (candidates.Count == 0)
+            WpfCandidateNavigationSelection selection = WpfCandidateReviewSelectionService.SelectCandidateOffset(
+                CandidateReviewViewModel.Candidates,
+                CandidateReviewViewModel.SelectedCandidate,
+                offset);
+            if (selection.Status == WpfCandidateNavigationStatus.NoCandidates)
             {
                 AppendLog("이동할 AI 후보가 없습니다.");
                 return;
             }
 
-            if (candidates.Count == 1)
+            if (selection.Status == WpfCandidateNavigationStatus.SingleCandidate)
             {
                 AppendLog("이동할 다른 AI 후보가 없습니다.");
                 return;
             }
 
-            int selectedIndex = candidates.IndexOf(CandidateReviewViewModel.SelectedCandidate);
-            if (selectedIndex < 0)
-            {
-                selectedIndex = 0;
-            }
-            else
-            {
-                selectedIndex = (selectedIndex + offset + candidates.Count) % candidates.Count;
-            }
-
-            WpfCandidateReviewListItem selected = candidates[selectedIndex];
-            CandidateReviewViewModel.SelectedCandidate = selected;
-            CandidateListBox?.ScrollIntoView(selected);
+            CandidateReviewViewModel.SelectedCandidate = selection.SelectedItem;
+            CandidateListBox?.ScrollIntoView(selection.SelectedItem);
             CandidateListBox?.Focus();
             FocusSelectedCandidateInViewer(logIfMissing: false);
         }
@@ -3254,42 +3381,13 @@ namespace MvcVisionSystem
             YoloWorkerSmokeCandidate current,
             IEnumerable<YoloWorkerSmokeCandidate> removingCandidates)
         {
-            IReadOnlyList<YoloWorkerSmokeCandidate> visibleCandidates = GetVisibleCandidateList();
-            if (visibleCandidates.Count == 0)
-            {
-                return null;
-            }
-
-            var removing = new HashSet<YoloWorkerSmokeCandidate>(removingCandidates?.Where(candidate => candidate != null)
-                ?? Enumerable.Empty<YoloWorkerSmokeCandidate>());
-            List<YoloWorkerSmokeCandidate> remaining = visibleCandidates
-                .Where(candidate => !removing.Contains(candidate))
-                .ToList();
-            if (remaining.Count == 0)
-            {
-                return null;
-            }
-
-            int currentIndex = -1;
-            for (int i = 0; i < visibleCandidates.Count; i++)
-            {
-                if (ReferenceEquals(visibleCandidates[i], current))
-                {
-                    currentIndex = i;
-                    break;
-                }
-            }
-
-            if (currentIndex < 0)
-            {
-                currentIndex = 0;
-            }
-
-            int nextIndex = Math.Min(currentIndex, remaining.Count - 1);
-            return remaining[nextIndex];
+            return WpfCandidateReviewSelectionService.FindNextVisibleCandidateAfter(
+                GetVisibleCandidateList(),
+                current,
+                removingCandidates);
         }
 
-        private void ConfirmSelectedCandidateButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteConfirmSelectedCandidateCommand()
         {
             YoloWorkerSmokeCandidate candidate = GetSelectedCandidate();
             if (candidate == null)
@@ -3301,7 +3399,10 @@ namespace MvcVisionSystem
             ConfirmCandidates(new[] { candidate }, "선택");
         }
 
-        private void ConfirmAllCandidatesButton_Click(object sender, RoutedEventArgs e)
+        private void ConfirmSelectedCandidateButton_Click(object sender, RoutedEventArgs e)
+            => ExecuteConfirmSelectedCandidateCommand();
+
+        private void ExecuteConfirmAllCandidatesCommand()
         {
             IReadOnlyList<YoloWorkerSmokeCandidate> candidates = GetVisibleCandidateList();
             if (candidates.Count == 0)
@@ -3313,7 +3414,10 @@ namespace MvcVisionSystem
             ConfirmCandidates(candidates, "표시 후보 전체");
         }
 
-        private void SkipSelectedCandidateButton_Click(object sender, RoutedEventArgs e)
+        private void ConfirmAllCandidatesButton_Click(object sender, RoutedEventArgs e)
+            => ExecuteConfirmAllCandidatesCommand();
+
+        private void ExecuteSkipSelectedCandidateCommand()
         {
             YoloWorkerSmokeCandidate candidate = GetSelectedCandidate();
             if (candidate == null)
@@ -3324,17 +3428,20 @@ namespace MvcVisionSystem
 
             YoloWorkerSmokeCandidate nextCandidate = FindNextVisibleCandidateAfter(candidate, new[] { candidate });
             RegisterAnnotationHistoryBeforeChange("Skip AI candidate", markDirty: false);
-            pendingDetectionCandidates.Remove(candidate);
+            candidateReviewState.SkipCandidate(candidate);
             RefreshCandidateListWithPreferred(nextCandidate);
             RedrawReviewRois();
             FocusCandidateInViewer(nextCandidate, logIfMissing: false);
             MarkActiveImageSkippedOrCandidate();
-            AddCandidateReviewHistory($"\uC2A4\uD0B5: {FormatCandidate(candidate)}");
+            AddCandidateReviewHistory($"스킵: {FormatCandidate(candidate)}");
             SetPythonStatus($"Python: 대기 {pendingDetectionCandidates.Count} / 확정 {confirmedDetectionCandidates.Count}");
             AppendLog($"후보 스킵: {FormatCandidate(candidate)}");
         }
 
-        private void CandidateListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void SkipSelectedCandidateButton_Click(object sender, RoutedEventArgs e)
+            => ExecuteSkipSelectedCandidateCommand();
+
+        private void ExecuteCandidateSelectionChangedCommand(object selectedItem)
         {
             UpdateCandidateActionState();
             YoloWorkerSmokeCandidate candidate = GetSelectedCandidate();
@@ -3356,16 +3463,16 @@ namespace MvcVisionSystem
             RedrawReviewRois();
         }
 
-        private void ClassNameBox_KeyDown(object sender, KeyEventArgs e)
+        private void ClassNameBox_KeyDown(object sender, KeyInputCommandArgs e)
         {
-            if (e.Key == Key.Enter)
+            if (e?.Key == Key.Enter)
             {
-                AddClassButton_Click(sender, e);
+                ExecuteAddClassCommand();
                 e.Handled = true;
             }
         }
 
-        private void AddClassButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteAddClassCommand()
         {
             string className = ClassCatalogService.NormalizeClassName(ClassCatalogViewModel?.ClassName);
             if (string.IsNullOrWhiteSpace(className))
@@ -3389,7 +3496,7 @@ namespace MvcVisionSystem
             SetClassEditStatus($"클래스 추가됨: {addedClass.Text}");
         }
 
-        private void RemoveClassButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteRemoveClassCommand()
         {
             string className = GetSelectedClassName();
             if (string.IsNullOrWhiteSpace(className))
@@ -3416,9 +3523,9 @@ namespace MvcVisionSystem
             SetClassEditStatus($"클래스 삭제됨: {className}");
         }
 
-        private void ClassListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void ClassListBox_SelectionChanged(object sender, object selectedItem)
         {
-            string className = GetSelectedClassName();
+            string className = (selectedItem as WpfClassCatalogListItem)?.Text ?? GetSelectedClassName();
             if (string.IsNullOrWhiteSpace(className))
             {
                 return;
@@ -3430,7 +3537,7 @@ namespace MvcVisionSystem
             }
         }
 
-        private void BrowseOutputRootButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteBrowseOutputRootCommand()
         {
             if (TryPickFolder("YOLO 데이터셋 출력 폴더 선택", ClassCatalogViewModel?.OutputRootPath, out string selectedPath))
             {
@@ -3443,12 +3550,12 @@ namespace MvcVisionSystem
             }
         }
 
-        private void SaveOutputRootButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteSaveOutputRootCommand()
         {
             SaveOutputRootFromEditor();
         }
 
-        private void BrowseYoloPythonButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteBrowseYoloPythonCommand()
         {
             if (TryPickFile(
                 "Select Python executable",
@@ -3465,7 +3572,7 @@ namespace MvcVisionSystem
             }
         }
 
-        private void BrowseYoloProjectRootButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteBrowseYoloProjectRootCommand()
         {
             if (TryPickFolder("YOLO 프로젝트 폴더 선택", YoloModelSettingsViewModel?.ProjectRootPath ?? YoloProjectRootBox.Text, out string selectedPath))
             {
@@ -3478,7 +3585,7 @@ namespace MvcVisionSystem
             }
         }
 
-        private void BrowseYoloClientScriptButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteBrowseYoloClientScriptCommand()
         {
             if (TryPickFile(
                 "YOLO 클라이언트 script 선택",
@@ -3495,7 +3602,7 @@ namespace MvcVisionSystem
             }
         }
 
-        private void BrowseYoloWeightsButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteBrowseYoloWeightsCommand()
         {
             if (TryPickFile(
                 "YOLO weights 선택",
@@ -3512,7 +3619,7 @@ namespace MvcVisionSystem
             }
         }
 
-        private void BrowseYoloImageRootButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteBrowseYoloImageRootCommand()
         {
             if (TryPickFolder("이미지 루트 폴더 선택", YoloModelSettingsViewModel?.ImageRootPath ?? YoloImageRootBox.Text, out string selectedPath))
             {
@@ -3524,27 +3631,7 @@ namespace MvcVisionSystem
                 NotifyYoloPathSelected("이미지 루트 폴더", selectedPath);
             }
         }
-
-        private void IntegerTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
-        {
-            e.Handled = e.Text.Any(ch => !char.IsDigit(ch));
-        }
-
-        private void DecimalTextBox_PreviewTextInput(object sender, TextCompositionEventArgs e)
-        {
-            if (sender is not TextBox textBox)
-            {
-                e.Handled = true;
-                return;
-            }
-
-            string proposed = textBox.Text.Remove(textBox.SelectionStart, textBox.SelectionLength)
-                .Insert(textBox.SelectionStart, e.Text);
-            e.Handled = proposed.Count(ch => ch == '.') > 1
-                || proposed.Any(ch => !char.IsDigit(ch) && ch != '.');
-        }
-
-        private async void SaveYoloSettingsButton_Click(object sender, RoutedEventArgs e)
+        private async void ExecuteSaveYoloSettingsCommand()
         {
             try
             {
@@ -3583,7 +3670,7 @@ namespace MvcVisionSystem
             }
         }
 
-        private async void ResetYoloSettingsButton_Click(object sender, RoutedEventArgs e)
+        private async void ExecuteResetYoloSettingsCommand()
         {
             EnsureProjectSettings();
             global.Data.ProjectSettings.PythonModel = new PythonModelSettings();
@@ -3594,13 +3681,13 @@ namespace MvcVisionSystem
             AppendLog("YOLO 모델 설정을 기본값으로 되돌렸습니다.");
         }
 
-        private void RefreshTrainingReadinessButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteRefreshTrainingReadinessCommand()
         {
             SaveTrainingEditorFields();
             RefreshTrainingReadinessPanel(refreshYaml: true);
         }
 
-        private async void StartTrainingButton_Click(object sender, RoutedEventArgs e)
+        private async void ExecuteStartTrainingCommand()
         {
             if (!BeginTrainingCommand("학습 데이터셋 준비 중..."))
             {
@@ -3645,7 +3732,7 @@ namespace MvcVisionSystem
             }
         }
 
-        private async void StopTrainingButton_Click(object sender, RoutedEventArgs e)
+        private async void ExecuteStopTrainingCommand()
         {
             if (!BeginTrainingCommand("학습 중지 요청 중..."))
             {
@@ -3673,7 +3760,38 @@ namespace MvcVisionSystem
             }
         }
 
-        private void LoadImageRootButton_Click(object sender, RoutedEventArgs e)
+        // Keep legacy WPF event handlers thin so tests/XAML compatibility do not reintroduce event-object command paths.
+        private void LoadImageRootButton_Click(object sender, RoutedEventArgs e) => ExecuteLoadImageRootQueueCommand();
+
+        private void BrowseImageFolderButton_Click(object sender, RoutedEventArgs e) => ExecuteBrowseImageFolderCommand();
+
+        private void RefreshImageQueueButton_Click(object sender, RoutedEventArgs e) => ExecuteRefreshImageQueueCommand();
+
+        private void NextUnlabeledButton_Click(object sender, RoutedEventArgs e) => ExecuteNextUnlabeledQueueCommand();
+
+        private void OpenSelectedQueueImageButton_Click(object sender, RoutedEventArgs e) => ExecuteOpenSelectedQueueImageCommand();
+
+        private void DetectSelectedQueueButton_Click(object sender, RoutedEventArgs e) => ExecuteDetectSelectedQueueCommand();
+
+        private void BatchDetectQueueButton_Click(object sender, RoutedEventArgs e) => ExecuteBatchDetectQueueCommand();
+
+        private void RetryFailedQueueButton_Click(object sender, RoutedEventArgs e) => ExecuteRetryFailedQueueCommand();
+
+        private void StopBatchQueueButton_Click(object sender, RoutedEventArgs e) => ExecuteStopBatchQueueCommand();
+
+        private void QueueFilterAllButton_Click(object sender, RoutedEventArgs e) => ExecuteQueueFilterAllCommand();
+
+        private void QueueFilterCandidateButton_Click(object sender, RoutedEventArgs e) => ExecuteQueueFilterCandidateCommand();
+
+        private void QueueFilterFailedButton_Click(object sender, RoutedEventArgs e) => ExecuteQueueFilterFailedCommand();
+
+        private void QueueFilterConfirmedButton_Click(object sender, RoutedEventArgs e) => ExecuteQueueFilterConfirmedCommand();
+
+        private void QueueFilterSkippedButton_Click(object sender, RoutedEventArgs e) => ExecuteQueueFilterSkippedCommand();
+
+        private void QueueFilterNoCandidateButton_Click(object sender, RoutedEventArgs e) => ExecuteQueueFilterNoCandidateCommand();
+
+        private void ExecuteLoadImageRootQueueCommand()
         {
             EnsureProjectSettings();
             string imageRootPath = global.Data.ProjectSettings.PythonModel.ImageRootPath;
@@ -3686,25 +3804,20 @@ namespace MvcVisionSystem
             LoadImageQueueFromRoot(imageRootPath, activeImagePath, loadFirstImage: true);
         }
 
-        private void BrowseImageFolderButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteBrowseImageFolderCommand()
         {
-            var dialog = new OpenFolderDialog
-            {
-                Title = "이미지 폴더 선택",
-                InitialDirectory = Directory.Exists(currentImageRoot) ? currentImageRoot : string.Empty
-            };
-
-            if (dialog.ShowDialog(this) != true || string.IsNullOrWhiteSpace(dialog.FolderName))
+            string currentRoot = Directory.Exists(currentImageRoot) ? currentImageRoot : string.Empty;
+            if (!TryPickFolder("이미지 폴더 선택", currentRoot, out string selectedPath))
             {
                 return;
             }
 
             EnsureProjectSettings();
-            global.Data.ProjectSettings.PythonModel.ImageRootPath = dialog.FolderName;
-            LoadImageQueueFromRoot(dialog.FolderName, string.Empty, loadFirstImage: true);
+            global.Data.ProjectSettings.PythonModel.ImageRootPath = selectedPath;
+            LoadImageQueueFromRoot(selectedPath, string.Empty, loadFirstImage: true);
         }
 
-        private void RefreshImageQueueButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteRefreshImageQueueCommand()
         {
             string root = Directory.Exists(currentImageRoot)
                 ? currentImageRoot
@@ -3718,7 +3831,7 @@ namespace MvcVisionSystem
             LoadImageQueueFromRoot(root, activeImagePath, loadFirstImage: imageQueueItems.Count == 0);
         }
 
-        private void NextUnlabeledButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteNextUnlabeledQueueCommand()
         {
             IReadOnlyList<string> orderedPaths = imageQueueItems.Select(item => item.ImagePath).ToList();
             if (imageReviewStatus.TryFindNextUnlabeled(orderedPaths, activeImagePath, out string nextImagePath))
@@ -3731,39 +3844,39 @@ namespace MvcVisionSystem
             AppendLog("현재 큐에 미라벨 이미지가 없습니다.");
         }
 
-        private void ImageQueueFilterBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void ImageQueueFilterBox_SelectionChanged(object sender, object selectedItem)
         {
             imageQueueView?.Refresh();
             UpdateQueueQuickFilterButtons();
             UpdateImageQueueStatusText();
         }
 
-        private void QueueFilterAllButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteQueueFilterAllCommand()
         {
             SetImageQueueFilter(WpfImageQueueFilter.All);
         }
 
-        private void QueueFilterCandidateButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteQueueFilterCandidateCommand()
         {
             SetImageQueueFilter(WpfImageQueueFilter.Candidate);
         }
 
-        private void QueueFilterFailedButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteQueueFilterFailedCommand()
         {
             SetImageQueueFilter(WpfImageQueueFilter.Failed);
         }
 
-        private void QueueFilterConfirmedButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteQueueFilterConfirmedCommand()
         {
             SetImageQueueFilter(WpfImageQueueFilter.Confirmed);
         }
 
-        private void QueueFilterSkippedButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteQueueFilterSkippedCommand()
         {
             SetImageQueueFilter(WpfImageQueueFilter.Skipped);
         }
 
-        private void QueueFilterNoCandidateButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteQueueFilterNoCandidateCommand()
         {
             SetImageQueueFilter(WpfImageQueueFilter.NoCandidate);
         }
@@ -3785,74 +3898,94 @@ namespace MvcVisionSystem
             UpdateImageQueueStatusText();
         }
 
-        private void ImageQueueSearchBox_TextChanged(object sender, TextChangedEventArgs e)
+        private void ImageQueueSearchBox_TextChanged(object sender, string searchText)
         {
             imageQueueView?.Refresh();
             UpdateImageQueueStatusText();
         }
 
-        private void ImageQueueGrid_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void ImageQueueGrid_SelectionChanged(object sender, object selectedItem)
         {
+            ExecuteSelectedQueueItemChanged(selectedItem as WpfImageQueueItem);
+        }
+
+        private void ExecuteSelectedQueueItemChanged(WpfImageQueueItem item)
+        {
+            WpfImageQueueItem selectedItem = imageQueueSelectionService.ResolveSelectedItem(item, imageQueueItems, activeImagePath);
             if (suppressImageQueueSelection)
             {
+                UpdateSelectedQueueImageButton(selectedItem);
                 return;
             }
 
-            if (ImageQueueGrid.SelectedItem is not WpfImageQueueItem item)
+            if (selectedItem == null)
             {
                 UpdateSelectedQueueImageButton(null);
                 return;
             }
 
-            UpdateSelectedQueueImageButton(item);
-            TryOpenSelectedQueueImage(skipIfAlreadyActive: true);
+            UpdateSelectedQueueImageButton(selectedItem);
+            if (ReferenceEquals(selectedItem, ImageQueueGrid?.SelectedItem))
+            {
+                TryOpenSelectedQueueImage(skipIfAlreadyActive: true);
+            }
+            else
+            {
+                TryOpenSelectedQueueImage(selectedItem, skipIfAlreadyActive: true);
+            }
         }
 
-        private void ImageQueueGrid_MouseDoubleClick(object sender, System.Windows.Input.MouseButtonEventArgs e)
+        private void ImageQueueGrid_MouseDoubleClick(object sender)
         {
             TryOpenSelectedQueueImage(skipIfAlreadyActive: false);
         }
 
-        private void OpenSelectedQueueImageButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteOpenSelectedQueueImageCommand()
         {
             TryOpenSelectedQueueImage(skipIfAlreadyActive: false);
         }
 
         private bool TryOpenSelectedQueueImage(bool skipIfAlreadyActive = false)
         {
-            if (ImageQueueGrid.SelectedItem is not WpfImageQueueItem item
-                || string.IsNullOrWhiteSpace(item.ImagePath)
-                || !File.Exists(item.ImagePath))
+            return TryOpenSelectedQueueImage(ImageQueueGrid.SelectedItem as WpfImageQueueItem, skipIfAlreadyActive);
+        }
+
+        private bool TryOpenSelectedQueueImage(WpfImageQueueItem item, bool skipIfAlreadyActive = false)
+        {
+            if (!imageQueueSelectionService.CanOpen(item))
             {
-                AppendLog("열 이미지를 선택하세요.");
+                AppendLog("\uC5F4 \uC774\uBBF8\uC9C0\uB97C \uC120\uD0DD\uD558\uC138\uC694.");
                 return false;
             }
 
             UpdateSelectedQueueImageButton(item);
 
-            if (skipIfAlreadyActive
-                && string.Equals(item.ImagePath, activeImagePath, StringComparison.OrdinalIgnoreCase))
+            if (!imageQueueSelectionService.ShouldOpen(item, activeImagePath, skipIfAlreadyActive))
             {
                 return true;
             }
 
-            return TryLoadImage(
+            bool loaded = TryLoadImage(
                 item.ImagePath,
                 populateQueue: false,
                 refreshQueueDetails: false,
                 refreshActiveStatus: false,
                 appendLoadLog: false);
+            if (loaded)
+            {
+                UpdateSelectedQueueImageButton(item);
+            }
+
+            return loaded;
         }
 
         private void UpdateSelectedQueueImageButton(WpfImageQueueItem item)
         {
-            bool canOpenSelectedImage = item != null
-                && !string.IsNullOrWhiteSpace(item.ImagePath)
-                && File.Exists(item.ImagePath);
+            bool canOpenSelectedImage = imageQueueSelectionService.CanOpen(item);
 
-            if (ImageQueuePanelControl?.ViewModel != null)
+            if (ImageQueueViewModel != null)
             {
-                ImageQueuePanelControl.ViewModel.SetSelectedImageAvailability(canOpenSelectedImage);
+                ImageQueueViewModel.SetSelectedImageAvailability(canOpenSelectedImage);
                 return;
             }
 
@@ -3882,11 +4015,10 @@ namespace MvcVisionSystem
             var totalStopwatch = Stopwatch.StartNew();
             try
             {
-                string targetImagePath = !string.IsNullOrWhiteSpace(imagePath)
-                    ? imagePath
-                    : !string.IsNullOrWhiteSpace(activeImagePath)
-                        ? activeImagePath
-                        : YoloWorkerSmokeTestService.ResolveSmokeImagePath(global.Data.ProjectSettings.PythonModel);
+                string targetImagePath = detectionTargetService.ResolveInteractiveTargetPath(
+                    imagePath,
+                    activeImagePath,
+                    global.Data.ProjectSettings.PythonModel);
                 string inferencePath = "worker";
                 YoloWorkerSmokeTestResult result = await RunWorkerDetectionForImageAsync(
                         targetImagePath,
@@ -4177,14 +4309,10 @@ namespace MvcVisionSystem
                 return;
             }
 
-            List<WpfImageQueueItem> queue = (items ?? Array.Empty<WpfImageQueueItem>())
-                .Where(item => item != null && !string.IsNullOrWhiteSpace(item.ImagePath) && File.Exists(item.ImagePath))
-                .GroupBy(item => item.ImagePath, StringComparer.OrdinalIgnoreCase)
-                .Select(group => group.First())
-                .ToList();
+            IReadOnlyList<WpfImageQueueItem> queue = detectionTargetService.BuildBatchQueue(items);
             if (queue.Count == 0)
             {
-                AppendLog($"일괄 검사 건너뜀. 대상 이미지 없음: {scopeText}");
+                AppendLog(detectionTargetService.BuildEmptyBatchMessage(scopeText));
                 return;
             }
 
@@ -4196,17 +4324,17 @@ namespace MvcVisionSystem
             batchDetectionTotalCount = queue.Count;
             batchDetectionCompletedCount = 0;
             UpdateBatchDetectionControls(scopeText, string.Empty);
-            SetYoloCommandStatus($"일괄 검사 시작: {queue.Count}개", isBusy: true);
-            SetGlobalInferenceStatus($"일괄 추론 시작: {queue.Count}개", isBusy: true);
+            SetYoloCommandStatus(batchDetectionProgressService.BuildStartCommandStatus(queue.Count), isBusy: true);
+            SetGlobalInferenceStatus(batchDetectionProgressService.BuildStartInferenceStatus(queue.Count), isBusy: true);
 
-            AppendLog($"일괄 검사 시작. 범위:{scopeText}, 개수:{queue.Count}");
+            AppendLog(batchDetectionProgressService.BuildStartLog(scopeText, queue.Count));
             var batchStopwatch = Stopwatch.StartNew();
             int pendingReviewStatusSaves = 0;
             bool batchFailed = false;
             string batchFailureSummary = string.Empty;
             try
             {
-                SetGlobalInferenceStatus($"일괄 추론 worker 준비 중: {queue.Count}개", isBusy: true);
+                SetGlobalInferenceStatus(batchDetectionProgressService.BuildWorkerPreparingInferenceStatus(queue.Count), isBusy: true);
                 SetPythonStatus("Python: 일괄 worker 연결 확인 중");
                 bool workerReady = await global
                     .EnsurePythonModelClientReadyAsync(GetWorkerConnectTimeoutMilliseconds())
@@ -4229,8 +4357,9 @@ namespace MvcVisionSystem
                     string imageName = Path.GetFileNameWithoutExtension(item.ImagePath);
                     ApplyReviewStatusToItem(item, imageReviewStatus.SetDetectionRequested(item.ImagePath, imageName));
                     ShowBatchDetectionImage(item);
-                    SetGlobalInferenceStatus($"일괄 추론 {batchDetectionCompletedCount + 1}/{batchDetectionTotalCount}: {Path.GetFileName(item.ImagePath)}", isBusy: true);
-                    UpdateBatchDetectionControls(scopeText, Path.GetFileName(item.ImagePath));
+                    string currentFileName = batchDetectionProgressService.ResolveImageFileName(item.ImagePath);
+                    SetGlobalInferenceStatus(batchDetectionProgressService.BuildItemInferenceStatus(batchDetectionCompletedCount, batchDetectionTotalCount, item.ImagePath), isBusy: true);
+                    UpdateBatchDetectionControls(scopeText, currentFileName);
 
                     var itemStopwatch = Stopwatch.StartNew();
                     YoloWorkerSmokeTestResult result = await RunWorkerDetectionForImageAsync(
@@ -4253,11 +4382,11 @@ namespace MvcVisionSystem
                         && ApplyBatchDetectionResultToCanvas(item, result);
                     if (result.Succeeded)
                     {
-                        AppendLog($"일괄 검사 항목 완료: {nextCompleted}/{batchDetectionTotalCount} {Path.GetFileName(item.ImagePath)} 후보:{result.CandidateCount} / {elapsedText}");
+                        AppendLog(batchDetectionProgressService.BuildItemCompletedLog(nextCompleted, batchDetectionTotalCount, item.ImagePath, result.CandidateCount, elapsedText));
                     }
                     else if (!token.IsCancellationRequested)
                     {
-                        AppendLog($"일괄 검사 항목 실패: {nextCompleted}/{batchDetectionTotalCount} {Path.GetFileName(item.ImagePath)} / {elapsedText} / {result.Summary}");
+                        AppendLog(batchDetectionProgressService.BuildItemFailedLog(nextCompleted, batchDetectionTotalCount, item.ImagePath, elapsedText, result.Summary));
                     }
                     pendingReviewStatusSaves++;
                     if (pendingReviewStatusSaves >= BatchReviewStatusSaveInterval)
@@ -4267,8 +4396,8 @@ namespace MvcVisionSystem
                     }
 
                     batchDetectionCompletedCount++;
-                    SetPythonStatus($"Python: 일괄 {batchDetectionCompletedCount}/{batchDetectionTotalCount} / 최근 {elapsedText}");
-                    UpdateBatchDetectionControls(scopeText, $"{Path.GetFileName(item.ImagePath)} / 최근 {elapsedText}");
+                    SetPythonStatus(batchDetectionProgressService.BuildItemPythonStatus(batchDetectionCompletedCount, batchDetectionTotalCount, elapsedText));
+                    UpdateBatchDetectionControls(scopeText, batchDetectionProgressService.BuildLatestFileStatus(item.ImagePath, elapsedText));
                     if (displayedResult)
                     {
                         await YieldBatchDetectionResultFrameAsync(token).ConfigureAwait(true);
@@ -4289,27 +4418,19 @@ namespace MvcVisionSystem
                 SetPythonStatus(canceled ? "Python: 일괄 검사 중지" : "Python: 일괄 검사 완료");
                 string totalElapsedText = FormatElapsed(batchStopwatch.Elapsed);
                 string averageElapsedText = FormatAverageElapsed(batchStopwatch.Elapsed, batchDetectionCompletedCount);
-                SetYoloCommandStatus(
-                    canceled
-                        ? $"일괄 검사 중지: {batchDetectionCompletedCount}/{batchDetectionTotalCount} / {totalElapsedText}"
-                        : $"일괄 검사 완료: {batchDetectionCompletedCount}/{batchDetectionTotalCount} / {totalElapsedText}",
-                    isBusy: false);
+                SetYoloCommandStatus(batchDetectionProgressService.BuildCompletionCommandStatus(canceled, batchDetectionCompletedCount, batchDetectionTotalCount, totalElapsedText), isBusy: false);
                 SetGlobalInferenceStatus(
-                    canceled
-                        ? $"일괄 중지: {batchDetectionCompletedCount}/{batchDetectionTotalCount}"
-                        : $"일괄 완료: {batchDetectionCompletedCount}/{batchDetectionTotalCount} / {totalElapsedText}",
+                    batchDetectionProgressService.BuildCompletionInferenceStatus(canceled, batchDetectionCompletedCount, batchDetectionTotalCount, totalElapsedText),
                     isBusy: false,
                     isWarning: canceled);
-                AppendLog(canceled
-                    ? $"일괄 검사 중지. 완료:{batchDetectionCompletedCount}/{batchDetectionTotalCount} / 전체:{totalElapsedText} / {averageElapsedText}"
-                    : $"일괄 검사 완료. 완료:{batchDetectionCompletedCount}/{batchDetectionTotalCount} / 전체:{totalElapsedText} / {averageElapsedText}");
+                AppendLog(batchDetectionProgressService.BuildCompletionLog(canceled, batchDetectionCompletedCount, batchDetectionTotalCount, totalElapsedText, averageElapsedText));
                 if (batchFailed)
                 {
                     UpdateBatchDetectionControls("실패", string.Empty);
                     SetPythonStatus("Python: 일괄 검사 실패");
-                    SetYoloCommandStatus($"일괄 검사 실패: {batchDetectionCompletedCount}/{batchDetectionTotalCount} / {batchFailureSummary}", isBusy: false);
-                    SetGlobalInferenceStatus($"일괄 실패: {batchDetectionCompletedCount}/{batchDetectionTotalCount}", isBusy: false, isWarning: true);
-                    AppendLog($"일괄 검사 실패. 완료:{batchDetectionCompletedCount}/{batchDetectionTotalCount} / {batchFailureSummary}");
+                    SetYoloCommandStatus(batchDetectionProgressService.BuildFailureCommandStatus(batchDetectionCompletedCount, batchDetectionTotalCount, batchFailureSummary), isBusy: false);
+                    SetGlobalInferenceStatus(batchDetectionProgressService.BuildFailureInferenceStatus(batchDetectionCompletedCount, batchDetectionTotalCount), isBusy: false, isWarning: true);
+                    AppendLog(batchDetectionProgressService.BuildFailureLog(batchDetectionCompletedCount, batchDetectionTotalCount, batchFailureSummary));
                 }
             }
         }
@@ -4358,33 +4479,25 @@ namespace MvcVisionSystem
 
         private void UpdateBatchDetectionControls(string scopeText = "", string currentFileName = "")
         {
-            bool busy = isBatchDetectionRunning;
             UpdateYoloCommandButtons();
+            WpfBatchDetectionControlState controlState = batchDetectionProgressService.BuildControlState(
+                isBatchDetectionRunning,
+                batchDetectionTotalCount,
+                batchDetectionCompletedCount,
+                scopeText,
+                currentFileName);
 
-            int total = Math.Max(0, batchDetectionTotalCount);
-            int completed = Math.Max(0, batchDetectionCompletedCount);
-            int visibleProgress = busy && total > 0 && !string.IsNullOrWhiteSpace(currentFileName)
-                ? Math.Min(completed + 1, total)
-                : completed;
-            if (busy)
+            BatchProgressBar.Maximum = controlState.ProgressMaximum;
+            BatchProgressBar.Value = controlState.ProgressValue;
+            BatchStatusText.Text = controlState.StatusText;
+
+            if (controlState.ShouldRefreshQueueStatus)
             {
-                completed = visibleProgress;
-            }
-
-            BatchProgressBar.Maximum = total <= 0 ? 1 : total;
-            BatchProgressBar.Value = total <= 0 ? 0 : Math.Min(visibleProgress, total);
-            BatchStatusText.Text = busy
-                ? $"{visibleProgress}/{total}"
-                : total > 0 ? $"{completed}/{total}" : "배치 대기";
-
-            if (busy)
-            {
-                string fileText = string.IsNullOrWhiteSpace(currentFileName) ? string.Empty : $" {currentFileName}";
-                SetDatasetStatus($"데이터셋: 일괄 {completed}/{total} {scopeText}{fileText}");
+                UpdateImageQueueStatusText();
             }
             else
             {
-                UpdateImageQueueStatusText();
+                SetDatasetStatus(controlState.DatasetStatusText);
             }
         }
 
@@ -4398,12 +4511,18 @@ namespace MvcVisionSystem
             }
 
             SelectImageQueueItem(item.ImagePath);
-            return TryLoadImage(
+            bool loaded = TryLoadImage(
                 item.ImagePath,
                 populateQueue: false,
                 refreshQueueDetails: false,
                 refreshActiveStatus: false,
                 appendLoadLog: false);
+            if (loaded)
+            {
+                UpdateSelectedQueueImageButton(item);
+            }
+
+            return loaded;
         }
 
         private bool IsActiveImagePath(string imagePath)
@@ -4456,88 +4575,69 @@ namespace MvcVisionSystem
 
         private void ShowBatchNoCandidateResult(WpfImageQueueItem item, YoloWorkerSmokeTestResult result)
         {
-            if (CanvasPanelControl?.ViewModel == null)
+            if (CanvasPanelViewModel == null)
             {
                 return;
             }
 
-            string imageName = Path.GetFileName(item?.ImagePath ?? result?.ImagePath ?? activeImagePath ?? string.Empty);
-            CanvasPanelControl.ViewModel.SetDetectionOverlay(
-                "AI 검사 결과",
-                $"{imageName} / 후보 0개 / 기준 {GetCandidateConfidenceFilter().ToString("P0", CultureInfo.CurrentCulture)}",
-                "결과: 검출 후보 없음",
-                "현재 기준 신뢰도 이상으로 표시할 AI 후보가 없습니다.",
-                WpfDetectionOverlayStatus.Review);
+            WpfDetectionOverlayPresentation presentation = detectionResultPresentationService.BuildNoCandidateOverlay(
+                item?.ImagePath ?? result?.ImagePath ?? activeImagePath ?? string.Empty,
+                GetCandidateConfidenceFilter());
+            CanvasPanelViewModel.SetDetectionOverlay(
+                presentation.Title,
+                presentation.Summary,
+                presentation.SelectedText,
+                presentation.Detail,
+                presentation.Status);
         }
 
         private void ShowBatchDetectionFailureResult(WpfImageQueueItem item, YoloWorkerSmokeTestResult result)
         {
-            if (CanvasPanelControl?.ViewModel == null)
+            if (CanvasPanelViewModel == null)
             {
                 return;
             }
 
-            string imageName = Path.GetFileName(item?.ImagePath ?? result?.ImagePath ?? activeImagePath ?? string.Empty);
-            CanvasPanelControl.ViewModel.SetDetectionOverlay(
-                "AI 검사 실패",
-                $"{imageName} / 검사 실패",
-                string.IsNullOrWhiteSpace(result?.Summary) ? "결과: worker 응답 실패" : result.Summary,
-                "YOLO 설정, Python worker 상태, 이미지 경로를 확인하세요.",
-                WpfDetectionOverlayStatus.Review);
+            WpfDetectionOverlayPresentation presentation = detectionResultPresentationService.BuildFailureOverlay(
+                item?.ImagePath ?? result?.ImagePath ?? activeImagePath ?? string.Empty,
+                result?.Summary);
+            CanvasPanelViewModel.SetDetectionOverlay(
+                presentation.Title,
+                presentation.Summary,
+                presentation.SelectedText,
+                presentation.Detail,
+                presentation.Status);
         }
 
         private void ApplyBatchDetectionCandidates(IReadOnlyList<YoloWorkerSmokeCandidate> candidates, bool succeeded)
         {
-            pendingDetectionCandidates.Clear();
-            confirmedDetectionCandidates.Clear();
+            int loadedCount = candidateReviewState.LoadPendingCandidates(candidates, clearConfirmed: true);
             CandidateReviewViewModel?.ClearReviewHistory();
-
-            foreach (YoloWorkerSmokeCandidate candidate in candidates ?? Array.Empty<YoloWorkerSmokeCandidate>())
-            {
-                if (candidate == null)
-                {
-                    continue;
-                }
-
-                pendingDetectionCandidates.Add(candidate);
-            }
 
             RefreshCandidateList();
             RefreshObjectList();
             RedrawReviewRois();
-            SetActiveImageDetectionStatus(pendingDetectionCandidates.Count, succeeded);
-            AddCandidateReviewHistory(BuildCandidateLoadHistory(pendingDetectionCandidates.Count, succeeded));
-            if (pendingDetectionCandidates.Count > 0)
+            SetActiveImageDetectionStatus(loadedCount, succeeded);
+            AddCandidateReviewHistory(detectionResultPresentationService.BuildCandidateLoadHistory(loadedCount, succeeded, GetCandidateConfidenceFilter()));
+            if (candidateReviewState.HasPendingCandidates)
             {
                 CandidatesReviewTab.IsSelected = true;
             }
 
             CenterCanvasAfterInferenceResult();
         }
-
         private void ApplyDetectionCandidates(IReadOnlyList<YoloWorkerSmokeCandidate> candidates, bool succeeded)
         {
-            pendingDetectionCandidates.Clear();
-            confirmedDetectionCandidates.Clear();
+            int loadedCount = candidateReviewState.LoadPendingCandidates(candidates, clearConfirmed: true);
             CandidateReviewViewModel?.ClearReviewHistory();
-
-            foreach (YoloWorkerSmokeCandidate candidate in candidates ?? Array.Empty<YoloWorkerSmokeCandidate>())
-            {
-                if (candidate == null)
-                {
-                    continue;
-                }
-
-                pendingDetectionCandidates.Add(candidate);
-            }
 
             RefreshCandidateList();
             RefreshObjectList();
             RedrawReviewRois();
-            SetActiveImageDetectionStatus(pendingDetectionCandidates.Count, succeeded);
-            AddCandidateReviewHistory(BuildCandidateLoadHistory(pendingDetectionCandidates.Count, succeeded));
+            SetActiveImageDetectionStatus(loadedCount, succeeded);
+            AddCandidateReviewHistory(detectionResultPresentationService.BuildCandidateLoadHistory(loadedCount, succeeded, GetCandidateConfidenceFilter()));
 
-            if (pendingDetectionCandidates.Count == 0)
+            if (!candidateReviewState.HasPendingCandidates)
             {
                 CenterCanvasAfterInferenceResult();
                 AppendLog("AI 검출 후보가 없습니다.");
@@ -4546,35 +4646,11 @@ namespace MvcVisionSystem
 
             CandidatesReviewTab.IsSelected = true;
             CenterCanvasAfterInferenceResult();
-            AppendLog($"AI 후보 로드: {pendingDetectionCandidates.Count}개");
+            AppendLog($"AI 후보 로드: {loadedCount}개");
         }
-
         private void AddCandidateReviewHistory(string message)
         {
             CandidateReviewViewModel?.AddReviewHistory(message);
-        }
-
-        private string BuildCandidateLoadHistory(int candidateCount, bool succeeded)
-        {
-            if (!succeeded)
-            {
-                return "\uD6C4\uBCF4 \uB85C\uB4DC \uC2E4\uD328: worker \uACB0\uACFC\uB97C \uD655\uC778\uD558\uC138\uC694";
-            }
-
-            return candidateCount == 0
-                ? "\uD6C4\uBCF4 \uB85C\uB4DC: \uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C"
-                : $"\uD6C4\uBCF4 \uB85C\uB4DC: {candidateCount}\uAC1C / \uAE30\uC900 {GetCandidateConfidenceFilter():P0}";
-        }
-
-        private static string BuildCandidateConfirmHistory(string scope, int confirmedCount, int skippedDuplicateCount, bool saved, int savedCount)
-        {
-            string savedText = saved
-                ? $"\uC800\uC7A5 {savedCount}\uAC1C"
-                : "\uC800\uC7A5 \uAC74\uB108\uB700";
-            string duplicateText = skippedDuplicateCount > 0
-                ? $" / \uC911\uBCF5 \uC81C\uC678 {skippedDuplicateCount}\uAC1C"
-                : string.Empty;
-            return $"\uD655\uC815({scope}): {confirmedCount}\uAC1C / {savedText}{duplicateText}";
         }
 
         private void CenterCanvasAfterInferenceResult()
@@ -4603,42 +4679,32 @@ namespace MvcVisionSystem
                 return;
             }
 
-            var confirmable = (candidates ?? Array.Empty<YoloWorkerSmokeCandidate>())
-                .Where(candidate => candidate != null && pendingDetectionCandidates.Contains(candidate))
-                .Where(IsCandidateConfirmable)
-                .ToList();
-            if (confirmable.Count == 0)
+            WpfCandidateConfirmationAttempt attempt = candidateConfirmationService.Prepare(
+                candidateReviewState,
+                candidates,
+                IsCandidateConfirmable,
+                IsCandidateHighOverlap);
+            if (!attempt.CanConfirm)
             {
-                int duplicateCount = (candidates ?? Array.Empty<YoloWorkerSmokeCandidate>())
-                    .Count(candidate => candidate != null && pendingDetectionCandidates.Contains(candidate) && IsCandidateHighOverlap(candidate));
-                AddCandidateReviewHistory(duplicateCount > 0
-                    ? $"\uC911\uBCF5 \uC81C\uC678: {duplicateCount}\uAC1C / \uAE30\uC874 \uB77C\uBCA8 \uD655\uC778 \uD544\uC694"
-                    : "\uD655\uC815 \uAC00\uB2A5\uD55C AI \uD6C4\uBCF4 \uC5C6\uC74C");
-                AppendLog(duplicateCount > 0
-                    ? $"중복 가능 후보 {duplicateCount}개는 확정하지 않았습니다. 필요하면 기존 라벨을 확인하거나 후보를 스킵하세요."
-                    : "확정 가능한 AI 후보가 없습니다.");
+                AddCandidateReviewHistory(attempt.ReviewHistoryMessage);
+                AppendLog(attempt.LogMessage);
                 return;
             }
 
-            int skippedDuplicateCount = (candidates ?? Array.Empty<YoloWorkerSmokeCandidate>())
-                .Count(candidate => candidate != null
-                    && pendingDetectionCandidates.Contains(candidate)
-                    && IsCandidateHighOverlap(candidate));
+            WpfCandidateConfirmationPlan plan = attempt.Plan;
             YoloWorkerSmokeCandidate selectedBeforeConfirm = GetSelectedCandidate();
-            YoloWorkerSmokeCandidate nextCandidate = FindNextVisibleCandidateAfter(selectedBeforeConfirm, confirmable);
+            YoloWorkerSmokeCandidate nextCandidate = FindNextVisibleCandidateAfter(selectedBeforeConfirm, plan.ConfirmableCandidates);
             RegisterAnnotationHistoryBeforeChange($"Confirm {scope}");
-
-            foreach (YoloWorkerSmokeCandidate candidate in confirmable)
-            {
-                pendingDetectionCandidates.Remove(candidate);
-                if (!confirmedDetectionCandidates.Contains(candidate))
-                {
-                    confirmedDetectionCandidates.Add(candidate);
-                }
-            }
+            candidateConfirmationService.ApplyConfirmation(candidateReviewState, plan);
 
             bool saved = SaveCurrentAnnotations(out int savedCount);
-            AddCandidateReviewHistory(BuildCandidateConfirmHistory(scope, confirmable.Count, skippedDuplicateCount, saved, savedCount));
+            WpfCandidateConfirmationResult result = candidateConfirmationService.BuildConfirmedResult(
+                scope,
+                plan,
+                saved,
+                savedCount,
+                BuildLabelPathSummary());
+            AddCandidateReviewHistory(result.ReviewHistoryMessage);
             RefreshCandidateListWithPreferred(nextCandidate);
             RefreshObjectList();
             RedrawReviewRois();
@@ -4647,7 +4713,7 @@ namespace MvcVisionSystem
             {
                 MarkActiveImageConfirmed();
             }
-            if (pendingDetectionCandidates.Count > 0)
+            if (candidateReviewState.HasPendingCandidates)
             {
                 CandidatesReviewTab.IsSelected = true;
                 FocusCandidateInViewer(nextCandidate, logIfMissing: false);
@@ -4656,16 +4722,14 @@ namespace MvcVisionSystem
             {
                 ObjectsReviewTab.IsSelected = true;
             }
-                SetPythonStatus($"Python: 대기 {pendingDetectionCandidates.Count} / 확정 {confirmedDetectionCandidates.Count}");
+            SetPythonStatus($"Python: 대기 {candidateReviewState.PendingCount} / 확정 {candidateReviewState.ConfirmedCount}");
 
-            string savedText = saved ? $" 저장 객체 {savedCount}. {BuildLabelPathSummary()}" : " 저장 건너뜀.";
-            AppendLog($"AI 후보 확정({scope}): {confirmable.Count}개;{savedText}");
-            if (skippedDuplicateCount > 0)
+            AppendLog(result.LogMessage);
+            if (!string.IsNullOrWhiteSpace(result.DuplicateLogMessage))
             {
-                AppendLog($"중복 가능 후보 {skippedDuplicateCount}개는 확정에서 제외했습니다.");
+                AppendLog(result.DuplicateLogMessage);
             }
         }
-
         private bool SaveCurrentAnnotations(out int savedCount)
         {
             savedCount = 0;
@@ -4676,8 +4740,7 @@ namespace MvcVisionSystem
 
             Dictionary<string, List<CRectangleObject>> roisByClass = BuildAnnotationRois();
             Dictionary<string, List<LabelingSegmentationObject>> segmentsByClass = BuildAnnotationSegments();
-            savedCount = roisByClass.Sum(group => group.Value?.Count ?? 0)
-                + segmentsByClass.Sum(group => group.Value?.Count ?? 0);
+            savedCount = CountAnnotationRois(roisByClass) + CountAnnotationSegments(segmentsByClass);
             if (savedCount == 0)
             {
                 return false;
@@ -4686,12 +4749,30 @@ namespace MvcVisionSystem
             bool saved = LabelingAnnotationPersistence.SaveCurrent(activeImageBitmap, roisByClass, segmentsByClass, global.Data);
             if (saved)
             {
-                MarkAnnotationsSaved($"\uC800\uC7A5 \uC644\uB8CC: {savedCount}\uAC1C \uAC1D\uCCB4");
+                MarkAnnotationsSaved($"라벨 저장 완료: 객체 {savedCount}개");
+                global.System?.UpdateData();
             }
 
             return saved;
         }
 
+        private static int CountAnnotationRois(IReadOnlyDictionary<string, List<CRectangleObject>> roisByClass)
+        {
+            return roisByClass?
+                .Values
+                .Where(list => list != null)
+                .SelectMany(list => list)
+                .Count(roi => roi != null && !roi.Roi.IsEmpty) ?? 0;
+        }
+
+        private static int CountAnnotationSegments(IReadOnlyDictionary<string, List<LabelingSegmentationObject>> segmentsByClass)
+        {
+            return segmentsByClass?
+                .Values
+                .Where(list => list != null)
+                .SelectMany(list => list)
+                .Count(segment => segment != null && ((segment.Points != null && segment.Points.Count >= 3) || (segment.IsRasterMask && !segment.Bounds.IsEmpty))) ?? 0;
+        }
         private Dictionary<string, List<CRectangleObject>> BuildAnnotationRois()
         {
             var roisByClass = new Dictionary<string, List<CRectangleObject>>(StringComparer.OrdinalIgnoreCase);
@@ -4851,14 +4932,7 @@ namespace MvcVisionSystem
         }
 
         private YoloWorkerSmokeCandidate GetSelectedCandidate()
-        {
-            if (CandidateReviewViewModel?.SelectedCandidate?.Payload is YoloWorkerSmokeCandidate viewModelCandidate)
-            {
-                return viewModelCandidate;
-            }
-
-            return null;
-        }
+            => WpfCandidateReviewSelectionService.GetSelectedCandidate(CandidateReviewViewModel?.SelectedCandidate);
 
         private bool FocusSelectedCandidateInViewer(bool logIfMissing)
         {
@@ -4931,46 +5005,31 @@ namespace MvcVisionSystem
 
         private void UpdateDetectionResultOverlay()
         {
-            if (CanvasPanelControl?.ViewModel == null)
+            if (CanvasPanelViewModel == null)
             {
                 return;
             }
 
-            if (pendingDetectionCandidates.Count == 0)
+            WpfDetectionOverlayPresentation presentation = candidateReviewPresentationService.BuildOverlayPresentation(
+                activeImagePath,
+                pendingDetectionCandidates,
+                GetSelectedCandidate(),
+                GetCandidateConfidenceFilter(),
+                IsCandidateHighOverlap,
+                IsCandidateConfirmable,
+                BuildCandidateSecondaryText);
+            if (presentation.IsEmpty)
             {
-                CanvasPanelControl.ViewModel.ClearDetectionOverlay();
+                CanvasPanelViewModel.ClearDetectionOverlay();
                 return;
             }
 
-            string imageName = string.IsNullOrWhiteSpace(activeImagePath)
-                ? "-"
-                : Path.GetFileName(activeImagePath);
-            string summary =
-                $"{imageName} / 후보 {pendingDetectionCandidates.Count}개 / 기준 {GetCandidateConfidenceFilter().ToString("P0", CultureInfo.CurrentCulture)}";
-
-            YoloWorkerSmokeCandidate selected = GetSelectedCandidate() ?? pendingDetectionCandidates.FirstOrDefault();
-            bool selectedDuplicate = selected != null && IsCandidateHighOverlap(selected);
-            bool selectedConfirmable = selected != null && IsCandidateConfirmable(selected);
-            string selectedText = selected == null
-                ? "선택 후보 없음"
-                : $"선택: {BuildDetectionOverlayLabel(selected, pendingDetectionCandidates.IndexOf(selected) + 1)} / {BuildCandidateSecondaryText(selected)}";
-            string detail = string.Join(
-                "\n",
-                pendingDetectionCandidates
-                    .Take(4)
-                    .Select((candidate, index) => $"{index + 1}. {GetCandidateClassName(candidate)} {FormatCandidateConfidence(candidate, "P1")}  {BuildCandidateSecondaryText(candidate)}"));
-            WpfDetectionOverlayStatus status = selectedDuplicate
-                ? WpfDetectionOverlayStatus.Duplicate
-                : selectedConfirmable
-                    ? WpfDetectionOverlayStatus.Confirmable
-                    : WpfDetectionOverlayStatus.Review;
-
-            CanvasPanelControl.ViewModel.SetDetectionOverlay(
-                "AI 검출 결과",
-                summary,
-                selectedText,
-                detail,
-                status);
+            CanvasPanelViewModel.SetDetectionOverlay(
+                presentation.Title,
+                presentation.Summary,
+                presentation.SelectedText,
+                presentation.Detail,
+                presentation.Status);
         }
 
         private string BuildDetectionOverlayLabel(YoloWorkerSmokeCandidate candidate, int fallbackIndex)
@@ -5008,41 +5067,19 @@ namespace MvcVisionSystem
 
         private void RefreshCandidateListViewModel(YoloWorkerSmokeCandidate preferredCandidate)
         {
-            var rows = new List<WpfCandidateReviewListItem>();
+            WpfCandidateReviewListPresentation presentation = candidateReviewPresentationService.BuildListPresentation(
+                pendingDetectionCandidates,
+                GetVisibleCandidateList(),
+                preferredCandidate,
+                GetCandidateConfidenceFilter(),
+                GetMinimumDetectionConfidence(),
+                GetClippedCandidateBounds,
+                GetCandidateOverlapInfo);
 
-            if (pendingDetectionCandidates.Count == 0)
-            {
-                string detail = "AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
-                rows.Add(WpfCandidateReviewListItem.Empty(
-                    "AI \uD6C4\uBCF4 \uC5C6\uC74C",
-                    "\uAC80\uCD9C \uACB0\uACFC \uD6C4\uBCF4\uAC00 \uC5C6\uAC70\uB098 \uC544\uC9C1 \uAC80\uC0AC\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4."));
-                CandidateReviewViewModel.SetCandidates(rows, detail);
-                UpdateCandidateActionState();
-                UpdateDetectionResultOverlay();
-                return;
-            }
-
-            IReadOnlyList<YoloWorkerSmokeCandidate> visibleCandidates = GetVisibleCandidateList();
-            if (visibleCandidates.Count == 0)
-            {
-                string detail = $"{GetCandidateConfidenceFilter():P0} \uC774\uC0C1 AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
-                rows.Add(WpfCandidateReviewListItem.Empty(
-                    "\uD544\uD130 \uD1B5\uACFC \uD6C4\uBCF4 \uC5C6\uC74C",
-                    "\uC2E0\uB8B0\uB3C4 \uAE30\uC900\uC744 \uB0AE\uCD94\uBA74 \uC228\uACA8\uC9C4 \uD6C4\uBCF4\uB97C \uB2E4\uC2DC \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4."));
-                CandidateReviewViewModel.SetCandidates(rows, detail);
-                UpdateCandidateActionState();
-                UpdateDetectionResultOverlay();
-                return;
-            }
-
-            for (int i = 0; i < visibleCandidates.Count; i++)
-            {
-                YoloWorkerSmokeCandidate candidate = visibleCandidates[i];
-                int displayIndex = candidate.Index > 0 ? candidate.Index : i + 1;
-                rows.Add(CreateCandidateReviewItem(candidate, displayIndex));
-            }
-
-            CandidateReviewViewModel.SetCandidates(rows, string.Empty, preferredCandidate);
+            CandidateReviewViewModel.SetCandidates(
+                presentation.Rows,
+                presentation.Detail,
+                presentation.PreferredCandidate);
             YoloWorkerSmokeCandidate selected = GetSelectedCandidate();
             if (selected != null)
             {
@@ -5055,17 +5092,6 @@ namespace MvcVisionSystem
 
             UpdateCandidateActionState();
             UpdateDetectionResultOverlay();
-        }
-
-        private WpfCandidateReviewListItem CreateCandidateReviewItem(YoloWorkerSmokeCandidate candidate, int displayIndex)
-        {
-            DrawingRectangle bounds = GetClippedCandidateBounds(candidate);
-            return WpfCandidateReviewPresenter.BuildListItem(
-                candidate,
-                displayIndex,
-                bounds,
-                GetCandidateOverlapInfo(bounds),
-                GetMinimumDetectionConfidence());
         }
 
         private void RefreshObjectList()
@@ -5082,112 +5108,55 @@ namespace MvcVisionSystem
         {
             WpfObjectReviewItemRef previousSelection = null;
             TryGetSelectedObjectReviewItem(out previousSelection);
-            WpfObjectReviewItemRef nextSelection = preferredSelection ?? previousSelection;
 
-            int objectCount = manualRois.Count + manualSegments.Count + confirmedDetectionCandidates.Count;
-            string summary = WpfObjectReviewPresenter.BuildSummary(objectCount);
-            var rows = new List<WpfObjectReviewListItem>();
+            WpfObjectReviewListPresentation presentation = objectReviewPresentationService.BuildListPresentation(
+                manualRois,
+                manualRoiClassNames,
+                manualRoiShapeKinds,
+                manualRoiOverlayIds,
+                manualSegments,
+                confirmedDetectionCandidates,
+                preferredSelection,
+                previousSelection,
+                GetClippedCandidateBounds,
+                FormatCandidateDetail);
 
-            if (objectCount == 0)
-            {
-                rows.Add(WpfObjectReviewListItem.Empty(WpfObjectReviewPresenter.EmptyText));
-                SetObjectReviewObjects(rows, summary, nextSelection);
-                UpdateObjectReviewActionState();
-                return;
-            }
-
-            for (int i = 0; i < manualRois.Count; i++)
-            {
-                rows.Add(BuildManualRoiObjectReviewItem(i));
-            }
-
-            for (int i = 0; i < manualSegments.Count; i++)
-            {
-                LabelingSegmentationObject segment = manualSegments[i];
-                if (segment == null)
-                {
-                    continue;
-                }
-
-                string className = FirstNonEmpty(segment.ClassName, segment.ClassItem?.Text, "Defect");
-                string shapeName = segment.IsRasterMask ? "Mask" : "Polygon";
-                WpfObjectReviewItemRef payload = WpfObjectReviewItemRef.ManualSegment(i);
-                rows.Add(WpfObjectReviewPresenter.BuildManualItem(
-                    manualRois.Count + i + 1,
-                    className,
-                    segment.Bounds,
-                    shapeName,
-                    payload.Source.ToString(),
-                    payload.Index,
-                    payload));
-            }
-
-            for (int i = 0; i < confirmedDetectionCandidates.Count; i++)
-            {
-                YoloWorkerSmokeCandidate candidate = confirmedDetectionCandidates[i];
-                WpfObjectReviewItemRef payload = WpfObjectReviewItemRef.ConfirmedAi(i);
-                int displayIndex = candidate?.Index > 0 ? candidate.Index : i + 1;
-                DrawingRectangle bounds = GetClippedCandidateBounds(candidate);
-                rows.Add(WpfObjectReviewPresenter.BuildConfirmedItem(
-                    candidate,
-                    displayIndex,
-                    bounds,
-                    FormatCandidateDetail(candidate),
-                    payload.Source.ToString(),
-                    payload.Index,
-                    payload));
-            }
-
-            SetObjectReviewObjects(rows, summary, nextSelection);
+            SetObjectReviewObjects(presentation.Rows, presentation.Summary, presentation.SelectedItem);
             UpdateObjectReviewActionState();
         }
 
         private WpfObjectReviewListItem BuildManualRoiObjectReviewItem(int index)
-        {
-            DrawingRectangle roi = manualRois[index];
-            string className = GetManualRoiClassName(index);
-            WpfObjectReviewItemRef payload = WpfObjectReviewItemRef.Manual(index, GetManualRoiOverlayId(index));
-            return WpfObjectReviewPresenter.BuildManualItem(
-                index + 1,
-                className,
-                roi,
-                FormatManualRoiShapeName(GetManualRoiShapeKind(index)),
-                payload.Source.ToString(),
-                payload.Index,
-                payload);
-        }
+            => objectReviewPresentationService.BuildManualRoiItem(
+                manualRois,
+                manualRoiClassNames,
+                manualRoiShapeKinds,
+                manualRoiOverlayIds,
+                index);
 
         private bool TryRefreshManualRoiObjectReviewRow(int manualRoiIndex, bool select)
         {
-            if (manualRoiIndex < 0
-                || manualRoiIndex >= manualRois.Count
-                || ObjectReviewViewModel?.Objects == null
-                || manualRoiIndex >= ObjectReviewViewModel.Objects.Count)
-            {
-                return false;
-            }
-
-            WpfObjectReviewListItem currentRow = ObjectReviewViewModel.Objects[manualRoiIndex];
-            if (!string.Equals(currentRow?.SourceKey, WpfObjectReviewSource.ManualRoi.ToString(), StringComparison.OrdinalIgnoreCase)
-                || currentRow.SourceIndex != manualRoiIndex)
-            {
-                return false;
-            }
-
-            suppressObjectReviewSelectionChanged = true;
-            try
-            {
-                return ObjectReviewViewModel.TryReplaceObject(
+            WpfObjectReviewListItem row = BuildManualRoiObjectReviewItem(manualRoiIndex);
+            if (row == null
+                || !WpfObjectReviewSelectionService.CanReplaceManualRoiRow(
+                    ObjectReviewViewModel?.Objects,
                     manualRoiIndex,
-                    BuildManualRoiObjectReviewItem(manualRoiIndex),
+                    manualRois.Count))
+            {
+                return false;
+            }
+
+            bool replaced;
+            using (ObjectReviewViewModel.SuppressSelectionNotifications())
+            {
+                replaced = ObjectReviewViewModel.TryReplaceObject(
+                    manualRoiIndex,
+                    row,
                     select);
             }
-            finally
-            {
-                suppressObjectReviewSelectionChanged = false;
-                SyncObjectClassEditorToSelection();
-                UpdateObjectReviewActionState();
-            }
+
+            SyncObjectClassEditorToSelection();
+            UpdateObjectReviewActionState();
+            return replaced;
         }
 
         private void SetObjectReviewObjects(
@@ -5197,8 +5166,7 @@ namespace MvcVisionSystem
         {
             // Rebuilding the side list temporarily clears WPF SelectedItem. During ROI click/drag
             // that transient null must not clear the active canvas ROI handles.
-            suppressObjectReviewSelectionChanged = true;
-            try
+            using (ObjectReviewViewModel.SuppressSelectionNotifications())
             {
                 ObjectReviewViewModel.SetObjects(
                     rows,
@@ -5206,28 +5174,45 @@ namespace MvcVisionSystem
                     selectedItem?.Source.ToString() ?? string.Empty,
                     selectedItem?.Index ?? -1);
             }
-            finally
-            {
-                suppressObjectReviewSelectionChanged = false;
-            }
 
             SyncObjectClassEditorToSelection();
         }
 
         private string GetManualRoiClassName(int index)
+            => WpfObjectReviewPresentationService.GetManualRoiClassName(manualRoiClassNames, index);
+
+        private WpfObjectReviewListItem BuildManualSegmentObjectReviewItem(int manualSegmentIndex)
+            => objectReviewPresentationService.BuildManualSegmentItem(
+                manualRois.Count,
+                manualSegments,
+                manualSegmentIndex);
+
+        private bool TryRefreshManualSegmentObjectReviewRow(int manualSegmentIndex, string summary, bool select)
         {
-            if (index >= 0 && index < manualRoiClassNames.Count
-                && !string.IsNullOrWhiteSpace(manualRoiClassNames[index]))
+            WpfObjectReviewListItem row = BuildManualSegmentObjectReviewItem(manualSegmentIndex);
+            int objectRowIndex = manualRois.Count + manualSegmentIndex;
+            if (row == null || ObjectReviewViewModel == null || objectRowIndex < 0)
             {
-                return manualRoiClassNames[index];
+                return false;
             }
 
-            return "Defect";
-        }
+            bool updated;
+            using (ObjectReviewViewModel.SuppressSelectionNotifications())
+            {
+                updated = ObjectReviewViewModel.TryUpsertObject(
+                    objectRowIndex,
+                    row,
+                    summary,
+                    select);
+            }
 
-        private void ObjectListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+            SyncObjectClassEditorToSelection();
+            UpdateObjectReviewActionState();
+            return updated;
+        }
+        private void ExecuteObjectSelectionChangedCommand(object selectedItem)
         {
-            if (suppressObjectReviewSelectionChanged)
+            if (ObjectReviewViewModel?.IsSelectionNotificationSuppressed == true)
             {
                 UpdateObjectReviewActionState();
                 return;
@@ -5235,16 +5220,13 @@ namespace MvcVisionSystem
 
             SyncObjectClassEditorToSelection();
             UpdateObjectReviewActionState();
-            bool isManualSegmentSelected = IsSelectedManualSegment();
+            bool isManualSegmentSelected = ObjectReviewViewModel?.IsSelectedSource(WpfObjectReviewSource.ManualSegment) == true;
             if (activeAnnotationTool == WpfAnnotationTool.Select)
             {
                 MainCanvasViewModel.IsImagePointInputMode = isManualSegmentSelected;
             }
 
-            if (!string.Equals(
-                ObjectReviewViewModel?.SelectedObject?.SourceKey,
-                WpfObjectReviewSource.ManualRoi.ToString(),
-                StringComparison.OrdinalIgnoreCase))
+            if (ObjectReviewViewModel?.IsSelectedSource(WpfObjectReviewSource.ManualRoi) != true)
             {
                 MainCanvasViewModel.ClearRoiSelection();
             }
@@ -5252,15 +5234,7 @@ namespace MvcVisionSystem
             RefreshPolygonOverlays();
         }
 
-        private bool IsSelectedManualSegment()
-        {
-            return string.Equals(
-                ObjectReviewViewModel?.SelectedObject?.SourceKey,
-                WpfObjectReviewSource.ManualSegment.ToString(),
-                StringComparison.OrdinalIgnoreCase);
-        }
-
-        private void ApplyObjectClassButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteApplyObjectClassCommand()
         {
             if (!TryGetSelectedObjectReviewItem(out WpfObjectReviewItemRef item))
             {
@@ -5275,7 +5249,7 @@ namespace MvcVisionSystem
                 manualRois,
                 manualRoiClassNames,
                 manualSegments,
-                confirmedDetectionCandidates,
+                candidateReviewState.MutableConfirmedCandidates,
                 className,
                 out string appliedClassName))
             {
@@ -5289,14 +5263,14 @@ namespace MvcVisionSystem
             AppendLog($"Changed object class: {appliedClassName}");
         }
 
-        private void DeleteObjectButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteDeleteObjectCommand()
         {
             DeleteSelectedObject();
         }
 
-        private void ObjectListBox_PreviewKeyDown(object sender, KeyEventArgs e)
+        private void ExecuteObjectPreviewKeyDownCommand(KeyInputCommandArgs e)
         {
-            if (e.Key != Key.Delete && e.Key != Key.Back)
+            if (e == null || (e.Key != Key.Delete && e.Key != Key.Back))
             {
                 return;
             }
@@ -5317,13 +5291,15 @@ namespace MvcVisionSystem
                 : string.Empty;
             string removedText = ObjectReviewViewModel?.SelectedObject?.DisplayText
                 ?? "object";
-            WpfAnnotationHistorySnapshot beforeChange = CaptureAnnotationHistory("Delete object");
+            WpfAnnotationHistorySnapshot beforeChange = item.Source == WpfObjectReviewSource.ManualRoi
+                ? CaptureManualRoiHistory("Delete object")
+                : CaptureAnnotationHistory("Delete object");
             if (!WpfObjectReviewEditService.TryDelete(
                 item,
                 manualRois,
                 manualRoiClassNames,
                 manualSegments,
-                confirmedDetectionCandidates))
+                candidateReviewState.MutableConfirmedCandidates))
             {
                 UpdateObjectReviewActionState();
                 return false;
@@ -5358,52 +5334,20 @@ namespace MvcVisionSystem
 
         private bool TryGetSelectedObjectReviewItem(out WpfObjectReviewItemRef item)
         {
-            item = null;
-            if (ObjectReviewViewModel?.SelectedObject?.Payload is WpfObjectReviewItemRef viewModelItem)
+            if (ObjectReviewViewModel == null)
             {
-                item = ResolveObjectReviewItem(viewModelItem);
-                return item != null;
+                item = null;
+                return false;
             }
 
-            return false;
-        }
-
-        private WpfObjectReviewItemRef ResolveObjectReviewItem(WpfObjectReviewItemRef item)
-        {
-            if (item?.Source != WpfObjectReviewSource.ManualRoi)
-            {
-                return item;
-            }
-
-            int manualIndex = ResolveManualRoiIndex(item);
-            return manualIndex >= 0
-                ? WpfObjectReviewItemRef.Manual(manualIndex, GetManualRoiOverlayId(manualIndex))
-                : null;
-        }
-
-        private int ResolveManualRoiIndex(WpfObjectReviewItemRef item)
-        {
-            if (!string.IsNullOrWhiteSpace(item?.SourceId))
-            {
-                int indexByOverlay = FindManualRoiIndexByOverlayId(item.SourceId);
-                if (indexByOverlay >= 0)
-                {
-                    return indexByOverlay;
-                }
-            }
-
-            return item != null && item.Index >= 0 && item.Index < manualRois.Count
-                ? item.Index
-                : -1;
+            return ObjectReviewViewModel.TryResolveSelectedItem(
+                manualRoiOverlayIds,
+                manualRois.Count,
+                out item);
         }
 
         private int GetSelectedObjectReviewRowIndex()
-        {
-            WpfObjectReviewListItem selected = ObjectReviewViewModel?.SelectedObject;
-            return selected != null && ObjectReviewViewModel?.Objects != null
-                ? ObjectReviewViewModel.Objects.IndexOf(selected)
-                : -1;
-        }
+            => ObjectReviewViewModel?.GetSelectedRowIndex() ?? -1;
 
         private bool RemoveCanvasRoiOverlayById(string overlayId)
         {
@@ -5420,7 +5364,8 @@ namespace MvcVisionSystem
             OpenVisionLab.ImageCanvas.OpenGLRendering.OpenGlOverlayExtensions.DeleteOverlay(
                 MainCanvasViewModel.ImageViewer,
                 overlayId,
-                groupName);
+                groupName,
+                refreshImmediately: false);
             return overlayItem != null;
         }
 
@@ -5440,34 +5385,28 @@ namespace MvcVisionSystem
         private void RefreshObjectReviewAfterDelete(WpfObjectReviewSource deletedSource, int deletedObjectRowIndex)
         {
             int objectCount = manualRois.Count + manualSegments.Count + confirmedDetectionCandidates.Count;
-            if (deletedSource != WpfObjectReviewSource.ManualRoi
-                || objectCount == 0
-                || objectCount <= ObjectReviewFullRefreshDeleteLimit
-                || ObjectReviewViewModel?.Objects == null
-                || deletedObjectRowIndex < 0
-                || deletedObjectRowIndex >= ObjectReviewViewModel.Objects.Count)
+            WpfObjectReviewDeleteRefreshPlan plan = objectReviewPresentationService.BuildDeleteRefreshPlan(
+                deletedSource,
+                objectCount,
+                ObjectReviewFullRefreshDeleteLimit,
+                deletedObjectRowIndex,
+                ObjectReviewViewModel?.Objects?.Count ?? 0);
+            if (!plan.UseIncremental)
             {
                 RefreshObjectList();
                 return;
             }
 
-            // For very large ROI lists, keep operations object-local. SourceId keeps later
-            // commands correct even though hidden rows are renumbered on the next full refresh.
-            suppressObjectReviewSelectionChanged = true;
-            try
+            using (ObjectReviewViewModel.SuppressSelectionNotifications())
             {
                 if (!ObjectReviewViewModel.TryRemoveObject(
                     deletedObjectRowIndex,
-                    WpfObjectReviewPresenter.BuildSummary(objectCount),
-                    deletedObjectRowIndex))
+                    plan.Summary,
+                    plan.SelectedRowIndex))
                 {
                     RefreshObjectList();
                     return;
                 }
-            }
-            finally
-            {
-                suppressObjectReviewSelectionChanged = false;
             }
 
             SyncObjectClassEditorToSelection();
@@ -5551,9 +5490,9 @@ namespace MvcVisionSystem
             bool hasSelectedCandidate = hasImage && GetSelectedCandidate() != null;
             bool hasPendingCandidates = hasImage && pendingDetectionCandidates.Count > 0 && !isDetecting;
 
-            if (CanvasPanelControl?.ViewModel != null)
+            if (CanvasPanelViewModel != null)
             {
-                CanvasPanelControl.ViewModel.SetCommandAvailability(hasImage, hasSelectedCandidate, hasPendingCandidates);
+                CanvasPanelViewModel.SetCommandAvailability(hasImage, hasSelectedCandidate, hasPendingCandidates);
                 return;
             }
 
@@ -5576,9 +5515,7 @@ namespace MvcVisionSystem
         private IReadOnlyList<YoloWorkerSmokeCandidate> GetVisibleCandidateList()
         {
             double minimum = GetCandidateConfidenceFilter();
-            return pendingDetectionCandidates
-                .Where(candidate => candidate != null && candidate.Confidence >= minimum)
-                .ToList();
+            return candidateReviewState.GetVisibleCandidates(minimum);
         }
 
         private double GetCandidateConfidenceFilter()
@@ -5787,11 +5724,11 @@ namespace MvcVisionSystem
             }
 
             currentImageRoot = imageRoot;
-            imageQueueDetailLoadCts?.Cancel();
-            imageQueueDetailLoadCts?.Dispose();
+            CancelImageQueueDetailRefresh(waitForCompletion: false);
             imageQueueDetailLoadCts = new CancellationTokenSource();
+            imageQueueDetailLoadTask = Task.CompletedTask;
 
-            List<string> imagePaths = EnumerateImageFiles(imageRoot);
+            List<string> imagePaths = imageQueueSelectionService.EnumerateImageFiles(imageRoot);
             imageReviewStatus.SetImages(imagePaths);
             imageReviewStatus.LoadReviewStatus(global.Data, imagePaths);
 
@@ -5799,9 +5736,9 @@ namespace MvcVisionSystem
             try
             {
                 imageQueueItems.Clear();
-                foreach (string imagePath in imagePaths)
+                foreach (WpfImageQueueItem item in imageQueueSelectionService.CreateShellItems(imagePaths))
                 {
-                    imageQueueItems.Add(WpfImageQueueItem.CreateShell(imagePath));
+                    imageQueueItems.Add(item);
                 }
 
                 imageQueueView?.Refresh();
@@ -5815,7 +5752,7 @@ namespace MvcVisionSystem
             UpdateImageQueueStatusText();
             if (refreshDetails)
             {
-                StartImageQueueDetailRefresh(imagePaths, imageQueueDetailLoadCts.Token);
+                imageQueueDetailLoadTask = StartImageQueueDetailRefreshAsync(imagePaths, imageQueueDetailLoadCts.Token);
             }
 
             string targetPath = !string.IsNullOrWhiteSpace(selectedImagePath) && File.Exists(selectedImagePath)
@@ -5837,7 +5774,7 @@ namespace MvcVisionSystem
             }
 
             if (imageQueueItems.Count == 0
-                || !string.Equals(Path.GetFullPath(imageRoot), Path.GetFullPath(currentImageRoot ?? string.Empty), StringComparison.OrdinalIgnoreCase))
+                || !imageQueueSelectionService.IsSameRoot(imageRoot, currentImageRoot))
             {
                 LoadImageQueueFromRoot(imageRoot, selectedImagePath, loadFirstImage: false, refreshDetails: refreshDetails);
                 return;
@@ -5847,21 +5784,8 @@ namespace MvcVisionSystem
             RefreshActiveImageQueueStatus(hasActiveCandidates: pendingDetectionCandidates.Count > 0);
         }
 
-        private static List<string> EnumerateImageFiles(string imageRoot)
-        {
-            if (string.IsNullOrWhiteSpace(imageRoot) || !Directory.Exists(imageRoot))
-            {
-                return new List<string>();
-            }
 
-            return Directory
-                .EnumerateFiles(imageRoot)
-                .Where(path => ImageExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .ToList();
-        }
-
-        private async void StartImageQueueDetailRefresh(IReadOnlyList<string> imagePaths, CancellationToken token)
+        private async Task StartImageQueueDetailRefreshAsync(IReadOnlyList<string> imagePaths, CancellationToken token)
         {
             if (imagePaths == null || imagePaths.Count == 0)
             {
@@ -5955,13 +5879,12 @@ namespace MvcVisionSystem
             }
 
             WpfImageQueueItem item = FindImageQueueItem(activeImagePath);
-            YoloImageReviewStatus status = imageReviewStatus.RefreshLabelStatusAndReviewState(
+            YoloImageReviewStatus status = RefreshActiveImageQueueStatusCore(
                 activeImagePath,
                 activeImageSize,
                 global.Data,
                 hasActiveCandidates);
             ApplyReviewStatusToItem(item, status);
-            imageReviewStatus.SaveReviewStatus(global.Data);
             imageQueueView?.Refresh();
             UpdateImageQueueStatusText();
         }
@@ -5973,11 +5896,74 @@ namespace MvcVisionSystem
                 return;
             }
 
+            string imagePath = activeImagePath;
+            DrawingSize imageSize = activeImageSize;
+            CData data = global.Data;
+            int refreshVersion = Interlocked.Increment(ref queuedActiveImageQueueStatusRefreshVersion);
+
             // Delete must feel immediate. Label-file recount and review-state JSON writes are
-            // bookkeeping, so run them after the canvas/list have already updated.
-            Dispatcher.BeginInvoke(
-                new Action(() => RefreshActiveImageQueueStatus(hasActiveCandidates)),
-                DispatcherPriority.Background);
+            // background bookkeeping; only the latest completed result returns to the UI thread.
+            Task.Run(() => RefreshActiveImageQueueStatusCore(
+                    imagePath,
+                    imageSize,
+                    data,
+                    hasActiveCandidates))
+                .ContinueWith(
+                    task => ApplyQueuedActiveImageQueueStatusRefresh(refreshVersion, imagePath, task),
+                    TaskScheduler.Default);
+        }
+
+        private YoloImageReviewStatus RefreshActiveImageQueueStatusCore(
+            string imagePath,
+            DrawingSize imageSize,
+            CData data,
+            bool hasActiveCandidates)
+        {
+            YoloImageReviewStatus status = imageReviewStatus.RefreshLabelStatusAndReviewState(
+                imagePath,
+                imageSize,
+                data,
+                hasActiveCandidates);
+            imageReviewStatus.SaveReviewStatus(data);
+            return status;
+        }
+
+        private void ApplyQueuedActiveImageQueueStatusRefresh(
+            int refreshVersion,
+            string imagePath,
+            Task<YoloImageReviewStatus> refreshTask)
+        {
+            try
+            {
+                Dispatcher.BeginInvoke(
+                    new Action(() =>
+                    {
+                        if (refreshVersion != Volatile.Read(ref queuedActiveImageQueueStatusRefreshVersion)
+                            || !string.Equals(activeImagePath, imagePath, StringComparison.OrdinalIgnoreCase)
+                            || refreshTask.IsCanceled)
+                        {
+                            return;
+                        }
+
+                        if (refreshTask.IsFaulted)
+                        {
+                            AppendLog($"Image queue status refresh failed after delete: {refreshTask.Exception?.GetBaseException().Message}");
+                            return;
+                        }
+
+                        ApplyReviewStatusToItem(FindImageQueueItem(imagePath), refreshTask.Result);
+                        imageQueueView?.Refresh();
+                        UpdateImageQueueStatusText();
+                    }),
+                    DispatcherPriority.Background);
+            }
+            catch (InvalidOperationException)
+            {
+                // The shell can close while a queued delete-status refresh is finishing.
+            }
+            catch (TaskCanceledException)
+            {
+            }
         }
 
         private void SetActiveImageDetectionStatus(int candidateCount, bool succeeded)
@@ -6064,13 +6050,7 @@ namespace MvcVisionSystem
 
         private WpfImageQueueItem FindImageQueueItem(string imagePath)
         {
-            if (string.IsNullOrWhiteSpace(imagePath))
-            {
-                return null;
-            }
-
-            return imageQueueItems.FirstOrDefault(item =>
-                string.Equals(item.ImagePath, imagePath, StringComparison.OrdinalIgnoreCase));
+            return imageQueueSelectionService.FindItem(imageQueueItems, imagePath);
         }
 
         private bool ShouldShowImageQueueItem(WpfImageQueueItem item)
@@ -6093,7 +6073,7 @@ namespace MvcVisionSystem
         private void UpdateQueueQuickFilterButtons()
         {
             WpfImageQueueFilter filter = GetSelectedImageQueueFilter();
-            ImageQueuePanelControl?.ViewModel.SetQuickFilterState(
+            ImageQueueViewModel.SetQuickFilterState(
                 filter,
                 WpfImageQueueFilterService.CountByFilter(imageQueueItems, WpfImageQueueFilter.Candidate),
                 WpfImageQueueFilterService.CountByFilter(imageQueueItems, WpfImageQueueFilter.Failed),
@@ -6236,24 +6216,24 @@ namespace MvcVisionSystem
             }
         }
 
-        private void SaveProjectConfigButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteSaveProjectConfigCommand()
         {
             SaveProjectConfigFromPanel();
         }
 
-        private void ApplyProjectRecipeButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteApplyProjectRecipeCommand()
         {
             ApplyProjectRecipeFromPanel();
         }
 
-        private void ProjectRecipeListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void ProjectRecipeListBox_SelectionChanged(object sender, object selectedItem)
         {
             if (suppressProjectRecipeSelection)
             {
                 return;
             }
 
-            string recipeName = ProjectConfigViewModel?.SelectedRecipeName ?? ProjectRecipeListBox?.SelectedItem as string;
+            string recipeName = selectedItem as string ?? ProjectConfigViewModel?.SelectedRecipeName ?? ProjectRecipeListBox?.SelectedItem as string;
             if (string.IsNullOrWhiteSpace(recipeName))
             {
                 return;
@@ -6262,7 +6242,7 @@ namespace MvcVisionSystem
             ProjectConfigViewModel?.SelectRecipeFromList(recipeName);
         }
 
-        private void RefreshProjectRecipeListButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteRefreshProjectRecipeListCommand()
         {
             string selectedRecipeName = ProjectConfigViewModel?.RecipeName?.Trim() ?? GetCurrentRecipeName();
             if (PopulateProjectRecipeList(selectedRecipeName))
@@ -6271,7 +6251,7 @@ namespace MvcVisionSystem
             }
         }
 
-        private void OpenProjectConfigFolderButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteOpenProjectConfigFolderCommand()
         {
             string directoryPath = string.IsNullOrWhiteSpace(GetCurrentRecipeName())
                 ? GetRecipeRootDirectory()
@@ -6398,66 +6378,16 @@ namespace MvcVisionSystem
         }
 
         private bool TryPickFile(string title, string filter, string currentPath, out string selectedPath)
-        {
-            selectedPath = string.Empty;
-            var dialog = new OpenFileDialog
-            {
-                Title = title,
-                Filter = filter,
-                CheckFileExists = true,
-                Multiselect = false,
-                InitialDirectory = ResolveInitialDirectory(currentPath)
-            };
-
-            if (dialog.ShowDialog(this) != true || string.IsNullOrWhiteSpace(dialog.FileName))
-            {
-                return false;
-            }
-
-            selectedPath = dialog.FileName;
-            return true;
-        }
+            => fileDialogService.TryPickFile(this, title, filter, currentPath, out selectedPath);
 
         private bool TryPickFolder(string title, string currentPath, out string selectedPath)
-        {
-            selectedPath = string.Empty;
-            var dialog = new OpenFolderDialog
-            {
-                Title = title,
-                InitialDirectory = ResolveInitialDirectory(currentPath)
-            };
-
-            if (dialog.ShowDialog(this) != true || string.IsNullOrWhiteSpace(dialog.FolderName))
-            {
-                return false;
-            }
-
-            selectedPath = dialog.FolderName;
-            return true;
-        }
-
-        private static string ResolveInitialDirectory(string currentPath)
-        {
-            if (string.IsNullOrWhiteSpace(currentPath))
-            {
-                return string.Empty;
-            }
-
-            if (Directory.Exists(currentPath))
-            {
-                return Path.GetFullPath(currentPath);
-            }
-
-            string directory = Path.GetDirectoryName(currentPath);
-            return !string.IsNullOrWhiteSpace(directory) && Directory.Exists(directory)
-                ? directory
-                : string.Empty;
-        }
+            => fileDialogService.TryPickFolder(this, title, currentPath, out selectedPath);
 
         private bool TryApplyLatestTrainingWeightsFromProject(bool logIfUnchanged)
         {
             EnsureProjectSettings();
-            if (!TryFindLatestTrainingWeights(out string latestWeightsPath))
+            PythonModelSettings settings = global.Data.ProjectSettings.PythonModel;
+            if (!trainingWeightsService.TryFindLatestTrainingWeights(settings.ProjectRootPath, global.Data.OutputRootPath, out string latestWeightsPath))
             {
                 if (logIfUnchanged)
                 {
@@ -6468,7 +6398,6 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            PythonModelSettings settings = global.Data.ProjectSettings.PythonModel;
             string currentWeightsPath = settings.WeightsPath?.Trim() ?? string.Empty;
             if (string.Equals(currentWeightsPath, latestWeightsPath, StringComparison.OrdinalIgnoreCase))
             {
@@ -6481,7 +6410,7 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            if (!ShouldPreferTrainingWeights(latestWeightsPath, currentWeightsPath))
+            if (!WpfTrainingWeightsService.ShouldPreferTrainingWeights(latestWeightsPath, currentWeightsPath))
             {
                 if (logIfUnchanged)
                 {
@@ -6509,64 +6438,6 @@ namespace MvcVisionSystem
             }
 
             return true;
-        }
-
-        private bool TryFindLatestTrainingWeights(out string latestWeightsPath)
-        {
-            latestWeightsPath = string.Empty;
-            EnsureProjectSettings();
-            var candidates = new List<string>();
-            PythonModelSettings settings = global.Data.ProjectSettings.PythonModel;
-            AddBestWeightCandidates(candidates, settings.ProjectRootPath);
-            AddBestWeightCandidates(candidates, global.Data.OutputRootPath);
-
-            latestWeightsPath = candidates
-                .Where(File.Exists)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderByDescending(File.GetLastWriteTimeUtc)
-                .FirstOrDefault() ?? string.Empty;
-            return !string.IsNullOrWhiteSpace(latestWeightsPath);
-        }
-
-        private static void AddBestWeightCandidates(List<string> candidates, string rootPath)
-        {
-            if (candidates == null || string.IsNullOrWhiteSpace(rootPath) || !Directory.Exists(rootPath))
-            {
-                return;
-            }
-
-            candidates.Add(Path.Combine(rootPath, "best.pt"));
-            string trainRunsRoot = Path.Combine(rootPath, "runs", "train");
-            if (!Directory.Exists(trainRunsRoot))
-            {
-                return;
-            }
-
-            candidates.Add(Path.Combine(trainRunsRoot, "weights", "best.pt"));
-            foreach (string runDirectory in Directory.EnumerateDirectories(trainRunsRoot))
-            {
-                candidates.Add(Path.Combine(runDirectory, "weights", "best.pt"));
-            }
-        }
-
-        private static bool ShouldPreferTrainingWeights(string latestWeightsPath, string currentWeightsPath)
-        {
-            if (string.IsNullOrWhiteSpace(latestWeightsPath) || !File.Exists(latestWeightsPath))
-            {
-                return false;
-            }
-
-            if (string.IsNullOrWhiteSpace(currentWeightsPath) || !File.Exists(currentWeightsPath))
-            {
-                return true;
-            }
-
-            return File.GetLastWriteTimeUtc(latestWeightsPath) >= File.GetLastWriteTimeUtc(currentWeightsPath);
-        }
-
-        private static bool IsCompletedTrainingState(string state)
-        {
-            return string.Equals(state?.Trim(), "completed", StringComparison.OrdinalIgnoreCase);
         }
 
         private void NotifyYoloPathSelected(string label, string selectedPath)
@@ -6969,15 +6840,13 @@ namespace MvcVisionSystem
         {
             EnsureProjectSettings();
             YoloTrainingGuideHistory history = global.Data.ProjectSettings.TrainingGuide;
-            history.LastDatasetCheckUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
-            history.LastDatasetReady = report?.IsReady == true;
-            history.LastDatasetIssueKind = presentation?.IssueKind ?? string.Empty;
-            history.LastDatasetSummary = presentation?.DetailText ?? string.Empty;
-
-            if (recordHistory)
-            {
-                AddYoloTrainingRunHistoryRecord("DatasetCheck");
-            }
+            trainingGuideHistoryService.UpdateDatasetHistory(
+                history,
+                report?.IsReady == true,
+                presentation?.IssueKind,
+                presentation?.DetailText,
+                recordHistory);
+            UpdateYoloTrainingHistoryText();
 
             if (!hasPendingTrainingWeightsRecipeSave)
             {
@@ -6994,21 +6863,12 @@ namespace MvcVisionSystem
 
             EnsureProjectSettings();
             YoloTrainingGuideHistory history = global.Data.ProjectSettings.TrainingGuide;
-            history.LastTrainingUpdateUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
-            history.LastTrainingState = status.LastTrainingState ?? string.Empty;
-            history.LastTrainingProgressPercent = status.LastTrainingProgressPercent ?? -1;
-            history.LastTrainingMessage = status.LastTrainingMessage ?? string.Empty;
+            trainingGuideHistoryService.UpdateTrainingHistory(
+                history,
+                status,
+                IsTerminalTrainingState,
+                ref lastRecordedTrainingGuideRunSignature);
             UpdateYoloTrainingHistoryText();
-
-            if (IsTerminalTrainingState(history.LastTrainingState))
-            {
-                string signature = $"{history.LastTrainingState}|{history.LastTrainingProgressPercent}|{history.LastTrainingMessage}";
-                if (!string.Equals(lastRecordedTrainingGuideRunSignature, signature, StringComparison.Ordinal))
-                {
-                    lastRecordedTrainingGuideRunSignature = signature;
-                    AddYoloTrainingRunHistoryRecord("TrainingState");
-                }
-            }
 
             if (IsTerminalTrainingState(history.LastTrainingState) && !hasPendingTrainingWeightsRecipeSave)
             {
@@ -7019,128 +6879,11 @@ namespace MvcVisionSystem
         private void UpdateAppliedTrainingWeightsHistory(string weightsPath, bool savedToRecipe)
         {
             EnsureProjectSettings();
-            YoloTrainingGuideHistory history = global.Data.ProjectSettings.TrainingGuide;
-            history.AppliedWeightsPath = weightsPath ?? string.Empty;
-            history.AppliedWeightsUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
-            history.AppliedWeightsSavedToRecipe = savedToRecipe;
-            UpsertAppliedWeightsRunHistory(weightsPath, savedToRecipe);
+            trainingGuideHistoryService.UpdateAppliedWeightsHistory(
+                global.Data.ProjectSettings.TrainingGuide,
+                weightsPath,
+                savedToRecipe);
             UpdateYoloTrainingHistoryText();
-        }
-
-        private void AddYoloTrainingRunHistoryRecord(string eventKind)
-        {
-            EnsureProjectSettings();
-            YoloTrainingGuideHistory history = global.Data.ProjectSettings.TrainingGuide;
-            history.EnsureDefaults();
-            history.RunHistory.Add(CreateYoloTrainingRunRecord(eventKind));
-            TrimYoloTrainingRunHistory(history);
-            RefreshYoloTrainingRunHistoryItems(history);
-        }
-
-        private void UpsertAppliedWeightsRunHistory(string weightsPath, bool savedToRecipe)
-        {
-            EnsureProjectSettings();
-            YoloTrainingGuideHistory history = global.Data.ProjectSettings.TrainingGuide;
-            history.EnsureDefaults();
-            string normalizedPath = weightsPath ?? string.Empty;
-            YoloTrainingGuideRunRecord existing = history.RunHistory
-                .LastOrDefault(item =>
-                    string.Equals(item.EventKind, "Weight", StringComparison.OrdinalIgnoreCase)
-                    && string.Equals(item.AppliedWeightsPath ?? string.Empty, normalizedPath, StringComparison.OrdinalIgnoreCase));
-
-            if (existing == null)
-            {
-                history.RunHistory.Add(CreateYoloTrainingRunRecord("Weight"));
-            }
-            else
-            {
-                existing.EventUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
-                existing.AppliedWeightsSavedToRecipe = savedToRecipe;
-                existing.TrainingState = history.LastTrainingState ?? string.Empty;
-                existing.TrainingProgressPercent = history.LastTrainingProgressPercent;
-                existing.TrainingMessage = history.LastTrainingMessage ?? string.Empty;
-            }
-
-            TrimYoloTrainingRunHistory(history);
-            RefreshYoloTrainingRunHistoryItems(history);
-        }
-
-        private YoloTrainingGuideRunRecord CreateYoloTrainingRunRecord(string eventKind)
-        {
-            YoloTrainingGuideHistory history = global.Data.ProjectSettings.TrainingGuide;
-            return new YoloTrainingGuideRunRecord
-            {
-                EventUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture),
-                EventKind = eventKind ?? string.Empty,
-                DatasetReady = history.LastDatasetReady,
-                DatasetIssueKind = history.LastDatasetIssueKind ?? string.Empty,
-                DatasetSummary = history.LastDatasetSummary ?? string.Empty,
-                TrainingState = history.LastTrainingState ?? string.Empty,
-                TrainingProgressPercent = history.LastTrainingProgressPercent,
-                TrainingMessage = history.LastTrainingMessage ?? string.Empty,
-                AppliedWeightsPath = history.AppliedWeightsPath ?? string.Empty,
-                AppliedWeightsSavedToRecipe = history.AppliedWeightsSavedToRecipe
-            };
-        }
-
-        private static void TrimYoloTrainingRunHistory(YoloTrainingGuideHistory history)
-        {
-            if (history?.RunHistory == null)
-            {
-                return;
-            }
-
-            while (history.RunHistory.Count > TrainingGuideRunHistoryLimit)
-            {
-                history.RunHistory.RemoveAt(0);
-            }
-        }
-
-        private void RefreshYoloTrainingRunHistoryItems(YoloTrainingGuideHistory history)
-        {
-            if (LearningWorkflowViewModel == null)
-            {
-                return;
-            }
-
-            IReadOnlyList<string> items = (history?.RunHistory ?? new List<YoloTrainingGuideRunRecord>())
-                .Where(item => item != null)
-                .OrderByDescending(item => ParseHistoryUtc(item.EventUtc))
-                .Take(5)
-                .Select(FormatYoloTrainingRunHistoryItem)
-                .Where(text => !string.IsNullOrWhiteSpace(text))
-                .ToList();
-            LearningWorkflowViewModel.SetTrainingRunHistoryItems(items);
-        }
-
-        private string FormatYoloTrainingRunHistoryItem(YoloTrainingGuideRunRecord record)
-        {
-            string time = FormatHistoryTime(record?.EventUtc);
-            return (record?.EventKind ?? string.Empty) switch
-            {
-                "DatasetCheck" => $"{time} 점검: {(record.DatasetReady ? "학습 가능" : $"확인 필요 {record.DatasetIssueKind}")}",
-                "TrainingState" => $"{time} 학습: {FormatTrainingState(record.TrainingState)} {FormatHistoryProgress(record.TrainingProgressPercent)}".TrimEnd(),
-                "Weight" => $"{time} weight: {Path.GetFileName(record.AppliedWeightsPath)} / {(record.AppliedWeightsSavedToRecipe ? "recipe 저장됨" : "recipe 미저장")}",
-                _ => $"{time} 기록: {record?.EventKind}"
-            };
-        }
-
-        private static string FormatHistoryProgress(int progressPercent)
-        {
-            return progressPercent >= 0
-                ? $"{Math.Clamp(progressPercent, 0, 100)}%"
-                : string.Empty;
-        }
-
-        private static DateTime ParseHistoryUtc(string utcText)
-        {
-            return DateTime.TryParse(
-                utcText,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
-                out DateTime utc)
-                ? utc
-                : DateTime.MinValue;
         }
 
         private void UpdateYoloTrainingHistoryText()
@@ -7153,46 +6896,9 @@ namespace MvcVisionSystem
             EnsureProjectSettings();
             YoloTrainingGuideHistory history = global.Data.ProjectSettings.TrainingGuide;
             history.EnsureDefaults();
-            RefreshYoloTrainingRunHistoryItems(history);
-            var parts = new List<string>();
-
-            if (!string.IsNullOrWhiteSpace(history.LastDatasetCheckUtc))
-            {
-                string readyText = history.LastDatasetReady ? "학습 가능" : $"확인 필요({history.LastDatasetIssueKind})";
-                parts.Add($"점검 {FormatHistoryTime(history.LastDatasetCheckUtc)} {readyText}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(history.LastTrainingState))
-            {
-                string progress = history.LastTrainingProgressPercent >= 0
-                    ? $" {Math.Clamp(history.LastTrainingProgressPercent, 0, 100)}%"
-                    : string.Empty;
-                parts.Add($"학습 {FormatTrainingState(history.LastTrainingState)}{progress}");
-            }
-
-            if (!string.IsNullOrWhiteSpace(history.AppliedWeightsPath))
-            {
-                string savedText = history.AppliedWeightsSavedToRecipe ? "recipe 저장됨" : "recipe 미저장";
-                parts.Add($"weight {Path.GetFileName(history.AppliedWeightsPath)} / {savedText}");
-            }
-
-            LearningWorkflowViewModel.TrainingHistoryText = parts.Count == 0
-                ? "최근 학습 이력: 아직 없습니다."
-                : $"최근 이력: {string.Join(" · ", parts)}";
-        }
-
-        private static string FormatHistoryTime(string utcText)
-        {
-            if (DateTime.TryParse(
-                utcText,
-                CultureInfo.InvariantCulture,
-                DateTimeStyles.AdjustToUniversal | DateTimeStyles.AssumeUniversal,
-                out DateTime utc))
-            {
-                return utc.ToLocalTime().ToString("HH:mm", CultureInfo.CurrentCulture);
-            }
-
-            return "-";
+            LearningWorkflowViewModel.SetTrainingRunHistoryItems(
+                trainingGuideHistoryService.BuildRunHistoryItems(history, FormatTrainingState));
+            LearningWorkflowViewModel.TrainingHistoryText = trainingGuideHistoryService.BuildHistoryText(history, FormatTrainingState);
         }
 
         private bool TrySaveTrainingGuideHistoryQuietly()
@@ -7237,7 +6943,7 @@ namespace MvcVisionSystem
             PythonCommunicationStatus status = global.GetPythonCommunicationStatusSnapshot();
             string trainingState = status?.LastTrainingState?.Trim() ?? string.Empty;
             bool hasTrainingStatus = HasTrainingStatus(status);
-            bool trainingCompleted = IsCompletedTrainingState(trainingState);
+            bool trainingCompleted = WpfTrainingWeightsService.IsCompletedTrainingState(trainingState);
             bool trainingRunning = hasTrainingStatus && !trainingCompleted && !IsTerminalTrainingState(trainingState);
             bool hasInferenceResult = pendingDetectionCandidates.Count > 0
                 || imageQueueItems.Any(item => item.ReviewState == YoloImageReviewState.Candidate);
@@ -7275,7 +6981,7 @@ namespace MvcVisionSystem
                     TrainingSettingsViewModel?.TrainingProgressValue ?? TrainingProgressBar?.Value ?? 0D,
                     isIndeterminate: false);
                 UpdateYoloTrainingGuideTrainingHistory(status);
-                if (IsCompletedTrainingState(status.LastTrainingState))
+                if (WpfTrainingWeightsService.IsCompletedTrainingState(status.LastTrainingState))
                 {
                     TryApplyLatestTrainingWeightsFromProject(logIfUnchanged: false);
                 }
@@ -7347,7 +7053,7 @@ namespace MvcVisionSystem
             }
 
             string state = status.LastTrainingState?.Trim() ?? string.Empty;
-            if (IsCompletedTrainingState(state))
+            if (WpfTrainingWeightsService.IsCompletedTrainingState(state))
             {
                 return MediaBrushes.LimeGreen;
             }
@@ -7605,9 +7311,9 @@ namespace MvcVisionSystem
 
         private void ApplyImageQueueCommandState(WpfWorkflowCommandState state)
         {
-            if (ImageQueuePanelControl?.ViewModel != null)
+            if (ImageQueueViewModel != null)
             {
-                ImageQueuePanelControl.ViewModel.ApplyWorkflowCommandState(state);
+                ImageQueueViewModel.ApplyWorkflowCommandState(state);
                 return;
             }
 
@@ -8055,7 +7761,7 @@ namespace MvcVisionSystem
                 toolTip: "\uC774\uBBF8\uC9C0\uB97C \uC5F4\uBA74 \uB77C\uBCA8 \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4.");
         }
 
-        private void ThemeToggleButton_Click(object sender, RoutedEventArgs e)
+        private void ExecuteToggleThemeCommand()
         {
             ApplyTheme(currentTheme == ShellTheme.Dark ? ShellTheme.Light : ShellTheme.Dark);
             AppendLog(currentTheme == ShellTheme.Dark ? "테마 변경: 다크" : "테마 변경: 라이트");

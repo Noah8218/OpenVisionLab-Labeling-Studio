@@ -3,7 +3,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:local="clr-namespace:MvcVisionSystem"
-             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+                          xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm"
+xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
     <UserControl.Resources>
         <Style x:Key="ObjectReviewButtonStyle" TargetType="{x:Type ui:Button}">
             <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
@@ -135,7 +136,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="ObjectReviewSummaryText"
-                       Text="{Binding ViewModel.SummaryText, ElementName=ObjectReviewRoot}"
+                       Text="{Binding SummaryText}"
                        Foreground="{DynamicResource SecondaryTextBrush}"
                        FontFamily="Segoe UI"
                        FontSize="11"
@@ -149,8 +150,8 @@
                        Padding="8,0"
                        Content="&#xC0AD;&#xC81C;"
                        ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xD604;&#xC7AC; &#xB77C;&#xBCA8; &#xC0AD;&#xC81C;"
-                       IsEnabled="{Binding ViewModel.IsDeleteEnabled, ElementName=ObjectReviewRoot}"
-                       Click="DeleteObjectButton_Click" />
+                       IsEnabled="{Binding IsDeleteEnabled}"
+                       Command="{Binding DeleteObjectCommand}" />
         </Grid>
         <Grid Grid.Row="1" Margin="0,0,0,6">
             <Grid.ColumnDefinitions>
@@ -159,8 +160,8 @@
             </Grid.ColumnDefinitions>
             <ComboBox x:Name="ObjectClassBox"
                       Style="{StaticResource ObjectReviewComboBoxStyle}"
-                      ItemsSource="{Binding ViewModel.ClassNames, ElementName=ObjectReviewRoot}"
-                      SelectedItem="{Binding ViewModel.SelectedClassName, ElementName=ObjectReviewRoot, Mode=TwoWay}"
+                      ItemsSource="{Binding ClassNames}"
+                      SelectedItem="{Binding SelectedClassName, Mode=TwoWay}"
                       ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xD604;&#xC7AC; &#xB77C;&#xBCA8;&#xC5D0; &#xC801;&#xC6A9;&#xD560; &#xD074;&#xB798;&#xC2A4;" />
             <ui:Button x:Name="ApplyObjectClassButton"
                        Grid.Column="1"
@@ -171,23 +172,23 @@
                        Margin="6,0,0,0"
                        Content="&#xC801;&#xC6A9;"
                        ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xD604;&#xC7AC; &#xB77C;&#xBCA8; &#xD074;&#xB798;&#xC2A4; &#xBCC0;&#xACBD;"
-                       IsEnabled="{Binding ViewModel.IsApplyClassEnabled, ElementName=ObjectReviewRoot}"
-                       Click="ApplyObjectClassButton_Click" />
+                       IsEnabled="{Binding IsApplyClassEnabled}"
+                       Command="{Binding ApplyObjectClassCommand}" />
         </Grid>
         <ListBox x:Name="ObjectListBox"
                  Grid.Row="2"
                  Background="Transparent"
                  BorderThickness="0"
                  Foreground="{DynamicResource SecondaryTextBrush}"
-                 ItemsSource="{Binding ViewModel.Objects, ElementName=ObjectReviewRoot}"
-                 SelectedItem="{Binding ViewModel.SelectedObject, ElementName=ObjectReviewRoot, Mode=TwoWay}"
+                 ItemsSource="{Binding Objects}"
+                 SelectedItem="{Binding SelectedObject, Mode=TwoWay}"
                  ItemContainerStyle="{StaticResource ObjectReviewListBoxItemStyle}"
                  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                  ScrollViewer.CanContentScroll="True"
                  VirtualizingPanel.IsVirtualizing="True"
                  VirtualizingPanel.VirtualizationMode="Recycling"
-                 SelectionChanged="ObjectListBox_SelectionChanged"
-                 PreviewKeyDown="ObjectListBox_PreviewKeyDown">
+                 mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding ObjectSelectionChangedCommand}"
+                 mvvm:InputCommandBehaviors.PreviewKeyInputCommand="{Binding ObjectPreviewKeyDownCommand}">
             <ListBox.ItemTemplate>
                 <DataTemplate>
                     <TextBlock Text="{Binding DisplayText}"
