@@ -3,7 +3,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                           xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm"
 xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
-    <!-- legacy localization probes: ?숈뒿 ?ㅼ젙 ?대?吏 ?ш린 諛곗튂 ?먰룺 寃利?% ?덈줈怨좎묠 ?쒖옉 以묒? -->
+    <!-- Keep this panel's visible text beginner-facing; avoid reintroducing encoded legacy labels. -->
     <UserControl.Resources>
         <Style x:Key="TrainingLabelStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
@@ -152,7 +152,7 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                          Grid.Column="1"
                          Style="{StaticResource TrainingTextBoxStyle}"
                          Text="{Binding ImageSizeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="YOLO 학습 이미지 크기, 정수 (?뺤닔)"
+                         ToolTip="학습에 사용할 이미지 크기"
                          mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
 
                 <TextBlock Grid.Row="1" Text="배치" Style="{StaticResource TrainingLabelStyle}" />
@@ -161,7 +161,7 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                          Grid.Column="1"
                          Style="{StaticResource TrainingTextBoxStyle}"
                          Text="{Binding BatchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="배치 크기, 정수 (?뺤닔)"
+                         ToolTip="한 번에 학습할 이미지 수"
                          mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
 
                 <TextBlock Grid.Row="2" Text="에포크" Style="{StaticResource TrainingLabelStyle}" />
@@ -170,10 +170,10 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                          Grid.Column="1"
                          Style="{StaticResource TrainingTextBoxStyle}"
                          Text="{Binding EpochText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="에포크 수, 정수 (?뺤닔)"
+                         ToolTip="전체 데이터를 반복 학습할 횟수"
                          mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
 
-                <TextBlock Grid.Row="3" Text="Cfg" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBlock Grid.Row="3" Text="모델 구조" Style="{StaticResource TrainingLabelStyle}" />
                 <ComboBox x:Name="TrainingCfgBox"
                           Grid.Row="3"
                           Grid.Column="1"
@@ -193,24 +193,24 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                          Grid.Column="1"
                          Style="{StaticResource TrainingTextBoxStyle}"
                          Text="{Binding ValidationPercentText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="검증 비율 %, 정수 (?뺤닔)"
+                         ToolTip="학습 중 확인용으로 나눌 이미지 비율"
                          mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
 
-                <TextBlock Grid.Row="6" Text="분할 seed" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBlock Grid.Row="6" Text="분할 기준값" Style="{StaticResource TrainingLabelStyle}" />
                 <TextBox x:Name="TrainingSplitSeedBox"
                          Grid.Row="6"
                          Grid.Column="1"
                          Style="{StaticResource TrainingTextBoxStyle}"
                          Text="{Binding SplitSeedText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="데이터 split seed, 정수 (?뺤닔)"
+                         ToolTip="데이터를 나눌 때 반복 재현에 쓰는 기준값"
                          mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
-                <TextBlock Grid.Row="7" Text="Test %" Style="{StaticResource TrainingLabelStyle}" />
+                <TextBlock Grid.Row="7" Text="최종 검증 %" Style="{StaticResource TrainingLabelStyle}" />
                 <TextBox x:Name="TrainingTestPercentBox"
                          Grid.Row="7"
                          Grid.Column="1"
                          Style="{StaticResource TrainingTextBoxStyle}"
                          Text="{Binding TestPercentText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="Test split %, integer"
+                         ToolTip="최종 모델 비교에 남겨둘 이미지 비율"
                          mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
                 <TextBlock x:Name="TrainingSplitPolicyHintText"
                            Grid.Row="8"
@@ -225,6 +225,8 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
 
             <WrapPanel Margin="0,8,0,0">
                 <ui:Button x:Name="RefreshTrainingReadinessButton"
+                           AutomationProperties.AutomationId="RefreshTrainingReadinessButton"
+                           AutomationProperties.Name="학습 데이터셋 새로고침"
                            Style="{StaticResource TrainingCommandButtonStyle}"
                            IsEnabled="{Binding IsRefreshReadinessEnabled}"
                            MinWidth="78"
@@ -232,6 +234,8 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                            ToolTip="학습 데이터셋과 설정 준비 상태 새로고침"
                            Command="{Binding RefreshReadinessCommand}" />
                 <ui:Button x:Name="StartTrainingButton"
+                           AutomationProperties.AutomationId="StartTrainingButton"
+                           AutomationProperties.Name="YOLO 학습 시작"
                            Style="{StaticResource TrainingCommandButtonStyle}"
                            IsEnabled="{Binding IsStartTrainingEnabled}"
                            MinWidth="70"

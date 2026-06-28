@@ -16,6 +16,7 @@ namespace MvcVisionSystem
         public TextBox RecipeNameBox => ProjectRecipeNameBox;
         public ComboBox RecipeListBox => ProjectRecipeListBox;
         public TextBox ConfigPathBox => ProjectConfigPathBox;
+        public TextBox ManifestPathBox => ProjectManifestPathBox;
         public TextBlock StatusTextBlock => ProjectConfigStatusText;
         public WpfUiButton ApplyRecipeButton => ApplyProjectRecipeButton;
         public WpfUiButton RefreshRecipeListButton => RefreshProjectRecipeListButton;

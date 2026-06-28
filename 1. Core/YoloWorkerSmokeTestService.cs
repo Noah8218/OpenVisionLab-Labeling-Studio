@@ -76,7 +76,7 @@ namespace MvcVisionSystem._1._Core
             string pythonExecutablePath = PythonModelSettingsValidator.ResolvePythonExecutable(settings);
             string projectRootPath = settings.ProjectRootPath?.Trim() ?? string.Empty;
             string clientScriptPath = settings.ClientScriptPath?.Trim() ?? string.Empty;
-            string modelRootPath = Path.Combine(projectRootPath, "yolov5Master");
+            string modelRootPath = settings.GetModelRootPath();
             string weightsPath = settings.WeightsPath?.Trim() ?? string.Empty;
             string imagePath = !string.IsNullOrWhiteSpace(imagePathOverride)
                 ? imagePathOverride.Trim()
@@ -185,17 +185,17 @@ namespace MvcVisionSystem._1._Core
 
             if (string.IsNullOrWhiteSpace(clientScriptPath) || !File.Exists(clientScriptPath))
             {
-                errors.Add($"YOLOv5 TCP client script was not found: {clientScriptPath}");
+                errors.Add($"YOLO TCP client script was not found: {clientScriptPath}");
             }
 
             if (string.IsNullOrWhiteSpace(modelRootPath) || !Directory.Exists(modelRootPath))
             {
-                errors.Add($"YOLOv5 model root was not found: {modelRootPath}");
+                errors.Add($"YOLO model root was not found: {modelRootPath}");
             }
 
             if (string.IsNullOrWhiteSpace(weightsPath) || !File.Exists(weightsPath))
             {
-                errors.Add($"YOLOv5 weight file was not found: {weightsPath}");
+                errors.Add($"YOLO weight file was not found: {weightsPath}");
             }
 
             if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))

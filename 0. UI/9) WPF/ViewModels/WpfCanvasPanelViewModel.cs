@@ -23,15 +23,20 @@ namespace MvcVisionSystem
         private bool isPanEnabled;
         private bool isFocusCandidateEnabled;
         private bool isResetAiOverlayEnabled;
+        private bool isPreviousCandidateEnabled;
+        private bool isNextCandidateEnabled;
+        private bool isFocusCurrentLabelEnabled;
+        private bool isConfirmSelectedEnabled;
+        private bool isSkipSelectedEnabled;
         private System.Windows.Visibility detectionOverlayVisibility = System.Windows.Visibility.Collapsed;
-        private string detectionOverlayTitleText = "AI \uAC80\uCD9C \uACB0\uACFC";
+        private string detectionOverlayTitleText = "\uAC80\uCD9C \uACB0\uACFC";
         private string detectionOverlaySummaryText = string.Empty;
         private string detectionOverlaySelectedText = string.Empty;
         private string detectionOverlayDetailText = string.Empty;
         private string detectionOverlayStatusKey = WpfDetectionOverlayStatus.Confirmable.ToString();
         private string currentWorkflowStepText = "샘플";
         private string currentWorkflowToolText = "선택";
-        private string currentWorkflowActionText = "샘플 이미지를 불러와 기준 화면을 만듭니다.";
+        private string currentWorkflowActionText = "이미지를 열거나 왼쪽 큐에서 선택하세요.";
         private WpfAnnotationToolItem selectedAnnotationTool;
         private WpfAnnotationToolItem undoAnnotationTool;
         private WpfAnnotationToolItem redoAnnotationTool;
@@ -41,6 +46,11 @@ namespace MvcVisionSystem
         private ICommand panCommand = new RelayCommand(NoOpCommand);
         private ICommand focusCandidateCommand = new RelayCommand(NoOpCommand);
         private ICommand resetAiOverlayCommand = new RelayCommand(NoOpCommand);
+        private ICommand previousCandidateCommand = new RelayCommand(NoOpCommand);
+        private ICommand nextCandidateCommand = new RelayCommand(NoOpCommand);
+        private ICommand focusCurrentLabelCommand = new RelayCommand(NoOpCommand);
+        private ICommand confirmSelectedCommand = new RelayCommand(NoOpCommand);
+        private ICommand skipSelectedCommand = new RelayCommand(NoOpCommand);
         private ICommand annotationToolSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand undoAnnotationCommand = new RelayCommand(NoOpCommand);
         private ICommand redoAnnotationCommand = new RelayCommand(NoOpCommand);
@@ -78,6 +88,36 @@ namespace MvcVisionSystem
         {
             get => resetAiOverlayCommand;
             private set => SetProperty(ref resetAiOverlayCommand, value);
+        }
+
+        public ICommand PreviousCandidateCommand
+        {
+            get => previousCandidateCommand;
+            private set => SetProperty(ref previousCandidateCommand, value);
+        }
+
+        public ICommand NextCandidateCommand
+        {
+            get => nextCandidateCommand;
+            private set => SetProperty(ref nextCandidateCommand, value);
+        }
+
+        public ICommand FocusCurrentLabelCommand
+        {
+            get => focusCurrentLabelCommand;
+            private set => SetProperty(ref focusCurrentLabelCommand, value);
+        }
+
+        public ICommand ConfirmSelectedCommand
+        {
+            get => confirmSelectedCommand;
+            private set => SetProperty(ref confirmSelectedCommand, value);
+        }
+
+        public ICommand SkipSelectedCommand
+        {
+            get => skipSelectedCommand;
+            private set => SetProperty(ref skipSelectedCommand, value);
         }
 
         public ICommand AnnotationToolSelectionChangedCommand
@@ -158,6 +198,36 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isResetAiOverlayEnabled, value);
         }
 
+        public bool IsPreviousCandidateEnabled
+        {
+            get => isPreviousCandidateEnabled;
+            private set => SetProperty(ref isPreviousCandidateEnabled, value);
+        }
+
+        public bool IsNextCandidateEnabled
+        {
+            get => isNextCandidateEnabled;
+            private set => SetProperty(ref isNextCandidateEnabled, value);
+        }
+
+        public bool IsFocusCurrentLabelEnabled
+        {
+            get => isFocusCurrentLabelEnabled;
+            private set => SetProperty(ref isFocusCurrentLabelEnabled, value);
+        }
+
+        public bool IsConfirmSelectedEnabled
+        {
+            get => isConfirmSelectedEnabled;
+            private set => SetProperty(ref isConfirmSelectedEnabled, value);
+        }
+
+        public bool IsSkipSelectedEnabled
+        {
+            get => isSkipSelectedEnabled;
+            private set => SetProperty(ref isSkipSelectedEnabled, value);
+        }
+
         public System.Windows.Visibility DetectionOverlayVisibility
         {
             get => detectionOverlayVisibility;
@@ -225,6 +295,22 @@ namespace MvcVisionSystem
             PanCommand = new RelayCommand(pan ?? NoOpCommand);
             FocusCandidateCommand = new RelayCommand(focusCandidate ?? NoOpCommand);
             ResetAiOverlayCommand = new RelayCommand(resetAiOverlay ?? NoOpCommand);
+        }
+
+        public void ConfigureCandidateReviewCommands(
+            Action previousCandidate,
+            Action nextCandidate,
+            Action focusCurrentLabel,
+            Action confirmSelected,
+            Action skipSelected)
+        {
+            // The canvas result card mirrors Candidate Review commands so first-time users
+            // can act where the inference result appears instead of hunting the right panel.
+            PreviousCandidateCommand = new RelayCommand(previousCandidate ?? NoOpCommand);
+            NextCandidateCommand = new RelayCommand(nextCandidate ?? NoOpCommand);
+            FocusCurrentLabelCommand = new RelayCommand(focusCurrentLabel ?? NoOpCommand);
+            ConfirmSelectedCommand = new RelayCommand(confirmSelected ?? NoOpCommand);
+            SkipSelectedCommand = new RelayCommand(skipSelected ?? NoOpCommand);
         }
 
         public void ConfigureAnnotationTools(
@@ -320,6 +406,20 @@ namespace MvcVisionSystem
             IsResetAiOverlayEnabled = hasImage && hasPendingCandidates;
         }
 
+        public void SetCandidateReviewState(
+            bool canNavigatePrevious,
+            bool canNavigateNext,
+            bool canFocusCurrentLabel,
+            bool canConfirmSelected,
+            bool canSkipSelected)
+        {
+            IsPreviousCandidateEnabled = canNavigatePrevious;
+            IsNextCandidateEnabled = canNavigateNext;
+            IsFocusCurrentLabelEnabled = canFocusCurrentLabel;
+            IsConfirmSelectedEnabled = canConfirmSelected;
+            IsSkipSelectedEnabled = canSkipSelected;
+        }
+
         public void ClearDetectionOverlay()
         {
             DetectionOverlayVisibility = System.Windows.Visibility.Collapsed;
@@ -337,7 +437,7 @@ namespace MvcVisionSystem
             WpfDetectionOverlayStatus status)
         {
             DetectionOverlayVisibility = System.Windows.Visibility.Visible;
-            DetectionOverlayTitleText = string.IsNullOrWhiteSpace(title) ? "AI \uAC80\uCD9C \uACB0\uACFC" : title;
+            DetectionOverlayTitleText = string.IsNullOrWhiteSpace(title) ? "\uAC80\uCD9C \uACB0\uACFC" : title;
             DetectionOverlaySummaryText = summary;
             DetectionOverlaySelectedText = selected;
             DetectionOverlayDetailText = detail;

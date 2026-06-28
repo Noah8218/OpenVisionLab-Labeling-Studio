@@ -470,7 +470,7 @@ namespace MvcVisionSystem.Yolo
                     int index = (startIndex + offset) % orderedImagePaths.Count;
                     string imagePath = orderedImagePaths[index];
                     YoloImageReviewStatus status = GetOrCreateCore(imagePath);
-                    if (status != null && !status.IsLabeled)
+                    if (NeedsQueueReview(status))
                     {
                         nextImagePath = imagePath;
                         return true;
@@ -479,6 +479,19 @@ namespace MvcVisionSystem.Yolo
             }
 
             return false;
+        }
+
+        private static bool NeedsQueueReview(YoloImageReviewStatus status)
+        {
+            if (status == null || status.IsLabeled)
+            {
+                return false;
+            }
+
+            // A reviewed normal image has no label objects, but it is not an operator queue item anymore.
+            return status.ReviewState != YoloImageReviewState.Confirmed
+                && status.ReviewState != YoloImageReviewState.Skipped
+                && status.ReviewState != YoloImageReviewState.NoCandidate;
         }
 
         private YoloImageReviewStatus SetDetectionStatus(string imagePath, string imageName, string text, string message, bool countDetectionAttempt = false)

@@ -66,7 +66,7 @@ namespace MvcVisionSystem._1._Core
 
                 if (IsRunning)
                 {
-                    AppLog.COMM("YOLOv5 Python client settings changed. Restarting client process.");
+                    AppLog.COMM("YOLO Python client settings changed. Restarting client process.");
                     StopLocked();
                 }
 
@@ -84,7 +84,7 @@ namespace MvcVisionSystem._1._Core
 
                     if (!process.Start())
                     {
-                        LastError = "YOLOv5 Python client process did not start.";
+                        LastError = "YOLO Python client process did not start.";
                         AppLog.ABNORMAL(LastError);
                         process.Dispose();
                         process = null;
@@ -98,12 +98,12 @@ namespace MvcVisionSystem._1._Core
                     LastExitCode = null;
                     stopRequested = false;
                     currentStartSignature = startSignature;
-                    AppLog.COMM($"YOLOv5 Python client started. PID:{process.Id}");
+                    AppLog.COMM($"YOLO Python client started. PID:{process.Id}");
                     return true;
                 }
                 catch (Exception ex)
                 {
-                    LastError = $"YOLOv5 Python client start failed: {ex.Message}";
+                    LastError = $"YOLO Python client start failed: {ex.Message}";
                     AppLog.ABNORMAL(LastError);
                     process?.Dispose();
                     process = null;
@@ -153,7 +153,7 @@ namespace MvcVisionSystem._1._Core
             PythonModelValidationResult validation = PythonModelSettingsValidator.Validate(settings, requireWeights: false);
             if (!validation.IsValid)
             {
-                error = validation.Errors.FirstOrDefault() ?? "YOLOv5 Python client settings are invalid.";
+                error = validation.Errors.FirstOrDefault() ?? "Python model client settings are invalid.";
                 return false;
             }
 
@@ -175,7 +175,7 @@ namespace MvcVisionSystem._1._Core
             startInfo.ArgumentList.Add("--retry");
             startInfo.ArgumentList.Add("--preload");
 
-            string modelRootPath = Path.Combine(projectRootPath, "yolov5Master");
+            string modelRootPath = settings.GetModelRootPath();
             if (Directory.Exists(modelRootPath))
             {
                 startInfo.ArgumentList.Add("--model-root");
@@ -279,8 +279,8 @@ namespace MvcVisionSystem._1._Core
 
                     processToStop.Kill(entireProcessTree: true);
                     AppLog.COMM(pid > 0
-                        ? $"YOLOv5 Python client stop requested. PID:{pid}"
-                        : "YOLOv5 Python client stop requested.");
+                        ? $"YOLO Python client stop requested. PID:{pid}"
+                        : "YOLO Python client stop requested.");
                 }
 
                 LastExitedAtUtc = DateTime.UtcNow;
@@ -288,7 +288,7 @@ namespace MvcVisionSystem._1._Core
             }
             catch (Exception ex)
             {
-                AppLog.ABNORMAL($"YOLOv5 Python client stop failed: {ex.Message}");
+                AppLog.ABNORMAL($"YOLO Python client stop failed: {ex.Message}");
             }
             finally
             {
@@ -305,7 +305,7 @@ namespace MvcVisionSystem._1._Core
                     return;
                 }
 
-                AppLog.COMM($"[YOLOv5] {e.Data}");
+                AppLog.COMM($"[YOLO] {e.Data}");
             }
         }
 
@@ -320,12 +320,12 @@ namespace MvcVisionSystem._1._Core
 
                 if (IsBenignPythonStderrLine(e.Data))
                 {
-                    AppLog.COMM($"[YOLOv5] {e.Data}");
+                    AppLog.COMM($"[YOLO] {e.Data}");
                     return;
                 }
 
                 LastError = e.Data;
-                AppLog.ABNORMAL($"[YOLOv5] {e.Data}");
+                AppLog.ABNORMAL($"[YOLO] {e.Data}");
             }
         }
 
@@ -359,7 +359,7 @@ namespace MvcVisionSystem._1._Core
                 // Process exit code can be unavailable during shutdown.
             }
 
-            AppLog.COMM($"YOLOv5 Python client exited. ExitCode:{exitCode}");
+            AppLog.COMM($"YOLO Python client exited. ExitCode:{exitCode}");
             LastExitedAtUtc = DateTime.UtcNow;
             LastExitCode = exitCode;
             if (stopRequested)
@@ -371,7 +371,7 @@ namespace MvcVisionSystem._1._Core
 
             if (exitCode != 0)
             {
-                LastError = $"YOLOv5 Python client exited with code {exitCode}.";
+                LastError = $"YOLO Python client exited with code {exitCode}.";
             }
         }
     }

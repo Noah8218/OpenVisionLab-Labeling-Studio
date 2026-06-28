@@ -44,6 +44,71 @@ function Assert-Directory([string]$Path, [string]$Name) {
     }
 }
 
+function Read-DataYamlClassCount([string]$Path) {
+    $text = Get-Content -LiteralPath $Path -Raw
+    $match = [regex]::Match($text, '(?m)^\s*nc\s*:\s*(\d+)\s*$')
+    if (-not $match.Success) {
+        throw "Model comparison cannot start: label count was not found in the dataset settings."
+    }
+
+    return [int]$match.Groups[1].Value
+}
+
+function Read-WeightsClassCount([string]$WeightsPath, [string]$Name) {
+    $code = @'
+import sys
+import torch
+
+weights_path = sys.argv[1]
+checkpoint = torch.load(weights_path, map_location="cpu")
+model = (checkpoint.get("ema") or checkpoint.get("model")) if isinstance(checkpoint, dict) else checkpoint
+names = getattr(model, "names", None)
+class_count = getattr(model, "nc", None)
+if class_count is None and names is not None:
+    class_count = len(names)
+if class_count is None:
+    raise RuntimeError("class count not found")
+print(int(class_count))
+'@
+
+    $previous = $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD
+    $previousErrorActionPreference = $ErrorActionPreference
+    $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = "1"
+    Push-Location $YoloSourceRoot
+    try {
+        $ErrorActionPreference = "Continue"
+        $output = $code | & $PythonExe - $WeightsPath 2>&1
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0) {
+            throw "Model comparison cannot read $Name label count: $($output -join ' ')"
+        }
+
+        $line = $output | Where-Object { $_ -match '^\s*\d+\s*$' } | Select-Object -Last 1
+        if ($null -eq $line) {
+            throw "Model comparison cannot read $Name label count: $($output -join ' ')"
+        }
+
+        return [int]$line.ToString().Trim()
+    }
+    finally {
+        Pop-Location
+        $ErrorActionPreference = $previousErrorActionPreference
+        $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = $previous
+    }
+}
+
+function Assert-ModelClassCountsMatchData() {
+    # Keep this preflight ahead of YOLO val.py so the app can show a clear
+    # operator action instead of freezing and then failing deep in Python.
+    $dataClassCount = Read-DataYamlClassCount $DataYaml
+    $baselineClassCount = Read-WeightsClassCount $BaselineWeights "baseline model"
+    $candidateClassCount = Read-WeightsClassCount $CandidateWeights "candidate model"
+
+    if ($baselineClassCount -ne $dataClassCount -or $candidateClassCount -ne $dataClassCount) {
+        throw "Model comparison cannot start: dataset labels=$dataClassCount, baseline labels=$baselineClassCount, candidate labels=$candidateClassCount. Use models and verification data trained with the same label list."
+    }
+}
+
 function Find-LatestBestWeights([string]$ProjectRoot) {
     $runsRoot = Join-Path $ProjectRoot "runs\train"
     if (-not (Test-Path -LiteralPath $runsRoot -PathType Container)) {
@@ -213,6 +278,7 @@ Assert-File (Join-Path $YoloSourceRoot "val.py") "YOLO val.py"
 Assert-File $DataYaml "YOLO data.yaml"
 Assert-File $BaselineWeights "Baseline weights"
 Assert-File $CandidateWeights "Candidate weights"
+Assert-ModelClassCountsMatchData
 
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $runOutputRoot = Join-Path $OutputDirectory $stamp

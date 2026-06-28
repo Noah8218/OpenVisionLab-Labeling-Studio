@@ -26,11 +26,11 @@ namespace MvcVisionSystem
             if (pending.Count == 0)
             {
                 rows.Add(WpfCandidateReviewListItem.Empty(
-                    "AI \uD6C4\uBCF4 \uC5C6\uC74C",
+                    "\uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C",
                     "\uAC80\uCD9C \uACB0\uACFC \uD6C4\uBCF4\uAC00 \uC5C6\uAC70\uB098 \uC544\uC9C1 \uAC80\uC0AC\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4."));
                 return new WpfCandidateReviewListPresentation(
                     rows,
-                    "AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+                    "\uAC80\uCD9C \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
                     null);
             }
 
@@ -41,7 +41,7 @@ namespace MvcVisionSystem
                     "\uC2E0\uB8B0\uB3C4 \uAE30\uC900\uC744 \uB0AE\uCD94\uBA74 \uC228\uACA8\uC9C4 \uD6C4\uBCF4\uB97C \uB2E4\uC2DC \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4."));
                 return new WpfCandidateReviewListPresentation(
                     rows,
-                    $"{confidenceFilter.ToString("P0", CultureInfo.CurrentCulture)} \uC774\uC0C1 AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+                    $"{confidenceFilter.ToString("P0", CultureInfo.CurrentCulture)} \uC774\uC0C1 \uAC80\uCD9C \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
                     null);
             }
 
@@ -110,7 +110,7 @@ namespace MvcVisionSystem
 
             return new WpfDetectionOverlayPresentation(
                 isEmpty: false,
-                title: "AI \uAC80\uCD9C \uACB0\uACFC",
+                title: "\uAC80\uCD9C \uACB0\uACFC",
                 summary: summary,
                 selectedText: selectedText,
                 detail: detail,

@@ -89,6 +89,7 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBox x:Name="ClassNameBox"
+                     AutomationProperties.AutomationId="ClassNameBox"
                      Style="{StaticResource ClassCatalogTextBoxStyle}"
                      Text="{Binding ClassName, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      ToolTip="&#xD074;&#xB798;&#xC2A4; &#xC774;&#xB984;"

@@ -48,14 +48,14 @@ namespace MvcVisionSystem
                 payload);
         }
 
-        public static string FormatManualSummary(int displayIndex, string className, Rectangle roi, string shapeName = "ROI")
+        public static string FormatManualSummary(int displayIndex, string className, Rectangle roi, string shapeName = "박스")
         {
-            return $"{displayIndex}. {FirstNonEmpty(className, "Defect")} / {FirstNonEmpty(shapeName, "ROI")} / {FormatBoundsCompact(roi)}";
+            return $"{displayIndex}. {FirstNonEmpty(className, "Defect")} / {FirstNonEmpty(shapeName, "박스")} / {FormatBoundsCompact(roi)}";
         }
 
-        public static string FormatManualDetail(string className, Rectangle roi, string shapeName = "ROI")
+        public static string FormatManualDetail(string className, Rectangle roi, string shapeName = "박스")
         {
-            return $"\uCD9C\uCC98: \uC218\uB3D9 {FirstNonEmpty(shapeName, "ROI")} / \uD074\uB798\uC2A4: {FirstNonEmpty(className, "Defect")} / \uC704\uCE58: x={roi.X}, y={roi.Y} / \uD06C\uAE30: w={roi.Width}, h={roi.Height}";
+            return $"\uCD9C\uCC98: \uC218\uB3D9 {FirstNonEmpty(shapeName, "박스")} / \uD074\uB798\uC2A4: {FirstNonEmpty(className, "Defect")} / \uC704\uCE58: x={roi.X}, y={roi.Y} / \uD06C\uAE30: w={roi.Width}, h={roi.Height}";
         }
 
         public static string FormatConfirmedSummary(YoloWorkerSmokeCandidate candidate, int displayIndex, Rectangle bounds)

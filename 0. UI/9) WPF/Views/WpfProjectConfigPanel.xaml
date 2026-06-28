@@ -138,7 +138,7 @@
 
     <Expander x:Name="ProjectConfigExpander"
               Header="프로젝트"
-              IsExpanded="True"
+              IsExpanded="False"
               Foreground="{DynamicResource PrimaryTextBrush}"
               Margin="0,12,0,0">
         <StackPanel Margin="0,8,0,0">
@@ -149,6 +149,7 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -212,6 +213,16 @@
                          Style="{StaticResource ProjectConfigTextBoxStyle}"
                          Text="{Binding ConfigPath, Mode=OneWay}"
                          ToolTip="{Binding ConfigPath}" />
+                <TextBlock Grid.Row="3"
+                           Text="Manifest"
+                           Style="{StaticResource ProjectConfigLabelStyle}" />
+                <TextBox x:Name="ProjectManifestPathBox"
+                         Grid.Row="3"
+                         Grid.Column="1"
+                         Grid.ColumnSpan="2"
+                         Style="{StaticResource ProjectConfigTextBoxStyle}"
+                         Text="{Binding ManifestPath, Mode=OneWay}"
+                         ToolTip="{Binding ManifestPath}" />
             </Grid>
 
             <WrapPanel Margin="0,8,0,0">

@@ -13,6 +13,7 @@ namespace MvcVisionSystem
         public WpfYoloModelSettingsPanelViewModel ViewModel => DataContext as WpfYoloModelSettingsPanelViewModel;
 
         public Expander SettingsExpander => YoloModelSettingsExpander;
+        public ComboBox ModelEngineBox => YoloModelEngineBox;
         public TextBox PythonPathBox => YoloPythonPathBox;
         public TextBox ProjectRootBox => YoloProjectRootBox;
         public TextBox ClientScriptBox => YoloClientScriptBox;

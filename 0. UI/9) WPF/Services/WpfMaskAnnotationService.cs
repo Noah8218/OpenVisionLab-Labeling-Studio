@@ -128,10 +128,11 @@ namespace MvcVisionSystem
                     continue;
                 }
 
-                // Eraser can touch large image-sized buffers. Keep edge-bound recomputation
-                // inside the active mask bounds instead of rescanning the whole image.
+                // Eraser can touch large image-sized buffers. If it reaches an
+                // active edge, shrink only that edge instead of rescanning the full
+                // active rectangle; this keeps MouseUp/tool-end materialization bounded.
                 segment.MaskBounds = ShouldRecalculateMaskBoundsAfterErase(currentBounds, segmentChangedBounds)
-                    ? GetMaskBoundsWithin(segment.MaskData, segment.MaskSize, currentBounds)
+                    ? GetMaskBoundsAfterErase(segment.MaskData, segment.MaskSize, currentBounds, segmentChangedBounds)
                     : segment.MaskBounds;
                 MarkRenderDirty(segment, segmentChangedBounds);
                 changedSegmentList.Add(segment);
@@ -283,37 +284,9 @@ namespace MvcVisionSystem
             foreach (KeyValuePair<int, List<BrushStrokeSpan>> rowSpans in spansByRow)
             {
                 int y = rowSpans.Key;
-                List<BrushStrokeSpan> spans = rowSpans.Value;
-                spans.Sort((left, right) => left.Left != right.Left
-                    ? left.Left.CompareTo(right.Left)
-                    : left.Right.CompareTo(right.Right));
-
-                int mergedLeft = -1;
-                int mergedRight = -1;
-                for (int spanIndex = 0; spanIndex < spans.Count; spanIndex++)
+                foreach (BrushStrokeSpan span in rowSpans.Value)
                 {
-                    BrushStrokeSpan span = spans[spanIndex];
-                    if (mergedLeft < 0)
-                    {
-                        mergedLeft = span.Left;
-                        mergedRight = span.Right;
-                        continue;
-                    }
-
-                    if (span.Left <= mergedRight + 1)
-                    {
-                        mergedRight = Math.Max(mergedRight, span.Right);
-                        continue;
-                    }
-
-                    changed |= ApplyBrushStrokeSpan(mask, maskSize.Width, y, mergedLeft, mergedRight, target, ref leftChanged, ref topChanged, ref rightChanged, ref bottomChanged);
-                    mergedLeft = span.Left;
-                    mergedRight = span.Right;
-                }
-
-                if (mergedLeft >= 0)
-                {
-                    changed |= ApplyBrushStrokeSpan(mask, maskSize.Width, y, mergedLeft, mergedRight, target, ref leftChanged, ref topChanged, ref rightChanged, ref bottomChanged);
+                    changed |= ApplyBrushStrokeSpan(mask, maskSize.Width, y, span.Left, span.Right, target, ref leftChanged, ref topChanged, ref rightChanged, ref bottomChanged);
                 }
             }
 
@@ -354,11 +327,64 @@ namespace MvcVisionSystem
                         spansByRow[y] = spans;
                     }
 
-                    spans.Add(new BrushStrokeSpan(left, right));
+                    AddMergedBrushStrokeSpan(spans, left, right);
                 }
             }
 
             return spansByRow;
+        }
+
+        private static void AddMergedBrushStrokeSpan(List<BrushStrokeSpan> spans, int left, int right)
+        {
+            if (spans == null || left > right)
+            {
+                return;
+            }
+
+            if (spans.Count == 0)
+            {
+                spans.Add(new BrushStrokeSpan(left, right));
+                return;
+            }
+
+            BrushStrokeSpan last = spans[spans.Count - 1];
+            if (left > last.Right + 1)
+            {
+                spans.Add(new BrushStrokeSpan(left, right));
+                return;
+            }
+
+            if (right >= last.Left - 1)
+            {
+                spans[spans.Count - 1] = new BrushStrokeSpan(
+                    Math.Min(last.Left, left),
+                    Math.Max(last.Right, right));
+                return;
+            }
+
+            int insertIndex = 0;
+            while (insertIndex < spans.Count && spans[insertIndex].Right + 1 < left)
+            {
+                insertIndex++;
+            }
+
+            int mergedLeft = left;
+            int mergedRight = right;
+            int removeEnd = insertIndex;
+            while (removeEnd < spans.Count && spans[removeEnd].Left <= mergedRight + 1)
+            {
+                BrushStrokeSpan current = spans[removeEnd];
+                mergedLeft = Math.Min(mergedLeft, current.Left);
+                mergedRight = Math.Max(mergedRight, current.Right);
+                removeEnd++;
+            }
+
+            if (removeEnd > insertIndex)
+            {
+                spans.RemoveRange(insertIndex, removeEnd - insertIndex);
+            }
+
+            spans.Insert(insertIndex, new BrushStrokeSpan(mergedLeft, mergedRight));
         }
 
         private static bool ApplyBrushStrokeSpan(
@@ -373,25 +399,35 @@ namespace MvcVisionSystem
             ref int rightChanged,
             ref int bottomChanged)
         {
-            bool changed = false;
             int rowOffset = y * maskWidth;
+            int startIndex = rowOffset + left;
+            int length = right - left + 1;
+            bool changed = false;
             for (int x = left; x <= right; x++)
             {
-                int index = rowOffset + x;
-                if (mask[index] == target)
+                if (mask[rowOffset + x] == target)
                 {
                     continue;
                 }
 
-                mask[index] = target;
                 changed = true;
-                leftChanged = Math.Min(leftChanged, x);
-                topChanged = Math.Min(topChanged, y);
-                rightChanged = Math.Max(rightChanged, x);
-                bottomChanged = Math.Max(bottomChanged, y);
+                break;
             }
 
-            return changed;
+            if (!changed)
+            {
+                return false;
+            }
+
+            // Spans were already merged to the exact brush footprint for this row.
+            // Fill the row range in one operation; per-pixel min/max/write work was
+            // the visible MouseUp cost on long brush and eraser strokes.
+            Array.Fill(mask, target, startIndex, length);
+            leftChanged = Math.Min(leftChanged, left);
+            topChanged = Math.Min(topChanged, y);
+            rightChanged = Math.Max(rightChanged, right);
+            bottomChanged = Math.Max(bottomChanged, y);
+            return true;
         }
 
         private static BrushStamp CreateBrushStamp(int radius)
@@ -512,6 +548,140 @@ namespace MvcVisionSystem
             return left == int.MaxValue
                 ? Rectangle.Empty
                 : Rectangle.FromLTRB(left, top, right + 1, bottom + 1);
+        }
+
+        private static Rectangle GetMaskBoundsAfterErase(
+            byte[] maskData,
+            Size maskSize,
+            Rectangle currentBounds,
+            Rectangle changedBounds)
+        {
+            if (maskData == null || maskSize.Width <= 0 || maskSize.Height <= 0 || maskData.Length != maskSize.Width * maskSize.Height)
+            {
+                return Rectangle.Empty;
+            }
+
+            Rectangle imageBounds = new Rectangle(Point.Empty, maskSize);
+            Rectangle safeBounds = Rectangle.Intersect(currentBounds, imageBounds);
+            if (safeBounds.IsEmpty)
+            {
+                return Rectangle.Empty;
+            }
+
+            Rectangle safeChangedBounds = Rectangle.Intersect(changedBounds, safeBounds);
+            if (safeChangedBounds.IsEmpty)
+            {
+                return safeBounds;
+            }
+
+            int left = safeBounds.Left;
+            int top = safeBounds.Top;
+            int right = safeBounds.Right - 1;
+            int bottom = safeBounds.Bottom - 1;
+
+            if (safeChangedBounds.Left <= safeBounds.Left)
+            {
+                left = FindFirstNonEmptyColumn(maskData, maskSize.Width, safeBounds.Left, safeBounds.Right, safeBounds.Top, safeBounds.Bottom);
+                if (left < 0)
+                {
+                    return Rectangle.Empty;
+                }
+            }
+
+            if (safeChangedBounds.Right >= safeBounds.Right)
+            {
+                right = FindLastNonEmptyColumn(maskData, maskSize.Width, left, safeBounds.Right, safeBounds.Top, safeBounds.Bottom);
+                if (right < left)
+                {
+                    return Rectangle.Empty;
+                }
+            }
+
+            if (safeChangedBounds.Top <= safeBounds.Top)
+            {
+                top = FindFirstNonEmptyRow(maskData, maskSize.Width, left, right + 1, safeBounds.Top, safeBounds.Bottom);
+                if (top < 0)
+                {
+                    return Rectangle.Empty;
+                }
+            }
+
+            if (safeChangedBounds.Bottom >= safeBounds.Bottom)
+            {
+                bottom = FindLastNonEmptyRow(maskData, maskSize.Width, left, right + 1, top, safeBounds.Bottom);
+                if (bottom < top)
+                {
+                    return Rectangle.Empty;
+                }
+            }
+
+            return Rectangle.FromLTRB(left, top, right + 1, bottom + 1);
+        }
+
+        private static int FindFirstNonEmptyColumn(byte[] maskData, int maskWidth, int left, int right, int top, int bottom)
+        {
+            for (int x = left; x < right; x++)
+            {
+                for (int y = top; y < bottom; y++)
+                {
+                    if (maskData[(y * maskWidth) + x] != 0)
+                    {
+                        return x;
+                    }
+                }
+            }
+
+            return -1;
+        }
+
+        private static int FindLastNonEmptyColumn(byte[] maskData, int maskWidth, int left, int right, int top, int bottom)
+        {
+            for (int x = right - 1; x >= left; x--)
+            {
+                for (int y = top; y < bottom; y++)
+                {
+                    if (maskData[(y * maskWidth) + x] != 0)
+                    {
+                        return x;
+                    }
+                }
+            }
+
+            return left - 1;
+        }
+
+        private static int FindFirstNonEmptyRow(byte[] maskData, int maskWidth, int left, int right, int top, int bottom)
+        {
+            for (int y = top; y < bottom; y++)
+            {
+                int rowOffset = y * maskWidth;
+                for (int x = left; x < right; x++)
+                {
+                    if (maskData[rowOffset + x] != 0)
+                    {
+                        return y;
+                    }
+                }
+            }
+
+            return -1;
+        }
+
+        private static int FindLastNonEmptyRow(byte[] maskData, int maskWidth, int left, int right, int top, int bottom)
+        {
+            for (int y = bottom - 1; y >= top; y--)
+            {
+                int rowOffset = y * maskWidth;
+                for (int x = left; x < right; x++)
+                {
+                    if (maskData[rowOffset + x] != 0)
+                    {
+                        return y;
+                    }
+                }
+            }
+
+            return top - 1;
         }
 
         private static bool ShouldRecalculateMaskBoundsAfterErase(Rectangle currentBounds, Rectangle changedBounds)

@@ -49,7 +49,7 @@ namespace MvcVisionSystem
                 }
 
                 string className = FirstNonEmpty(segment.ClassName, segment.ClassItem?.Text, "Defect");
-                string shapeName = segment.IsRasterMask ? "Mask" : "Polygon";
+                string shapeName = segment.IsRasterMask ? "\uB9C8\uC2A4\uD06C" : "\uD3F4\uB9AC\uACE4";
                 WpfObjectReviewItemRef payload = WpfObjectReviewItemRef.ManualSegment(i);
                 rows.Add(WpfObjectReviewPresenter.BuildManualItem(
                     manualRoiCount + i + 1,
@@ -117,7 +117,7 @@ namespace MvcVisionSystem
 
             LabelingSegmentationObject segment = manualSegments[index];
             string className = FirstNonEmpty(segment.ClassName, segment.ClassItem?.Text, "Defect");
-            string shapeName = segment.IsRasterMask ? "Mask" : "Polygon";
+            string shapeName = segment.IsRasterMask ? "\uB9C8\uC2A4\uD06C" : "\uD3F4\uB9AC\uACE4";
             WpfObjectReviewItemRef payload = WpfObjectReviewItemRef.ManualSegment(index);
             return WpfObjectReviewPresenter.BuildManualItem(
                 manualRoiCount + index + 1,

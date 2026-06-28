@@ -155,7 +155,7 @@ namespace MvcVisionSystem._3._Communication.TCP
                 Type = TrainingStatusType,
                 Version = root["version"]?.Value<int?>() ?? 1,
                 State = state,
-                Message = ok ? "YOLOv5 training accepted by worker." : "YOLOv5 training could not start.",
+                Message = ok ? "YOLO training accepted by worker." : "YOLO training could not start.",
                 Error = FormatError(root["error"])
             };
         }

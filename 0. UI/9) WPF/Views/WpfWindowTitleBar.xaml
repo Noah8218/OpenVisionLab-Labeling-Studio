@@ -1,0 +1,131 @@
+<UserControl x:Class="MvcVisionSystem.WpfWindowTitleBar"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             Height="44"
+             MinHeight="44"
+             MouseLeftButtonDown="TitleBar_MouseLeftButtonDown">
+    <UserControl.Resources>
+        <Style x:Key="TitleBarButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="42" />
+            <Setter Property="Height" Value="44" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="#D9DEE8" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Focusable" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="#303030" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="#3B3B3B" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="TitleBarCloseButtonStyle" TargetType="Button" BasedOn="{StaticResource TitleBarButtonStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Root"
+                                Background="{TemplateBinding Background}">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="#DC2626" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Root" Property="Background" Value="#B91C1C" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <Border Background="#181818"
+            BorderBrush="#323232"
+            BorderThickness="0,0,0,1">
+        <Grid>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <StackPanel Grid.Column="0"
+                        Orientation="Horizontal"
+                        VerticalAlignment="Center"
+                        Margin="14,0,12,0">
+                <Border Width="26"
+                        Height="26"
+                        CornerRadius="5"
+                        Background="#262626"
+                        BorderBrush="#454545"
+                        BorderThickness="1"
+                        Margin="0,0,9,0">
+                    <iconPacks:PackIconMaterial Kind="{Binding IconKind, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                Width="15"
+                                                Height="15"
+                                                Foreground="#F87171"
+                                                HorizontalAlignment="Center"
+                                                VerticalAlignment="Center" />
+                </Border>
+                <StackPanel VerticalAlignment="Center">
+                    <TextBlock Text="{Binding TitleText, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                               Foreground="#F3F4F6"
+                               FontFamily="Segoe UI"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding SubtitleText, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                               Foreground="#9CA3AF"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </StackPanel>
+
+            <StackPanel Grid.Column="1"
+                        Orientation="Horizontal"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top">
+                <Button x:Name="MinimizeButton"
+                        Style="{StaticResource TitleBarButtonStyle}"
+                        AutomationProperties.Name="Minimize"
+                        ToolTip="Minimize"
+                        Click="MinimizeButton_Click">
+                    <iconPacks:PackIconMaterial Kind="WindowMinimize" Width="14" Height="14" />
+                </Button>
+                <Button x:Name="MaximizeButton"
+                        Style="{StaticResource TitleBarButtonStyle}"
+                        AutomationProperties.Name="Maximize"
+                        ToolTip="Maximize"
+                        Click="MaximizeButton_Click">
+                    <iconPacks:PackIconMaterial x:Name="MaximizeIcon" Kind="WindowMaximize" Width="13" Height="13" />
+                </Button>
+                <Button x:Name="CloseButton"
+                        Style="{StaticResource TitleBarCloseButtonStyle}"
+                        AutomationProperties.Name="Close"
+                        ToolTip="Close"
+                        Click="CloseButton_Click">
+                    <iconPacks:PackIconMaterial Kind="Close" Width="14" Height="14" />
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</UserControl>

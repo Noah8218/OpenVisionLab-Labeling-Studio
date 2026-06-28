@@ -68,6 +68,47 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
               Foreground="{DynamicResource PrimaryTextBrush}"
               Margin="0,12,0,0">
         <StackPanel Margin="0,8,0,0">
+            <Border x:Name="YoloModelEnginePanel"
+                    Background="{DynamicResource PanelBrush}"
+                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="7"
+                    Margin="0,0,0,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="82" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="엔진"
+                               Style="{StaticResource YoloModelLabelStyle}"
+                               Margin="0,0,8,0" />
+                    <ComboBox x:Name="YoloModelEngineBox"
+                              Grid.Column="1"
+                              Height="26"
+                              ItemsSource="{Binding ModelEngineOptions}"
+                              SelectedItem="{Binding SelectedModelEngine, Mode=TwoWay}"
+                              Background="{DynamicResource InputBrush}"
+                              Foreground="{DynamicResource PrimaryTextBrush}"
+                              BorderBrush="{DynamicResource InputBorderBrush}"
+                              FontFamily="Segoe UI"
+                              FontSize="11"
+                              Padding="6,2" />
+                    <TextBlock x:Name="YoloModelEngineHintText"
+                               Grid.Row="1"
+                               Grid.Column="1"
+                               Text="{Binding ModelEngineHintText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               Margin="0,4,0,0"
+                               TextWrapping="Wrap" />
+                </Grid>
+            </Border>
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="82" />
@@ -87,7 +128,7 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="Python" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBlock Text="실행 파일" Style="{StaticResource YoloModelLabelStyle}" />
                 <TextBox x:Name="YoloPythonPathBox"
                          Grid.Column="1"
                          Style="{StaticResource YoloModelTextBoxStyle}"
@@ -97,7 +138,7 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                            Grid.Column="2"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowsePythonEnabled}"
-                           ToolTip="Python 실행 파일 선택"
+                           ToolTip="추론 실행 파일 선택"
                            Command="{Binding BrowsePythonCommand}">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
                 </ui:Button>
@@ -114,12 +155,12 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                            Grid.Column="2"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowseProjectRootEnabled}"
-                           ToolTip="YOLO 프로젝트 폴더 선택"
+                           ToolTip="모델 프로젝트 폴더 선택"
                            Command="{Binding BrowseProjectRootCommand}">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
                 </ui:Button>
 
-                <TextBlock Grid.Row="2" Text="클라이언트" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBlock Grid.Row="2" Text="실행 스크립트" Style="{StaticResource YoloModelLabelStyle}" />
                 <TextBox x:Name="YoloClientScriptBox"
                          Grid.Row="2"
                          Grid.Column="1"
@@ -131,7 +172,7 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                            Grid.Column="2"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowseClientScriptEnabled}"
-                           ToolTip="YOLO 클라이언트 Python script 선택"
+                           ToolTip="추론 실행 스크립트 선택"
                            Command="{Binding BrowseClientScriptCommand}">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
                 </ui:Button>
@@ -148,7 +189,7 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                            Grid.Column="2"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowseWeightsEnabled}"
-                           ToolTip="YOLO weights 파일 선택"
+                           ToolTip="모델 파일 선택"
                            Command="{Binding BrowseWeightsCommand}">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
                 </ui:Button>
@@ -188,7 +229,7 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                          ToolTip="1~600초"
                          mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
 
-                <TextBlock Grid.Row="8" Text="Infer size" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBlock Grid.Row="8" Text="추론 이미지 크기" Style="{StaticResource YoloModelLabelStyle}" />
                 <TextBox x:Name="YoloInferenceImageSizeBox"
                          Grid.Row="8"
                          Grid.Column="1"
@@ -197,7 +238,7 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                          ToolTip="64~2048"
                          mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
 
-                <TextBlock Grid.Row="9" Text="Max candidates" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBlock Grid.Row="9" Text="최대 후보" Style="{StaticResource YoloModelLabelStyle}" />
                 <TextBox x:Name="YoloMaxCandidatesBox"
                          Grid.Row="9"
                          Grid.Column="1"
@@ -224,14 +265,14 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                            IsEnabled="{Binding IsSaveSettingsEnabled}"
                            MinWidth="80"
                            Content="저장"
-                           ToolTip="현재 YOLO 경로와 추론 설정 저장"
+                           ToolTip="현재 모델과 추론 설정 저장"
                            Command="{Binding SaveSettingsCommand}" />
                 <ui:Button x:Name="ResetYoloSettingsButton"
                            Style="{StaticResource YoloModelCommandButtonStyle}"
                            IsEnabled="{Binding IsResetSettingsEnabled}"
                            MinWidth="82"
                            Content="기본값"
-                           ToolTip="YOLO 기본 경로와 기본값 복원"
+                           ToolTip="기본 모델과 추론 설정 복원"
                            Command="{Binding ResetSettingsCommand}" />
             </WrapPanel>
         </StackPanel>

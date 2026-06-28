@@ -41,7 +41,7 @@ namespace MvcVisionSystem
                 .Where(item => item != null)
                 .ToList();
             int totalCount = queueItems.Count;
-            int labeledCount = queueItems.Count(item => item.IsLabeled);
+            int completedCount = queueItems.Count(IsCompletedQueueItem);
             string reviewCountText = WpfImageQueuePresenter.BuildReviewCountSummary(queueItems);
             string filterText = filter == WpfImageQueueFilter.All
                 ? string.Empty
@@ -50,7 +50,26 @@ namespace MvcVisionSystem
                 ? $" / 로드 {loadedCount}/{totalToLoad}"
                 : string.Empty;
 
-            return $"데이터셋: {Math.Max(0, visibleCount)}/{totalCount} 이미지 / 라벨 {labeledCount}{reviewCountText}{filterText}{loadingText}";
+            return $"데이터셋: {Math.Max(0, visibleCount)}/{totalCount} 이미지 / 완료 {completedCount}{reviewCountText}{filterText}{loadingText}";
+        }
+
+        public static string BuildDatasetStatusTextWithActiveImage(
+            IEnumerable<WpfImageQueueItem> items,
+            int visibleCount,
+            WpfImageQueueFilter filter,
+            int loadedCount,
+            int totalToLoad,
+            string activeImagePath)
+        {
+            string statusText = BuildDatasetStatusText(items, visibleCount, filter, loadedCount, totalToLoad);
+            if (string.IsNullOrWhiteSpace(activeImagePath))
+            {
+                return statusText;
+            }
+
+            // Keep the active file visible even while queue detail loading updates
+            // the summary; EXE smokes and operators both need that orientation.
+            return $"{statusText} / \uD604\uC7AC {System.IO.Path.GetFileName(activeImagePath)}";
         }
 
         public static bool MatchesFilter(WpfImageQueueItem item, WpfImageQueueFilter filter)
@@ -62,7 +81,7 @@ namespace MvcVisionSystem
 
             return filter switch
             {
-                WpfImageQueueFilter.Unlabeled => !item.IsLabeled,
+                WpfImageQueueFilter.Unlabeled => !IsCompletedQueueItem(item),
                 WpfImageQueueFilter.Requested => item.ReviewState == YoloImageReviewState.Requested,
                 WpfImageQueueFilter.Candidate => item.ReviewState == YoloImageReviewState.Candidate,
                 WpfImageQueueFilter.Confirmed => item.ReviewState == YoloImageReviewState.Confirmed,
@@ -71,6 +90,21 @@ namespace MvcVisionSystem
                 WpfImageQueueFilter.Failed => item.ReviewState == YoloImageReviewState.Failed,
                 _ => true
             };
+        }
+
+        public static bool IsCompletedQueueItem(WpfImageQueueItem item)
+        {
+            if (item == null)
+            {
+                return false;
+            }
+
+            // A saved empty label file has no objects, but it is still a reviewed normal image.
+            // Treat confirmed/skipped/no-candidate rows as complete so "미완료" means work remains.
+            return item.IsLabeled
+                || item.ReviewState == YoloImageReviewState.Confirmed
+                || item.ReviewState == YoloImageReviewState.Skipped
+                || item.ReviewState == YoloImageReviewState.NoCandidate;
         }
     }
 }

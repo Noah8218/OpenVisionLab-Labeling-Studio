@@ -22,7 +22,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		{
 			// Brush hover and FBO stroke preview need only a frame refresh. Calling
 			// Reshape here invalidates the visible overlay cache and can re-walk huge ROI sets.
-			_imageViewer.RefreshGL();
+			_imageViewer.RefreshTransientOverlayGL();
 		}
 
 		private void _reshapeTimer_Elapsed(object sender, System.Timers.ElapsedEventArgs e)

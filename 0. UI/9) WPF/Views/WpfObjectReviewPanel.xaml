@@ -136,6 +136,7 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock x:Name="ObjectReviewSummaryText"
+                       AutomationProperties.AutomationId="ObjectReviewSummaryText"
                        Text="{Binding SummaryText}"
                        Foreground="{DynamicResource SecondaryTextBrush}"
                        FontFamily="Segoe UI"
@@ -144,6 +145,7 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                        TextTrimming="CharacterEllipsis" />
             <ui:Button x:Name="DeleteObjectButton"
                        Grid.Column="1"
+                       AutomationProperties.AutomationId="DeleteObjectButton"
                        Style="{StaticResource ObjectReviewButtonStyle}"
                        MinWidth="68"
                        Height="26"
@@ -159,12 +161,14 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <ComboBox x:Name="ObjectClassBox"
+                      AutomationProperties.AutomationId="ObjectClassBox"
                       Style="{StaticResource ObjectReviewComboBoxStyle}"
                       ItemsSource="{Binding ClassNames}"
                       SelectedItem="{Binding SelectedClassName, Mode=TwoWay}"
                       ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xD604;&#xC7AC; &#xB77C;&#xBCA8;&#xC5D0; &#xC801;&#xC6A9;&#xD560; &#xD074;&#xB798;&#xC2A4;" />
             <ui:Button x:Name="ApplyObjectClassButton"
                        Grid.Column="1"
+                       AutomationProperties.AutomationId="ApplyObjectClassButton"
                        Style="{StaticResource ObjectReviewButtonStyle}"
                        MinWidth="62"
                        Height="26"
@@ -176,6 +180,7 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                        Command="{Binding ApplyObjectClassCommand}" />
         </Grid>
         <ListBox x:Name="ObjectListBox"
+                 AutomationProperties.AutomationId="ObjectListBox"
                  Grid.Row="2"
                  Background="Transparent"
                  BorderThickness="0"

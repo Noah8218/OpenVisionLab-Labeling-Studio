@@ -30,11 +30,25 @@ namespace MvcVisionSystem
                 : Path.Combine(BuildConfigDirectory(recipeRootPath, recipeName), "VISION.xml");
         }
 
+        public static string BuildManifestPath(string recipeRootPath, string recipeName)
+        {
+            return string.IsNullOrWhiteSpace(recipeName)
+                ? string.Empty
+                : Path.Combine(BuildConfigDirectory(recipeRootPath, recipeName), LabelingDatasetManifestService.FileName);
+        }
+
         public static string BuildConfigPreviewPath(string recipeRootPath, string recipeName)
         {
             return string.IsNullOrWhiteSpace(recipeName)
                 ? Path.Combine(BuildConfigDirectory(recipeRootPath, string.Empty), "(recipe 선택 필요)", "VISION.xml")
                 : BuildConfigPath(recipeRootPath, recipeName);
+        }
+
+        public static string BuildManifestPreviewPath(string recipeRootPath, string recipeName)
+        {
+            string configPreviewPath = BuildConfigPreviewPath(recipeRootPath, recipeName);
+            string directoryPath = Path.GetDirectoryName(configPreviewPath) ?? BuildConfigDirectory(recipeRootPath, recipeName);
+            return Path.Combine(directoryPath, LabelingDatasetManifestService.FileName);
         }
 
         public static IReadOnlyList<string> ListRecipeNames(string recipeRootPath)

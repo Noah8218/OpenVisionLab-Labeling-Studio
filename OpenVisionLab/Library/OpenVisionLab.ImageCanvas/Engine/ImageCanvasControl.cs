@@ -137,7 +137,11 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		private List<CanvasShape> _shapesViewPort = new List<CanvasShape>();
 		private bool _suppressRefresh;
 		private readonly Timer _deferredRefreshTimer = new Timer { Interval = 16 };
+		private readonly Timer _deferredViewportOverlayRefreshTimer = new Timer { Interval = 16 };
 		private bool _deferredRefreshPending;
+		private bool _deferredRefreshPosted;
+		private bool _deferredRefreshDelayActive;
+		private bool _deferredViewportOverlayRefreshPending;
 		private bool _visibleOverlayCacheDirty = true;
 		private bool _fastOverlaySceneDirty = true;
 		private bool _isVisibleOverlayLodActive;
@@ -220,6 +224,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		{
 			InitializeOpenGlHost();
 			_deferredRefreshTimer.Tick += OnDeferredRefreshTimerTick;
+			_deferredViewportOverlayRefreshTimer.Tick += OnDeferredViewportOverlayRefreshTimerTick;
 
 			DoubleBuffered = false;
 		}
@@ -229,7 +234,9 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			if (disposing)
 			{
 				_deferredRefreshTimer.Tick -= OnDeferredRefreshTimerTick;
+				_deferredViewportOverlayRefreshTimer.Tick -= OnDeferredViewportOverlayRefreshTimerTick;
 				_deferredRefreshTimer.Dispose();
+				_deferredViewportOverlayRefreshTimer.Dispose();
 				openGlHostAdapter?.Dispose();
 				openGlHostAdapter = null;
 			}
@@ -441,6 +448,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 				}
 
 				CancelDeferredRefreshGL();
+				CancelDeferredViewportOverlayRefresh();
 				RebuildVisibleOverlayCacheIfNeeded();
 				RequestOpenGlRepaint();
 			}
@@ -455,9 +463,14 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			}
 		}
 
-		public void QueueRefreshGLAfterInput()
+		public void RefreshTransientOverlayGL()
 		{
-			if (_suppressRefresh || !CanUseOpenGlControl())
+			if (_suppressRefresh)
+			{
+				return;
+			}
+
+			if (!CanUseOpenGlControl())
 			{
 				return;
 			}
@@ -466,15 +479,14 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			{
 				if (openGLControl.InvokeRequired)
 				{
-					openGLControl.BeginInvoke(new MethodInvoker(QueueRefreshGLAfterInput));
+					openGLControl.BeginInvoke(new MethodInvoker(RefreshTransientOverlayGL));
 					return;
 				}
 
-				// ROI delete should not block a wheel zoom that is already queued behind it.
-				// A normal zoom refresh will cancel this deferred repaint and include the delete.
-				_deferredRefreshPending = true;
-				_deferredRefreshTimer.Stop();
-				_deferredRefreshTimer.Start();
+				// Brush cursor/FBO preview frames do not change ROI geometry. Repaint the
+				// current scene without rebuilding the visible-overlay cache, otherwise a
+				// long labeling session can turn one hover frame into a 500K ROI walk.
+				RequestOpenGlRepaint();
 			}
 			catch (ObjectDisposedException)
 			{
@@ -487,9 +499,105 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			}
 		}
 
+		public void RefreshGLAfterViewportInput()
+		{
+			if (_suppressRefresh || !CanUseOpenGlControl())
+			{
+				return;
+			}
+
+			try
+			{
+				if (openGLControl.InvokeRequired)
+				{
+					openGLControl.BeginInvoke(new MethodInvoker(RefreshGLAfterViewportInput));
+					return;
+				}
+
+				// Wheel zoom/pan must repaint the texture transform immediately. The ROI
+				// visible cache can be rebuilt on the next tick so 500K labels do not block input.
+				CancelDeferredRefreshGL();
+				RequestOpenGlRepaint();
+				_deferredViewportOverlayRefreshPending = true;
+				_deferredViewportOverlayRefreshTimer.Stop();
+				_deferredViewportOverlayRefreshTimer.Start();
+			}
+			catch (ObjectDisposedException)
+			{
+			}
+			catch (InvalidOperationException)
+			{
+			}
+			catch (InvalidAsynchronousStateException)
+			{
+			}
+		}
+
+		public void QueueRefreshGLAfterInput(int delayMilliseconds = 0)
+		{
+			if (_suppressRefresh || !CanUseOpenGlControl())
+			{
+				return;
+			}
+
+			try
+			{
+				if (openGLControl.InvokeRequired)
+				{
+					openGLControl.BeginInvoke(new MethodInvoker(() => QueueRefreshGLAfterInput(delayMilliseconds)));
+					return;
+				}
+
+				_deferredRefreshPending = true;
+				if (delayMilliseconds > 0)
+				{
+					// Mask overlay refreshes are not the visible source while the FBO
+					// preview is active. Delay them so immediate wheel/pan can cancel
+					// the repaint instead of waiting behind a committed-mask upload.
+					_deferredRefreshDelayActive = true;
+					_deferredRefreshTimer.Stop();
+					_deferredRefreshTimer.Interval = Math.Max(1, delayMilliseconds);
+					_deferredRefreshTimer.Start();
+					return;
+				}
+
+				// ROI delete only needs to yield the current input message. Coalesce one
+				// BeginInvoke repaint instead of waiting a full frame.
+				if (_deferredRefreshPosted)
+				{
+					return;
+				}
+
+				_deferredRefreshPosted = true;
+				openGLControl.BeginInvoke(new MethodInvoker(OnDeferredRefreshPosted));
+			}
+			catch (ObjectDisposedException)
+			{
+			}
+			catch (InvalidOperationException)
+			{
+			}
+			catch (InvalidAsynchronousStateException)
+			{
+			}
+		}
+
+		private void OnDeferredRefreshPosted()
+		{
+			_deferredRefreshPosted = false;
+			if (!_deferredRefreshPending || _deferredRefreshDelayActive)
+			{
+				return;
+			}
+
+			_deferredRefreshPending = false;
+			RefreshGL();
+		}
+
 		private void OnDeferredRefreshTimerTick(object sender, EventArgs e)
 		{
 			_deferredRefreshTimer.Stop();
+			_deferredRefreshDelayActive = false;
 			if (!_deferredRefreshPending)
 			{
 				return;
@@ -499,10 +607,30 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			RefreshGL();
 		}
 
+		private void OnDeferredViewportOverlayRefreshTimerTick(object sender, EventArgs e)
+		{
+			_deferredViewportOverlayRefreshTimer.Stop();
+			if (!_deferredViewportOverlayRefreshPending)
+			{
+				return;
+			}
+
+			_deferredViewportOverlayRefreshPending = false;
+			RefreshGL();
+		}
+
 		private void CancelDeferredRefreshGL()
 		{
 			_deferredRefreshPending = false;
+			_deferredRefreshPosted = false;
+			_deferredRefreshDelayActive = false;
 			_deferredRefreshTimer.Stop();
+		}
+
+		private void CancelDeferredViewportOverlayRefresh()
+		{
+			_deferredViewportOverlayRefreshPending = false;
+			_deferredViewportOverlayRefreshTimer.Stop();
 		}
 		private bool CanUseOpenGlControl()
 		{
@@ -2847,7 +2975,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		/// </summary>
 		private void CalculatorVisibleOverlays()
 		{
-			List<CanvasShape> visibleShapes = new List<CanvasShape>(Math.Min(MaxVisibleOverlayShapes, 4096));
+			List<CanvasShape> visibleShapes = new List<CanvasShape>(MaxVisibleOverlayShapes);
 			// A zoomed-out labeling screen can contain hundreds of thousands of ROI.
 			// Hit-testing still uses the full spatial index; the visual cache is capped
 			// so repaint and pan/zoom never try to replay every label in one frame.
@@ -2855,7 +2983,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			{
 				if (visibleShapes.Count < MaxVisibleOverlayShapes)
 				{
-					AddVisibleOverlayShapesIfInViewport(overlayItem, visibleShapes, MaxVisibleOverlayShapes);
+					AddVisibleOverlayShapesIfInViewport(overlayItem, visibleShapes, MaxVisibleOverlayShapes, skipViewportCheck: true);
 				}
 			});
 
@@ -2872,10 +3000,19 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			return RectangleF.FromLTRB(viewportLeft, viewportBottom, viewportRight, viewportTop);
 		}
 
-		private void AddVisibleOverlayShapesIfInViewport(CanvasOverlayItem overlayItem, List<CanvasShape> visibleShapes, int maxShapes)
+		private void AddVisibleOverlayShapesIfInViewport(
+			CanvasOverlayItem overlayItem,
+			List<CanvasShape> visibleShapes,
+			int maxShapes,
+			bool skipViewportCheck = false)
 		{
 			CanvasShape shape = overlayItem?.Shape;
-			if (shape == null || visibleShapes == null || visibleShapes.Count >= maxShapes || !IsShapeInViewport(shape))
+			// Viewport rebuilds arrive from CanvasOverlaySpatialIndex, which already filters by
+			// bounds. Incremental adds still verify the viewport because they bypass that query.
+			if (shape == null
+				|| visibleShapes == null
+				|| visibleShapes.Count >= maxShapes
+				|| (!skipViewportCheck && !IsShapeInViewport(shape)))
 			{
 				return;
 			}

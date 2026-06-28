@@ -102,7 +102,7 @@ namespace MvcVisionSystem
 
         public string BuildWorkerPreparingInferenceStatus(int totalCount)
         {
-            return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uCD94\uB860 worker \uC900\uBE44 \uC911: {0}\uAC1C", totalCount);
+            return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uCD94\uB860 \uC900\uBE44 \uC911: {0}\uAC1C", totalCount);
         }
 
         public string BuildItemInferenceStatus(int completedCount, int totalCount, string imagePath)
@@ -141,7 +141,7 @@ namespace MvcVisionSystem
 
         public string BuildItemPythonStatus(int completedCount, int totalCount, string elapsedText)
         {
-            return string.Format(CultureInfo.CurrentCulture, "Python: \uC77C\uAD04 {0}/{1} / \uCD5C\uADFC {2}", completedCount, totalCount, elapsedText);
+            return string.Format(CultureInfo.CurrentCulture, "\uCD94\uB860: \uC77C\uAD04 {0}/{1} / \uCD5C\uADFC {2}", completedCount, totalCount, elapsedText);
         }
 
         public string BuildLatestFileStatus(string imagePath, string elapsedText)

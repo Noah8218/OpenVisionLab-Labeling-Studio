@@ -114,11 +114,11 @@ namespace MvcVisionSystem._3._Communication.TCP
             return SendPacket("ModelStatus", LearningProtocol.BuildModelStatusPacket(requestId, ensureLoaded));
         }
 
-        public bool SendDetectImage(string requestId, string imageId, string imagePath, float confidence)
+        public bool SendDetectImage(string requestId, string imageId, string imagePath, float confidence, string model = "yolov5")
         {
             try
             {
-                return SendPacket("DetectImage", LearningProtocol.BuildDetectImagePacket(requestId, imageId, imagePath, confidence));
+                return SendPacket("DetectImage", LearningProtocol.BuildDetectImagePacket(requestId, imageId, imagePath, confidence, model));
             }
             catch (Exception Desc)
             {

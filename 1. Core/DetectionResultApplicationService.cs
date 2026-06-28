@@ -219,12 +219,14 @@ namespace MvcVisionSystem._1._Core
                 string imageId = BuildImageId(context);
                 RegisterPendingDetectionImage(CGlobal.Inst.Data, bitmap.Size, detectionTimeoutSeconds, requestId, imageId);
 
+                var modelSettings = CGlobal.Inst.Data?.ProjectSettings?.PythonModel;
                 bool sent = !string.IsNullOrWhiteSpace(context.ImagePath) && File.Exists(context.ImagePath)
                     ? communication.SendDetectImage(
                         requestId,
                         imageId,
                         context.ImagePath,
-                        CGlobal.Inst.Data?.ProjectSettings?.PythonModel?.MinimumDetectionConfidence ?? 0.25F)
+                        modelSettings?.MinimumDetectionConfidence ?? 0.25F,
+                        modelSettings?.GetProtocolModelName() ?? "yolov5")
                     : communication.SendData(CCommunicationLearning.CommandLearning.StartDefect.ToString(), bitmap);
                 if (!sent)
                 {
@@ -283,7 +285,8 @@ namespace MvcVisionSystem._1._Core
                 requestId,
                 context.ImageId,
                 imagePath,
-                data?.ProjectSettings?.PythonModel?.MinimumDetectionConfidence ?? 0.25F);
+                data?.ProjectSettings?.PythonModel?.MinimumDetectionConfidence ?? 0.25F,
+                data?.ProjectSettings?.PythonModel?.GetProtocolModelName() ?? "yolov5");
             if (!sent)
             {
                 ClearPendingDetectionContext();

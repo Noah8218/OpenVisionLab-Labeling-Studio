@@ -88,6 +88,13 @@
             </Style.Triggers>
         </Style>
 
+        <Style x:Key="DetectionOverlayActionButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource CanvasCommandButtonStyle}">
+            <Setter Property="Height" Value="22" />
+            <Setter Property="MinWidth" Value="44" />
+            <Setter Property="Margin" Value="0,0,3,0" />
+            <Setter Property="Padding" Value="4,0" />
+        </Style>
+
 
 
         <Style x:Key="CanvasAnnotationCommandButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource CanvasCommandButtonStyle}">
@@ -147,7 +154,12 @@
         </Style>
 
         <DataTemplate x:Key="CanvasAnnotationToolItemTemplate">
-            <Grid Width="52" Height="32" ToolTip="{Binding ToolTip}">
+            <Grid Width="52"
+                  Height="32"
+                  mvvm:EventCommandBehavior.EventName="MouseLeftButtonUp"
+                  mvvm:EventCommandBehavior.Command="{Binding DataContext.AnnotationToolSelectionChangedCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
+                  mvvm:EventCommandBehavior.CommandParameter="{Binding}"
+                  ToolTip="{Binding ToolTip}">
                 <Grid.RowDefinitions>
                     <RowDefinition Height="17" />
                     <RowDefinition Height="*" />
@@ -221,7 +233,6 @@
                 <RowDefinition Height="34" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
-                <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
             </Grid.RowDefinitions>
             <Border Background="{DynamicResource PanelHeaderBrush}"
@@ -247,7 +258,7 @@
                                    Command="{Binding FitCommand}">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="FitToPageOutline" Style="{StaticResource CanvasCommandIconStyle}" />
-                                <TextBlock Text="Fit" VerticalAlignment="Center" />
+                                <TextBlock Text="맞춤" VerticalAlignment="Center" />
                             </StackPanel>
                         </ui:Button>
                         <ui:Button x:Name="ActualSizeCanvasButton"
@@ -264,27 +275,27 @@
                                    Command="{Binding PanCommand}">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="CursorMove" Style="{StaticResource CanvasCommandIconStyle}" />
-                                <TextBlock Text="Pan" VerticalAlignment="Center" />
+                                <TextBlock Text="이동" VerticalAlignment="Center" />
                             </StackPanel>
                         </ui:Button>
                         <ui:Button x:Name="FocusCandidateCanvasButton"
                                    Style="{StaticResource CanvasCommandButtonStyle}"
-                                   ToolTip="선택한 AI 후보 위치로 이동합니다."
+                                   ToolTip="선택한 검출 후보 위치로 이동합니다."
                                    IsEnabled="{Binding IsFocusCandidateEnabled}"
                                    Command="{Binding FocusCandidateCommand}">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="CrosshairsGps" Style="{StaticResource CanvasCommandIconStyle}" />
-                                <TextBlock Text="Focus" VerticalAlignment="Center" />
+                                <TextBlock Text="후보" VerticalAlignment="Center" />
                             </StackPanel>
                         </ui:Button>
                         <ui:Button x:Name="ResetAiOverlayCanvasButton"
                                    Style="{StaticResource CanvasCommandButtonStyle}"
-                                   ToolTip="수동 라벨은 유지하고 AI 후보 표시만 지웁니다."
+                                   ToolTip="수동 라벨은 유지하고 검출 후보 표시만 지웁니다."
                                    IsEnabled="{Binding IsResetAiOverlayEnabled}"
                                    Command="{Binding ResetAiOverlayCommand}">
                             <StackPanel Orientation="Horizontal">
                                 <iconPacks:PackIconMaterial Kind="LayersOffOutline" Style="{StaticResource CanvasCommandIconStyle}" />
-                                <TextBlock Text="AI Reset" VerticalAlignment="Center" />
+                                <TextBlock Text="후보 지움" VerticalAlignment="Center" />
                             </StackPanel>
                         </ui:Button>
                     </StackPanel>
@@ -457,45 +468,148 @@
                     </ListBox>
                 </DockPanel>
             </Border>
-            <Border x:Name="DetectionResultOverlay"
-                    Grid.Row="3"
-                    Margin="10,8,10,6"
-                    Style="{StaticResource DetectionOverlayPanelStyle}"
-                    Visibility="{Binding DetectionOverlayVisibility}">
-                <StackPanel>
-                    <TextBlock x:Name="DetectionOverlayTitleText"
-                               Text="AI 검출 결과"
-                               Foreground="{DynamicResource DetectionOverlayTitleTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="13"
-                               FontWeight="SemiBold" />
-                    <TextBlock x:Name="DetectionOverlaySummaryText"
-                               Text="{Binding DetectionOverlaySummaryText}"
-                               Style="{StaticResource DetectionOverlaySummaryTextStyle}"
-                               FontFamily="Segoe UI"
-                               FontSize="11"
-                               Margin="0,3,0,0"
-                               TextWrapping="Wrap" />
-                    <Border x:Name="DetectionOverlaySelectedBorder"
-                            Style="{StaticResource DetectionOverlaySelectedBorderStyle}">
-                        <TextBlock x:Name="DetectionOverlaySelectedText"
-                                   Text="{Binding DetectionOverlaySelectedText}"
-                                   Foreground="{DynamicResource DetectionOverlaySelectedTextBrush}"
+            <Grid Grid.Row="3">
+                <canvas:RoiImageCanvasView x:Name="MainCanvasView" />
+                <Border x:Name="DetectionResultOverlay"
+                        Panel.ZIndex="10"
+                        Margin="10,8,0,0"
+                        MaxWidth="560"
+                        MaxHeight="92"
+                        ClipToBounds="True"
+                        HorizontalAlignment="Left"
+                        VerticalAlignment="Top"
+                        Style="{StaticResource DetectionOverlayPanelStyle}"
+                        ToolTip="{Binding DetectionOverlayDetailText}"
+                        Visibility="{Binding DetectionOverlayVisibility}">
+                    <Grid>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="DetectionOverlayTitleText"
+                                   Text="검출 결과"
+                                   Foreground="{DynamicResource DetectionOverlayTitleTextBrush}"
                                    FontFamily="Segoe UI"
-                                   FontSize="12"
+                                   FontSize="11"
                                    FontWeight="SemiBold"
-                                   TextWrapping="Wrap" />
-                    </Border>
-                    <TextBlock x:Name="DetectionOverlayDetailText"
-                               Text="{Binding DetectionOverlayDetailText}"
-                               Foreground="{DynamicResource DetectionOverlayDetailTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="11"
-                               Margin="0,7,0,0"
-                               TextWrapping="Wrap" />
-                </StackPanel>
-            </Border>
-            <canvas:RoiImageCanvasView x:Name="MainCanvasView" Grid.Row="4" />
+                                   VerticalAlignment="Center" />
+                        <TextBlock x:Name="DetectionOverlaySummaryText"
+                                   Grid.Column="1"
+                                   Text="{Binding DetectionOverlaySummaryText}"
+                                   Style="{StaticResource DetectionOverlaySummaryTextStyle}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   Margin="8,0,0,0"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" />
+                        <Border x:Name="DetectionOverlaySelectedBorder"
+                                Grid.Row="1"
+                                Grid.ColumnSpan="2"
+                                Margin="0,5,0,0"
+                                Padding="6,4"
+                                Style="{StaticResource DetectionOverlaySelectedBorderStyle}">
+                            <DockPanel LastChildFill="True">
+                                <WrapPanel DockPanel.Dock="Right"
+                                           Margin="8,0,0,0">
+                            <ui:Button x:Name="CanvasOverlayPreviousCandidateButton"
+                                       Style="{StaticResource DetectionOverlayActionButtonStyle}"
+                                       AutomationProperties.AutomationId="CanvasOverlayPreviousCandidateButton"
+                                       AutomationProperties.Name="&#xC774;&#xC804; &#xD6C4;&#xBCF4;"
+                                       ToolTip="이전 검출 후보를 선택합니다."
+                                       IsEnabled="{Binding IsPreviousCandidateEnabled}"
+                                       Command="{Binding PreviousCandidateCommand}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Kind="ChevronUp" Style="{StaticResource CanvasCommandIconStyle}" />
+                                    <TextBlock Text="&#xC774;&#xC804;" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ui:Button>
+                            <ui:Button x:Name="CanvasOverlayFocusCandidateButton"
+                                       Style="{StaticResource DetectionOverlayActionButtonStyle}"
+                                       AutomationProperties.AutomationId="CanvasOverlayFocusCandidateButton"
+                                       AutomationProperties.Name="&#xD6C4;&#xBCF4; &#xCD08;&#xC810;"
+                                       ToolTip="선택한 검출 후보를 캔버스 가운데로 가져옵니다."
+                                       IsEnabled="{Binding IsFocusCandidateEnabled}"
+                                       Command="{Binding FocusCandidateCommand}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Kind="CrosshairsGps" Style="{StaticResource CanvasCommandIconStyle}" />
+                                    <TextBlock Text="&#xD6C4;&#xBCF4;" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ui:Button>
+                            <ui:Button x:Name="CanvasOverlayFocusCurrentLabelButton"
+                                       Style="{StaticResource DetectionOverlayActionButtonStyle}"
+                                       AutomationProperties.AutomationId="CanvasOverlayFocusCurrentLabelButton"
+                                       AutomationProperties.Name="&#xAE30;&#xC900; &#xB77C;&#xBCA8; &#xC120;&#xD0DD;"
+                                       ToolTip="&#xACB9;&#xCE58;&#xB294; &#xAE30;&#xC874; &#xB77C;&#xBCA8;&#xC744; &#xC120;&#xD0DD;&#xD569;&#xB2C8;&#xB2E4;."
+                                       IsEnabled="{Binding IsFocusCurrentLabelEnabled}"
+                                       Command="{Binding FocusCurrentLabelCommand}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Kind="CrosshairsGps" Style="{StaticResource CanvasCommandIconStyle}" />
+                                    <TextBlock Text="&#xAE30;&#xC900;" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ui:Button>
+                            <ui:Button x:Name="CanvasOverlayNextCandidateButton"
+                                       Style="{StaticResource DetectionOverlayActionButtonStyle}"
+                                       AutomationProperties.AutomationId="CanvasOverlayNextCandidateButton"
+                                       AutomationProperties.Name="&#xB2E4;&#xC74C; &#xD6C4;&#xBCF4;"
+                                       ToolTip="다음 검출 후보를 선택합니다."
+                                       IsEnabled="{Binding IsNextCandidateEnabled}"
+                                       Command="{Binding NextCandidateCommand}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Kind="ChevronDown" Style="{StaticResource CanvasCommandIconStyle}" />
+                                    <TextBlock Text="&#xB2E4;&#xC74C;" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ui:Button>
+                            <ui:Button x:Name="CanvasOverlayConfirmSelectedCandidateButton"
+                                       Style="{StaticResource DetectionOverlayActionButtonStyle}"
+                                       AutomationProperties.AutomationId="CanvasOverlayConfirmSelectedCandidateButton"
+                                       AutomationProperties.Name="&#xC120;&#xD0DD; &#xD655;&#xC815;"
+                                       ToolTip="선택한 검출 후보를 라벨로 확정합니다."
+                                       IsEnabled="{Binding IsConfirmSelectedEnabled}"
+                                       Command="{Binding ConfirmSelectedCommand}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Kind="CheckboxMarkedCircleOutline" Style="{StaticResource CanvasCommandIconStyle}" />
+                                    <TextBlock Text="&#xD655;&#xC815;" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ui:Button>
+                            <ui:Button x:Name="CanvasOverlaySkipSelectedCandidateButton"
+                                       Style="{StaticResource DetectionOverlayActionButtonStyle}"
+                                       AutomationProperties.AutomationId="CanvasOverlaySkipSelectedCandidateButton"
+                                       AutomationProperties.Name="&#xC2A4;&#xD0B5;"
+                                       ToolTip="선택한 검출 후보를 스킵합니다."
+                                       IsEnabled="{Binding IsSkipSelectedEnabled}"
+                                       Command="{Binding SkipSelectedCommand}">
+                                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Kind="SkipNext" Style="{StaticResource CanvasCommandIconStyle}" />
+                                    <TextBlock Text="&#xC2A4;&#xD0B5;" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ui:Button>
+                                </WrapPanel>
+                                <TextBlock x:Name="DetectionOverlaySelectedText"
+                                           Text="{Binding DetectionOverlaySelectedText}"
+                                           Foreground="{DynamicResource DetectionOverlaySelectedTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           MaxWidth="220"
+                                           TextTrimming="CharacterEllipsis"
+                                           VerticalAlignment="Center" />
+                            </DockPanel>
+                        </Border>
+                        <TextBlock x:Name="DetectionOverlayDetailText"
+                                   Grid.Row="1"
+                                   Text="{Binding DetectionOverlayDetailText}"
+                                   Foreground="{DynamicResource DetectionOverlayDetailTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   Visibility="Collapsed" />
+                    </Grid>
+                </Border>
+            </Grid>
         </Grid>
     </Border>
 </UserControl>

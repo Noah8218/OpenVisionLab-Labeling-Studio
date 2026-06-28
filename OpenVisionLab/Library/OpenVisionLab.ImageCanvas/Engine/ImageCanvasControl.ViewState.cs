@@ -54,8 +54,10 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			// Zoom changes viewport bounds, so the visible ROI cache must be rebuilt
 			// through the spatial index instead of reusing the previous view.
 			InvalidateVisibleOverlayCache();
-			Reshape();
-			RefreshGL();
+			// Reshape() already repaints. Wheel input should repaint the texture transform
+			// immediately, then rebuild the large ROI visible cache on the next input tick.
+			ReshapeNonRefresh();
+			RefreshGLAfterViewportInput();
 		}
 
 		public void UpdateView(RectangleF rect)

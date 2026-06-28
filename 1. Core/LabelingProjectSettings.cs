@@ -5,8 +5,17 @@ using System.IO;
 
 namespace MvcVisionSystem
 {
+    public enum LabelingDatasetPurpose
+    {
+        ObjectDetection,
+        Segmentation,
+        AnomalyDetection
+    }
+
     public class LabelingProjectSettings
     {
+        public LabelingDatasetPurpose DatasetPurpose { get; set; } = LabelingDatasetPurpose.ObjectDetection;
+
         public YoloDatasetSettings YoloDataset { get; set; } = new YoloDatasetSettings();
 
         public TrainingSettings Training { get; set; } = new TrainingSettings();
@@ -17,6 +26,11 @@ namespace MvcVisionSystem
 
         public void EnsureDefaults()
         {
+            if (!Enum.IsDefined(typeof(LabelingDatasetPurpose), DatasetPurpose))
+            {
+                DatasetPurpose = LabelingDatasetPurpose.ObjectDetection;
+            }
+
             YoloDataset ??= new YoloDatasetSettings();
             Training ??= new TrainingSettings();
             PythonModel ??= new PythonModelSettings();
@@ -83,6 +97,10 @@ namespace MvcVisionSystem
 
     public class PythonModelSettings
     {
+        public const string EngineYoloV5 = "YOLOv5";
+        public const string EngineYoloV8 = "YOLOv8";
+        public const string EngineOnnx = "ONNX";
+
         private const string ProjectRootPathDefault = @"C:\Git\yolov5";
         private const string BundledTrainImageRootPathDefault = @"C:\Git\yolov5\data\train\images";
         private const string BundledValidImageRootPathDefault = @"C:\Git\yolov5\data\valid\images";
@@ -92,6 +110,8 @@ namespace MvcVisionSystem
         private const string RetiredImageRootPath = @"C:\Git\새 폴더\py\KtemData";
 
         public string PythonExecutablePath { get; set; } = "";
+
+        public string ModelEngine { get; set; } = EngineYoloV5;
 
         public string ProjectRootPath { get; set; } = GetDefaultProjectRootPath();
 
@@ -115,6 +135,7 @@ namespace MvcVisionSystem
         {
             MigrateRetiredDefaults();
             RepairPortableYoloPaths();
+            ModelEngine = NormalizeModelEngine(ModelEngine);
 
             if (string.IsNullOrWhiteSpace(ProjectRootPath))
             {
@@ -140,6 +161,50 @@ namespace MvcVisionSystem
             MaximumDetectionCandidates = Math.Clamp(MaximumDetectionCandidates, 1, 200);
             InferenceImageSize = Math.Clamp(InferenceImageSize, 64, 2048);
             DetectionTimeoutSeconds = Math.Clamp(DetectionTimeoutSeconds, 1, 600);
+        }
+
+        public static IReadOnlyList<string> GetSupportedModelEngines()
+            => new[] { EngineYoloV5, EngineYoloV8, EngineOnnx };
+
+        public static string NormalizeModelEngine(string value)
+        {
+            string normalized = (value ?? string.Empty).Trim();
+            if (string.Equals(normalized, "yolov8", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "yolo8", StringComparison.OrdinalIgnoreCase))
+            {
+                return EngineYoloV8;
+            }
+
+            if (string.Equals(normalized, "onnx", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "onnxruntime", StringComparison.OrdinalIgnoreCase))
+            {
+                return EngineOnnx;
+            }
+
+            return EngineYoloV5;
+        }
+
+        public string GetProtocolModelName()
+        {
+            return NormalizeModelEngine(ModelEngine) switch
+            {
+                EngineYoloV8 => "yolov8",
+                EngineOnnx => "onnx",
+                _ => "yolov5"
+            };
+        }
+
+        public string GetModelRootPath()
+        {
+            string projectRootPath = ProjectRootPath?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(projectRootPath))
+            {
+                return string.Empty;
+            }
+
+            return NormalizeModelEngine(ModelEngine) == EngineYoloV5
+                ? Path.Combine(projectRootPath, "yolov5Master")
+                : projectRootPath;
         }
 
         public static string GetDefaultProjectRootPath()

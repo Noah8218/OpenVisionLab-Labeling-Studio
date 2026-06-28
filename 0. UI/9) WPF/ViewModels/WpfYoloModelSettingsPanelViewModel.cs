@@ -1,4 +1,5 @@
 using System;
+using System.Collections.ObjectModel;
 using System.Globalization;
 using System.Windows.Input;
 using OpenVisionLab.Mvvm;
@@ -9,6 +10,7 @@ namespace MvcVisionSystem
     public sealed class WpfYoloModelSettingsPanelViewModel : WpfObservableViewModel
     {
         private string pythonExecutablePath = string.Empty;
+        private string selectedModelEngine = PythonModelSettings.EngineYoloV5;
         private string projectRootPath = string.Empty;
         private string clientScriptPath = string.Empty;
         private string weightsPath = string.Empty;
@@ -80,6 +82,33 @@ namespace MvcVisionSystem
         {
             get => pythonExecutablePath;
             set => SetProperty(ref pythonExecutablePath, value ?? string.Empty);
+        }
+
+        public ObservableCollection<string> ModelEngineOptions { get; } = new ObservableCollection<string>(PythonModelSettings.GetSupportedModelEngines());
+
+        public string SelectedModelEngine
+        {
+            get => selectedModelEngine;
+            set
+            {
+                if (SetProperty(ref selectedModelEngine, PythonModelSettings.NormalizeModelEngine(value)))
+                {
+                    OnPropertyChanged(nameof(ModelEngineHintText));
+                }
+            }
+        }
+
+        public string ModelEngineHintText
+        {
+            get
+            {
+                return SelectedModelEngine switch
+                {
+                    PythonModelSettings.EngineYoloV8 => "YOLOv8 연동 준비용입니다. 현재 추론/학습 흐름은 같은 형식을 사용합니다.",
+                    PythonModelSettings.EngineOnnx => "ONNX는 학습 완료 모델의 빠른 추론용으로 사용할 예정입니다.",
+                    _ => "현재 기본 추론 실행기입니다. 기존 YOLOv5 설정과 호환됩니다."
+                };
+            }
         }
 
         public string ProjectRootPath
@@ -204,6 +233,7 @@ namespace MvcVisionSystem
             }
 
             PythonExecutablePath = PythonModelSettingsValidator.ResolvePythonExecutable(settings);
+            SelectedModelEngine = settings.ModelEngine;
             ProjectRootPath = settings.ProjectRootPath ?? string.Empty;
             ClientScriptPath = settings.ClientScriptPath ?? string.Empty;
             WeightsPath = settings.WeightsPath ?? string.Empty;
@@ -243,6 +273,7 @@ namespace MvcVisionSystem
             }
 
             settings.PythonExecutablePath = PythonExecutablePath.Trim();
+            settings.ModelEngine = PythonModelSettings.NormalizeModelEngine(SelectedModelEngine);
             settings.ProjectRootPath = ProjectRootPath.Trim();
             settings.ClientScriptPath = ClientScriptPath.Trim();
             settings.WeightsPath = WeightsPath.Trim();

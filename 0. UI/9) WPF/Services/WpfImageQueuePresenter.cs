@@ -68,7 +68,8 @@ namespace MvcVisionSystem
 
             if (string.Equals(labelText, "Empty Label", StringComparison.OrdinalIgnoreCase))
             {
-                return "빈값";
+                // Empty YOLO files are intentional "no object" completions, not unknown labels.
+                return "빈완료";
             }
 
             if (labelText?.StartsWith("Label ", StringComparison.OrdinalIgnoreCase) == true)
@@ -132,6 +133,25 @@ namespace MvcVisionSystem
             };
         }
 
+        public static Brush GetBadgeBackgroundBrush(YoloImageReviewStatus status)
+        {
+            return status?.ReviewState switch
+            {
+                YoloImageReviewState.Requested => WpfImageQueueItem.InfoBadgeBrush,
+                YoloImageReviewState.Candidate => WpfImageQueueItem.WarningBadgeBrush,
+                YoloImageReviewState.Confirmed => WpfImageQueueItem.SuccessBadgeBrush,
+                YoloImageReviewState.Skipped => WpfImageQueueItem.MutedBadgeBrush,
+                YoloImageReviewState.NoCandidate => WpfImageQueueItem.MutedBadgeBrush,
+                YoloImageReviewState.Failed => WpfImageQueueItem.ErrorBadgeBrush,
+                _ => status?.IsLabeled == true ? WpfImageQueueItem.SuccessBadgeBrush : WpfImageQueueItem.TransparentBrush
+            };
+        }
+
+        public static Brush GetRowAccentBrush(YoloImageReviewStatus status)
+        {
+            return status == null ? WpfImageQueueItem.TransparentBrush : GetIconBrush(status);
+        }
+
         public static string BuildBadgeText(YoloImageReviewStatus status)
         {
             if (status == null)
@@ -150,10 +170,10 @@ namespace MvcVisionSystem
                 YoloImageReviewState.Failed => status.DetectionAttemptCount > 1
                     ? $"실패 {status.DetectionAttemptCount}"
                     : "실패",
-                YoloImageReviewState.Confirmed => "확정",
+                YoloImageReviewState.Confirmed => "완료",
                 YoloImageReviewState.Skipped => "스킵",
                 YoloImageReviewState.NoCandidate => "검출없음",
-                _ => status.IsLabeled ? "라벨" : string.Empty
+                _ => status.IsLabeled ? "완료" : string.Empty
             };
         }
 

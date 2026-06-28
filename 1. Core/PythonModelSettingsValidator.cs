@@ -33,8 +33,8 @@ namespace MvcVisionSystem._1._Core
             settings ??= new PythonModelSettings();
             settings.EnsureDefaults();
 
-            ValidateDirectory(settings.ProjectRootPath, "YOLOv5 project root", errors);
-            ValidateFile(settings.ClientScriptPath, "YOLOv5 TCP client script", errors);
+            ValidateDirectory(settings.ProjectRootPath, "YOLO project root", errors);
+            ValidateFile(settings.ClientScriptPath, "YOLO TCP client script", errors);
 
             string pythonExecutable = ResolvePythonExecutable(settings);
             if (LooksLikePath(pythonExecutable) && !File.Exists(pythonExecutable))
@@ -44,7 +44,7 @@ namespace MvcVisionSystem._1._Core
 
             if (!string.IsNullOrWhiteSpace(settings.WeightsPath) && !File.Exists(settings.WeightsPath))
             {
-                string message = $"YOLOv5 weight file was not found: {settings.WeightsPath}";
+                string message = $"YOLO weight file was not found: {settings.WeightsPath}";
                 if (requireWeights)
                 {
                     errors.Add(message);

@@ -14,24 +14,31 @@ namespace OpenVisionLab.ImageCanvas
 	{
 		public static bool AddRectangleToOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, System.Drawing.PointF preMousePos, System.Drawing.PointF postMousePos, ref CanvasRect<float> activeRoiRect, OverlayAddedCallback callbackRoiAdded)
 		{
-			return AddRectShapeToOverlay(imageViewer, preMousePos, postMousePos, CanvasRoiShapeKind.Rectangle, ref activeRoiRect, callbackRoiAdded);
+			return AddRectangleToOverlay(imageViewer, preMousePos, postMousePos, System.Drawing.Size.Empty, ref activeRoiRect, callbackRoiAdded);
+		}
+
+		public static bool AddRectangleToOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, System.Drawing.PointF preMousePos, System.Drawing.PointF postMousePos, System.Drawing.Size imageSize, ref CanvasRect<float> activeRoiRect, OverlayAddedCallback callbackRoiAdded)
+		{
+			return AddRectShapeToOverlay(imageViewer, preMousePos, postMousePos, imageSize, CanvasRoiShapeKind.Rectangle, ref activeRoiRect, callbackRoiAdded);
 		}
 
 		public static bool AddEllipseToOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, System.Drawing.PointF preMousePos, System.Drawing.PointF postMousePos, ref CanvasRect<float> activeRoiRect, OverlayAddedCallback callbackRoiAdded)
 		{
-			return AddRectShapeToOverlay(imageViewer, preMousePos, postMousePos, CanvasRoiShapeKind.Ellipse, ref activeRoiRect, callbackRoiAdded);
+			return AddEllipseToOverlay(imageViewer, preMousePos, postMousePos, System.Drawing.Size.Empty, ref activeRoiRect, callbackRoiAdded);
 		}
 
-		private static bool AddRectShapeToOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, System.Drawing.PointF preMousePos, System.Drawing.PointF postMousePos, CanvasRoiShapeKind shapeKind, ref CanvasRect<float> activeRoiRect, OverlayAddedCallback callbackRoiAdded)
+		public static bool AddEllipseToOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, System.Drawing.PointF preMousePos, System.Drawing.PointF postMousePos, System.Drawing.Size imageSize, ref CanvasRect<float> activeRoiRect, OverlayAddedCallback callbackRoiAdded)
+		{
+			return AddRectShapeToOverlay(imageViewer, preMousePos, postMousePos, imageSize, CanvasRoiShapeKind.Ellipse, ref activeRoiRect, callbackRoiAdded);
+		}
+
+		private static bool AddRectShapeToOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, System.Drawing.PointF preMousePos, System.Drawing.PointF postMousePos, System.Drawing.Size imageSize, CanvasRoiShapeKind shapeKind, ref CanvasRect<float> activeRoiRect, OverlayAddedCallback callbackRoiAdded)
 		{
 			if (imageViewer.GetViewMode() != CanvasInteractionMode.Drawing) return false;
-
-			// ROI瑜??뺤쓽?섎뒗 RectangleF 媛앹껜 ?앹꽦
-			RectangleF roi = new RectangleF(preMousePos.X, preMousePos.Y, postMousePos.X - preMousePos.X, postMousePos.Y - preMousePos.Y);
-			if (roi.Width == 0 || roi.Height == 0) return false;
+			if (!RoiInteractionMouseMove.TryCreateClippedCanvasRect(preMousePos, postMousePos, imageSize, out float left, out float top, out float right, out float bottom)) return false;
 
 			// _activeRoiRect??吏곸젒 珥덇린?뷀븯怨? UniqueId ?ㅼ젙
-			activeRoiRect = new CanvasRect<float>(roi.Left, roi.Top, roi.Right, roi.Bottom)
+			activeRoiRect = new CanvasRect<float>(left, top, right, bottom)
 			{
 				UniqueId = Guid.NewGuid().ToString(),
 				ShapeKind = shapeKind,

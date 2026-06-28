@@ -9,16 +9,19 @@ namespace MvcVisionSystem.Yolo
         public YoloDatasetReadinessReport(
             YoloDatasetValidationResult configuration,
             YoloDatasetValidationResult trainingFiles,
-            YoloDatasetStatistics statistics)
+            YoloDatasetStatistics statistics,
+            LabelingDatasetPurpose purpose = LabelingDatasetPurpose.ObjectDetection)
         {
             Configuration = configuration ?? new YoloDatasetValidationResult(Array.Empty<string>());
             TrainingFiles = trainingFiles ?? new YoloDatasetValidationResult(Array.Empty<string>());
             Statistics = statistics ?? new YoloDatasetStatistics();
+            Purpose = purpose;
         }
 
         public YoloDatasetValidationResult Configuration { get; }
         public YoloDatasetValidationResult TrainingFiles { get; }
         public YoloDatasetStatistics Statistics { get; }
+        public LabelingDatasetPurpose Purpose { get; }
         public bool IsReady => Configuration.IsValid && TrainingFiles.IsValid;
         public IReadOnlyList<string> Errors => Configuration.Errors.Concat(TrainingFiles.Errors).ToList();
 
@@ -28,7 +31,8 @@ namespace MvcVisionSystem.Yolo
             {
                 var lines = new List<string>
                 {
-                    $"YOLO dataset ready. TrainImages:{Statistics.TrainImageCount}, ValidImages:{Statistics.ValidImageCount}, TestImages:{Statistics.TestImageCount}, TrainLabels:{Statistics.TrainLabelCount}, ValidLabels:{Statistics.ValidLabelCount}, TestLabels:{Statistics.TestLabelCount}, Objects:{Statistics.TotalObjectCount}"
+                    $"YOLO dataset ready. Purpose:{Purpose}, TrainImages:{Statistics.TrainImageCount}, ValidImages:{Statistics.ValidImageCount}, TestImages:{Statistics.TestImageCount}, TrainLabels:{Statistics.TrainLabelCount}, ValidLabels:{Statistics.ValidLabelCount}, TestLabels:{Statistics.TestLabelCount}, Objects:{Statistics.TotalObjectCount}, Segments:{Statistics.TotalSegmentationObjectCount}",
+                    $"Dataset purpose summary. {BuildPurposeSummary(Purpose, Statistics)}"
                 };
 
                 foreach (KeyValuePair<string, int> item in Statistics.ObjectCountByClass.OrderBy(item => item.Key))
@@ -36,8 +40,27 @@ namespace MvcVisionSystem.Yolo
                     lines.Add($"YOLO class objects. {item.Key}:{item.Value}");
                 }
 
+                foreach (KeyValuePair<string, int> item in Statistics.SegmentationObjectCountByClass.OrderBy(item => item.Key))
+                {
+                    lines.Add($"YOLO segmentation objects. {item.Key}:{item.Value}");
+                }
+
                 return lines;
             }
+        }
+
+        private static string BuildPurposeSummary(LabelingDatasetPurpose purpose, YoloDatasetStatistics statistics)
+        {
+            statistics ??= new YoloDatasetStatistics();
+            return purpose switch
+            {
+                LabelingDatasetPurpose.Segmentation =>
+                    $"Segmentation uses segment JSON/mask PNG annotations as primary labels. SegmentObjects:{statistics.TotalSegmentationObjectCount}, SegmentFiles:{statistics.TotalSegmentFileCount}, MaskFiles:{statistics.TotalMaskFileCount}, BoxLabelsAuxiliary:{statistics.TotalObjectCount}",
+                LabelingDatasetPurpose.AnomalyDetection =>
+                    $"AnomalyDetection uses rectangle defect regions for the current training flow. BoxLabels:{statistics.TotalObjectCount}, SegmentArtifactsAuxiliary:{statistics.TotalSegmentationArtifactFileCount}",
+                _ =>
+                    $"ObjectDetection uses YOLO box .txt labels. BoxLabels:{statistics.TotalObjectCount}, SegmentationArtifactsExcluded:{statistics.TotalSegmentationArtifactFileCount}"
+            };
         }
     }
 
@@ -46,12 +69,14 @@ namespace MvcVisionSystem.Yolo
         public static YoloDatasetReadinessReport Build(CData data, bool refreshYaml)
         {
             YoloDatasetValidationResult configuration = YoloDatasetValidator.ValidateConfiguration(data);
+            LabelingDatasetPurpose purpose = ResolveDatasetPurpose(data);
             if (!configuration.IsValid)
             {
                 return new YoloDatasetReadinessReport(
                     configuration,
                     new YoloDatasetValidationResult(Array.Empty<string>()),
-                    new YoloDatasetStatistics());
+                    new YoloDatasetStatistics(),
+                    purpose);
             }
 
             if (refreshYaml)
@@ -60,11 +85,17 @@ namespace MvcVisionSystem.Yolo
             }
 
             YoloDatasetValidationResult files = YoloDatasetValidator.ValidateTrainingFiles(data);
-            YoloDatasetStatistics statistics = files.IsValid
-                ? YoloDatasetValidator.BuildStatistics(data)
-                : new YoloDatasetStatistics();
+            // Keep statistics even when readiness fails so the operator sees the scale of the issue
+            // (for example, 125 duplicated train/valid images) instead of a vague "not ready" state.
+            YoloDatasetStatistics statistics = YoloDatasetValidator.BuildStatistics(data);
 
-            return new YoloDatasetReadinessReport(configuration, files, statistics);
+            return new YoloDatasetReadinessReport(configuration, files, statistics, purpose);
+        }
+
+        private static LabelingDatasetPurpose ResolveDatasetPurpose(CData data)
+        {
+            data?.ProjectSettings?.EnsureDefaults();
+            return data?.ProjectSettings?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection;
         }
     }
 }

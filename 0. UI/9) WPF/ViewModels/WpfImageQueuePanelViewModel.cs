@@ -21,7 +21,7 @@ namespace MvcVisionSystem
         private string queueFilterFailedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC2E4\uD328", 0);
         private string queueFilterConfirmedText = WpfImageQueuePresenter.FormatQuickFilterText("\uD655\uC815", 0);
         private string queueFilterSkippedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC2A4\uD0B5", 0);
-        private string queueFilterNoCandidateText = WpfImageQueuePresenter.FormatQuickFilterText("\uC5C6\uC74C", 0);
+        private string queueFilterNoCandidateText = WpfImageQueuePresenter.FormatQuickFilterText("\uAC80\uCD9C\uC5C6\uC74C", 0);
         private bool isQueueFilterAllActive = true;
         private bool isQueueFilterCandidateActive;
         private bool isQueueFilterFailedActive;
@@ -352,7 +352,7 @@ namespace MvcVisionSystem
             QueueFilterFailedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC2E4\uD328", failedCount);
             QueueFilterConfirmedText = WpfImageQueuePresenter.FormatQuickFilterText("\uD655\uC815", confirmedCount);
             QueueFilterSkippedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC2A4\uD0B5", skippedCount);
-            QueueFilterNoCandidateText = WpfImageQueuePresenter.FormatQuickFilterText("\uC5C6\uC74C", noCandidateCount);
+            QueueFilterNoCandidateText = WpfImageQueuePresenter.FormatQuickFilterText("\uAC80\uCD9C\uC5C6\uC74C", noCandidateCount);
 
             IsQueueFilterAllActive = selectedFilter == WpfImageQueueFilter.All;
             IsQueueFilterCandidateActive = selectedFilter == WpfImageQueueFilter.Candidate;

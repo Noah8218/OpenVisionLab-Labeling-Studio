@@ -69,6 +69,7 @@ namespace MvcVisionSystem
             string strPath = GetRecipeConfigPath(RecipeName);
             Directory.CreateDirectory(Path.GetDirectoryName(strPath));
             SerializeHelper.ToXmlFile(strPath, this);
+            LabelingDatasetManifestService.Save(this, RecipeName);
         }
 
         public void ConfigureOutputRoot(string outputRootPath)

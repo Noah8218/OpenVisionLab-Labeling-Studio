@@ -19,6 +19,12 @@ namespace MvcVisionSystem
         internal static readonly Brush MutedBrush = CreateFrozenBrush("#7A8491");
         internal static readonly Brush SuccessBrush = CreateFrozenBrush("#57C785");
         internal static readonly Brush WarningBrush = CreateFrozenBrush("#FFC857");
+        internal static readonly Brush ErrorBadgeBrush = CreateFrozenBrush("#3D1F25");
+        internal static readonly Brush InfoBadgeBrush = CreateFrozenBrush("#17314A");
+        internal static readonly Brush MutedBadgeBrush = CreateFrozenBrush("#242B35");
+        internal static readonly Brush SuccessBadgeBrush = CreateFrozenBrush("#173B29");
+        internal static readonly Brush WarningBadgeBrush = CreateFrozenBrush("#403316");
+        internal static readonly Brush TransparentBrush = CreateFrozenBrush("#00000000");
 
         private string labelStatus = "확인중";
         private string detectStatus = "대기";
@@ -28,6 +34,8 @@ namespace MvcVisionSystem
         private string queueBadgeText = string.Empty;
         private PackIconMaterialKind queueIconKind = PackIconMaterialKind.ImageOutline;
         private Brush queueIconBrush = MutedBrush;
+        private Brush queueBadgeBackgroundBrush = TransparentBrush;
+        private Brush queueRowAccentBrush = TransparentBrush;
         private bool isLabeled;
         private YoloImageReviewState reviewState;
 
@@ -89,6 +97,18 @@ namespace MvcVisionSystem
         {
             get => queueIconBrush;
             set => SetField(ref queueIconBrush, value ?? MutedBrush);
+        }
+
+        public Brush QueueBadgeBackgroundBrush
+        {
+            get => queueBadgeBackgroundBrush;
+            set => SetField(ref queueBadgeBackgroundBrush, value ?? TransparentBrush);
+        }
+
+        public Brush QueueRowAccentBrush
+        {
+            get => queueRowAccentBrush;
+            set => SetField(ref queueRowAccentBrush, value ?? TransparentBrush);
         }
 
         public bool IsLabeled
@@ -173,7 +193,7 @@ namespace MvcVisionSystem
         {
             return filter switch
             {
-                WpfImageQueueFilter.Unlabeled => "미라벨",
+                WpfImageQueueFilter.Unlabeled => "미완료",
                 WpfImageQueueFilter.Requested => "요청중",
                 WpfImageQueueFilter.Candidate => "후보",
                 WpfImageQueueFilter.Confirmed => "확정",

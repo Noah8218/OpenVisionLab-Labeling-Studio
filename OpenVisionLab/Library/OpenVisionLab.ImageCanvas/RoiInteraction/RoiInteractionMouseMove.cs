@@ -29,15 +29,65 @@ namespace OpenVisionLab.ImageCanvas
 		/// </summary>
 		/// <param name="viewModel"></param>
 		/// <param name="activeRoiRect"></param>
-		public static void UpdateReactangleToOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasRect<float> activeRoiRect)
+		public static void UpdateReactangleToOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasRect<float> activeRoiRect, Size imageSize)
 		{
 			if (imageViewer.PostMousePos.IsEmpty) { return; }
 			if (imageViewer.PreMousePos.Equals(imageViewer.PostMousePos)) { return; }
 			if (activeRoiRect == null) { return; }
 			if (activeRoiRect.IsEditing == false) { return; }
-			// ROI 怨꾩궛???⑸땲??
-			RectangleF roi = new RectangleF(imageViewer.PreMousePos.X, imageViewer.PreMousePos.Y, imageViewer.PostMousePos.X - imageViewer.PreMousePos.X, imageViewer.PostMousePos.Y - imageViewer.PreMousePos.Y);
-			activeRoiRect.UpdateRectangle(roi.Left, roi.Top, roi.Right, roi.Bottom);
+			if (!TryCreateClippedCanvasRect(imageViewer.PreMousePos, imageViewer.PostMousePos, imageSize, out float left, out float top, out float right, out float bottom))
+			{
+				activeRoiRect.UpdateRectangle(0, 0, 0, 0);
+				return;
+			}
+
+			// Drawing preview must match the committed ROI and the side-list image bounds.
+			activeRoiRect.UpdateRectangle(left, top, right, bottom);
+		}
+
+		public static bool TryCreateClippedCanvasRect(PointF preMousePos, PointF postMousePos, Size imageSize, out float left, out float top, out float right, out float bottom)
+		{
+			float rawLeft = Math.Min(preMousePos.X, postMousePos.X);
+			float rawRight = Math.Max(preMousePos.X, postMousePos.X);
+			float rawBottom = Math.Min(preMousePos.Y, postMousePos.Y);
+			float rawTop = Math.Max(preMousePos.Y, postMousePos.Y);
+			if (imageSize.Width > 0
+				&& imageSize.Height > 0
+				&& !IntersectsImageBounds(rawLeft, rawBottom, rawRight, rawTop, imageSize))
+			{
+				left = top = right = bottom = 0F;
+				return false;
+			}
+
+			PointF clippedPre = ClipPointToImage(preMousePos, imageSize);
+			PointF clippedPost = ClipPointToImage(postMousePos, imageSize);
+			left = Math.Min(clippedPre.X, clippedPost.X);
+			right = Math.Max(clippedPre.X, clippedPost.X);
+			bottom = Math.Min(clippedPre.Y, clippedPost.Y);
+			top = Math.Max(clippedPre.Y, clippedPost.Y);
+			return right > left && top > bottom;
+		}
+
+		private static bool IntersectsImageBounds(float left, float bottom, float right, float top, Size imageSize)
+		{
+			// Check the raw drag rectangle before clipping. Otherwise a fully outside
+			// drag can collapse onto the image edge and commit a phantom ROI.
+			return right > 0F
+				&& left < imageSize.Width
+				&& top > 0F
+				&& bottom < imageSize.Height;
+		}
+
+		private static PointF ClipPointToImage(PointF point, Size imageSize)
+		{
+			if (imageSize.Width <= 0 || imageSize.Height <= 0)
+			{
+				return point;
+			}
+
+			return new PointF(
+				Math.Clamp(point.X, 0F, imageSize.Width),
+				Math.Clamp(point.Y, 0F, imageSize.Height));
 		}
 
 		/// <summary>

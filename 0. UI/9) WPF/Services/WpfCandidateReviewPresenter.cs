@@ -12,11 +12,12 @@ namespace MvcVisionSystem
 {
     public readonly struct WpfCandidateOverlapInfo
     {
-        public WpfCandidateOverlapInfo(string label, Rectangle bounds, double iou)
+        public WpfCandidateOverlapInfo(string label, Rectangle bounds, double iou, WpfObjectReviewItemRef currentObjectRef = null)
         {
             Label = label ?? string.Empty;
             Bounds = bounds;
             Iou = iou;
+            CurrentObjectRef = currentObjectRef;
         }
 
         public string Label { get; }
@@ -24,6 +25,10 @@ namespace MvcVisionSystem
         public Rectangle Bounds { get; }
 
         public double Iou { get; }
+
+        public WpfObjectReviewItemRef CurrentObjectRef { get; }
+
+        public bool HasCurrentObject => CurrentObjectRef != null;
     }
 
     public readonly struct WpfCandidateComparisonPresentation
@@ -33,11 +38,34 @@ namespace MvcVisionSystem
             string currentText,
             string overlapText,
             bool isHighOverlap)
+            : this(candidateText, currentText, overlapText, string.Empty, isHighOverlap)
+        {
+        }
+
+        public WpfCandidateComparisonPresentation(
+            string candidateText,
+            string currentText,
+            string overlapText,
+            string decisionText,
+            bool isHighOverlap)
+            : this(candidateText, currentText, overlapText, decisionText, isHighOverlap, string.Empty)
+        {
+        }
+
+        public WpfCandidateComparisonPresentation(
+            string candidateText,
+            string currentText,
+            string overlapText,
+            string decisionText,
+            bool isHighOverlap,
+            string selectionSummaryText)
         {
             CandidateText = candidateText ?? string.Empty;
             CurrentText = currentText ?? string.Empty;
             OverlapText = overlapText ?? string.Empty;
+            DecisionText = decisionText ?? string.Empty;
             IsHighOverlap = isHighOverlap;
+            SelectionSummaryText = selectionSummaryText ?? string.Empty;
         }
 
         public string CandidateText { get; }
@@ -46,7 +74,11 @@ namespace MvcVisionSystem
 
         public string OverlapText { get; }
 
+        public string DecisionText { get; }
+
         public bool IsHighOverlap { get; }
+
+        public string SelectionSummaryText { get; }
     }
 
     public static class WpfCandidateReviewPresenter
@@ -72,7 +104,12 @@ namespace MvcVisionSystem
         public static string BuildDetectionOverlayLabel(YoloWorkerSmokeCandidate candidate, int fallbackIndex)
         {
             int index = candidate?.Index > 0 ? candidate.Index : fallbackIndex;
-            return $"AI {index} {GetClassName(candidate)} {FormatConfidence(candidate, "P1")}";
+            if (index != int.MinValue)
+            {
+                string labelPrefix = "\uD6C4\uBCF4";
+                return $"{labelPrefix} {index} {GetClassName(candidate)} {FormatConfidence(candidate, "P1")}";
+            }
+            return $"후보 {index} {GetClassName(candidate)} {FormatConfidence(candidate, "P1")}";
         }
 
         public static string FormatCandidate(YoloWorkerSmokeCandidate candidate, Rectangle bounds)
@@ -95,7 +132,7 @@ namespace MvcVisionSystem
         {
             if (candidate == null)
             {
-                return "\uC120\uD0DD\uB41C AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
+                return "\uC120\uD0DD\uB41C \uAC80\uCD9C \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
             }
 
             string confidence = FormatConfidence(candidate, "P2");
@@ -119,7 +156,13 @@ namespace MvcVisionSystem
         {
             if (candidate == null)
             {
-                return new WpfCandidateComparisonPresentation("-", "-", "IoU\n0%", false);
+                return new WpfCandidateComparisonPresentation(
+                    "-",
+                    "-",
+                    "\uACB9\uCE68\n0%",
+                    "\uD6C4\uBCF4 \uC5C6\uC74C: \uAC80\uD1A0\uD560 \uAC80\uCD9C \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+                    false,
+                    "\uC120\uD0DD: \uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C");
             }
 
             string confidence = FormatConfidence(candidate, "P1");
@@ -132,9 +175,59 @@ namespace MvcVisionSystem
             bool highOverlap = IsHighOverlap(overlap);
             string overlapText = highOverlap
                 ? $"\uC911\uBCF5\n{overlap.Iou.ToString("P0", CultureInfo.CurrentCulture)}"
-                : $"IoU\n{overlap.Iou.ToString("P0", CultureInfo.CurrentCulture)}";
+                : $"\uACB9\uCE68\n{overlap.Iou.ToString("P0", CultureInfo.CurrentCulture)}";
+            string decisionText = BuildComparisonDecision(bounds, overlap, highOverlap);
+            string selectionSummaryText = BuildSelectionSummary(candidate, bounds, overlap, highOverlap);
 
-            return new WpfCandidateComparisonPresentation(candidateText, currentText, overlapText, highOverlap);
+            return new WpfCandidateComparisonPresentation(candidateText, currentText, overlapText, decisionText, highOverlap, selectionSummaryText);
+        }
+
+        public static string BuildSelectionSummary(
+            YoloWorkerSmokeCandidate candidate,
+            Rectangle bounds,
+            WpfCandidateOverlapInfo overlap,
+            bool highOverlap)
+        {
+            if (candidate == null)
+            {
+                return "\uC120\uD0DD: \uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C";
+            }
+
+            string candidateText = BuildCandidateSummaryName(candidate);
+            if (bounds.IsEmpty)
+            {
+                return $"\uC120\uD0DD: {candidateText} / \uC774\uBBF8\uC9C0 \uBC16 / \uC870\uCE58: \uC2A4\uD0B5";
+            }
+
+            if (string.IsNullOrWhiteSpace(overlap.Label))
+            {
+                return $"\uC120\uD0DD: {candidateText} / \uD604\uC7AC \uB77C\uBCA8: \uACB9\uCE68 \uC5C6\uC74C / \uC870\uCE58: \uB9DE\uC73C\uBA74 \uD655\uC815";
+            }
+
+            string overlapText = overlap.Iou.ToString("P0", CultureInfo.CurrentCulture);
+            return highOverlap
+                ? $"\uC120\uD0DD: {candidateText} / \uD604\uC7AC \uB77C\uBCA8: {overlap.Label} \uACB9\uCE68 {overlapText} / \uC870\uCE58: \uAE30\uC874 \uB77C\uBCA8 \uD655\uC778 \uD6C4 \uAC19\uC73C\uBA74 \uC2A4\uD0B5"
+                : $"\uC120\uD0DD: {candidateText} / \uD604\uC7AC \uB77C\uBCA8: {overlap.Label} \uACB9\uCE68 {overlapText} / \uC870\uCE58: \uC0C8 \uAC1D\uCCB4\uBA74 \uD655\uC815";
+        }
+
+        private static string BuildComparisonDecision(Rectangle bounds, WpfCandidateOverlapInfo overlap, bool highOverlap)
+        {
+            if (bounds.IsEmpty)
+            {
+                return "\uC774\uBBF8\uC9C0 \uBC16 \uD6C4\uBCF4: \uD655\uC815\uD558\uC9C0 \uB9D0\uACE0 \uC2A4\uD0B5\uD558\uC138\uC694.";
+            }
+
+            if (highOverlap)
+            {
+                return "\uC911\uBCF5 \uAC00\uB2A5: \uAE30\uC874 \uB77C\uBCA8 \uBC84\uD2BC\uC73C\uB85C \uACB9\uCE58\uB294 \uB77C\uBCA8\uC744 \uD655\uC778\uD558\uACE0, \uAC19\uC740 \uAC1D\uCCB4\uBA74 \uC2A4\uD0B5\uD558\uC138\uC694.";
+            }
+
+            if (!string.IsNullOrWhiteSpace(overlap.Label))
+            {
+                return "\uBD80\uBD84 \uACB9\uCE68: \uAC80\uCD9C \uD6C4\uBCF4\uC640 \uAE30\uC874 \uB77C\uBCA8\uC744 \uBE44\uAD50\uD55C \uB4A4, \uC0C8 \uAC1D\uCCB4\uBA74 \uD655\uC815\uD558\uC138\uC694.";
+            }
+
+            return "\uC0C8 \uD6C4\uBCF4: \uACB9\uCE58\uB294 \uAE30\uC874 \uB77C\uBCA8\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uB9DE\uC73C\uBA74 \uD655\uC815, \uC544\uB2C8\uBA74 \uC2A4\uD0B5\uD558\uC138\uC694.";
         }
 
         public static string BuildSecondaryText(
@@ -168,7 +261,7 @@ namespace MvcVisionSystem
 
             return string.IsNullOrWhiteSpace(overlap.Label)
                 ? "\uD604\uC7AC \uB77C\uBCA8: \uACB9\uCE68 \uC5C6\uC74C"
-                : $"\uD604\uC7AC \uB77C\uBCA8: {overlap.Label} / IoU {overlap.Iou.ToString("P0", CultureInfo.CurrentCulture)}";
+                : $"\uD604\uC7AC \uB77C\uBCA8: {overlap.Label} / \uACB9\uCE68 {overlap.Iou.ToString("P0", CultureInfo.CurrentCulture)}";
         }
 
         public static string BuildConfirmDisabledHint(
@@ -178,7 +271,7 @@ namespace MvcVisionSystem
         {
             if (candidate == null)
             {
-                return "\uD655\uC815\uD560 AI \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
+                return "\uD655\uC815\uD560 \uAC80\uCD9C \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
             }
 
             if (bounds.IsEmpty)
@@ -254,5 +347,11 @@ namespace MvcVisionSystem
 
         public static string FormatBoundsCompact(Rectangle bounds)
             => bounds.IsEmpty ? "-" : $"\uD06C\uAE30 {bounds.Width}x{bounds.Height} / \uC704\uCE58 x={bounds.X}, y={bounds.Y}";
+
+        private static string BuildCandidateSummaryName(YoloWorkerSmokeCandidate candidate)
+        {
+            string indexText = candidate?.Index > 0 ? $"{candidate.Index}. " : string.Empty;
+            return $"{indexText}{GetClassName(candidate)} {FormatConfidence(candidate, "P1")}";
+        }
     }
 }

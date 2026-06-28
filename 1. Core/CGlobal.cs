@@ -143,7 +143,7 @@ namespace MvcVisionSystem
 
             PythonCommunicationStatus finalStatus = GetPythonCommunicationStatusSnapshot();
             string error = FirstNonEmpty(finalStatus.LastError, PythonClientProcess.LastError, "none");
-            string message = $"YOLOv5 Python client did not connect within {safeTimeoutMilliseconds}ms. Listener:{finalStatus.IsListening}, Client:{finalStatus.IsClientConnected}, ProcessRunning:{PythonClientProcess.IsRunning}, Error:{error}";
+            string message = $"YOLO Python client did not connect within {safeTimeoutMilliseconds}ms. Listener:{finalStatus.IsListening}, Client:{finalStatus.IsClientConnected}, ProcessRunning:{PythonClientProcess.IsRunning}, Error:{error}";
             DeepLearning.SetLastError(message);
             AppLog.ABNORMAL(message);
             return false;

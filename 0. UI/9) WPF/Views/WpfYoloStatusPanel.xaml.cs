@@ -13,6 +13,7 @@ namespace MvcVisionSystem
         public WpfYoloStatusPanelViewModel ViewModel => DataContext as WpfYoloStatusPanelViewModel;
 
         public TextBlock SummaryTextBlock => YoloSettingsSummaryText;
+        public Expander RuntimeDetailsExpander => YoloRuntimeDetailsExpander;
         public TextBlock DetailTextBlock => YoloSettingsDetailText;
         public WpfUiButton FirstCheckButton => FirstCheckYoloButton;
         public WpfUiButton InstallRequirements => InstallRequirementsButton;

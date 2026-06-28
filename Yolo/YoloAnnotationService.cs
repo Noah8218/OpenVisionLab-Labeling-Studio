@@ -2,6 +2,7 @@ using MvcVisionSystem.DrawObject;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -16,6 +17,8 @@ namespace MvcVisionSystem.Yolo
             YoloDatasetSplitService.ValidMode,
             YoloDatasetSplitService.TestMode
         };
+
+        private static readonly string[] ImageExtensions = { ".bmp", ".jpg", ".jpeg", ".png", ".tif", ".tiff" };
 
         public static void SaveAnnotations(
             string imageName,
@@ -39,6 +42,7 @@ namespace MvcVisionSystem.Yolo
             }
 
             List<string> lines = BuildAnnotationLines(roiByClass, classes, image.Size);
+            string imageExtension = ResolveSourceImageExtension(fileStem, data);
             var targetModes = new HashSet<string>(
                 YoloDatasetSplitService.SelectModesForImage(fileStem, data.ProjectSettings?.YoloDataset),
                 StringComparer.OrdinalIgnoreCase);
@@ -50,14 +54,15 @@ namespace MvcVisionSystem.Yolo
                 Directory.CreateDirectory(imageDirectory);
                 Directory.CreateDirectory(labelDirectory);
 
-                string imagePath = Path.Combine(imageDirectory, $"{fileStem}.jpeg");
+                string imagePath = Path.Combine(imageDirectory, $"{fileStem}{imageExtension}");
                 string labelPath = Path.Combine(labelDirectory, $"{fileStem}.txt");
                 if (!targetModes.Contains(mode))
                 {
-                    DeleteDatasetFiles(imagePath, labelPath);
+                    DeleteDatasetFiles(imageDirectory, fileStem, labelPath);
                     continue;
                 }
 
+                DeleteSiblingImageCopies(imageDirectory, fileStem, imageExtension);
                 SaveImageCopy(image, imagePath);
                 File.WriteAllLines(labelPath, lines);
             }
@@ -76,9 +81,9 @@ namespace MvcVisionSystem.Yolo
             string fileStem = Path.GetFileNameWithoutExtension(imageName);
             foreach (string mode in DatasetModes)
             {
-                string imagePath = Path.Combine(data.OutputRootPath, "data", mode, "images", $"{fileStem}.jpeg");
+                string imageDirectory = Path.Combine(data.OutputRootPath, "data", mode, "images");
                 string labelPath = Path.Combine(data.OutputRootPath, "data", mode, "labels", $"{fileStem}.txt");
-                DeleteDatasetFiles(imagePath, labelPath);
+                DeleteDatasetFiles(imageDirectory, fileStem, labelPath);
             }
         }
 
@@ -301,6 +306,67 @@ namespace MvcVisionSystem.Yolo
                 .ToList();
         }
 
+        private static string ResolveSourceImageExtension(string fileStem, CData data)
+        {
+            string sourcePath = data?.LastSelectImagePath;
+            if (!string.IsNullOrWhiteSpace(sourcePath)
+                && string.Equals(Path.GetFileNameWithoutExtension(sourcePath), fileStem, StringComparison.OrdinalIgnoreCase)
+                && IsSupportedImageExtension(Path.GetExtension(sourcePath)))
+            {
+                return NormalizeImageExtension(Path.GetExtension(sourcePath));
+            }
+
+            return ".jpeg";
+        }
+
+        private static bool IsSupportedImageExtension(string extension)
+            => ImageExtensions.Contains(NormalizeImageExtension(extension), StringComparer.OrdinalIgnoreCase);
+
+        private static string NormalizeImageExtension(string extension)
+        {
+            if (string.IsNullOrWhiteSpace(extension))
+            {
+                return string.Empty;
+            }
+
+            string normalized = extension.Trim();
+            if (!normalized.StartsWith(".", StringComparison.Ordinal))
+            {
+                normalized = "." + normalized;
+            }
+
+            return normalized.ToLowerInvariant();
+        }
+
+        private static void DeleteSiblingImageCopies(string imageDirectory, string fileStem, string keepExtension)
+        {
+            string normalizedKeepExtension = NormalizeImageExtension(keepExtension);
+            foreach (string imagePath in EnumerateImageFilesForStem(imageDirectory, fileStem))
+            {
+                if (!string.Equals(Path.GetExtension(imagePath), normalizedKeepExtension, StringComparison.OrdinalIgnoreCase))
+                {
+                    File.Delete(imagePath);
+                }
+            }
+        }
+
+        private static IEnumerable<string> EnumerateImageFilesForStem(string imageDirectory, string fileStem)
+        {
+            if (string.IsNullOrWhiteSpace(imageDirectory) || string.IsNullOrWhiteSpace(fileStem) || !Directory.Exists(imageDirectory))
+            {
+                yield break;
+            }
+
+            foreach (string extension in ImageExtensions)
+            {
+                string path = Path.Combine(imageDirectory, $"{fileStem}{extension}");
+                if (File.Exists(path))
+                {
+                    yield return path;
+                }
+            }
+        }
+
         private static void SaveImageCopy(Image image, string imagePath)
         {
             if (File.Exists(imagePath) && new FileInfo(imagePath).Length > 0)
@@ -310,18 +376,43 @@ namespace MvcVisionSystem.Yolo
 
             using (Bitmap bitmap = new Bitmap(image))
             {
-                bitmap.Save(imagePath, System.Drawing.Imaging.ImageFormat.Jpeg);
+                bitmap.Save(imagePath, ResolveImageFormat(imagePath));
             }
         }
 
-        private static void DeleteDatasetFiles(string imagePath, string labelPath)
+        private static ImageFormat ResolveImageFormat(string imagePath)
+        {
+            string extension = NormalizeImageExtension(Path.GetExtension(imagePath));
+            if (string.Equals(extension, ".png", StringComparison.OrdinalIgnoreCase))
+            {
+                return ImageFormat.Png;
+            }
+
+            if (string.Equals(extension, ".bmp", StringComparison.OrdinalIgnoreCase))
+            {
+                return ImageFormat.Bmp;
+            }
+
+            if (string.Equals(extension, ".tif", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(extension, ".tiff", StringComparison.OrdinalIgnoreCase))
+            {
+                return ImageFormat.Tiff;
+            }
+
+            return ImageFormat.Jpeg;
+        }
+
+        private static void DeleteDatasetFiles(string imageDirectory, string fileStem, string labelPath)
         {
             if (File.Exists(labelPath))
             {
                 File.Delete(labelPath);
             }
 
-            if (File.Exists(imagePath))
+            // YOLO labels are stem-based, so the same image stem must belong to
+            // only one split and one image extension. Stale copies here create
+            // duplicate train/valid samples and confusing app reopen behavior.
+            foreach (string imagePath in EnumerateImageFilesForStem(imageDirectory, fileStem))
             {
                 File.Delete(imagePath);
             }

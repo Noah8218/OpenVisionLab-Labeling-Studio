@@ -17,7 +17,7 @@ namespace MvcVisionSystem
             {
                 string className = string.IsNullOrWhiteSpace(ClassName) ? "Unknown" : ClassName;
                 string indexText = CandidateIndex > 0 ? $"#{CandidateIndex} " : string.Empty;
-                return $"AI {indexText}{className} {Confidence * 100F:0}%";
+                return $"\uD6C4\uBCF4 {indexText}{className} {Confidence * 100F:0}%";
             }
         }
     }

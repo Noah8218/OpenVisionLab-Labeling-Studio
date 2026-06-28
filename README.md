@@ -4,6 +4,8 @@
 
 ## 주요 구조
 
+상위 수준 코드 구조와 변경 위치 선택 가이드는 `docs\CODE_STRUCTURE.md`에 정리되어 있습니다. 객체탐지 MVP 완료 기준은 `docs\OBJECT_DETECTION_MVP_COMPLETION.md`, YOLOv5 학습/결과 비교 기준은 `docs\YOLOV5_TRAINING_RESULT_WORKFLOW.md`, 세그멘테이션 UX 완료 기준은 `docs\SEGMENTATION_UX_COMPLETION.md`, 이상탐지 설계 기준은 `docs\ANOMALY_DETECTION_FLOW.md`, 이미 검증되어 보호해야 하는 성능/UX 경로는 `docs\STABLE_VERIFIED_AREAS.md`를 먼저 확인합니다.
+
 - `MvcVisionSystem.csproj`: .NET 8 Windows 데스크톱 앱 프로젝트
 - `0. UI`: WPF 라벨링 셸과 WPF 전용 화면
 - `1. Core`: 프로젝트 데이터, 설정, 화면/레시피 상태, OpenVisionLab ImageSpace 기반 활성 이미지 컨텍스트, Dev 패턴을 축소 이식한 display host/store, 라벨링/검출/학습 workflow 서비스, Python 통신 lazy 초기화
@@ -51,6 +53,10 @@ dotnet build .\MvcVisionSystem.sln -c Debug -p:Platform=x64
 앱이 열리면 오른쪽 `YOLO` 탭에서 `첫 점검`을 누릅니다. Python 실행 파일, YOLO 프로젝트, client script, `best.pt`, 샘플 이미지, requirements 패키지, worker 상태가 한 번에 확인됩니다.
 패키지가 빠져 있으면 같은 `YOLO` 탭의 `설치`를 누르고, 그 다음 `테스트`를 누르거나 상단 `추론 검토`를 켠 뒤 `현재 검사` 또는 이미지 큐의 `선택 검사`를 눌러 실제 `C:\Git\yolov5\data\train\images` 샘플 이미지로 검출까지 확인합니다. Python worker를 다시 붙여야 할 때는 `재시작`, 정리해야 할 때는 `중지`를 사용합니다.
 모델 경로, 신뢰도, 시간 제한은 `YOLO` 탭의 `모델 설정`에서 바로 수정하고 `저장`을 누릅니다. 학습 이미지 크기, 배치, 에폭, cfg, weight, 검증 split, 테스트 split은 `학습`에서 수정하며, `점검`, `시작`, `중지`로 학습 준비 상태와 worker 명령을 확인합니다.
+
+산업용 공개 데이터셋(오프라인 테스트용)을 먼저 가져오려면 `scripts\prepare-industrial-dataset.ps1`를 사용하세요.
+사용 예시와 지원 소스(KolektorSDD/VisA/Severstal/Manual), YAML/폴더 출력 규칙은 `docs\INDUSTRIAL_DATASET_PREPARATION.md`를 참고합니다.
+
 학습 전 `점검` 결과에는 train/valid/test 개수, `Validation %`와 `Test %` 용도, test split 비어 있음, 클래스별 라벨 수 부족, 클래스 불균형 경고가 함께 나옵니다. 특히 새 모델을 믿고 바꾸려면 OK뿐 아니라 NG 같은 결함 클래스도 실제 샘플로 라벨링하고, test split을 따로 확보한 뒤 비교해야 합니다.
 
 현재 기본 WPF 셸은 실행 시 설정된 YOLO 샘플 이미지를 찾아 중앙 캔버스와 WPF 이미지 큐에 올립니다. 시작만으로 검출은 실행하지 않습니다. 상단 `테마` 버튼으로 다크/라이트 화면을 바꿀 수 있고, `샘플`, `ROI`, `저장`, `라벨링`, `추론 검토`, `YOLO`, `현재 검사` 버튼으로 WPF 전환 중인 기본 흐름을 바로 확인할 수 있습니다. 검출 후보는 캔버스와 오른쪽 `후보` 목록에 표시되고, 후보를 선택하면 클래스, 신뢰도, 좌표, 현재 라벨과의 겹침을 바로 볼 수 있습니다. 후보 `확정`, `전체 확정`, `스킵` 처리는 오른쪽 `후보` 패널 안에서 합니다. 확정한 후보와 수동 ROI는 기존 YOLO 라벨 저장 서비스로 저장됩니다.

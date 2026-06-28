@@ -35,7 +35,7 @@ namespace MvcVisionSystem
         public string ViewName => nameof(WpfTrainingSettingsPanel);
 
         public string SplitPolicyHintText =>
-            "Validation %\uB294 \uD559\uC2B5 \uC911 \uD655\uC778\uC6A9, Test %\uB294 \uD559\uC2B5 \uD6C4 \uCD5C\uC885 \uBAA8\uB378 \uBE44\uAD50\uC6A9\uC785\uB2C8\uB2E4. \uB450 \uAC12\uC744 \uD569\uCCD0 100% \uC774\uD558\uB85C \uC124\uC815\uD558\uC138\uC694.";
+            "\uAC80\uC99D %\uB294 \uD559\uC2B5 \uC911 \uD655\uC778\uC6A9, \uCD5C\uC885 \uAC80\uC99D %\uB294 \uD559\uC2B5 \uD6C4 \uBAA8\uB378 \uBE44\uAD50\uC6A9\uC785\uB2C8\uB2E4. \uB450 \uAC12\uC744 \uD569\uCCD0 100% \uC774\uD558\uB85C \uC124\uC815\uD558\uC138\uC694.";
 
         public ICommand RefreshReadinessCommand
         {

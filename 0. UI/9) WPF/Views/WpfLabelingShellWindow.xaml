@@ -318,14 +318,14 @@
         </Style>
 
         <Style x:Key="QueueStatusBadgeStyle" TargetType="Border">
-            <Setter Property="MinWidth" Value="34" />
-            <Setter Property="Height" Value="16" />
-            <Setter Property="Padding" Value="5,0" />
+            <Setter Property="MinWidth" Value="42" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="Padding" Value="7,0" />
             <Setter Property="Margin" Value="6,0,0,0" />
             <Setter Property="CornerRadius" Value="3" />
-            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="Background" Value="{Binding QueueBadgeBackgroundBrush}" />
             <Setter Property="BorderBrush" Value="{Binding QueueIconBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderThickness" Value="1.25" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding QueueBadgeText}" Value="">
@@ -448,13 +448,13 @@
                             <TextBlock Text="샘플" VerticalAlignment="Center" />
                         </StackPanel>
                     </ui:Button>
-                    <ui:Button x:Name="AddSampleRoiButton" Style="{StaticResource WpfUiToolbarButtonStyle}" AutomationProperties.Name="ROI" ToolTip="현재 이미지 중앙에 새 ROI 추가" Command="{Binding ShellViewModel.AddSampleRoiCommand}">
+                    <ui:Button x:Name="AddSampleRoiButton" Style="{StaticResource WpfUiToolbarButtonStyle}" AutomationProperties.Name="박스" ToolTip="현재 이미지 중앙에 새 박스 라벨 추가" Command="{Binding ShellViewModel.AddSampleRoiCommand}">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ShapeSquareRoundedPlus" />
-                            <TextBlock Text="ROI" VerticalAlignment="Center" />
+                            <TextBlock Text="박스" VerticalAlignment="Center" />
                         </StackPanel>
                     </ui:Button>
-                    <ui:Button x:Name="SaveAnnotationsButton" Style="{StaticResource WpfUiToolbarButtonStyle}" AutomationProperties.Name="저장" ToolTip="현재 ROI와 확정 라벨 저장" Command="{Binding ShellViewModel.SaveAnnotationsCommand}">
+                    <ui:Button x:Name="SaveAnnotationsButton" Style="{StaticResource WpfUiToolbarButtonStyle}" AutomationProperties.Name="저장" ToolTip="현재 박스와 확정 라벨 저장" Command="{Binding ShellViewModel.SaveAnnotationsCommand}">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ContentSave" />
                             <TextBlock Text="저장" VerticalAlignment="Center" />
@@ -544,7 +544,7 @@
         </Border>
 
         <local:WpfStatusBarPanel x:Name="StatusBarPanelControl"
-                                 DockPanel.Dock="Bottom" />
+                                 DockPanel.Dock="Top" />
 
         <Grid Margin="10">
             <Grid.ColumnDefinitions>
@@ -588,21 +588,67 @@
                                 BorderThickness="0"
                                 FontFamily="Segoe UI"
                                 FontSize="12">
-                        <TabItem x:Name="ObjectsReviewTab" Header="객체">
+                        <TabItem x:Name="ObjectsReviewTab"
+                                 AutomationProperties.AutomationId="ObjectsReviewTab"
+                                 AutomationProperties.Name="&#xAC1D;&#xCCB4;"
+                                 Header="객체">
                             <local:WpfObjectReviewPanel x:Name="ObjectReviewPanelControl" />
                         </TabItem>
                         <TabItem x:Name="CandidatesReviewTab" Header="후보">
                             <local:WpfCandidateReviewPanel x:Name="CandidateReviewPanelControl" />
                         </TabItem>
-                        <TabItem x:Name="LearningReviewTab" Header="&#xAC00;&#xC774;&#xB4DC;/&#xB3C4;&#xAD6C;">
+                        <TabItem x:Name="LearningReviewTab"
+                                 AutomationProperties.AutomationId="LearningReviewTab"
+                                 AutomationProperties.Name="&#xAC00;&#xC774;&#xB4DC;/&#xB3C4;&#xAD6C;"
+                                 Header="&#xAC00;&#xC774;&#xB4DC;/&#xB3C4;&#xAD6C;">
                             <local:WpfLearningWorkflowPanel x:Name="LearningWorkflowPanelControl" />
                         </TabItem>
                         <TabItem x:Name="ClassesReviewTab" Header="클래스">
                             <local:WpfClassCatalogPanel x:Name="ClassCatalogPanelControl" />
                         </TabItem>
                         <TabItem x:Name="YoloSettingsReviewTab" Header="YOLO">
-                            <ScrollViewer x:Name="YoloSettingsScrollViewer" VerticalScrollBarVisibility="Auto">
+                            <ScrollViewer x:Name="YoloSettingsScrollViewer"
+                                          AutomationProperties.AutomationId="YoloSettingsScrollViewer"
+                                          AutomationProperties.Name="YOLO 설정 스크롤"
+                                          VerticalScrollBarVisibility="Auto">
                                 <StackPanel Margin="10">
+                                    <Border x:Name="YoloDatasetReadinessQuickPanel"
+                                            Background="{DynamicResource CanvasBrush}"
+                                            BorderBrush="{DynamicResource AccentBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="5"
+                                            Padding="8"
+                                            Margin="0,0,0,8">
+                                        <Grid>
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="*" />
+                                                <ColumnDefinition Width="Auto" />
+                                            </Grid.ColumnDefinitions>
+                                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                <TextBlock Text="데이터셋 점검"
+                                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                                           FontFamily="Segoe UI"
+                                                           FontSize="12"
+                                                           FontWeight="SemiBold" />
+                                                <TextBlock x:Name="YoloDatasetQuickReadinessText"
+                                                           Text="{Binding TrainingSettingsViewModel.TrainingReadinessText}"
+                                                           Foreground="{Binding TrainingSettingsViewModel.TrainingReadinessForeground}"
+                                                           FontFamily="Segoe UI"
+                                                           FontSize="10.5"
+                                                           Margin="0,3,0,0"
+                                                           TextWrapping="Wrap" />
+                                            </StackPanel>
+                                            <ui:Button x:Name="YoloDatasetQuickRefreshButton"
+                                                       Grid.Column="1"
+                                                       Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                       AutomationProperties.AutomationId="YoloDatasetQuickRefreshButton"
+                                                       AutomationProperties.Name="학습 데이터셋 새로고침"
+                                                       ToolTip="저장된 라벨과 학습 설정 준비 상태 점검"
+                                                       Command="{Binding TrainingSettingsViewModel.RefreshReadinessCommand}">
+                                                <TextBlock Text="점검" VerticalAlignment="Center" />
+                                            </ui:Button>
+                                        </Grid>
+                                    </Border>
                                     <local:WpfYoloStatusPanel x:Name="YoloStatusPanelControl" />
                                     <local:WpfProjectConfigPanel x:Name="ProjectConfigPanelControl" />
                                     <local:WpfYoloModelSettingsPanel x:Name="YoloModelSettingsPanelControl" />

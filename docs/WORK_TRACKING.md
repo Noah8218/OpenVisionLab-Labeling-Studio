@@ -1,6 +1,6 @@
 ﻿# Work Tracking
 
-Last updated: 2026-06-23
+Last updated: 2026-06-28
 
 이 문서는 반복 작업을 막기 위한 작업 현황판입니다.
 새 작업을 시작하기 전에는 이 문서를 먼저 보고, 작업을 마무리할 때 완료/진행 필요 항목을 갱신합니다.
@@ -21,6 +21,48 @@ Last updated: 2026-06-23
 - 같은 항목을 다시 시작하기 전에 이 문서와 `docs/WPF_VIEW_MIGRATION.md`를 확인합니다.
 
 ## 완료 항목
+
+### 2026-06-28 완료/보호 판정
+
+아래 항목은 검증이 끝났으므로 일반 우선순위 목록에서 다시 끌고 오지 않습니다.
+해당 코드를 건드릴 때만 `docs/STABLE_VERIFIED_AREAS.md`의 gate를 다시 실행합니다.
+
+| 영역 | 판정 | 완료 근거 |
+| --- | --- | --- |
+| Viewer ROI 성능 | 완료/보호 | 50만 ROI move/resize/delete/hit-test/render, 겹침 ROI 선택, delete 후 zoom 검증 완료 |
+| 브러시/지우개 입력 성능 | 완료/보호 | brush/eraser MouseMove, mask drag, partial texture update, cursor preview 검증 완료 |
+| 텍스처 pan/zoom 체감 성능 | 완료/보호 | texture pan MouseMove와 wheel zoom 중앙화 검증 완료 |
+| Object Review 삭제/선택 잔상 | 완료/보호 | 단일 object delete, delete 후 zoom, 선택 핸들 잔상 제거 검증 완료 |
+| Candidate Review 기본 검토 | 완료/보호 | 후보/기존 라벨 비교, 중복 skip, 신규 confirm, 현재 라벨 focus, 실제 EXE focus smoke 검증 완료 |
+| 객체탐지 라벨링 저장 루프 | 완료/보호 | 산업 이미지 기반 실제 EXE box 라벨 저장, 빈 정상 완료, reopen, dataset check 검증 완료 |
+| YOLO 데이터셋 구조 안내 | 완료/보호 | Guide 첫 화면에서 `data.yaml`, `images`, `labels`, 같은 이름의 image/txt 관계 안내 검증 완료 |
+| 객체탐지 MVP 다음 행동 안내 | 완료/보호 | Guide 대시보드의 `객체탐지 MVP 완료까지` 문구와 top next-action 정합성 검증 완료 |
+| 초보자 가이드 첫 화면 문구 | 완료/보호 | `YOLO 다음 액션`, `완주 체크` 같은 어색한 표시를 `다음 작업`, `완료 체크`로 정리하고 guide panel test 기준에 반영 |
+| 모델 비교 기준 표시 | 완료/보호 | Guide 학습 결과 카드에 `비교 기준` 문구를 추가해 최종 검증 라벨 수, 권장 수, 교체 근거 강도를 클릭 전 확인 가능 |
+| true held-out 모델 비교 실행 경로 | 완료/보호 | COCO128을 train/valid/test로 물리 분리한 뒤 `compare-yolo-models.ps1 -Task test` 통과. 산업 OK/NG 채택 판단은 별도 진행 |
+| 산업 Defect held-out 데이터 준비 | 완료/보호 | Kolektor `*_label.bmp`를 라벨링 이미지에서 제외하고 YOLO `Defect` 박스로 변환해 train/valid/test label 쌍 생성 |
+| 산업 Defect 짧은 학습/비교 실행 | 완료/보류 | `Defect` 1클래스 baseline 1ep/candidate 3ep 학습과 held-out test 비교 완료. mAP/UI 후보가 0이라 모델 채택은 금지 |
+| 산업 Defect oversampling 실험 | 완료/보류 | train positive oversampling 8배와 5ep 학습 완료. validation recall만 미세 개선, held-out test mAP/UI 후보는 0 |
+
+최근 확인한 핵심 수치:
+
+- `--roi-overlap-hit-test`: first hit `16.702ms`, repeat `6.875ms`, 50,000 overlapped ROI 중 가장 작은 ROI 선택.
+- `--wpf-roi-object-verification`: object delete `12.747ms`, delete-then-zoom `2.823ms`, selected empty `True`.
+- `--exe-candidate-focus-smoke`: `recipeApplied=True`, `sampleLoaded=True`, `roiCreated=True`, `candidateVisible=True`, `focusClicked=True`, `objectSelected=True`, `focusClickMs=418.6`.
+- `--wpf-candidate-review-panel`: 후보 검토 버튼 문구와 command binding 통과.
+- `--wpf-visual-smoke --review-tab candidates`: 후보 검토 화면 캡처 확인.
+- `--wpf-learning-workflow-panel` 및 `--wpf-visual-smoke --review-tab guide`: 초보자 가이드 첫 화면 문구와 배치 확인.
+- `--wpf-model-comparison-heldout`: held-out 최종 검증 라벨 수에 따라 모델 비교/교체 기준 문구가 달라지는지 확인.
+- `compare-yolo-models.ps1 -Task test`: COCO128 true held-out artifact 기준 train 96/valid 16/test 16 라벨 쌍으로 통과. `yolov5m.pt` mAP50-95 `0.657`, `yolov5s.pt` mAP50-95 `0.561`.
+- `prepare-industrial-dataset.ps1`: Kolektor held-out artifact 기준 train 238/valid 102/test 59 이미지/라벨 쌍 생성, defect label 52, empty label 347, label BMP 이미지 복사 0, data.yaml UTF-8 no BOM.
+- `compare-yolo-models.ps1 -Task test`: 산업 Kolektor `Defect` 1클래스 baseline 1ep vs candidate 3ep 비교 통과. 둘 다 precision/recall/mAP `0`, UI 후보 `0/17700`.
+- `compare-yolo-models.ps1 -Task test`: oversampling 5ep 모델 비교 통과. validation recall `0.0588`까지는 움직였지만 held-out test는 precision/recall/mAP `0`, UI 후보 `0/17700`.
+
+현재 남은 작업은 위 항목의 재작업이 아니라, 아래 세 갈래입니다.
+
+1. 처음 사용자 10분 흐름을 실제 EXE 기준으로 더 짧고 확실하게 고정합니다.
+2. 산업 `Defect` 모델 품질을 올립니다. 짧은 1ep/3ep와 oversampling 5ep는 파이프라인 검증/보류로 완료됐고, 다음은 image size 상향 또는 마스크 박스 padding처럼 입력 표현을 바꾸는 실험입니다.
+3. 세그멘테이션/이상탐지는 객체탐지 MVP를 흔들지 않는 별도 완료 기준으로 진행합니다.
 
 1. WPF 셸이 기본 실행 화면입니다.
    - `MvcVisionSystem.exe` 기본 실행은 WPF 셸입니다.
@@ -1169,6 +1211,9 @@ Last updated: 2026-06-23
    - ROI 검증 캡처는 `artifacts\ui\verify-wpf-roi-objects-20260622-221905.png`입니다.
 
 ## 진행 필요 항목
+
+아래 목록은 오래된 TODO를 포함합니다. 먼저 위의 `2026-06-28 완료/보호 판정`을 적용합니다.
+완료/보호로 승격된 항목은 일반 작업으로 다시 잡지 않고, 관련 파일을 직접 수정할 때만 focused gate를 다시 실행합니다.
 
 1. WinForms 화면 추가 제거
    - 클래스 설정 화면 WPF 전환은 클래스 추가/삭제/출력 경로/호환 버튼 연결 기준 1차 완료

@@ -10,9 +10,12 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 		private const float CellSize = 64.0f;
 		private const float LargeCellSize = CellSize * 64.0f;
 		private const int MaxCellsPerItem = 4096;
+		private const int MaxEdgeCellsPerItem = 256;
+		private const int MaxEdgeHitCandidates = 512;
 
 		private readonly Dictionary<long, List<CanvasOverlayItem>> _cells = new Dictionary<long, List<CanvasOverlayItem>>();
 		private readonly Dictionary<long, List<CanvasOverlayItem>> _largeCells = new Dictionary<long, List<CanvasOverlayItem>>();
+		private readonly Dictionary<long, List<CanvasOverlayItem>> _edgeCells = new Dictionary<long, List<CanvasOverlayItem>>();
 		private readonly Dictionary<long, CanvasOverlayItem> _minAreaCellItems = new Dictionary<long, CanvasOverlayItem>();
 		private readonly Dictionary<long, CanvasOverlayItem> _minAreaLargeCellItems = new Dictionary<long, CanvasOverlayItem>();
 		private readonly Dictionary<CanvasOverlayItem, SpatialEntry> _entries = new Dictionary<CanvasOverlayItem, SpatialEntry>();
@@ -24,6 +27,7 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 		{
 			_cells.Clear();
 			_largeCells.Clear();
+			_edgeCells.Clear();
 			_minAreaCellItems.Clear();
 			_minAreaLargeCellItems.Clear();
 			_entries.Clear();
@@ -39,6 +43,7 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 			}
 
 			_entries[item] = entry;
+			AddToSimpleBuckets(_edgeCells, entry.EdgeCellKeys, item);
 			if (entry.Tier == SpatialEntryTier.Global)
 			{
 				_globalItems.Add(item);
@@ -64,6 +69,7 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 				return;
 			}
 
+			RemoveFromSimpleBuckets(_edgeCells, entry.EdgeCellKeys, item);
 			if (entry.Tier == SpatialEntryTier.Global)
 			{
 				_globalItems.Remove(item);
@@ -127,6 +133,14 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 				point.Y + safeRadius);
 
 			var search = new BestRectSearch(point, zoomScale, handleSize, groupOnly);
+			RectangleF pointBounds = RectangleF.FromLTRB(point.X, point.Y, point.X, point.Y);
+			var edgeSearch = search;
+			if (TryFindBestRectInEdgeBuckets(_edgeCells, pointBounds, CellSize, includeGroupRectangles, ref edgeSearch)
+				&& edgeSearch.BestHitPriority == 0)
+			{
+				return edgeSearch.BestItem;
+			}
+
 			FindBestRectInBuckets(_cells, _minAreaCellItems, queryBounds, CellSize, includeGroupRectangles, ref search);
 			FindBestRectInBuckets(_largeCells, _minAreaLargeCellItems, queryBounds, LargeCellSize, includeGroupRectangles, ref search);
 
@@ -140,8 +154,9 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 
 		public List<CanvasOverlayItem> QueryBounds(RectangleF bounds, bool includeGroupRectangles)
 		{
-			var result = new List<CanvasOverlayItem>();
-			var seen = new HashSet<CanvasOverlayItem>();
+			int capacity = EstimateQueryCandidateCapacity(bounds);
+			var result = new List<CanvasOverlayItem>(capacity);
+			var seen = new HashSet<CanvasOverlayItem>(capacity);
 
 			QueryBuckets(_cells, bounds, CellSize, includeGroupRectangles, seen, result);
 			QueryBuckets(_largeCells, bounds, LargeCellSize, includeGroupRectangles, seen, result);
@@ -152,6 +167,66 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 			}
 
 			return result;
+		}
+
+		private int EstimateQueryCandidateCapacity(RectangleF bounds)
+		{
+			// QueryBounds is used by text/diagnostic paths that still need a list.
+			// Pre-sizing avoids resize/rehash spikes after the 500K ROI hot tests
+			// have put the process under memory pressure.
+			const int maxInitialCapacity = 32768;
+			int estimated = _globalItems.Count;
+			estimated += EstimateBucketCandidateCapacity(_cells, bounds, CellSize, maxInitialCapacity - estimated);
+			if (estimated < maxInitialCapacity)
+			{
+				estimated += EstimateBucketCandidateCapacity(_largeCells, bounds, LargeCellSize, maxInitialCapacity - estimated);
+			}
+
+			estimated = Math.Min(estimated, _entries.Count);
+			return Math.Clamp(estimated, 0, maxInitialCapacity);
+		}
+
+		private static int EstimateBucketCandidateCapacity(
+			Dictionary<long, List<CanvasOverlayItem>> buckets,
+			RectangleF bounds,
+			float cellSize,
+			int remainingCapacity)
+		{
+			if (remainingCapacity <= 0)
+			{
+				return 0;
+			}
+
+			NormalizeCellRange(
+				ToCell(bounds.Left, cellSize),
+				ToCell(bounds.Right, cellSize),
+				ToCell(bounds.Top, cellSize),
+				ToCell(bounds.Bottom, cellSize),
+				out int left,
+				out int right,
+				out int bottom,
+				out int top);
+
+			int estimated = 0;
+			for (int cellX = left; cellX <= right; cellX++)
+			{
+				for (int cellY = bottom; cellY <= top; cellY++)
+				{
+					long key = MakeKey(cellX, cellY);
+					if (!buckets.TryGetValue(key, out List<CanvasOverlayItem> bucket))
+					{
+						continue;
+					}
+
+					estimated += bucket.Count;
+					if (estimated >= remainingCapacity)
+					{
+						return remainingCapacity;
+					}
+				}
+			}
+
+			return estimated;
 		}
 
 		public int VisitBounds(RectangleF bounds, bool includeGroupRectangles, int maxCandidates, Action<CanvasOverlayItem> visitor)
@@ -226,7 +301,7 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 			int cellCount = GetCellCount(left, right, bottom, top);
 			if (cellCount <= MaxCellsPerItem)
 			{
-				entry = new SpatialEntry(bounds, BuildCellKeys(left, right, bottom, top, cellCount), SpatialEntryTier.Fine);
+				entry = new SpatialEntry(bounds, BuildCellKeys(left, right, bottom, top, cellCount), SpatialEntryTier.Fine, BuildEdgeCellKeys(rect));
 				return true;
 			}
 
@@ -244,11 +319,11 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 			int largeCellCount = GetCellCount(largeLeft, largeRight, largeBottom, largeTop);
 			if (largeCellCount <= MaxCellsPerItem)
 			{
-				entry = new SpatialEntry(bounds, BuildCellKeys(largeLeft, largeRight, largeBottom, largeTop, largeCellCount), SpatialEntryTier.Large);
+				entry = new SpatialEntry(bounds, BuildCellKeys(largeLeft, largeRight, largeBottom, largeTop, largeCellCount), SpatialEntryTier.Large, BuildEdgeCellKeys(rect));
 				return true;
 			}
 
-			entry = new SpatialEntry(bounds, null, SpatialEntryTier.Global);
+			entry = new SpatialEntry(bounds, null, SpatialEntryTier.Global, BuildEdgeCellKeys(rect));
 			return true;
 		}
 
@@ -290,6 +365,95 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 					minAreaItems[key] = FindSmallestAreaItem(bucket);
 				}
 			}
+		}
+
+		private static void AddToSimpleBuckets(Dictionary<long, List<CanvasOverlayItem>> buckets, List<long> keys, CanvasOverlayItem item)
+		{
+			if (keys == null || keys.Count == 0 || item == null)
+			{
+				return;
+			}
+
+			foreach (long key in keys)
+			{
+				if (!buckets.TryGetValue(key, out List<CanvasOverlayItem> bucket))
+				{
+					bucket = new List<CanvasOverlayItem>();
+					buckets[key] = bucket;
+				}
+
+				bucket.Add(item);
+			}
+		}
+
+		private static void RemoveFromSimpleBuckets(Dictionary<long, List<CanvasOverlayItem>> buckets, List<long> keys, CanvasOverlayItem item)
+		{
+			if (keys == null || keys.Count == 0 || item == null)
+			{
+				return;
+			}
+
+			foreach (long key in keys)
+			{
+				if (!buckets.TryGetValue(key, out List<CanvasOverlayItem> bucket))
+				{
+					continue;
+				}
+
+				bucket.Remove(item);
+				if (bucket.Count == 0)
+				{
+					buckets.Remove(key);
+				}
+			}
+		}
+
+		private bool TryFindBestRectInEdgeBuckets(
+			Dictionary<long, List<CanvasOverlayItem>> buckets,
+			RectangleF bounds,
+			float cellSize,
+			bool includeGroupRectangles,
+			ref BestRectSearch search)
+		{
+			NormalizeCellRange(
+				ToCell(bounds.Left, cellSize),
+				ToCell(bounds.Right, cellSize),
+				ToCell(bounds.Top, cellSize),
+				ToCell(bounds.Bottom, cellSize),
+				out int left,
+				out int right,
+				out int bottom,
+				out int top);
+
+			var seen = new HashSet<CanvasOverlayItem>();
+			int candidateCount = 0;
+			for (int cellX = left; cellX <= right; cellX++)
+			{
+				for (int cellY = bottom; cellY <= top; cellY++)
+				{
+					long key = MakeKey(cellX, cellY);
+					if (!buckets.TryGetValue(key, out List<CanvasOverlayItem> bucket))
+					{
+						continue;
+					}
+
+					foreach (CanvasOverlayItem item in bucket)
+					{
+						if (seen.Add(item))
+						{
+							candidateCount++;
+							if (candidateCount > MaxEdgeHitCandidates)
+							{
+								return false;
+							}
+
+							TryUpdateBestRect(item, bounds, includeGroupRectangles, ref search, requireOutlineHit: true);
+						}
+					}
+				}
+			}
+
+			return true;
 		}
 
 		private void FindBestRectInBuckets(
@@ -361,7 +525,7 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 			return bestItem;
 		}
 
-		private void TryUpdateBestRect(CanvasOverlayItem item, RectangleF bounds, bool includeGroupRectangles, ref BestRectSearch search)
+		private void TryUpdateBestRect(CanvasOverlayItem item, RectangleF bounds, bool includeGroupRectangles, ref BestRectSearch search, bool requireOutlineHit = false)
 		{
 			if (item == null || !IsInteractiveCandidate(item, includeGroupRectangles))
 			{
@@ -397,6 +561,11 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 			}
 
 			int hitPriority = hitType == LineOverType.Move2D ? 1 : 0;
+			if (requireOutlineHit && hitPriority != 0)
+			{
+				return;
+			}
+
 			double area = GetArea(rect);
 			double distance = search.GroupOnly
 				? CalculateDistanceToRectangle(search.Point, new RectangleF(rect.Left, rect.Bottom, rect.Width, rect.Height))
@@ -422,6 +591,11 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 
 		private static bool IsBetterHit(int hitPriority, double area, double distance, int bestHitPriority, double bestArea, double bestDistance)
 		{
+			if (hitPriority != bestHitPriority)
+			{
+				return hitPriority < bestHitPriority;
+			}
+
 			if (Math.Abs(area - bestArea) > 0.001)
 			{
 				return area < bestArea;
@@ -432,7 +606,7 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 				return distance < bestDistance;
 			}
 
-			return hitPriority < bestHitPriority;
+			return false;
 		}
 
 		private static double CalculateSquaredDistance(PointF point, CanvasPoint<float> center)
@@ -627,6 +801,83 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 			return keys;
 		}
 
+		private static List<long> BuildEdgeCellKeys(CanvasRect<float> rect)
+		{
+			float width = Math.Abs(rect.Width);
+			float height = Math.Abs(rect.Height);
+			float minSize = Math.Min(width, height);
+			if (minSize <= 0F)
+			{
+				return null;
+			}
+
+			float edgeBand = Math.Min(minSize * 0.12F, 6.0F);
+			float cornerBand = Math.Min(minSize * 0.22F, 10.0F);
+			var keys = new List<long>();
+
+			// Edge cells are intentionally thin and inside-only. They let outline clicks
+			// beat smaller overlapping body hits without scanning every containing ROI.
+			if (!AddCellKeysForBounds(keys, RectangleF.FromLTRB(rect.Left, rect.Bottom, Math.Min(rect.Left + edgeBand, rect.Right), rect.Top))
+				|| !AddCellKeysForBounds(keys, RectangleF.FromLTRB(Math.Max(rect.Right - edgeBand, rect.Left), rect.Bottom, rect.Right, rect.Top))
+				|| !AddCellKeysForBounds(keys, RectangleF.FromLTRB(rect.Left, Math.Max(rect.Top - edgeBand, rect.Bottom), rect.Right, rect.Top))
+				|| !AddCellKeysForBounds(keys, RectangleF.FromLTRB(rect.Left, rect.Bottom, rect.Right, Math.Min(rect.Bottom + edgeBand, rect.Top)))
+				|| !AddCellKeysForBounds(keys, RectangleF.FromLTRB(rect.Left, Math.Max(rect.Top - cornerBand, rect.Bottom), Math.Min(rect.Left + cornerBand, rect.Right), rect.Top))
+				|| !AddCellKeysForBounds(keys, RectangleF.FromLTRB(Math.Max(rect.Right - cornerBand, rect.Left), Math.Max(rect.Top - cornerBand, rect.Bottom), rect.Right, rect.Top))
+				|| !AddCellKeysForBounds(keys, RectangleF.FromLTRB(Math.Max(rect.Right - cornerBand, rect.Left), rect.Bottom, rect.Right, Math.Min(rect.Bottom + cornerBand, rect.Top)))
+				|| !AddCellKeysForBounds(keys, RectangleF.FromLTRB(rect.Left, rect.Bottom, Math.Min(rect.Left + cornerBand, rect.Right), Math.Min(rect.Bottom + cornerBand, rect.Top))))
+			{
+				return null;
+			}
+
+			return keys.Count == 0 ? null : keys;
+		}
+
+		private static bool AddCellKeysForBounds(List<long> keys, RectangleF bounds)
+		{
+			if (keys == null || bounds.Width <= 0F || bounds.Height <= 0F)
+			{
+				return true;
+			}
+
+			NormalizeCellRange(
+				ToCell(bounds.Left, CellSize),
+				ToCell(bounds.Right, CellSize),
+				ToCell(bounds.Top, CellSize),
+				ToCell(bounds.Bottom, CellSize),
+				out int left,
+				out int right,
+				out int bottom,
+				out int top);
+			int cellCount = GetCellCount(left, right, bottom, top);
+			if (cellCount > MaxEdgeCellsPerItem || keys.Count + cellCount > MaxEdgeCellsPerItem)
+			{
+				return false;
+			}
+
+			for (int cellX = left; cellX <= right; cellX++)
+			{
+				for (int cellY = bottom; cellY <= top; cellY++)
+				{
+					AddUniqueKey(keys, MakeKey(cellX, cellY));
+				}
+			}
+
+			return true;
+		}
+
+		private static void AddUniqueKey(List<long> keys, long key)
+		{
+			for (int i = 0; i < keys.Count; i++)
+			{
+				if (keys[i] == key)
+				{
+					return;
+				}
+			}
+
+			keys.Add(key);
+		}
+
 		private static void NormalizeCellRange(int left, int right, int bottom, int top, out int normalizedLeft, out int normalizedRight, out int normalizedBottom, out int normalizedTop)
 		{
 			normalizedLeft = Math.Min(left, right);
@@ -678,16 +929,18 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 
 		private readonly struct SpatialEntry
 		{
-			public SpatialEntry(RectangleF bounds, List<long> cellKeys, SpatialEntryTier tier)
+			public SpatialEntry(RectangleF bounds, List<long> cellKeys, SpatialEntryTier tier, List<long> edgeCellKeys)
 			{
 				Bounds = bounds;
 				CellKeys = cellKeys;
 				Tier = tier;
+				EdgeCellKeys = edgeCellKeys;
 			}
 
 			public RectangleF Bounds { get; }
 			public List<long> CellKeys { get; }
 			public SpatialEntryTier Tier { get; }
+			public List<long> EdgeCellKeys { get; }
 		}
 
 		private struct BestRectSearch

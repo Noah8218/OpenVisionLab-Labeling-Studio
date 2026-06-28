@@ -43,6 +43,24 @@
             </Style.Triggers>
         </Style>
 
+        <Style x:Key="QueuePrimaryActionButtonStyle" TargetType="{x:Type ui:Button}">
+            <Setter Property="MinWidth" Value="72" />
+            <Setter Property="Height" Value="32" />
+            <Setter Property="Padding" Value="6,0" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+                    <Setter Property="Opacity" Value="0.55" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <Style x:Key="QueueQuickFilterButtonStyle" TargetType="{x:Type ui:Button}">
             <Setter Property="Height" Value="30" />
             <Setter Property="MinWidth" Value="84" />
@@ -112,14 +130,14 @@
         </Style>
 
         <Style x:Key="QueueStatusBadgeStyle" TargetType="Border">
-            <Setter Property="MinWidth" Value="34" />
-            <Setter Property="Height" Value="16" />
-            <Setter Property="Padding" Value="5,0" />
+            <Setter Property="MinWidth" Value="42" />
+            <Setter Property="Height" Value="18" />
+            <Setter Property="Padding" Value="7,0" />
             <Setter Property="Margin" Value="6,0,0,0" />
             <Setter Property="CornerRadius" Value="3" />
-            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="Background" Value="{Binding QueueBadgeBackgroundBrush}" />
             <Setter Property="BorderBrush" Value="{Binding QueueIconBrush}" />
-            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="BorderThickness" Value="1.25" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding QueueBadgeText}" Value="">
@@ -133,6 +151,104 @@
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
             <Setter Property="VerticalAlignment" Value="Center" />
             <Setter Property="ToolTip" Value="{Binding Detail}" />
+        </Style>
+
+        <Style x:Key="ImageQueueFilterComboBoxStyle" TargetType="ComboBox">
+            <Setter Property="Height" Value="24" />
+            <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Padding" Value="7,0,24,0" />
+            <Setter Property="ItemTemplate">
+                <Setter.Value>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Text}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="12"
+                                   VerticalAlignment="Center"
+                                   TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="ComboBoxItem">
+                        <Setter Property="Background" Value="{DynamicResource InputBrush}" />
+                        <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                        <Setter Property="Padding" Value="7,4" />
+                        <Setter Property="MinHeight" Value="24" />
+                        <Style.Triggers>
+                            <Trigger Property="IsHighlighted" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ComboBox}">
+                        <Grid SnapsToDevicePixels="True">
+                            <Border Background="{TemplateBinding Background}"
+                                    BorderBrush="{TemplateBinding BorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="3" />
+                            <TextBlock Text="{Binding SelectedItem.Text, RelativeSource={RelativeSource TemplatedParent}}"
+                                       Foreground="{TemplateBinding Foreground}"
+                                       FontFamily="{TemplateBinding FontFamily}"
+                                       FontSize="{TemplateBinding FontSize}"
+                                       Margin="{TemplateBinding Padding}"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis"
+                                       IsHitTestVisible="False" />
+                            <ToggleButton Focusable="False"
+                                          ClickMode="Press"
+                                          IsChecked="{Binding IsDropDownOpen, Mode=TwoWay, RelativeSource={RelativeSource TemplatedParent}}"
+                                          Background="Transparent"
+                                          BorderThickness="0">
+                                <ToggleButton.Template>
+                                    <ControlTemplate TargetType="{x:Type ToggleButton}">
+                                        <Border Background="Transparent">
+                                            <ContentPresenter />
+                                        </Border>
+                                    </ControlTemplate>
+                                </ToggleButton.Template>
+                                <Path Data="M 0 0 L 4 4 L 8 0 Z"
+                                      Width="8"
+                                      Height="4"
+                                      Stretch="Fill"
+                                      Fill="{TemplateBinding Foreground}"
+                                      HorizontalAlignment="Right"
+                                      VerticalAlignment="Center"
+                                      Margin="0,0,8,0" />
+                            </ToggleButton>
+                            <Popup x:Name="PART_Popup"
+                                   Placement="Bottom"
+                                   IsOpen="{TemplateBinding IsDropDownOpen}"
+                                   AllowsTransparency="True"
+                                   Focusable="False"
+                                   PopupAnimation="Fade">
+                                <Border MinWidth="{TemplateBinding ActualWidth}"
+                                        MaxHeight="{TemplateBinding MaxDropDownHeight}"
+                                        Background="{DynamicResource InputBrush}"
+                                        BorderBrush="{DynamicResource InputBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="3">
+                                    <ScrollViewer CanContentScroll="True">
+                                        <ItemsPresenter />
+                                    </ScrollViewer>
+                                </Border>
+                            </Popup>
+                        </Grid>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
         </Style>
     </UserControl.Resources>
 
@@ -179,8 +295,11 @@
                     <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC774;&#xBBF8;&#xC9C0; &#xBAA9;&#xB85D; &#xC0C8;&#xB85C;&#xACE0;&#xCE68;" AutomationProperties.Name="&#xC0C8;&#xB85C;&#xACE0;&#xCE68;" Command="{Binding RefreshImageQueueCommand}">
                         <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="Refresh" />
                     </ui:Button>
-                    <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xB2E4;&#xC74C; &#xBBF8;&#xB77C;&#xBCA8; &#xC774;&#xBBF8;&#xC9C0; &#xC120;&#xD0DD;" AutomationProperties.Name="&#xB2E4;&#xC74C;" Command="{Binding NextUnlabeledCommand}">
-                        <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="ArrowRightCircleOutline" />
+                    <ui:Button x:Name="NextUnlabeledPrimaryButton" Style="{StaticResource QueuePrimaryActionButtonStyle}" ToolTip="아직 완료하지 않은 다음 이미지를 엽니다" AutomationProperties.AutomationId="NextUnlabeledPrimaryButton" AutomationProperties.Name="다음 이미지" Command="{Binding NextUnlabeledCommand}">
+                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ArrowRightCircleOutline" />
+                            <TextBlock Text="&#xB2E4;&#xC74C;" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
                     </ui:Button>
                     <ui:Button x:Name="OpenSelectedQueueImageButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC120;&#xD0DD; &#xC774;&#xBBF8;&#xC9C0;&#xB97C; &#xB2E4;&#xC2DC; &#xC5F4;&#xAE30;" AutomationProperties.Name="&#xC5F4;&#xAE30;" IsEnabled="{Binding IsOpenSelectedImageEnabled}" Command="{Binding OpenSelectedQueueImageCommand}">
                         <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="ImageOutline" />
@@ -194,13 +313,7 @@
                         <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <ComboBox x:Name="ImageQueueFilterBox"
-                              Height="24"
-                              Background="{DynamicResource InputBrush}"
-                              Foreground="{DynamicResource PrimaryTextBrush}"
-                              BorderBrush="{DynamicResource InputBorderBrush}"
-                              FontFamily="Segoe UI"
-                              FontSize="12"
-                              DisplayMemberPath="Text"
+                              Style="{StaticResource ImageQueueFilterComboBoxStyle}"
                               ToolTip="&#xC0C1;&#xD0DC; &#xD544;&#xD130;"
                               mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding FilterSelectionChangedCommand}" />
                     <Grid Grid.Column="2">
@@ -213,6 +326,8 @@
                                                     HorizontalAlignment="Left"
                                                     IsHitTestVisible="False" />
                         <TextBox x:Name="ImageQueueSearchBox"
+                                 AutomationProperties.AutomationId="ImageQueueSearchBox"
+                                 AutomationProperties.Name="&#xC774;&#xBBF8;&#xC9C0; &#xD050; &#xAC80;&#xC0C9;"
                                  Height="24"
                                  Background="{DynamicResource InputBrush}"
                                  Foreground="{DynamicResource PrimaryTextBrush}"
@@ -256,7 +371,7 @@
                             <TextBlock x:Name="QueueFilterSkippedText" Text="{Binding QueueFilterSkippedText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
                         </StackPanel>
                     </ui:Button>
-                    <ui:Button x:Name="QueueFilterNoCandidateButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterNoCandidateActive}" AutomationProperties.Name="&#xC5C6;&#xC74C; &#xD544;&#xD130;" ToolTip="&#xAC80;&#xCD9C; &#xD6C4;&#xBCF4;&#xAC00; &#xC5C6;&#xB294; &#xC774;&#xBBF8;&#xC9C0;&#xB9CC; &#xBCF4;&#xAE30;" Command="{Binding QueueFilterNoCandidateCommand}">
+                    <ui:Button x:Name="QueueFilterNoCandidateButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterNoCandidateActive}" AutomationProperties.Name="&#xAC80;&#xCD9C;&#xC5C6;&#xC74C; &#xD544;&#xD130;" ToolTip="&#xAC80;&#xCD9C; &#xD6C4;&#xBCF4;&#xAC00; &#xC5C6;&#xB294; &#xC774;&#xBBF8;&#xC9C0;&#xB9CC; &#xBCF4;&#xAE30;" Command="{Binding QueueFilterNoCandidateCommand}">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="MinusCircleOutline" />
                             <TextBlock x:Name="QueueFilterNoCandidateText" Text="{Binding QueueFilterNoCandidateText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
@@ -333,19 +448,25 @@
                     <DataGridTemplateColumn Header="&#xD30C;&#xC77C;" Width="*" MinWidth="116">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate>
-                                <Grid Margin="5,2" ToolTip="{Binding Detail}">
+                                <Grid Margin="4,2" ToolTip="{Binding Detail}">
                                     <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="3" />
                                         <ColumnDefinition Width="18" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconMaterial Grid.Column="0"
+                                    <Border Grid.Column="0"
+                                            Width="3"
+                                            MinHeight="30"
+                                            CornerRadius="2"
+                                            Background="{Binding QueueRowAccentBrush}" />
+                                    <iconPacks:PackIconMaterial Grid.Column="1"
                                                                 Width="14"
                                                                 Height="14"
                                                                 VerticalAlignment="Center"
                                                                 HorizontalAlignment="Center"
                                                                 Kind="{Binding QueueIconKind}"
                                                                 Foreground="{Binding QueueIconBrush}" />
-                                    <StackPanel Grid.Column="1" Margin="4,0,0,0">
+                                    <StackPanel Grid.Column="2" Margin="5,0,0,0">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />
@@ -353,7 +474,7 @@
                                             </Grid.ColumnDefinitions>
                                             <TextBlock Grid.Column="0" Text="{Binding FileName}" Foreground="{DynamicResource PrimaryTextBrush}" FontSize="12" TextTrimming="CharacterEllipsis" />
                                             <Border Grid.Column="1" Style="{StaticResource QueueStatusBadgeStyle}">
-                                                <TextBlock Text="{Binding QueueBadgeText}" Foreground="{Binding QueueIconBrush}" FontSize="9" FontWeight="SemiBold" VerticalAlignment="Center" TextAlignment="Center" />
+                                                <TextBlock Text="{Binding QueueBadgeText}" Foreground="{Binding QueueIconBrush}" FontSize="10" FontWeight="Bold" VerticalAlignment="Center" TextAlignment="Center" />
                                             </Border>
                                         </Grid>
                                         <TextBlock Text="{Binding QueueStatusSummary}" Foreground="{DynamicResource DisabledTextBrush}" FontSize="10" TextTrimming="CharacterEllipsis" />

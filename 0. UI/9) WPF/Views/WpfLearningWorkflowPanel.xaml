@@ -103,6 +103,57 @@
             </Setter>
         </Style>
 
+        <Style x:Key="LearningWorkflowMetricButtonStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="3" />
+            <Setter Property="Width" Value="42" />
+            <Setter Property="MinHeight" Value="36" />
+            <Setter Property="Margin" Value="0,0,3,3" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource ToolbarButtonHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource ToolbarButtonPressedBrush}" />
+                            </Trigger>
+                            <DataTrigger Binding="{Binding IsWarning}" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="#33280F" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#C4922B" />
+                            </DataTrigger>
+                            <DataTrigger Binding="{Binding IsProblem}" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="#3A1717" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#E53935" />
+                            </DataTrigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource ToolbarButtonDisabledBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource ToolbarButtonDisabledBorderBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <DataTemplate x:Key="LearningWorkflowItemTemplate">
             <StackPanel Orientation="Horizontal" VerticalAlignment="Center" ToolTip="{Binding ToolTip}">
                 <iconPacks:PackIconMaterial Kind="{Binding IconKind}"
@@ -136,6 +187,9 @@
         <DataTemplate x:Key="AnnotationToolItemTemplate">
             <StackPanel Orientation="Horizontal"
                         VerticalAlignment="Center"
+                        mvvm:EventCommandBehavior.EventName="MouseLeftButtonUp"
+                        mvvm:EventCommandBehavior.Command="{Binding DataContext.AnnotationToolSelectionChangedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                        mvvm:EventCommandBehavior.CommandParameter="{Binding}"
                         ToolTip="{Binding ToolTip}">
                 <iconPacks:PackIconMaterial x:Name="ToolIcon"
                                             Kind="{Binding IconKind}"
@@ -279,12 +333,294 @@
                 </Grid>
             </Border>
         </DataTemplate>
+
+        <DataTemplate x:Key="YoloTrainingProgressChipTemplate">
+            <Border x:Name="YoloTrainingProgressChip"
+                    AutomationProperties.AutomationId="{Binding Order, StringFormat=YoloTrainingProgressChip{0}}"
+                    AutomationProperties.Name="{Binding Title}"
+                    AutomationProperties.HelpText="{Binding ResultText}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="4,3"
+                    Width="86"
+                    MinHeight="28"
+                    Margin="0,0,5,4"
+                    Cursor="Hand"
+                    mvvm:EventCommandBehavior.EventName="MouseLeftButtonUp"
+                    mvvm:EventCommandBehavior.Command="{Binding DataContext.YoloTrainingWorkflowStepCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                    mvvm:EventCommandBehavior.CommandParameter="{Binding}"
+                    ToolTip="{Binding ResultText}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                        <Border Width="17"
+                                Height="17"
+                                Background="{DynamicResource AccentBrush}"
+                                CornerRadius="8"
+                                Margin="0,0,4,0">
+                            <TextBlock Text="{Binding Order}"
+                                       Foreground="White"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center" />
+                        </Border>
+                        <TextBlock Text="{Binding Title}"
+                                   Grid.Column="1"
+                                   AutomationProperties.AutomationId="{Binding Order, StringFormat=YoloTrainingProgressChipTitle{0}}"
+                                   AutomationProperties.Name="{Binding Title}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="8.5"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis"
+                                   VerticalAlignment="Center" />
+                    <StackPanel Grid.Column="2"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Margin="3,0,0,0">
+                        <iconPacks:PackIconMaterial Kind="{Binding StateIconKind}"
+                                                     Width="10"
+                                                     Height="10"
+                                                     Margin="0,1,0,0"
+                                                     Foreground="{DynamicResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding StateText}"
+                                   Visibility="Collapsed"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="8"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Grid>
+                <Border.Style>
+                    <Style TargetType="Border">
+                        <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+                        <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding IsCompleted}" Value="True">
+                                <Setter Property="Background" Value="#1E3A2A" />
+                                <Setter Property="BorderBrush" Value="#2FB36D" />
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </Border.Style>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="DatasetDashboardMetricTemplate">
+            <Button x:Name="DatasetDashboardMetricCard"
+                    Style="{StaticResource LearningWorkflowMetricButtonStyle}"
+                    AutomationProperties.AutomationId="{Binding ActionKind, StringFormat=DatasetDashboardMetricCard{0}}"
+                    AutomationProperties.Name="{Binding Title}"
+                    AutomationProperties.HelpText="{Binding Detail}"
+                    Command="{Binding DataContext.DatasetDashboardMetricCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding .}"
+                    ToolTip="{Binding Detail}">
+                <StackPanel>
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconMaterial Kind="{Binding IconKind}"
+                                                    Width="9"
+                                                    Height="9"
+                                                    Margin="0,1,2,0"
+                                                    Foreground="{DynamicResource SecondaryTextBrush}" />
+                        <TextBlock Text="{Binding Title}"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="8"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                    <TextBlock Text="{Binding Value}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                                FontSize="11"
+                               FontWeight="SemiBold"
+                                Margin="0,1,0,0"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="{Binding StateText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                                FontSize="8"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Button>
+        </DataTemplate>
+
+        <DataTemplate x:Key="YoloDatasetStructureItemTemplate">
+            <DockPanel Margin="0,0,0,3"
+                       ToolTip="{Binding Detail}">
+                <iconPacks:PackIconMaterial Kind="{Binding IconKind}"
+                                            Width="12"
+                                            Height="12"
+                                            Foreground="{DynamicResource AccentBrush}"
+                                            Margin="0,1,5,0"
+                                            VerticalAlignment="Top" />
+                <TextBlock Text="{Binding Title}"
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="9"
+                           FontWeight="SemiBold"
+                           Width="54"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock Text="{Binding Value}"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="9"
+                           TextWrapping="NoWrap"
+                           TextTrimming="CharacterEllipsis" />
+            </DockPanel>
+        </DataTemplate>
     </UserControl.Resources>
 
     <ScrollViewer x:Name="LearningWorkflowScrollViewer"
+                  AutomationProperties.AutomationId="LearningWorkflowScrollViewer"
                   VerticalScrollBarVisibility="Auto"
                   HorizontalScrollBarVisibility="Disabled">
         <StackPanel Margin="10">
+            <TextBlock x:Name="DatasetPurposeHeaderText"
+                       Text="&#xB370;&#xC774;&#xD130;&#xC14B; &#xBAA9;&#xC801;"
+                       Style="{StaticResource LearningWorkflowCaptionStyle}"
+                       Margin="0,0,0,4" />
+            <ListBox x:Name="DatasetPurposeListBox"
+                     Style="{StaticResource LearningWorkflowListBoxStyle}"
+                     ItemContainerStyle="{StaticResource LearningWorkflowItemStyle}"
+                     ItemTemplate="{StaticResource LearningWorkflowItemTemplate}"
+                     ItemsSource="{Binding DatasetPurposeModes}"
+                     SelectedItem="{Binding SelectedDatasetPurposeMode, Mode=TwoWay}"
+                     mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding DatasetPurposeSelectionChangedCommand}"
+                     Margin="0,0,0,6">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+            </ListBox>
+            <TextBlock x:Name="DatasetPurposeSummaryText"
+                       Text="{Binding DatasetPurposeSummaryText}"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       FontFamily="Segoe UI"
+                       FontSize="11"
+                       TextWrapping="Wrap"
+                       Margin="0,-3,0,3" />
+            <TextBlock x:Name="DatasetPurposeToolSummaryText"
+                       Text="{Binding DatasetPurposeToolSummaryText}"
+                       Foreground="{DynamicResource SecondaryTextBrush}"
+                       FontFamily="Segoe UI"
+                       FontSize="10"
+                       TextWrapping="Wrap"
+                       Margin="0,0,0,6" />
+            <Border x:Name="DatasetSetupActionPanel"
+                    Background="{DynamicResource CanvasBrush}"
+                    BorderBrush="{DynamicResource AccentBrush}"
+                    BorderThickness="1"
+                    CornerRadius="5"
+                    Padding="9"
+                    Margin="0,0,0,10">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0"
+                                Margin="0,0,8,0">
+                        <TextBlock Text="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC900;&#xBE44;"
+                                   Style="{StaticResource LearningWorkflowCaptionStyle}" />
+                        <TextBlock x:Name="DatasetSetupFirstActionText"
+                                   Text="{Binding DatasetSetupFirstActionText}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,4" />
+                        <TextBlock x:Name="DatasetSetupStatusText"
+                                   Text="{Binding DatasetSetupStatusText}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap"
+                                   Margin="0,3,0,0" />
+                    </StackPanel>
+                    <Button x:Name="DatasetSetupStartButton"
+                            Grid.Column="1"
+                            Style="{StaticResource LearningWorkflowMiniButtonStyle}"
+                            AutomationProperties.AutomationId="DatasetSetupStartButton"
+                            AutomationProperties.Name="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC0DD;&#xC131; &#xC2DC;&#xC791;"
+                            Command="{Binding DatasetSetupStartCommand}"
+                            CommandParameter="{Binding SelectedDatasetPurposeMode}">
+                        <StackPanel Orientation="Horizontal"
+                                    VerticalAlignment="Center">
+                            <iconPacks:PackIconMaterial Kind="FolderPlusOutline"
+                                                        Width="14"
+                                                        Height="14"
+                                                        Margin="0,0,4,0"
+                                                        VerticalAlignment="Center" />
+                            <TextBlock x:Name="DatasetSetupStartButtonText"
+                                       Text="{Binding DatasetSetupActionText}" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
+            </Border>
+            <Border x:Name="YoloDatasetStructurePanel"
+                    AutomationProperties.AutomationId="YoloDatasetStructurePanel"
+                    Background="{DynamicResource PanelBrush}"
+                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="6"
+                    Margin="0,0,0,8">
+                <StackPanel>
+                    <DockPanel LastChildFill="True">
+                        <TextBlock x:Name="YoloDatasetStructureTitleText"
+                                   AutomationProperties.AutomationId="YoloDatasetStructureTitleText"
+                                   Text="{Binding YoloDatasetStructureTitleText}"
+                                   Style="{StaticResource LearningWorkflowCaptionStyle}"
+                                   Margin="0,0,5,1" />
+                        <TextBlock x:Name="YoloDatasetStructureSummaryText"
+                                   AutomationProperties.AutomationId="YoloDatasetStructureSummaryText"
+                                   Text="{Binding YoloDatasetStructureSummaryText}"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="8"
+                                   TextWrapping="NoWrap"
+                                   TextTrimming="CharacterEllipsis" />
+                    </DockPanel>
+                    <ItemsControl x:Name="YoloDatasetStructureItemsControl"
+                                  AutomationProperties.AutomationId="YoloDatasetStructureItemsControl"
+                                  ItemsSource="{Binding YoloDatasetStructureItems}"
+                                  ItemTemplate="{StaticResource YoloDatasetStructureItemTemplate}"
+                                  Margin="0,2,0,0" />
+                    <TextBlock x:Name="YoloDatasetPairSummaryText"
+                               AutomationProperties.AutomationId="YoloDatasetPairSummaryText"
+                               Text="{Binding YoloDatasetPairSummaryText}"
+                               Foreground="{DynamicResource AccentBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="8"
+                               FontWeight="SemiBold"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="0,1,0,0" />
+                </StackPanel>
+            </Border>
+            <TextBlock x:Name="ObjectDetectionMvpNextActionText"
+                       AutomationProperties.AutomationId="ObjectDetectionMvpNextActionText"
+                       Text="{Binding ObjectDetectionMvpNextActionText}"
+                       Foreground="{DynamicResource PrimaryTextBrush}"
+                       FontFamily="Segoe UI"
+                       FontSize="10"
+                       FontWeight="SemiBold"
+                       TextWrapping="Wrap"
+                       LineHeight="13"
+                       MaxHeight="28"
+                       TextTrimming="CharacterEllipsis"
+                       Margin="0,-2,0,8" />
             <Border x:Name="CurrentWorkflowStepPanel"
                     Background="{DynamicResource CanvasBrush}"
                     BorderBrush="{DynamicResource AccentBrush}"
@@ -322,6 +658,14 @@
                                    FontSize="12"
                                    FontWeight="SemiBold"
                                    TextWrapping="Wrap" />
+                        <TextBlock x:Name="CurrentWorkflowActionText"
+                                   Text="{Binding CurrentWorkflowActionText}"
+                                   Foreground="{DynamicResource AccentBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   Margin="0,4,0,0"
+                                   TextWrapping="Wrap" />
                         <TextBlock x:Name="CurrentToolHintText"
                                    Text="{Binding ToolDetailText}"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
@@ -331,6 +675,226 @@
                                    TextWrapping="Wrap" />
                     </StackPanel>
                 </Grid>
+            </Border>
+
+            <!-- Keep the next training step near the top so a new operator sees what to do before the longer tutorial content. -->
+            <Border x:Name="YoloCurrentTrainingActionPanel"
+                    Background="{DynamicResource CanvasBrush}"
+                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    BorderThickness="1"
+                    CornerRadius="5"
+                    Padding="7"
+                    Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="&#xB2E4;&#xC74C; &#xC791;&#xC5C5;"
+                               Style="{StaticResource LearningWorkflowCaptionStyle}" />
+                    <TextBlock x:Name="YoloCurrentTrainingResultComparisonText"
+                               AutomationProperties.AutomationId="YoloCurrentTrainingResultComparisonText"
+                               Text="{Binding TrainingResultComparisonSummaryText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="9"
+                               FontWeight="SemiBold"
+                               Margin="0,1,0,0"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="&#xC644;&#xB8CC; &#xCCB4;&#xD06C;"
+                               Style="{StaticResource LearningWorkflowCaptionStyle}"
+                               Margin="0,3,0,2" />
+                    <ItemsControl x:Name="YoloCurrentTrainingProgressItemsControl"
+                                  AutomationProperties.AutomationId="YoloCurrentTrainingProgressItemsControl"
+                                  ItemsSource="{Binding YoloTrainingWorkflowSteps}"
+                                  ItemTemplate="{StaticResource YoloTrainingProgressChipTemplate}"
+                                  Margin="0,0,0,3">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                    <Border x:Name="DatasetStatusDashboardPanel"
+                            AutomationProperties.AutomationId="DatasetStatusDashboardPanel"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource BorderBrushDark}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="5"
+                            Margin="0,2,0,0">
+                        <StackPanel>
+                            <DockPanel LastChildFill="True">
+                                <TextBlock Text="&#xC9C4;&#xB2E8;"
+                                           Style="{StaticResource LearningWorkflowCaptionStyle}"
+                                           Margin="0,0,5,0" />
+                                <TextBlock x:Name="DatasetDashboardStatusText"
+                                           AutomationProperties.AutomationId="DatasetDashboardStatusText"
+                                           Text="{Binding DatasetDashboardStatusText}"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="9"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="NoWrap"
+                                           TextTrimming="CharacterEllipsis" />
+                            </DockPanel>
+                            <TextBlock x:Name="DatasetDashboardSummaryText"
+                                       AutomationProperties.AutomationId="DatasetDashboardSummaryText"
+                                       Text="{Binding DatasetDashboardSummaryText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="8"
+                                       TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       Margin="0,0,0,2" />
+                            <!-- Keep the immediate operator action above diagnostics so first-time object-labeling users do not have to infer the next step from metric cards. -->
+                            <Border x:Name="DatasetDashboardPrimaryActionPanel"
+                                    AutomationProperties.AutomationId="DatasetDashboardPrimaryActionPanel"
+                                    Background="{DynamicResource CanvasBrush}"
+                                    BorderBrush="{DynamicResource AccentBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="4"
+                                    Padding="5,3"
+                                    Margin="0,1,0,3">
+                                <Border.Style>
+                                    <Style TargetType="{x:Type Border}">
+                                        <Setter Property="Visibility" Value="Visible" />
+                                        <Style.Triggers>
+                                            <DataTrigger Binding="{Binding DatasetDashboardActionText}" Value="">
+                                                <Setter Property="Visibility" Value="Collapsed" />
+                                            </DataTrigger>
+                                        </Style.Triggers>
+                                    </Style>
+                                </Border.Style>
+                                <DockPanel LastChildFill="True">
+                                    <iconPacks:PackIconMaterial Kind="ArrowRightBoldCircleOutline"
+                                                                Width="12"
+                                                                Height="12"
+                                                                Foreground="{DynamicResource AccentBrush}"
+                                                                Margin="0,0,5,0"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock x:Name="DatasetDashboardActionText"
+                                               AutomationProperties.AutomationId="DatasetDashboardActionText"
+                                               Text="{Binding DatasetDashboardActionText}"
+                                               Foreground="{DynamicResource AccentBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="9"
+                                               FontWeight="SemiBold"
+                                               TextWrapping="NoWrap"
+                                               TextTrimming="CharacterEllipsis" />
+                                </DockPanel>
+                            </Border>
+                            <StackPanel x:Name="ModelReplacementReadinessPanel"
+                                        AutomationProperties.AutomationId="ModelReplacementReadinessPanel"
+                                        Margin="0,0,0,2">
+                                <TextBlock x:Name="ModelReplacementStatusText"
+                                           AutomationProperties.AutomationId="ModelReplacementStatusText"
+                                           Text="{Binding ModelReplacementStatusText}"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="8"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="NoWrap"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="ModelReplacementDetailText"
+                                           AutomationProperties.AutomationId="ModelReplacementDetailText"
+                                           Text="{Binding ModelReplacementDetailText}"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="8"
+                                           TextWrapping="NoWrap"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                            <ItemsControl x:Name="DatasetDashboardMetricItemsControl"
+                                          AutomationProperties.AutomationId="DatasetDashboardMetricItemsControl"
+                                          ItemsSource="{Binding DatasetDashboardMetrics}"
+                                          ItemTemplate="{StaticResource DatasetDashboardMetricTemplate}">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                            </ItemsControl>
+                            <ItemsControl x:Name="DatasetDashboardIssueItemsControl"
+                                          AutomationProperties.AutomationId="DatasetDashboardIssueItemsControl"
+                                          ItemsSource="{Binding DatasetDashboardIssueItems}"
+                                          MaxHeight="14"
+                                          ClipToBounds="True">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <TextBlock Text="{Binding}"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="8"
+                                                   TextWrapping="NoWrap"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Margin="0" />
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                    <Grid x:Name="YoloCurrentTrainingStepPanel"
+                          Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0"
+                                    Margin="0,0,8,0">
+                            <TextBlock x:Name="YoloCurrentTrainingStepTitleText"
+                                       Text="{Binding CurrentYoloTrainingStepTitleText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="YoloCurrentTrainingStepDetailText"
+                                       Text="{Binding CurrentYoloTrainingStepDetailText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       Margin="0,2,0,0"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                        <Button x:Name="YoloCurrentTrainingStepActionButton"
+                                Grid.Column="1"
+                                Style="{StaticResource LearningWorkflowMiniButtonStyle}"
+                                AutomationProperties.AutomationId="YoloCurrentTrainingStepActionButton"
+                                AutomationProperties.Name="{Binding CurrentYoloTrainingActionText}"
+                                IsEnabled="{Binding HasCurrentYoloTrainingStep}"
+                                Command="{Binding YoloTrainingWorkflowStepCommand}"
+                                CommandParameter="{Binding CurrentYoloTrainingStep}">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="ArrowRightBoldCircleOutline" Width="12" Height="12" Margin="0,0,4,0" />
+                                <TextBlock Text="{Binding CurrentYoloTrainingActionText}" FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold" />
+                            </StackPanel>
+                        </Button>
+                    </Grid>
+                    <Border x:Name="YoloCurrentTrainingChecklistPanel"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource BorderBrushDark}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="7"
+                            Margin="0,7,0,0">
+                        <StackPanel>
+                            <TextBlock x:Name="YoloCurrentTrainingChecklistStatusText"
+                                       AutomationProperties.AutomationId="YoloCurrentTrainingChecklistStatusText"
+                                       Text="{Binding TrainingChecklistStatusText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="YoloCurrentTrainingChecklistDetailText"
+                                       AutomationProperties.AutomationId="YoloCurrentTrainingChecklistDetailText"
+                                       Text="{Binding TrainingChecklistDetailText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       Margin="0,3,0,0"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
             </Border>
 
             <TextBlock x:Name="LearningStepHeaderText"
@@ -512,7 +1076,7 @@
                     Padding="9"
                     Margin="0,0,0,10">
                 <StackPanel>
-                    <TextBlock Text="YOLOv5 &#xD559;&#xC2B5; &#xC21C;&#xC11C;"
+                    <TextBlock Text="YOLO &#xD559;&#xC2B5; &#xC21C;&#xC11C;"
                                Style="{StaticResource LearningWorkflowCaptionStyle}" />
                     <TextBlock x:Name="YoloTrainingWorkflowSummaryText"
                                Text="{Binding TrainingWorkflowSummaryText}"
@@ -555,6 +1119,103 @@
                                        FontSize="10"
                                        Margin="0,4,0,0"
                                        TextWrapping="Wrap" />
+                            <Border x:Name="YoloTrainingResultComparisonPanel"
+                                    Background="{DynamicResource ToolbarButtonBrush}"
+                                    BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="4"
+                                    Padding="6"
+                                    Margin="0,5,0,0">
+                                <StackPanel>
+                                    <TextBlock x:Name="YoloTrainingResultComparisonTitleText"
+                                               Text="&#xD559;&#xC2B5; &#xACB0;&#xACFC; &#xBE44;&#xAD50;"
+                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="10"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock x:Name="YoloTrainingModelAdoptionDecisionText"
+                                               AutomationProperties.AutomationId="YoloTrainingModelAdoptionDecisionText"
+                                               Text="{Binding TrainingModelAdoptionDecisionText}"
+                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="10"
+                                               FontWeight="SemiBold"
+                                               Margin="0,3,0,0"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock x:Name="YoloTrainingResultComparisonText"
+                                               Text="{Binding TrainingResultComparisonText}"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="10"
+                                               Margin="0,3,0,0"
+                                               TextWrapping="Wrap" />
+                                    <ItemsControl x:Name="YoloTrainingResultReportItemsControl"
+                                                  AutomationProperties.AutomationId="YoloTrainingResultReportItemsControl"
+                                                  ItemsSource="{Binding TrainingResultReportItems}"
+                                                  Margin="0,5,0,0">
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate>
+                                                <Grid Margin="0,0,0,4">
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="18" />
+                                                        <ColumnDefinition Width="42" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <iconPacks:PackIconMaterial Kind="{Binding IconKind}"
+                                                                                Width="13"
+                                                                                Height="13"
+                                                                                Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                                Margin="0,2,4,0"
+                                                                                VerticalAlignment="Top" />
+                                                    <TextBlock Grid.Column="1"
+                                                               Text="{Binding Title}"
+                                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                                               FontFamily="Segoe UI"
+                                                               FontSize="9"
+                                                               FontWeight="SemiBold"
+                                                               TextTrimming="CharacterEllipsis" />
+                                                    <StackPanel Grid.Column="2">
+                                                        <TextBlock Text="{Binding Value}"
+                                                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                   FontFamily="Segoe UI"
+                                                                   FontSize="9"
+                                                                   FontWeight="SemiBold"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding Detail}"
+                                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                   FontFamily="Segoe UI"
+                                                                   FontSize="8"
+                                                                   TextWrapping="NoWrap"
+                                                                   TextTrimming="CharacterEllipsis" />
+                                                    </StackPanel>
+                                                </Grid>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                    <TextBlock x:Name="YoloModelComparisonBasisText"
+                                               AutomationProperties.AutomationId="YoloModelComparisonBasisText"
+                                               Text="{Binding ModelComparisonBasisText}"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="9"
+                                               FontWeight="SemiBold"
+                                               Margin="0,2,0,0"
+                                               TextWrapping="Wrap" />
+                                    <WrapPanel Margin="0,3,0,0">
+                                        <Button x:Name="YoloRunModelComparisonButton"
+                                                AutomationProperties.AutomationId="YoloRunModelComparisonButton"
+                                                Style="{StaticResource LearningWorkflowMiniButtonStyle}"
+                                                ToolTip="{Binding RunModelComparisonToolTipText}"
+                                                IsEnabled="{Binding IsRunModelComparisonEnabled}"
+                                                Command="{Binding RunModelComparisonCommand}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconMaterial Kind="SwapHorizontal" Width="12" Height="12" Margin="0,0,4,0" />
+                                                <TextBlock Text="{Binding RunModelComparisonActionText}" FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold" />
+                                            </StackPanel>
+                                        </Button>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
                             <ItemsControl x:Name="YoloTrainingRunHistoryItemsControl"
                                           ItemsSource="{Binding TrainingRunHistoryItems}"
                                           Margin="0,4,0,0">

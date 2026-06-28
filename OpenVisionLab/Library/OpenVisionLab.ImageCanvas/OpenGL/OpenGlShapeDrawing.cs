@@ -495,9 +495,18 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 		public static void DrawShape(OpenGL gl, CanvasShape shape, System.Drawing.Color color, bool isDotted, bool isFill, float lineWidth = 1.0f)
 		{
 			CanvasRect<float> canvasRect = shape as CanvasRect<float>;
+			var array = shape.ShapePoints.ToArray();
+			if (canvasRect != null
+				&& canvasRect.ShapeKind == CanvasRoiShapeKind.Rectangle
+				&& !canvasRect.IsEmpty()
+				&& !isDotted
+				&& array.Length >= 4)
+			{
+				DrawReadableLabelRectangle(gl, array.Select(point => new PointF(point.X, point.Y)).ToArray(), color, lineWidth, isFill || canvasRect.IsFill);
+				return;
+			}
 
 			SetShapeColorAndStyle(gl, shape, color, isDotted, lineWidth);
-			var array = shape.ShapePoints.ToArray();
 
 			gl.Begin(OpenGL.GL_LINE_LOOP);
 			for (int i = 0; i < array.Length; ++i)
@@ -512,6 +521,55 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				//{
 				//	gl.Vertex(array[0].X, array[0].Y);
 				//}
+			}
+			gl.End();
+		}
+
+		private static void DrawReadableLabelRectangle(OpenGL gl, IReadOnlyList<PointF> points, System.Drawing.Color color, float lineWidth, bool isFill)
+		{
+			float[] classColorRgb = new float[]
+			{
+				color.R / 255.0f,
+				color.G / 255.0f,
+				color.B / 255.0f
+			};
+			float mainLineWidth = Math.Max(2.5f, lineWidth + 1.0f);
+			float haloLineWidth = mainLineWidth + 3.0f;
+			float tintAlpha = isFill ? 0.18f : 0.12f;
+			float lineAlpha = Math.Max(0.90f, color.A / 255.0f);
+
+			gl.PushAttrib(OpenGL.GL_ENABLE_BIT | OpenGL.GL_LINE_BIT | OpenGL.GL_CURRENT_BIT | OpenGL.GL_COLOR_BUFFER_BIT);
+			try
+			{
+				gl.Disable(OpenGL.GL_TEXTURE_2D);
+				gl.Disable(OpenGL.GL_LINE_STIPPLE);
+				gl.Enable(OpenGL.GL_BLEND);
+				gl.BlendFunc(OpenGL.GL_SRC_ALPHA, OpenGL.GL_ONE_MINUS_SRC_ALPHA);
+
+				// Label rectangles are semantic objects. Keep the class color, but add
+				// non-geometric contrast so green boxes remain readable on real images.
+				DrawFilledPointFPolygon(gl, points, classColorRgb, tintAlpha);
+				DrawSolidLineLoop(gl, points, haloLineWidth, new float[] { 0f, 0f, 0f }, 0.62f);
+				DrawSolidLineLoop(gl, points, mainLineWidth, classColorRgb, lineAlpha);
+			}
+			finally
+			{
+				gl.PopAttrib();
+			}
+		}
+
+		private static void DrawFilledPointFPolygon(OpenGL gl, IReadOnlyList<PointF> points, float[] colorRGB, float alpha)
+		{
+			if (points == null || points.Count < 3)
+			{
+				return;
+			}
+
+			SetGlRgb(gl, colorRGB, alpha);
+			gl.Begin(OpenGL.GL_TRIANGLE_FAN);
+			foreach (var point in points)
+			{
+				gl.Vertex(point.X, point.Y);
 			}
 			gl.End();
 		}

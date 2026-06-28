@@ -11,6 +11,7 @@ namespace MvcVisionSystem
         private string recipeName = string.Empty;
         private string selectedRecipeName = string.Empty;
         private string configPath = string.Empty;
+        private string manifestPath = string.Empty;
         private string statusText = "현재 recipe 설정 위치를 확인하세요.";
         private string recipeRootPath = string.Empty;
         private bool isApplyRecipeEnabled = true;
@@ -78,6 +79,12 @@ namespace MvcVisionSystem
         {
             get => configPath;
             private set => SetProperty(ref configPath, value ?? string.Empty);
+        }
+
+        public string ManifestPath
+        {
+            get => manifestPath;
+            private set => SetProperty(ref manifestPath, value ?? string.Empty);
         }
 
         public string StatusText
@@ -161,6 +168,7 @@ namespace MvcVisionSystem
         private void RefreshConfigPath()
         {
             ConfigPath = WpfProjectRecipeService.BuildConfigPreviewPath(recipeRootPath, RecipeName);
+            ManifestPath = WpfProjectRecipeService.BuildManifestPreviewPath(recipeRootPath, RecipeName);
         }
 
         public void ApplyWorkflowCommandState(WpfWorkflowCommandState state)

@@ -18,8 +18,10 @@ namespace MvcVisionSystem
         private static readonly Action<double> NoOpValueCommand = _ => { };
         private static readonly Action<object> NoOpSelectionCommand = _ => { };
         private static readonly Action<KeyInputCommandArgs> NoOpKeyCommand = _ => { };
+        private static readonly Action<WpfModelComparisonReviewExample> NoOpModelComparisonExampleCommand = _ => { };
         private string confidenceText = "0%";
-        private string detailText = "AI \uD6C4\uBCF4 \uC5C6\uC74C";
+        private string detailText = "\uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C";
+        private string selectedCandidateSummaryText = "\uC120\uD0DD: \uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C";
         private WpfCandidateReviewListItem selectedCandidate;
         private bool isConfirmSelectedEnabled;
         private bool isConfirmAllEnabled;
@@ -27,15 +29,24 @@ namespace MvcVisionSystem
         private bool isPreviousCandidateEnabled;
         private bool isNextCandidateEnabled;
         private bool isFocusCandidateEnabled;
-        private string confirmSelectedToolTip = "\uD655\uC815\uD560 AI \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
+        private bool isFocusCurrentLabelEnabled;
+        private bool isCompleteImageAndNextEnabled;
+        private string confirmSelectedToolTip = "\uD655\uC815\uD560 \uAC80\uCD9C \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
         private string confirmAllToolTip = "\uD655\uC815 \uAC00\uB2A5\uD55C \uD45C\uC2DC \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
-        private string skipSelectedToolTip = "\uC2A4\uD0B5\uD560 AI \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
+        private string skipSelectedToolTip = "\uC2A4\uD0B5\uD560 \uAC80\uCD9C \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
+        private string focusCurrentLabelToolTip = "\uACB9\uCE58\uB294 \uAE30\uC874 \uB77C\uBCA8\uC744 \uB77C\uBCA8 \uBAA9\uB85D\uACFC \uD654\uBA74\uC5D0\uC11C \uC120\uD0DD\uD569\uB2C8\uB2E4.";
+        private string completeImageAndNextToolTip = "\uD604\uC7AC \uC774\uBBF8\uC9C0\uB97C \uC644\uB8CC\uD558\uACE0 \uB2E4\uC74C \uBBF8\uAC80\uD1A0 \uC774\uBBF8\uC9C0\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4.";
         private Visibility comparisonVisibility = Visibility.Collapsed;
         private string comparisonCandidateText = "-";
         private string comparisonCurrentText = "-";
-        private string comparisonOverlapText = "IoU\n0%";
+        private string comparisonOverlapText = "\uACB9\uCE68\n0%";
+        private string comparisonDecisionText = string.Empty;
         private string postActionPolicyText = string.Empty;
         private Visibility reviewHistoryVisibility = Visibility.Collapsed;
+        private Visibility modelComparisonVisibility = Visibility.Collapsed;
+        private string modelComparisonStatusText = string.Empty;
+        private string modelComparisonDetailText = string.Empty;
+        private string modelComparisonActionText = string.Empty;
         private bool isComparisonHighOverlap;
         private ICommand confidenceChangedCommand = new RelayCommand<double>(NoOpValueCommand);
         private ICommand confirmSelectedCommand = new RelayCommand(NoOpCommand);
@@ -44,6 +55,9 @@ namespace MvcVisionSystem
         private ICommand previousCandidateCommand = new RelayCommand(NoOpCommand);
         private ICommand nextCandidateCommand = new RelayCommand(NoOpCommand);
         private ICommand focusCandidateCommand = new RelayCommand(NoOpCommand);
+        private ICommand focusCurrentLabelCommand = new RelayCommand(NoOpCommand);
+        private ICommand completeImageAndNextCommand = new RelayCommand(NoOpCommand);
+        private ICommand modelComparisonExampleCommand = new RelayCommand<WpfModelComparisonReviewExample>(NoOpModelComparisonExampleCommand);
         private ICommand candidateSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand candidatePreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(NoOpKeyCommand);
 
@@ -52,6 +66,8 @@ namespace MvcVisionSystem
         public WpfBulkObservableCollection<WpfCandidateReviewListItem> Candidates { get; } = new WpfBulkObservableCollection<WpfCandidateReviewListItem>();
 
         public ObservableCollection<string> ReviewHistory { get; } = new ObservableCollection<string>();
+
+        public ObservableCollection<WpfModelComparisonReviewExample> ModelComparisonExamples { get; } = new ObservableCollection<WpfModelComparisonReviewExample>();
 
         public WpfCandidateReviewPanelViewModel()
         {
@@ -100,6 +116,24 @@ namespace MvcVisionSystem
             private set => SetProperty(ref focusCandidateCommand, value);
         }
 
+        public ICommand FocusCurrentLabelCommand
+        {
+            get => focusCurrentLabelCommand;
+            private set => SetProperty(ref focusCurrentLabelCommand, value);
+        }
+
+        public ICommand CompleteImageAndNextCommand
+        {
+            get => completeImageAndNextCommand;
+            private set => SetProperty(ref completeImageAndNextCommand, value);
+        }
+
+        public ICommand ModelComparisonExampleCommand
+        {
+            get => modelComparisonExampleCommand;
+            private set => SetProperty(ref modelComparisonExampleCommand, value);
+        }
+
         public ICommand CandidateSelectionChangedCommand
         {
             get => candidateSelectionChangedCommand;
@@ -122,6 +156,12 @@ namespace MvcVisionSystem
         {
             get => detailText;
             set => SetProperty(ref detailText, value ?? string.Empty);
+        }
+
+        public string SelectedCandidateSummaryText
+        {
+            get => selectedCandidateSummaryText;
+            private set => SetProperty(ref selectedCandidateSummaryText, value ?? string.Empty);
         }
 
         public WpfCandidateReviewListItem SelectedCandidate
@@ -166,6 +206,18 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isFocusCandidateEnabled, value);
         }
 
+        public bool IsFocusCurrentLabelEnabled
+        {
+            get => isFocusCurrentLabelEnabled;
+            private set => SetProperty(ref isFocusCurrentLabelEnabled, value);
+        }
+
+        public bool IsCompleteImageAndNextEnabled
+        {
+            get => isCompleteImageAndNextEnabled;
+            private set => SetProperty(ref isCompleteImageAndNextEnabled, value);
+        }
+
         public string ConfirmSelectedToolTip
         {
             get => confirmSelectedToolTip;
@@ -182,6 +234,18 @@ namespace MvcVisionSystem
         {
             get => skipSelectedToolTip;
             private set => SetProperty(ref skipSelectedToolTip, value ?? string.Empty);
+        }
+
+        public string FocusCurrentLabelToolTip
+        {
+            get => focusCurrentLabelToolTip;
+            private set => SetProperty(ref focusCurrentLabelToolTip, value ?? string.Empty);
+        }
+
+        public string CompleteImageAndNextToolTip
+        {
+            get => completeImageAndNextToolTip;
+            private set => SetProperty(ref completeImageAndNextToolTip, value ?? string.Empty);
         }
 
         public Visibility ComparisonVisibility
@@ -208,6 +272,12 @@ namespace MvcVisionSystem
             private set => SetProperty(ref comparisonOverlapText, value ?? string.Empty);
         }
 
+        public string ComparisonDecisionText
+        {
+            get => comparisonDecisionText;
+            private set => SetProperty(ref comparisonDecisionText, value ?? string.Empty);
+        }
+
         public bool IsComparisonHighOverlap
         {
             get => isComparisonHighOverlap;
@@ -226,6 +296,30 @@ namespace MvcVisionSystem
             private set => SetProperty(ref reviewHistoryVisibility, value);
         }
 
+        public Visibility ModelComparisonVisibility
+        {
+            get => modelComparisonVisibility;
+            private set => SetProperty(ref modelComparisonVisibility, value);
+        }
+
+        public string ModelComparisonStatusText
+        {
+            get => modelComparisonStatusText;
+            private set => SetProperty(ref modelComparisonStatusText, value ?? string.Empty);
+        }
+
+        public string ModelComparisonDetailText
+        {
+            get => modelComparisonDetailText;
+            private set => SetProperty(ref modelComparisonDetailText, value ?? string.Empty);
+        }
+
+        public string ModelComparisonActionText
+        {
+            get => modelComparisonActionText;
+            private set => SetProperty(ref modelComparisonActionText, value ?? string.Empty);
+        }
+
         public void ConfigureCommands(
             Action<double> confidenceChanged,
             Action confirmSelected,
@@ -234,8 +328,11 @@ namespace MvcVisionSystem
             Action previousCandidate,
             Action nextCandidate,
             Action focusCandidate,
+            Action focusCurrentLabel,
             Action<object> candidateSelectionChanged,
-            Action<KeyInputCommandArgs> candidatePreviewKeyDown)
+            Action<KeyInputCommandArgs> candidatePreviewKeyDown,
+            Action completeImageAndNext = null,
+            Action<WpfModelComparisonReviewExample> openModelComparisonExample = null)
         {
             // Candidate review stays virtualized; commands keep the view declarative while shell owns workflow state.
             ConfidenceChangedCommand = new RelayCommand<double>(confidenceChanged ?? NoOpValueCommand);
@@ -245,8 +342,11 @@ namespace MvcVisionSystem
             PreviousCandidateCommand = new RelayCommand(previousCandidate ?? NoOpCommand);
             NextCandidateCommand = new RelayCommand(nextCandidate ?? NoOpCommand);
             FocusCandidateCommand = new RelayCommand(focusCandidate ?? NoOpCommand);
+            FocusCurrentLabelCommand = new RelayCommand(focusCurrentLabel ?? NoOpCommand);
             CandidateSelectionChangedCommand = new RelayCommand<object>(candidateSelectionChanged ?? NoOpSelectionCommand);
             CandidatePreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(candidatePreviewKeyDown ?? NoOpKeyCommand);
+            CompleteImageAndNextCommand = new RelayCommand(completeImageAndNext ?? NoOpCommand);
+            ModelComparisonExampleCommand = new RelayCommand<WpfModelComparisonReviewExample>(openModelComparisonExample ?? NoOpModelComparisonExampleCommand);
         }
 
         public void SetCandidates(IEnumerable<WpfCandidateReviewListItem> candidates, string detail, object preferredPayload = null)
@@ -284,21 +384,40 @@ namespace MvcVisionSystem
             IsFocusCandidateEnabled = focusEnabled;
         }
 
+        public void SetCurrentLabelFocusState(bool enabled, string toolTip)
+        {
+            IsFocusCurrentLabelEnabled = enabled;
+            FocusCurrentLabelToolTip = toolTip;
+        }
+
+        public void SetCompletionState(bool enabled, string toolTip)
+        {
+            IsCompleteImageAndNextEnabled = enabled;
+            CompleteImageAndNextToolTip = toolTip;
+        }
+
         public void ClearComparison()
         {
             ComparisonVisibility = Visibility.Collapsed;
             ComparisonCandidateText = "-";
             ComparisonCurrentText = "-";
-            ComparisonOverlapText = "IoU\n0%";
+            ComparisonOverlapText = "\uACB9\uCE68\n0%";
+            ComparisonDecisionText = string.Empty;
+            SelectedCandidateSummaryText = "\uC120\uD0DD: \uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C";
             IsComparisonHighOverlap = false;
         }
 
         public void SetComparison(WpfCandidateComparisonPresentation presentation)
         {
+            // Keep comparison guidance with the presentation payload so future view changes do not rebuild workflow text in code-behind.
             ComparisonVisibility = Visibility.Visible;
             ComparisonCandidateText = presentation.CandidateText;
             ComparisonCurrentText = presentation.CurrentText;
             ComparisonOverlapText = presentation.OverlapText;
+            ComparisonDecisionText = presentation.DecisionText;
+            SelectedCandidateSummaryText = string.IsNullOrWhiteSpace(presentation.SelectionSummaryText)
+                ? SelectedCandidate?.Title ?? "\uC120\uD0DD: \uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C"
+                : presentation.SelectionSummaryText;
             IsComparisonHighOverlap = presentation.IsHighOverlap;
         }
 
@@ -319,6 +438,64 @@ namespace MvcVisionSystem
         {
             ReviewHistory.Clear();
             ReviewHistoryVisibility = Visibility.Collapsed;
+        }
+
+        public void ClearModelComparisonReview()
+        {
+            ModelComparisonStatusText = string.Empty;
+            ModelComparisonDetailText = string.Empty;
+            ModelComparisonActionText = string.Empty;
+            ModelComparisonExamples.Clear();
+            ModelComparisonVisibility = Visibility.Collapsed;
+        }
+
+        public void SetModelComparisonReview(WpfModelComparisonReviewReport report)
+        {
+            ModelComparisonExamples.Clear();
+            if (report?.HasComparison != true)
+            {
+                ClearModelComparisonReview();
+                return;
+            }
+
+            ModelComparisonStatusText = report.SummaryText;
+            ModelComparisonDetailText = string.IsNullOrWhiteSpace(report.SourcePath)
+                ? report.DetailText
+                : $"{report.DetailText} / {System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(report.SourcePath) ?? report.SourcePath)}";
+            ModelComparisonActionText = (report.Examples?.Count ?? 0) > 0
+                ? "\uB2E4\uC74C: \uC544\uB798 \uC608\uC2DC\uB97C \uD074\uB9AD\uD574 \uC774\uBBF8\uC9C0 \uC704\uCE58\uB97C \uD655\uC778\uD55C \uB4A4 Guide\uC758 \uAD50\uCCB4 \uD310\uB2E8\uC744 \uBCF4\uC138\uC694."
+                : "\uB2E4\uC74C: \uBAA8\uB378 \uCC28\uC774\uAC00 \uC5C6\uC73C\uBA74 \uCD5C\uC885 \uAC80\uC99D \uC774\uBBF8\uC9C0\uB97C \uB354 \uD655\uC778\uD55C \uB4A4 \uAD50\uCCB4\uB97C \uD310\uB2E8\uD558\uC138\uC694.";
+
+            foreach (WpfModelComparisonReviewExample example in report.Examples ?? Array.Empty<WpfModelComparisonReviewExample>())
+            {
+                if (example != null)
+                {
+                    ModelComparisonExamples.Add(example);
+                }
+            }
+
+            ModelComparisonVisibility = Visibility.Visible;
+        }
+
+        public void SetModelComparisonFocus(WpfModelComparisonReviewExample example, string locationText)
+        {
+            if (example == null)
+            {
+                return;
+            }
+
+            string location = string.IsNullOrWhiteSpace(locationText)
+                ? example.LocationText
+                : locationText.Trim();
+            string action = example.ActionText ?? string.Empty;
+            ModelComparisonStatusText = $"\uAC80\uD1A0 \uC608\uC2DC \uC5F4\uB9BC: {example.Title}";
+            ModelComparisonDetailText = string.IsNullOrWhiteSpace(location)
+                ? action
+                : string.IsNullOrWhiteSpace(action)
+                    ? location
+                    : $"{location} / {action}";
+            ModelComparisonActionText = "\uD655\uC778 \uD6C4: \uC774 \uC608\uC2DC\uAC00 \uC0C8 \uBAA8\uB378\uC5D0 \uC720\uB9AC\uD55C\uC9C0 \uD310\uB2E8\uD558\uACE0, Guide\uC758 \uAD50\uCCB4 \uD310\uB2E8\uC73C\uB85C \uB3CC\uC544\uAC00\uC138\uC694.";
+            ModelComparisonVisibility = Visibility.Visible;
         }
 
         public void AddReviewHistory(string message)

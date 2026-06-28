@@ -195,11 +195,9 @@ namespace OpenVisionLab.ImageCanvas.CanvasShapes
 			// The spatial lookup may search around the pointer, but selection itself must not leak outside the labeled rectangle.
 			bool isWithinBounds = IsWithinRoiBoundsForHit(x, y);
 
-			if (IsInsideRoiBody(x, y))
-			{
-				EditingType = EditingType.Move;
-			}
-			else if (isWithinBounds && Distance(x, y, Left, Top) <= cornerTolerance)
+			// Edges are checked before the body so an overlapped ROI can still be selected
+			// intentionally by clicking its outline instead of the smaller box inside it.
+			if (isWithinBounds && Distance(x, y, Left, Top) <= cornerTolerance)
 			{
 				EditingType = EditingType.LeftTop;
 			}
@@ -231,6 +229,10 @@ namespace OpenVisionLab.ImageCanvas.CanvasShapes
 			{
 				EditingType = EditingType.Bottom;
 			}
+			else if (IsInsideRoiBody(x, y))
+			{
+				EditingType = EditingType.Move;
+			}
 			else if (Contain(x, y)) { EditingType = EditingType.Move; }
 			else
 			{
@@ -252,13 +254,15 @@ namespace OpenVisionLab.ImageCanvas.CanvasShapes
 			float cornerTolerance = GetCornerHitTolerance(zoomScale, handleSize);
 			float edgeTolerance = GetEdgeHitTolerance(zoomScale, handleSize);
 			bool isWithinBounds = IsWithinRoiBoundsForHit(x, y);
-			if (IsInsideRoiBody(x, y)) return LineOverType.Move2D;
+			// Same ordering as SetEditingType: outline clicks must target the outlined ROI
+			// before any smaller overlapping body hit is considered.
 			if (isWithinBounds && Distance(x, y, Left, Top) <= cornerTolerance) return LineOverType.SizeNWSE;
 			if (isWithinBounds && Distance(x, y, Right, Bottom) <= cornerTolerance) return LineOverType.SizeNWSE;
 			if (isWithinBounds && Distance(x, y, Right, Top) <= cornerTolerance) return LineOverType.SizeNESE;
 			if (isWithinBounds && Distance(x, y, Left, Bottom) <= cornerTolerance) return LineOverType.SizeNESE;
 			if (isWithinBounds && (Math.Abs(x - Left) <= edgeTolerance || Math.Abs(x - Right) <= edgeTolerance) && IsWithinVerticalRange(y, 0.0f)) return LineOverType.VSplit;
 			if (isWithinBounds && (Math.Abs(y - Top) <= edgeTolerance || Math.Abs(y - Bottom) <= edgeTolerance) && IsWithinHorizontalRange(x, 0.0f)) return LineOverType.HSplit;
+			if (IsInsideRoiBody(x, y)) return LineOverType.Move2D;
 			return Contain(x, y) ? LineOverType.Move2D : LineOverType.None;
 		}
 

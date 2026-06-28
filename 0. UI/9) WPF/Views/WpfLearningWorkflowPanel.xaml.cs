@@ -13,6 +13,20 @@ namespace MvcVisionSystem
 
         public WpfLearningWorkflowPanelViewModel ViewModel => DataContext as WpfLearningWorkflowPanelViewModel;
 
+        public ListBox DatasetPurposeList => DatasetPurposeListBox;
+
+        public TextBlock DatasetPurposeSummary => DatasetPurposeSummaryText;
+
+        public TextBlock DatasetPurposeToolSummary => DatasetPurposeToolSummaryText;
+
+        public TextBlock DatasetSetupFirstAction => DatasetSetupFirstActionText;
+
+        public Button DatasetSetupStart => DatasetSetupStartButton;
+
+        public TextBlock DatasetSetupStatus => DatasetSetupStatusText;
+
+        public TextBlock CurrentWorkflowAction => CurrentWorkflowActionText;
+
         public ListBox ModeList => LearningModeListBox;
 
         public ListBox ToolList => AnnotationToolListBox;
@@ -29,6 +43,8 @@ namespace MvcVisionSystem
 
         public ItemsControl YoloTrainingWorkflowList => YoloTrainingWorkflowItemsControl;
 
+        public ItemsControl YoloCurrentTrainingProgressList => YoloCurrentTrainingProgressItemsControl;
+
         public TextBlock YoloTrainingWorkflowSummary => YoloTrainingWorkflowSummaryText;
 
         public TextBlock YoloTrainingChecklistStatus => YoloTrainingChecklistStatusText;
@@ -37,7 +53,31 @@ namespace MvcVisionSystem
 
         public TextBlock YoloTrainingChecklistAction => YoloTrainingChecklistActionText;
 
+        public TextBlock DatasetDashboardStatus => DatasetDashboardStatusText;
+
+        public TextBlock DatasetDashboardSummary => DatasetDashboardSummaryText;
+
+        public TextBlock DatasetDashboardAction => DatasetDashboardActionText;
+
+        public TextBlock ModelReplacementStatus => ModelReplacementStatusText;
+
+        public TextBlock ModelReplacementDetail => ModelReplacementDetailText;
+
+        public ItemsControl DatasetDashboardMetricList => DatasetDashboardMetricItemsControl;
+
+        public ItemsControl DatasetDashboardIssueList => DatasetDashboardIssueItemsControl;
+
         public TextBlock YoloTrainingHistory => YoloTrainingHistoryText;
+
+        public TextBlock YoloTrainingResultComparison => YoloTrainingResultComparisonText;
+
+        public TextBlock YoloTrainingModelAdoptionDecision => YoloTrainingModelAdoptionDecisionText;
+
+        public ItemsControl YoloTrainingResultReportList => YoloTrainingResultReportItemsControl;
+
+        public TextBlock YoloModelComparisonBasis => YoloModelComparisonBasisText;
+
+        public Button YoloRunModelComparison => YoloRunModelComparisonButton;
 
         public ItemsControl YoloTrainingRunHistoryList => YoloTrainingRunHistoryItemsControl;
 

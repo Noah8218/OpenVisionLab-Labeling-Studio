@@ -263,7 +263,7 @@ Detection candidates are removed after confirmation or skip, and the remaining c
 
 106. WPF current-image inference and image-queue inference command availability now use `WpfLabelingShellViewModel` and `WpfImageQueuePanelViewModel` bindings. Labeling mode locks inference, inference-review mode enables it, and running batch detection leaves only stop available.
 
-107. WPF canvas helper command availability now uses `WpfCanvasPanelViewModel` bindings for Fit, 1:1, Pan, selected-candidate Focus, and AI Reset.
+107. WPF canvas helper command availability now uses `WpfCanvasPanelViewModel` bindings for the visible `맞춤`, `1:1`, `이동`, selected detection-candidate focus, and candidate-clear actions.
 
 108. WPF YOLO guide fix command availability now uses `WpfLearningWorkflowPanelViewModel` bindings for class registration, label start, and dataset check actions.
 
@@ -343,6 +343,101 @@ Detection candidates are removed after confirmation or skip, and the remaining c
 
 146. Training readiness remains permissive for an empty test split so older projects still work, but the operator report now makes it clear that final model comparison needs a real test set.
 
+147. The Guide tab first-visible YOLO area now includes a compact clickable completion checklist for image loading, class registration, box labeling, dataset check, training, and inference review, so a beginner can see and enter the whole object-detection path without scrolling into the long tutorial.
+
+148. The compact YOLO completion checklist is now real-EXE verified: step chips expose per-step AutomationIds, and clicking the box-labeling chip through UIAutomation selects the box tool through the shared workflow command path.
+
+149. The Guide chip real-EXE smoke now verifies dialog-free YOLO steps 2-6: class catalog, box labeling, dataset checklist, training settings, and candidate review. Step 1 remains tied to the folder picker and belongs in dataset setup smoke coverage.
+
+150. The Guide tab now includes a dataset status dashboard driven by the same YOLO readiness report as the training checklist. It surfaces image/split/label/class/duplicate metrics and a short operator issue list, so beginners can see what blocks training without reading the long diagnostic text.
+
+151. The Guide YOLO first-visible area now keeps the completion chips and dataset status dashboard together in a compact layout. The chip command targets remain real-EXE verified, while the dashboard stays visible enough for beginners to notice readiness blockers without leaving the Guide tab.
+
+152. The Guide dataset dashboard metric cards are now real button-command shortcuts. Dialog-free real-EXE smoke verifies class catalog, box-labeling tool, and dataset-settings card navigation. The image-folder card remains outside this smoke because it opens an OS folder picker.
+
+153. The object-detection real-EXE box loop is now protected as a stable area: random multi-box drawing, Object Review row creation, ROI click selection, delete enablement, and delete-then-wheel responsiveness are verified by `--exe-roi-tools-smoke --seed 260626 --box-count 12`.
+
+154. The COCO128 real-EXE dataset setup/edit loop is now verified: the wizard creates manifest/data files, loads existing YOLO boxes, deletes a selected loaded box through Object Review, saves, draws a new box on an empty-label image, saves, and reopens the image with the new object visible.
+
+155. The Kolektor industrial object-detection preset and real-EXE labeling loop are verified: the wizard copies 317 prepared industrial images, labels 10 images with random valid boxes, saves split-aware YOLO txt files, reopens saved labels, and completes the dataset-check dashboard flow.
+
+156. The status bar now preserves the active image filename while queue summary/detail loading updates continue, so real operators and EXE smoke tests can tell which image is actually loaded on the canvas.
+
+157. The OpenGL ROI 500K viewport-render regression is fixed: spatial-index list queries now pre-size result and seen collections, and the full regression passes with ROI viewport query/rebuild both under 6 ms in the measured run.
+
+158. YOLO box annotation save now preserves the active source image extension, removes stale same-stem image siblings, and enforces one same-stem image/label pair per selected split so industrial `.jpg` datasets do not accumulate confusing `.jpeg` copies.
+
+159. The industrial object-detection real-EXE labeling loop is now extended to 30 random images. The smoke verifies 317 copied images remain 317 image artifacts after save, 30 label files are produced, duplicate image stems are 0, and selected image/label missing counts are 0.
+
+160. The image queue now exposes the next-image action as a visible `다음` icon+text button in the narrow left panel. This keeps the beginner object-labeling loop visible after save: label current image, save, then move to the next unfinished image.
+
+161. Save completion now updates the always-visible canvas workflow strip to point to the left queue `다음` button with natural `이어서 작업` wording. The beginner loop is therefore visible in-place: draw label, save, click next.
+
+162. Empty object-detection completion is now verified in the real EXE. Candidate Review keeps an `이미지 완료` action visible even when there are no 검출 후보, saves one zero-object label file, advances to the next unfinished image, and the image queue shows the reviewed image as `빈완료`/`검출없음` instead of an unknown unfinished state.
+
+163. Object-detection 실사용 UX 검증이 한 단계 확장되었습니다. The queue no-candidate quick filter now says `검출없음`, Object Review exposes stable AutomationIds for future real-EXE selection/edit/delete checks, and the industrial EXE smoke verifies a mixed loop of 12 random box labels plus 3 empty completions with split-safe artifacts and dataset check.
+
+164. Brush/eraser completion UX is now locked with verification: MouseUp immediately marks annotations as `save needed` while the OpenGL/FBO preview remains visible and CPU MaskData/history materialization stays deferred. The focused WPF mask drag, dirty-bounds, 500K hover, and real-EXE mask-tools smokes pass with measured input responsiveness.
+
+165. Dataset readiness dashboard now shows labeling progress as a first-visible metric (`completed label files / total images`) with a dedicated tool shortcut. This makes the learner path clearer: load images, create/save labels until progress is complete, then run dataset check and training.
+
+166. Training result comparison now gives a learner-readable verdict before the metric list. `results.csv` still supplies mAP/precision/recall/loss deltas, but the Guide can now say whether the latest model is better, the current model is better, tied, or undecidable.
+
+167. The real-use object-detection verification loop now passes a longer visible-EXE run: 30 random industrial box labels plus 5 empty normal completions, 317 copied images preserved, 35 label files saved, no duplicate image stems, reopen verified, and dataset check completed. Use a long timeout for this smoke because it drives the full UI.
+
+168. The status strip is now part of the top chrome instead of the bottom edge. Dataset progress, Python/model state, and annotation save state should be visible before the operator starts canvas work, while deeper logs remain in the lower log area.
+
+169. Candidate Review now shows learner-readable decision guidance inside the AI-vs-current-label comparison card. Duplicate, partially overlapping, out-of-image, and new candidates should be explained in the ViewModel-bound presentation payload instead of being rebuilt in shell code-behind.
+
+170. Candidate Review can now jump from a selected AI candidate to the overlapping current label. The `Label` action selects the matching Object Review row and moves the side panel there, so duplicate candidates can be checked or edited without hunting through the object list.
+
+171. Candidate Review current-label focus now also selects the overlapping manual ROI on the canvas. The Object Review row and OpenGL ROI edit handles should light up together, so the operator can immediately resize, move, or reclassify the existing label.
+
+172. Candidate Review `Label` now has a stable `FocusCurrentLabelButton` automation id and its regression test executes the actual bound button command. Future EXE tests should use this automation id when a repeatable candidate-producing setup is available.
+
+173. Real EXE Candidate Review focus is now verified by `--exe-candidate-focus-smoke`. The smoke applies a temporary recipe, loads a sample image, creates a manual ROI, runs a temporary YOLO smoke client, clicks `FocusCurrentLabelButton`, and confirms the overlapping Object Review row becomes selected. Current-image inference must not reload the same image before applying candidates, because that erases the user's labels and breaks duplicate/current-label comparison.
+
+174. Current-image smoke inference label preservation is now covered by `--wpf-current-image-smoke-preserve-labels`. The test creates a manual ROI, runs a temporary YOLO smoke client on the already-active image, and verifies the manual ROI remains present and usable for Candidate Review high-overlap/current-label focus.
+
+175. Candidate Review wording now distinguishes `AI candidate` from `existing label` in the comparison actions. Duplicate-candidate guidance should point operators to inspect the existing label first, then skip if it is the same object; new-candidate guidance should say confirm when correct and skip otherwise.
+
+176. `docs/CODE_STRUCTURE.md` now includes a quick reading order, current product-stage map, prioritized remaining architecture work, and completion-check commands. Future refactors should consult it together with `docs/STABLE_VERIFIED_AREAS.md` before touching verified viewer or Candidate Review paths.
+
+177. Object-detection MVP completion criteria are now documented in `docs/OBJECT_DETECTION_MVP_COMPLETION.md`. The MVP scope is project/dataset setup, image queue, box labeling, save/reopen, YOLOv5 candidate review, empty-normal completion, and readiness feedback; YOLOv8, ONNX, U-Net runtime, and anomaly detection stay outside this MVP.
+
+178. YOLOv5 training/result-comparison completion criteria are now documented in `docs/YOLOV5_TRAINING_RESULT_WORKFLOW.md`. The flow keeps Python responsible for training/runtime, keeps C# responsible for dataset/readiness/comparison state, and requires test-split comparison before replacing the active `best.pt`.
+
+179. Segmentation UX completion criteria are now documented in `docs/SEGMENTATION_UX_COMPLETION.md`. The document separates verified polygon/brush/eraser hot paths from remaining beginner-flow work and protects the OpenGL/FBO mask preview path from synchronous MouseMove/MouseUp regressions.
+
+180. Anomaly detection flow criteria are now documented in `docs/ANOMALY_DETECTION_FLOW.md`. Anomaly detection stays a separate dataset purpose centered on image-level normal/abnormal state first, with optional box/mask region labels and no C# anomaly runtime until a Python backend is chosen.
+
+181. YOLOv5 training result comparison now has a structured learner-facing report in the Guide tab. The report separates verdict, key metric, latest model, and current model rows so operators do not have to parse one long `results.csv` summary before deciding whether to apply a new `best.pt`.
+
+182. Candidate Review model-difference examples now resolve source image paths from the comparison `data.yaml` and open selected disagreement images through a ViewModel command, so old-vs-new model differences can be inspected from the review panel without hunting through artifact folders.
+
+183. The Guide training-result card now exposes a user-visible `모델 비교` command. The command builds and runs `scripts\compare-yolo-models.ps1 -Task test` through `WpfModelComparisonRunService`, then refreshes Candidate Review with the latest disagreement examples.
+
+184. Model comparison now performs preflight validation before launching Python: the requested `data.yaml` split must contain images, and baseline/candidate `best.pt` paths must differ. The `-Task test` execution path was verified on 2026-06-27 with `artifacts\yolo-model-comparison\test-routing-data.yaml`, which maps `test` to the existing valid split only for pipeline verification.
+
+185. Industrial object-detection real-EXE labeling now verifies the beginner MVP path with 317 copied images, 10 random box labels, 2 empty-normal completions, saved-label reopen, duplicate-stem checks, and dataset readiness. Queue Open now resolves stale selection and recovers saved split image copies from `data/train|valid|test/images` when the original staging path is gone after save.
+
+186. The Guide model-comparison button now follows dataset readiness before the user clicks it. It is disabled before dataset check, disabled while readiness has blocking errors, disabled when the held-out test split is empty, and enabled only after a checked dataset has at least one test image.
+
+187. The object-detection MVP long real-EXE loop was reverified on 2026-06-27: 317 industrial images copied, 30 random box labels saved, 5 empty-normal completions saved, duplicate stems 0, selected missing image/label counts 0, reopen verified, and dataset check completed. Treat the queue open/save/reopen path as protected unless this long smoke is rerun.
+
+188. Beginner-facing terminology cleanup is now protected. Candidate Review, model/training settings, dataset status, inference status, model comparison, object review, and tool labels should avoid exposing implementation terms such as OpenGL, FBO, GPU, CPU, ROI, raster mask, bounding box, Python worker, best.pt, data.yaml, test split, baseline, candidate, or IoU in operator-facing text unless the view is explicitly showing a file path or developer diagnostic.
+
+189. Candidate Review and canvas helper wording now use learner-facing detection terms. Visible controls and logs should say `검출 후보`, `이동`, `후보`, and `후보 지움` instead of `AI 후보`, `Pan`, `Focus`, or `AI Reset`, so post-inference review reads as a labeling task rather than an internal viewer/debug operation.
+
+190. The object-detection canvas workflow strip and detection-result overlay now use beginner-readable guidance. The visible fit button says `맞춤`, the review step says `검토`, the overlay title says `검출 결과`, dirty-label guidance tells the operator to save the current image labels, and save completion points to the left queue `다음` button with natural `이어서 작업` wording.
+191. The image queue completion language now uses `미완료` for remaining work. Empty normal images that are completed with an empty label file are treated as done in the queue filter, and finishing the last image refreshes dataset readiness so the workflow can move on to dataset check/training instead of staying in labeling.
+192. The top status bar now summarizes `단계`, `진행`, and `다음` so operators can see the current task, completed/remaining image count, and next action without looking at the bottom log or reading side-panel details.
+193. Candidate Review completion wording now uses `이미지 완료`. The action means "finish this image, save the current label state or normal-empty completion, then move to the next task"; it should not be described as `완료 후 다음` in visible operator UI.
+
+194. The Guide now includes a first-visible YOLO dataset structure lesson. It explains `data.yaml`, image folders, label folders, same-stem image/txt pairing, and the meaning of one txt row through ViewModel-bound UI instead of burying the concept in text-only documentation.
+
+195. The Guide dataset dashboard now repeats the object-detection MVP remaining action as a compact `객체탐지 MVP 완료까지` line derived from the same dashboard action state. This keeps beginner next-step guidance tied to the object-detection completion criteria instead of becoming another separate checklist.
+
 ## Next Work
 
 1. Keep new settings/confirmation surfaces WPF-only. The main shell, teaching view, image queue, class list, training panel, detection-review panel, log panel, display-layer form, YOLO settings dialog, class settings dialog, new-panel dialog, common message boxes, and legacy support library references are now removed.
@@ -384,6 +479,44 @@ Detection candidates are removed after confirmation or skip, and the remaining c
 30. Use the new `Test %` path with real images and rerun model comparison using `scripts\compare-yolo-models.ps1 -Task test` before replacing the current `best.pt`.
 
 31. Use the new diagnostics while building the next real dataset: make sure NG samples are present, class counts are not heavily skewed, and the test split is non-empty before trusting a new model.
+
+32. Guide now separates dataset training readiness from model replacement readiness. If test split is empty, training can still be used as a pipeline check, but replacing the operational `best.pt` remains on hold.
+
+33. Candidate Review now has a ViewModel-bound model-difference example panel fed by `WpfModelComparisonReviewService`. It reads the latest YOLO model-comparison summary and saved label txt outputs, then surfaces `CandidateOnly`, `BaselineOnly`, and `ClassChanged` disagreement examples. The examples resolve source images from `data.yaml` and open through a ViewModel command. The Guide can run the comparison from the app; remaining work is to exercise it on a real held-out test split after enough labels exist.
+
+34. Empty project startup now treats dataset preparation as the first user action. The top status bar shows `단계: 데이터셋 준비` / `다음: 데이터셋 시작`, and the Guide dataset setup card explains the selected purpose's first action before deeper tutorial content.
+
+35. Candidate Review selected-candidate summary now states the selected 검출 후보, any overlapping current label, and the recommended action before the confirm/skip buttons. Duplicate candidates should say to inspect the existing label and skip when it is the same object; new candidates should say to confirm when correct.
+
+36. The Guide training-result card now exposes a direct `교체 판단:` sentence before detailed metrics. Keep it as the beginner-facing decision summary: new model wins are still described as candidates until final verification examples are inspected, while missing metrics, failed comparison, or no held-out evidence must stay in a hold/recheck state.
+
+37. Detection overlay labels now use candidate wording such as `후보 1 OK` and result-card titles such as `검출 결과`. Do not reintroduce `AI 1 OK` or `AI 검사 결과` in operator-facing canvas/review text.
+
+38. Model comparison and model replacement are separate UX states. Comparison may run with at least one final-verification image, but below 10 final-verification images the Guide and dataset dashboard must say `근거 부족`/`주의` so users understand the result is pipeline evidence, not strong production replacement proof.
+
+39. Candidate Review model-difference examples must read as review tasks, not report rows. The panel should say `모델 차이 예시`, and each example should include a visible `확인:` hint explaining whether the operator is checking a possible false positive, a missed object, or a class-rule difference.
+
+40. Clicking a model-difference example should immediately answer "where do I look?" by opening the source image, drawing a selected difference box on the canvas, focusing the viewer to that box, and keeping the action hint visible in Candidate Review.
+
+41. Model-difference example lists should scroll vertically inside the Candidate Review card. Adding more examples must not clip rows or make the image inspection area smaller.
+
+42. Model comparison must keep the next step visible after completion: Candidate Review tells the user to click an example, inspect the image location, then return to the Guide replacement decision. Run, completion, and failure messages must be readable Korean because this is an operator workflow, not a developer log.
+
+43. Model comparison must preflight label-list compatibility before launching YOLO validation. If the verification dataset label count does not match either the current or new model label count, stop before `val.py` and tell the operator to use models and verification data trained with the same label list. The 2026-06-28 125-image `val` run only verifies the comparison pipeline; it is not production replacement evidence because it is not a true held-out `test` split.
+
+44. Model comparison readiness now requires final-verification answer labels, not only final-verification images. A dataset with `test/images` but no matching `test/labels` is a dataset-check issue and must keep model comparison disabled until labeled final-verification files exist. Use the smaller of test image count and test label-file count when judging the 10-image replacement-evidence recommendation.
+
+45. The 2026-06-28 labeled test fixture verifies the app/script `-Task test` path with 10 labeled images, but it is intentionally classified as pipeline evidence only because the images were copied from the existing YOLO validation split. Do not use `artifacts/yolo-model-comparison/labeled-test-fixture-run/20260628-135515/comparison-summary.json` as production model-replacement evidence.
+
+46. The 2026-06-28 COCO128 true held-out run verifies the model-comparison path with a physically separated public-data `test` split. It proves the `-Task test` workflow can compare two YOLO weights on held-out labels, but it is still not industrial OK/NG model-adoption evidence. Production adoption needs a real industrial OK/NG held-out split.
+
+47. Kolektor industrial preparation now treats `*_label.bmp` as mask labels, not as user-labeling images. The verified held-out artifact has 238 train, 102 valid, and 59 test image/label pairs with 52 `Defect` boxes and 347 empty normal labels. Do not compare this 1-class dataset with 2-class operational weights or 80-class COCO weights; train matching `Defect` models first.
+
+48. The first industrial `Defect` short-train comparison is a pipeline verification, not a usable model result. Baseline 1 epoch and candidate 3 epoch both scored mAP `0` and produced no 25% UI candidates on held-out `test`; improve the training recipe before any adoption decision.
+
+49. Positive oversampling alone is not enough for Kolektor `Defect`. The 8x oversampled 5 epoch run produced a tiny validation recall signal but still scored held-out test mAP `0` and no 25% UI candidates. The next training attempt should change image representation, such as larger image size or padded defect boxes, before spending longer CPU time.
+
+50. Candidate Review action wording is now part of the object-detection MVP UX: buttons should say clear actions such as previous candidate, candidate location, existing label, and next candidate. Do not shorten them back to ambiguous bare nouns when refining the right panel.
 
 ## Non-Goals
 

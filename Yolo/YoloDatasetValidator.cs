@@ -3,7 +3,10 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using Newtonsoft.Json;
 using System.Security.Cryptography;
+using System.Text;
+using YamlDotNet.Serialization;
 
 namespace MvcVisionSystem.Yolo
 {
@@ -22,6 +25,7 @@ namespace MvcVisionSystem.Yolo
     public sealed class YoloDatasetStatistics
     {
         private readonly Dictionary<string, int> objectCountByClass = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
+        private readonly Dictionary<string, int> segmentationObjectCountByClass = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
 
         public int TrainImageCount { get; internal set; }
         public int ValidImageCount { get; internal set; }
@@ -29,13 +33,27 @@ namespace MvcVisionSystem.Yolo
         public int TrainLabelCount { get; internal set; }
         public int ValidLabelCount { get; internal set; }
         public int TestLabelCount { get; internal set; }
+        public int TrainSegmentFileCount { get; internal set; }
+        public int ValidSegmentFileCount { get; internal set; }
+        public int TestSegmentFileCount { get; internal set; }
+        public int TrainMaskFileCount { get; internal set; }
+        public int ValidMaskFileCount { get; internal set; }
+        public int TestMaskFileCount { get; internal set; }
         public int TrainValidImageNameOverlapCount { get; internal set; }
         public int TrainValidImageContentOverlapCount { get; internal set; }
         public string TrainValidImageOverlapExample { get; internal set; } = "";
         public int SplitImageContentOverlapCount { get; internal set; }
         public string SplitImageOverlapExample { get; internal set; } = "";
+        public int TotalImageCount => TrainImageCount + ValidImageCount + TestImageCount;
+        public int TotalLabelFileCount => TrainLabelCount + ValidLabelCount + TestLabelCount;
+        public int TotalSegmentFileCount => TrainSegmentFileCount + ValidSegmentFileCount + TestSegmentFileCount;
+        public int TotalMaskFileCount => TrainMaskFileCount + ValidMaskFileCount + TestMaskFileCount;
+        public int TotalSegmentationArtifactFileCount => TotalSegmentFileCount + TotalMaskFileCount;
         public int TotalObjectCount => objectCountByClass.Values.Sum();
+        public int TotalSegmentationObjectCount => segmentationObjectCountByClass.Values.Sum();
+        public int TotalAnnotationObjectCount => TotalObjectCount + TotalSegmentationObjectCount;
         public IReadOnlyDictionary<string, int> ObjectCountByClass => objectCountByClass;
+        public IReadOnlyDictionary<string, int> SegmentationObjectCountByClass => segmentationObjectCountByClass;
 
         internal void AddObject(string className)
         {
@@ -46,6 +64,17 @@ namespace MvcVisionSystem.Yolo
 
             objectCountByClass.TryGetValue(className, out int count);
             objectCountByClass[className] = count + 1;
+        }
+
+        internal void AddSegmentationObject(string className)
+        {
+            if (string.IsNullOrWhiteSpace(className))
+            {
+                return;
+            }
+
+            segmentationObjectCountByClass.TryGetValue(className, out int count);
+            segmentationObjectCountByClass[className] = count + 1;
         }
     }
 
@@ -80,14 +109,85 @@ namespace MvcVisionSystem.Yolo
             }
 
             data.NormalizeOutputPaths();
+            LabelingDatasetPurpose purpose = ResolveDatasetPurpose(data);
             ValidateFileExists(data.DataYamlFilePath, "data.yaml", errors);
-            ValidateImageAndLabelSet("train", data.TrainImagesPath, Path.Combine(data.OutputRootPath, "data", "train", "labels"), data.ClassNamedList, errors);
-            ValidateImageAndLabelSet("valid", data.ValidImagesPath, Path.Combine(data.OutputRootPath, "data", "valid", "labels"), data.ClassNamedList, errors);
-            ValidateOptionalImageAndLabelSet("test", data.TestImagesPath, Path.Combine(data.OutputRootPath, "data", "test", "labels"), data.ClassNamedList, errors);
+            ValidateDataYamlContract(data, errors);
+
+            if (purpose == LabelingDatasetPurpose.Segmentation)
+            {
+                ValidateSegmentationImageAndAnnotationSet(
+                    "train",
+                    data.TrainImagesPath,
+                    Path.Combine(data.OutputRootPath, "data", "train", "segments"),
+                    Path.Combine(data.OutputRootPath, "data", "train", "masks"),
+                    data.ClassNamedList,
+                    errors);
+                ValidateSegmentationImageAndAnnotationSet(
+                    "valid",
+                    data.ValidImagesPath,
+                    Path.Combine(data.OutputRootPath, "data", "valid", "segments"),
+                    Path.Combine(data.OutputRootPath, "data", "valid", "masks"),
+                    data.ClassNamedList,
+                    errors);
+                ValidateOptionalSegmentationImageAndAnnotationSet(
+                    "test",
+                    data.TestImagesPath,
+                    Path.Combine(data.OutputRootPath, "data", "test", "segments"),
+                    Path.Combine(data.OutputRootPath, "data", "test", "masks"),
+                    data.ClassNamedList,
+                    errors);
+            }
+            else
+            {
+                ValidateImageAndLabelSet("train", data.TrainImagesPath, Path.Combine(data.OutputRootPath, "data", "train", "labels"), data.ClassNamedList, errors);
+                ValidateImageAndLabelSet("valid", data.ValidImagesPath, Path.Combine(data.OutputRootPath, "data", "valid", "labels"), data.ClassNamedList, errors);
+                ValidateOptionalImageAndLabelSet("test", data.TestImagesPath, Path.Combine(data.OutputRootPath, "data", "test", "labels"), data.ClassNamedList, errors);
+            }
+
             ValidateSplitSeparation("train", data.TrainImagesPath, "valid", data.ValidImagesPath, errors);
             ValidateSplitSeparation("train", data.TrainImagesPath, "test", data.TestImagesPath, errors);
             ValidateSplitSeparation("valid", data.ValidImagesPath, "test", data.TestImagesPath, errors);
+            YoloDatasetStatistics statistics = BuildStatistics(data);
+            AppendPurposeAnnotationPolicyErrors(purpose, statistics, errors);
+
             return new YoloDatasetValidationResult(errors);
+        }
+
+        private static void AppendPurposeAnnotationPolicyErrors(
+            LabelingDatasetPurpose purpose,
+            YoloDatasetStatistics statistics,
+            List<string> errors)
+        {
+            if (statistics == null)
+            {
+                return;
+            }
+
+            if (purpose == LabelingDatasetPurpose.Segmentation)
+            {
+                if (statistics.TotalSegmentationObjectCount == 0 && statistics.TotalMaskFileCount == 0)
+                {
+                    errors.Add($"Segmentation dataset has no segment JSON or mask PNG annotations. Draw brush/polygon masks before segmentation training/export. Box labels:{statistics.TotalObjectCount}.");
+                }
+
+                return;
+            }
+
+            if (statistics.TotalObjectCount > 0)
+            {
+                return;
+            }
+
+            string purposeName = purpose == LabelingDatasetPurpose.AnomalyDetection
+                ? "AnomalyDetection"
+                : "ObjectDetection";
+            if (statistics.TotalSegmentationObjectCount > 0 || statistics.TotalMaskFileCount > 0)
+            {
+                errors.Add($"{purposeName} dataset has segmentation annotations ({statistics.TotalSegmentationObjectCount}) but no YOLO box labels. This purpose trains from box .txt labels; add box labels or switch the dataset purpose to Segmentation.");
+                return;
+            }
+
+            errors.Add($"{purposeName} dataset has no YOLO box labels. Draw and save at least one rectangle label before training.");
         }
 
         public static YoloDatasetStatistics BuildStatistics(CData data)
@@ -102,6 +202,12 @@ namespace MvcVisionSystem.Yolo
             string trainLabelsPath = Path.Combine(data.OutputRootPath, "data", "train", "labels");
             string validLabelsPath = Path.Combine(data.OutputRootPath, "data", "valid", "labels");
             string testLabelsPath = Path.Combine(data.OutputRootPath, "data", "test", "labels");
+            string trainSegmentsPath = Path.Combine(data.OutputRootPath, "data", "train", "segments");
+            string validSegmentsPath = Path.Combine(data.OutputRootPath, "data", "valid", "segments");
+            string testSegmentsPath = Path.Combine(data.OutputRootPath, "data", "test", "segments");
+            string trainMasksPath = Path.Combine(data.OutputRootPath, "data", "train", "masks");
+            string validMasksPath = Path.Combine(data.OutputRootPath, "data", "valid", "masks");
+            string testMasksPath = Path.Combine(data.OutputRootPath, "data", "test", "masks");
 
             statistics.TrainImageCount = CountImages(data.TrainImagesPath);
             statistics.ValidImageCount = CountImages(data.ValidImagesPath);
@@ -109,11 +215,20 @@ namespace MvcVisionSystem.Yolo
             statistics.TrainLabelCount = CountFiles(trainLabelsPath, "*.txt");
             statistics.ValidLabelCount = CountFiles(validLabelsPath, "*.txt");
             statistics.TestLabelCount = CountFiles(testLabelsPath, "*.txt");
+            statistics.TrainSegmentFileCount = CountFiles(trainSegmentsPath, "*.json");
+            statistics.ValidSegmentFileCount = CountFiles(validSegmentsPath, "*.json");
+            statistics.TestSegmentFileCount = CountFiles(testSegmentsPath, "*.json");
+            statistics.TrainMaskFileCount = CountFiles(trainMasksPath, "*.png");
+            statistics.ValidMaskFileCount = CountFiles(validMasksPath, "*.png");
+            statistics.TestMaskFileCount = CountFiles(testMasksPath, "*.png");
             AddSplitOverlapStatistics(data.TrainImagesPath, data.ValidImagesPath, data.TestImagesPath, statistics);
 
             CountObjects(trainLabelsPath, data.ClassNamedList, statistics);
             CountObjects(validLabelsPath, data.ClassNamedList, statistics);
             CountObjects(testLabelsPath, data.ClassNamedList, statistics);
+            CountSegmentationObjects(trainSegmentsPath, data.ClassNamedList, statistics);
+            CountSegmentationObjects(validSegmentsPath, data.ClassNamedList, statistics);
+            CountSegmentationObjects(testSegmentsPath, data.ClassNamedList, statistics);
             return statistics;
         }
 
@@ -217,6 +332,145 @@ namespace MvcVisionSystem.Yolo
             }
         }
 
+        private static void ValidateDataYamlContract(CData data, List<string> errors)
+        {
+            if (data == null || string.IsNullOrWhiteSpace(data.DataYamlFilePath) || !File.Exists(data.DataYamlFilePath))
+            {
+                return;
+            }
+
+            byte[] yamlBytes;
+            try
+            {
+                yamlBytes = File.ReadAllBytes(data.DataYamlFilePath);
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"data.yaml could not be read: {ex.Message}");
+                return;
+            }
+
+            if (yamlBytes.Length >= 3 && yamlBytes[0] == 0xEF && yamlBytes[1] == 0xBB && yamlBytes[2] == 0xBF)
+            {
+                errors.Add("data.yaml must be UTF-8 without BOM. YOLOv5 can misread the first key when a BOM is present.");
+            }
+
+            YoloDataYamlContract yaml;
+            try
+            {
+                string yamlText = Encoding.UTF8.GetString(yamlBytes);
+                yaml = new DeserializerBuilder()
+                    .IgnoreUnmatchedProperties()
+                    .Build()
+                    .Deserialize<YoloDataYamlContract>(yamlText);
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"data.yaml is invalid YAML: {ex.Message}");
+                return;
+            }
+
+            if (yaml == null)
+            {
+                errors.Add("data.yaml is empty or unreadable.");
+                return;
+            }
+
+            ValidateDataYamlClasses(data, yaml, errors);
+            ValidateDataYamlPath(data.DataYamlFilePath, yaml.path, "train", yaml.train, data.TrainImagesPath, required: true, errors);
+            ValidateDataYamlPath(data.DataYamlFilePath, yaml.path, "val", yaml.val, data.ValidImagesPath, required: true, errors);
+            ValidateDataYamlPath(data.DataYamlFilePath, yaml.path, "test", yaml.test, data.TestImagesPath, required: false, errors);
+        }
+
+        private static void ValidateDataYamlClasses(CData data, YoloDataYamlContract yaml, List<string> errors)
+        {
+            List<string> classNames = data.ClassNamedList?
+                .Select(item => item?.Text?.Trim() ?? string.Empty)
+                .ToList()
+                ?? new List<string>();
+
+            if (yaml.nc != classNames.Count)
+            {
+                errors.Add($"data.yaml class count does not match project classes. yaml nc:{yaml.nc}, project classes:{classNames.Count}.");
+            }
+
+            if (yaml.names == null || yaml.names.Count != classNames.Count)
+            {
+                errors.Add($"data.yaml class names do not match project classes. yaml names:{yaml.names?.Count ?? 0}, project classes:{classNames.Count}.");
+                return;
+            }
+
+            for (int index = 0; index < classNames.Count; index++)
+            {
+                if (!string.Equals(yaml.names[index]?.Trim() ?? string.Empty, classNames[index], StringComparison.Ordinal))
+                {
+                    errors.Add($"data.yaml class name mismatch at index {index}. yaml:'{yaml.names[index]}', project:'{classNames[index]}'.");
+                }
+            }
+        }
+
+        private static void ValidateDataYamlPath(
+            string yamlFilePath,
+            string yamlRootPath,
+            string key,
+            string yamlPath,
+            string expectedPath,
+            bool required,
+            List<string> errors)
+        {
+            if (string.IsNullOrWhiteSpace(yamlPath))
+            {
+                if (required)
+                {
+                    errors.Add($"data.yaml '{key}' path is missing.");
+                }
+
+                return;
+            }
+
+            string resolved = ResolveDataYamlPath(yamlFilePath, yamlRootPath, yamlPath);
+            string expected = NormalizeFullPath(expectedPath);
+            if (!string.Equals(resolved, expected, StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add($"data.yaml '{key}' path does not match the current project dataset. yaml:'{yamlPath}', resolved:'{resolved}', expected:'{expected}'.");
+            }
+        }
+
+        private static string ResolveDataYamlPath(string yamlFilePath, string yamlRootPath, string yamlPath)
+        {
+            if (string.IsNullOrWhiteSpace(yamlPath))
+            {
+                return string.Empty;
+            }
+
+            string normalizedPath = yamlPath.Replace('/', Path.DirectorySeparatorChar);
+            if (Path.IsPathRooted(normalizedPath))
+            {
+                return NormalizeFullPath(normalizedPath);
+            }
+
+            string root = string.IsNullOrWhiteSpace(yamlRootPath)
+                ? Path.GetDirectoryName(yamlFilePath)
+                : yamlRootPath.Replace('/', Path.DirectorySeparatorChar);
+            if (!Path.IsPathRooted(root))
+            {
+                string yamlDirectory = Path.GetDirectoryName(yamlFilePath) ?? string.Empty;
+                root = Path.Combine(yamlDirectory, root);
+            }
+
+            return NormalizeFullPath(Path.Combine(root ?? string.Empty, normalizedPath));
+        }
+
+        private static string NormalizeFullPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
+
+            return Path.GetFullPath(path).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        }
+
         private static void ValidateImageAndLabelSet(string mode, string imageDirectory, string labelDirectory, IReadOnlyList<CClassItem> classes, List<string> errors)
         {
             if (!Directory.Exists(imageDirectory))
@@ -265,6 +519,106 @@ namespace MvcVisionSystem.Yolo
             }
 
             ValidateImageAndLabelSet(mode, imageDirectory, labelDirectory, classes, errors);
+        }
+
+        private static void ValidateSegmentationImageAndAnnotationSet(
+            string mode,
+            string imageDirectory,
+            string segmentDirectory,
+            string maskDirectory,
+            IReadOnlyList<CClassItem> classes,
+            List<string> errors)
+        {
+            if (!Directory.Exists(imageDirectory))
+            {
+                errors.Add($"{mode} image directory does not exist: {imageDirectory}");
+                return;
+            }
+
+            List<string> images = Directory
+                .EnumerateFiles(imageDirectory)
+                .Where(IsSupportedImageFile)
+                .ToList();
+
+            if (images.Count == 0)
+            {
+                errors.Add($"{mode} image directory has no supported images.");
+                return;
+            }
+
+            foreach (string imagePath in images)
+            {
+                string fileStem = Path.GetFileNameWithoutExtension(imagePath);
+                string segmentPath = Path.Combine(segmentDirectory, $"{fileStem}.json");
+                string maskPath = Path.Combine(maskDirectory, $"{fileStem}.png");
+                bool hasSegment = File.Exists(segmentPath);
+                bool hasMask = File.Exists(maskPath);
+                if (!hasSegment && !hasMask)
+                {
+                    errors.Add($"{mode} segmentation annotation is missing for image: {Path.GetFileName(imagePath)}");
+                    continue;
+                }
+
+                if (hasSegment)
+                {
+                    ValidateSegmentFile(mode, segmentPath, classes, errors);
+                }
+            }
+        }
+
+        private static void ValidateOptionalSegmentationImageAndAnnotationSet(
+            string mode,
+            string imageDirectory,
+            string segmentDirectory,
+            string maskDirectory,
+            IReadOnlyList<CClassItem> classes,
+            List<string> errors)
+        {
+            bool hasImages = EnumerateSupportedImages(imageDirectory).Any();
+            bool hasSegments = Directory.Exists(segmentDirectory) && Directory.EnumerateFiles(segmentDirectory, "*.json").Any();
+            bool hasMasks = Directory.Exists(maskDirectory) && Directory.EnumerateFiles(maskDirectory, "*.png").Any();
+            if (!hasImages && !hasSegments && !hasMasks)
+            {
+                return;
+            }
+
+            ValidateSegmentationImageAndAnnotationSet(mode, imageDirectory, segmentDirectory, maskDirectory, classes, errors);
+        }
+
+        private static void ValidateSegmentFile(string mode, string segmentPath, IReadOnlyList<CClassItem> classes, List<string> errors)
+        {
+            SegmentationAnnotationFile annotation;
+            try
+            {
+                annotation = JsonConvert.DeserializeObject<SegmentationAnnotationFile>(File.ReadAllText(segmentPath));
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"{mode} segment JSON is invalid at {Path.GetFileName(segmentPath)}: {ex.Message}");
+                return;
+            }
+
+            int polygonCount = 0;
+            foreach (SegmentationPolygonRecord record in annotation?.Polygons ?? new List<SegmentationPolygonRecord>())
+            {
+                polygonCount++;
+                if (record?.Points == null || record.Points.Count < 3)
+                {
+                    errors.Add($"{mode} segment polygon has fewer than three points at {Path.GetFileName(segmentPath)}:{polygonCount}");
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(record.ClassName)
+                    && (classes == null || record.ClassIndex < 0 || record.ClassIndex >= classes.Count))
+                {
+                    errors.Add($"{mode} segment polygon has invalid class index at {Path.GetFileName(segmentPath)}:{polygonCount}");
+                }
+            }
+
+            if (polygonCount == 0)
+            {
+                errors.Add($"{mode} segment JSON has no polygons: {Path.GetFileName(segmentPath)}");
+            }
         }
 
         private static void ValidateSplitSeparation(string leftMode, string leftImageDirectory, string rightMode, string rightImageDirectory, List<string> errors)
@@ -399,6 +753,56 @@ namespace MvcVisionSystem.Yolo
             }
         }
 
+        private static void CountSegmentationObjects(string segmentDirectory, IReadOnlyList<CClassItem> classes, YoloDatasetStatistics statistics)
+        {
+            if (!Directory.Exists(segmentDirectory) || statistics == null)
+            {
+                return;
+            }
+
+            foreach (string segmentPath in Directory.EnumerateFiles(segmentDirectory, "*.json"))
+            {
+                SegmentationAnnotationFile annotation;
+                try
+                {
+                    annotation = JsonConvert.DeserializeObject<SegmentationAnnotationFile>(File.ReadAllText(segmentPath));
+                }
+                catch
+                {
+                    continue;
+                }
+
+                foreach (SegmentationPolygonRecord record in annotation?.Polygons ?? new List<SegmentationPolygonRecord>())
+                {
+                    if (record?.Points == null || record.Points.Count < 3)
+                    {
+                        continue;
+                    }
+
+                    string className = ResolveSegmentationClassName(record, classes);
+                    statistics.AddSegmentationObject(className);
+                }
+            }
+        }
+
+        private static string ResolveSegmentationClassName(SegmentationPolygonRecord record, IReadOnlyList<CClassItem> classes)
+        {
+            if (!string.IsNullOrWhiteSpace(record?.ClassName))
+            {
+                return record.ClassName;
+            }
+
+            return record != null && classes != null && record.ClassIndex >= 0 && record.ClassIndex < classes.Count
+                ? classes[record.ClassIndex]?.Text ?? string.Empty
+                : string.Empty;
+        }
+
+        private static LabelingDatasetPurpose ResolveDatasetPurpose(CData data)
+        {
+            data?.ProjectSettings?.EnsureDefaults();
+            return data?.ProjectSettings?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection;
+        }
+
         private static void AddSplitOverlapStatistics(string trainImageDirectory, string validImageDirectory, string testImageDirectory, YoloDatasetStatistics statistics)
         {
             if (statistics == null)
@@ -486,6 +890,16 @@ namespace MvcVisionSystem.Yolo
             public int NameOverlapCount { get; set; }
             public int ContentOverlapCount { get; set; }
             public string Example { get; set; } = "";
+        }
+
+        private sealed class YoloDataYamlContract
+        {
+            public string path { get; set; } = "";
+            public string train { get; set; } = "";
+            public string val { get; set; } = "";
+            public string test { get; set; } = "";
+            public int nc { get; set; }
+            public List<string> names { get; set; } = new List<string>();
         }
     }
 }
