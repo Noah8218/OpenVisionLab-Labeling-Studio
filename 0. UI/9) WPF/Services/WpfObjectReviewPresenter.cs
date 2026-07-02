@@ -40,9 +40,12 @@ namespace MvcVisionSystem
             int sourceIndex,
             object payload)
         {
+            string confirmedDetail = string.IsNullOrWhiteSpace(detail)
+                ? "\uCD9C\uCC98: AI \uD6C4\uBCF4 \uD655\uC815 / \uC800\uC7A5 \uB77C\uBCA8\uB85C \uBC18\uC601\uB428"
+                : $"\uCD9C\uCC98: AI \uD6C4\uBCF4 \uD655\uC815 / \uC800\uC7A5 \uB77C\uBCA8\uB85C \uBC18\uC601\uB428\n{detail}";
             return new WpfObjectReviewListItem(
                 FormatConfirmedSummary(candidate, displayIndex, bounds),
-                detail,
+                confirmedDetail,
                 sourceKey,
                 sourceIndex,
                 payload);
@@ -60,7 +63,7 @@ namespace MvcVisionSystem
 
         public static string FormatConfirmedSummary(YoloWorkerSmokeCandidate candidate, int displayIndex, Rectangle bounds)
         {
-            return $"AI {displayIndex}. {WpfCandidateReviewPresenter.FormatCandidate(candidate, bounds)}";
+            return $"\uD655\uC815 \uB77C\uBCA8 {displayIndex}. {WpfCandidateReviewPresenter.FormatCandidate(candidate, bounds)}";
         }
 
         public static string FormatBoundsCompact(Rectangle bounds)

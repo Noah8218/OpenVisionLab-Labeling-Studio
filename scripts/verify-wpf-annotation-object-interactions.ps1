@@ -17,7 +17,7 @@ $visualPng = Join-Path $uiDir "verify-wpf-annotation-objects-focused-$stamp.png"
 
 Push-Location $repoRoot
 try {
-    dotnet build MvcVisionSystem.sln -c $Configuration -m:1 *> $buildLog
+    dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c $Configuration -m *> $buildLog
     dotnet run --project tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj --configuration $Configuration --no-build -- --wpf-annotation-object-verification *> $annotationTestLog
     dotnet run --project tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj --configuration $Configuration --no-build -- --wpf-visual-smoke --review-tab=guide --expand-learning-concepts --output="$visualPng" *> $visualLog
 

@@ -1,6 +1,6 @@
 ﻿# Work Tracking
 
-Last updated: 2026-07-02
+Last updated: 2026-07-03
 
 이 문서는 반복 작업을 막기 위한 작업 현황판입니다.
 새 작업을 시작하기 전에는 이 문서를 먼저 보고, 작업을 마무리할 때 완료/진행 필요 항목을 갱신합니다.
@@ -29,16 +29,65 @@ Last updated: 2026-07-02
 
 | 영역 | 판정 | 완료 근거 |
 | --- | --- | --- |
-| Viewer ROI 성능 | 완료/보호 | 50만 ROI move/resize/delete/hit-test/render, 겹침 ROI 선택, delete 후 zoom 검증 완료 |
+| Viewer ROI 성능/선택 핸들 UX | 완료/보호 | 50만 ROI move/resize/delete/hit-test/render, 겹침 ROI 선택, 선택된 박스의 보이는 핸들 hit-zone, delete 후 zoom 검증 완료 |
 | 브러시/지우개 입력 성능 | 완료/보호 | brush/eraser MouseMove, mask drag, partial texture update, cursor preview 검증 완료 |
 | 텍스처 pan/zoom 체감 성능 | 완료/보호 | texture pan MouseMove와 wheel zoom 중앙화 검증 완료 |
 | Object Review 삭제/선택 잔상 | 완료/보호 | 단일 object delete, delete 후 zoom, 선택 핸들 잔상 제거 검증 완료 |
 | Candidate Review 기본 검토 | 완료/보호 | 후보/기존 라벨 비교, 중복 skip, 신규 confirm, 현재 라벨 focus, 실제 EXE focus smoke 검증 완료 |
 | 객체탐지 라벨링 저장 루프 | 완료/보호 | 산업 이미지 기반 실제 EXE box 라벨 저장, 빈 정상 완료, reopen, dataset check 검증 완료 |
+| 이미지 큐 현재 폴더 표시/열기 | 완료/보호 | 현재 로드된 이미지 폴더 경로 표시, 파일 탐색기 열기 버튼, ViewModel command binding 검증 완료 |
 | YOLO 데이터셋 구조 안내 | 완료/보호 | Guide 첫 화면에서 `data.yaml`, `images`, `labels`, 같은 이름의 image/txt 관계 안내 검증 완료 |
 | 객체탐지 MVP 다음 행동 안내 | 완료/보호 | Guide 대시보드의 `객체탐지 MVP 완료까지` 문구와 top next-action 정합성 검증 완료 |
+| 클래스 편집 UX | 완료/보호 | 등록 클래스 이름 변경, 색상 프리셋 적용, Defect 특별 삭제 금지 제거, 마지막 1개 삭제 방어 검증 완료 |
+| 클래스 패널 저장 폴더 분리 UX | 완료/보호 | 클래스 관리 안내를 상단에 두고 저장 폴더는 하단 `데이터셋 저장 폴더(고급)` 접힘 영역으로 분리. `--wpf-class-catalog-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, 1440x900 클래스 탭 visual smoke 검증 완료 |
+| 캔버스 활성 라벨 선택 UX | 완료/보호 | 캔버스 툴바에서 `OK`/`Defect` 같은 현재 라벨 칩을 바로 선택하고, 선택값이 실제 박스 저장 라벨과 동기화되는지 검증 완료 |
+| ROI 복사/붙여넣기 클래스 보존 | 완료/보호 | OK ROI를 복사한 뒤 현재 활성 라벨을 NG로 바꿔 붙여넣어도 새 ROI가 OK 클래스와 OK 색상으로 저장/렌더링되는지 검증 완료 |
+| 데이터셋/이미지 준비 단계 UX | 완료/보호 | 초보자 가이드와 YOLO 완료 체크를 `데이터셋 만들기 -> 이미지 불러오기 -> 클래스 등록 -> 라벨링` 순서로 분리하고 시각 스모크 검증 완료 |
+| 캔버스 라벨 저장 UX | 완료/보호 | 라벨을 그린 직후 캔버스 툴바의 `라벨 저장` 버튼이 활성화되고, 저장 후 `저장 완료`로 비활성화되는 흐름을 ViewModel command와 visual smoke로 검증 완료 |
+| 캔버스 라벨/AI 후보 작업 모드 UX | 완료/보호 | 캔버스 상단 상태를 `작업: 저장 라벨 편집`/`작업: AI 후보 검토`/`작업: 라벨+AI 비교`로 분리하고, 모드 버튼을 `라벨 편집`/`AI 검토`/`비교`로 정리. `--wpf-canvas-panel-commands`, `--wpf-detection-display-mode`, 1920x1080/1366x768 responsive, 1920 후보 검토 visual smoke 검증 완료 |
+| 메인 현재 데이터셋 표시/선택 UX | 완료/보호 | 메인 상단에 현재 데이터셋 이름, 목적, 저장 경로, 이미지 폴더와 `데이터셋 선택/폴더 열기/이미지 변경` command를 고정 표시. `데이터셋 선택`은 기존 데이터셋 목록을 먼저 열고, 생성은 선택창의 `새 데이터셋 만들기`로만 진입하게 분리. EXE mouse smoke에서 선택 리스트 표시 확인 |
+| 데이터셋 이미지 폴더 복원 | 완료/보호 | `dataset.manifest.json`에 이미지 폴더를 저장하고, 데이터셋 선택창에 이미지 폴더를 표시. 기존 recipe는 `VISION.xml`에서 fallback으로 읽으며, 데이터셋 재열기 시 산출물 train/valid/test 폴더보다 사용자가 선택한 이미지 폴더를 우선 복원 |
+| 마지막 데이터셋 자동 복원 | 완료/보호 | recipe 적용/데이터셋 생성 시 `.last-opened-recipe`에 마지막 데이터셋을 저장하고, 앱 시작 시 해당 recipe와 이미지 폴더를 자동 복원하는지 WPF startup smoke로 검증 |
 | 초보자 가이드 첫 화면 문구 | 완료/보호 | `YOLO 다음 액션`, `완주 체크` 같은 어색한 표시를 `다음 작업`, `완료 체크`로 정리하고 guide panel test 기준에 반영 |
 | 모델 비교 기준 표시 | 완료/보호 | Guide 학습 결과 카드에 `비교 기준` 문구를 추가해 최종 검증 라벨 수, 권장 수, 교체 근거 강도를 클릭 전 확인 가능 |
+| 모델 센터 현재/후보/적용 상태 UX | 완료/보호 | YOLO 학습/모델 센터에서 `검사 모델`, `학습 결과 모델`, `적용 상태`, `다음 작업`을 제목/값으로 분리. `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-yolo-training-session-smoke`, 1440x900 모델 센터 visual smoke 검증 완료 |
+| 모델 확정 버튼 상태 UX | 완료/보호 | 모델 센터 버튼을 `검사 모델로 확정`/`이미 적용됨`/`후보 검토 필요`/`후보 없음` 상태형 문구로 전환하고, 후보가 선택되고 recipe 저장이 가능할 때만 활성화. `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-yolo-training-session-smoke`, 1440x900 모델 센터 visual smoke 검증 완료 |
+| 모델센터 후보 검증 이동 UX | 완료/보호 | 모델센터에 `후보 검증` 버튼을 추가해 학습 결과 모델 후보가 있을 때 후보 검토 화면으로 바로 이동 가능하게 분리. `후보 검토 필요` 확정 버튼은 저장/확정 전용으로 유지. `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-yolo-training-session-smoke`, 1440x900 모델센터 visual smoke 검증 완료 |
+| 모델 적용 판단 카드 UX | 완료/보호 | YOLO 학습/모델 센터 상단에 `판단/근거/확정` 카드 추가. 현재 검사 모델, 학습 결과 후보, 지표 근거, 다음 확정 동작을 한 곳에서 확인하도록 ViewModel 상태와 XAML 바인딩으로 분리. `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-yolo-training-session-smoke`, 1440x900 모델센터 visual smoke 검증 완료 |
+| YOLO 실패/복구 현장 표시 UX | 완료/보호 | 학습 실패, 워커 연결 실패, 테스트/재시작 실패, 에폭 상태 응답 없음 상태를 YOLO 탭의 학습/모델 센터와 YOLO 상태 패널 안에 `문제/원인/다음 조치` 카드로 표시. 상태는 Shell/YoloStatus ViewModel에서 관리하고 하단 로그 의존도를 줄임. `dotnet build`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-yolo-training-session-smoke`, 1440x900 실패 상태 visual smoke 검증 완료 |
+| 후보 검토 모델 비교 상태 UX | 완료/보호 | 후보 검토 화면에서 모델 비교 영역을 항상 상태 카드로 표시. 결과 없음/대기/차이 없음/예시 있음 상태와 모델센터 `검사 모델로 확정` 동선을 분리 표시. `--wpf-candidate-review-panel`, `--mvvm-infra`, 1440x900 후보 검토 visual smoke 검증 완료 |
+| 후보 검토/모델 검증 구분 UX | 완료/보호 | 후보 검토 탭에서 현재 이미지 후보 처리는 `현재 이미지 후보 검토`, 학습 결과 모델 판단은 `학습 모델 검증` 제목으로 분리. 모델 검증 상태는 첫 화면에 노출되도록 압축 배치. `--wpf-candidate-review-panel`, `--mvvm-infra`, `--wpf-labeling-shell`, 1440x900 후보 검토 visual smoke 검증 완료 |
+| 후보 검토 완료 카드 압축 UX | 완료/보호 | 후보 검토 상태와 `완료 후 다음` 버튼을 한 줄 카드 안으로 압축해 오른쪽 패널 세로 공간을 확보. `--wpf-candidate-review-panel`, `--mvvm-infra`, `--wpf-labeling-shell`, 1440x900 후보 검토 visual smoke 검증 완료 |
+| 후보 검토 조작 우선 UX | 완료/보호 | 우측 `AI 후보` 탭 상단에 현재 이미지 후보/학습 모델 검증 역할 카드를 추가하고, 현재 후보의 선택/확정/숨김 조작을 모델 검증 상세보다 위에 배치. 1440x900 기본 화면에서 `라벨 확정`, `전체 라벨화`, `후보 숨김` 버튼이 보이도록 조정. `--wpf-candidate-review-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, 1440x900 후보 검토 visual smoke 검증 완료 |
+| 라벨링 툴 UX 벤치마크 | 완료/참고 | CVAT, Label Studio, Roboflow, Labelbox 공식 문서를 기준으로 초보자 온보딩/라벨 schema/AI 보조/리뷰 흐름을 비교하고 `docs/LABELING_UX_BENCHMARK.md`에 우선순위 기록 |
+| 초보자 첫 실행 체크리스트 UX | 완료/보호 | Guide 탭의 데이터셋 준비 카드에 `처음 10분 시작` 6단계 체크리스트를 추가. 데이터셋/이미지/클래스/첫 박스/라벨 저장/학습 준비를 한 화면에서 따라가도록 구조화. `--wpf-learning-workflow-panel`, `--mvvm-infra`, `--wpf-labeling-shell`, 1440x900 Guide visual smoke 검증 완료 |
+| 상단 툴바 단순화 UX | 완료/보호 | 기본 상단에는 `라벨 저장`, `현재 검사`, 톱니바퀴 도구 메뉴만 유지. 테마, 샘플, 중앙 박스, 템플릿, 작업 전환, YOLO 점검은 도구 Popup 안에서 화면/라벨 보조/작업 전환·환경 섹션으로 정리. `--wpf-labeling-shell`, `--mvvm-infra`, 1440x900 기본/메뉴 열림 visual smoke 검증 완료 |
+| 템플릿 보조 라벨링 흐름 UX | 완료/보호 | 도구 메뉴에 `템플릿 흐름` 안내를 추가해 `기준 라벨 선택 -> 라벨 초안 생성 -> 위치 확인 -> 라벨 저장` 순서를 표시. 현재 이미지는 `라벨 초안`, 전체 이미지는 `자동 저장`으로 분리하고, 이미지 큐 `전체 자동 저장` 버튼을 텍스트 버튼으로 노출. `--template-guide-ux`, `--template-batch-autolabel-storage`, `--wpf-template-current-image-no-candidate`, `--wpf-image-queue-status`, 1920x1080 도구 메뉴 visual smoke 검증 완료 |
+| 첫 사용자 실습 경로 UX | 완료/보호 | Guide/Tools 상단에 `처음 실습 경로` 카드 추가. 데이터셋 -> 이미지 -> 첫 라벨 -> 후보 확인 -> 학습 준비 1-5단계를 기본 1440x900 화면에서 한 번에 보이도록 구성. `--wpf-learning-workflow-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, 1440x900 Guide visual smoke 검증 완료 |
+| 첫 사용자 실습 경로 단축 액션 UX | 완료/보호 | `처음 실습 경로` 5개 카드를 `시작/열기/라벨링/검토/점검` 버튼 카드로 전환. 각 카드 클릭은 ViewModel의 `FirstRunSamplePathCommand`를 거쳐 기존 YOLO 가이드 단계(1/2/4/7/5)로 이동하며, 기본 1440x900 화면에서 5개 카드가 모두 보이도록 압축. `dotnet build`, `--wpf-learning-workflow-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, 1440x900 Guide visual smoke 검증 완료 |
+| 후보/모델 검토 긴 목록 접기 UX | 완료/보호 | 후보 검토 패널의 모델 비교 예시와 검토 이력을 기본 접힘 요약 행으로 전환. 학습 모델 검증 요약은 우측 후보 검토 첫 화면에 올리고, 긴 예시/이력 목록은 필요할 때만 펼치도록 ViewModel 상태와 XAML Expander로 분리. `dotnet build`, `--wpf-candidate-review-layout`, `--wpf-candidate-review-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, 1440x900 후보 검토 visual smoke 검증 완료 |
+| YOLO 검사 모델 설정 압축 UX | 완료/보호 | YOLO 탭의 `검사용 모델 설정`을 `현재 검사 설정` 요약 카드와 저장/기본값 버튼 중심으로 재배치. Python/프로젝트/스크립트/모델/이미지/신뢰도/후보 수 입력은 `고급 경로/추론 설정` 접힘 영역으로 이동해 기본 화면 세로 압박을 줄임. `dotnet build`, `--wpf-yolo-model-settings-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-yolo-training-session-smoke`, 1440x900 YOLO model visual smoke 검증 완료 |
+| YOLO 학습 설정 압축 UX | 완료/보호 | 학습 설정 패널에 `현재 학습 설정` 요약 카드 추가. 이미지 크기/배치/에폭/모델/가중치/검증 분할 입력은 `고급 학습 파라미터` 접힘 영역으로 이동하고, 추천 적용/새로고침/시작/중지 버튼과 학습 상태는 기본 화면에 유지. `dotnet build`, `--wpf-training-settings-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-yolo-training-session-smoke`, 1440x900 training visual smoke 검증 완료 |
+| 클래스 탭 밀도 압축 UX | 완료/보호 | 클래스 탭 상단에 등록 클래스 수/선택 클래스 요약과 다음 작업 안내 추가. 클래스 색상 프리셋은 `선택 클래스 색상(필요 시)` 접힘 영역으로 이동하고, 클래스 추가/변경/삭제와 레시피 클래스 목록은 기본 화면에서 더 우선 보이게 조정. `dotnet build`, `--wpf-class-catalog-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, 1440x900 class visual smoke 검증 완료 |
+| 1920x1080 장비 기준 해상도 UX | 완료/보호 | WPF 셸 기본 크기와 visual smoke 기본 캡처 기준을 1920x1080으로 전환. 시작 시 현재 모니터 작업 영역보다 크면 1100x720 최소 기준을 유지하며 작업 영역 안으로 보정. 1920x1080 Guide/Training, 1366x768 Guide, 이전 1440x900 재현 캡처 검증 완료 |
+| 첫 실행 데이터셋 시작 우선 UX | 완료/보호 | 작은 화면에서 `처음 실습 경로`가 데이터셋 생성/열기 액션보다 먼저 보이던 배치를 수정. Guide 오른쪽 패널에서 데이터셋 설명 다음에 `데이터셋 준비` 카드와 `새로 만들기`/`기존 열기`가 먼저 나오고, 실습 경로는 그 아래로 내려가도록 조정. `dotnet build`, `--wpf-learning-workflow-panel`, 1920x1080/1366x768 startup onboarding visual smoke 검증 완료 |
+| 클래스/저장 폴더 역할 분리 UX | 완료/보호 | 공식 라벨링 툴 벤치마크 기준으로 클래스 탭을 라벨 스키마 관리 전용으로 정리. `데이터셋 저장 폴더(고급)` 편집 UI와 관련 패널 프록시/Command 노출을 제거하고, 저장 폴더는 데이터셋 홈/생성/선택 흐름에서 확인하도록 안내. `dotnet build`, `--wpf-class-catalog-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, 1920x1080/1366x768 class visual smoke 검증 완료 |
+| 우측 라벨링 로컬 레일 UX | 완료/보호 | 라벨링 단계의 접힌 우측 레일은 `열기`/`라벨`/`도구`/`클래스`만 유지하고, `AI`/`모델` 단계 이동은 상단 워크플로우 레일로만 남김. `--wpf-labeling-shell`, `--mvvm-infra`, 1920x1080/1366x768 responsive, 1920x1080 visual smoke 검증 완료 |
+| 상단 워크플로우 레일 압축 UX | 완료/보호 | 상단 1-4 단계 버튼을 두 줄 설명 카드에서 한 줄 단계 이동 버튼으로 축소하고, 현재 단계의 긴 설명은 요약 패널 툴팁으로 이동. `--wpf-labeling-shell`, `--mvvm-infra`, 1920x1080/1366x768 responsive, 1920x1080 visual smoke 검증 완료 |
+| 현재 데이터셋 바 압축 UX | 완료/보호 | 메인 데이터셋 바를 48px로 줄이고, 기본 표시를 현재 데이터셋/작업 기준/데이터셋·저장 폴더·이미지 폴더 액션 중심으로 정리. 저장/이미지 경로 상세 카드는 바인딩을 유지한 채 기본 화면에서는 접힘. `--wpf-labeling-shell`, `--mvvm-infra`, 1920x1080/1366x768 responsive, 1920x1080 visual smoke 검증 완료 |
+| 상단 상태 행 운영 상태 전용 UX | 완료/보호 | 데이터셋 바 아래 상태 행을 30px로 줄이고, 워크플로우 단계/진행/다음 중복 텍스트는 숨김. 기본 화면에는 데이터셋 수량, 추론 상태, 라벨 저장 상태, 모델 상태만 남김. `--wpf-status-panels`, `--wpf-labeling-shell`, `--mvvm-infra`, 1920x1080/1366x768 responsive, 1920x1080 visual smoke 검증 완료 |
+| 캔버스 툴바 작업 집중 UX | 완료/보호 | 캔버스 툴바에서 선택 도구 중복 칩과 장문 보조 설명 줄을 기본 접힘으로 전환하고, 실제 작업 버튼/모드/저장/클래스 선택을 한 줄 우선 노출. 툴바 높이 보호값은 유지해 상단 잘림을 방지. `--wpf-canvas-panel-commands`, `--wpf-canvas-workflow-context`, `--wpf-detection-display-mode`, `--wpf-labeling-shell`, `--mvvm-infra`, 1920x1080/1366x768 responsive, 1920x1080 visual smoke 검증 완료 |
+| 이미지 큐/우측 작업 패널 맥락 UX | 완료/보호 | 이미지 큐 보조 컨트롤 행을 내용 기반 높이로 바꿔 `전체 자동 저장`/검사 버튼 줄바꿈 잘림을 방지. 이미지 큐 열은 `저장`/`검사`로 분리하고, 우측 작업 패널 제목은 선택된 하위 뷰(`저장 라벨`/`가이드/도구`/`클래스`/`추론 검토`)를 표시. `dotnet build`, `--wpf-labeling-shell`, `--wpf-image-queue-status`, `--mvvm-infra`, 1920x1080/1366x768 responsive, 1920x1080 열린 우측 패널 visual smoke 검증 완료 |
+| 접힌 우측 작업 레일 발견성 UX | 완료/보호 | 라벨링 기본 화면에서 접힌 우측 레일 상단에 `작업`/현재 뷰 배지를 추가해 오른쪽 영역이 라벨/도구/클래스 작업 패널임을 즉시 알 수 있게 함. 현재 뷰 텍스트는 `RightWorkflowRailCurrentViewText` ViewModel 상태로 계산. `dotnet build`, `--wpf-labeling-shell`, `--mvvm-infra`, 1920x1080/1366x768 responsive, 1920x1080/1366x768 visual smoke 검증 완료 |
+| 1366 캔버스 툴바 밀도 UX | 완료/보호 | 1366x768 장비 폭에서 삭제 버튼이 다음 줄로 밀리지 않도록 클래스 관리는 현재 클래스 선택 옆 아이콘 버튼으로 압축하고, 중복 활성 라벨 카드와 `빠른 도구` 장식 라벨은 기본 접힘으로 유지. `dotnet build`, `--wpf-canvas-panel-commands`, `--wpf-canvas-workflow-context`, `--wpf-detection-display-mode`, `--wpf-labeling-shell`, `--mvvm-infra`, 1920x1080/1366x768 responsive, 1366x768 visual smoke 검증 완료 |
+| 우측 이미지 큐 작업 필요 필터 UX | 완료/보호 | 오른쪽 이미지 큐 빠른 필터 첫 칸에 `작업 필요`를 추가해 라벨링/AI 후보/저장 필요/검사 실패 행을 먼저 볼 수 있게 함. 저장 필요가 있는 라벨 행은 완료가 아니라 작업 필요로 남도록 필터 판정 보정. `dotnet build`, `--wpf-image-queue-status`, `--wpf-labeling-shell`, `--mvvm-infra`, 1920x1080/1366x768 responsive, 1920x1080/1366x768 visual smoke 검증 완료 |
+| 현재 이미지 작업 요약 UX | 완료/보호 | 이미지 큐 상단에 선택 이미지의 다음 작업 카드(`라벨 작업 필요`/`AI 후보 검토`/`검사 실패`/`저장 완료`)를 추가. 상태 문구는 `WpfImageQueuePanelViewModel`이 선택 행과 행 상태 변경을 구독해 계산하고, XAML은 바인딩 표시만 수행. `dotnet build`, `--wpf-labeling-shell`, `--wpf-image-queue-status`, `--mvvm-infra`, `--wpf-canvas-panel-commands`, 1920x1080/1366x768 responsive, 1920x1080/1366x768 visual smoke 검증 완료 |
+| 오른쪽 작업 패널 헤더 역할 UX | 완료/보호 | 펼친 오른쪽 작업 패널 헤더를 제목만 표시하던 구조에서 현재 하위 뷰 역할 설명(`저장 라벨`/`도구`/`클래스`/`추론`/`모델`)을 함께 보여주는 구조로 변경. 설명 문구는 `RightWorkflowViewDetailText` ViewModel 상태로 계산하고 XAML은 바인딩 표시만 수행. `dotnet build`, `--wpf-labeling-shell`, `--mvvm-infra`, 1920x1080/1366x768 responsive, 1920x1080 오른쪽 패널 펼침 visual smoke 검증 완료 |
+| 오른쪽 라벨링 작업 패널 전환 UX | 완료/보호 | 펼친 오른쪽 패널의 `라벨`/`도구`/`클래스` 전환 버튼을 헤더 끝의 작은 부속 버튼에서 `라벨링 작업 패널` 로컬 전환 영역으로 분리. 라벨링 단계에서만 표시하고 기존 `ShowSavedLabelsViewCommand`/`ShowLabelingGuideViewCommand`/`ShowClassCatalogViewCommand`와 active Tag 바인딩을 재사용. `dotnet build`, `--wpf-labeling-shell`, `--wpf-image-queue-status`, `--mvvm-infra`, 1920x1080/1366x768 responsive, 1920x1080/1366x768 열린 오른쪽 패널 visual smoke 검증 완료 |
+| 저장 라벨 선택 작업 카드 UX | 완료/보호 | 오른쪽 `저장 라벨` 패널을 역할 설명/현재 선택 라벨/선택 라벨 수정/목록 순서로 재배치. 선택 라벨 상태와 저장 안내는 `WpfObjectReviewPanelViewModel`의 `SelectedObjectTask*Text` 파생 상태로 계산하고 XAML은 바인딩 표시만 수행. `dotnet build`, `--wpf-object-review-panel`, `--wpf-labeling-shell`, `--wpf-image-queue-status`, `--mvvm-infra`, 1920x1080/1366x768 responsive, 1920x1080/1366x768 열린 오른쪽 패널 visual smoke 검증 완료 |
+| 클래스 현재 그릴 라벨 안내 UX | 완료/보호 | 오른쪽 `클래스` 패널 상단에 `현재 그릴 클래스` 안내를 추가해 선택 클래스가 다음 박스 라벨에 적용된다는 점을 명확히 표시. 안내 문구는 `WpfClassCatalogPanelViewModel.CurrentDrawingClass*Text`에서 계산하고, 빨간 오류처럼 보이던 작업 안내는 중립 텍스트 톤으로 조정. `dotnet build`, `--wpf-class-catalog-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, 1920x1080/1366x768 class responsive, 1920x1080/1366x768 열린 클래스 패널 visual smoke 검증 완료 |
+| 오른쪽 가이드/도구 템플릿 작업 흐름 UX | 완료/보호 | 오른쪽 `가이드/도구` 패널에 `템플릿 반복 라벨링` 카드 추가. `기준 라벨 선택 -> 현재 이미지 라벨 초안 -> 전체 이미지 자동 저장 -> 위치 확인/저장`을 구조화된 단계로 표시하고, 현재 이미지 초안/전체 이미지 자동 저장 버튼을 `WpfLearningWorkflowPanelViewModel` 명령으로 노출해 Shell에서 기존 템플릿 ViewModel 명령을 주입. `dotnet build`, `--wpf-learning-workflow-panel`, `--template-guide-ux`, `--wpf-labeling-shell`, `--mvvm-infra`, 1920x1080/1366x768 guide responsive, 1920x1080 template guide visual smoke 검증 완료 |
+| 반복 라벨링 Ctrl+C/V | 완료/보호 | 이전 이미지 ROI를 복사한 뒤 다음 이미지에서 붙여넣어도 예외 없이 같은 좌표에 새 ROI가 생성되고, 복사 버퍼가 유지되는지 WPF ROI 조작 검증에 추가 |
 | true held-out 모델 비교 실행 경로 | 완료/보호 | COCO128을 train/valid/test로 물리 분리한 뒤 `compare-yolo-models.ps1 -Task test` 통과. 산업 OK/NG 채택 판단은 별도 진행 |
 | 산업 Defect held-out 데이터 준비 | 완료/보호 | Kolektor `*_label.bmp`를 라벨링 이미지에서 제외하고 YOLO `Defect` 박스로 변환해 train/valid/test label 쌍 생성 |
 | 산업 Defect 짧은 학습/비교 실행 | 완료/보류 | `Defect` 1클래스 baseline 1ep/candidate 3ep 학습과 held-out test 비교 완료. mAP/UI 후보가 0이라 모델 채택은 금지 |
@@ -46,12 +95,50 @@ Last updated: 2026-07-02
 
 최근 확인한 핵심 수치:
 
-- `--roi-overlap-hit-test`: first hit `16.702ms`, repeat `6.875ms`, 50,000 overlapped ROI 중 가장 작은 ROI 선택.
-- `--wpf-roi-object-verification`: object delete `12.747ms`, delete-then-zoom `2.823ms`, selected empty `True`.
+- `--roi-overlap-hit-test`: first hit `11.218ms`, repeat `6.909ms`, 50,000 overlapped ROI 중 가장 작은 ROI 선택.
+- `--roi-500k-hit-test`: query `1.331ms`, hit `2.009ms`, 후보 325개.
+- `--roi-500k-mouse-event-performance`: ROI 손잡이 14px 화면 기준 고정 후 move 1000회 `42.993ms`, resize 1000회 `9.119ms`, drag 중 display rebuild 0회.
+- `--wpf-roi-object-verification`: 선택된 ROI의 보이는 핸들 바깥쪽 hit-zone, 겹침 선택, delete 후 zoom 상태 통과. object delete `11.304ms`, delete-then-zoom `1.798ms`, selected empty `True`.
+- `--wpf-roi-object-verification`: cross-image Ctrl+C/Ctrl+V가 같은 좌표에 새 ROI를 만들고 복사 버퍼를 유지하는지 통과.
+- `--wpf-roi-object-verification`: OK ROI 복사 후 활성 라벨이 NG인 상태에서 붙여넣어도 새 ROI가 OK로 저장되고 OK 색상으로 렌더링되는지 통과.
 - `--exe-candidate-focus-smoke`: `recipeApplied=True`, `sampleLoaded=True`, `roiCreated=True`, `candidateVisible=True`, `focusClicked=True`, `objectSelected=True`, `focusClickMs=418.6`.
+- `--wpf-image-queue-status`: 이미지 큐의 현재 폴더 경로 표시와 현재 폴더 열기 command binding 확인.
 - `--wpf-candidate-review-panel`: 후보 검토 버튼 문구와 command binding 통과.
 - `--wpf-visual-smoke --review-tab candidates`: 후보 검토 화면 캡처 확인.
 - `--wpf-learning-workflow-panel` 및 `--wpf-visual-smoke --review-tab guide`: 초보자 가이드 첫 화면 문구와 배치 확인.
+- `--wpf-canvas-workflow-context` 및 full `LabelingApplication.Tests`: 캔버스 활성 라벨 칩, 클래스 카탈로그 선택 동기화, 셸 등록 확인.
+- `--wpf-learning-workflow-panel` 및 `--wpf-visual-smoke --review-tab guide`: 데이터셋 만들기와 이미지 불러오기 단계를 별도 필수 단계로 표시하는지 확인.
+- `--wpf-visual-smoke --review-tab guide` 및 full `LabelingApplication.Tests`: 메인 상단 현재 데이터셋 컨텍스트 바, 기존 데이터셋 선택/폴더/이미지 command binding 확인.
+- `--wpf-class-catalog-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-visual-smoke --review-tab classes --width 1440 --height 900`: 클래스 관리 안내, 레시피 클래스 목록, `데이터셋 저장 폴더(고급)` 접힘 영역 확인.
+- `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-yolo-training-session-smoke`, `--wpf-visual-smoke --review-tab yolo --width 1440 --height 900`: 학습/모델 센터에서 현재 검사 모델, 학습 결과 모델, 적용 상태, 다음 작업이 분리 표시되는지 확인.
+- `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-yolo-training-session-smoke`, `--wpf-visual-smoke --review-tab yolo --width 1440 --height 900`: 모델 센터 확정 버튼이 후보 상태와 recipe 저장 가능 여부에 따라 문구/활성화 상태를 바꾸는지 확인.
+- `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-yolo-training-session-smoke`, `--wpf-visual-smoke --review-tab yolo --width 1440 --height 900`: 모델센터의 `후보 검증` 이동 버튼이 후보가 있을 때 활성화되고, `후보 검토 필요` 확정 버튼과 역할이 분리되는지 확인.
+- `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-yolo-training-session-smoke`, `--wpf-visual-smoke --review-tab yolo --width 1440 --height 900`: 모델 적용 판단 카드의 `판단/근거/확정` 문구가 ViewModel 상태로 노출되고 YOLO 패널 상단에 표시되는지 확인.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-yolo-training-session-smoke`, `--wpf-visual-smoke --review-tab yolo --width 1440 --height 900 --show-training-recovery-status`: YOLO 학습/모델 센터와 YOLO 상태 패널의 실패/복구 카드가 ViewModel 상태로 표시되고, 실패 원인과 다음 조치가 하단 로그 밖에서 보이는지 확인.
+- `--wpf-candidate-review-panel`, `--mvvm-infra`, `--wpf-visual-smoke --review-tab candidates --width 1440 --height 900`: 후보 검토 화면의 모델 비교 상태 카드가 결과 없음/대기/차이 없음/예시 있음 상태와 모델센터 확정 동선을 표시하는지 확인.
+- `--wpf-candidate-review-panel`, `--mvvm-infra`, `--wpf-labeling-shell`, `--wpf-visual-smoke --review-tab candidates --width 1440 --height 900`: 후보 검토 탭에서 현재 이미지 후보 처리와 학습 모델 검증 제목이 분리되어 첫 화면에 보이는지 확인.
+- `--wpf-candidate-review-panel`, `--mvvm-infra`, `--wpf-labeling-shell`, `--wpf-visual-smoke --review-tab candidates --width 1440 --height 900`: 후보 검토 완료 상태와 완료 버튼이 한 줄 카드 안에 압축되어 오른쪽 패널 세로 공간을 덜 차지하는지 확인.
+- `--wpf-learning-workflow-panel`, `--mvvm-infra`, `--wpf-labeling-shell`, `--wpf-visual-smoke --review-tab guide --width 1440 --height 900`: Guide 탭의 데이터셋 준비 카드에서 `처음 10분 시작` 6단계 체크리스트가 첫 화면에 표시되는지 확인.
+- `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-visual-smoke --review-tab yolo --width 1440 --height 900`, `--wpf-visual-smoke --review-tab yolo --width 1440 --height 900 --open-header-tools-menu`: 상단 기본 화면은 저장/검사/톱니바퀴만 보이고, 도구 메뉴 내부가 화면/라벨 보조/작업 전환·환경 섹션으로 열리는지 확인.
+- `--template-guide-ux`, `--template-batch-autolabel-storage`, `--wpf-template-current-image-no-candidate`, `--wpf-image-queue-status`, `--wpf-visual-smoke --review-tab yolo --width 1920 --height 1080 --open-header-tools-menu`: 템플릿 보조 라벨링이 라벨 초안 생성, 위치 확인, 라벨 저장 순서로 설명되고 전체 이미지 템플릿 실행은 자동 저장 버튼으로 보이는지 확인.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false`, `--wpf-learning-workflow-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-visual-smoke --review-tab guide --width 1440 --height 900`: `처음 실습 경로` 카드가 ViewModel command로 연결되고, 데이터셋/이미지/첫 라벨/후보 확인/학습 준비 단축 액션 5개가 기본 EXE 크기에서 모두 보이는지 확인. 캡처: `tests\artifacts\ui\wpf-first-run-shortcuts-before.png`, `tests\artifacts\ui\wpf-first-run-shortcuts-after.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false`, `--wpf-candidate-review-layout`, `--wpf-candidate-review-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-visual-smoke --review-tab candidates --width 1440 --height 900 --show-candidate-disclosure`: 후보 검토 첫 화면에 학습 모델 검증 요약과 접힌 `검증 예시` 행이 표시되고, 긴 예시/이력 목록이 기본 펼침으로 공간을 차지하지 않는지 확인. 캡처: `tests\artifacts\ui\wpf-candidate-progressive-disclosure-before.png`, `tests\artifacts\ui\wpf-candidate-progressive-disclosure-after.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false`, `--wpf-yolo-model-settings-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-yolo-training-session-smoke`, `--wpf-visual-smoke --review-tab yolo-model --width 1440 --height 900`: YOLO 모델 설정을 열었을 때 긴 경로 입력 대신 현재 검사 설정 요약, 저장 버튼, 접힌 고급 경로/추론 설정이 보이는지 확인. 캡처: `tests\artifacts\ui\wpf-yolo-settings-density-before.png`, `tests\artifacts\ui\wpf-yolo-settings-density-after.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false`, `--wpf-training-settings-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-yolo-training-session-smoke`, `--wpf-visual-smoke --review-tab training --width 1440 --height 900`: 학습 설정을 열었을 때 긴 파라미터 입력 대신 현재 학습 설정 요약, 추천 적용, 접힌 고급 학습 파라미터, 시작/중지 버튼이 한 화면에 들어오는지 확인. 캡처: `tests\artifacts\ui\wpf-training-settings-density-before.png`, `tests\artifacts\ui\wpf-training-settings-density-after.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false`, `--wpf-class-catalog-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-visual-smoke --review-tab classes --width 1440 --height 900`: 클래스 탭에서 등록 클래스 수/선택 클래스 요약이 보이고, 색상 프리셋은 기본 접힘 영역으로 내려가 클래스 추가/변경/삭제와 레시피 클래스 목록이 우선 보이는지 확인. 캡처: `tests\artifacts\ui\wpf-class-catalog-density-before.png`, `tests\artifacts\ui\wpf-class-catalog-density-after.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-learning-workflow-panel`, `--wpf-visual-smoke --review-tab guide --width 1920 --height 1080`, `--wpf-visual-smoke --review-tab training --width 1920 --height 1080`, `--wpf-visual-smoke --review-tab guide --width 1366 --height 768`: 장비 기준 1920x1080에서 가이드/학습 화면이 눌리지 않고, 1366x768 축소 화면에서는 상단 툴바/단계 레일이 잘리지 않으며 오른쪽 패널은 스크롤로 대응하는지 확인. 캡처: `tests\artifacts\ui\wpf-resolution-guide-old-1440.png`, `tests\artifacts\ui\wpf-resolution-guide-base-1920.png`, `tests\artifacts\ui\wpf-resolution-guide-small-1366.png`, `tests\artifacts\ui\wpf-resolution-training-base-1920.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\`, `--wpf-labeling-shell`, `--wpf-image-queue-status`, `--mvvm-infra`, `--wpf-responsive-layout --width 1920 --height 1080`, `--wpf-responsive-layout --width 1366 --height 768`, `--wpf-visual-smoke --roi-only --review-tab objects --right-workflow-expanded --width 1920 --height 1080`: 좌측 이미지 큐 버튼 줄바꿈 잘림이 사라지고, 큐 열이 `저장`/`검사`로 구분되며, 열린 우측 패널 제목이 `데이터셋 홈`이 아니라 `저장 라벨`로 표시되는지 확인. 캡처: `artifacts\ui\wpf-image-queue-right-panel-after-1920-expanded.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-responsive-layout --width 1920 --height 1080`, `--wpf-responsive-layout --width 1366 --height 768`, `--wpf-visual-smoke --roi-only --review-tab objects --width 1920 --height 1080`, `--wpf-visual-smoke --roi-only --review-tab objects --width 1366 --height 768`: 접힌 우측 작업 레일 상단에 현재 작업 배지가 보이고 작은 폭에서도 캔버스/레일이 화면 밖으로 밀리지 않는지 확인. 캡처: `artifacts\ui\wpf-right-rail-context-before-1920.png`, `artifacts\ui\wpf-right-rail-context-after-1920.png`, `artifacts\ui\wpf-right-rail-context-after-1366.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\`, `--wpf-canvas-panel-commands`, `--wpf-canvas-workflow-context`, `--wpf-detection-display-mode`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-responsive-layout --width 1920 --height 1080`, `--wpf-responsive-layout --width 1366 --height 768`, `--wpf-visual-smoke --roi-only --review-tab objects --width 1366 --height 768`: 1366 폭에서 캔버스 툴바의 삭제 버튼이 다음 줄로 밀리지 않고 클래스 관리가 현재 클래스 옆 아이콘 버튼으로 유지되는지 확인. 캡처: `artifacts\ui\wpf-canvas-toolbar-density-before-1366.png`, `artifacts\ui\wpf-canvas-toolbar-density-after-1366-final.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\`, `--wpf-labeling-shell`, `--wpf-image-queue-status`, `--mvvm-infra`, `--wpf-canvas-panel-commands`, `--wpf-responsive-layout --width 1920 --height 1080`, `--wpf-responsive-layout --width 1366 --height 768`, `--wpf-visual-smoke --roi-only --review-tab objects --width 1920 --height 1080`, `--wpf-visual-smoke --roi-only --review-tab objects --width 1366 --height 768`: 이미지 큐 상단의 현재 이미지 작업 카드가 선택 행 상태를 요약하고, 라벨링 화면의 목록/캔버스 툴바를 깨지 않는지 확인. 캡처: `artifacts\ui\wpf-current-task-clarity-before-1920.png`, `artifacts\ui\wpf-current-task-clarity-after-1920.png`, `artifacts\ui\wpf-current-task-clarity-after-1366.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-responsive-layout --width 1920 --height 1080`, `--wpf-responsive-layout --width 1366 --height 768`, `--wpf-visual-smoke --roi-only --review-tab objects --right-workflow-expanded --width 1920 --height 1080`: 펼친 오른쪽 작업 패널 헤더에서 현재 패널 역할 설명이 보이고 패널 콘텐츠를 가리지 않는지 확인. 캡처: `artifacts\ui\wpf-right-workflow-task-before-1920.png`, `artifacts\ui\wpf-right-workflow-task-after-1920.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\`, `--wpf-labeling-shell`, `--wpf-image-queue-status`, `--mvvm-infra`, `--wpf-responsive-layout --review-tabs objects --width 1920 --height 1080`, `--wpf-responsive-layout --review-tabs objects --width 1366 --height 768`, `--wpf-visual-smoke --roi-only --review-tab objects --right-workflow-expanded --width 1920 --height 1080`, `--wpf-visual-smoke --roi-only --review-tab objects --right-workflow-expanded --width 1366 --height 768`: 펼친 오른쪽 패널에서 `라벨링 작업 패널` 로컬 전환 영역이 보이고, 라벨/도구/클래스 이동 버튼이 패널 내용과 겹치지 않는지 확인. 캡처: `artifacts\ui\wpf-right-workflow-local-switcher-before-1920.png`, `artifacts\ui\wpf-right-workflow-local-switcher-after-1920.png`, `artifacts\ui\wpf-right-workflow-local-switcher-after-1366.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\`, `--wpf-object-review-panel`, `--wpf-labeling-shell`, `--wpf-image-queue-status`, `--mvvm-infra`, `--wpf-responsive-layout --review-tabs objects --width 1920 --height 1080`, `--wpf-responsive-layout --review-tabs objects --width 1366 --height 768`, `--wpf-visual-smoke --roi-only --review-tab objects --right-workflow-expanded --width 1920 --height 1080`, `--wpf-visual-smoke --roi-only --review-tab objects --right-workflow-expanded --width 1366 --height 768`: 오른쪽 `저장 라벨` 패널에서 현재 선택 라벨과 수정/저장 안내가 목록보다 먼저 보이고, 1366 폭에서도 클래스 적용/삭제 영역과 목록이 겹치지 않는지 확인. 캡처: `artifacts\ui\wpf-object-review-task-card-before-1920.png`, `artifacts\ui\wpf-object-review-task-card-after-1920.png`, `artifacts\ui\wpf-object-review-task-card-after-1366.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\`, `--wpf-class-catalog-panel`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-responsive-layout --review-tabs classes --width 1920 --height 1080`, `--wpf-responsive-layout --review-tabs classes --width 1366 --height 768`, `--wpf-visual-smoke --roi-only --review-tab classes --right-workflow-expanded --width 1920 --height 1080`, `--wpf-visual-smoke --roi-only --review-tab classes --right-workflow-expanded --width 1366 --height 768`: 오른쪽 `클래스` 패널에서 선택 클래스가 다음 새 박스에 적용된다는 안내가 보이고, 작업 안내가 오류처럼 빨갛게 보이지 않으며, 1366 폭에서도 클래스 입력/목록이 화면 안에 남는지 확인. 캡처: `artifacts\ui\wpf-class-current-label-task-before-1920.png`, `artifacts\ui\wpf-class-current-label-task-after-1920.png`, `artifacts\ui\wpf-class-current-label-task-after-1366.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\`, `--wpf-learning-workflow-panel`, `--template-guide-ux`, `--wpf-labeling-shell`, `--mvvm-infra`, `--wpf-responsive-layout --review-tabs guide --width 1920 --height 1080`, `--wpf-responsive-layout --review-tabs guide --width 1366 --height 768`, `--wpf-visual-smoke --roi-only --review-tab guide --right-workflow-expanded --expand-learning-concepts --focus-template-workflow --width 1920 --height 1080`: 오른쪽 `가이드/도구` 패널에서 템플릿 반복 라벨링 순서와 현재/전체 실행 버튼이 보이는지 확인. 캡처: `artifacts\ui\wpf-guide-tools-flow-before-1920.png`, `artifacts\ui\wpf-guide-tools-template-flow-after-1920.png`.
+- `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false`, `--wpf-learning-workflow-panel`, `--wpf-startup-onboarding-visual --width 1920 --height 1080`, `--wpf-startup-onboarding-visual --width 1366 --height 768`: 첫 실행 Guide 화면에서 데이터셋 생성/열기 액션이 실습 경로보다 먼저 보이는지 확인. 캡처: `tests\artifacts\ui\wpf-startup-onboarding-1920.png`, `tests\artifacts\ui\wpf-startup-onboarding-1366.png`, `tests\artifacts\ui\wpf-startup-onboarding-after-1920.png`, `tests\artifacts\ui\wpf-startup-onboarding-after-1366.png`.
+- Full `LabelingApplication.Tests` 및 `--wpf-image-queue-status`: 데이터셋 manifest의 `imageRootPath`, 선택창 이미지 경로 표시, 기존 VISION.xml fallback, 재열기 시 operator image folder 우선순위 확인.
+- `--wpf-startup-dataset-restore`: 마지막으로 적용한 recipe를 `.last-opened-recipe`에서 읽어 WPF 셸 시작 시 recipe, 클래스, 이미지 폴더, 이미지 큐가 복원되는지 확인.
 - `--wpf-model-comparison-heldout`: held-out 최종 검증 라벨 수에 따라 모델 비교/교체 기준 문구가 달라지는지 확인.
 - `compare-yolo-models.ps1 -Task test`: COCO128 true held-out artifact 기준 train 96/valid 16/test 16 라벨 쌍으로 통과. `yolov5m.pt` mAP50-95 `0.657`, `yolov5s.pt` mAP50-95 `0.561`.
 - `prepare-industrial-dataset.ps1`: Kolektor held-out artifact 기준 train 238/valid 102/test 59 이미지/라벨 쌍 생성, defect label 52, empty label 347, label BMP 이미지 복사 0, data.yaml UTF-8 no BOM.
@@ -60,7 +147,7 @@ Last updated: 2026-07-02
 
 현재 남은 작업은 위 항목의 재작업이 아니라, 아래 세 갈래입니다.
 
-1. 처음 사용자 10분 흐름을 실제 EXE 기준으로 더 짧고 확실하게 고정합니다.
+1. 클래스 탭에서 저장 폴더 편집을 제거한 뒤 1366x768 class visual smoke를 확인했을 때 오른쪽 검토/설정 패널이 화면 밖으로 밀리는 문제가 보였습니다. 다음 우선순위는 작은 폭에서 오른쪽 패널을 보존하는 responsive layout 구조 수정입니다.
 2. 산업 `Defect` 모델 품질을 올립니다. 짧은 1ep/3ep와 oversampling 5ep는 파이프라인 검증/보류로 완료됐고, 다음은 image size 상향 또는 마스크 박스 padding처럼 입력 표현을 바꾸는 실험입니다.
 3. 세그멘테이션/이상탐지는 객체탐지 MVP를 흔들지 않는 별도 완료 기준으로 진행합니다.
 
@@ -2296,6 +2383,1805 @@ Last updated: 2026-07-02
   - 50만 개 목록에서 작은 목록처럼 즉시 전체 재번호를 강제하지 않습니다. 대신 SourceId로 후속 명령 정확성을 유지하고, 다음 전체 refresh 시 표시 번호가 정규화됩니다.
   - 실제 사용자 화면처럼 "우측 목록은 비었지만 선택 핸들이 남는" 상태는 `_selectedRect`가 overlay 생명주기와 분리되어 있었기 때문입니다. 앞으로 side-panel 삭제는 반드시 canvas live selection까지 함께 정리합니다.
 
+## 2026-06-28 dataset wizard initial classes UX
+
+- `WpfDatasetSetupWizardWindow` now labels the initial class field as multi-class capable and shows an example: `Defect, OK, NG`.
+- `WpfDatasetSetupWizardViewModel.ClassSummaryText` shows the parsed class count and names next to the input. The existing parser still accepts comma, semicolon, and newline separators and removes case-insensitive duplicates.
+- Verified: build passed, `--wpf-dataset-wizard-smoke` captured `tests\artifacts\ui\wpf-dataset-setup-wizard.png`, and full `LabelingApplication.Tests` regression passed. The regression now checks `Defect, OK, NG` creates three class names.
+
+## 2026-06-28 class catalog rename and color UX
+
+- `ClassCatalogService` now supports preserving a class item while renaming its `Text`, plus changing its `DrawColor` without changing YOLO class order.
+- `WpfClassCatalogPanel` now exposes `변경`, color preset chips (`정상`, `불량`, `주의`, `검토`, `세그`, `이물`), and `색 적용`.
+- The shell no longer treats `Defect` as undeletable. Deletion is blocked only when it would leave zero classes; users can rename `Defect` to `NG`/`이물`, or add another class and then delete `Defect`.
+- Active manual ROI, segmentation, and confirmed candidate labels are synchronized when a class is renamed so the current image does not show stale class names.
+- Verified: build passed, `--wpf-visual-smoke --review-tab classes` captured `tests\artifacts\ui\wpf-detection-overlay-visual-check.png`, and full `LabelingApplication.Tests` regression passed.
+
+## 2026-06-28 ROI copy/paste and nested-class drawing UX
+
+- `Ctrl+V` paste now calls an immediate canvas repaint after adding the copied ROI, so the pasted box is visible without waiting for another viewer update.
+- The canvas ViewModel exposes a class-aware draw-over predicate owned by the WPF shell. Same-class ROI clicks still select/edit the existing box, but dragging with a different active class starts a new nested box inside the broad label.
+- This is protected in `docs\STABLE_VERIFIED_AREAS.md`; do not remove the immediate paste repaint or class-aware nested drawing behavior when adjusting ROI hit-testing.
+- Verified: build passed; `--wpf-roi-object-verification` passed with `WPF_OBJECT_REVIEW_DELETE_MS=7.644` and `WPF_OBJECT_REVIEW_DELETE_THEN_ZOOM_MS=1.543`; `--roi-geometry` passed; full `LabelingApplication.Tests` regression passed. Full-regression samples included `TEXTURE_PAN_1000_MOUSEMOVE_MS=6.757`, `ROI_500K_MOUSE_EVENT_MOVE_1000_MS=16.318`, `ROI_500K_SINGLE_DELETE_MS=3.352`, and `ROI_OVERLAP_REPEAT_HIT_MS=4.649`. Real EXE ROI smoke also passed: `EXE_ROI_TOOLS_SMOKE seed=260628 boxes=5 boxAvgMs=200.0 deleteThenWheelUiMs=18.5 boxSelected=True rowVisible=True deleteEnabled=True`.
+
+## 2026-06-29 training settings beginner guidance
+
+- `WpfTrainingSettingsPanel` now shows readable Korean labels, a visible recommendation summary, and per-field explanations for image size, batch, epoch, model structure, weights, validation ratio, final validation ratio, and split seed.
+- Added `ApplyFastTrainingPresetButton` bound to `WpfTrainingSettingsPanelViewModel.ApplyFastRecommendationCommand`.
+- The fast first-training preset applies: image size `320`, batch `16`, epoch `50`, model structure `yolov5s`, weights `yolov5s`, validation `20%`, final validation `0%`, split seed `17`.
+- The recommendation button follows workflow command state and disables while training is running.
+- This is protected in `docs\STABLE_VERIFIED_AREAS.md`; do not revert the training panel to unexplained numeric inputs.
+- Verified: build passed; `--wpf-visual-smoke --review-tab yolo` passed; full `LabelingApplication.Tests` regression passed; `git diff --check` passed with only LF-to-CRLF warnings.
+
+## 2026-06-29 template batch auto label storage and EXE check
+
+- Added a focused regression flag: `--template-batch-autolabel-storage`.
+- The test creates synthetic PNG images, runs the real `TemplateMatchingBatchAutoLabelService`/`MatchingTool` path, saves YOLO labels for an unlabeled queued image, reloads the generated label as the selected `Part` class, and verifies the PNG source extension is preserved.
+- The same test verifies existing `.txt` labels are skipped both by `BuildUnlabeledImagePathQueue` and by `MatchAndSaveImage`, and that the existing label file contents are not overwritten.
+- Added `--exe-template-batch-autolabel-smoke`. The real EXE applies a temporary recipe, loads a controlled three-image dataset, draws a box on the active template image with native mouse input, clears the queue filter, clicks `템플릿 배치`, and verifies the unlabeled target gets one YOLO object while the active source and existing-label image are skipped.
+- Added stable AutomationIds for the template candidate and template batch buttons: `TemplateMatchingButton` and `TemplateBatchQueueButton`.
+- The batch template score threshold is `0.7`. The previous `0.9` setting produced `No candidates found` in the real EXE smoke with a visually identical template/target pair, while the lower threshold still keeps the existing-label skip and active-image exclusion safeguards.
+- Verified: `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false`, `--mvvm-infra`, `--yolo-annotation-storage`, `--wpf-visual-smoke --roi-only --width 1280 --height 820`, `--wpf-image-queue-status`, `--template-batch-autolabel-storage`, and `--exe-template-batch-autolabel-smoke` all passed.
+- Remaining: broader validation on a real industrial image folder is still useful before calling template batch auto labeling fully production-ready, but the real EXE operator-style path is now covered by automation.
+
+## 2026-06-29 TEST dataset training failure diagnosis
+
+- Investigated `TEST_Dataset_ObjectDetection_20260628_212353`, which maps to `artifacts\run\Debug\DATA\Dataset_ObjectDetection_20260628_212353\data.yaml`.
+- Dataset structure was valid for the current object detection export: train 97 images/97 label files/112 box lines, valid 28 images/28 label files/29 box lines, test 0; no missing label files, no orphan label files, and no malformed YOLO label lines.
+- The apparent `125 images / 141 labels` count is expected because the UI summary reports 141 box objects, not 141 label files.
+- The actual training failure is in the YOLOv5 process before dataset loading. The log shows `torch.load(C:\Git\yolov5\best.pt)` failing with PyTorch's `weights_only` checkpoint restriction: `_pickle.UnpicklingError: Weights only load failed` and `Unsupported global: GLOBAL models.yolo.DetectionModel`.
+- The failing command used `C:\Git\yolov5\.venv\Scripts\python.exe`, `C:\Git\yolov5\yolov5Master\train.py`, weights `C:\Git\yolov5\best.pt`, cfg `C:\Git\yolov5\yolov5Master\models\yolov5x.yaml`, and the TEST dataset `data.yaml`.
+- No application code or dataset files were changed for this diagnosis.
+
+## 2026-06-29 YOLOv5 PyTorch checkpoint load compatibility fix
+
+- Added `C:\Git\yolov5\yolov5Master\utils\torch_compat.py` with `torch_load_checkpoint`, which explicitly uses `weights_only=False` on PyTorch versions that default checkpoint loads to weights-only mode.
+- Updated YOLOv5 object detection training, segmentation training, optimizer stripping, experimental model loading, and hub custom model loading to use the compatibility loader.
+- This fix is intentionally limited to trusted local YOLOv5 checkpoint loading. It does not alter exported dataset files, labels, or the WPF app workflow.
+- Verified direct loading of `C:\Git\yolov5\best.pt` through `torch_load_checkpoint`.
+- Verified the previous failure point is cleared by running `train.py` with the same `best.pt` and `yolov5x.yaml`; the run reached `Transferred 82/745 items from C:\Git\yolov5\best.pt`.
+- Verified end-to-end with a temporary 1-image train/valid mini dataset for 1 epoch on CPU. Training completed, `last.pt` and `best.pt` were stripped, and final validation completed.
+
+## 2026-06-29 YOLO worker startup timeout adjustment
+
+- Investigated the UI message `YOLO Python client did not connect within 30000ms`.
+- The worker did not fail. The log shows timeout at `12:10:21`, then the same Python process loaded `C:\Git\yolov5\best.pt` and connected at `12:10:37` with `loadMs=43274`.
+- Updated `GetWorkerConnectTimeoutMilliseconds` so first worker startup waits for model-load grace time: configured detection timeout plus 90 seconds, clamped to 120-300 seconds.
+- This keeps interactive reconnects short when a client is already connected, but prevents slow CPU model preload from being reported as a connection failure.
+- Verified: app build passed, `--mvvm-infra` passed, and the WPF single-detection source regression now checks the startup grace-time rule.
+
+## 2026-06-29 post-training model UX cleanup
+
+- Clarified the training/result flow after a YOLO run:
+  - Training settings now call the pretrained starting point `학습 시작 가중치`.
+  - Model settings now call the inference file `검사 모델(.pt)`.
+  - Status text distinguishes `새 학습 모델 후보`, `현재 검사 모델`, and missing `results.csv` metrics.
+- Fixed the post-training comparison baseline path. When a completed run finds a newer `best.pt`, the app still stages that file in model settings, but it now remembers the pre-training inspection model and passes it as `baselineWeightsOverride` to model comparison. This prevents `기존 모델` and `새 모델` from becoming the same file immediately after auto-staging.
+- Rewrote corrupted Korean user-facing strings in the YOLO model settings panel, training settings panel, training progress status, YOLO runtime status, and training result comparison service.
+- Manual model-file browsing now clears the pending training baseline so a deliberate operator model change does not leave stale comparison state.
+- Verified:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --project tests/LabelingApplication.Tests/LabelingApplication.Tests.csproj -- --mvvm-infra` passed.
+  - `dotnet run --project tests/LabelingApplication.Tests/LabelingApplication.Tests.csproj -- --wpf-model-comparison-heldout` passed.
+  - `dotnet run --project tests/LabelingApplication.Tests/LabelingApplication.Tests.csproj -- --wpf-yolo-training-session-smoke` passed and captured `tests\artifacts\ui\wpf-yolo-training-session-smoke.png`.
+  - `dotnet run --project tests/LabelingApplication.Tests/LabelingApplication.Tests.csproj -- --wpf-learning-workflow-panel` passed.
+- Full `LabelingApplication.Tests` was not clean because it stopped later at `OpenGL mouse pan avoids per-event pixel readback: ROI canvas display cap status should use a compact operator-readable label`. This is outside the post-training UX change and was not modified.
+
+## 2026-06-29 YOLO training live-state UX clarification
+
+- Diagnosed the current TEST training run after the UI showed `학습 started / YOLO training accepted by worker`.
+- Runtime evidence: the latest `runs\train\exp4` had `labels.jpg`/`labels_correlogram.jpg`, but no `results.csv`, `weights\best.pt`, or `weights\last.pt`; no active `train.py` parent process was present. This means the run was not completed, and the UI text should not imply completion.
+- Updated WPF training state handling so `started`/`running` worker status keeps the training session busy after the start command returns. `시작` remains disabled and `중지` remains available while the worker reports a live training state.
+- Progress text now distinguishes command acceptance and pre-epoch initialization: accepted worker status is shown as `학습 명령 수락됨` with `에폭 시작 전`, not as a completed model.
+- Added focused regressions for accepted worker status, stop availability, command gating, and training panel button state.
+- Verified:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=C:\Git\Labelling_Application\artifacts\codex-build\Debug\` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=C:\Git\Labelling_Application\artifacts\codex-test-build\Debug\` passed.
+  - `artifacts\codex-test-build\Debug\LabelingApplication.Tests.exe --mvvm-infra` passed.
+  - `artifacts\codex-test-build\Debug\LabelingApplication.Tests.exe --wpf-yolo-training-session-smoke` passed.
+  - Default `dotnet build .\MvcVisionSystem.csproj ...` was blocked because the currently running app process `MvcVisionSystem (30144)` and Visual Studio held files under `artifacts\run\Debug`; the app was not closed automatically.
+
+## 2026-06-29 YOLO training epoch-wait hang diagnosis and worker fix
+
+- Diagnosed the later TEST training run while the UI showed `에폭 대기`.
+- Runtime evidence: the latest `C:\Git\yolov5\yolov5Master\runs\train\exp5` had `labels.jpg` and `labels_correlogram.jpg`, but no `results.csv`, `weights\best.pt`, or `weights\last.pt`. The log reached `Using 8 dataloader workers` and the epoch header, but no epoch row was emitted. The `train.py` parent process was no longer present and Python CPU counters were not increasing.
+- Root cause conclusion: this was not an active epoch run. The YOLOv5 training process was stuck or died around Windows dataloader worker startup, and inherited stdout handles could keep the worker monitor waiting instead of reporting failure.
+- Updated `C:\Git\yolov5\labeling_tcp_client.py` so generated training commands default to `--workers 0` unless the caller explicitly supplies a workers value. This avoids the Windows multiprocessing dataloader path for labeling-app initiated training.
+- Updated the Python worker monitor to read training stdout on a daemon thread and wait on the training process separately. If the parent process exits while child handles keep stdout open, the worker can still report completed/failed/stopped status instead of waiting indefinitely.
+- Updated the WPF pre-epoch status text from `에폭 대기` to `에폭 시작 전` so operators can tell that no real epoch row has started yet.
+- Verified:
+  - `C:\Git\yolov5\.venv\Scripts\python.exe -m py_compile C:\Git\yolov5\labeling_tcp_client.py C:\Git\yolov5\labelling_tcp_client.py` passed.
+  - `C:\Git\yolov5\.venv\Scripts\python.exe C:\Git\yolov5\labelling_tcp_client.py --self-test` passed.
+  - Direct `_build_train_command` verification produced a command ending with `--workers 0`.
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=C:\Git\Labelling_Application\artifacts\codex-build\Debug\` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=C:\Git\Labelling_Application\artifacts\codex-test-build\Debug\` passed.
+  - `artifacts\codex-test-build\Debug\LabelingApplication.Tests.exe --mvvm-infra` passed.
+  - `artifacts\codex-test-build\Debug\LabelingApplication.Tests.exe --wpf-yolo-training-session-smoke` passed.
+
+## 2026-06-29 TEST dataset CPU training size failure diagnosis
+
+- Diagnosed the next TEST training failure after the UI received `TaskStatus state=failed`.
+- The failed UI run was `C:\Git\yolov5\yolov5Master\runs\train\exp6`; `opt.yaml` confirmed `workers: 0`, so the previous Windows dataloader worker path was no longer the cause.
+- `exp6` produced `labels.jpg` and `labels_correlogram.jpg`, but no `results.csv`, `weights\best.pt`, or `weights\last.pt`.
+- Reproduced the failing setting directly with `yolov5x.yaml`, `imgsz 640`, `batch-size 16`, `workers 0`, and the TEST dataset. The dataset loaded successfully, auto-anchor completed, and the run reached the first training progress line `0/7`; then the process exited with code `1` before any epoch result or Python traceback.
+- The failed model summary was YOLOv5x: 86,224,543 parameters and 204.6 GFLOPs on CPU.
+- Control run on the same dataset completed with `yolov5s.yaml`, `imgsz 320`, `batch-size 4`, `workers 0`, and `epochs 1`. It wrote `results.csv`, `weights\last.pt`, and `weights\best.pt` under `artifacts\codex-yolo-diagnose\safe-small-repro`.
+- Conclusion: the TEST dataset is trainable; the failure is the selected CPU training size (`yolov5x` + `640` + `batch 16`) being too heavy for the current machine/process state. Use the fast preset (`yolov5s`, `320`, small batch) for this dataset unless a CUDA GPU path is explicitly available and verified.
+
+## 2026-06-29 TEST dataset training completion and active-model visibility
+
+- After the app was closed, verified that no `MvcVisionSystem`, YOLO worker client, or `train.py` process was still running.
+- Verified the completed TEST run at `C:\Git\yolov5\yolov5Master\runs\train\exp7`: `results.csv`, `weights\best.pt`, and `weights\last.pt` exist. `opt.yaml` records `data: C:\Git\Labelling_Application\artifacts\run\Debug\DATA\Dataset_ObjectDetection_20260628_212353\data.yaml`, `cfg: yolov5s.yaml`, `imgsz: 320`, `batch_size: 4`, `epochs: 100`, and `workers: 0`.
+- The saved recipe still showed `C:\Git\yolov5\best.pt`, so the user could not reliably tell from the UI whether inspection was using the newly trained model or the old inspection model unless the staged model setting was saved.
+- Updated `WpfTrainingWeightsService` so post-training model discovery also searches `ProjectRoot\yolov5Master\runs\train`, prefers runs whose `opt.yaml data:` points at the current dataset `data.yaml`, and treats current-dataset training as complete only when a matched `best.pt` has readable `results.csv` metrics.
+- UI status now formats trained weights as `exp7\best.pt` instead of only `best.pt`, so the user can distinguish the current inspection model from a newly trained run with the same file name.
+- The YOLO training workflow step now marks training complete from persisted run artifacts, not only from live worker status, so reopening the app after a completed run can still show that the current dataset already has a completed training result.
+- Verified:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=C:\Git\Labelling_Application\artifacts\codex-build\Debug\` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=C:\Git\Labelling_Application\artifacts\codex-test-build\Debug\` passed.
+  - `artifacts\codex-test-build\Debug\LabelingApplication.Tests.exe` passed through `WPF training weights service selects latest best.pt` and stopped later at the pre-existing `Project settings persist dataset purpose in recipe config: Expected '1', got '0'`.
+  - `artifacts\codex-test-build\Debug\LabelingApplication.Tests.exe --wpf-yolo-training-session-smoke` passed.
+  - `artifacts\codex-test-build\Debug\LabelingApplication.Tests.exe --mvvm-infra` passed.
+  - `C:\Git\yolov5\.venv\Scripts\python.exe -m py_compile C:\Git\yolov5\labeling_tcp_client.py C:\Git\yolov5\labelling_tcp_client.py` passed.
+  - `C:\Git\yolov5\.venv\Scripts\python.exe C:\Git\yolov5\labelling_tcp_client.py --self-test` passed.
+
+## 2026-06-29 canvas label/inference display mode separation
+
+- Added an explicit canvas display selector with three modes:
+  - `라벨`: show manual labels, confirmed labels, polygons, and masks only.
+  - `추론`: show AI inference candidates and the inference result card only.
+  - `모두`: show labels and AI candidates together for comparison.
+- The selector is ViewModel-bound through `WpfCanvasPanelViewModel.DisplayModes`, `SelectedDisplayMode`, and `DisplayModeSelectionChangedCommand`; the panel code-behind only exposes the control for shell composition/visual smoke registration.
+- `RedrawReviewRois()` now applies the display policy instead of always drawing manual labels, confirmed labels, and pending AI candidates together.
+- Result cards are hidden in `라벨` mode so users do not confuse labeling state with inference results.
+- New inference results, batch inference results, and model-comparison examples switch to `추론` mode. Labeling workflow/tool selection and AI overlay reset switch back to `라벨` mode.
+- Focus actions are mode-aware: candidate focus switches to `추론`, and current-label focus switches to `라벨`.
+- Fixed the canvas toolbar clipping introduced by the display selector: the toolbar now uses a wrapping layout when the default EXE width leaves less horizontal room in the canvas column, so `선택`/`박스` and `라벨/추론` controls move to the next line instead of being clipped.
+- Fixed OpenGL canvas badge mojibake: detection/model-comparison labels drawn directly on the canvas now use ASCII-safe badge text, while WPF result cards and review panels keep Korean user-facing text.
+- Verified:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-canvas-panel-commands` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-detection-display-mode` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-canvas-detection-overlay` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-current-image-smoke-preserve-labels` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1430 --height 900` passed and the captured toolbar was not clipped.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1100 --height 720` passed and the captured `보기/라벨/추론/모두` toolbar controls were not clipped at the top.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-visual-smoke --roi-only --width 1430 --height 900` passed and the captured `선택`/`박스` quick-tool buttons were single-line and not clipped at the top.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-visual-smoke --roi-only --width 1440 --height 900 --output tests\artifacts\ui\wpf-toolbar-wrap-1440.png` passed and the default-width toolbar wrapped instead of clipping.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-visual-smoke --roi-only --width 1100 --height 720 --output tests\artifacts\ui\wpf-toolbar-wrap-1100.png` passed and the narrow-width toolbar wrapped instead of clipping.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-canvas-detection-overlay` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-detection-display-mode` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1100 --height 720 --output tests\artifacts\ui\wpf-canvas-ascii-detection-badge.png` passed and the canvas badges rendered as `#1 OK 95.9%` / `#2 NG` without mojibake.
+- Full `LabelingApplication.Tests` was not clean because it stopped later at `OpenGL mouse pan avoids per-event pixel readback: ROI canvas display cap status should use a compact operator-readable label`. This is outside the canvas display-mode change and was not modified.
+- `git diff --check` for the files changed by this display-mode task reported only LF-to-CRLF warnings. Repository-wide `git diff --check` is still blocked by an existing `CODEX_RECOVERY.md:330: new blank line at EOF` issue.
+
+## 2026-06-29 reused image folder dataset isolation
+
+- Diagnosed the issue where creating a new dataset with the same image folder could show labels from the previous dataset.
+- Root cause: YOLO label lookup checked external `Images` sibling `labels` and image sidecar `.txt` paths before the active dataset output root, so stale labels beside the reused source image folder could be treated as labels for the new dataset.
+- Updated active-dataset lookup so box labels are loaded from the current dataset output root (`data/train|valid|test/labels`) and external sibling/sidecar labels are ignored while a dataset is active.
+- Applied the same isolation rule to segmentation JSON lookup (`data/train|valid|test/segments`) so reused image folders cannot leak old segmentation labels into a new dataset either.
+- Legacy standalone lookup without an active `CData` still supports sibling/sidecar labels for compatibility.
+- Verified:
+  - `dotnet build .\MvcVisionSystem.csproj` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --yolo-label-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --segmentation-annotation-storage` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --yolo-annotation-storage` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --template-batch-autolabel-storage` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-current-image-smoke-preserve-labels` passed.
+
+## 2026-06-29 dataset creation output-root reuse fix
+
+- Verified the user's live `TEST2_Dataset_ObjectDetection_20260628_212353` recipe was still showing labels because it pointed at the same active output root as `TEST_Dataset_ObjectDetection_20260628_212353`: `artifacts\run\Debug\DATA\Dataset_ObjectDetection_20260628_212353`.
+- That shared output root contained 97 train label files and 28 valid label files, so Test2 was reading real labels from its configured dataset root, not from the external `D:\LabelingData\Test01\Images` folder.
+- Updated new dataset creation so the wizard no longer defaults to the currently opened dataset's output root. Existing recipe names are skipped for new setup defaults, and the default output root is generated under `DATA\<new recipe name>`.
+- Added a guard in `ApplyDatasetSetupRequest` that rejects a new dataset if its requested output root is already used by another recipe, preventing accidental shared label stores.
+- Verified:
+  - `dotnet build .\MvcVisionSystem.csproj` passed. Existing running processes caused transient copy retry warnings, but final errors were 0.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj` passed with the existing MSIL/AMD64 warning.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-dataset-setup-request` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --yolo-label-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --segmentation-annotation-storage` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --yolo-annotation-storage` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-current-image-smoke-preserve-labels` passed.
+
+## 2026-06-29 template matching first-use guide
+
+- Improved the first-use UX for the top `템플릿` action and image-queue template batch action.
+- Previously, missing prerequisites such as no loaded image, no selected source box, or no unlabeled queue images were only written to the lower log, which was easy to miss.
+- `WpfTemplateMatchingAutoLabelViewModel` now asks the shell host to show an actionable guide when the operator tries template matching without the required image/source box/queue context.
+- The shell keeps the actual WPF `MessageBox` as a View adapter through `IWpfTemplateMatchingAutoLabelHost.ShowAutoLabelGuide`, while the ViewModel owns the workflow-specific guide text and state updates.
+- The guide explains the direct sequence: draw/select one source box, run the top template candidate search for the current image, or use the image-queue template batch for unlabeled images.
+- Verified:
+  - `dotnet build .\MvcVisionSystem.csproj -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with the existing MSIL/AMD64 warning.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --template-guide-ux` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --template-batch-autolabel-storage` passed.
+
+## 2026-06-29 reusable WPF message dialog and class selector wording
+
+- Clarified the canvas toolbar class selector so the chip row now reads `클래스 <class>` instead of the ambiguous `라벨 <class>`.
+- The object review panel remains the source of truth for actual current-image objects. If it says `현재 이미지 객체 없음`, the `NG`/`OK` chips are not existing labels; they are the active class options used when adding a new box.
+- Added a reusable WPF message dialog library project at `OpenVisionLab\Library\OpenVisionLab.Wpf.MessageDialogs`.
+- The library contains a WPF `UserControl`, host `Window`, result/buttons/kind options, and a static `WpfMessageDialog` service so other WPF projects can reuse the same dialog without depending on the legacy WinForms `OpenVisionLab.MessageBox`.
+- Updated template matching first-use guidance to use `WpfMessageDialog.ShowInfo` through the shell host adapter. The workflow text remains owned by `WpfTemplateMatchingAutoLabelViewModel`.
+- Added the new library project to `MvcVisionSystem.sln` and referenced it from `MvcVisionSystem.csproj`.
+- Verified:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-canvas-panel-commands` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --template-guide-ux` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-visual-smoke --roi-only --width 1280 --height 820 --output tests\artifacts\ui\wpf-class-selector-label.png` passed, and the captured toolbar showed `클래스 Defect` without clipping.
+
+## 2026-06-29 output-root change reloads active labels
+
+- Clarified the class tab semantics after the user asked why labels remained after changing the save path.
+- Class definitions (`NG`, `OK`, etc.) are recipe metadata and intentionally remain with the current recipe when the output root changes.
+- Image annotations are output-root data and must follow the selected save path (`data/train|valid|test/labels`).
+- Fixed `SaveOutputRootFromEditor()` so changing the save path reloads the active image from the new output root immediately. If the new root has no label file for that image, the canvas/object review no longer keeps labels loaded from the previous root.
+- Added a dirty-edit guard: if the current image has unsaved annotation edits, the output-root change is blocked until the user saves the labels first.
+- Added a `레시피 클래스` header above the class list and a tooltip explaining that class definitions stay in the recipe even if the save path changes.
+- Verified:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-output-root-reload` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --yolo-label-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab classes --width 1280 --height 820 --output tests\artifacts\ui\wpf-recipe-class-header.png` passed and the captured class tab showed the new `레시피 클래스` header.
+- A mistakenly broad test run with `--wpf-class-catalog-panel` entered the default full suite and stopped at the existing `OpenGL mouse pan avoids per-event pixel readback: ROI canvas display cap status should use a compact operator-readable label` failure. This is the same pre-existing issue noted above and is outside this output-root change.
+
+## 2026-06-29 template current-image no-candidate status
+
+- Diagnosed the case where drawing a source label and clicking the top `템플릿` button could mark the current image as `실패`.
+- Root cause: the current-image template service correctly returned a successful result with zero candidates when no additional matching object was found, but the ViewModel forwarded that zero-count result as `succeeded: false` to the shell host.
+- Updated `WpfTemplateMatchingAutoLabelViewModel.RunCurrentImage()` so true template execution failures still mark failure, while successful zero-candidate results are applied as `succeeded: true`. The existing shell review-status path then classifies the image as `검출없음` instead of `실패`.
+- Corrected corrupted Korean guide strings in the same template ViewModel so missing-image/missing-source-box guidance appears readable in the popup and status text.
+- Follow-up UX fix after live use: successful zero-position template runs now replace stale prerequisite warnings with a visible `템플릿 초안 없음 - 기준 박스를 제외한 추가 위치 없음` status.
+- Split the shell host's template current-image zero-candidate path from the general YOLO detection result path. A saved/labeled current image is no longer overwritten as `검출없음` just because the template search found no extra candidate beyond the source box.
+- Corrected the top `템플릿` workflow to match the operator expectation:
+  - On a labeled source image, selecting one label box and pressing `템플릿` registers that box as the template.
+  - On another image, pressing `템플릿` uses the registered template to find the matching position and materializes the result as a manual label on the current image.
+  - The new label is not auto-saved; the UI marks `라벨 저장 필요` so the operator can verify and save.
+  - Near-duplicate template hits are skipped instead of creating stacked duplicate labels.
+- Extended the template batch path so a registered template can be applied across the full image queue once. The source image used to register the template is skipped, and images that already have label files are not overwritten.
+- Updated the image queue `템플릿 배치` tooltip to state that it checks the full image list and saves labels only for unlabeled images.
+- Added a focused regression test that uses a full-image source template to force the "successful run, zero candidates" path and verifies that it is not reported as a failed detection.
+- Verified:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --template-guide-ux` passed, including source-template registration, shifted target-image label creation, and registered-template batch save across the queue.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --template-batch-autolabel-storage` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-template-current-image-no-candidate` passed, including direct materialization of a template candidate into a manual label.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-detection-display-mode` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-current-image-smoke-preserve-labels` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --mvvm-infra` passed.
+
+## 2026-06-30 startup dataset onboarding UX pass
+
+- Audited the first user path from app startup to dataset setup.
+- UX finding: the app had dataset setup and selector flows, but when no dataset/image was restored the right panel could remain on the empty object-review tab, forcing the operator to infer the next action.
+- Updated startup behavior so an empty/no-restored-dataset shell opens the `가이드/도구` tab and focuses the dataset setup action.
+- Updated the dataset selection dialog with an in-list empty state. When no existing dataset is available, the list area now directly presents `새 데이터셋 만들기` instead of relying only on the bottom status text.
+- Follow-up UX finding from live labeling/training/inference use: the first guide card still offered only a new-dataset action, while the existing-dataset path was available only in the top header.
+- Added an explicit `기존 열기` action beside `새로 만들기` in the guide's dataset setup card. The two buttons now express the operator decision directly: create a new isolated dataset root or open an already saved dataset.
+- Changed the primary setup button text from purpose-only wording such as `박스 데이터셋` to the action wording `새로 만들기`; the selected dataset purpose remains visible in the purpose buttons and guide text.
+- Added tooltips to both setup actions so hovering explains that `새로 만들기` creates separated image/label storage and `기존 열기` opens a saved dataset.
+- Captured before/after UI comparison at the default EXE size:
+  - Before: `tests\artifacts\ui\wpf-dataset-onboarding-before-open-existing.png`.
+  - After: `tests\artifacts\ui\wpf-dataset-onboarding-after-open-existing.png`.
+- Kept the changes inside WPF ViewModel/UI-adapter boundaries:
+  - `WpfDatasetSelectionWindowViewModel` owns empty-state visibility.
+  - `WpfLearningWorkflowPanelViewModel` owns the new existing-dataset command and action wording.
+  - `WpfLearningWorkflowPanel` exposes only a UI adapter for scrolling/focusing the dataset setup action.
+  - `WpfLabelingShellWindow` only chooses the initial side-panel focus when no active image is available.
+- Verified:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-startup-onboarding` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-startup-dataset-restore` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-dataset-setup-request` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-learning-workflow-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --yolo-annotation-storage` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab guide --width 1440 --height 900 --output tests\artifacts\ui\wpf-startup-guide-ux.png` produced a guide-tab capture matching the default EXE window size.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab guide --width 1440 --height 900 --output tests\artifacts\ui\wpf-dataset-onboarding-after-open-existing.png` produced the after capture showing `새로 만들기` and `기존 열기` in the guide setup card without clipping.
+
+## 2026-06-30 workflow stage rail UX pass
+
+- UX finding after reviewing common annotation-tool flows: the shell still presented dataset setup, labeling, inference review, and training/model work as peer toolbar buttons instead of a first-level operator workflow.
+- Added a persistent top workflow rail with four stages:
+  - `1. 데이터셋 홈`: create/open dataset and verify storage.
+  - `2. 라벨링 워크벤치`: show labels-only work and save ground truth.
+  - `3. 추론 검토`: show model candidates-only review and accept/reject.
+  - `4. 학습/모델 센터`: check dataset readiness, run training, and verify/apply model candidates.
+- Kept canvas display mode and workflow stage as separate shell ViewModel state. This avoids treating the training/model center as a canvas mode while still showing the operator's current high-level step.
+- Wired the new stage buttons through `WpfLabelingShellViewModel` commands. The WPF shell remains an adapter that focuses the existing dataset guide, annotation tools, candidate review, or YOLO/training overview.
+- Added a focused `--wpf-labeling-shell` test entry so future shell layout/command wiring changes can be verified without running the full suite.
+- Captured before/after UI comparison at the default EXE size:
+  - Before: `tests\artifacts\ui\wpf-shell-workflow-stage-rail-before.png`.
+  - After: `tests\artifacts\ui\wpf-shell-workflow-stage-rail-after.png`.
+- Verified:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-startup-onboarding` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-dataset-setup-request` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-detection-display-mode` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-current-image-smoke-preserve-labels` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\bin\Debug\net8.0-windows\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab guide --width 1440 --height 900 --output tests\artifacts\ui\wpf-shell-workflow-stage-rail-after.png` produced the after capture with the stage rail visible and not clipped.
+
+## 2026-06-30 training/model center UX pass
+
+- UX finding from the live training/inference flow: after training completed, the YOLO tab still scattered the important answers across status text, logs, model settings, and training settings. The operator could not immediately tell:
+  - whether training is running, waiting, failed, or completed;
+  - which model is currently configured for inspection;
+  - whether a newly trained `best.pt` is only a candidate or already saved to recipe settings;
+  - which action should be taken next.
+- Added a `학습/모델 센터` summary panel at the top of the YOLO tab. It shows training status, progress, training detail/readiness, current inspection model, newly trained candidate model, adoption state, next action, and the core actions `점검`, `학습 시작`, `중지`, `모델 저장`.
+- Kept the detailed YOLO panels below the summary so the top area answers operator questions first and the lower expanders remain for advanced settings.
+- Added model-center state to `WpfLabelingShellViewModel` and bound the summary panel to ViewModel properties. The shell code-behind only adapts existing training/model-comparison state into these ViewModel properties.
+- Wired the summary refresh to:
+  - training progress/status updates;
+  - YOLO status refresh;
+  - manual model-file selection;
+  - training-completed best.pt candidate discovery;
+  - model settings save/reset.
+- Added regression coverage to `--wpf-labeling-shell` for the summary panel bindings and ShellViewModel state setters.
+- Captured before/after UI comparison at the default EXE size:
+  - Before: `tests\artifacts\ui\wpf-model-center-dashboard-before.png`.
+  - After: `tests\artifacts\ui\wpf-model-center-dashboard-after.png`.
+- Verified:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke` passed and confirmed `best.pt` candidate registration.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo --width 1440 --height 900 --output .\tests\artifacts\ui\wpf-model-center-dashboard-before.png` produced the before capture.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo --width 1440 --height 900 --output .\tests\artifacts\ui\wpf-model-center-dashboard-after.png` produced the after capture showing the new summary panel at the top of the YOLO tab.
+- Next planned work: continue the structural UX pass on the labeling/inference boundary so manual labels, template-created labels, and AI inference candidates are harder to confuse in the main canvas and side panel.
+
+## 2026-06-30 canvas label/inference layer separation UX pass
+
+- UX finding from the live labeling/inference workflow: the app already had display filters, but `라벨`, `추론`, `모두` were too terse. Operators could still confuse saved/manual labels, template-added labels, and AI inference candidates because the canvas did not clearly state which layer was currently visible.
+- Renamed the canvas display modes to operator-facing meanings:
+  - `라벨만`: saved/manual/template-added labels only.
+  - `AI후보`: model inference candidates only.
+  - `비교`: labels and AI candidates together for overlap/position review.
+- Added a dedicated canvas layer status strip between the workflow guide strip and quick-tool toolbar. It shows:
+  - current visible layer mode;
+  - layer-specific guidance;
+  - label count and whether label changes are still unsaved;
+  - AI candidate count and whether the candidate layer is hidden or visible.
+- Kept the layer summary in `WpfCanvasPanelViewModel` through `SetLayerVisibilityState`. The shell only calculates counts from the current canvas state and pushes them to the ViewModel.
+- Kept the OpenGL/ROI path unchanged. The existing `RedrawReviewRois`, `ShouldShowLabelOverlays`, and `ShouldShowInferenceOverlays` behavior remains the rendering source of truth; this pass only made the selected layer state visible and testable.
+- Captured before/after UI comparison at the default EXE size:
+  - Before: `tests\artifacts\ui\wpf-layer-separation-before.png`.
+  - After: `tests\artifacts\ui\wpf-layer-separation-after.png`.
+- Verified:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-canvas-panel-commands` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-detection-display-mode` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-canvas-detection-overlay` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1440 --height 900 --output .\tests\artifacts\ui\wpf-layer-separation-before.png` produced the before capture.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1440 --height 900 --output .\tests\artifacts\ui\wpf-layer-separation-after.png` produced the after capture showing `보기: AI 후보만`, label hidden count, and visible AI candidate count.
+- Note: an accidental broad test run without a recognized single-test flag still stops at the existing `Template auto label shows actionable guide: registered template batch should complete` issue. The focused tests for this pass passed.
+- Next planned work: apply the same explicit separation to the right-side review panel by splitting the object list wording into `저장 라벨` and `AI 후보`, and by making candidate confirmation explain when it will create a saved label versus only skip/hide a candidate.
+
+## 2026-07-01 canvas work-mode wording follow-up
+
+- UX finding from the 1920x1080 candidate-review capture: the app had separate display layers, but `라벨만`/`AI후보`/`비교` still read like filters rather than the operator's current task. This left room for confusion between editing saved labels and reviewing inference candidates.
+- Renamed the canvas mode buttons to task-oriented labels:
+  - `라벨 편집`: saved labels only; AI candidates hidden.
+  - `AI 검토`: inference candidates only; saved labels hidden until candidates are confirmed.
+  - `비교`: saved labels and AI candidates overlaid for overlap/missing-object review.
+- Updated the canvas layer strip title/detail to state the active work mode:
+  - `작업: 저장 라벨 편집`
+  - `작업: AI 후보 검토`
+  - `작업: 라벨+AI 비교`
+- Bound the mode selector tooltip to the same ViewModel-owned layer summary so the XAML remains declarative and the code-behind does not own workflow text.
+- Clarified the `객체 없음` action tooltip so it says an empty YOLO label file will be saved.
+- Captured before/after comparison at the equipment baseline:
+  - Before: `artifacts\ui\wpf-canvas-label-ai-mode-before-1920.png`.
+  - After: `artifacts\ui\wpf-canvas-label-ai-mode-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-canvas-panel-commands` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-detection-display-mode` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output .\artifacts\ui\wpf-canvas-label-ai-mode-after-1920.png` produced the after capture.
+- Note: a mistakenly broad test run with an unrecognized single-test flag entered the default suite and stopped at `Template auto label shows actionable guide: registered template batch should complete`. The focused tests for this pass passed.
+- Next planned work: review the main workbench layout by task mode. In labeling mode, keep image queue + canvas dominant and make the right review/settings area feel like an on-demand dock rather than a permanent competing panel.
+
+## 2026-06-30 right review panel label/candidate separation UX pass
+
+- UX finding from reviewing the post-inference workflow: the canvas now separates label and AI-candidate layers, but the right review panel still used broad wording such as `객체` and `후보`. Operators could not immediately tell whether they were editing saved labels or only reviewing AI candidates.
+- Renamed the right review area from `객체 검토` to `라벨/후보 검토`.
+- Renamed the side tabs:
+  - `저장 라벨`: saved/manual/template/confirmed labels only.
+  - `AI 후보`: model-detected candidates that still need confirmation or hiding.
+- Added a saved-label role card to the `저장 라벨` tab. It explains that deletion and class changes apply to the real saved label set.
+- Added an AI-candidate role card to the `AI 후보` tab. It explains that confirmation creates a saved label and skip hides only the candidate.
+- Changed candidate action button text from terse `확정`/`스킵` wording to action-result wording:
+  - `라벨 확정`
+  - `전체 라벨화`
+  - `후보 숨김`
+- Kept the new status/guide text inside `WpfObjectReviewPanelViewModel` and `WpfCandidateReviewPanelViewModel`; XAML only binds to those properties.
+- Kept code-behind as a UI adapter. Candidate mutation, object edit, selection, and presentation services remain the workflow owners.
+- Captured before/after UI comparison at the default EXE size:
+  - Candidate before: `tests\artifacts\ui\wpf-review-panel-candidates-before.png`.
+  - Candidate after: `tests\artifacts\ui\wpf-review-panel-candidates-after.png`.
+  - Saved-label before: `tests\artifacts\ui\wpf-review-panel-objects-before.png`.
+  - Saved-label after: `tests\artifacts\ui\wpf-review-panel-objects-after.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-candidate-review-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-object-review-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-canvas-panel-commands` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-detection-display-mode` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1440 --height 900 --output .\tests\artifacts\ui\wpf-review-panel-candidates-after.png` produced the final candidate-panel capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab objects --width 1440 --height 900 --output .\tests\artifacts\ui\wpf-review-panel-objects-after.png` produced the final saved-label-panel capture.
+- Note: the first attempt to run the candidate/object panel tests in parallel hit a build-output file lock on `obj\Debug\MvcVisionSystem.dll`. Re-running with a single build and sequential tests passed.
+- Next planned work: audit the inference review completion flow after `라벨 확정`/`후보 숨김`, especially how the queue status, save-needed state, and next-image action communicate whether the image is finished.
+
+## 2026-06-30 candidate review completion/next-action UX pass
+
+- UX finding from the live inference-review flow: after `라벨 확정` or `후보 숨김`, the operator still had to infer whether the image could be completed, whether labels would be saved, and what the next button would actually do.
+- Added a visible completion state card in the `AI 후보` tab. It now tells the operator:
+  - whether there are still pending AI candidates;
+  - whether the current labels are unsaved;
+  - whether the next action is `라벨 확정/후보 숨김`, `저장 후 다음`, `다음 이미지`, or `객체 없음 완료`.
+- Moved that completion/next-action card to the top of the candidate tab, directly under the AI-candidate role card, so it remains visible at the default EXE window size without scrolling.
+- Changed the finish button from a static `이미지 완료` label into state-specific button text:
+  - `후보 검토 필요` while candidates remain.
+  - `저장 후 다음` after candidates are resolved and labels need saving.
+  - `다음 이미지` after resolved labels are already saved.
+  - `객체 없음 완료` when the reviewed image has no labels/candidates.
+- Kept MVVM boundaries:
+  - `WpfCandidateReviewCompletionPresentationService` owns the completion wording and enablement policy.
+  - `WpfCandidateReviewPanelViewModel` owns the bound completion state and button text.
+  - `WpfCandidateReviewPanel.xaml` only binds the top completion card and action button.
+  - The shell passes current facts only: active image, detection state, pending candidate count, current label count, and dirty state.
+- Kept the viewer/OpenGL/ROI/brush/eraser performance paths unchanged. The only shared canvas helper change was a count helper used for UI state text.
+- Captured before/after UI comparison at the default EXE size:
+  - Before: `tests\artifacts\ui\wpf-candidate-completion-before.png`.
+  - After: `tests\artifacts\ui\wpf-candidate-completion-after.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-candidate-review-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-session-smoke` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-canvas-panel-commands` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-detection-display-mode` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1440 --height 900 --output .\tests\artifacts\ui\wpf-candidate-completion-after.png` produced the final after capture showing the top completion card and disabled `후보 검토 필요` state while AI candidates remain.
+- Next planned work: audit the left image queue wording/status so `후보`, `확정`, `스킵`, `검출없음`, and saved-label completion states use the same `저장 라벨` / `AI 후보` language as the canvas and right panel.
+
+## 2026-06-30 top header tools compaction UX pass
+
+- UX finding from the default EXE-size header review: the top header still exposed occasional actions (`테마`, `샘플`, `박스`, `라벨링 시작`, `추론 검토`, `YOLO`, `템플릿`) as peer buttons. This duplicated the workflow stage rail and used prime horizontal space for actions that are not needed every minute.
+- Kept the top header focused on frequent actions:
+  - `라벨 저장`
+  - `현재 검사`
+  - `도구`
+  - inference status
+- Moved occasional commands behind the `도구` gear menu:
+  - theme toggle
+  - sample load
+  - centered box add
+  - labeling mode
+  - inference review mode
+  - YOLO check
+  - template candidate search
+- Kept command ownership unchanged. Existing commands still bind through `WpfLabelingShellViewModel`; the shell XAML only changes placement/presentation.
+- Preserved stable control names and AutomationIds for existing focused EXE smoke tests, including sample load, centered box add, current inspection, and template candidate search.
+- Captured comparison at the default EXE size, 1440x900:
+  - Before: `tests\artifacts\ui\wpf-top-header-tools-before.png`.
+  - After: `tests\artifacts\ui\wpf-top-header-tools-after.png`.
+  - Menu open: `tests\artifacts\ui\wpf-top-header-tools-menu-open.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1440 --height 900 --output .\tests\artifacts\ui\wpf-top-header-tools-after.png` produced the after capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1440 --height 900 --open-header-tools-menu --output .\tests\artifacts\ui\wpf-top-header-tools-menu-open.png` produced the gear-menu capture.
+- Note: a temporary 1100x720 narrow-width capture was used only as a stress check, but the recorded UX comparison for this pass is the default EXE size, 1440x900.
+- Next planned work: continue with the left image queue wording/status audit so queue rows and filters use the same `저장 라벨` / `AI 후보` terminology as the canvas, right panel, and completion flow.
+
+## 2026-06-30 left image queue terminology/status UX pass
+
+- UX finding from the default EXE-size queue review: the left image queue still used terse mixed status words (`후보`, `확정`, `스킵`, `검출없음`) while the canvas and right panel now separate saved labels from AI candidates. This made it too easy to confuse a saved label with a model candidate.
+- Changed queue quick filters to use the same language as the rest of the workflow:
+  - `AI후보`
+  - `저장됨`
+  - `숨김`
+  - `객체없음`
+- Changed row status presentation:
+  - The saved-label column is now headed `저장`, not generic `라벨`.
+  - The AI column continues to show AI candidate state, such as `AI후보 2`.
+  - Row summaries and tooltips now spell out `저장 라벨 ... / AI ...` so the compact columns still have an explicit explanation.
+- Changed dataset status summaries and filter dropdown display names to use the same terms.
+- Kept MVVM boundaries:
+  - `WpfImageQueuePresenter` owns row badge, summary, detail, and review-count wording.
+  - `WpfImageQueuePanelViewModel` owns quick-filter count text and active state.
+  - `WpfImageQueuePanel.xaml` only binds those properties and adjusts labels/column widths.
+  - `WpfLabelingShellWindow.ImageQueuePresentation` remains an adapter that forwards item counts and active filter state.
+- Captured comparison at the default EXE size, 1440x900:
+  - Before: `tests\artifacts\ui\wpf-image-queue-terminology-before.png`.
+  - After: `tests\artifacts\ui\wpf-image-queue-terminology-after.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-image-queue-status` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1440 --height 900 --output .\tests\artifacts\ui\wpf-image-queue-terminology-after.png` produced the final after capture showing the `저장`/`AI` columns and `AI후보` quick filter wording.
+- Next planned work: audit the workflow-stage rail and primary actions next, so first-time users know whether they should pick a dataset, label, run inference, train, or apply a model without reading the bottom log.
+
+## 2026-06-30 workflow stage rail current-action UX pass
+
+- UX finding from the default EXE-size workflow review: the 4 stage buttons existed, but the active step only appeared as a red button. A first-time operator still had to infer the current task and next action from small button subtitles or the bottom log.
+- Added a current-stage summary panel to the right side of the top workflow rail. It now shows:
+  - current progress, such as `3/4 추론`;
+  - the active stage name;
+  - the current stage's operational scope;
+  - the next expected action.
+- Added `WpfWorkflowStagePresentationService` to own stage wording and keep the ViewModel free of hard-coded rail layout logic.
+- Added bound Shell ViewModel state:
+  - `WorkflowStageProgressText`
+  - `WorkflowStageTitleText`
+  - `WorkflowStageDetailText`
+  - `WorkflowStageNextActionText`
+- Kept MVVM boundaries:
+  - `WpfWorkflowStagePresentationService` builds the stage presentation.
+  - `WpfLabelingShellViewModel.SetWorkflowStage` updates active stage state and the stage summary text.
+  - `WpfLabelingShellWindow.xaml` only binds the summary panel and existing stage buttons.
+  - The shell command partials still only route stage changes and focus the relevant panel.
+- Captured comparison at the default EXE size, 1440x900:
+  - Before: `tests\artifacts\ui\wpf-workflow-stage-rail-before.png`.
+  - After: `tests\artifacts\ui\wpf-workflow-stage-rail-after.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1440 --height 900 --output .\tests\artifacts\ui\wpf-workflow-stage-rail-after.png` produced the final after capture showing the current-stage summary on the workflow rail.
+- Next planned work: audit the dataset entry and storage-path flow, especially how `데이터셋 선택`, `저장 폴더`, and `이미지 폴더` are explained before labeling starts.
+
+## 2026-06-30 dataset context storage/image role UX pass
+
+- UX finding from the default EXE-size dataset bar review: the header showed `저장: ... / 이미지: ...` in one line and used ambiguous buttons such as `폴더 열기` and `이미지 변경`. This did not clearly explain that saved labels/recipes live under the dataset storage folder while source images are read from a separate image folder.
+- Split the dataset context bar into explicit role areas:
+  - `저장 폴더`: shows `라벨/레시피 저장: ...`.
+  - `이미지 폴더`: shows `원본 이미지 폴더: ...`.
+- Renamed the action buttons in the bar:
+  - `폴더 열기` -> `저장 폴더`.
+  - `이미지 변경` -> `이미지 폴더`.
+- Added `WpfDatasetContextPresentationService` so storage/image wording and path shortening are owned outside the XAML and code-behind.
+- Added bound Shell ViewModel state:
+  - `CurrentDatasetStoragePathText`
+  - `CurrentDatasetImageRootText`
+- Kept the existing combined `CurrentDatasetPathText` for compatibility, but the visible UI now uses the split storage/image fields.
+- Kept MVVM boundaries:
+  - `WpfDatasetContextPresentationService` builds the display text and tooltip.
+  - `WpfLabelingShellViewModel.SetDatasetContext` applies the presentation.
+  - `WpfLabelingShellWindow.xaml` only binds the dataset identity, storage card, image card, and existing commands.
+  - Shell command partials still only route dataset selection, storage-folder open, and image-folder selection.
+- Captured comparison at the default EXE size, 1440x900:
+  - Before: `tests\artifacts\ui\wpf-dataset-context-before.png`.
+  - After: `tests\artifacts\ui\wpf-dataset-context-after.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1440 --height 900 --output .\tests\artifacts\ui\wpf-dataset-context-after.png` produced the final after capture showing separate storage/image cards and explicit action buttons.
+- Next planned work: inspect the dataset selection/create dialogs themselves. The main bar is now clearer, but first-time users still need the selection and creation windows to explain when a new isolated storage folder is created versus when an existing dataset is opened.
+
+## 2026-06-30 dataset selection/create isolation UX pass
+
+- UX finding from the dataset entry flow: the main header now separates storage and image folders, but the selection and creation dialogs still made the operator infer whether they were opening existing labels or creating a new isolated storage folder.
+- Changed the dataset selection dialog:
+  - Added separate action cards for `기존 데이터셋 열기` and `새 저장 폴더 만들기`.
+  - Existing-dataset rows now label `라벨/Recipe 저장` and `원본 이미지 폴더` separately.
+  - Row status now includes whether the row is already open or should be selected before opening.
+  - The dialog size is wider so the storage/image roles are visible without relying on the bottom log.
+- Changed the dataset creation wizard:
+  - Increased the default dialog width.
+  - The wizard now explains that a new dataset creates a new storage folder and connects source images separately.
+  - The selected start-data/source-image role is shown directly under `시작 데이터`.
+  - The storage folder section explains that labels, recipe, and training files are created there.
+  - The preview now uses Korean workflow wording and includes the isolation rule: same source images can be reused safely when the storage folder is new.
+- Kept MVVM boundaries:
+  - `WpfDatasetSetupWizardViewModel` owns storage, image-source, isolation, and preview text.
+  - `WpfDatasetSelectionWindowViewModel.WpfDatasetSelectionItem` owns row display text for storage and source image roles.
+  - `WpfDatasetSetupWizardWindow.xaml` and `WpfDatasetSelectionWindow.xaml` only bind these values and arrange the controls.
+  - Shell dataset setup code remains the composition/persistence adapter.
+- Captures:
+  - Wizard before: `tests\artifacts\ui\wpf-dataset-setup-wizard-before.png`.
+  - Wizard after: `tests\artifacts\ui\wpf-dataset-setup-wizard-after.png`.
+  - Dataset selector after: `tests\artifacts\ui\wpf-dataset-selection-after.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-dataset-setup-ui` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-dataset-setup-request` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-dataset-wizard-smoke --output .\tests\artifacts\ui\wpf-dataset-setup-wizard-after.png` produced the wizard after capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-dataset-selection-smoke --output .\tests\artifacts\ui\wpf-dataset-selection-after.png` produced the selector capture.
+- Next planned work: audit the class/catalog and label-save flow next. The dataset entry path is clearer, but first-time users still need less ambiguity around when a drawn box is saved, when class changes apply, and when unsaved labels remain only on the canvas.
+
+## 2026-06-30 canvas label-save/class application UX pass
+
+- UX finding from the default EXE-size labeling view: the canvas already had a local `라벨 저장` button, but the file-save state and the "next drawn class" were mixed into the toolbar. It was still easy to miss whether an edit was only on the current canvas or already written to the label file.
+- Changed the canvas toolbar:
+  - Added `CanvasAnnotationSaveStateCard` beside the save button.
+  - The card now shows `저장 필요`, `파일 저장됨`, or `이미지 대기` as ViewModel state.
+  - Added `CanvasActiveLabelClassCard` so the operator can see which class the next box/mask will use.
+  - The class detail explicitly says existing object classes are changed in the right object-review panel, not by changing the next-label chip.
+- Changed object-review edit behavior:
+  - Applying a different class to a selected object now marks the current image as needing label save.
+  - Deleting a selected object now marks the current image as needing label save.
+  - If a dirty image has zero remaining objects, the shared save path now uses the existing empty-label save routine instead of leaving the save action with no file write.
+- Updated object-review guidance:
+  - The right panel now explains that delete/class changes affect the current image immediately, but require `라벨 저장` to persist to file.
+- Kept MVVM boundaries:
+  - `WpfCanvasPanelViewModel` owns save-state and active-class presentation text.
+  - `WpfCanvasPanel.xaml` only binds the new cards and keeps commands unchanged.
+  - `WpfLabelingShellWindow.ObjectReviewCommands.cs` remains the command adapter that mutates current labels and marks them dirty.
+  - `WpfLabelingShellWindow.AnnotationPersistence.cs` keeps file persistence in the existing save service path.
+- Captured comparison at the default EXE size, 1440x900:
+  - Before: `tests\artifacts\ui\wpf-canvas-label-save-before.png`.
+  - After: `tests\artifacts\ui\wpf-canvas-label-save-after.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-canvas-panel-commands` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-object-review-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --roi-only --review-tab objects --width 1440 --height 900 --output .\tests\artifacts\ui\wpf-canvas-label-save-after.png` produced the after capture.
+- Note: an accidental broad test run was triggered with the wrong flag and stopped at the pre-existing `Template auto label shows actionable guide: registered template batch should complete` failure. The focused object-review flag was then run separately and passed.
+- Next planned work: audit the class catalog panel layout itself. It still combines class editing with output-root editing, so the next pass should decide whether storage-path controls belong in a dataset/settings area rather than in the class list panel.
+
+## 2026-06-30 first-run dataset-start priority pass
+
+- UX finding from the 1366x768 startup onboarding capture: the beginner `처음 실습 경로` card was visible before the actual dataset start actions, so a first-time operator could see the lesson path but not immediately see where to create or open a dataset.
+- Changed the Guide right-panel order:
+  - `데이터셋 준비` now appears directly after the dataset-purpose explanation.
+  - `새로 만들기` and `기존 열기` are visible before the beginner sample path on smaller startup screens.
+  - `처음 실습 경로` remains available below the start actions instead of competing with them for the first visible decision.
+- Kept MVVM boundaries:
+  - Existing dataset setup commands remain on `WpfLearningWorkflowPanelViewModel`.
+  - `WpfLearningWorkflowPanel.xaml` only changes layout order and bindings.
+  - The shell code-behind was not touched for this pass.
+- Captured comparison:
+  - 1366 before: `tests\artifacts\ui\wpf-startup-onboarding-1366.png`.
+  - 1366 after: `tests\artifacts\ui\wpf-startup-onboarding-after-1366.png`.
+  - 1920 before: `tests\artifacts\ui\wpf-startup-onboarding-1920.png`.
+  - 1920 after: `tests\artifacts\ui\wpf-startup-onboarding-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-learning-workflow-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-startup-onboarding-visual --width 1920 --height 1080 --output .\tests\artifacts\ui\wpf-startup-onboarding-after-1920.png` produced the after capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-startup-onboarding-visual --width 1366 --height 768 --output .\tests\artifacts\ui\wpf-startup-onboarding-after-1366.png` produced the after capture.
+- Next planned work: tomorrow, continue with the class/catalog and storage-path placement audit, then resume the first-run-to-training sweep at 1920x1080 and 1366x768.
+
+## 2026-07-01 labeling-tool benchmark refresh and class schema pass
+
+- Rechecked the UX direction against official documentation for CVAT, Label Studio, Roboflow, and Labelbox. The recurring pattern is that dataset/task setup, label schema or ontology setup, image import, annotation, and AI-assisted review are separate operator decisions.
+- UX finding: our class tab still exposed `데이터셋 저장 폴더(고급)`, which made class/schema editing look like the place to change project storage. That conflicts with the dataset-home flow already added for `새로 만들기`, `기존 열기`, and storage/image role separation.
+- Changed the class catalog panel:
+  - Removed the `데이터셋 저장 폴더(고급)` Expander from `WpfClassCatalogPanel.xaml`.
+  - Removed output-root UI proxies from `WpfClassCatalogPanel.xaml.cs`, `WpfLabelingShellWindow.PanelAccessors.cs`, and panel name registration.
+  - Removed the class ViewModel's output-root browse/save command exposure because no class-tab control invokes it now.
+  - Updated class-panel guide text to route storage-folder decisions to the dataset home/create-open flow.
+- Kept MVVM boundaries:
+  - Class name/color/list presentation remains in `WpfClassCatalogPanelViewModel`.
+  - `WpfClassCatalogPanel.xaml` only binds class schema UI.
+  - Shell code-behind still owns legacy output-root persistence helpers, but they are no longer exposed through the class tab.
+- Captured comparison:
+  - 1920 before: `tests\artifacts\ui\wpf-class-catalog-schema-before-1920.png`.
+  - 1920 after: `tests\artifacts\ui\wpf-class-catalog-schema-after-1920.png`.
+  - 1366 before: `tests\artifacts\ui\wpf-class-catalog-schema-before-1366.png`.
+  - 1366 after: `tests\artifacts\ui\wpf-class-catalog-schema-after-1366.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-class-catalog-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab classes --width 1920 --height 1080 --output .\tests\artifacts\ui\wpf-class-catalog-schema-after-1920.png` produced the after capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab classes --width 1366 --height 768 --output .\tests\artifacts\ui\wpf-class-catalog-schema-after-1366.png` produced the after capture.
+- Next planned work: verify and guard the 1366x768 responsive layout where the right review/settings panel was reported as at risk, then continue the 1920x1080 first-run-to-training sweep.
+
+## 2026-07-01 1366x768 responsive layout regression guard
+
+- UX finding from the current 1366x768 sweep: the previously documented right-panel risk did not reproduce in the current shell layout for `클래스`, `AI 후보`, `YOLO`, or `학습` views. The right `라벨/후보 검토` panel stayed visible, while the 1920x1080 equipment baseline remains the primary target.
+- Changed the test harness only:
+  - Added `--wpf-responsive-layout`.
+  - The smoke opens the WPF shell at the requested size, loads the visual-smoke image, visits `objects,candidates,guide,classes,yolo,training`, and asserts the review/settings panel remains inside the window with usable width.
+  - This is a regression guard, not a Viewer/OpenGL/ROI behavior change.
+- Captured current 1366 comparison evidence:
+  - `tests\artifacts\ui\wpf-responsive-classes-before-1366.png`.
+  - `tests\artifacts\ui\wpf-responsive-candidates-current-1366.png`.
+  - `tests\artifacts\ui\wpf-responsive-yolo-current-1366.png`.
+  - `tests\artifacts\ui\wpf-responsive-training-current-1366.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -- --wpf-visual-smoke --review-tab classes --width 1366 --height 768 --output tests\artifacts\ui\wpf-responsive-classes-before-1366.png` produced the current class capture.
+  - `dotnet run --no-build --project tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -- --wpf-visual-smoke --review-tab candidates --width 1366 --height 768 --output tests\artifacts\ui\wpf-responsive-candidates-current-1366.png` produced the current candidate capture.
+  - `dotnet run --no-build --project tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -- --wpf-visual-smoke --review-tab yolo --width 1366 --height 768 --output tests\artifacts\ui\wpf-responsive-yolo-current-1366.png` produced the current YOLO capture.
+  - `dotnet run --no-build --project tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -- --wpf-visual-smoke --review-tab training --width 1366 --height 768 --output tests\artifacts\ui\wpf-responsive-training-current-1366.png` produced the current training capture.
+- Next planned work: resume the first-run-to-training sweep at 1920x1080 and check whether training/model terminology can be understood without the bottom log.
+
+## 2026-07-01 training readiness wording UX pass
+
+- UX finding from the 1366/1920 training screen sweep: when `data.yaml` did not match the current class list, the training readiness text showed the validator's raw English message (`class count does not match...`). This still forced the user to ask what the failure meant.
+- Changed the WPF presentation layer:
+  - Added `WpfTrainingReadinessPresentationService`.
+  - The service maps validator errors to operator-facing cause/action text while preserving train/valid/test/object/class counts.
+  - `RefreshTrainingReadinessPanel` now sends the readiness report through the presentation service before updating the TrainingSettings ViewModel text.
+  - The validator and YOLO data contracts remain unchanged.
+- Captured comparison evidence:
+  - Before/current technical wording: `tests\artifacts\ui\wpf-responsive-training-current-1366.png`.
+  - 1366 after: `tests\artifacts\ui\wpf-training-readiness-friendly-after-1366.png`.
+  - 1920 after: `tests\artifacts\ui\wpf-training-readiness-friendly-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-training-readiness-presentation` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab training --width 1366 --height 768 --output tests\artifacts\ui\wpf-training-readiness-friendly-after-1366.png` produced the after capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab training --width 1920 --height 1080 --output tests\artifacts\ui\wpf-training-readiness-friendly-after-1920.png` produced the after capture.
+- Next planned work: audit model confirmation terminology so the current inspection model, newly trained candidate, and final confirmation action are visually distinct without reading the bottom log.
+
+## 2026-07-01 top inference model visibility UX pass
+
+- UX finding from the model-confirmation sweep: the YOLO tab could show the current inspection model, but the always-visible top inference status still read like a generic state (`대기`) and did not continuously answer "which model am I inspecting with?"
+- Changed the WPF presentation layer:
+  - Added `WpfInferenceStatusPresentationService`.
+  - The top inference status now appends `검사 모델 best.pt` or `모델 후보 ...` to the current status text.
+  - The tooltip keeps the full model path.
+  - `RefreshYoloStatus` refreshes the top inference card on startup and model path changes.
+- Captured comparison evidence:
+  - Before audit: `tests\artifacts\ui\wpf-model-confirmation-audit-before-1920.png`.
+  - After: `tests\artifacts\ui\wpf-inference-status-model-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-inference-status-presentation` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-training-readiness-presentation` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output tests\artifacts\ui\wpf-inference-status-model-after-1920.png` produced the after capture.
+- Next planned work: audit model confirmation button wording and disabled states so users know when a candidate model is selected, saved to recipe, and used by the next inference run.
+
+## 2026-07-01 model-center save wording UX pass
+
+- UX finding from the post-training/model-confirmation sweep and the official-tool benchmark refresh: model-assisted labeling tools separate model output, human review, and final adoption. Our model center still used `검사 모델로 확정`, which did not clearly say whether the model was merely selected, saved to the recipe, or used by the next inference run.
+- Changed the WPF presentation wording:
+  - The pending trained-model action now shows `검사 모델로 저장`.
+  - The next-action text says the selected model is saved to `recipe` and used from the next inference run.
+  - Candidate-review guidance now uses the same `검사 모델로 저장` wording so the candidate-review panel and model center do not disagree.
+  - The first-run training checklist now says the new `best.pt` is saved as the inspection model after training.
+- Additional UX finding from the 1920x1080 model-center capture: the model center showed the staged `exp\best.pt` candidate, but the always-visible top inference card still showed the old inspection model. This made it look like two different models were active.
+- Additional UX finding from the same capture: `학습 지표 없음(results.csv 없음)` appeared inside the model adoption evidence and could be read as a training failure, even though the run had completed and only metric comparison data was missing.
+- Added synchronization:
+  - Staging a new trained-model candidate now refreshes the top inference status to `모델 후보 ...`.
+  - Saving the candidate to recipe now refreshes the top inference status back to the normal inspection-model wording.
+  - If a model candidate exists but the save button is disabled, the ViewModel tooltip now explains whether the user is waiting for another command or missing a recipe.
+- Clarified missing metrics wording:
+  - Missing `results.csv` now appears as `지표 없음: 학습 실패 아님, 후보 검증 후 저장 판단(results.csv 없음)`.
+  - The model-center smoke asserts this wording contains `실패 아님` so missing metrics cannot silently regress into failure-like text.
+- Kept MVVM boundaries:
+  - Model-center state text remains generated in the WPF model-center presentation partial and published through `WpfLabelingShellViewModel`.
+  - Candidate-review and learning-workflow wording remain in their ViewModels.
+  - XAML bindings and Viewer/OpenGL/ROI paths were not changed.
+- Added verification support:
+  - `--wpf-yolo-training-session-smoke --model-center` now moves the completed training session into the model center and asserts the visible save-button text contains `저장`.
+  - The same model-center smoke asserts the top inference status contains `모델 후보` before recipe save, so the top card and model center cannot silently diverge.
+  - The model-center visual capture can now be generated at the 1920x1080 equipment baseline.
+- Captured comparison evidence:
+  - Before wording basis: existing model-center test state used `검사 모델로 확정` and tooltip `선택한 모델을 현재 검사 모델로 확정하고 recipe에 저장합니다.`
+  - After 1920 capture: `tests\artifacts\ui\wpf-model-center-save-wording-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-inference-status-presentation` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-training-readiness-presentation` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\tests\artifacts\ui\wpf-model-center-save-wording-after-1920.png` passed and produced the after capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+- Next planned work: continue the first-run-to-training sweep and check whether the workflow rail still leaves too much competing information visible while a user is labeling or reviewing candidates.
+
+## 2026-07-01 YOLO runtime controls disclosure pass
+
+- UX finding from the final 1920x1080 model-center capture: after training, the right YOLO panel still showed model-center decisions, dataset readiness, and all runtime management commands at once. The runtime commands are occasional maintenance actions, while the user usually needs to inspect the candidate and save the inspection model.
+- Changed the YOLO status panel layout:
+  - `첫 점검`, `설치`, `테스트`, `재시작`, and `중지` now live under a collapsed `실행기 관리` expander.
+  - Summary, command status, recovery, and progress remain visible so failures are not hidden.
+  - The commands and enablement still come from `WpfYoloStatusPanelViewModel`; the code-behind only exposes a read-only UI adapter property for tests.
+- Captured comparison evidence:
+  - Before: `tests\artifacts\ui\wpf-model-center-save-wording-after-1920.png`.
+  - After: `tests\artifacts\ui\wpf-model-center-runtime-controls-collapsed-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-status-panels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\tests\artifacts\ui\wpf-model-center-runtime-controls-collapsed-after-1920.png` passed and produced the after capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+- Note: `--wpf-yolo-status-panel` is not a focused route; an accidental broad run stopped at the pre-existing template auto-label guide failure. The correct focused route is `--wpf-status-panels`.
+- Next planned work: at the next pass, continue the same disclosure pattern for the dataset readiness card in model-center mode so users see one primary decision at a time.
+
+## 2026-07-01 model-center dataset readiness disclosure pass
+
+- Rechecked the direction against official labeling-tool docs:
+  - Label Studio keeps project/data setup, labeling configuration, and predictions/pre-annotations as separate concepts.
+  - Roboflow separates annotation assistance, training, and model deployment/adoption decisions.
+  - CVAT separates task setup/specification from annotation workspace actions.
+  - Labelbox treats ontology/class schema as a first-class setup concept before editor work.
+- UX finding from the 1920x1080 model-center sweep: after a trained candidate exists, the user should mainly decide whether to review the candidate and save it as the inspection model. The always-visible dataset readiness card repeated setup information and competed with that decision.
+- Changed the YOLO tab layout:
+  - `YoloDatasetReadinessQuickPanel` is now a collapsed `Expander` named `데이터셋 점검 상세`.
+  - The existing readiness text and `점검` command stay available inside the expander.
+  - The model-center card remains the visible first decision area, with `후보 검증` and `검사 모델로 저장` ahead of repeated setup checks.
+- Kept MVVM boundaries:
+  - `RefreshReadinessCommand`, readiness text, and colors still come from `WpfTrainingSettingsPanelViewModel`.
+  - The shell XAML only changes visual disclosure; no Viewer/OpenGL/ROI/brush/eraser path was touched.
+- Captured comparison evidence:
+  - Before: `tests\artifacts\ui\wpf-model-center-runtime-controls-collapsed-after-1920.png`.
+  - After: `tests\artifacts\ui\wpf-model-center-dataset-readiness-collapsed-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\tests\artifacts\ui\wpf-model-center-dataset-readiness-collapsed-after-1920.png` passed and produced the after capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+- Next planned work: audit whether the YOLO model path/settings panel should become a compact `current model + change` card, with advanced path fields behind disclosure, so the post-training model-center remains one-decision-at-a-time.
+
+## 2026-07-01 YOLO inspection-model picker disclosure pass
+
+- UX finding from the 1920x1080 YOLO model-settings sweep: the panel summary said the inspection model can be changed, but the actual `.pt` picker was inside the advanced path grid together with Python executable, project root, client script, image root, and tuning values. A user who only wants to confirm or replace the active inspection model still had to scan runtime environment fields.
+- Changed the YOLO model settings panel:
+  - Added `YoloInspectionModelQuickPanel` directly below the current-model summary.
+  - Moved `YoloWeightsPathBox` and `BrowseYoloWeightsButton` into that visible panel.
+  - Kept `저장` and `기본값` directly below the visible model picker.
+  - Renamed the advanced header to `실행 환경 상세` and left Python/project/script/image root/confidence/timeout/image-size/max-candidate fields there.
+- Kept MVVM boundaries:
+  - Existing `WeightsPath`, `BrowseWeightsCommand`, `SaveSettingsCommand`, and enablement bindings remain on `WpfYoloModelSettingsPanelViewModel`.
+  - Shell panel wiring only gained the same name-registration proxy pattern used by the existing YOLO model controls.
+  - No Viewer/OpenGL/ROI/brush/eraser path was touched.
+- Captured comparison evidence:
+  - Before: `tests\artifacts\ui\wpf-sweep-yolo-model-1920.png`.
+  - After: `tests\artifacts\ui\wpf-yolo-model-settings-compact-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab model --width 1920 --height 1080 --output .\tests\artifacts\ui\wpf-yolo-model-settings-compact-after-1920.png` passed and produced the after capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+- Next planned work: stop treating the right side as one always-visible tab stack. Design and start a mode-based shell layout where `데이터셋 홈`, `라벨링 워크벤치`, `추론 검토`, `학습/모델 센터`, and `환경/고급 설정` swap the active right-side view according to the workflow stage.
+
+## 2026-07-01 workflow-stage scoped right-panel pass
+
+- UX finding from the mode-structure audit: the right panel still behaved like one large tab stack. This made saved human labels, AI inference candidates, guide/tools, class schema, and YOLO/model settings look like sibling tasks even though they belong to different workflow stages.
+- Changed the first structural pass:
+  - `WpfLabelingShellViewModel` now owns right-side view visibility flags for saved labels, AI candidates, guide/tools, class catalog, and YOLO/model center.
+  - `SetWorkflowStage(...)` now applies the right-side visibility map:
+    - dataset: guide/tools and class catalog
+    - labeling: saved labels, guide/tools, and class catalog
+    - inference: AI candidates only
+    - training/model: YOLO/model center only
+  - `WpfLabelingShellWindow.xaml` binds the right tabs' `Visibility` to those ViewModel flags and binds the right-panel title to the active workflow stage title.
+  - Existing code-behind focus adapters now set the workflow stage before selecting a tab, so hidden tabs are not selected directly.
+- Kept MVVM boundaries:
+  - Workflow state and view visibility live in `WpfLabelingShellViewModel`.
+  - Shell partials only act as UI adapters for focus/navigation into an already-selected workflow.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before model-center tab stack: `tests\artifacts\ui\wpf-yolo-model-settings-compact-after-1920.png`.
+  - After model-center scoped panel: `tests\artifacts\ui\wpf-mode-scoped-right-panel-yolo-after-1920.png`.
+  - After inference scoped panel: `tests\artifacts\ui\wpf-mode-scoped-right-panel-candidates-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo --width 1920 --height 1080 --output .\tests\artifacts\ui\wpf-mode-scoped-right-panel-yolo-after-1920.png` passed and produced the model-center capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output .\tests\artifacts\ui\wpf-mode-scoped-right-panel-candidates-after-1920.png` passed and produced the inference capture.
+- Next planned work: replace the right `TabControl` with explicit workflow-stage view hosts once the visibility pass is stable, so the UI reads as real modes rather than a tab control with hidden groups.
+
+## 2026-07-01 right workflow view-host disclosure pass
+
+- UX finding from the mode-scoped right-panel capture: inference review and model center each had only one relevant right-side view, but still showed a single tab header (`AI 후보` or `YOLO`). That looked like a leftover tab stack rather than a focused workflow mode.
+- Changed the next structural step:
+  - `WpfLabelingShellViewModel` now exposes `IsRightWorkflowSubNavigationVisible`.
+  - The right-panel subnavigation stays visible only when the active workflow stage has more than one relevant right-side view.
+  - Inference review and model center collapse the single tab header and read as direct mode surfaces.
+  - Labeling and dataset stages keep subnavigation because saved labels, guide/tools, and class schema are still distinct related tasks.
+  - All direct right-tab selection calls were routed through shell adapter methods (`ShowSavedLabelsWorkflowView`, `ShowCandidateReviewWorkflowView`, `ShowGuideToolsWorkflowView`, `ShowClassCatalogWorkflowView`, `ShowYoloModelCenterWorkflowView`) so the next ViewHost migration has one switching path.
+- Kept MVVM boundaries:
+  - Stage and subnavigation visibility state live in `WpfLabelingShellViewModel`.
+  - The shell methods are WPF UI adapters only; they select the current view and call the ViewModel stage state.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before model-center scoped panel with single `YOLO` tab: `tests\artifacts\ui\wpf-mode-scoped-right-panel-yolo-after-1920.png`.
+  - After model-center view-host surface: `tests\artifacts\ui\wpf-right-viewhost-yolo-after-1920.png`.
+  - After inference view-host surface: `tests\artifacts\ui\wpf-right-viewhost-candidates-after-1920.png`.
+  - After labeling multi-view subnavigation retained: `tests\artifacts\ui\wpf-right-viewhost-labeling-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo --width 1920 --height 1080 --output .\tests\artifacts\ui\wpf-right-viewhost-yolo-after-1920.png` passed and produced the model-center capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output .\tests\artifacts\ui\wpf-right-viewhost-candidates-after-1920.png` passed and produced the inference capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab objects --width 1920 --height 1080 --output .\tests\artifacts\ui\wpf-right-viewhost-labeling-after-1920.png` passed and produced the labeling capture.
+- Next planned work: simplify the labeling-stage right panel itself. Keep saved-label review as the primary surface, but convert guide/tools and class schema access into compact local actions or disclosure so the labeling stage does not feel like another mini-tab product.
+
+## 2026-07-01 labeling right-panel compact shortcuts pass
+
+- UX finding from the labeling 1920x1080 capture: the right panel still showed `저장 라벨 / 가이드·도구 / 클래스` as full tab headers. That kept the labeling stage looking like a nested tab product instead of a primary saved-label review surface with occasional helper access.
+- Changed the labeling-stage right panel:
+  - Saved-label review remains the primary right-side surface.
+  - The full labeling tab strip collapses.
+  - The right header now shows compact shortcut buttons for `라벨`, `도구`, and `클래스` only during the labeling stage.
+  - The shortcut buttons are bound to `WpfLabelingShellViewModel` commands: `ShowSavedLabelsViewCommand`, `ShowLabelingGuideViewCommand`, and `ShowClassCatalogViewCommand`.
+  - The shell still handles the actual WPF view switch through adapter methods, keeping the WPF control selection out of the ViewModel.
+- Kept MVVM boundaries:
+  - Visibility and commands live in `WpfLabelingShellViewModel`.
+  - `WpfLabelingShellWindow` only wires ViewModel commands to existing right-view adapter methods.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before labeling tab strip: `tests\artifacts\ui\wpf-right-viewhost-labeling-after-1920.png`.
+  - After compact labeling shortcuts: `tests\artifacts\ui\wpf-labeling-right-shortcuts-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab objects --width 1920 --height 1080 --output .\tests\artifacts\ui\wpf-labeling-right-shortcuts-after-1920.png` passed and produced the after capture.
+- Next planned work: add active-state feedback to the compact labeling shortcuts and review whether the shortcut bar should remain visible when the guide/classes subview is active.
+
+## 2026-07-01 labeling shortcut active-state pass
+
+- UX finding from the compact shortcut capture: the `라벨 / 도구 / 클래스` buttons made the right panel smaller, but users still needed a clear visual cue for which subview was active.
+- Changed the active-state behavior:
+  - `WpfLabelingShellViewModel` now exposes `IsSavedLabelsShortcutActive`, `IsLabelingGuideShortcutActive`, and `IsClassCatalogShortcutActive`.
+  - Right workflow shortcut buttons bind their `Tag` to the active-state properties.
+  - `RightWorkflowShortcutButtonStyle` highlights the active shortcut with the app accent color and stronger text weight.
+  - Shell right-view adapter methods update the ViewModel active shortcut whenever they switch to labels, tools, or classes.
+  - Visual smoke helper routing now also sets the active shortcut state for label/class captures.
+- Kept MVVM boundaries:
+  - Active-state flags live in `WpfLabelingShellViewModel`.
+  - XAML only binds to command and active-state properties.
+  - Shell code-behind remains a UI adapter for selecting the hosted WPF view.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before active-state pass: `tests\artifacts\ui\wpf-labeling-right-shortcuts-after-1920.png`.
+  - After saved-label active state: `tests\artifacts\ui\wpf-labeling-right-shortcuts-active-after-1920.png`.
+  - After class active state: `tests\artifacts\ui\wpf-labeling-right-shortcuts-class-active-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab objects --width 1920 --height 1080 --output .\tests\artifacts\ui\wpf-labeling-right-shortcuts-active-after-1920.png` passed and produced the saved-label active capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab classes --width 1920 --height 1080 --output .\tests\artifacts\ui\wpf-labeling-right-shortcuts-class-active-after-1920.png` passed and produced the class active capture.
+- Next planned work: audit first-time labeling when no class exists. If a user enters labeling before class setup, the UI should guide them to class creation without making the main labeling panel feel blocked.
+
+## 2026-07-01 canvas active-label class management pass
+
+- UX finding from the first-time labeling audit: the app safely falls back to a default `Defect` class in several save paths, but the canvas did not give the user a direct way to understand or change the class that will be applied to the next drawn label.
+- Changed the canvas class affordance:
+  - `WpfCanvasPanelViewModel` now exposes `OpenClassCatalogCommand`, `ActiveLabelClassActionText`, `ActiveLabelClassActionToolTip`, and `IsLabelClassSetupMissing`.
+  - The active-label class card now includes a compact `클래스 관리` action that opens the right-side class schema panel.
+  - When the class list is empty, the same card changes to a class-registration prompt instead of silently reading like a normal drawing state.
+  - The shell injects the class-panel navigation action through `ConfigureLabelClassSelection(...)`, keeping the WPF button free of click handlers.
+- Kept MVVM boundaries:
+  - The action command and presentation state live in `WpfCanvasPanelViewModel`.
+  - `WpfCanvasPanel.xaml` only declares bindings.
+  - `WpfLabelingShellWindow.PanelWiring.Canvas.cs` remains the shell adapter that connects the command to the existing class-view switch.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before class action: `tests\artifacts\ui\wpf-labeling-right-shortcuts-active-after-1920.png`.
+  - After canvas class action: `tests\artifacts\ui\wpf-canvas-class-management-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-canvas-panel-commands` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --roi-only --width 1920 --height 1080 --review-tab objects --output .\tests\artifacts\ui\wpf-canvas-class-management-after-1920.png` passed and produced the after capture.
+- Next planned work: review the dataset-home to labeling transition and make sure a new user can see whether they are using an existing recipe class list, a copied dataset, or a fresh class schema before they start drawing.
+
+## 2026-07-01 dataset source-context header pass
+
+- UX finding from the dataset-home to labeling transition audit: the header showed the dataset storage folder and image folder, but it did not explicitly say that classes come from the current Recipe while labels are loaded from and saved to the dataset storage folder. This was the same confusion behind the earlier "image folder changed but labels remained" reports.
+- Changed the dataset context header:
+  - Added `CurrentDatasetSourceText` to `WpfLabelingShellViewModel`.
+  - `WpfDatasetContextPresentationService` now builds a visible source summary such as `클래스: 레시피 1개 / 라벨: 저장 폴더 기준`.
+  - Added a new `작업 기준` card to the top dataset context bar next to storage folder and image folder.
+  - The dataset tooltip now explains the rule directly: class list is saved in the Recipe, label files are read/written in `data/*/labels`, and changing the image folder only changes the source image list.
+- Kept MVVM boundaries:
+  - Source wording lives in `WpfDatasetContextPresentationService`.
+  - Shell ViewModel exposes state only through bindable properties.
+  - Shell code-behind only computes the current recipe class count and passes it into `SetDatasetContext(...)`.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before source context card: `tests\artifacts\ui\wpf-canvas-class-management-after-1920.png`.
+  - After source context card: `tests\artifacts\ui\wpf-dataset-source-context-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --roi-only --width 1920 --height 1080 --review-tab objects --output .\tests\artifacts\ui\wpf-dataset-source-context-after-1920.png` passed and produced the after capture.
+- Next planned work: audit the dataset selection window and creation wizard text so the same storage/image/class-source rule is visible before the user opens the workbench, not only after selection.
+
+## 2026-07-01 dataset selection and creation source-rule pass
+
+- UX finding from the dataset selector and creation wizard audit: the workbench header now explains storage/image/class source rules, but the user could still reach the workbench without seeing that labels are keyed by the dataset storage folder while the image folder is only the source image list.
+- Changed the dataset selection window:
+  - Replaced broken static Korean guide strings with ViewModel-backed guide text.
+  - Added a top `작업 기준은 저장 폴더입니다` rule card before the dataset list.
+  - Kept the two first decisions explicit: open an existing dataset and load its labels/history, or create a new storage folder so labels do not carry over even when the same image folder is reused.
+  - Increased the default selector size to `900x720` for the 1920x1080 equipment baseline.
+- Changed the dataset creation wizard:
+  - Added a source-rule card explaining the distinct roles of storage folder and image folder before the purpose/sample/class fields.
+  - Changed the summary and storage help text to state that the storage folder is the label/Recipe/training baseline.
+  - Increased the default wizard size to `900x820` so storage path and preview are visible without feeling cramped on the target equipment resolution.
+- Kept MVVM boundaries:
+  - Guide text lives in `WpfDatasetSelectionWindowViewModel` and `WpfDatasetSetupWizardViewModel`.
+  - XAML only binds to ViewModel properties and commands.
+  - Dataset creation/opening workflow remains in the existing shell adapter and request DTO path.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before pre-workbench source-rule pass: `tests\artifacts\ui\wpf-dataset-source-context-after-1920.png`.
+  - After dataset selector source-rule pass: `tests\artifacts\ui\wpf-dataset-selection-source-rule-after.png`.
+  - After dataset wizard source-rule pass: `tests\artifacts\ui\wpf-dataset-wizard-source-rule-after.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-dataset-setup-ui` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-dataset-setup-request` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-dataset-selection-smoke --output .\tests\artifacts\ui\wpf-dataset-selection-source-rule-after.png` passed and produced the after capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-dataset-wizard-smoke --output .\tests\artifacts\ui\wpf-dataset-wizard-source-rule-after.png` passed and produced the after capture.
+- Next planned work: run a first-use workbench sweep from newly created dataset to first label save. Focus on whether the canvas, active class, save state, and image queue clearly tell the user what to do next after the dataset opens.
+
+## 2026-07-01 first-label draw-save-next loop pass
+
+- UX finding from the first-use workbench sweep: after a dataset opens, the canvas already showed the current step and save state, but the repeatable operator loop was implicit. A new user had to infer that the expected rhythm is draw a label, save it, then move to the next image.
+- Changed the canvas first-label guidance:
+  - Added `FirstLabelLoopText` to `WpfCanvasPanelViewModel`.
+  - Added a compact always-visible sequence chip to the canvas workflow strip: `순서: 그리기 -> 라벨 저장 -> 다음 이미지`.
+  - Tightened the canvas next-action text so rectangle/ellipse/brush flows explicitly end at `라벨 저장`.
+  - Changed the empty-image guidance to start from the left image queue, matching the actual first-use screen structure.
+- Kept MVVM boundaries:
+  - The draw/save/next loop text lives in `WpfCanvasPanelViewModel`.
+  - `WpfCanvasPanel.xaml` only binds to ViewModel state.
+  - `WpfLabelingShellWindow.PanelWiring.Canvas.cs` remains a shell adapter that composes current workflow context from existing state.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before first-label loop chip: `tests\artifacts\ui\wpf-first-label-workbench-before.png`.
+  - After first-label loop chip: `tests\artifacts\ui\wpf-first-label-loop-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-canvas-panel-commands` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-canvas-workflow-context` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --roi-only --width 1920 --height 1080 --review-tab objects --output .\tests\artifacts\ui\wpf-first-label-loop-after-1920.png` passed and produced the after capture.
+- Next planned work: continue the first-use sweep into the image queue after save. Check whether saved/unsaved/no-object queue states and the `다음` action are clear enough when moving across multiple images.
+
+## 2026-07-01 post-save image-queue loop pass
+
+- UX finding from the post-save queue sweep: the queue navigation logic already skipped saved, skipped, and no-object rows, but the primary queue button still read like a generic `다음` action. A new user could not tell whether it opens the next file or the next image that still needs labeling/review.
+- Changed the image queue guidance:
+  - Added `NextUnlabeledActionText` and `NextUnlabeledToolTip` to `WpfImageQueuePanelViewModel`.
+  - Changed the primary queue navigation button to bind to the ViewModel text and tooltip, with visible text `다음 미완료`.
+  - The tooltip now states that `저장됨` and `객체없음` images are skipped and the next label-needed image is opened.
+  - Updated `WpfImageQueuePresenter.BuildStatusSummary(...)` so confirmed, no-candidate, and skipped rows read as completed work instead of generic saved-label/AI status.
+- Kept MVVM boundaries:
+  - Queue action wording lives in `WpfImageQueuePanelViewModel`.
+  - Queue row summary wording lives in `WpfImageQueuePresenter`.
+  - `WpfImageQueuePanel.xaml` only binds to ViewModel state.
+  - Existing `TryFindNextUnlabeled(...)` skip behavior was verified and left intact.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before post-save queue wording: `tests\artifacts\ui\wpf-first-label-loop-after-1920.png`.
+  - After post-save queue wording: `tests\artifacts\ui\wpf-post-save-queue-loop-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-image-queue-status` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --roi-only --width 1920 --height 1080 --review-tab objects --output .\tests\artifacts\ui\wpf-post-save-queue-loop-after-1920.png` passed and produced the after capture.
+- Next planned work: continue the first-use sweep into the no-object path. Verify whether a user can intentionally mark an image as object-free without drawing a box, and whether that completion state is obvious in the queue and training readiness counts.
+
+## 2026-07-01 no-object completion path pass
+
+- UX finding from the no-object path sweep: the app could already write an empty YOLO label file, and candidate review had a completion button for images with no accepted candidates. However, the main labeling canvas did not expose a direct "this image has no object" action, so a first-time labeler had to infer the path or enter the AI-candidate review surface.
+- Changed the canvas completion flow:
+  - Added a canvas toolbar `객체 없음` button beside `라벨 저장`.
+  - Added `CompleteNoObjectCommand`, `IsNoObjectCompletionEnabled`, `NoObjectCompletionActionText`, and `NoObjectCompletionToolTip` to `WpfCanvasPanelViewModel`.
+  - The button is enabled only when an image is open and there are no saved/manual labels and no pending AI candidates.
+  - When clicked, it saves an empty YOLO label file, persists the queue row as `객체없음`, refreshes training readiness state, and moves to the next incomplete image.
+  - If labels or AI candidates exist, the disabled tooltip explains what must be resolved first, preventing accidental overwrite of real labels.
+- Fixed queue status persistence:
+  - `YoloImageReviewStatusService.RefreshLabelStatusAndReviewState(...)` now treats an existing empty label file as `NoCandidate` instead of dropping it back to unreviewed.
+  - Added `MarkActiveImageNoCandidate()` so both candidate-review completion and canvas no-object completion share the same status refresh/save path.
+- Kept MVVM boundaries:
+  - Button text, enablement, and tooltip live in `WpfCanvasPanelViewModel`.
+  - `WpfCanvasPanel.xaml` only binds to ViewModel command/state.
+  - Shell code-behind remains the command adapter that calls existing persistence services and queue status services.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before no-object canvas command: `tests\artifacts\ui\wpf-post-save-queue-loop-after-1920.png`.
+  - After no-object canvas command: `tests\artifacts\ui\wpf-no-object-completion-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --yolo-image-review-status` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-canvas-panel-commands` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-image-queue-status` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --roi-only --width 1920 --height 1080 --review-tab objects --output .\tests\artifacts\ui\wpf-no-object-completion-after-1920.png` passed and produced the after capture.
+- Next planned work: continue the first-use sweep from labeling completion into training readiness and model-center confirmation. Focus on whether the user can tell when the dataset is trainable, what still blocks training, and which model will be used after training.
+
+## 2026-07-01 training/model lifecycle summary pass
+
+- UX finding from the training/model sweep: the model-center already separated current inspection model, trained candidate, adoption decision, and recipe save action, but the learning guide did not show the same lifecycle state in its first-visible training area. A user could still miss whether `best.pt` was only a candidate or already the model used for inspection.
+- Changed the training/model guide:
+  - Added `TrainingModelLifecycleCurrentText`, `TrainingModelLifecycleCandidateText`, `TrainingModelLifecycleDecisionText`, and `TrainingModelLifecycleNextActionText` to `WpfLearningWorkflowPanelViewModel`.
+  - Added `SetTrainingModelLifecycleState(...)` so model-center state is stripped into short guide-friendly values without duplicating labels.
+  - Added a `모델 확인` summary card to `WpfLearningWorkflowPanel.xaml` after dataset readiness and before the next-action button.
+  - `RefreshModelCenterDashboard(...)` now fans out the same current/candidate/adoption/next-action state to both `ShellViewModel` and `LearningWorkflowViewModel`.
+- Kept MVVM boundaries:
+  - Model lifecycle display text is owned by `WpfLearningWorkflowPanelViewModel`.
+  - `WpfLearningWorkflowPanel.xaml` only binds to ViewModel state.
+  - `WpfLabelingShellWindow.ModelCenterDashboard.cs` remains the shell adapter that shares already-computed model-center state.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before training/model lifecycle summary: `tests\artifacts\ui\wpf-no-object-completion-after-1920.png`.
+  - After model-center confirmation view: `tests\artifacts\ui\wpf-model-lifecycle-after-1920.png`.
+  - After training settings view: `tests\artifacts\ui\wpf-model-lifecycle-training-after-1920.png`.
+  - After guide-stage smoke capture: `tests\artifacts\ui\wpf-model-lifecycle-guide-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-learning-workflow-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output C:\Git\Labelling_Application\tests\artifacts\ui\wpf-model-lifecycle-after-1920.png` passed and produced the model-center capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --width 1920 --height 1080 --output C:\Git\Labelling_Application\tests\artifacts\ui\wpf-model-lifecycle-training-after-1920.png` passed and produced the training view capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --roi-only --width 1920 --height 1080 --review-tab guide --output C:\Git\Labelling_Application\tests\artifacts\ui\wpf-model-lifecycle-guide-after-1920.png` passed and produced the guide-stage capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1920 --height 1080` passed.
+- Verification note:
+  - An accidental run with non-existent flags `--wpf-learning-workflow` and `--wpf-model-center-dashboard` fell through to the broader smoke suite and stopped at the existing template batch case `Template auto label shows actionable guide: registered template batch should complete`. The focused tests above cover this change and passed.
+- Next planned work: continue the post-training UX sweep by making the model candidate review/save action easier to reach from the top workflow rail and training settings panel, then verify the same flow at 1366x768.
+
+## 2026-07-01 post-training action reachability pass
+
+- UX finding from the post-training confirmation sweep: the model-center had the correct candidate review and recipe-save actions, but the user could still miss them after seeing the training-complete state in the top workflow rail or training settings panel.
+- Changed the post-training action reachability:
+  - Added compact `후보 검증` and `검사 모델로 저장` actions to the top workflow summary when the active stage is `학습/모델 센터`.
+  - Added a `학습 완료 후 작업` card to the training settings panel, bound to the same trained-candidate/current-model/adoption state as the model center.
+  - Moved that card next to the training progress result so it stays visible after completion instead of being hidden near the top of the settings scroll.
+  - The top workflow actions share `ShellViewModel.ReviewCandidateModelCommand` and `YoloModelSettingsViewModel.SaveSettingsCommand`; the training settings card receives the existing shell adapter commands through `WpfTrainingSettingsPanelViewModel.ConfigureCommands(...)`.
+- Kept MVVM boundaries:
+  - Button text, enablement, and tooltip state for the training settings card live in `WpfTrainingSettingsPanelViewModel`.
+  - `WpfTrainingSettingsPanel.xaml` and `WpfLabelingShellWindow.xaml` only bind to ViewModel state and commands.
+  - `WpfLabelingShellWindow.ModelCenterDashboard.cs` remains the adapter that computes model-center state once and fans it out to shell, learning workflow, and training settings ViewModels.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before: `tests\artifacts\ui\wpf-model-lifecycle-after-1920.png` and `tests\artifacts\ui\wpf-model-lifecycle-training-after-1920.png`.
+  - After model-center at equipment baseline: `artifacts\ui\wpf-post-training-actions-after-1920.png`.
+  - After model-center at small-width guard: `artifacts\ui\wpf-post-training-actions-after-1366.png`.
+  - After training settings at small-width guard: `artifacts\ui\wpf-post-training-settings-after-1366.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-training-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\artifacts\ui\wpf-post-training-actions-after-1920.png` passed and produced the after capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1366 --height 768 --output .\artifacts\ui\wpf-post-training-actions-after-1366.png` passed and produced the after capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --width 1366 --height 768 --output .\artifacts\ui\wpf-post-training-settings-after-1366.png` passed and produced the after capture.
+- Verification note:
+  - A broader accidental run with `--wpf-shell-mvvm` fell through to the full suite and stopped at the existing template case `Template auto label shows actionable guide: registered template batch should complete`. The focused tests above cover this change and passed.
+- Next planned work: continue the post-training sweep into the actual candidate-review comparison screen. Verify whether a user can judge "new trained candidate vs current inspection model" from validation examples and then confidently save or reject the candidate without reading the bottom log.
+
+## 2026-07-01 model-profile terminology pass
+
+- UX finding from the broader product self-evaluation: the application is not intended to be YOLO-only. Object-detection labels should be reusable across multiple model adapters, and post-training inspection should distinguish dataset labels, trained model candidates, current inspection model, and runtime profile.
+- Changed the first user-facing terminology pass:
+  - Model settings summary now reads as the current `모델 프로필` and selected `검사 모델`, while Python/project/script paths stay under `모델 실행 환경 상세`.
+  - Main header and tools menu now describe the third work surface as `모델`, not `YOLO`.
+  - Runtime status and recovery messages now use `모델 실행 환경`, `모델 실행기`, and `모델 테스트` instead of `YOLO 설정`, `YOLO 탭`, and `YOLO 테스트`.
+  - Dataset creation and learning guide copy now describe object detection as a `박스 라벨 데이터셋` that can be reused by multiple object-detection models.
+  - First-run and training guide steps now say `박스 라벨 파일`, `모델 학습`, and `학습 결과 후보` instead of `YOLO txt`, `YOLO 학습`, and `best.pt 후보`.
+  - Empty-object completion now reports `빈 라벨 파일` instead of `빈 YOLO 라벨`.
+- Kept MVVM boundaries:
+  - User-facing label/status text remains in ViewModels where possible.
+  - Shell partial classes only adapt existing Python/worker command state into ViewModel status text.
+  - Internal YOLO adapter type names, protocol names, save-model classes, and training implementation names were left intact for this first pass.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before model-profile terminology pass: `artifacts\ui\wpf-model-profile-before-1366.png`.
+  - After model-profile terminology pass: `artifacts\ui\wpf-model-profile-after-1366.png`.
+  - Equipment-baseline after capture: `artifacts\ui\wpf-model-profile-after-1920.png`.
+- Verification target:
+  - Build and focused WPF/MVVM smoke tests cover the changed ViewModel text, status defaults, and responsive model settings surface.
+- Next planned work: formalize the model domain as first-class product concepts (`ModelProfile`, `TrainingRun`, `ModelCandidate`, and inspection-model adoption history) so multiple model adapters can be registered and compared without relying on YOLO-named shell surfaces.
+
+## 2026-07-01 model-registry presentation pass
+
+- UX finding from the first-class model concept sweep: the model center had current/candidate/adoption fields, but the user still had to infer the product-level relationship between model profile, training run, trained candidate, and current inspection model. That is the exact confusion that appeared after training: "was training complete, and which model am I inspecting with?"
+- Changed the first model-registry presentation pass:
+  - Added `WpfModelRegistryPresentationService` to combine existing `PythonModelSettings`, training weight comparison, and training history into one model-registry summary without changing the persisted recipe schema yet.
+  - Added `ModelRegistryProfileText`, `ModelRegistryTrainingRunText`, `ModelRegistryCandidateModelText`, `ModelRegistryInspectionModelText`, and `ModelRegistryActionText` to `WpfLabelingShellViewModel`.
+  - Added a `모델 레지스트리` summary section near the top of the model center so the user can see:
+    - model profile / execution adapter,
+    - latest training run state,
+    - latest trained candidate model and metric context,
+    - current inspection model saved in the recipe,
+    - next action when a trained candidate must be saved as the inspection model.
+  - Updated the training/model workflow stage detail so it explicitly mentions `best.pt` candidate review versus the current inspection model.
+- Kept MVVM boundaries:
+  - Model-registry text is produced by a service and exposed by the shell ViewModel.
+  - XAML only binds to ViewModel state.
+  - `WpfLabelingShellWindow.ModelCenterDashboard.cs` remains the adapter that reads existing training/model state and updates the ViewModel.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before model-registry section: `artifacts\ui\wpf-model-profile-before-1366.png`.
+  - After model-registry section at small-width guard: `artifacts\ui\wpf-model-registry-training-after-1366.png`.
+  - After model-registry section at equipment baseline: `artifacts\ui\wpf-model-registry-training-after-1920.png`.
+  - Additional general model-tab captures: `artifacts\ui\wpf-model-registry-after-1366.png`, `artifacts\ui\wpf-model-registry-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo --width 1366 --height 768 --output .\artifacts\ui\wpf-model-registry-after-1366.png` passed and produced the capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-registry-after-1920.png` passed and produced the capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1366 --height 768 --output .\artifacts\ui\wpf-model-registry-training-after-1366.png` passed and produced the capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-registry-training-after-1920.png` passed and produced the capture.
+- Next planned work: persist the model registry/history concept instead of only presenting it. The next pass should introduce durable model profile/training run/candidate/adoption records that can later support YOLO, ONNX, segmentation, anomaly detection, and side-by-side model comparison.
+
+## 2026-07-01 model-registry persistence pass
+
+- UX/product finding from the multi-model self-evaluation: showing the model registry was useful, but it was still derived at runtime from YOLO settings and training history. For a product that compares multiple model adapters, the model profile, training run, candidate, and inspection-model adoption must be durable recipe data, not only UI text.
+- Changed the recipe-backed model registry:
+  - Added `LabelingProjectSettings.ModelRegistry`.
+  - Added XML-serializable records: `ModelProfile`, `TrainingRun`, `ModelCandidate`, and `InspectionModelAdoption`.
+  - Added `ModelRegistryService` to upsert model profiles, staged training candidates, current inspection models, and adoption history.
+  - Connected the existing trained-weight candidate path so `UpdateAppliedTrainingWeightsHistory(... savedToRecipe:false)` records a staged candidate, and `savedToRecipe:true` records an inspection-model adoption.
+  - Extended `WpfModelRegistryPresentationService` so the model center now reads persisted registry counts/state in addition to live training comparison data.
+- Kept MVVM boundaries:
+  - Persistent model records are core project settings.
+  - Registry mutation is handled by `ModelRegistryService`.
+  - The WPF shell only adapts existing training-weight events into the service call.
+  - XAML remains bound to `ShellViewModel` text.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured comparison evidence:
+  - Before persisted registry: `artifacts\ui\wpf-model-registry-training-after-1366.png`.
+  - After persisted registry at small-width guard: `artifacts\ui\wpf-model-registry-persisted-after-1366.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --model-registry` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1366 --height 768 --output .\artifacts\ui\wpf-model-registry-persisted-after-1366.png` passed and produced the capture.
+- Next planned work: build the actual model-candidate comparison/adoption screen on top of the persisted registry. The user should be able to open a candidate, see validation examples and metrics, then explicitly save or reject the candidate with the registry adoption result visible.
+
+## 2026-07-01 model-candidate decision pass
+
+- UX/product finding from the model-candidate comparison pass: the app could stage a trained `best.pt` candidate and save it as the inspection model, but the user's final decision was still too implicit. There was no local save/reject decision surface in Candidate Review, and rejected candidates were not persisted as model history.
+- Changed the registry-backed candidate decision flow:
+  - Added XML-serializable `ModelCandidateDecision` records and candidate-level `Decision`, `DecisionUtc`, and `DecisionSummary` fields.
+  - Extended `ModelRegistryService` with pending/adopted/rejected candidate decisions, latest decision lookup, and decision-history trimming.
+  - Kept adoption history for saved inspection models, while adding separate saved/rejected decision history for model candidates.
+  - Added a Candidate Review `후보 결정` card with `검사 모델로 저장` and `후보 거절` commands.
+  - Wired save through the existing model-settings save path and reject through a new shell adapter that records the rejection, restores the baseline inspection model path, and persists the recipe when possible.
+  - Updated the model registry summary so model-center history now includes decision-history count and latest candidate decision context.
+- Kept MVVM boundaries:
+  - Candidate decision status, enabled state, tooltips, and commands live on `WpfCandidateReviewPanelViewModel`.
+  - XAML binds to ViewModel state only.
+  - Shell partial code remains the adapter between current training-weight state and core `ModelRegistryService`.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured UI evidence:
+  - Candidate Review decision card at equipment baseline: `artifacts\ui\wpf-candidate-model-decision-1920.png`.
+  - Candidate Review visual-smoke capture at smaller requested size: `artifacts\ui\wpf-candidate-model-decision-1366.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --model-registry` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-candidate-review-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-candidate-review-layout` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output .\artifacts\ui\wpf-candidate-model-decision-1920.png` passed and produced the capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1366 --height 768 --output .\artifacts\ui\wpf-candidate-model-decision-1366.png` passed and produced the capture.
+- Next planned work: move from a single latest-candidate decision card to a model history/comparison list that can show multiple training runs and multiple model adapters side by side. That is the next requirement for YOLO/ONNX/segmentation/anomaly model comparison.
+
+## 2026-07-01 model-history comparison list pass
+
+- UX/product finding from the latest-candidate decision pass: the user can now save or reject the current candidate, but a model-centered product also needs visible model history. Otherwise the user still cannot compare prior training runs or understand how the current inspection model relates to older candidates.
+- Changed the model-center history view:
+  - Added `WpfModelRegistryHistoryItem` rows to `WpfModelRegistryPresentationService`.
+  - Built recent model-history rows from persisted `ModelCandidate`, `TrainingRun`, `ModelProfile`, and `ModelCandidateDecision` records.
+  - Added `ModelRegistryHistoryItems`, header text, summary text, and visibility state to `WpfLabelingShellViewModel`.
+  - Added a `최근 모델 이력` list inside the model registry summary. Each row shows whether it is the current inspection model or a trained candidate, the model file, profile/run context, metric summary, and decision state.
+  - Kept the first pass display read-only. It is a comparison/history surface, not yet a row-click adoption workflow.
+- Kept MVVM boundaries:
+  - History row formatting is owned by `WpfModelRegistryPresentationService`.
+  - The shell ViewModel exposes collection state for XAML binding.
+  - XAML is presentation-only with an `ItemsControl`.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured UI evidence:
+  - Model history list at equipment baseline: `artifacts\ui\wpf-model-history-list-1920.png`.
+  - Model history list at smaller guard size: `artifacts\ui\wpf-model-history-list-1366.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --model-registry` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-history-list-1920.png` passed and produced the capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1366 --height 768 --output .\artifacts\ui\wpf-model-history-list-1366.png` passed and produced the capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+- Next planned work: add row-level model-history actions. The useful next step is selecting a historical candidate to inspect its details, compare it against the current model, and intentionally promote it back to the inspection model when appropriate.
+
+## 2026-07-01 right-workflow dock pass
+
+- UX/product finding from the full-workbench review: the fixed three-column layout kept the right-side settings/review panel visible during labeling even when the operator mostly needs the image queue and the canvas. That made the screen read as one dense surface instead of a task-focused workbench.
+- Changed the right-side workflow layout:
+  - Added ViewModel-owned dock state to `WpfLabelingShellViewModel`.
+  - The dataset, inference review, and training/model stages keep the right workflow panel expanded because those stages need setup/review/model controls.
+  - The labeling stage collapses the right workflow panel by default to a narrow rail, giving the canvas more room at the 1920x1080 equipment baseline.
+  - The collapsed rail keeps direct icon buttons for open panel, saved labels, tools, classes, AI candidate review, and model center so the user does not lose access to task panels.
+  - Existing right workflow tab selection remains a shell UI adapter; state and commands stay on the ViewModel.
+- Kept MVVM boundaries:
+  - Dock width, expanded/collapsed state, rail visibility, and toggle command live on `WpfLabelingShellViewModel`.
+  - XAML binds `RightWorkflowColumn.Width` and panel visibility to ViewModel state.
+  - Shell code-behind only expands the panel when an existing task adapter opens a specific right workflow tab.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured UI evidence:
+  - Before fixed right panel: `artifacts\ui\wpf-right-dock-before-labeling-1920.png`.
+  - After labeling-stage collapsed rail: `artifacts\ui\wpf-right-dock-after-labeling-collapsed-1920.png`.
+  - After inference-stage expanded review panel: `artifacts\ui\wpf-right-dock-after-inference-expanded-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --roi-only --review-tab objects --width 1920 --height 1080 --output .\artifacts\ui\wpf-right-dock-after-labeling-collapsed-1920.png` passed and produced the capture.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output .\artifacts\ui\wpf-right-dock-after-inference-expanded-1920.png` passed and produced the capture.
+- Next planned work: continue task-surface separation by adding bottom log collapse/notification behavior, because normal labeling still should not require a permanent log area unless an error or detailed inspection is active.
+
+## 2026-07-01 right-workflow dock rail label follow-up
+
+- UX finding from the 1920x1080 labeling capture: the right workflow rail was collapsed, but icon-only buttons did not clearly read as an on-demand dock. A first-time user could see a thin icon strip without knowing it opens saved labels, tools, or class setup.
+- Updated the collapsed rail from a 48px icon-only strip to a 72px icon+short-label strip.
+- The rail now shows stable text labels:
+  - `열기`
+  - `라벨`
+  - `도구`
+  - `클래스`
+  - `AI`
+  - `모델`
+- Kept the command ownership unchanged:
+  - dock width and expanded/collapsed state stay on `WpfLabelingShellViewModel`;
+  - rail buttons still bind to existing ShellViewModel commands;
+  - no Viewer/OpenGL/ROI/brush/eraser path was changed.
+- Captured before/after comparison:
+  - Before: `artifacts\ui\wpf-labeling-right-dock-before-1920.png`.
+  - After: `artifacts\ui\wpf-labeling-right-dock-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --roi-only --review-tab objects --width 1920 --height 1080 --output .\artifacts\ui\wpf-labeling-right-dock-after-1920.png` produced the after capture.
+- Next planned work: continue the mode-scoped workbench pass by reviewing whether the top workflow rail and right rail duplicate navigation too much during labeling. If duplication still distracts, keep cross-stage movement only in the top rail and reserve the right rail for labeling-local panels.
+
+## 2026-07-01 right-workflow local rail cleanup
+
+- UX finding from the labeling-mode navigation review: the collapsed right rail still exposed `AI` and `모델`, even though cross-stage movement already belongs to the top workflow rail (`추론 검토`, `학습/모델 센터`). This made the labeling workbench look like it had two competing navigation systems.
+- Changed the collapsed right rail to be labeling-local only:
+  - kept `열기`, `라벨`, `도구`, and `클래스`;
+  - removed the collapsed-rail `AI` and `모델` buttons;
+  - kept inference review and model-center movement in the top workflow rail.
+- Kept MVVM boundaries:
+  - right-rail commands still bind to existing `WpfLabelingShellViewModel` commands;
+  - no command/workflow state was moved into code-behind;
+  - no Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured before/after comparison:
+  - Before: `artifacts\ui\wpf-labeling-right-dock-after-1920.png`.
+  - After: `artifacts\ui\wpf-labeling-local-right-rail-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --roi-only --review-tab objects --width 1920 --height 1080 --output .\artifacts\ui\wpf-labeling-local-right-rail-after-1920.png` produced the after capture.
+- Next planned work: continue the same structure pass on the top workflow rail itself. The next check is whether top-stage labels/actions can be reduced to stage movement plus current critical actions, while detailed tools stay in the stage-specific panel or tools menu.
+
+## 2026-07-01 top workflow rail density cleanup
+
+- UX finding from the 1920x1080 labeling capture: after the right rail became local-only, the top workflow rail still looked heavier than necessary. Each stage button contained a title and a second-line explanation, while the adjacent current-stage summary and the stage panels already explained what each stage does.
+- Changed the top workflow rail:
+  - reduced the rail height from 68px to 54px;
+  - changed the four stage buttons from two-line cards to one-line stage movement buttons;
+  - kept the current-stage progress/title/next action visible;
+  - moved the longer current-stage explanation to the summary panel tooltip through the existing ViewModel binding.
+- Kept MVVM boundaries:
+  - stage state and wording remain in `WpfLabelingShellViewModel` and `WpfWorkflowStagePresentationService`;
+  - XAML only changes visual density and binding placement;
+  - no command/workflow state was moved into code-behind;
+  - no Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured before/after comparison:
+  - Before: `artifacts\ui\wpf-top-workflow-rail-before-1920.png`.
+  - After: `artifacts\ui\wpf-top-workflow-rail-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --roi-only --review-tab objects --width 1920 --height 1080 --output .\artifacts\ui\wpf-top-workflow-rail-after-1920.png` produced the after capture.
+- Next planned work: audit the current-dataset context bar directly below the workflow rail. It still carries storage folder, image folder, source summary, and three commands in one dense row; the next pass should decide what must remain always visible versus what can move into dataset home/details.
+
+## 2026-07-01 current dataset context bar cleanup
+
+- UX finding from the 1920x1080 labeling capture: after the workflow rail was compressed, the current-dataset bar still behaved like a dense details row. Storage folder, image folder, work basis, and three commands competed for the same horizontal attention.
+- Changed the current-dataset bar:
+  - reduced the bar height from 56px to 48px;
+  - kept the always-visible essentials: current dataset name, purpose, work basis, and dataset/storage/image actions;
+  - collapsed the storage-folder and image-folder detail cards from the default row while keeping their text bindings and automation targets available for details/tests;
+  - kept `데이터셋`, `저장 폴더`, and `이미지 폴더` as direct actions because users still need fast recovery when a dataset or image root is wrong.
+- Kept MVVM boundaries:
+  - dataset context values and commands remain on `WpfLabelingShellViewModel`;
+  - XAML only changes which bound detail cards are visible by default;
+  - no command/workflow state was moved into code-behind;
+  - no Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured before/after comparison:
+  - Before: `artifacts\ui\wpf-dataset-context-bar-before-1920.png`.
+  - After: `artifacts\ui\wpf-dataset-context-bar-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --roi-only --review-tab objects --width 1920 --height 1080 --output .\artifacts\ui\wpf-dataset-context-bar-after-1920.png` produced the after capture.
+- Next planned work: audit the thin status row below the dataset context bar. It currently repeats dataset count/progress/stage/next/inference state, some of which now duplicates the workflow rail and canvas strip.
+
+## 2026-07-01 top status row operations cleanup
+
+- UX finding from the 1920x1080 labeling capture: the thin status row under the dataset context bar repeated workflow information already shown in the top workflow rail (`단계`, `진행`, `다음`). That made the top chrome look like multiple competing progress bars before the user reached the canvas.
+- Changed the top status row:
+  - reduced the status row height from 36px to 30px;
+  - kept visible operational state only: dataset queue summary, inference state, annotation-save state, and model state;
+  - kept workflow stage/progress/next bindings and automation targets available, but collapsed them visually so tests and ViewModel fanout remain stable.
+- Kept MVVM boundaries:
+  - state still flows through `WpfStatusBarPanelViewModel`;
+  - XAML only changes visibility and density;
+  - no command/workflow state was moved into code-behind;
+  - no Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured before/after comparison:
+  - Before: `artifacts\ui\wpf-status-row-before-1920.png`.
+  - After: `artifacts\ui\wpf-status-row-after-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-status-panels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --roi-only --review-tab objects --width 1920 --height 1080 --output .\artifacts\ui\wpf-status-row-after-1920.png` produced the after capture.
+- Next planned work: audit the canvas header/toolbar density now that top chrome is lighter. The canvas still has a title row, save/tool row, workflow strip, quick tools, mode selector, save state, class selector, and right-side action chips; the next pass should decide which controls are always needed while drawing.
+
+## 2026-07-01 bottom-log collapse pass
+
+- UX/product finding from the docked-workbench review: after the right panel was collapsed in labeling mode, the bottom log still consumed a permanent 160px strip. That kept the canvas smaller even though normal labeling should only need log awareness when something happens or the user asks for details.
+- Changed the bottom log layout:
+  - Converted `WpfShellLogPanelViewModel` into the owner of bottom-log state.
+  - The log starts collapsed at a 42px summary height and shows latest-log text, log count, and a `로그 열기` command.
+  - Opening the log expands the bottom row to the detailed `OpenVisionLab.Logging.Controls` log panel.
+  - `AppendLog(...)` now updates the collapsed summary ViewModel before writing to the existing logging backend.
+  - The shell grid binds the bottom row and separator height to `ShellLogViewModel`, instead of hard-coding the row to 160px.
+- Kept MVVM boundaries:
+  - Log row height, collapsed/expanded visibility, latest text, count text, and toggle command live on `WpfShellLogPanelViewModel`.
+  - `WpfShellLogPanel.xaml` only binds to ViewModel state and keeps the existing WPF log control for details.
+  - Shell code-behind remains a logging adapter via `AppendLog(...)`.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured UI evidence:
+  - Before bottom-log collapse: `artifacts\ui\wpf-right-dock-after-labeling-collapsed-1920.png`.
+  - After bottom-log collapse: `artifacts\ui\wpf-bottom-log-collapsed-labeling-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-status-panels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --roi-only --review-tab objects --width 1920 --height 1080 --output .\artifacts\ui\wpf-bottom-log-collapsed-labeling-1920.png` passed and produced the capture.
+- Next planned work: make model-history rows actionable so a user can inspect older trained candidates, compare them with the current inspection model, and promote a selected candidate intentionally.
+
+## 2026-07-01 model-history action pass
+
+- UX/product finding from the post-training workflow review: the model registry showed recent trained/current/rejected rows, but the rows were read-only. A user could see that multiple models existed but could not intentionally select an older candidate and make it the inspection model from the same surface.
+- Changed the model-history surface:
+  - `WpfModelRegistryPresentationService` now includes candidate identity, weights path, current-model state, and action availability in each history row.
+  - `WpfLabelingShellViewModel` now owns the selected model-history row, selected-row detail text, selected-row apply button state, and a `PromoteSelectedModelHistoryCommand`.
+  - `WpfLabelingShellWindow.xaml` changed the history list from a read-only `ItemsControl` to a selectable `ListBox`, with a selected-detail card and an explicit `검사 모델로 적용` action.
+  - `WpfLabelingShellWindow.ModelHistoryCommands.cs` applies a selected historical candidate only after checking that the weights file exists and that it is not already the current inspection model. The command records the model-registry adoption decision, updates recipe model settings, and refreshes the model center.
+- Kept MVVM boundaries:
+  - Row formatting and action eligibility stay in the presentation service.
+  - Selection, detail, and button enablement stay in `WpfLabelingShellViewModel`.
+  - Shell code-behind is limited to the recipe/model-registry persistence adapter.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured UI evidence:
+  - Before actionable rows: `artifacts\ui\wpf-model-history-list-1920.png`.
+  - After selectable/actionable rows: `artifacts\ui\wpf-model-history-action-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-status-panels` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-history-action-1920.png` passed and produced the capture.
+  - `git diff --check -- "0. UI/9) WPF/Services/WpfModelRegistryPresentationService.cs" "0. UI/9) WPF/ViewModels/WpfLabelingShellViewModel.cs" "0. UI/9) WPF/Views/WpfLabelingShellWindow.xaml" "0. UI/9) WPF/Views/WpfLabelingShellWindow.PanelWiring.cs" "0. UI/9) WPF/Views/WpfLabelingShellWindow.ModelHistoryCommands.cs" tests/LabelingApplication.Tests/Program.cs` passed with only LF-to-CRLF warnings.
+- Next planned work: continue the first-use sweep through dataset creation -> label save -> training -> candidate decision -> inspection with the selected model, then remove any remaining places where users must infer state from the bottom log.
+
+## 2026-07-01 model-center current-inspection action pass
+
+- UX/product finding from the first-use sweep: after training/model selection, the model-center stage exposed candidate review and recipe save, but the next inspection action was only obvious if the user noticed the separate global `현재 검사` button. That made the post-save path feel disconnected from the model decision area.
+- Changed the model-center action path:
+  - Added ViewModel-owned current-inspection action text, tooltip, and enablement state to `WpfLabelingShellViewModel`.
+  - Added `현재 검사` to the top training/model workflow action panel beside `후보 검증` and `검사 모델로 저장`.
+  - Added the same `현재 검사` action to the model-center lifecycle action row.
+  - Reused the existing `DetectCurrentImageCommand`; no inference, viewer, OpenGL, ROI, brush, or eraser runtime path was changed.
+- Kept MVVM boundaries:
+  - Button text, tooltip, and enablement are calculated in `WpfLabelingShellViewModel`.
+  - XAML only binds to existing commands and ViewModel state.
+  - The shell keeps no new workflow logic for this action.
+- Captured UI evidence:
+  - Before current-inspection action in the model center: `artifacts\ui\wpf-model-history-action-1920.png`.
+  - After current-inspection action in the model center: `artifacts\ui\wpf-model-center-inspect-action-1920.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-status-panels` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-center-inspect-action-1920.png` passed and produced the capture.
+- Next planned work: continue the same first-use sweep at the transition from inference results back to saved labels, so users can tell whether they are reviewing AI candidates or editing committed labels without relying on bottom-log messages.
+
+## 2026-07-02 guide/tools helper-role pass
+
+- UX/product finding from the Guide/Tools self-audit: the template repeat-labeling card explained the steps, but the card still read like a primary labeling workflow. A beginner could run template matching and miss that it only creates label candidates until the candidate is reviewed and `라벨 저장` is pressed.
+- Changed the Guide/Tools surface:
+  - Added a compact Guide/Tools role card near the top of `WpfLearningWorkflowPanel` that separates the primary work (`라벨 그리기 -> 라벨 저장 -> 다음 이미지`) from helper tools.
+  - Added a visible helper-role line inside `TemplateWorkflowPanel` so the template feature itself says it is a candidate-generation helper and that final training data still requires review plus label save.
+  - Kept the text in `WpfLearningWorkflowPanelViewModel`; XAML only binds the text and exposes stable automation ids.
+- Kept MVVM boundaries:
+  - New workflow wording lives in `WpfLearningWorkflowPanelViewModel`.
+  - `WpfLearningWorkflowPanel.xaml.cs` only exposes the named WPF elements for tests.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured UI evidence:
+  - Before helper-role line: `artifacts\ui\wpf-guide-tools-helper-role-before-1920.png`.
+  - After helper-role line at 1920x1080: `artifacts\ui\wpf-guide-tools-helper-role-after-1920.png`.
+  - After helper-role line at 1366x768: `artifacts\ui\wpf-guide-tools-helper-role-after-1366.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --nologo -v:minimal /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir="C:\Git\Labelling_Application\artifacts\isolated-out\"` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-learning-workflow-panel` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --template-guide-ux` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --mvvm-infra` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-labeling-shell` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-responsive-layout --review-tabs guide --width 1920 --height 1080` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-responsive-layout --review-tabs guide --width 1366 --height 768` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-visual-smoke --roi-only --review-tab guide --right-workflow-expanded --expand-learning-concepts --focus-template-workflow --width 1920 --height 1080 --output .\artifacts\ui\wpf-guide-tools-helper-role-after-1920.png` produced the after capture.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-visual-smoke --roi-only --review-tab guide --right-workflow-expanded --expand-learning-concepts --focus-template-workflow --width 1366 --height 768 --output .\artifacts\ui\wpf-guide-tools-helper-role-after-1366.png` produced the after capture.
+- Next planned work: audit the saved-label vs AI-candidate transition in the right-side review panels again, specifically the first time a user switches from labeling to inference review, so the mode change is visible without relying on the bottom log.
+
+## 2026-07-02 image-queue clipping and right-tab theme pass
+
+- UX/product finding from the user screenshots: the left `Image Queue` control area still clipped top controls at the default EXE size when the first action row wrapped, and the right workflow sub-tabs still used default white WPF tab chrome inside an otherwise dark workbench.
+- Changed the UI surface:
+  - `WpfImageQueuePanel.xaml` now lets the primary action, current-task, and batch-progress rows auto-size with compact minimum heights, so narrow widths can wrap controls without clipping them.
+  - `ImageQueuePrimaryActionsPanel` now reserves vertical spacing before the folder/path row.
+  - `WpfLabelingShellWindow.xaml` now defines a dark `WorkflowViewHostTabItemStyle` template for the right workflow tabs, including selected/hover/disabled states from app brushes.
+  - Added source-level regression assertions for the queue row sizing and dark tab template.
+  - Added WPF/WinForms type aliases in WPF adapter/code-behind files to unblock build verification without changing workflow logic.
+- Kept MVVM boundaries:
+  - No new command, state, or workflow logic was added to View code-behind.
+  - XAML only handles layout/theme presentation.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured UI evidence:
+  - Before user screenshot: `C:\Users\user\AppData\Local\Temp\codex-clipboard-fbf83517-285d-48b2-97a4-4c6b34f0f798.png`.
+  - Before user screenshot for right tabs: `C:\Users\user\AppData\Local\Temp\codex-clipboard-8245ab6f-a663-46d5-89f6-f9fd21c2ea55.png`.
+  - After 1366x768 queue/tabs: `artifacts\ui\wpf-left-queue-tabs-after-1366x768.png`.
+  - After 1366x768 right tabs: `artifacts\ui\wpf-right-tabs-after-1366x768.png`.
+  - After 1920x1080 baseline: `artifacts\ui\wpf-left-queue-tabs-after-1920x1080.png`.
+- Verified:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --nologo -v:minimal /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir="C:\Git\Labelling_Application\artifacts\isolated-out\"` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-image-queue-status` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-labeling-shell` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-visual-smoke --roi-only --review-tab objects --width 1366 --height 768 --output "C:\Git\Labelling_Application\artifacts\ui\wpf-left-queue-tabs-after-1366x768.png"` produced the after capture.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-visual-smoke --roi-only --review-tab guide --width 1366 --height 768 --output "C:\Git\Labelling_Application\artifacts\ui\wpf-right-tabs-after-1366x768.png"` produced the after capture.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-visual-smoke --roi-only --review-tab guide --width 1920 --height 1080 --output "C:\Git\Labelling_Application\artifacts\ui\wpf-left-queue-tabs-after-1920x1080.png"` produced the 1920 baseline capture.
+- Next planned work: continue with the saved-label versus AI-candidate transition audit, but do not repeat the already completed queue clipping, canvas-toolbar density, right-tab theme, or guide/tools helper-role passes.
+
+## 2026-07-02 saved-label vs AI-candidate mode badge pass
+
+- UX/product finding from the saved-label versus AI-candidate transition audit: the canvas display modes were already separated, but the right review panels still required users to read body text to know whether they were editing committed labels or only reviewing unsaved AI candidates.
+- Changed the review-panel surface:
+  - `WpfCandidateReviewPanelViewModel` now owns an explicit `AI 후보 검토` mode badge and `확정 전에는 저장 라벨 아님` scope text.
+  - `WpfObjectReviewPanelViewModel` now owns an explicit `저장 라벨만` mode badge and `AI 후보 표시 안 함` scope text.
+  - `WpfCandidateReviewPanel.xaml` and `WpfObjectReviewPanel.xaml` bind those texts into the first visible mode card with stable automation ids.
+  - Focused tests assert the new bindings, automation ids, and ViewModel-owned wording so the distinction does not regress into bottom-log-only messaging.
+- Kept MVVM boundaries:
+  - Mode wording is computed in the panel ViewModels.
+  - XAML only binds and styles the mode badges.
+  - No command/workflow state was moved into View code-behind.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured UI evidence:
+  - Candidate panel before: `artifacts\ui\wpf-label-vs-candidate-before-1920.png`.
+  - Candidate panel after: `artifacts\ui\wpf-label-vs-candidate-after-1920.png`.
+  - Candidate panel before crop: `artifacts\ui\wpf-label-vs-candidate-before-1920-right-crop.png`.
+  - Candidate panel after crop: `artifacts\ui\wpf-label-vs-candidate-after-1920-right-crop.png`.
+  - Saved-label panel after expanded crop: `artifacts\ui\wpf-saved-label-panel-after-1920-expanded-right-crop.png`.
+- Verified:
+  - `dotnet build ".\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj" -c Debug --nologo -v:minimal /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir="C:\Git\Labelling_Application\artifacts\isolated-out\"` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-candidate-review-panel` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-object-review-panel` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-labeling-shell` passed.
+- Next planned work: audit the moment after an AI candidate is confirmed, specifically whether the UI makes the transition to `label save required` and then `saved label` visible across the canvas, queue, and right panel without relying on the bottom log.
+
+## 2026-07-02 confirmed-candidate saved-label clarity pass
+
+- UX/product finding from the post-candidate-confirmation audit: candidate confirmation already writes the accepted boxes into the current image label file, but the right saved-label panel and review history still made those objects look like generic AI candidates. That forced users to infer whether the accepted candidate was still pending or had become training data.
+- Changed the confirmed-candidate surface:
+  - confirmed AI candidates now appear in Object Review as `확정 라벨` rows, not generic `AI` rows;
+  - confirmed rows include tooltip/source detail that the object came from `AI 후보 확정` and was reflected as a saved label;
+  - confirming AI candidates now registers the confirmed candidate classes in the class catalog before saving, then re-syncs the object-class editor after the class-list refresh so the selected row and class combo stay aligned;
+  - Candidate Review completion wording now separates `라벨 저장 필요` from `저장 완료`, matching whether file persistence is still required;
+  - Candidate Review/Object Review mode text now states that unconfirmed AI candidates are not saved labels, while confirmed candidates become saved labels;
+  - the right workflow review `TabControl` tab strip is explicitly placed at the top so hidden/local tabs do not reserve a left-side blank area over the saved-label content.
+- Kept MVVM boundaries:
+  - candidate/object review wording stays in the panel ViewModels and presentation services;
+  - `WpfLabelingShellWindow.xaml` only changes the review tab layout property;
+  - the visual-smoke-only `--confirm-all-candidates` switch lives in the test harness;
+  - no command/workflow state was moved into View code-behind;
+  - no Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- Captured UI evidence:
+  - Before right-panel overlap/fuzzy saved-label state: `artifacts\ui\wpf-confirmed-candidate-saved-label-after-1920.png`.
+  - Before right-panel crop: `artifacts\ui\wpf-confirmed-candidate-saved-label-after-1920-right-panel-crop.png`.
+  - After 1920x1080 confirmed-candidate saved-label state: `artifacts\ui\wpf-confirmed-candidate-saved-label-after-1920-fixed.png`.
+  - After right-panel crop: `artifacts\ui\wpf-confirmed-candidate-saved-label-after-1920-fixed-right-panel-crop.png`.
+- Verified:
+  - `dotnet build ".\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj" -c Debug --nologo -v:minimal /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir="C:\Git\Labelling_Application\artifacts\isolated-out\"` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-candidate-review-panel` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-object-review-panel` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-labeling-session-smoke` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-labeling-shell` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --mvvm-infra` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-visual-smoke --review-tab objects --right-workflow-expanded --confirm-all-candidates --width 1920 --height 1080 --output "C:\Git\Labelling_Application\artifacts\ui\wpf-confirmed-candidate-saved-label-after-1920-fixed.png"` passed and produced the after capture.
+- Next planned work: audit class-change/delete after confirmed labels, especially whether changing a confirmed label's class or deleting it clearly moves the canvas, queue row, and right panel back to `저장 필요` until the user writes the file.
+
+## 2026-07-02 confirmed-label edit save-required pass
+
+- 점검 결과: 오른쪽 저장 라벨 패널에서 확정/저장된 라벨을 수정하거나 삭제해도, 왼쪽 이미지 큐가 메모리 상태를 다시 읽으면서 저장됨처럼 보일 수 있었습니다. 캔버스의 저장 버튼을 못 보면 사용자는 수정한 라벨이 이미 파일에 반영된 것으로 오해할 수 있었습니다.
+- 수정 내용:
+  - `WpfImageQueueItem` now carries an explicit `IsSaveRequired` flag, separate from label count and review state.
+  - `WpfImageQueuePanelViewModel` prioritizes `IsSaveRequired` in the selected-image task card, so the left queue says `라벨 저장 필요` until the operator presses `라벨 저장`.
+  - `MarkAnnotationsDirty` now updates the active image queue row immediately to `저장 필요` when a saved/confirmed label class is changed, a label is deleted, or another dirty annotation action occurs.
+  - `ApplyReviewStatusToItem` clears the flag for normal refreshes but reapplies it for the active image while `annotationDirtyReason` is still set, preventing async queue refresh from overwriting the dirty state.
+  - `WpfObjectReviewPanelViewModel` now says that class/delete edits become `저장 필요` and must be written with `라벨 저장`.
+- 구조:
+  - Save-required state lives on the queue item model and is rendered by the image queue ViewModel.
+  - Right-panel action wording stays in `WpfObjectReviewPanelViewModel`.
+  - Shell code-behind only adapts the existing active-image dirty state to the active queue item.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- 화면 증거:
+  - Before confirmed saved-label state: `artifacts\ui\wpf-confirmed-candidate-saved-label-after-1920-fixed.png`.
+  - Before right-panel crop: `artifacts\ui\wpf-confirmed-candidate-saved-label-after-1920-fixed-right-panel-crop.png`.
+  - After confirmed-label edit save-required state: `artifacts\ui\wpf-confirmed-label-edit-save-required-after-1920.png`.
+  - After left queue crop: `artifacts\ui\wpf-confirmed-label-edit-save-required-after-1920-left-crop.png`.
+  - After right saved-label crop: `artifacts\ui\wpf-confirmed-label-edit-save-required-after-1920-right-crop.png`.
+  - After top status crop: `artifacts\ui\wpf-confirmed-label-edit-save-required-after-1920-top-crop.png`.
+- 검증:
+  - `dotnet build ".\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj" -c Debug --nologo -v:minimal /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir="C:\Git\Labelling_Application\artifacts\isolated-out\"` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-labeling-session-smoke` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-image-queue-status` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-object-review-panel` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --mvvm-infra` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-labeling-shell` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-visual-smoke --review-tab objects --right-workflow-expanded --confirm-all-candidates --edit-confirmed-label-class --width 1920 --height 1080 --output "C:\Git\Labelling_Application\artifacts\ui\wpf-confirmed-label-edit-save-required-after-1920.png"` passed and produced the after capture.
+- Next planned work: audit the save-after-edit recovery path, specifically that pressing `라벨 저장` after class/delete clears the canvas, left queue, current-task card, and right saved-label panel back to `저장됨` without stale `저장 필요` badges.
+
+## 2026-07-02 README and tutorial commit-readiness pass
+
+- 점검 결과: `README.md`와 HTML 튜토리얼은 있었지만, 처음 보는 사람이 데이터셋 생성부터 라벨링, 학습, 추론 검토, 모델 적용까지의 흐름을 바로 잡기에는 개발자용 설명이 많았습니다.
+- 문서 변경:
+  - `README.md`를 프로젝트 소개 문서로 다시 정리했습니다: 지원 범위, 처음 10분, 상태 의미, 실행 명령, YOLOv5 연결, 작업 흐름도, 개발 문서 목록, 검증 명령, 커밋 전 체크 기준.
+  - Added `docs/tutorial/README.md` as a GitHub-readable tutorial lecture covering dataset setup, image queue, class registration, box labeling, save-required states, dataset check, YOLO training, inspection-model application, inference review, model comparison, and common confusion points.
+  - Linked the HTML tutorial back to the new Markdown tutorial so users can choose text-first or screenshot-first guidance.
+  - Added `docs/tutorial/labeling-workbench-tutorial-standalone.html`, a self-contained copy of the HTML tutorial with all six PNG captures embedded as base64 data URIs, so users can copy one file to another PC/folder without broken images.
+  - Kept required links to `YOLOV5_TRAINING_RESULT_WORKFLOW.md`, `SEGMENTATION_UX_COMPLETION.md`, and `ANOMALY_DETECTION_FLOW.md`.
+- 변경 범위:
+  - Documentation-only change.
+  - No WPF code-behind, ViewModel, service, Viewer/OpenGL/ROI/brush/eraser path was changed in this pass.
+- Verified:
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --priority-workflow-docs` passed.
+  - Local README/tutorial link check passed for `README.md`, `docs/tutorial/README.md`, and `docs/tutorial/labeling-workbench-tutorial.html`.
+  - Standalone tutorial check passed: six embedded `data:image/png;base64` images were found and no `src="images/...` references remained.
+  - `git diff --check -- README.md "docs/tutorial/README.md" "docs/tutorial/labeling-workbench-tutorial.html"` passed with only LF-to-CRLF warnings.
+- Next planned work: continue the save-after-edit recovery audit, then prepare a commit scope summary that separates pre-existing dirty worktree changes from the README/tutorial documentation pass and the latest save-required UX pass.
+
+## 2026-07-02 confirmed-label edit save-recovery pass
+
+- 점검 결과: 이전 작업으로 클래스 변경/삭제가 `저장 필요`로 바뀌는 것은 보였지만, 오른쪽 저장 라벨 패널 자체에는 파일 저장 상태가 따로 보이지 않았습니다. 사용자가 `라벨 저장`을 눌러도 오른쪽 패널은 다음 편집 안내만 보여서 저장 완료 여부를 한눈에 확인하기 어려웠습니다.
+- 수정 내용:
+  - `WpfObjectReviewPanelViewModel` now owns `LabelSaveStateKey`, `LabelSaveBadgeText`, and `LabelSaveDetailText`.
+  - `WpfObjectReviewPanel.xaml` shows a compact save-state badge in the selected-image task card: `라벨 대기`, `저장 필요`, or `저장됨`.
+  - `MarkAnnotationsDirty`, `MarkAnnotationsSaved`, and `SetAnnotationSaveStatusWaiting` now fan out the same save state to the right saved-label panel.
+  - The WPF visual smoke harness can now capture the path `확정 라벨 수정 -> 라벨 저장` using `--save-after-confirmed-label-edit`.
+- 구조:
+  - Right-panel save-state text lives in `WpfObjectReviewPanelViewModel`.
+  - XAML only binds and styles the state.
+  - Shell code-behind remains the active-image persistence adapter and only fans out the existing dirty/saved/waiting state.
+  - No Viewer/OpenGL/ROI/brush/eraser performance path was changed.
+- 화면 증거:
+  - Before save-required state: `artifacts\ui\wpf-confirmed-label-edit-save-required-after-1920.png`.
+  - After save recovery: `artifacts\ui\wpf-confirmed-label-edit-save-recovered-after-1920.png`.
+  - After left queue crop: `artifacts\ui\wpf-confirmed-label-edit-save-recovered-after-1920-left-crop.png`.
+  - After right saved-label crop: `artifacts\ui\wpf-confirmed-label-edit-save-recovered-after-1920-right-crop.png`.
+  - After top status crop: `artifacts\ui\wpf-confirmed-label-edit-save-recovered-after-1920-top-crop.png`.
+- 검증:
+  - `dotnet build ".\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj" -c Debug --nologo -v:minimal /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir="C:\Git\Labelling_Application\artifacts\isolated-out\"` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-labeling-session-smoke` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-object-review-panel` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-image-queue-status` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --mvvm-infra` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-labeling-shell` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-visual-smoke --review-tab objects --right-workflow-expanded --confirm-all-candidates --edit-confirmed-label-class --save-after-confirmed-label-edit --width 1920 --height 1080 --output "C:\Git\Labelling_Application\artifacts\ui\wpf-confirmed-label-edit-save-recovered-after-1920.png"` passed and produced the after capture.
+- Next planned work: prepare a commit scope summary that separates pre-existing dirty worktree changes from the latest UX/documentation passes, then decide whether to stage one coherent documentation+UX commit or split documentation and app UX into separate commits.
+
+## 2026-07-02 saved-label edit focused rerun pass
+
+- 다시 확인한 범위: 저장 라벨을 수정한 뒤 `저장 필요`가 보이고, `라벨 저장` 후 `저장됨`으로 돌아오는 경로.
+- 검증:
+  - `dotnet build ".\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj" -c Debug --nologo -v:minimal /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir="C:\Git\Labelling_Application\artifacts\isolated-out\"` passed with 0 warnings and 0 errors.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-labeling-session-smoke` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-object-review-panel` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-image-queue-status` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --mvvm-infra` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-labeling-shell` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-visual-smoke --review-tab objects --right-workflow-expanded --confirm-all-candidates --edit-confirmed-label-class --save-after-confirmed-label-edit --width 1920 --height 1080 --output "C:\Git\Labelling_Application\artifacts\ui\wpf-confirmed-label-edit-save-recovered-after-1920.png"` passed.
+- 화면 증거: `artifacts\ui\wpf-confirmed-label-edit-save-recovered-after-1920.png`.
+- 다음 작업: Scope B를 그대로 커밋하기에는 이미지 큐/오른쪽 패널 파일에 다른 UX 변경도 섞여 있으므로, 커밋 전에는 분리 가능한 파일과 섞인 파일을 다시 나눕니다.
+
 ## 2026-07-02 tutorial realism and large-capture pass
 
 - 점검 결과: 첫 튜토리얼은 실제 사용 절차보다 개요 설명에 가까웠고, 화면 예시도 여섯 장뿐이라 실제 작업자가 보며 따라가기에는 부족했습니다.
@@ -2315,6 +4201,45 @@ Last updated: 2026-07-02
   - `git diff --check -- "docs/tutorial/README.md" "docs/tutorial/labeling-workbench-tutorial.html" "docs/tutorial/labeling-workbench-tutorial-standalone.html" "docs/WORK_TRACKING.md" "docs/STABLE_VERIFIED_AREAS.md"` passed with only LF-to-CRLF warnings.
   - Chrome headless rendered the HTML guide at 1920x1080 and captured `artifacts\ui\tutorial-expanded-html-after-1920.png`, confirming the guide opens with a large actual workbench screenshot instead of the previous small example layout.
 - Next planned work: return to the commit scope summary and separate this expanded tutorial pass from the pre-existing dirty worktree changes before any staging decision.
+
+## 2026-07-02 commit-scope split pass
+
+- Maintenance finding: the worktree now has documentation updates, saved-label UX changes, broader workflow/model-center/template changes, and protected Viewer/OpenGL edits all present at once. A broad stage/commit would mix unrelated risk levels and make later review difficult.
+- Added `docs/COMMIT_SCOPE_20260702.md` to split the current dirty tree into:
+  - Scope A: README/tutorial documentation and large-capture tutorial assets.
+  - Scope B: saved-label edit save-required/save-recovery UX.
+  - Scope C: broader accumulated UX/MVVM/model/template work that needs separate audit.
+  - Do-not-stage defaults for Codex handoff notes, artifacts, and protected Viewer/OpenGL paths.
+- Kept code boundaries:
+  - Documentation-only change.
+  - No WPF code-behind, ViewModel, service, Viewer/OpenGL/ROI/brush/eraser path was changed in this pass.
+- Verified:
+  - `git status --short` was checked first.
+  - Worktree status summary was recorded as 146 modified files, 38 untracked paths, and 1 deleted path.
+  - `CODEX_NEXT_PROMPT.md` and `CODEX_RECOVERY.md` were read for current handoff context.
+  - `git diff --check -- docs/WORK_TRACKING.md docs/STABLE_VERIFIED_AREAS.md` passed with only LF-to-CRLF warnings.
+  - Custom trailing-whitespace check passed for `docs/COMMIT_SCOPE_20260702.md` and `docs/WORK_TRACKING.md`.
+- Next planned work: decide with the user whether to stage Scope A alone, Scope B alone, or continue UX/MVVM audit without committing yet.
+
+## 2026-07-02 staging-candidate inspection pass
+
+- Maintenance finding: Scope A can be reviewed as a coherent product-documentation commit, but Scope B cannot be safely staged file-by-file because the relevant test file and several WPF files contain accumulated changes from earlier UX passes.
+- Updated `docs/COMMIT_SCOPE_20260702.md` with a staging-candidate inspection:
+  - Scope A is the safest first commit candidate.
+  - Scope B requires `git add -p` and cached-diff review; no whole-file staging recommendation remains for the saved-label UX slice.
+  - Scope C remains audit-only and should not be mixed into documentation or saved-label UX commits.
+  - `docs/COMMIT_SCOPE_20260702.md` itself is treated as an optional internal scope-note commit, not part of the product tutorial commit by default.
+- Kept code boundaries:
+  - Documentation-only change.
+  - No WPF code-behind, ViewModel, service, Viewer/OpenGL/ROI/brush/eraser path was changed in this pass.
+- Verified:
+  - `git status --short` was checked first.
+  - Scope A/B diff stats were inspected: documentation changed across `README.md`, tutorial HTML, and tracking docs; saved-label UX touches 11 tracked files with `tests/LabelingApplication.Tests/Program.cs` carrying a 5,299-line accumulated diff.
+  - Recent tracking/stable line markers were identified for patch-staging: tutorial sections, saved-label sections, and the standalone tutorial contract.
+  - `git diff --check -- docs/WORK_TRACKING.md docs/STABLE_VERIFIED_AREAS.md docs/COMMIT_SCOPE_20260702.md` passed with only LF-to-CRLF warnings.
+  - Custom trailing-whitespace check passed for `docs/COMMIT_SCOPE_20260702.md` and `docs/WORK_TRACKING.md`.
+- Next planned work: if the user wants a commit, stage Scope A first with patch-staged tracking/stable records, then run cached diff review before committing.
+
 ## 2026-07-02 README and tutorial portfolio documentation pass
 
 - 점검 결과: README와 튜토리얼에 필요한 정보는 있었지만, 첫인상이 기능 목록 위주였습니다. 포트폴리오에 쓰려면 데이터셋 준비, 저장 라벨, 학습, 추론 검토, 모델 적용이 이어지는 프로그램의 정체성이 먼저 보여야 합니다.
@@ -2334,6 +4259,7 @@ Last updated: 2026-07-02
   - Custom trailing-whitespace check passed for the updated README/tutorial/tracking files.
   - Chrome headless rendered the HTML guide at 1920x1080.
 - Next planned work: review the README/tutorial wording once more from the portfolio reader's perspective, then stage Scope A only if the user asks to prepare a commit.
+
 ## 2026-07-02 tutorial annotated-screenshot and latest-image rule pass
 
 - 점검 결과: 캡처가 크다는 설명만으로는 부족했습니다. 사용자가 이미지를 먼저 보고 따라갈 수 있도록 캡처 안에 번호와 화살표가 필요했고, UI가 바뀐 뒤에도 예전 캡처를 그대로 두지 않는 규칙이 필요했습니다.
@@ -2355,6 +4281,2161 @@ Last updated: 2026-07-02
   - `git diff --check -- README.md docs/tutorial/README.md docs/tutorial/labeling-workbench-tutorial.html docs/tutorial/labeling-workbench-tutorial-standalone.html docs/STABLE_VERIFIED_AREAS.md docs/WORK_TRACKING.md` passed with only LF-to-CRLF warnings.
   - Chrome headless rendered the HTML guide at 1920x1080 and captured `artifacts\ui\tutorial-annotated-guide-after-1920.png`.
 - Next planned work: review Scope A documentation as a single staging candidate, then continue the app UX/MVVM audit only after the documentation slice is cleanly separated from the broader dirty worktree.
+
+## 2026-07-02 segmentation save native fallback pass
+
+- 점검 결과: clean HEAD 기반 검증 worktree에서는 WPF 라벨링 세션 저장 중 raster mask를 polygon JSON으로 변환하는 경로가 OpenCV `FindContours` native AccessViolation으로 중단됐습니다. 이 오류는 뷰어/브러시 입력 hot path가 아니라 YOLO segmentation 저장/export 경로에서 발생했습니다.
+- 수정 내용:
+  - `YoloSegmentationAnnotationService.BuildPolygonRecords`의 raster mask 저장 경로에서 `SegmentationGeometry.RasterMaskToRegions` 호출을 제거했습니다.
+  - raster mask의 실제 `Bounds`를 `SegmentationGeometry.RectangleToPolygon`으로 변환해 segment JSON에 남깁니다.
+  - polygon 기반 세그먼트 저장, mask PNG 저장, View/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+  - 기존 `--segmentation-annotation-storage` smoke 안에 raster mask 저장 검증을 추가했습니다.
+- 검증:
+  - 임시 HEAD 기반 worktree `C:\Git\Labelling_Application_opencv_stage`에서 `dotnet build ".\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj" -c Debug --nologo -v:minimal /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir="C:\Git\Labelling_Application_opencv_stage\artifacts\isolated-out\"` passed with 0 warnings and 0 errors.
+  - `dotnet "C:\Git\Labelling_Application_opencv_stage\artifacts\isolated-out\LabelingApplication.Tests.dll" --segmentation-annotation-storage` passed.
+  - `dotnet "C:\Git\Labelling_Application_opencv_stage\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-labeling-session-smoke` passed and captured `C:\artifacts\ui\wpf-labeling-session-smoke.png`.
+  - `dotnet "C:\Git\Labelling_Application_opencv_stage\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-annotation-purpose-export` passed.
+  - `dotnet "C:\Git\Labelling_Application_opencv_stage\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-object-review-panel` passed.
+  - `dotnet "C:\Git\Labelling_Application_opencv_stage\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-image-queue-status` passed.
+  - `dotnet "C:\Git\Labelling_Application_opencv_stage\artifacts\isolated-out\LabelingApplication.Tests.dll" --mvvm-infra` passed.
+  - `git diff --check` passed with only LF-to-CRLF warnings.
+- 다음 작업: 실제 UI에서 학습 완료 모델과 현재 검사 모델을 구분해 보여주는 상태/모델 선택 UX를 이어서 점검합니다.
+
+## 2026-07-02 inspection model status badge and model-center evidence pass
+
+- 점검 결과: 학습 완료 후 상단 상태와 모델 센터가 모두 "모델"이라는 말로만 보이면 사용자가 `새 학습 후보`와 `현재 검사 모델`을 구분하기 어렵습니다. 특히 후보를 선택했지만 recipe 저장 전이면 다음 추론에는 아직 기존 검사 모델을 쓰는 상태라서, 이 차이를 한눈에 보여줘야 합니다.
+- 수정 내용:
+  - `WpfStatusBarPanelViewModel`에 `InspectionModelStatusText` / `InspectionModelStatusToolTip`을 추가해 현재 검사 모델 상태를 transient 작업 상태와 분리했습니다.
+  - `WpfStatusBarPanel.xaml` 상태줄에 `검사 모델: ...` 전용 배지를 추가했습니다. 기존 `ModelStatusText`는 작업 단계/자동화 상태 용도로 유지합니다.
+  - YOLO runtime status refresh에서 현재 저장된 검사 모델과 저장 대기 후보를 구분해 전용 배지에 반영하도록 연결했습니다.
+  - 모델 센터의 적용 근거 문장에 `학습 실패 아님`을 남겨, 지표 보류/후보 검증 상태가 학습 실패처럼 읽히지 않게 했습니다.
+  - WPF 모델 센터 smoke가 실제 YOLO run 형태처럼 `best.pt`와 같은 run의 `results.csv`를 함께 생성하도록 보정해, 모델 이력 비교에서 `mAP50-95` 지표가 유지되는지 확인했습니다.
+- 검증:
+  - `dotnet build ".\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj" -c Debug --nologo -v:minimal /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir="C:\Git\Labelling_Application\artifacts\isolated-out\"` passed with 0 warnings and 0 errors.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-status-panels` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --mvvm-infra` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output "C:\Git\Labelling_Application\artifacts\ui\wpf-inspection-model-status-after-1920.png"` passed.
+  - `git diff --check --` 대상 변경 파일 passed with only LF-to-CRLF warnings.
+- 캡처:
+  - 전체 화면: `artifacts\ui\wpf-inspection-model-status-after-1920.png`
+  - 상태줄 확대: `artifacts\ui\wpf-inspection-model-status-row-crop.png`
+- 다음 작업: 모델 센터의 후보 적용 카드와 상단 상태 영역을 더 줄여서, "후보 검증 -> 검사 모델로 저장 -> 현재 검사" 흐름이 1366 폭에서도 같은 우선순위로 보이는지 확인합니다.
+
+## 2026-07-02 model-center priority card pass
+
+- 점검 결과: 1366x768 화면에서 학습/모델 센터의 첫 화면은 모델 레지스트리 설명이 먼저 길게 보이고, 실제 사용자가 눌러야 할 `후보 검증 -> 검사 모델로 저장 -> 현재 검사` 버튼 흐름은 아래쪽으로 밀렸습니다.
+- 수정 내용:
+  - 학습/모델 센터 상단에 `모델 적용 순서` 우선순위 카드를 추가했습니다.
+  - 카드 안에 `현재 검사`, `학습 후보`, `다음`을 한 줄 흐름으로 보여주고, 바로 아래에 `후보 검증`, `검사 모델로 저장`, `현재 검사` 버튼을 배치했습니다.
+  - 새 카드는 기존 `ShellViewModel` 상태와 명령을 그대로 바인딩합니다. XAML은 표시만 하고, 상태/워크플로우 판단은 ViewModel/Service에 남겼습니다.
+  - `WpfModelRegistryPresentationService.BuildInspectionModelText`에서 저장 대기 후보를 현재 검사 모델로 잘못 표시하지 않도록 수정했습니다. pending 상태에서도 현재 검사 모델 행은 실제 registry의 현재 모델을 우선 표시합니다.
+  - `BuildModelCenterCandidateModelText`는 pending 상태에서 settings에 후보 경로가 올라와 있어도 `현재 검사 모델과 같음`으로 축약하지 않고 후보 `best.pt`를 계속 보여주도록 조정했습니다.
+- 검증:
+  - `dotnet build ".\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj" -c Debug --nologo -v:minimal /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir="C:\Git\Labelling_Application\artifacts\isolated-out\"` passed with 0 warnings and 0 errors.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-labeling-shell` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --mvvm-infra` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-status-panels` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-yolo-training-session-smoke --model-center --width 1366 --height 768 --output "C:\Git\Labelling_Application\artifacts\ui\wpf-model-center-priority-after-1366.png"` passed.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output "C:\Git\Labelling_Application\artifacts\ui\wpf-model-center-priority-after-1920.png"` passed.
+  - `git diff --check --` 대상 변경 파일 passed with only LF-to-CRLF warnings.
+- 캡처:
+  - Before 1366: `artifacts\ui\wpf-model-center-priority-before-1366.png`
+  - After 1366: `artifacts\ui\wpf-model-center-priority-after-1366.png`
+  - Before/after right-panel crop: `artifacts\ui\wpf-model-center-priority-before-1366-right-crop.png`, `artifacts\ui\wpf-model-center-priority-after-1366-right-crop.png`
+  - After 1920: `artifacts\ui\wpf-model-center-priority-after-1920.png`
+- 다음 작업: 모델 센터 카드의 지표 문장이 길 때 `mAP50-95`, `mAP50`, `precision/recall` 핵심만 먼저 보이고 전체 지표는 상세로 내려가도록 줄입니다.
+
+## 2026-07-02 Test dataset end-to-end tutorial pass
+
+- 요청 배경: 사용자가 만든 `Test` 데이터셋은 이미 라벨링, 학습, 추론까지 진행한 실제 데이터셋이므로, 튜토리얼도 예시 화면이 아니라 이 데이터셋을 기준으로 작성해야 합니다.
+- 확인한 실제 데이터:
+  - 레시피: `TEST_Dataset_ObjectDetection_20260628_212353`
+  - 이미지 폴더: `D:\LabelingData\Test01\Images`
+  - 저장 폴더: `C:\Git\Labelling_Application\artifacts\run\Debug\DATA\Dataset_ObjectDetection_20260628_212353`
+  - 클래스: `OK`, `NG`
+  - 저장 라벨: 125개 이미지 파일, box label 141개
+  - 현재 검사 모델: `best.pt`
+  - 학습 결과 모델 후보: `exp7\weights\best.pt`
+- 실행/캡처:
+  - `artifacts\run\Debug\MvcVisionSystem.exe`를 직접 실행했습니다.
+  - project recipe UI에서 `TEST_Dataset_ObjectDetection_20260628_212353`를 적용했습니다.
+  - 레시피 적용, 데이터셋 홈, 라벨링/저장 라벨, 클래스, 학습/모델 센터, 추론 검토, 현재 검사 실행 후 화면을 1920x1080으로 캡처했습니다.
+  - `현재 검사`는 `DetectButton`을 실제로 눌렀고, 버튼 비활성화/재활성화까지 확인한 뒤 AI 후보 1개가 표시된 화면을 캡처했습니다.
+  - 원본 캡처: `docs\tutorial\images\test-workflow\*.png`
+  - 번호/화살표 캡처: `docs\tutorial\images\test-workflow\annotated\*.png`
+- 문서 반영:
+  - `docs/tutorial/README.md` 상단에 `Test 데이터셋으로 실제 흐름 따라가기` 장을 추가했습니다.
+  - `README.md`의 대표 화면을 실제 Test workflow 캡처로 교체하고 튜토리얼 장으로 연결했습니다.
+  - `docs/tutorial/labeling-workbench-tutorial.html` 맨 앞에 Test 실습 섹션을 추가했습니다.
+  - `docs/tutorial/labeling-workbench-tutorial-standalone.html`을 다시 생성해 표시 이미지 21장을 모두 base64로 포함했습니다.
+- 검증:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - Standalone generation check: standard HTML image refs 21, standalone embedded data images 21, standalone file image refs 0.
+  - `git status --short docs\tutorial artifacts\run\Debug\RECIPE\TEST_Dataset_ObjectDetection_20260628_212353 artifacts\run\Debug\DATA\Dataset_ObjectDetection_20260628_212353` showed only the new tutorial image folder; Test recipe/data folders were not modified by the tutorial capture pass.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --priority-workflow-docs` passed.
+  - Local tutorial image check passed: standard HTML image refs 21, standalone embedded data images 21, standalone file image refs 0, all referenced image files exist.
+  - in-app browser render was not completed because the browser URL policy blocked direct `file:///...` navigation. Per browser policy, no workaround attempt was made.
+- 다음 작업: 문서 diff/경로 검증을 마무리하고, 이후에는 모델 센터 카드의 지표 문장 축약 UX를 이어서 진행합니다.
+
+## 2026-07-02 model-center compact metric summary pass
+
+- 점검 결과: 학습/모델 센터의 첫 표시 후보 줄이 `mAP50-95`, `mAP50`, `precision`, `recall`, `box loss`를 한 문장에 모두 붙여 보여 주면 사용자가 후보 모델 파일과 다음 버튼을 먼저 보기 어렵습니다.
+- 수정 내용:
+  - `WpfModelRegistryPresentationService.BuildCompactMetricSummary`를 추가해 첫 표시 후보 줄에는 `mAP50-95`, `mAP50`, `P/R`만 남기도록 했습니다.
+  - slash(`/`)로 구분된 지표와 실제 화면에서 나온 comma(`,`) 구분 지표를 모두 compact 처리합니다.
+  - 모델 센터 우선순위 카드의 학습 후보 문장도 같은 formatter를 사용합니다.
+  - 전체 지표 문장은 모델 이력과 선택 모델 비교/근거 영역에 남겨, 핵심 요약과 상세 근거를 분리했습니다.
+- 구조:
+  - 지표 축약은 presentation service에서 처리합니다.
+  - XAML은 기존 ViewModel binding을 그대로 사용합니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --model-registry` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-center-metrics-compact-after-1920.png` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --settings-viewmodels` was attempted but that is not a registered single-test flag in this test runner, so it fell through into the broader suite and stopped at existing `Template auto label shows actionable guide: registered template batch should complete`.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-center-priority-after-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-center-metrics-compact-after-1920.png`
+- 다음 작업: 모델 센터 오른쪽 패널의 이력 카드가 여전히 좁은 폭에서 글줄이 많으므로, 이력 목록은 접힌 요약/선택 상세 구조로 더 줄이는 방안을 검토합니다.
+
+## 2026-07-02 model-history compact list pass
+
+- 점검 결과: 모델 이력 리스트 row가 `제목/결정/실행 상세/전체 지표`를 모두 반복해 보여 주고 있었습니다. 바로 아래에 선택 상세 카드가 이미 있으므로 같은 정보가 중복되고, 오른쪽 패널에서 주요 버튼과 선택 상세가 밀렸습니다.
+- 수정 내용:
+  - `ModelRegistryHistoryItems` 리스트 row를 `모델 요약 + 결정 상태` 한 줄 구조로 줄였습니다.
+  - `DetailText`와 `MetricText`는 리스트 row에서 제거하고, 기존 `SelectedModelHistoryDetailText`, `SelectedModelHistoryMetricText`, `SelectedModelHistoryComparisonMetricText` 선택 상세 영역에만 남겼습니다.
+  - 이력 리스트에 `MaxHeight=104`와 세로 스크롤을 적용해 이력이 늘어도 선택 상세 카드가 계속 보이도록 했습니다.
+  - 리스트 row에는 `ModelRegistryHistoryItemSummaryText`, `ModelRegistryHistoryItemDecisionText` automation id를 추가했습니다.
+- 구조:
+  - XAML은 기존 `WpfModelRegistryHistoryItem`과 `ShellViewModel.SelectedModelRegistryHistoryItem` binding만 사용합니다.
+  - 상태/선택/적용 명령은 기존 ViewModel에 그대로 있습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --model-registry` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-history-compact-list-after-1920.png` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1366 --height 768 --output .\artifacts\ui\wpf-model-history-compact-list-after-1366.png` passed.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-center-metrics-compact-after-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-history-compact-list-after-1920.png`
+  - After 1366: `artifacts\ui\wpf-model-history-compact-list-after-1366.png`
+- 다음 작업: 1366 화면에서는 이력 row는 줄었지만 그 위의 모델 레지스트리 설명이 여전히 길어 이력/선택 상세가 아래로 밀립니다. 다음 pass에서는 모델 레지스트리 summary를 접힌 상세 또는 핵심 2줄 구조로 줄입니다.
+
+## 2026-07-02 model-registry compact summary pass
+
+- 점검 결과: `모델 레지스트리` 영역이 프로필, 학습 실행, 후보 모델, 현재 검사 모델, 다음 구조 설명을 모두 펼쳐 보여 주면서 1366 화면에서 최근 이력과 선택 상세가 아래로 밀렸습니다.
+- 수정 내용:
+  - `WpfModelRegistryPresentationService`에 `SummaryPrimaryText`, `SummarySecondaryText`를 추가했습니다.
+  - 첫 줄은 `현재 검사 모델 / 학습 후보 모델`, 둘째 줄은 `모델 계열 / 최근 학습 / 이력 수 / recipe 저장 상태`만 보입니다.
+  - 기존 상세 5줄(`Profile`, `TrainingRun`, `Candidate`, `Inspection`, `Action`)은 `ModelRegistryDetailExpander` 안으로 이동했고 기본은 접힘 상태입니다.
+  - 기존 상세 TextBlock AutomationId와 binding은 그대로 유지해 상세 확인과 자동화 검증은 계속 가능합니다.
+- 구조:
+  - 표시 문장 생성은 presentation service가 담당합니다.
+  - Shell ViewModel은 compact summary 상태를 노출하고, XAML은 binding만 사용합니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --model-registry` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1366 --height 768 --output .\artifacts\ui\wpf-model-registry-summary-collapsed-after-1366.png` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-registry-summary-collapsed-after-1920.png` passed.
+- 캡처:
+  - Before 1366: `artifacts\ui\wpf-model-history-compact-list-after-1366.png`
+  - After 1366: `artifacts\ui\wpf-model-registry-summary-collapsed-after-1366.png`
+  - After 1920: `artifacts\ui\wpf-model-registry-summary-collapsed-after-1920.png`
+- 다음 작업: 모델 센터 선택 상세 카드가 아직 카드 안에 비교 카드가 중첩된 구조라 시선이 무겁습니다. 다음 pass에서는 선택 상세의 현재/선택 모델 비교를 더 얇은 2열 요약 행으로 줄입니다.
+
+## 2026-07-02 selected-model-history thin comparison pass
+
+- 점검 결과: 모델 이력에서 항목을 선택하면 선택 상세 카드 안에 다시 비교 카드가 들어가 있었습니다. 오른쪽 패널 폭이 좁은 상황에서는 카드 안 카드 구조가 시선을 무겁게 만들고, 비교 문장이 높이를 많이 차지했습니다.
+- 수정 내용:
+  - `SelectedModelHistoryComparisonPanel`을 `Border` 기반 중첩 카드에서 얇은 `Grid` 비교 행으로 변경했습니다.
+  - 현재 검사 모델과 선택 모델은 2열 요약 행으로 표시하고, 긴 경로는 ellipsis와 tooltip으로 처리합니다.
+  - 지표 비교도 한 줄 ellipsis로 표시해 선택 상세 카드 높이를 줄였습니다.
+  - 기존 AutomationId와 ViewModel binding은 유지했습니다.
+- 구조:
+  - ViewModel 상태와 명령은 변경하지 않았습니다.
+  - XAML은 기존 `SelectedModelHistory*` binding만 사용합니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --model-registry` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1366 --height 768 --output .\artifacts\ui\wpf-model-selected-history-thin-after-1366.png` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-selected-history-thin-after-1920.png` passed.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-registry-summary-collapsed-after-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-selected-history-thin-after-1920.png`
+  - After 1366: `artifacts\ui\wpf-model-selected-history-thin-after-1366.png`
+- 다음 작업: 모델 센터 하단의 `모델 적용 판단` 카드가 아직 길고, 현재 선택 후보 저장/검사 흐름과 일부 중복됩니다. 다음 pass에서는 적용 판단을 기본 1줄 판단 + 접힌 근거로 줄입니다.
+
+## 2026-07-02 model-adoption decision collapsed-detail pass
+
+- 점검 결과: `모델 적용 판단` 카드가 판단 요약, 근거, 저장 설명을 모두 펼쳐 보여 주면서 위쪽 `모델 적용 순서` 카드와 역할이 일부 중복됐습니다. 기본 화면에서는 지금 적용해야 하는 판단만 먼저 보이면 됩니다.
+- 수정 내용:
+  - `YoloModelAdoptionDecisionSummaryText`는 한 줄 ellipsis로 표시합니다.
+  - `YoloModelAdoptionDecisionEvidenceText`와 `YoloModelAdoptionDecisionActionText`는 `YoloModelAdoptionDecisionDetailExpander` 안으로 이동했고 기본은 접힘 상태입니다.
+  - 기존 AutomationId와 ViewModel binding은 유지해, 필요하면 근거/저장 상세를 펼쳐 확인할 수 있습니다.
+- 구조:
+  - ViewModel 상태와 명령은 변경하지 않았습니다.
+  - XAML은 기존 `ModelCenterDecision*` binding만 사용합니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --model-registry` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1366 --height 768 --output .\artifacts\ui\wpf-model-decision-collapsed-after-1366.png` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-decision-collapsed-after-1920.png` passed.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-selected-history-thin-after-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-decision-collapsed-after-1920.png`
+  - After 1366: `artifacts\ui\wpf-model-decision-collapsed-after-1366.png`
+- 다음 작업: 모델 센터의 오른쪽 패널은 상당히 정리됐으므로, 다음 pass에서는 실제 사용자 흐름 기준으로 `후보 검증 -> 검사 모델로 저장 -> 현재 검사` 버튼의 enable/disabled 이유가 버튼 근처에서 충분히 설명되는지 점검합니다.
+
+## 2026-07-02 model-center action-state inline pass
+
+- 점검 결과: 모델 센터의 핵심 버튼(`후보 검증`, `검사 모델로 저장`, `현재 검사`)은 보이지만, 버튼이 비활성일 때 왜 대기인지가 툴팁이나 주변 설명을 찾아야 알 수 있었습니다. 학습/모델 단계에서는 사용자가 이 세 버튼 중 무엇을 먼저 눌러야 하는지 즉시 판단해야 합니다.
+- 수정 내용:
+  - `WpfLabelingShellViewModel`에 `ModelCenterActionStateText`를 추가했습니다.
+  - 후보 검증, 검사 모델 저장, 현재 검사 버튼의 enabled 상태와 tooltip 사유를 한 줄 상태 문구로 요약합니다.
+  - `WpfLabelingShellWindow.xaml`의 모델 적용 순서 버튼 바로 아래에 `ModelCenterPriorityButtonStateText`를 배치했습니다.
+  - 후보 없음, 저장할 후보 없음, 검사 모델 저장 필요, 현재 이미지/모델 확인 같은 대기 사유를 버튼 근처에서 볼 수 있게 했습니다.
+- 구조:
+  - 상태 판단은 Shell ViewModel에서 계산합니다.
+  - XAML은 `ShellViewModel.ModelCenterActionStateText` 바인딩만 표시합니다.
+  - View code-behind, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --model-registry` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1366 --height 768 --output .\artifacts\ui\wpf-model-actions-state-after-1366.png` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-actions-state-after-1920.png` passed.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-decision-collapsed-after-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-actions-state-after-1920.png`
+  - After 1366: `artifacts\ui\wpf-model-actions-state-after-1366.png`
+- 다음 작업: 모델 센터의 구조 정리는 중복 없이 충분히 진행됐으므로, 다음 pass에서는 학습 완료 후 `검사 모델로 저장`과 `현재 검사`가 실제 사용자 데이터셋 흐름에서 어떻게 이어지는지, 결과 비교/모델 비교 화면의 전환이 자연스러운지 점검합니다.
+
+## 2026-07-02 optional model-runtime pass
+
+- 점검 결과: 앱이 YOLOv5가 로컬에 설치되어 있다는 전제에 너무 많이 기대고 있었습니다. 사용자가 프로그램만 받은 상태에서는 라벨링은 할 수 있어야 하지만, 학습/현재 검사는 모델 실행기 설치 또는 경로 연결이 필요하다는 점이 명확히 보여야 합니다.
+- 수정 내용:
+  - `PythonModelRuntimeState`를 추가해 모델 실행기 상태를 `미설치 / 설정 확인 필요 / 준비 완료`로 분리했습니다.
+  - 모델 실행기 미설치 상태에서는 라벨링 UI는 계속 열리고, 학습 시작/현재 검사/모델 테스트/재시작 같은 모델 실행 명령만 비활성 또는 guard 처리됩니다.
+  - 미설치 상태가 상단 상태줄, 학습/모델 센터, 모델 레지스트리, 학습 완료 후 액션 카드에서 같은 메시지로 보이도록 맞췄습니다.
+  - 사용자가 지정한 커스텀 모델 실행기 경로가 비어 있거나 준비되지 않았을 때 `C:\Git\yolov5`로 조용히 바뀌지 않도록 자동 복구 범위를 줄였습니다.
+  - 모델 프로필 선택에 `YOLO11`을 추가했습니다. 아직 실행 어댑터 설치가 없어도 같은 라벨 데이터셋으로 나중에 YOLOv8/YOLO11을 연결할 수 있는 선택지입니다.
+- 구조:
+  - 런타임 판정은 `PythonModelSettingsValidator`가 담당합니다.
+  - 명령 가능/불가능 상태는 `WpfWorkflowCommandStateService`가 계산하고, ViewModel은 그 상태를 표시합니다.
+  - Shell code-behind는 기존처럼 장기 실행 명령과 ViewModel fan-out adapter 역할만 합니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --model-registry` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-runtime-optional-before-1920.png` passed.
+  - `dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-runtime-missing-after-1920.png` passed.
+  - `git diff --check` on the changed runtime/UI/test files returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` still stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure. This failure is outside the model-runtime optional path and remains a separate item.
+- 캡처:
+  - Runtime available comparison: `artifacts\ui\wpf-model-runtime-optional-before-1920.png`
+  - Runtime missing after: `artifacts\ui\wpf-model-runtime-missing-after-1920.png`
+- 다음 작업: 모델 실행기 설치/연결 센터를 별도 UX로 설계합니다. YOLOv5 외부 repo 연결, Ultralytics 기반 YOLOv8/YOLO11 venv 설치, 기존 경로 연결, self-test를 한 흐름으로 묶어야 합니다.
+
+## 2026-07-02 model-runtime profile list pass
+
+- 점검 결과: 모델 실행기가 없을 때 라벨링은 가능하다는 메시지는 보이기 시작했지만, 사용자는 여전히 `YOLOv5`, `YOLOv8`, `YOLO11`, `ONNX` 중 무엇이 현재 선택됐고 무엇을 설치하거나 연결해야 하는지 한눈에 알기 어려웠습니다. 특히 오픈소스/포트폴리오 배포 관점에서는 YOLOv5를 미리 받아둔 개발 PC가 아니어도 앱을 켤 수 있어야 합니다.
+- 수정 내용:
+  - `PythonModelRuntimeProfileService`를 추가해 모델 실행기 후보를 `YOLOv5 repo`, `Ultralytics`, `ONNX Runtime` 계열로 분리했습니다.
+  - YOLO 설정 패널에 `모델 실행기 연결 상태` 목록을 추가했습니다. 이제 `YOLOv5`, `YOLOv8`, `YOLO11`, `ONNX`가 같은 카드 안에 보이고, 현재 선택된 엔진은 `선택됨 / 학습·검사 가능`, `선택됨 / 설정 확인 필요`, `선택됨 / 실행기 미설치`처럼 validator 결과를 그대로 보여줍니다.
+  - 선택되지 않은 엔진도 `YOLOv5 폴더 연결 대기`, `Ultralytics 설치/연결 대기`, `ONNX 추론 연결 대기`처럼 다음 행동을 알 수 있게 정리했습니다.
+  - `WpfYoloModelSettingsPanelViewModel`이 프로필 목록을 만들고, XAML은 `RuntimeProfileItems`만 바인딩합니다. View code-behind에 실행기 판단 로직을 넣지 않았습니다.
+- 구조:
+  - 실행기 상태 판정은 기존 `PythonModelSettingsValidator`를 재사용합니다.
+  - 프로필 목록 구성은 `PythonModelRuntimeProfileService`가 담당합니다.
+  - WPF 패널은 ViewModel 컬렉션을 표시하는 역할만 합니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-runtime-profile-after-1920.png` passed.
+  - `git diff --check` on the changed runtime/UI/test/doc files returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` still stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure. The new model-runtime profile tests are covered by the focused settings-panel gates above.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-runtime-profile-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-runtime-profile-after-1920.png`
+- 다음 작업: 이 프로필 목록을 실제 설치/연결 액션으로 연결합니다. 우선순위는 `기존 YOLOv5 repo 연결`, `Ultralytics venv 생성/설치`, `YOLOv8/YOLO11 self-test`, `검사 모델 선택 저장` 순서입니다.
+
+## 2026-07-02 model-runtime profile action pass
+
+- 점검 결과: `YOLOv5 / YOLOv8 / YOLO11 / ONNX` 실행기 상태가 보이기 시작했지만, 목록이 읽기 전용이라 사용자가 어떤 모델을 선택했는지, 선택 후 다음 작업이 무엇인지 바로 확인하기 어려웠습니다.
+- 수정 내용:
+  - `PythonModelRuntimeProfile`에 `PrimaryActionText`를 추가했습니다. 선택되지 않은 프로필은 `선택`, 선택됐지만 실행기가 준비되지 않은 프로필은 `연결`, 준비 완료 프로필은 `확인`으로 표시됩니다.
+  - `WpfYoloModelSettingsPanelViewModel`에 `RuntimeProfileActionCommand`, `RuntimeProfileActionStatusText`, `IsRuntimeProfileActionEnabled`를 추가했습니다.
+  - 프로필 row의 버튼을 누르면 해당 모델 엔진이 선택되고, 패널 하단에 `Ultralytics 실행기 설치/연결`, `.onnx 모델 선택`, `YOLOv5 폴더 연결` 같은 다음 작업 안내가 즉시 표시됩니다.
+  - 장기 실행 중에는 모델 경로 편집 버튼과 같이 프로필 action도 비활성화됩니다.
+- 구조:
+  - 실행기 row 상태는 Core의 `PythonModelRuntimeProfileService`가 만들고, 클릭 동작은 ViewModel command가 처리합니다.
+  - XAML DataTemplate은 `RuntimeProfileActionCommand`와 `PrimaryActionText`만 바인딩합니다.
+  - Shell code-behind나 Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-runtime-action-after-1920.png` passed.
+  - `git diff --check` on the changed runtime/UI/test/doc files returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` still stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-runtime-action-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-runtime-action-after-1920.png`
+- 다음 작업: 버튼을 실제 설치/연결 마법사로 확장합니다. 먼저 `YOLOv5 폴더 연결`은 폴더 선택과 self-test까지 묶고, `YOLOv8/YOLO11`은 Ultralytics venv 생성/패키지 설치/버전 확인을 별도 서비스로 분리합니다.
+
+## 2026-07-02 model-runtime profile connect adapter pass
+
+- 점검 결과: 실행기 row의 `선택/연결` 버튼은 생겼지만, 버튼을 누른 뒤 사용자가 경로 입력란을 직접 찾아야 하면 연결 흐름이 다시 끊깁니다.
+- 수정 내용:
+  - `WpfLabelingShellWindow.PanelWiring.SettingsPanels`에서 `RuntimeProfileActionCommand`에 shell adapter를 연결했습니다.
+  - `ExecuteRuntimeProfileActionCommand`를 추가해 프로필 버튼 클릭 시 고급 실행 환경 영역을 열고, 모델 계열에 맞는 입력란으로 포커스를 이동합니다.
+  - `YOLOv5`는 프로젝트 폴더 입력란, `YOLOv8/YOLO11`은 Python 실행 파일 입력란, `ONNX`는 검사 모델 파일 입력란으로 이동합니다.
+  - 상태줄과 로그에도 선택한 모델 계열과 다음 연결 작업을 남기도록 했습니다.
+- 구조:
+  - 선택/상태 텍스트는 여전히 `WpfYoloModelSettingsPanelViewModel`이 담당합니다.
+  - shell code-behind는 기존 파일/폴더 picker와 focus 이동을 담당하는 UI adapter 역할만 합니다.
+  - 외부 설치 실행, pip install, repo clone은 아직 수행하지 않습니다. 다음 pass에서 별도 서비스로 분리합니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-runtime-connect-after-1920.png` passed.
+  - `git diff --check` on the changed runtime/UI/test/doc files returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` still stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-runtime-connect-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-runtime-connect-after-1920.png`
+- 다음 작업: 실제 설치/점검 흐름을 별도 서비스로 만듭니다. 첫 범위는 외부 작업 없이 `YOLOv5 폴더 self-test`부터 시작해, 선택된 폴더가 학습/추론에 필요한 파일을 갖췄는지 UI에서 즉시 보여주는 것입니다.
+
+## 2026-07-02 model-runtime self-test pass
+
+- 점검 결과: 모델 실행기 연결 버튼을 눌러도 사용자는 여전히 `무엇이 준비됐고 무엇이 빠졌는지`를 직접 추론해야 했습니다. 특히 YOLOv5 repo를 이미 갖고 있는 개발 PC와, 앱만 처음 받은 PC의 상태 차이가 화면에 충분히 드러나지 않았습니다.
+- 수정 내용:
+  - `PythonModelRuntimeSelfTestService`를 추가했습니다.
+  - 선택된 모델 실행기에 대해 프로젝트 폴더, YOLOv5 모델 루트, Python 실행 파일, 실행 스크립트, 검사 모델 파일, 이미지 폴더를 항목별로 점검합니다.
+  - 학습은 가능하지만 검사 모델 파일이 없어 현재 검사는 불가능한 상태를 warning으로 분리했습니다.
+  - YOLO 설정 패널에 `선택 실행기 점검` 요약과 체크 리스트를 추가했습니다. 이제 사용자는 로그를 보지 않아도 `학습 가능 / 검사 가능 / 누락 항목`을 오른쪽 패널에서 바로 볼 수 있습니다.
+  - 새 focused gate `--python-model-runtime-self-test`를 추가해 전체 회귀가 기존 템플릿 테스트에서 중단돼도 이 서비스만 별도로 검증할 수 있게 했습니다.
+- 구조:
+  - 경로/파일 판정은 Core의 `PythonModelRuntimeSelfTestService`가 담당합니다.
+  - `WpfYoloModelSettingsPanelViewModel`은 self-test report를 `RuntimeSelfTestItems`와 요약 텍스트로 노출합니다.
+  - XAML은 ViewModel 바인딩만 사용합니다.
+  - 외부 설치, pip install, git clone, Python 프로세스 실행은 아직 수행하지 않았습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-runtime-selftest-after-1920.png` passed.
+  - `git diff --check` on the changed self-test/UI/test/doc files returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` still stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-runtime-selftest-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-runtime-selftest-after-1920.png`
+- 다음 작업: self-test를 실제 연결 action과 합칩니다. 우선 `YOLOv5 폴더 연결` 버튼을 누르면 폴더 선택 -> self-test refresh -> 저장 안내까지 한 흐름으로 이어지게 합니다.
+
+## 2026-07-02 YOLOv5 runtime folder connection pass
+
+- 점검 결과: `YOLOv5` row가 self-test 상태를 보여주기 시작했지만, 사용자가 실제 폴더를 연결하려면 여전히 고급 설정을 열고 여러 경로를 직접 맞춰야 했습니다. 연결 action은 폴더 선택 후 바로 점검 결과가 바뀌어야 합니다.
+- 수정 내용:
+  - `PythonModelRuntimeConnectionService`를 추가했습니다.
+  - `YOLOv5` 연결 대상 폴더에서 프로젝트 root, `yolov5Master`, `.venv\Scripts\python.exe`, `labelling_tcp_client.py`, `best.pt`, `data\train\images`를 찾아 설정 후보로 채웁니다.
+  - 사용자가 `yolov5Master` 폴더를 직접 선택해도 상위 YOLOv5 프로젝트 폴더를 프로젝트 root로 잡도록 했습니다.
+  - `WpfYoloModelSettingsPanelViewModel.ApplyRuntimeConnectionResult`를 추가해 연결 결과 적용과 self-test refresh를 ViewModel 안에서 처리합니다.
+  - shell adapter의 `YOLOv5` 프로필 action은 이제 폴더 선택 -> Core 연결 서비스 -> ViewModel 적용 -> 상태/로그 안내 순서로 동작합니다.
+  - `YOLOv5` row의 primary action 문구를 `선택`에서 `연결`로 바꿨습니다.
+- 구조:
+  - 폴더 구조 판정과 후보 경로 계산은 Core의 `PythonModelRuntimeConnectionService`가 담당합니다.
+  - ViewModel은 연결 결과를 받아 화면 상태를 갱신합니다.
+  - shell code-behind는 폴더 picker, focus, status/log adapter 역할만 합니다.
+  - 외부 설치, pip install, git clone, Python 실행은 아직 수행하지 않았습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-connection` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-runtime-yolov5-connect-after-1920.png` passed.
+  - `git diff --check` on the changed runtime/UI/test/doc files returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` still stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-runtime-yolov5-connect-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-runtime-yolov5-connect-after-1920.png`
+- 다음 작업: Ultralytics 계열도 같은 구조로 확장합니다. 우선 YOLOv8/YOLO11은 설치를 바로 실행하지 않고, Python 실행 파일 또는 venv 폴더 연결 -> `ultralytics` 패키지 존재 여부 self-test -> 설치 필요 상태 표시까지 구현합니다.
+
+## 2026-07-02 Ultralytics runtime connection/self-test pass
+
+- 점검 결과: `YOLOv8`과 `YOLO11`은 프로필 row에는 보였지만, 버튼을 눌러도 연결된 Python이 실제로 Ultralytics 실행 환경인지 사용자가 확인할 수 없었습니다. 설치를 바로 실행하기 전에 `기존 venv 연결 -> ultralytics 패키지 확인 -> 설치 필요 상태 표시`가 먼저 필요했습니다.
+- 수정 내용:
+  - `PythonModelRuntimeSelfTestService`가 `YOLOv8`/`YOLO11` 선택 시 venv의 `Lib\site-packages`에서 `ultralytics` 패키지 또는 `ultralytics-*.dist-info`를 확인하도록 확장했습니다.
+  - `PythonModelRuntimeConnectionService.BuildUltralyticsPythonConnection`을 추가해 Python 실행 파일 또는 venv/Scripts 폴더를 연결하고, 곧바로 self-test report를 만들도록 했습니다.
+  - `YOLOv8`과 `YOLO11` 프로필 row의 primary action을 `연결`로 정리했습니다.
+  - shell adapter에서 `YOLOv8`/`YOLO11` 프로필 action을 Python 선택 창 -> Core 연결 서비스 -> ViewModel `ApplyRuntimeConnectionResult` -> 상태/로그 안내 흐름으로 연결했습니다.
+  - 연결된 Python에 Ultralytics가 있으면 `Ultralytics 실행기 연결 확인`, 없으면 `Ultralytics 설치 필요`로 보입니다.
+- 구조:
+  - 패키지/경로 판정은 Core service가 담당합니다.
+  - ViewModel은 기존 `ApplyRuntimeConnectionResult`와 self-test 바인딩으로 화면 상태를 갱신합니다.
+  - shell code-behind는 Python picker, focus, status/log adapter 역할만 합니다.
+  - 이번 pass에서는 외부 설치, `pip install`, Python 실행, git clone을 수행하지 않았습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-connection` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - 1920x1080 visual smoke capture generated: `artifacts\ui\wpf-model-runtime-ultralytics-connect-after-1920.png`.
+  - `git diff --check` on the changed Ultralytics runtime/UI/test/doc files returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` still stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure. The new Ultralytics runtime connection/self-test gates passed independently.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-runtime-ultralytics-connect-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-runtime-ultralytics-connect-after-1920.png`
+- 다음 작업: 설치 필요 상태에서 바로 `pip`를 실행하지 않고, 설치 대상 venv, 설치 명령, 예상 변경사항을 먼저 보여주는 안전한 Ultralytics install action/service를 만듭니다.
+
+## 2026-07-02 Ultralytics install plan preview pass
+
+- 점검 결과: `Ultralytics 설치 필요` 상태는 보이지만, 사용자는 어떤 venv에 어떤 명령이 들어갈지 알 수 없었습니다. 바로 설치 버튼을 붙이면 사용자 환경을 바꾸는 동작이 너무 갑작스럽기 때문에, 먼저 설치 대상과 명령을 읽기 전용으로 보여주는 단계가 필요했습니다.
+- 수정 내용:
+  - `PythonModelRuntimeInstallPlanService`를 추가했습니다.
+  - `YOLOv8`/`YOLO11` 선택 시 venv root, `ultralytics` 설치 여부, 미리보기 명령을 계산합니다.
+  - 패키지가 없으면 `python.exe -m pip install --upgrade ultralytics`, 이미 있으면 `python.exe -m pip show ultralytics`를 미리보기로 보여줍니다.
+  - YOLO 설정 패널의 `모델 실행기 연결 상태` 영역 안에 `YOLO11 Ultralytics 설치 전 확인` 패널을 추가했습니다.
+  - 1920x1080 visual smoke fixture는 fake venv를 연결하되 `ultralytics`는 없는 상태로 만들어, 설치 필요/대상/명령이 첫 화면에 보이도록 했습니다.
+- 구조:
+  - 설치 계획 계산은 Core의 `PythonModelRuntimeInstallPlanService`가 담당합니다.
+  - `WpfYoloModelSettingsPanelViewModel`은 `RuntimeInstallPlan*` 속성으로 읽기 전용 상태를 노출합니다.
+  - XAML은 바인딩만 사용합니다.
+  - 이번 pass에서도 실제 `pip install`, Python 실행, git clone은 수행하지 않았습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-connection` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-runtime-install-plan-after-1920.png` passed.
+  - `git diff --check` on the changed install-plan/runtime/UI/test/doc files returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` still stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure. This pass's focused gates passed before that failure.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-runtime-install-plan-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-runtime-install-plan-after-1920.png`
+- 다음 작업: 이 preview를 실제 action으로 확장합니다. 다음 범위는 설치 실행 전 확인 dialog/service, stdout/stderr 진행 상태, 실패 사유 표시, 설치 후 self-test 자동 재실행입니다.
+
+## 2026-07-02 Ultralytics install/uninstall action pass
+
+- 점검 결과: 설치 명령 미리보기는 보이지만, 사용자가 테스트를 반복하려면 `ultralytics`를 제거하는 방법도 같은 화면에 있어야 했습니다. 제거가 설치 버튼 안에 섞이면 위험하므로 별도 옵션으로 분리했습니다.
+- 수정 내용:
+  - `PythonEnvironmentService.InstallPackageAsync`와 `UninstallPackageAsync`를 추가했습니다.
+  - `PythonModelRuntimeInstallPlanService`가 설치 명령과 제거 명령을 따로 계산하고, 실행 가능 여부를 ViewModel에 전달합니다.
+  - YOLO/model 설정 패널의 install plan 카드에 `설치 실행`과 `제거` 버튼을 추가했습니다.
+  - 1920x1080 화면에서 버튼이 하단에 밀리지 않도록 install plan 카드 상단에 배치했습니다.
+  - Shell adapter는 버튼 클릭 시 현재 ViewModel 설정 snapshot을 사용해 `ultralytics`만 설치/제거하고, stdout/stderr tail과 결과를 로그/상태에 남깁니다.
+- 구조:
+  - pip 실행은 Core의 `PythonEnvironmentService`가 담당합니다.
+  - `WpfYoloModelSettingsPanelViewModel`은 command/state/status만 노출합니다.
+  - shell code-behind는 UI adapter로서 command 시작/종료, 로그, status 갱신만 담당합니다.
+  - 테스트는 실제 pip install/uninstall을 실행하지 않고, 명령 생성/버튼 바인딩/adapter 연결을 검증합니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-connection` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-runtime-install-uninstall-after-1920.png` passed.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure. The model-runtime install/uninstall gates passed before that failure.
+  - `git diff --check` on the changed runtime/UI/test/doc files returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-runtime-install-uninstall-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-runtime-install-uninstall-after-1920.png`
+- 다음 작업: 설치/제거 실행 전에 확인 dialog를 추가하고, 설치가 끝난 뒤 self-test와 install plan을 자동 재점검하는 흐름을 더 명확히 만듭니다.
+
+## 2026-07-02 Ultralytics install/uninstall confirmation pass
+
+- 점검 결과: `설치 실행`과 `제거` 버튼은 분리됐지만, 버튼을 누른 순간 venv가 변경되면 사용자가 대상과 명령을 다시 확인할 기회가 없습니다. 특히 `제거`는 테스트 반복용 옵션이므로 실행 전 확인이 필요했습니다.
+- 수정 내용:
+  - `ExecuteUltralyticsPackageCommandAsync`가 먼저 install plan을 만들고, 실행 가능 상태와 확인 dialog를 통과한 뒤에만 package command를 시작하도록 바꿨습니다.
+  - 확인 dialog는 재사용 가능한 `OpenVisionLab.Wpf.MessageDialogs.WpfMessageDialog.Confirm`을 사용합니다. stock `MessageBox.Show`는 쓰지 않습니다.
+  - dialog에는 대상 venv, 실제 실행 명령, 실행 후 self-test/install 상태를 다시 확인한다는 문구를 표시합니다.
+  - 사용자가 취소하면 상태/로그에 취소 사유를 남기고 venv를 변경하지 않습니다.
+  - 설치/제거 버튼 아래에 `대상 venv와 명령을 확인한 뒤 실행`한다는 힌트를 추가했습니다.
+  - 설치/제거 성공 후 상태 문구를 `Self-test를 다시 확인했습니다`로 바꿔, 실행 후 패널 상태가 갱신된다는 점을 명확히 했습니다.
+- 구조:
+  - package command 실행은 계속 Core의 `PythonEnvironmentService`가 담당합니다.
+  - ViewModel은 버튼 command/state/status를 노출합니다.
+  - shell code-behind는 dialog 표시, command lifecycle, status/log adapter만 담당합니다.
+  - 확인 dialog를 자동 테스트에서 실제 클릭하지는 않고, static/source gate와 패널 binding gate로 검증합니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-connection` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-runtime-confirm-after-1920.png` passed.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure. This pass's focused gates passed before that failure.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-runtime-confirm-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-runtime-confirm-after-1920.png`
+- 다음 작업: 설치/제거 확인 dialog 다음 단계로, 실행 결과를 별도 `최근 실행 결과` 카드에 남겨 stdout/stderr 요약과 마지막 성공/실패 시간을 패널에서 바로 확인하게 만듭니다.
+
+## 2026-07-02 Ultralytics package recent-result card pass
+
+- 점검 결과: 설치/제거는 확인 dialog와 하단 로그에만 결과가 남았습니다. 사용자가 로그를 열지 않으면 마지막 실행이 성공했는지, 취소했는지, 어떤 venv/명령으로 실행했는지 다시 확인하기 어렵습니다.
+- 수정 내용:
+  - `WpfYoloModelSettingsPanelViewModel`에 `RuntimePackageResultTitleText`, `RuntimePackageResultSummaryText`, `RuntimePackageResultDetailText`, `SetRuntimePackageOperationResult`를 추가했습니다.
+  - YOLO/model 설정 패널의 Ultralytics install plan 카드 안에 `최근 실행 결과` 카드를 추가했습니다.
+  - 기본 상태는 `아직 실행 기록 없음`으로 표시됩니다.
+  - 설치/제거 성공, 실패, 취소 시 Shell adapter가 마지막 시간, 대상 venv, 명령, ExitCode, 상태, stdout/stderr 첫 줄을 ViewModel 카드로 전달합니다.
+  - 1920x1080에서 카드 제목과 요약이 잘리지 않도록 첫 줄에 `최근 실행 결과`와 요약을 같이 배치했습니다.
+- 구조:
+  - 결과 상태는 ViewModel 속성으로 노출하고 XAML은 바인딩만 사용합니다.
+  - package 실행은 계속 `PythonEnvironmentService`가 담당합니다.
+  - shell code-behind는 결과 요약을 만드는 UI adapter 역할만 합니다.
+  - 실제 pip install/uninstall은 자동 테스트에서 실행하지 않습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-connection` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-runtime-result-card-after-1920.png` passed.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure. This pass's focused gates passed before that failure.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-runtime-result-card-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-runtime-result-card-after-1920.png`
+- 다음 작업: 설치/제거 결과 카드 다음 단계로, YOLOv8/YOLO11 adapter가 실제 학습/추론 요청에서 어떤 실행기를 쓰는지 모델 센터 상단의 `현재 검사 모델/실행기` 요약에 연결합니다.
+
+## 2026-07-02 Model center runtime summary pass
+
+- 점검 결과: 모델 센터는 현재 검사 모델과 학습 후보 모델은 보여줬지만, 그 모델을 어떤 실행기/어댑터로 검사하는지 첫 화면에서 바로 확인하기 어려웠습니다. 사용자는 `best.pt`가 보이더라도 YOLOv5 repo인지, YOLO11 Ultralytics인지 따로 YOLO 설정 탭을 열어 확인해야 했습니다.
+- 수정 내용:
+  - `WpfModelRegistryPresentationService.BuildSelectedRuntimeSummaryText`를 추가해 선택된 런타임을 `YOLOv5 repo / 검사 가능`, `YOLO11 Ultralytics / 설치/연결 필요`처럼 한 줄로 요약합니다.
+  - 모델 레지스트리의 현재 검사 모델 행에 `실행기 ...` 정보를 붙였습니다.
+  - 모델 센터 compact summary도 같은 런타임 요약을 사용하게 바꿨습니다.
+  - 모델 센터의 현재 검사 모델 상태(`SetModelCenterModelState`로 전달되는 문구)에도 런타임 요약을 포함해 버튼 tooltip/학습 워크플로우 상태와 일관되게 했습니다.
+- 구조:
+  - 런타임 프로필 판정은 기존 Core `PythonModelRuntimeProfileService`와 `PythonModelSettingsValidator` 결과를 재사용합니다.
+  - UI 문구 조합은 `WpfModelRegistryPresentationService`가 담당합니다.
+  - shell code-behind는 기존 dashboard refresh에서 서비스 결과를 전달하는 adapter 역할만 합니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-connection` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-shell` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output artifacts\ui\wpf-model-center-runtime-summary-after-1920.png` passed.
+  - `git diff --check` on the changed model-center runtime summary files returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` still stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure after the model-registry and dataset/Yolo gates pass.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-center-runtime-summary-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-center-runtime-summary-after-1920.png`
+- 다음 작업: 모델 런타임 센터의 프로필 선택을 실제 학습/추론 adapter 선택과 더 명확히 연결합니다. 특히 YOLOv8/YOLO11 선택 시 "학습은 어떤 실행 명령으로 나가는지", "현재 검사는 어떤 adapter로 나가는지"를 self-test 아래에 별도 실행 경로 요약으로 노출합니다.
+
+## 2026-07-02 Runtime execution route summary pass
+
+- 점검 결과: 런타임 프로필과 self-test는 보이지만, 사용자는 실제로 학습/검사 버튼을 눌렀을 때 어떤 Python worker, 어떤 TCP 요청, 어떤 adapter key로 나가는지 한눈에 확인하기 어려웠습니다. 특히 YOLO11 선택 시 `YOLO11`이 선택됐다는 사실과 실제 `DetectImage(model=yolo11)` 요청이 연결되어 보이지 않았습니다.
+- 수정 내용:
+  - `PythonModelRuntimeExecutionSummaryService`를 추가했습니다.
+  - 실행 경로를 `Worker`, `학습`, `현재 검사` 3줄로 분리했습니다.
+  - Worker 줄은 Python 실행 파일, TCP client script, 작업 폴더를 보여줍니다.
+  - 학습 줄은 현재 구조에 맞게 `TCP StartTraining -> 모델 루트 / data.yaml + 학습 설정`으로 표시합니다.
+  - 현재 검사 줄은 `TCP DetectImage(model=yolo11)`처럼 실제 adapter key와 검사 가중치/이미지 경로를 표시합니다.
+  - YOLO/model 설정 패널의 런타임 프로필 목록 아래에 읽기 전용 `실제 학습/검사 실행 경로` 카드를 추가했습니다.
+- 구조:
+  - 실행 경로 계산은 Core service가 담당합니다.
+  - `WpfYoloModelSettingsPanelViewModel`은 `RuntimeExecution*` 속성만 노출합니다.
+  - XAML은 바인딩만 사용하며, 경로가 길어지는 값은 한 줄로 줄이고 tooltip으로 전체 값을 보게 했습니다.
+  - shell code-behind, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-connection` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-runtime-execution-route-after-1920.png` passed.
+  - `git diff --check` on the changed execution-route files returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` still stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure after the earlier gates pass.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-runtime-execution-route-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-runtime-execution-route-after-1920.png`
+- 다음 작업: 현재 worker 구조상 YOLOv8/YOLO11 학습은 아직 YOLOv5와 같은 `StartTraining` 패킷 표시만 갖고 있습니다. 다음 단계는 Python worker protocol/adapter 쪽에서 YOLOv8/YOLO11 학습 요청에 필요한 engine key가 명시적으로 전달되는지 확인하고, 필요하면 protocol에 안전하게 확장합니다.
+
+## 2026-07-02 Training adapter key + YOLOv5 inference smoke pass
+
+- 점검 결과: 검사 요청은 이미 `DetectImage(model=...)`로 adapter key를 worker에 전달했지만, 학습 요청은 `StartTraining` legacy command 안의 payload에 선택 모델 정보가 없었습니다. 이 상태에서는 YOLOv8/YOLO11 프로필을 선택해도 학습 패킷만 보면 어떤 adapter 의도로 시작했는지 추적하기 어렵습니다.
+- Python worker 확인:
+  - `C:\Git\yolov5\labelling_tcp_client.py`는 호환용 wrapper이고 실제 구현은 `C:\Git\yolov5\labeling_tcp_client.py`입니다.
+  - worker는 legacy `StartTraining`을 내부 `TrainYolo`로 매핑합니다.
+  - 학습 command 생성은 payload dict에서 필요한 키만 `get_first(...)`로 읽기 때문에, C# payload에 `model`을 추가해도 기존 YOLOv5 worker와 호환됩니다.
+- 수정 내용:
+  - `LearningProtocol.BuildTrainingPacket`에 optional `model` 인자를 추가하고 기본값을 `yolov5`로 유지했습니다.
+  - `YoloTrainingRequest` payload에 `model` 필드를 추가했습니다.
+  - `CCommunicationLearning.SendTrainingData`가 model key를 받을 수 있게 확장했습니다.
+  - `YoloTrainingWorkflowService.TryStartTraining`이 `data.ProjectSettings.PythonModel.GetProtocolModelName()` 값을 학습 패킷으로 전달합니다.
+  - 실행 경로 카드의 학습 줄을 `TCP StartTraining(model=yolo11)` 형식으로 바꿔, 학습과 검사 모두 선택 adapter key가 보이게 했습니다.
+  - focused tests는 기본 학습 패킷 `model=yolov5`, 명시 학습 패킷 `model=yolo11`, WPF 학습 session mock worker 수신 패킷의 `model=yolov5`, 실행 경로 summary의 `StartTraining(model=yolo11)`를 확인합니다.
+- 구조:
+  - adapter key 결정은 기존 `PythonModelSettings.GetProtocolModelName()`을 재사용합니다.
+  - 패킷 생성은 `LearningProtocol`, workflow 전달은 `YoloTrainingWorkflowService`, 화면 요약은 `PythonModelRuntimeExecutionSummaryService`가 담당합니다.
+  - WPF code-behind, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-connection` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output artifacts\ui\wpf-yolo-training-model-key-after-1920.png` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output artifacts\ui\wpf-yolo-training-model-key-after-settings-1920.png` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --real-yolo-smoke` passed. Actual YOLOv5 route: `C:\Git\yolov5\.venv\Scripts\python.exe`, `C:\Git\yolov5\labelling_tcp_client.py`, `C:\Git\yolov5\best.pt`, image `Teaching_0.jpeg`; candidateCount=1, committedCount=1.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` still stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure at `tests\LabelingApplication.Tests\Program.cs:10798`.
+  - `git diff --check` on the changed protocol/workflow/test files returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+- 캡처/산출물:
+  - Before 1920: `artifacts\ui\wpf-yolo-training-model-key-before-1920.png`
+  - After settings 1920: `artifacts\ui\wpf-yolo-training-model-key-after-settings-1920.png`
+  - Training session 1920: `artifacts\ui\wpf-yolo-training-model-key-after-1920.png`
+  - Real YOLOv5 smoke summary: `artifacts\real-yolo-smoke\20260702-204427\summary.txt`
+- 다음 작업: YOLOv8/YOLO11은 이제 학습 패킷에 adapter key가 실립니다. 다음 단계는 Ultralytics-family worker/adapter가 `model=yolov8/yolo11` 학습 요청을 받아 YOLOv5 `train.py`가 아닌 Ultralytics 실행 경로로 분기할 수 있게 별도 service/worker contract를 설계하고, 그 전까지는 UI에서 YOLOv8/YOLO11 학습이 "설치/연결 준비 단계"인지 "실제 실행 가능"인지 더 명확히 구분합니다.
+
+## 2026-07-02 Ultralytics execution guard pass
+
+- 점검 결과: 이전 패스에서 `StartTraining(model=yolo11)`과 `DetectImage(model=yolo11)` 키는 보이게 됐지만, 실제 연결된 worker는 아직 YOLOv5 TCP worker입니다. 이 상태에서 YOLO11을 `학습/검사 가능`으로 보여주면 사용자는 YOLO11로 실행했다고 믿지만 실제로는 YOLOv5 경로가 돌 수 있습니다.
+- 수정 내용:
+  - `PythonModelRuntimeAdapterSupportService`를 추가했습니다.
+  - YOLOv5는 현재 TCP worker로 학습/검사 실행 가능 상태를 유지합니다.
+  - YOLOv8/YOLO11은 설치/경로 점검과 프로필 선택은 가능하지만, 실제 실행은 `Ultralytics 실행 연결 필요`로 차단합니다.
+  - ONNX도 현재는 추론 전용 profile 준비 단계로 두고, 실제 검사 실행 연결이 구현되기 전까지 실행 차단 상태로 표시합니다.
+  - `PythonModelSettingsValidator.GetRuntimeState`가 adapter support를 반영해 YOLOv8/YOLO11을 `CanRunTraining=false`, `CanRunInference=false`로 반환하게 했습니다.
+  - self-test에 `실행 연결` 항목을 추가해, 패키지가 설치되어 있어도 worker 실행 연결이 없으면 blocking check로 보이게 했습니다.
+  - 실행 경로 카드의 YOLOv8/YOLO11 학습/검사 줄은 adapter key를 유지하되 `실행 차단`과 `YOLOv5 worker로 대체 실행하지 않음`을 표시합니다.
+- 구조:
+  - 실행 지원 여부는 Core service가 담당합니다.
+  - ViewModel은 기존 `RuntimeSelfTest*`, `RuntimeExecution*`, `RuntimeProfileItems` 바인딩만 갱신합니다.
+  - shell code-behind, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-connection` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output artifacts\ui\wpf-ultralytics-execution-block-after-1920.png` passed, and screenshot review confirmed YOLO11 shows execution blocked instead of executable.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --real-yolo-smoke` passed again. Actual YOLOv5 route: `C:\Git\yolov5\.venv\Scripts\python.exe`, `C:\Git\yolov5\labelling_tcp_client.py`, `C:\Git\yolov5\best.pt`, image `Teaching_0.jpeg`; candidateCount=1, committedCount=1.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` still stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure at `tests\LabelingApplication.Tests\Program.cs:10798`.
+  - `git diff --check` on the changed adapter-support files returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+- 캡처/산출물:
+  - Before 1920: `artifacts\ui\wpf-ultralytics-execution-block-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-ultralytics-execution-block-after-1920.png`
+  - Real YOLOv5 smoke summary: `artifacts\real-yolo-smoke\20260702-205410\summary.txt`
+- 다음 작업: 실제 Ultralytics worker 분기 구현입니다. `model=yolov8/yolo11` 요청을 받았을 때 별도 Python runner가 `ultralytics` package로 학습/검사를 수행하고, 결과 protocol은 기존 `DetectImageResult`/`TrainYoloResult`와 호환되게 유지하는 방향으로 진행합니다.
+
+## 2026-07-02 Worker capability handshake pass
+
+- 점검 결과: YOLOv8/YOLO11을 안전하게 실행하려면 앱이 `패키지 설치 여부`만 보는 것이 아니라, 현재 연결된 Python worker가 어떤 adapter를 실제로 처리할 수 있는지 알아야 합니다. 이전 패스는 YOLOv8/YOLO11 실행을 차단했지만, 실제 Ultralytics worker가 붙었을 때 그 차단을 해제할 handshake가 없었습니다.
+- 수정 내용:
+  - `PythonModelStatusProtocol`이 `HealthCheckResult`/`ModelStatusResult`의 capability 필드를 파싱하도록 확장했습니다.
+  - 지원 schema:
+    - root 또는 `capabilities` 또는 `worker.capabilities`
+    - `supportedModels`/`models`/`adapters`
+    - `trainingModels`/`trainModels`/`training`/`train`
+    - `detectionModels`/`detectModels`/`inspectionModels`/`detect`/`inspection`
+  - `PythonCommunicationStatus`에 `WorkerSupportedModels`, `WorkerTrainingModels`, `WorkerDetectionModels`를 추가했습니다.
+  - `CCommunicationLearning`이 health/model status 수신 시 capability를 status snapshot에 저장합니다.
+  - `PythonModelRuntimeAdapterSupportService`가 capability 목록을 받으면 `yolov8/yolo11` 실행 가능 여부를 계산하도록 확장했습니다.
+  - `PythonModelSettingsValidator.GetRuntimeState`에 capability overload를 추가했습니다. capability가 없으면 기존처럼 YOLOv8/YOLO11 실행은 차단됩니다.
+  - WPF shell command gating의 `GetPythonModelRuntimeState()`가 현재 Python communication status의 capability를 넘기도록 연결했습니다.
+  - focused 테스트용 `--python-model-status-protocol` 스위치를 추가했습니다.
+- 구조:
+  - worker capability 파싱/저장은 Communication 계층에 둡니다.
+  - 실행 가능 판정은 Core service/validator가 담당합니다.
+  - Shell은 현재 status snapshot을 넘기는 adapter 역할만 합니다.
+  - View code-behind에 YOLOv8/YOLO11 판단 로직을 직접 넣지 않았습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-status-protocol` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --real-yolo-smoke` passed. Actual YOLOv5 route remains unchanged: `C:\Git\yolov5\.venv\Scripts\python.exe`, `C:\Git\yolov5\labelling_tcp_client.py`, `C:\Git\yolov5\best.pt`, image `Teaching_0.jpeg`; candidateCount=1, committedCount=1.
+  - Full `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug` still stops at the existing `Template auto label shows actionable guide: registered template batch should complete` failure at `tests\LabelingApplication.Tests\Program.cs:10803`.
+  - `git diff --check` on the changed capability files returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+- 산출물:
+  - Real YOLOv5 smoke summary: `artifacts\real-yolo-smoke\20260702-210425\summary.txt`
+- 다음 작업: 실제 Ultralytics worker script/runner를 추가합니다. 새 worker는 health/model status에 capability를 내보내고, `model=yolov8/yolo11`의 `DetectImage`와 `StartTraining`을 `ultralytics` package로 처리해야 합니다.
+
+## 2026-07-02 Tutorial public-doc cleanup pass
+
+- 점검 결과: 튜토리얼/README에 특정 실습 데이터셋, 개인 PC 경로, 이전 대화에서 정한 문서 작성 지침이 사용자 가이드 본문처럼 섞여 있었습니다. standalone HTML도 이전 Test 전용 섹션을 포함하고 있어, 단일 HTML만 복사했을 때 오래된 내용이 계속 보일 수 있었습니다.
+- 수정 내용:
+  - `docs/tutorial/README.md`를 실제 사용자 작업 순서 중심으로 정리하고, 문서 작성 기준 섹션은 튜토리얼 본문에서 제거했습니다.
+  - `docs/tutorial/labeling-workbench-tutorial.html`에서 내부 관리 문구, Test 전용 호환 문구, `최신` 반복 alt 문구를 제거했습니다.
+  - `README.md`의 문서 관리 기준을 사용자에게 보이는 튜토리얼 문구가 아닌 프로젝트 문서 기준으로 정리했습니다.
+  - `docs/STABLE_VERIFIED_AREAS.md`의 Test 데이터셋 전용 튜토리얼 계약을 public-document 계약으로 교체했습니다.
+  - 튜토리얼 캡처 14장에서 왼쪽 이미지 폴더 입력칸과 데이터셋 예시 화면의 로그 경로 노출을 좁게 마스킹했습니다.
+  - `docs/tutorial/labeling-workbench-tutorial-standalone.html`을 다시 생성해 현재 HTML의 14개 PNG를 모두 포함하도록 했습니다.
+- 검증:
+  - `rg -n "D:\\|C:\\|TEST_Dataset|이번 확인|사용한 데이터|제가|내가|소통|물어|artifacts\\run|Debug EXE|Test 데이터셋|README와 튜토리얼|테스트 호환|최신 실행|문서를 수정" README.md docs\tutorial\README.md docs\tutorial\labeling-workbench-tutorial.html docs\tutorial\labeling-workbench-tutorial-standalone.html` returned no matches.
+  - HTML image count check: standard HTML has 14 `src="images/...` references, standalone HTML has 14 embedded `src="data:image/png;base64` images and 0 file-based image references.
+  - Visual check: `01-overview`, `02-dataset-wizard`, and `03-labeling-workbench` screenshots no longer expose the local image/runtime path in the visible guide area.
+  - `git diff --check -- README.md docs/tutorial/README.md docs/tutorial/labeling-workbench-tutorial.html docs/tutorial/labeling-workbench-tutorial-standalone.html docs/STABLE_VERIFIED_AREAS.md docs/WORK_TRACKING.md` returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+- 다음 작업: 모델 런타임 개발로 돌아가려면 실제 Ultralytics worker script/runner를 추가하고, UI에서는 YOLOv8/YOLO11이 설치/연결 전에는 실행 가능처럼 보이지 않도록 계속 막아야 합니다.
+
+## 2026-07-02 Bundled Ultralytics worker connection pass
+
+- 점검 결과: YOLOv8/YOLO11 Python 연결 서비스는 선택한 Python 실행 파일만 바꾸고, `ProjectRootPath`와 `ClientScriptPath`는 기존 설정을 유지했습니다. 이 상태에서는 사용자가 Ultralytics venv를 연결해도 내부 실행 경로가 이전 YOLOv5 TCP client로 남을 수 있어, 이후 추론/학습 검증 결과를 신뢰하기 어렵습니다.
+- 수정 내용:
+  - `PythonModelRuntimeConnectionService.BuildUltralyticsPythonConnection`이 `PythonModelRuntimeBundledWorkerService`를 통해 `Runtime\Python\openvisionlab_ultralytics_worker.py`를 project root/client script로 설정하도록 변경했습니다.
+  - `MvcVisionSystem.csproj`에 번들 워커를 `CopyToOutputDirectory`/`CopyToPublishDirectory` 대상으로 등록했습니다.
+  - `PythonModelRuntimeAdapterSupportService`가 operation-specific capability를 우선 해석하도록 바꿨습니다. `detectionModels=yolo11`, `trainingModels=[]`인 worker는 검사만 가능하고 학습 가능으로 보이지 않습니다. `supportedModels`만 내려주는 legacy worker 호환은 유지했습니다.
+  - `openvisionlab_ultralytics_worker.py` self-test가 detection capability와 training 미지원 상태를 확인하도록 보강했습니다.
+  - focused test `--python-ultralytics-worker`를 추가하고, 기존 `--python-model-runtime-connection` 테스트가 Ultralytics 연결 후 번들 워커 경로를 확인하도록 강화했습니다.
+- 구조:
+  - 실행 경로 결정은 Core service에 둡니다.
+  - capability 해석은 Core adapter-support service에 둡니다.
+  - Python worker는 현재 추론 전용입니다. 학습 요청은 `TrainingNotSupported`로 명시 실패합니다.
+  - WPF code-behind, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-connection` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-ultralytics-worker` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-status-protocol` passed.
+  - `python Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `python -m py_compile Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - `Test-Path artifacts\run\Debug\Runtime\Python\openvisionlab_ultralytics_worker.py` returned `True`.
+  - `git diff --check -- '1. Core/PythonModelRuntimeConnectionService.cs' '1. Core/PythonModelRuntimeAdapterSupportService.cs' 'MvcVisionSystem.csproj' 'Runtime/Python/openvisionlab_ultralytics_worker.py' 'tests/LabelingApplication.Tests/Program.cs'` returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+- 다음 작업: 실제 Ultralytics 추론 smoke입니다. 테스트용 YOLOv8/YOLO11 weights와 image를 지정해 `openvisionlab_ultralytics_worker.py --smoke-test`가 `DetectImageResult` 호환 후보를 내는지 확인하고, 그 다음 WPF 현재 검사 버튼까지 연결합니다. 학습은 아직 미구현이므로 별도 training-capable worker pass로 분리합니다.
+
+## 2026-07-02 YOLO11 Ultralytics inference smoke pass
+
+- 점검 결과:
+  - 기존 `C:\Git\yolov5\best.pt`는 Ultralytics worker에서 로드되지 않았습니다. Ultralytics가 `YOLOv5 model originally trained with https://github.com/ultralytics/yolov5`라며 YOLOv8/YOLO11 forward compatibility가 없다고 명시했습니다. 따라서 YOLOv5 학습 weights는 기존 YOLOv5 worker로 유지하고, YOLOv8/YOLO11은 Ultralytics 계열 weights를 별도로 사용해야 합니다.
+  - `yolo11n.pt`를 smoke용으로 받아 `openvisionlab_ultralytics_worker.py --smoke-test`를 실행했습니다.
+  - 사용자 데이터 이미지 `Teaching_0.jpeg`에서는 모델 로드/프로토콜은 성공했고 후보는 0개였습니다. COCO 기본 모델이 사용자 결함 이미지를 학습하지 않았기 때문에 정상적인 결과입니다.
+  - Ultralytics 패키지 샘플 `bus.jpg`에서는 후보 5개가 반환되어 `DetectImageResult` 호환 후보 좌표/정규화 좌표 경로가 확인됐습니다.
+- 수정 내용:
+  - `PythonModelRuntimeBundledWorkerService.IsUltralyticsWorkerScriptPath`를 추가해 번들 Ultralytics worker script를 판별할 수 있게 했습니다.
+  - `PythonModelRuntimeAdapterSupportService`가 번들 Ultralytics worker + 설치된 ultralytics package를 검사 가능 상태로 해석합니다. 학습은 계속 `CanTrain=false`입니다.
+  - `PythonModelSettingsValidator.GetRuntimeState`가 `CanRunInference=true`, `CanRunTraining=false`인 partial-ready 상태를 `라벨링 가능 / 현재 검사 가능`으로 표현하도록 보강했습니다.
+  - focused tests가 번들 worker 판별, detection-only partial-ready, YOLOv5 script 오인 방지를 확인하도록 강화됐습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - First parallel app build hit a transient `obj\Debug\MvcVisionSystem.dll` lock because another build was still compiling. Re-running app build alone passed with 0 warnings and 0 errors.
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-connection` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-ultralytics-worker` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-status-protocol` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - YOLO11 worker smoke with Test01 image passed: `artifacts\model-runtime\ultralytics\yolo11n-test01-smoke.json`, `ok=true`, image `106x106`, candidates `0`.
+  - YOLO11 worker smoke with Ultralytics `bus.jpg` passed: `artifacts\model-runtime\ultralytics\yolo11n-bus-smoke.json`, `ok=true`, image `810x1080`, candidates `5`, first classes included `person` and `bus`.
+  - `git diff --check -- '1. Core/PythonModelRuntimeBundledWorkerService.cs' '1. Core/PythonModelRuntimeAdapterSupportService.cs' '1. Core/PythonModelSettingsValidator.cs' 'tests/LabelingApplication.Tests/Program.cs' 'docs/WORK_TRACKING.md' 'docs/STABLE_VERIFIED_AREAS.md'` returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+  - `git status --short -- artifacts/model-runtime/ultralytics` returned no tracked/untracked files, so downloaded smoke weights/results are ignored artifacts and not commit candidates.
+- 다음 작업: WPF 실제 현재 검사 flow smoke입니다. 번들 Ultralytics worker + `yolo11n.pt` + sample image settings를 WPF shell에 주입해 `현재 검사`가 worker start -> `DetectImage(model=yolo11)` -> 후보 overlay/review panel까지 이어지는지 확인합니다.
+
+## 2026-07-02 YOLO11 Ultralytics TCP workflow smoke pass
+
+- 점검 결과: worker 단독 smoke는 통과했지만, 앱의 실제 TCP workflow가 `model=yolo11`로 요청을 보내고 결과를 overlay/라벨 저장까지 이어가는지는 별도 확인이 필요했습니다. 기존 real YOLO smoke는 모델 엔진을 기본 YOLOv5로만 두고 있어 Ultralytics worker에 `model=yolov5`를 보내는 문제가 있었습니다.
+- 수정 내용:
+  - `--real-yolo-smoke` 설정에 `LABELING_SMOKE_MODEL_ENGINE` 환경변수를 추가했습니다.
+  - smoke summary에 `modelEngine=...`을 기록하도록 했습니다.
+  - 테스트 본문에서 `data.ProjectSettings.PythonModel.ModelEngine`을 smoke 설정값으로 채워 `DetectImage(model=yolo11)` 요청이 나가도록 했습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `LABELING_SMOKE_MODEL_ENGINE=YOLO11` plus bundled worker/`yolo11n.pt`/Ultralytics `bus.jpg` settings로 `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --real-yolo-smoke` passed.
+  - Evidence summary: `artifacts\real-yolo-smoke\20260702-215604\summary.txt`
+  - Summary key results: `modelEngine=YOLO11`, client `Runtime\Python\openvisionlab_ultralytics_worker.py`, `candidateCount=5`, `committedCount=5`, label file `dataset\data\train\labels\bus.txt`.
+- 다음 작업: WPF shell의 버튼/상태 UX smoke입니다. Core/TCP workflow는 YOLO11로 동작하므로, 이제 실제 WPF 현재 검사 버튼이 partial-ready 상태에서 열리고, 검사 결과가 후보 패널에 자연스럽게 표시되는지 1920x1080 UI 기준으로 확인합니다.
+
+## 2026-07-02 WPF YOLO11 current-image smoke pass
+
+- 점검 결과: Core/TCP workflow는 YOLO11로 동작했지만, WPF shell이 같은 Ultralytics smoke 결과를 현재 이미지 후보 패널과 canvas overlay에 표시하는지 별도 확인이 필요했습니다.
+- 수정 내용:
+  - focused test `--wpf-ultralytics-current-image-smoke`를 추가했습니다.
+  - 기본 전체 테스트에는 넣지 않고, `artifacts\model-runtime\ultralytics\yolo11n.pt`와 Ultralytics package sample image가 준비된 환경에서만 실행하는 opt-in smoke로 분리했습니다.
+  - 테스트는 WPF shell에 YOLO11 + 번들 worker + `yolo11n.pt` + `bus.jpg`를 주입하고 `RunDetectionForImageAsync(..., applyToCanvas:true)` 결과가 Candidate Review state, candidate panel row, canvas detection overlay로 들어오는지 확인합니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-ultralytics-worker` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-ultralytics-current-image-smoke` passed.
+- 다음 작업: WPF 화면에서 partial-ready 상태가 실제 operator에게 어떻게 보이는지 1920x1080 visual smoke로 확인합니다. 특히 YOLO 설정/모델 센터에서 `현재 검사 가능`, `학습 미지원`, `YOLOv5 best.pt는 Ultralytics에 사용 불가`가 한눈에 읽히는지 점검합니다.
+
+## 2026-07-02 WPF YOLO11 partial-ready visibility pass
+
+- 점검 결과: YOLO11 번들 Ultralytics worker는 현재 검사까지는 가능한 상태가 되었지만, 1920 화면에서 런타임 프로필 카드와 실행 경로 요약이 여전히 `설정 확인 필요`처럼 읽힐 수 있었습니다. 이 상태는 사용자가 `현재 검사`를 눌러도 되는지, 학습은 왜 안 되는지 판단하기 어렵습니다.
+- 수정 내용:
+  - `PythonModelRuntimeExecutionSummaryService`가 `CanRunInference=true`, `CanRunTraining=false` 상태를 `현재 검사 가능 / 학습 미지원`으로 표시하도록 보강했습니다.
+  - 같은 상태의 학습 경로는 `학습: 미지원 / 현재 연결된 worker는 검사만 지원`으로 표시하고, 검사 경로는 `DetectImage(model=yolo11)`을 유지합니다.
+  - `PythonModelRuntimeProfileService`가 선택된 YOLO11 프로필 카드에 `선택됨 / 현재 검사 가능·학습 미지원`을 표시하고, 이 경우 primary action을 `확인`으로 둡니다.
+  - `--wpf-visual-smoke`에 `--ultralytics-runtime-ready` fixture를 추가해 YOLO11 + 번들 worker + 설치된 Ultralytics package + weights 존재 상태를 1920 화면에서 재현할 수 있게 했습니다.
+- 구조:
+  - 상태 판단/문구는 Core service에 남겼습니다.
+  - WPF ViewModel은 기존 바인딩 값을 갱신하고, XAML은 변경하지 않았습니다.
+  - shell code-behind, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - Parallel app/test build once hit a transient `obj\Debug\MvcVisionSystem.dll` lock. Re-running the app build alone passed with 0 warnings and 0 errors.
+  - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed with 0 warnings and 0 errors.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-connection` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-model-settings-panel` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-ultralytics-worker` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --python-model-runtime-self-test` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-settings-viewmodels` passed.
+  - `dotnet run --no-build --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --ultralytics-runtime-ready --width 1920 --height 1080 --output artifacts\ui\wpf-ultralytics-partial-ready-after-1920.png` passed.
+  - `git diff --check -- '1. Core/PythonModelRuntimeExecutionSummaryService.cs' '1. Core/PythonModelRuntimeProfileService.cs' tests/LabelingApplication.Tests/Program.cs` returned no whitespace errors; Git only reported the existing LF/CRLF normalization warning for `Program.cs`.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-ultralytics-partial-ready-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-ultralytics-partial-ready-after-1920.png`
+- 다음 작업: Model Center 쪽에서도 같은 partial-ready 상태가 첫 화면에서 `현재 검사 가능`, `학습 미지원`, `현재 검사 모델 yolo11n.pt`로 같이 읽히는지 1920 visual smoke를 추가로 확인합니다. 필요하면 모델 센터 summary만 보강하고, 실제 추론 경로는 건드리지 않습니다.
+
+## 2026-07-02 WPF side-panel balance pass
+
+- 점검 결과: 사용자가 지적한 것처럼 라벨링 작업 중에는 이미지 리스트를 계속 훑어야 하고, 저장 라벨/도구/클래스 같은 작업 패널은 필요할 때만 펼쳐 보는 성격이 강합니다. 기존 배치는 이미지 큐가 왼쪽을 고정 점유하고 작업 패널 레일이 오른쪽 끝에 있어, 캔버스와 작업 패널의 관계가 잘 들어오지 않았습니다.
+- 수정 내용:
+  - `WpfLabelingShellWindow.xaml`의 메인 작업 그리드를 `작업 패널 / 캔버스 / 이미지 큐` 순서로 재배치했습니다.
+  - 이미지 큐는 오른쪽 고정 컬럼으로 이동했고, 작업 패널은 왼쪽 접힘/펼침 패널로 이동했습니다.
+  - 왼쪽 패널 접힘/펼침 방향에 맞게 chevron 아이콘 방향과 접근성 이름을 조정했습니다.
+  - 하단 실행 로그는 이미지 큐를 덮지 않도록 왼쪽 작업 패널+캔버스 영역 아래에 배치했습니다.
+  - `AssertWpfMainLayoutKeepsReviewPanelVisible` 검증을 새 구조에 맞춰, 왼쪽 작업 패널과 중앙 캔버스, 오른쪽 이미지 큐가 서로 겹치지 않는지 확인하도록 변경했습니다.
+- 구조:
+  - ViewModel/Command 바인딩은 유지했습니다.
+  - 변경 범위는 WPF shell XAML 배치와 테스트 좌표 검증에 한정했습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1366 --height 768` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --roi-only --review-tab objects --width 1920 --height 1080 --output artifacts\ui\wpf-layout-side-swap-after-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --roi-only --review-tab objects --width 1366 --height 768 --output artifacts\ui\wpf-layout-side-swap-after-1366.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --roi-only --review-tab objects --right-workflow-expanded --width 1920 --height 1080 --output artifacts\ui\wpf-layout-side-swap-after-expanded-1920.png` passed.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-layout-side-swap-before-1920.png`
+  - After 1920 collapsed: `artifacts\ui\wpf-layout-side-swap-after-1920.png`
+  - After 1920 expanded: `artifacts\ui\wpf-layout-side-swap-after-expanded-1920.png`
+  - After 1366: `artifacts\ui\wpf-layout-side-swap-after-1366.png`
+- 다음 작업: 새 좌측 작업 패널 구조에서 패널 이름/내부 ViewModel 타입에 남아 있는 `RightWorkflow` 명칭은 내부 구현명이라 당장 사용자에게 보이지는 않지만, 이후 리팩터링 때 `WorkflowDock` 같은 위치 중립 이름으로 천천히 정리할 수 있습니다. 다음 UX 우선순위는 모델 센터 partial-ready 첫 화면과 좌측 작업 패널 확장 상태에서의 밀도 점검입니다.
+
+## 2026-07-02 WPF model-center partial-ready summary pass
+
+- 점검 결과:
+  - YOLO11 Ultralytics runtime은 현재 검사까지 가능하고 학습은 아직 미지원인 partial-ready 상태입니다.
+  - 설정 패널에서는 이 상태가 보강되어 있었지만, 모델센터 첫 화면의 레지스트리 요약은 `검사 가능` 중심으로 읽혀 학습 미지원 여부가 덜 명확했습니다.
+  - `--wpf-yolo-training-session-smoke --model-center --ultralytics-runtime-ready`는 임시 visual-smoke weights 파일이 사라진 상태로 모델 히스토리를 다시 계산해 `검사 모델로 적용` 가능한 행을 찾지 못했습니다.
+- 수정 내용:
+  - `WpfModelRegistryPresentationService.BuildRuntimeReadinessText`가 검사+학습 가능, 현재 검사만 가능, 학습만 가능 상태를 구분해서 표시하도록 변경했습니다.
+  - YOLO11 검사 전용 partial-ready 상태는 모델센터 요약에서 `현재 검사 가능 / 학습 미지원`으로 표시됩니다.
+  - model-center visual smoke가 임시 모델 히스토리 weights 파일을 보장한 뒤 dashboard를 다시 계산하도록 보강했습니다.
+  - 실패 시 모델 히스토리 행의 current/promote/file-exists/path 상태가 메시지에 포함되도록 테스트 진단을 추가했습니다.
+- 구조:
+  - 런타임 표시 문구는 `WpfModelRegistryPresentationService`에 유지했습니다.
+  - smoke fixture 안정화는 `tests/LabelingApplication.Tests/Program.cs`에 한정했습니다.
+  - WPF XAML, shell code-behind, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --ultralytics-runtime-ready --width 1920 --height 1080 --output artifacts\ui\wpf-model-center-ultralytics-partial-after-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --model-registry` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-settings-viewmodels` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-connection` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-self-test` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-center-runtime-summary-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-center-ultralytics-partial-after-1920.png`
+- 다음 작업: 좌측 작업 패널 확장 상태에서 모델센터의 빨간 테두리/강조가 너무 많아 `위험`과 `다음 작업`의 구분이 약합니다. 다음 패스에서는 실제 오류가 아닌 후보/대기 상태를 덜 공격적인 색상으로 분리하고, 모델센터 첫 화면에서 “현재 검사 모델 / 학습 후보 / 런타임 상태 / 다음 버튼”만 남기는 밀도 정리를 검토합니다.
+
+## 2026-07-02 WPF model-center visual density pass
+
+- 점검 결과:
+  - 모델센터의 `모델 적용 순서`, 선택된 모델 이력, `모델 적용 판단` 카드가 모두 전역 빨강 강조를 써서 실패/오류 상태처럼 보였습니다.
+  - 실제 오류/복구는 빨강을 유지해야 하지만, 학습 후보 선택과 적용 판단은 정상적인 다음 작업 상태이므로 별도 시각 언어가 필요했습니다.
+- 수정 내용:
+  - `WpfLabelingShellWindow.xaml`에 모델센터 전용 후보색/판단색 리소스를 추가했습니다.
+  - `모델 적용 순서`와 선택된 모델 이력은 후보 모델을 뜻하는 파랑 계열 강조로 바꿨습니다.
+  - 모델 적용 판단, 비교 지표, 다음 저장 판단은 호박색 계열 강조로 바꿨습니다.
+  - 모델 히스토리 목록은 공용 `ReviewListBoxItemStyle` 대신 `ModelRegistryHistoryListBoxItemStyle`을 쓰도록 분리해, 선택 행이 빨간 테두리로 보이지 않게 했습니다.
+  - 실제 실패/복구 패널인 `YoloModelRecoveryPanel`의 빨강은 그대로 유지했습니다.
+- 구조:
+  - 변경 범위는 WPF shell XAML과 XAML 구조 테스트에 한정했습니다.
+  - 상태/명령/판단 문구는 기존 ViewModel/Service 바인딩을 유지했습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --model-registry` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --ultralytics-runtime-ready --width 1920 --height 1080 --output artifacts\ui\wpf-model-center-density-after-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --ultralytics-runtime-ready --width 1366 --height 768 --output artifacts\ui\wpf-model-center-density-after-1366.png` passed.
+  - `git diff --check -- '0. UI/9) WPF/Views/WpfLabelingShellWindow.xaml' tests/LabelingApplication.Tests/Program.cs docs/WORK_TRACKING.md docs/STABLE_VERIFIED_AREAS.md` returned no whitespace errors; Git only reported the existing LF/CRLF normalization warnings.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-center-ultralytics-partial-after-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-center-density-after-1920.png`
+  - After 1366: `artifacts\ui\wpf-model-center-density-after-1366.png`
+- 다음 작업: 모델센터에서 색상 의미는 분리됐지만, `검사 모델로 저장` 이후 “현재 검사 모델이 실제로 바뀌었다”는 완료 피드백이 아직 더 선명해야 합니다. 다음 우선순위는 모델 적용 완료 상태의 상단 배지/모델센터 카드/현재 검사 버튼 흐름을 한 번 더 점검하는 것입니다.
+
+## 2026-07-02 WPF model-center confirm-save feedback pass
+
+- 점검 결과:
+  - `검사 모델로 저장`을 누른 뒤 상단 검사 모델 배지는 current로 바뀔 수 있었지만, 모델센터의 저장 버튼/다음 작업은 계속 `후보 검토 필요`로 남을 수 있었습니다.
+  - 원인은 저장 성공 후 `hasPendingTrainingWeightsRecipeSave`만 내리고 `pendingTrainingBaselineWeightsPath`를 비우지 않아, 모델센터 비교 기준이 이전 모델 기준으로 남는 점이었습니다.
+  - visual smoke fixture도 창 초기화 중 이전 recipe config가 섞일 수 있어, 저장 완료 검증 직전에 recipe/output root/project root를 테스트 데이터 기준으로 다시 맞추도록 보강했습니다.
+- 수정 내용:
+  - `ExecuteSaveYoloSettingsCommand` 성공 분기에서 pending 후보 저장이 완료되면 `pendingTrainingBaselineWeightsPath`를 비웁니다.
+  - 같은 성공 분기에서 `RefreshModelCenterDashboard()` 대신 `RefreshYoloStatus()`를 호출해 상단 검사 모델 배지와 모델센터 상태를 pending 해제 후 기준으로 다시 계산합니다.
+  - 저장 성공 안내 문구를 `검사 모델 적용 완료: ... 다음 현재 검사부터 이 모델을 사용합니다.`로 바꿨습니다.
+  - latest weights가 현재 검사 모델과 같을 때 모델센터 버튼 문구를 `이미 적용됨`에서 `적용 완료`로 바꿨습니다.
+  - `--wpf-yolo-training-session-smoke`에 `--confirm-model-save` 옵션을 추가해 실제 저장 명령 후 상단 검사 모델 배지, 모델센터 저장 버튼, 워크플로우 저장 버튼, 다음 작업 문구가 완료 상태로 바뀌는지 검증합니다.
+- 구조:
+  - 저장 명령 실행은 기존 shell adapter에 유지했습니다.
+  - 상태 표시와 버튼 enablement는 기존 ViewModel 바인딩을 유지했습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --confirm-model-save --width 1920 --height 1080 --output artifacts\ui\wpf-model-center-confirm-save-after-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output artifacts\ui\wpf-model-center-confirm-save-before-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --confirm-model-save --width 1366 --height 768 --output artifacts\ui\wpf-model-center-confirm-save-after-1366.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --model-registry` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-settings-viewmodels` passed.
+  - `git diff --check -- '0. UI/9) WPF/Views/WpfLabelingShellWindow.YoloEnvironmentBrowseCommands.cs' '0. UI/9) WPF/Views/WpfLabelingShellWindow.ModelCenterDashboard.cs' tests/LabelingApplication.Tests/Program.cs docs/WORK_TRACKING.md docs/STABLE_VERIFIED_AREAS.md` returned no whitespace errors; Git only reported existing LF/CRLF normalization warnings.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-center-confirm-save-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-center-confirm-save-after-1920.png`
+  - After 1366: `artifacts\ui\wpf-model-center-confirm-save-after-1366.png`
+- 다음 작업: 현재 검사 모델 적용 완료는 명확해졌습니다. 다음 우선순위는 모델센터에서 “후보 검증”과 “현재 검사”가 실제로 어떤 이미지/모델로 실행되는지 실행 전 확인 문구를 더 줄이고, 클릭 후 결과 후보가 어디에 나타나는지 초보자가 바로 알 수 있는지 점검하는 것입니다.
+
+## 2026-07-03 WPF model-center action target pass
+
+- 점검 결과:
+  - 모델센터 우선 카드의 버튼 상태 줄이 `가능/대기` 중심이라 사용자가 `후보 검증`을 누르면 검출이 실행되는지, `현재 검사` 결과가 어디에 나타나는지 바로 알기 어려웠습니다.
+  - 실제 흐름상 `후보 검증`은 학습 후보를 바로 실행하는 버튼이 아니라 후보 검토 탭을 여는 버튼이고, 현재 이미지 검출은 `현재 검사`에서 실행됩니다.
+- 수정 내용:
+  - `WpfLabelingShellViewModel.ModelCenterActionStateText` 앞에 실행 경로를 붙여 `후보 검증=학습 후보 탭 열기`, `현재 검사=검사 모델+현재 이미지 -> AI 후보/캔버스`를 직접 표시합니다.
+  - `현재 검사` 버튼 툴팁을 결과 위치까지 포함하도록 보강했습니다.
+  - `후보 검증` 툴팁과 실행 상태 메시지를 후보 검토 탭 이동으로 명확히 바꿔, 검출 실행 버튼처럼 읽히지 않게 했습니다.
+  - 모델센터 우선 카드의 상태 텍스트는 ellipsis로 자르지 않고 줄바꿈해 표시합니다.
+  - 모델센터 visual smoke가 `현재 이미지`, `AI 후보`, `캔버스` 문구를 실제 화면 텍스트에서 검증하도록 보강했습니다.
+- 구조:
+  - 실행 경로 문구와 버튼 상태는 `WpfLabelingShellViewModel` 상태로 유지했습니다.
+  - XAML은 텍스트 바인딩과 줄바꿈 표시만 담당합니다.
+  - 기존 shell command는 UI adapter 범위의 상태/로그 문구만 조정했습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output artifacts\ui\wpf-model-center-action-target-after-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --confirm-model-save --width 1920 --height 1080 --output artifacts\ui\wpf-model-center-action-target-confirmed-after-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --width 1366 --height 768 --output artifacts\ui\wpf-model-center-action-target-after-1366.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --model-registry` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-center-confirm-save-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-model-center-action-target-after-1920.png`
+  - After confirmed 1920: `artifacts\ui\wpf-model-center-action-target-confirmed-after-1920.png`
+  - After 1366: `artifacts\ui\wpf-model-center-action-target-after-1366.png`
+- 다음 작업: 모델센터의 실행 대상 안내는 보강됐습니다. 다음 우선순위는 실제 `현재 검사` 실행 후 후보 결과가 우측 이미지 큐/캔버스/후보 검토 상태에 어떻게 반영되는지, 사용자에게 저장 전 후보인지 확정 라벨인지 더 선명하게 보이는지 확인하는 것입니다.
+
+## 2026-07-03 WPF inference status readable text pass
+
+- 점검 결과:
+  - `현재 검사` 실행 전후 상단 `추론 상태`는 사용자가 모델과 결과 위치를 확인하는 핵심 피드백인데, 기본 대기/검사 모델/모델 후보/모델 없음 문구 일부가 깨진 한글로 남아 있었습니다.
+  - 사용자는 로그를 보지 않고도 지금 검사 모델이 무엇인지, 학습 후보가 아직 저장 전인지 알아야 합니다.
+- 수정 내용:
+  - `WpfInferenceStatusPresentationService`를 정상 한글 출력 계약으로 재작성했습니다.
+  - 기본 대기 상태, 검사 모델, 모델 후보, 검사 모델 없음, 툴팁의 추론 상태/전체 모델 경로 문구를 모두 정상화했습니다.
+  - `SetGlobalInferenceStatus` UI adapter의 기본 대기 문구도 정상화했습니다.
+  - 기존 깨진 기대값 테스트 대신 정상 한글 계약을 검증하는 `TestWpfInferenceStatusPresentationServiceReadable`를 추가하고 테스트 라우팅을 교체했습니다.
+- 구조:
+  - 표시 문구 생성은 `WpfInferenceStatusPresentationService`에 유지했습니다.
+  - shell code-behind는 상태 애니메이션과 바인딩 대상 갱신만 담당합니다.
+  - Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-inference-status-presentation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output artifacts\ui\wpf-inference-status-readable-after-1920.png` passed.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-model-center-action-target-after-1920.png`
+  - After 1920: `artifacts\ui\wpf-inference-status-readable-after-1920.png`
+- 다음 작업: 상단 추론 상태의 깨진 기본 문구는 정리됐습니다. 다음 우선순위는 `현재 검사` 실행 직후 생성된 AI 후보가 우측 이미지 큐와 후보 검토 패널에서 “저장 전 후보”로 더 분명하게 보이는지 확인하는 것입니다.
+
+## 2026-07-03 WPF AI-candidate unsaved wording pass
+
+- 점검 결과:
+  - 이미지 큐는 이미 `AI 후보 n개 검토 필요`와 `저장 완료`를 나누고 있었지만, 캔버스/후보 오버레이 presentation은 `검출 결과`, `후보`처럼 저장 라벨과의 차이가 약한 문구를 쓰고 있었습니다.
+  - 사용자는 현재 보이는 박스가 자동 검출 후보인지, 이미 저장된 정답 라벨인지 즉시 구분해야 합니다.
+- 수정 내용:
+  - `WpfCandidateReviewPresentationService`의 오버레이 제목/요약/선택/상세 문구를 `AI 후보(저장 전)`, `AI 후보 n개`, `저장 전` 중심으로 바꿨습니다.
+  - 후보 없음/필터 통과 없음 상태도 `AI 후보 없음`으로 통일했습니다.
+  - `WpfDetectionResultPresentationService`의 후보 로드 기록과 후보 없음 카드도 `AI 후보`와 `저장 전`을 명시하도록 바꿨습니다.
+  - `--wpf-candidate-review-presentation`, `--wpf-detection-result-presentation` focused CLI 플래그를 추가해 이 계약만 따로 검증할 수 있게 했습니다.
+- 구조:
+  - 문구 생성은 presentation service에 유지했습니다.
+  - 캔버스 오버레이 렌더링, hit-test, OpenGL/Viewer 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-presentation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-detection-result-presentation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-detection-display-mode` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --width 1920 --height 1080 --output artifacts\ui\wpf-ai-candidate-unsaved-after-1920.png` passed.
+  - A mistaken full-suite route was triggered before adding the focused flags and stopped at the existing unrelated `Project settings persist dataset purpose in recipe config: Expected '1', got '0'` issue.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-inference-status-readable-after-1920.png`
+  - After 1920: `artifacts\ui\wpf-ai-candidate-unsaved-after-1920.png`
+- 다음 작업: AI 후보/저장 라벨 구분 문구는 좋아졌습니다. 다음 우선순위는 후보 확정 이후 `저장 완료`, `라벨 저장됨`, `다음 미완료`가 이미지 큐/워크플로우 상단/후보 검토 패널에서 같은 언어로 연결되는지 점검하는 것입니다.
+
+## 2026-07-03 WPF candidate completion next-unfinished pass
+
+- 점검 결과:
+  - 후보 확정 후 완료 카드의 설명은 `다음 미완료 이미지`를 말하고 있었지만, 버튼과 다음 작업 문구는 일부 `다음 이미지`로만 표시되어 목적지가 덜 명확했습니다.
+  - `객체 없음 저장 후 다음`처럼 긴 버튼 문구는 1920x1080에서도 왼쪽 패널 폭 안에서 잘릴 수 있었습니다.
+- 수정 내용:
+  - `WpfCandidateReviewCompletionPresentationService`에서 저장 완료 제목을 `라벨 저장 완료`로 정리했습니다.
+  - 저장된 라벨 상태의 다음 작업/버튼은 `다음 미완료`를 명시합니다.
+  - 저장 필요 상태는 `라벨 저장 후 다음`으로 줄이고, 상세/툴팁에서 다음 미완료 이미지 이동을 설명합니다.
+  - 객체 없음 완료 상태는 버튼을 `객체 없음 저장`으로 줄여 잘림을 피하고, 다음 작업 줄에서 `객체 없음 저장 후 다음 미완료 이미지`를 설명합니다.
+  - `--wpf-labeling-session-smoke`에 `--width`/`--height` 옵션을 추가해 1920x1080 캡처 검증이 가능하게 했습니다.
+- 구조:
+  - 완료 문구 생성은 `WpfCandidateReviewCompletionPresentationService`에 유지했습니다.
+  - ViewModel은 presentation payload를 반영만 하고, View code-behind/Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-session-smoke --width 1920 --height 1080 --output artifacts\ui\wpf-candidate-complete-next-unfinished-after-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+- 캡처:
+  - Before reference 1920: `artifacts\ui\wpf-ai-candidate-unsaved-after-1920.png`
+  - After 1920: `artifacts\ui\wpf-candidate-complete-next-unfinished-after-1920.png`
+- 다음 작업: 후보 확정 후 완료 흐름은 더 명확해졌습니다. 다음 우선순위는 오른쪽 이미지 큐의 현재 작업 카드와 상단 workflow next-action이 완료/저장/다음 미완료 상태를 같은 표현으로 유지하는지 추가 점검하는 것입니다.
+
+## 2026-07-03 WPF queue/top next-unfinished consistency pass
+
+- 점검 결과:
+  - 후보 완료 카드에서는 `다음 미완료`를 말하지만, 오른쪽 이미지 큐 현재 작업 카드와 상단 작업 흐름 요약은 완료 상태 이후 목적지를 덜 명확하게 표현했습니다.
+  - 특히 `저장 완료`, `객체 없음 완료` 상태에서 사용자가 다음 버튼을 눌러도 저장된 이미지를 다시 도는지, 미완료 이미지만 찾는지 즉시 알기 어려웠습니다.
+- 수정 내용:
+  - 상단 상태바의 완료 후 next-action을 `다음: 다음 미완료 이미지`로 정리했습니다.
+  - 오른쪽 이미지 큐 현재 작업 카드의 저장 완료/객체 없음 완료/저장 라벨 있음 설명에 `다음 미완료` 이동을 명시했습니다.
+  - 객체 없음 완료 배지는 `없음` 대신 `객체없음`으로 바꿔 상태 의미를 더 분명하게 했습니다.
+  - 상단 workflow stage의 추론 단계 next-action도 이후 `AI 후보 확정/숨김 후 다음 미완료, 완료되면 학습/모델 센터`로 정리했습니다.
+- 구조:
+  - 이미지 큐 현재 작업 문구는 `WpfImageQueuePanelViewModel`에 유지했습니다.
+  - workflow stage 문구는 `WpfWorkflowStagePresentationService`에 유지했습니다.
+  - shell code-behind는 기존 상태 계산/바인딩 어댑터만 유지했고, Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-session-smoke --width 1920 --height 1080 --output artifacts\ui\wpf-queue-top-next-unfinished-after-1920.png` passed.
+- 캡처:
+  - Before reference 1920: `artifacts\ui\wpf-candidate-complete-next-unfinished-after-1920.png`
+  - After 1920: `artifacts\ui\wpf-queue-top-next-unfinished-after-1920.png`
+- 다음 작업: 저장 완료 이후 목적지 표현은 큐/상단/후보 완료 카드에서 맞춰졌습니다. 다음 우선순위는 추론 검토 패널의 후보 결정 카드가 `저장 전 후보`, `현재 이미지 저장 필요`, `학습 모델 검증`을 한 화면에서 너무 강한 빨간색으로 동시에 보여 주는 문제를 줄이는 것입니다.
+
+## 2026-07-03 WPF candidate-review non-error color pass
+
+- 점검 결과:
+  - 추론 검토 패널의 AI 후보 배지, 현재 이미지 후보 역할 카드, 안내 문구가 전역 `AccentBrush`를 써서 저장 필요/오류와 같은 빨간 계열로 보였습니다.
+  - 사용자는 `저장 전 AI 후보` 안내와 실제 오류/저장 필요를 색만 보고도 구분할 수 있어야 합니다.
+- 수정 내용:
+  - `WpfCandidateReviewPanel.xaml`에 AI 후보 전용 청록 계열 브러시와 모델 검증 전용 파랑 계열 브러시를 추가했습니다.
+  - AI 후보 배지, 현재 이미지 후보 역할 카드, AI 후보 안내 문구는 전용 AI 후보 브러시를 사용하도록 바꿨습니다.
+  - 학습 모델 검증 안내는 모델 검증 전용 브러시로 분리했습니다.
+  - 실제 저장 필요/오류/주요 실행 버튼에 쓰이는 전역 AccentBrush는 그대로 유지했습니다.
+- 구조:
+  - 색상과 시각 강조는 XAML 리소스로만 분리했습니다.
+  - CandidateReview ViewModel의 상태/명령/워크플로우는 변경하지 않았습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output artifacts\ui\wpf-candidate-review-color-after-1920.png` passed.
+- 캡처:
+  - Before reference 1920: `artifacts\ui\wpf-queue-top-next-unfinished-after-1920.png`
+  - After 1920: `artifacts\ui\wpf-candidate-review-color-after-1920.png`
+- 다음 작업: 후보 검토의 비오류 안내 색상은 분리됐습니다. 다음 우선순위는 같은 화면에서 후보 검토 하단 액션 버튼과 완료 카드가 좁은 패널에서도 한 줄씩 읽히는지, 1366 폭에서 다시 확인하는 것입니다.
+
+## 2026-07-03 WPF candidate-review compact action priority pass
+
+- 점검 결과:
+  - 1366x768 후보 검토 화면에서 학습 모델 검증 카드가 현재 이미지 후보 액션보다 위에 있어 `후보 위치`, `라벨 확정`, `전체 라벨화`, `후보 숨김` 버튼이 아래로 밀렸습니다.
+  - 사용자가 현재 이미지의 AI 후보를 검토하는 중에는 후보 액션이 모델 검증보다 먼저 보여야 합니다.
+- 수정 내용:
+  - 모델 후보 결정 카드는 `ModelCandidateDecisionVisibility`를 통해 실제 저장/거절이 가능한 상태에서만 표시되도록 했습니다.
+  - 후보 요약과 후보 액션 패널을 모델 검증 카드보다 위 행으로 올렸습니다.
+  - 모델 검증 요약은 유지하되, 현재 이미지 후보 검토의 핵심 버튼을 1366x768에서도 보이게 했습니다.
+- 구조:
+  - 결정 카드 표시 여부는 `WpfCandidateReviewPanelViewModel` 상태로 분리했습니다.
+  - XAML은 `ModelCandidateDecisionVisibility`와 행 배치만 바인딩합니다.
+  - CandidateReview command/selection workflow와 Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1366 --height 768 --output artifacts\ui\wpf-candidate-review-compact-after-1366.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output artifacts\ui\wpf-candidate-review-compact-after-1920.png` passed.
+  - A mistaken non-existent `--wpf-model-comparison-example-click` flag was attempted and fell through to the broad regression path, stopping at the existing unrelated `Project settings persist dataset purpose in recipe config: Expected '1', got '0'` issue.
+- 캡처:
+  - Before 1366: `artifacts\ui\wpf-candidate-review-color-after-1366.png`
+  - After 1366: `artifacts\ui\wpf-candidate-review-compact-after-1366.png`
+  - After 1920: `artifacts\ui\wpf-candidate-review-compact-after-1920.png`
+- 다음 작업: 후보 검토의 현재 이미지 액션 우선순위는 정리됐습니다. 다음 우선순위는 우측 이미지 큐의 후보/저장/객체없음 필터와 현재 검토 패널의 용어가 더 긴 실제 파일명에서도 깨지지 않는지 확인하는 것입니다.
+
+## 2026-07-03 WPF image-queue current-task wrap pass
+
+- 점검 결과:
+  - 우측 이미지 큐 현재 작업 카드의 설명이 한 줄 말줄임으로 잘려 AI 후보 검토 행동이 온전히 보이지 않았습니다.
+  - 툴팁도 파일명과 상태 요약만 담고 있어, 카드 설명이 잘린 경우 전체 작업 안내를 확인하기 어려웠습니다.
+- 수정 내용:
+  - `CurrentImageTaskDetailText`를 2줄까지 래핑하도록 바꾸고 현재 작업 카드 행의 최소 높이를 조정했습니다.
+  - 현재 작업 카드 툴팁에 파일명, 카드 제목, 상세 행동, 상태 요약을 모두 넣도록 `BuildCurrentImageTaskToolTip`를 추가했습니다.
+  - 이미지 큐 ViewModel 테스트에 긴 상태/후보 안내가 tooltip에 남는지 검증을 추가했습니다.
+- 구조:
+  - 표시 문구/툴팁 조합은 `WpfImageQueuePanelViewModel`에 유지했습니다.
+  - XAML은 래핑/높이 바인딩만 담당합니다.
+  - 이미지 로딩, 필터링, Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1366 --height 768 --output artifacts\ui\wpf-image-queue-current-task-wrap-after-1366.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output artifacts\ui\wpf-image-queue-current-task-wrap-after-1920.png` passed.
+- 캡처:
+  - Before 1366: `artifacts\ui\wpf-candidate-review-compact-after-1366.png`
+  - After 1366: `artifacts\ui\wpf-image-queue-current-task-wrap-after-1366.png`
+  - After 1920: `artifacts\ui\wpf-image-queue-current-task-wrap-after-1920.png`
+- 다음 작업: 우측 이미지 큐 현재 작업 카드의 핵심 행동 가독성은 개선됐습니다. 다음 우선순위는 이미지 큐 하단 목록의 `저장/검사/크기` 열이 긴 파일명과 상태 텍스트에서 필요한 정보를 우선순위대로 보여 주는지 점검하는 것입니다.
+
+## 2026-07-03 WPF image-queue row summary tooltip pass
+
+- 점검 결과:
+  - 오른쪽 이미지 큐 하단 목록은 폭이 좁을 때 긴 파일명과 `저장/검사/크기` 열이 말줄임으로 보입니다.
+  - 기존 툴팁은 `Detail` 중심이라 파일명, 저장 상태, 검사 상태, 크기, 실패 원인을 한 번에 확인하기 어려웠습니다.
+- 수정 내용:
+  - `WpfImageQueueItem`에 `QueueRowToolTip`, `QueueRowAccessibleName` 계산 속성을 추가했습니다.
+  - 행 요약에는 파일명, 저장 상태, 검사 상태, 크기, 상태 요약, 상세 원인을 포함합니다.
+  - `LabelStatus`, `DetectStatus`, `Dimensions`, `Detail`, `QueueStatusSummary` 변경 시 행 요약 툴팁/자동화 이름도 갱신되도록 했습니다.
+  - 이미지 큐 DataGrid의 파일 셀과 상태 열 툴팁을 `QueueRowToolTip`으로 바꾸고, 파일 셀 자동화 이름을 `QueueRowAccessibleName`에 연결했습니다.
+- 구조:
+  - 행 요약 생성은 `WpfImageQueueItem` 모델에 두고, XAML은 바인딩만 담당합니다.
+  - 이미지 로딩, 필터링, Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1366 --height 768 --output artifacts\ui\wpf-image-queue-row-summary-after-1366.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output artifacts\ui\wpf-image-queue-row-summary-after-1920.png` passed.
+- 캡처:
+  - Before 1366: `artifacts\ui\wpf-image-queue-current-task-wrap-after-1366.png`
+  - After 1366: `artifacts\ui\wpf-image-queue-row-summary-after-1366.png`
+  - After 1920: `artifacts\ui\wpf-image-queue-row-summary-after-1920.png`
+- 다음 작업: 이미지 큐 하단 목록의 잘림 보조 정보는 정리됐습니다. 다음 우선순위는 후보 검토 패널의 선택 후보/현재 라벨 정보가 긴 텍스트에서도 핵심 판단 버튼보다 공간을 과하게 차지하지 않는지 점검하는 것입니다.
+
+## 2026-07-03 WPF candidate-review text cap pass
+
+- 점검 결과:
+  - 후보 검토 패널은 핵심 조작 버튼을 위로 올렸지만, 선택 후보 요약과 후보/현재 라벨 비교 텍스트가 길어지면 다시 후보 목록과 아래 검토 정보를 밀 수 있는 구조였습니다.
+  - 실제 조작 중에는 `이전 후보`, `후보 위치`, `기존 라벨`, `다음 후보`, `라벨 확정`, `전체 라벨화`, `후보 숨김` 버튼이 항상 먼저 살아 있어야 합니다.
+- 수정 내용:
+  - `SelectedCandidateSummaryText`, `CandidateCompareCandidateText`, `CandidateCompareCurrentText`, `CandidateDetailText`를 2-3줄 높이로 제한했습니다.
+  - `CandidateComparisonDecisionTextStyle`에도 높이 제한과 전체 문구 툴팁을 추가했습니다.
+  - 잘린 텍스트는 각 TextBlock의 `ToolTip`에서 전체 내용을 확인할 수 있게 했습니다.
+- 구조:
+  - 후보 선택/확정/스킵 workflow와 ViewModel command는 변경하지 않았습니다.
+  - XAML은 표시 높이와 툴팁 바인딩만 담당합니다.
+  - Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1366 --height 768 --output artifacts\ui\wpf-candidate-review-text-cap-after-1366.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output artifacts\ui\wpf-candidate-review-text-cap-after-1920.png` passed.
+- 캡처:
+  - Before 1366: `artifacts\ui\wpf-image-queue-row-summary-after-1366.png`
+  - After 1366: `artifacts\ui\wpf-candidate-review-text-cap-after-1366.png`
+  - After 1920: `artifacts\ui\wpf-candidate-review-text-cap-after-1920.png`
+- 다음 작업: 후보 검토의 긴 텍스트 밀림은 줄였습니다. 다음 우선순위는 모델 센터/런타임 탭에서 현재 검사 가능 상태와 학습 미지원 상태가 초보자에게 같은 성공 상태처럼 보이지 않는지 다시 확인하는 것입니다.
+
+## 2026-07-03 WPF runtime summary status pass
+
+- 점검 결과:
+  - 1366x768 YOLO 모델 설정 화면에서 YOLO11이 `현재 검사 가능 / 학습 미지원`인 상태여도, 첫 카드에는 모델 파일/추론 파라미터만 먼저 보였습니다.
+  - 선택 런타임의 실제 가능 범위는 아래 `모델 실행기 연결 상태` 목록이나 실행 경로 카드까지 내려가야 보여서, 초보자는 현재 검사는 가능한지 학습까지 가능한지 바로 구분하기 어려웠습니다.
+- 수정 내용:
+  - `WpfYoloModelSettingsPanelViewModel.SettingsSummaryRuntimeStatusText`를 추가해 기존 `RuntimeExecutionSummaryText`를 첫 요약 카드에서도 노출했습니다.
+  - YOLO 모델 설정 첫 카드에 `YoloModelSettingsSummaryRuntimeStatusText`를 추가했습니다.
+  - 해당 상태줄은 전역 오류/강조색 대신 `YoloRuntimeStatusBrush`를 사용해 런타임 가능 범위를 오류처럼 보이지 않게 했습니다.
+- 구조:
+  - 런타임 가능/미지원 판단은 기존 `PythonModelRuntimeExecutionSummaryService` 결과를 재사용합니다.
+  - XAML은 새 상태줄 바인딩만 담당하고, 런타임 판정/연결/설치 workflow는 변경하지 않았습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-settings-viewmodels` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --ultralytics-runtime-ready --width 1366 --height 768 --output artifacts\ui\wpf-runtime-summary-status-after-1366.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --ultralytics-runtime-ready --width 1920 --height 1080 --output artifacts\ui\wpf-runtime-summary-status-after-1920.png` passed.
+- 캡처:
+  - Before 1366: `artifacts\ui\wpf-runtime-partial-ready-audit-before-1366.png`
+  - After 1366: `artifacts\ui\wpf-runtime-summary-status-after-1366.png`
+  - After 1920: `artifacts\ui\wpf-runtime-summary-status-after-1920.png`
+- 다음 작업: 선택 런타임의 현재 검사/학습 가능 범위는 첫 카드에서 보이게 됐습니다. 다음 우선순위는 모델 센터 쪽에서도 같은 상태가 `현재 검사` 버튼 주변에서 일관되게 보이는지 점검하는 것입니다.
+
+## 2026-07-03 WPF model-center runtime action-state pass
+
+- 점검 결과:
+  - 모델 센터 요약 카드와 레지스트리에는 YOLO11 partial-ready 상태가 보였지만, 실제 사용자가 누르는 `후보 검증`, `검사 모델로 저장`, `현재 검사` 버튼 바로 아래 상태 줄은 `버튼 상태` 중심으로만 읽혔습니다.
+  - 1366x768 화면에서는 왼쪽 학습/모델 센터 패널 폭이 제한되기 때문에, 버튼 근처에서 `현재 검사 가능 / 학습 미지원`을 바로 보지 못하면 사용자가 현재 검사를 눌러도 되는지 다시 설정 탭을 찾아가야 했습니다.
+- 수정 내용:
+  - `WpfLabelingShellViewModel`에 `ModelCenterRuntimeActionText` 상태를 추가했습니다.
+  - 모델 센터 대시보드 refresh adapter가 `WpfModelRegistryPresentationService.BuildSelectedRuntimeSummaryText(settings)` 결과를 `SetModelCenterModelState`로 전달하게 했습니다.
+  - `ModelCenterActionStateText`를 `실행기: YOLO11 Ultralytics / 현재 검사 가능 / 학습 미지원 / 실행: ... / 버튼 상태: ...` 순서로 구성해 버튼 주변에서 런타임 범위와 버튼 가능 상태를 같이 읽도록 했습니다.
+  - 현재 검사 버튼 툴팁도 런타임 요약을 보존하되, 현재 모델 텍스트에 같은 요약이 이미 포함된 경우 중복으로 붙이지 않게 했습니다.
+- 구조:
+  - 런타임 가능/미지원 판단은 기존 `WpfModelRegistryPresentationService`와 runtime profile service 결과를 재사용합니다.
+  - XAML은 기존 `ModelCenterPriorityButtonStateText -> ShellViewModel.ModelCenterActionStateText` 바인딩을 그대로 사용합니다.
+  - Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --model-registry` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --ultralytics-runtime-ready --width 1366 --height 768 --output artifacts\ui\wpf-model-center-runtime-action-state-after-1366.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --ultralytics-runtime-ready --width 1920 --height 1080 --output artifacts\ui\wpf-model-center-runtime-action-state-after-1920.png` passed.
+- 캡처:
+  - Before 1366: `artifacts\ui\wpf-model-center-density-after-1366.png`
+  - Before 1920: `artifacts\ui\wpf-model-center-ultralytics-partial-after-1920.png`
+  - After 1366: `artifacts\ui\wpf-model-center-runtime-action-state-after-1366.png`
+  - After 1920: `artifacts\ui\wpf-model-center-runtime-action-state-after-1920.png`
+- 다음 작업: 모델 센터 버튼 주변의 런타임 범위는 정리됐습니다. 다음 우선순위는 현재 검사 실행 후 후보 검토 패널로 이어질 때 `AI 후보`, `라벨 저장`, `다음 미완료 이미지` 흐름이 좌측 모델 센터/우측 이미지 큐에서 같은 용어로 이어지는지 확인하는 것입니다.
+
+## 2026-07-03 WPF image-queue AI-candidate spacing pass
+
+- 점검 결과:
+  - 후보 검토/워크플로우 쪽은 `AI 후보`를 사용하지만, 이미지 큐 빠른 필터와 큐 요약 일부는 `AI후보`처럼 띄어쓰기 없이 표시했습니다.
+  - 같은 오른쪽 이미지 큐 안에서도 필터, 행 상태, 데이터셋 상태 문구가 서로 달라 보이면 초보 사용자는 별도 상태처럼 읽을 수 있습니다.
+- 수정 내용:
+  - `WpfImageQueuePresenter.BuildReviewCountSummary`와 `FormatDetectionStatus`가 `AI 후보`를 사용하도록 바꿨습니다.
+  - `WpfImageQueueFilterOption.GetDisplayName(WpfImageQueueFilter.Candidate)`을 `AI 후보`로 바꿨습니다.
+  - `WpfImageQueuePanelViewModel`의 빠른 필터 버튼 기본/갱신 라벨도 `AI 후보`로 맞췄습니다.
+- 구조:
+  - 큐 필터링, 로딩, 검출 결과 저장 로직은 변경하지 않았습니다.
+  - ViewModel과 presentation service의 표시 문자열만 변경했습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1366 --height 768 --output artifacts\ui\wpf-image-queue-ai-candidate-spacing-after-1366.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output artifacts\ui\wpf-image-queue-ai-candidate-spacing-after-1920.png` passed.
+- 캡처:
+  - Before 1366: `artifacts\ui\wpf-image-queue-row-summary-after-1366.png`
+  - After 1366: `artifacts\ui\wpf-image-queue-ai-candidate-spacing-after-1366.png`
+  - After 1920: `artifacts\ui\wpf-image-queue-ai-candidate-spacing-after-1920.png`
+- 다음 작업: 이미지 큐의 `AI 후보` 용어는 맞췄습니다. 다음 우선순위는 후보 검토 패널 내부에 남아 있는 `검출 후보` 문구가 의도된 학습자 용어인지, 아니면 저장 전 `AI 후보`와 충돌하는지 기존 안정화 계약을 보고 정리 여부를 판단하는 것입니다.
+
+## 2026-07-03 WPF AI-candidate wording consistency pass
+
+- 점검 결과:
+  - 이미지 큐는 `AI 후보`로 정리됐지만, 후보 검토 버튼 툴팁/상태 메시지/학습 워크플로우 안내에는 아직 `검출 후보`가 남아 있었습니다.
+  - 현재 검사 결과는 저장 전까지 정답 라벨이 아니므로, 사용자가 `라벨`과 `추론 결과`를 헷갈리지 않게 저장 전 검출 결과는 일관되게 `AI 후보`로 표시해야 합니다.
+- 수정 내용:
+  - 캔버스 후보 이동/기준 라벨/후보 지움/후보 확정/후보 숨김 툴팁의 `검출 후보` 문구를 `AI 후보`로 통일했습니다.
+  - 후보 검토 shell adapter의 선택/이동/확정/스킵/로드 상태 메시지를 `AI 후보` 기준으로 바꿨습니다.
+  - 학습 워크플로우 패널의 검토 단계 안내도 `AI 후보`를 보고 확정/스킵한다는 표현으로 맞췄습니다.
+  - 튜토리얼 테스트가 더 이상 사용하지 않는 옛 이미지 경로를 기대하던 부분을 최신 주석 이미지 경로로 갱신했습니다.
+- 구조:
+  - 후보 검토 workflow, 저장, 이미지 큐 필터링, detection overlay 렌더링 로직은 변경하지 않았습니다.
+  - shell code-behind 변경은 기존 UI adapter 메시지/툴팁 문구 정리에 한정했습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `rg -n "검출 후보" "0. UI/9) WPF" tests\LabelingApplication.Tests\Program.cs` 결과 WPF/test 범위 잔여 문구 없음.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-canvas-panel-commands` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-canvas-detection-overlay` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1366 --height 768 --output artifacts\ui\wpf-ai-candidate-wording-after-1366.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output artifacts\ui\wpf-ai-candidate-wording-after-1920.png` passed.
+- 캡처:
+  - Before 1366: `artifacts\ui\wpf-image-queue-ai-candidate-spacing-after-1366.png`
+  - After 1366: `artifacts\ui\wpf-ai-candidate-wording-after-1366.png`
+  - After 1920: `artifacts\ui\wpf-ai-candidate-wording-after-1920.png`
+- 다음 작업: `AI 후보`와 `저장 라벨`의 용어 충돌은 줄었습니다. 다음 우선순위는 후보 검토에서 확정 후 저장이 필요한 상태가 이미지 큐/캔버스/상단 상태에서 같은 강도로 드러나는지 점검하는 것입니다.
+
+## 2026-07-03 WPF candidate auto-save guidance pass
+
+- 점검 결과:
+  - 기존 테스트 계약상 AI 후보를 `라벨 확정`하면 해당 라벨은 즉시 저장 라벨 목록으로 이동하고 파일 저장 상태도 `파일 저장됨`으로 유지됩니다.
+  - 하지만 이미지 큐 현재 작업 카드와 상단 추론 단계 안내가 AI 후보 확정 후에도 별도 저장을 해야 하는 흐름처럼 읽혀, 실제 동작과 어긋날 수 있었습니다.
+- 수정 내용:
+  - 이미지 큐의 `AI 후보 검토` 카드 상세를 `후보를 확정하거나 숨기세요. 확정하면 저장 라벨에 자동 반영됩니다.`로 변경했습니다.
+  - 상단 워크플로우 추론 단계의 다음 작업 문구를 `AI 후보 확정/숨김 후 다음 미완료`로 변경했습니다.
+  - 이미지 큐 상태 테스트와 셸 구조 테스트에 수동 저장 오해를 막는 assertion을 추가했습니다.
+- 구조:
+  - 후보 확정/숨김/저장 동작은 변경하지 않았습니다.
+  - 문구는 `WpfImageQueuePanelViewModel`과 `WpfWorkflowStagePresentationService`에만 유지했고, View code-behind로 상태 판단을 옮기지 않았습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1366 --height 768 --output artifacts\ui\wpf-candidate-autosave-guidance-after-1366.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output artifacts\ui\wpf-candidate-autosave-guidance-after-1920.png` passed.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-ai-candidate-wording-after-1920.png`
+  - After 1366: `artifacts\ui\wpf-candidate-autosave-guidance-after-1366.png`
+  - After 1920: `artifacts\ui\wpf-candidate-autosave-guidance-after-1920.png`
+- 다음 작업: 후보 확정의 저장 동작 안내는 실제 동작과 맞췄습니다. 템플릿 초안/자동 저장 용어 정리는 다음 패스에서 완료했습니다.
+
+## 2026-07-03 WPF template draft-label wording pass
+
+- 점검 결과:
+  - 템플릿 현재 이미지 실행은 AI 추론 후보와 달리 후보 검토 패널에 남는 값이 아니라, 현재 이미지에 저장 전 라벨 초안을 추가하고 사용자가 위치 확인 후 `라벨 저장`을 눌러야 합니다.
+  - 반대로 전체 이미지 템플릿 실행은 라벨 없는 이미지에 바로 라벨 파일을 저장합니다.
+  - 기존 문구는 두 경로를 같은 성격의 후보 작업처럼 보여 AI 후보 검토 흐름과 헷갈릴 수 있었습니다.
+- 수정 내용:
+  - 템플릿 현재 이미지 실행 문구를 `현재 이미지 라벨 초안 생성`, `템플릿 라벨 초안`, `저장 전 초안` 기준으로 정리했습니다.
+  - 전체 이미지 템플릿 실행 문구를 `전체 이미지 자동 저장`으로 바꿔 라벨 없는 이미지에 바로 저장되는 경로임을 드러냈습니다.
+  - 상단 도구 메뉴의 템플릿 흐름을 `기준 라벨 선택 -> 라벨 초안 생성 -> 위치 확인 -> 라벨 저장`으로 변경했습니다.
+  - 오른쪽 `가이드/도구`의 템플릿 반복 라벨링 카드도 현재 이미지 초안과 전체 이미지 자동 저장을 분리해 설명합니다.
+  - 이미지 큐의 템플릿 일괄 실행 버튼도 `전체 자동 저장`으로 바꿔 버튼만 봐도 라벨 없는 이미지에 바로 저장되는 작업임을 알 수 있게 했습니다.
+- 구조:
+  - 템플릿 매칭/저장 알고리즘은 변경하지 않았습니다.
+  - 상태와 가이드 문구는 `WpfTemplateMatchingAutoLabelViewModel`, `WpfLearningWorkflowPanelViewModel`, shell UI adapter에만 두었습니다.
+  - Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings and 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --template-guide-ux` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --template-batch-autolabel-storage` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-template-current-image-no-candidate` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab guide --right-workflow-expanded --expand-learning-concepts --focus-template-workflow --width 1920 --height 1080 --output artifacts\ui\wpf-template-draft-label-guidance-after-1920-clean.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab yolo --open-header-tools-menu --width 1920 --height 1080 --output artifacts\ui\wpf-template-draft-header-tools-after-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab guide --right-workflow-expanded --expand-learning-concepts --focus-template-workflow --width 1920 --height 1080 --output artifacts\ui\wpf-template-auto-save-queue-button-after-1920.png` passed.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-guide-tools-template-flow-after-1920.png`
+  - After guide 1920: `artifacts\ui\wpf-template-draft-label-guidance-after-1920-clean.png`
+  - After tools menu 1920: `artifacts\ui\wpf-template-draft-header-tools-after-1920.png`
+  - After image queue 1920: `artifacts\ui\wpf-template-auto-save-queue-button-after-1920.png`
+- 다음 작업: 템플릿과 AI 후보 용어는 분리했습니다. 다음 우선순위는 오른쪽 이미지 큐에서 `AI 후보`, `저장 필요`, `저장됨`, `숨김`이 실제 작업 순서대로 정렬/강조되는지 점검하는 것입니다.
+
+## 2026-07-03 WPF image queue work-needed filter pass
+
+- 점검 결과:
+  - 좌측 작업 패널/우측 이미지 큐 배치는 이미 적용되어 있었고, 반복 작업 대상이 아니었습니다.
+  - 우측 이미지 큐의 빠른 필터는 `전체`, `AI 후보`, `실패`, `저장됨`, `숨김`, `객체없음`이 같은 무게로 보여서 사용자가 먼저 처리할 행을 바로 고르기 어려웠습니다.
+  - 저장된 라벨을 수정해 `저장 필요`가 된 행은 아직 파일 반영이 필요하므로 완료 필터가 아니라 작업 필요 흐름에 남아야 합니다.
+- 수정 내용:
+  - 이미지 큐 빠른 필터 첫 칸에 `작업 필요`를 추가했습니다.
+  - 기존 `Unlabeled` 필터 표시명을 `작업 필요`로 바꿔 라벨링/AI 후보/저장 필요/검사 실패처럼 아직 처리할 행을 모아 보게 했습니다.
+  - 저장 필요 행은 `IsLabeled`가 true여도 완료로 계산하지 않도록 `WpfImageQueueFilterService.IsCompletedQueueItem`을 보정했습니다.
+  - 빠른 필터 영역은 3x2 고정에서 2열 자동 행으로 바꿔 1920/1366 폭에서 `작업 필요`와 완료 상태 필터가 같이 보이도록 했습니다.
+- 구조:
+  - 필터 판정은 기존 `WpfImageQueueFilterService`를 재사용했습니다.
+  - 빠른 필터 문구/활성 상태/명령은 `WpfImageQueuePanelViewModel`에 추가했고, Shell은 기존 `SetImageQueueFilter(WpfImageQueueFilter.Unlabeled)` 경로만 호출합니다.
+  - View code-behind에는 UserControl 내부 컨트롤 접근자만 추가했습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-image-queue-status`, `--wpf-labeling-shell`, `--mvvm-infra` 통과.
+  - `--wpf-responsive-layout --review-tabs objects --width 1920 --height 1080` 통과.
+  - `--wpf-responsive-layout --review-tabs objects --width 1366 --height 768` 통과.
+  - 1920 캡처: `artifacts\ui\wpf-image-queue-work-needed-filter-after-1920.png`.
+  - 1366 캡처: `artifacts\ui\wpf-image-queue-work-needed-filter-after-1366.png`.
+- 다음 작업:
+  - 후보 검토 긴 텍스트 밀림은 이미 `2026-07-03 WPF candidate review text cap pass`에서 완료된 보호 항목이므로 반복하지 않습니다.
+  - 다음 우선순위는 학습/추론/모델 비교 흐름에서 아직 보호 항목으로 묶이지 않은 실제 사용자 혼동 지점을 새로 잡습니다.
+
+## 2026-07-03 WPF image queue AI-candidate test-contract sync
+
+- 점검 결과:
+  - 이미지 큐 UI와 presenter/service 계약은 `AI 후보` 띄어쓰기 기준으로 정리되어 있었지만, ViewModel 단위 테스트 한 곳이 여전히 `AI후보`를 기대했습니다.
+  - 이 상태에서는 이후 회귀 테스트가 실제 UI 용어와 다른 방향으로 고정될 수 있습니다.
+- 수정 내용:
+  - `tests/LabelingApplication.Tests/Program.cs`의 이미지 큐 빠른 필터 ViewModel 기대값을 `AI 후보 2`로 맞췄습니다.
+  - 후보 검토/모델 센터/Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `--wpf-image-queue-status` 통과.
+  - `--wpf-labeling-shell` 통과.
+  - `--mvvm-infra` 통과.
+  - `rg -n "AI\\uD6C4|AI후보|AI 후보" tests\LabelingApplication.Tests\Program.cs "0. UI/9) WPF/ViewModels/WpfImageQueuePanelViewModel.cs" "0. UI/9) WPF/Services/WpfImageQueuePresenter.cs" "0. UI/9) WPF/Models/WpfImageQueueModels.cs"`로 테스트/표시 경로의 `AI 후보` 기준을 확인했습니다.
+- 다음 작업:
+  - 신규 구현은 기존 완료 항목을 반복하지 말고, 모델 런타임/모델 비교/추론 결과 확인 흐름 중 아직 테스트 계약이 약한 지점을 먼저 선정합니다.
+
+## 2026-07-03 WPF dataset-purpose runtime-boundary pass
+
+- 점검 결과:
+  - 객체탐지 외 목적도 첫 화면에서 선택할 수 있지만, 세그멘테이션/이상탐지 설명은 라벨링 도구만 말하고 모델 학습/검사가 별도 실행기 연결 뒤 진행된다는 점은 바로 보이지 않았습니다.
+  - 이 상태에서는 사용자가 목적만 바꾸면 YOLO 객체탐지와 같은 학습/추론 흐름이 즉시 제공된다고 오해할 수 있습니다.
+- 수정 내용:
+  - `WpfLearningWorkflowPanelViewModel`의 세그멘테이션 목적 설명에 `모델 학습/검사는 세그멘테이션 실행기 연결 후 진행` 문구를 추가했습니다.
+  - 이상탐지 목적 설명에도 `모델 학습/검사는 이상탐지 실행기 연결 후 진행` 문구를 추가했습니다.
+  - 교육 모드 상세도 특정 모델명 고정 대신 목적별 실행기 연결을 전제로 설명하도록 바꿨습니다.
+  - 관련 테스트 계약에서 오래된 `U-Net` 고정 기대값과 `AI 후보` 금지 기대값을 제거했습니다.
+- 구조:
+  - 표시 문구는 `WpfLearningWorkflowPanelViewModel`에 유지했고, XAML/code-behind로 판단을 옮기지 않았습니다.
+  - 세그멘테이션/이상탐지 저장, Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-learning-workflow-panel` 통과.
+  - `--mvvm-infra` 통과.
+  - `--wpf-visual-smoke --review-tab guide --right-workflow-expanded --width 1920 --height 1080 --output artifacts\ui\wpf-purpose-runtime-boundary-after-1920.png` 통과.
+  - `git diff --check` 통과. LF/CRLF 경고만 있음.
+- 캡처:
+  - After 1920: `artifacts\ui\wpf-purpose-runtime-boundary-after-1920.png`
+- 다음 작업:
+  - 목적별 안내는 정리됐습니다. 다음 우선순위는 모델 비교/모델 이력 쪽에서 여러 모델을 나중에 추가했을 때 실행기/목적/현재 검사 모델이 한 줄에서 헷갈리지 않는지 점검합니다.
+
+## 2026-07-03 WPF learning-guide readable Korean pass
+
+- 점검 결과:
+  - 가이드/도구 ViewModel 안에 일부 한글 설명 문자열이 깨진 상태로 남아 있었습니다.
+  - 이 영역은 초보 사용자가 데이터셋 목적, 라벨링 도구, 학습/추론 단계를 처음 읽는 위치라 로그보다 우선적으로 깨짐을 막아야 합니다.
+- 수정 내용:
+  - `WpfLearningWorkflowPanelViewModel`의 깨진 과거 literal switch를 제거하고, 데이터셋 목적/학습 모드/단계/도구 설명을 readable resolver로 통합했습니다.
+  - 데이터셋 목적, 학습 모드 설명, 단계 설명, 도구 설명이 항상 읽을 수 있는 한글로 계산되도록 했습니다.
+  - 세그멘테이션/이상탐지는 계속 `모델 학습/검사는 해당 실행기 연결 후 진행` 기준을 유지합니다.
+  - `--wpf-learning-workflow-panel` 테스트에 표시 문자열이 replacement character 또는 Hanja-range mojibake artifact를 포함하지 않는다는 검증을 추가했습니다.
+- 구조:
+  - ViewModel 표시 문자열만 변경했습니다.
+  - XAML/code-behind, Viewer/OpenGL/ROI/brush/eraser 성능 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-learning-workflow-panel` 통과.
+  - `--mvvm-infra` 통과.
+  - `--wpf-visual-smoke --review-tab guide --right-workflow-expanded --width 1920 --height 1080 --output artifacts\ui\wpf-learning-guide-readable-source-clean-after-1920.png` 통과.
+  - `rg -n "硫|紐|寃|異|釉|媛|怨|瑜|瑗|諛|댁|곗씠|숈뒿|멸렇|뺤" "0. UI/9) WPF/ViewModels/WpfLearningWorkflowPanelViewModel.cs"` 결과 없음.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-purpose-runtime-boundary-after-1920.png`
+  - After 1920: `artifacts\ui\wpf-learning-guide-readable-source-clean-after-1920.png`
+- 다음 작업:
+  - 가이드 한글 깨짐과 소스 literal 정리는 완료했습니다. 다음 우선순위는 목적별 실행기 선택 후 학습/검사 버튼이 왜 가능한지 또는 불가능한지 한 패널 안에서 즉시 이해되는지 점검하는 것입니다.
+
+## 2026-07-03 WPF runtime package action status text pass
+
+- 점검 결과:
+  - 모델 실행기 설정에서 Ultralytics 설치/제거 버튼을 누른 직후 표시되는 상태 문구가 깨진 한글로 남아 있었습니다.
+  - 이 지점은 사용자가 YOLOv8/YOLO11 설치 테스트와 제거 테스트를 반복할 때 바로 보는 피드백이므로 로그보다 우선해서 읽을 수 있어야 합니다.
+- 수정 내용:
+  - `WpfYoloModelSettingsPanelViewModel`의 설치 실행 상태 문구를 `Ultralytics 설치를 시작합니다...` 기준으로 정리했습니다.
+  - 제거 실행 상태 문구도 `Ultralytics 제거를 시작합니다...` 기준으로 정리하고, 제거 후 self-test를 다시 확인한다는 흐름을 문구에 포함했습니다.
+  - `--wpf-yolo-model-settings-panel` 테스트에 설치/제거 클릭 직후 상태 문구가 읽을 수 있는 한글이며 replacement/Hanja-range 깨짐 artifact가 없다는 검증을 추가했습니다.
+- 구조:
+  - ViewModel의 사용자 상태 문구와 테스트만 변경했습니다.
+  - 실제 pip 설치/제거 실행, shell adapter, 확인 다이얼로그, Python 실행 서비스, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-yolo-model-settings-panel` 통과.
+  - `--wpf-settings-viewmodels` 통과.
+  - `--mvvm-infra` 통과.
+  - `rg -n "硫|紐|寃|異|釉|媛|怨|瑜|瑗|諛|댁|곗씠|숈뒿|멸렇|뺤|쒓|ㅼ튂|쒖옉|理" "0. UI/9) WPF/ViewModels/WpfYoloModelSettingsPanelViewModel.cs"` 결과 없음.
+  - `--wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output artifacts\ui\wpf-runtime-package-action-status-after-1920.png` 통과.
+- 캡처:
+  - After 1920: `artifacts\ui\wpf-runtime-package-action-status-after-1920.png`
+- 다음 작업:
+  - 설치/제거 직후 상태 문구는 고정했습니다. 다음 우선순위는 목적별 실행기 선택 후 학습/현재 검사 버튼이 왜 활성/비활성인지 같은 패널 안에서 즉시 이해되는지 점검하는 것입니다.
+
+## 2026-07-03 WPF workflow command tooltip readable pass
+
+- 점검 결과:
+  - 현재 검사/선택 이미지 검사/일괄 검사/실패 재시도/일괄 중지 버튼의 command-state 툴팁 일부가 깨진 한글로 남아 있었습니다.
+  - 사용자는 버튼이 비활성화됐을 때 “다른 작업 중인지”, “추론 검토 모드가 아닌지”, “일괄 검사 중에만 가능한지”를 툴팁으로 확인해야 하므로 이 영역은 로그보다 직접적인 안내입니다.
+- 수정 내용:
+  - `WpfWorkflowCommandStateService`의 검사 버튼 활성/비활성 툴팁을 읽을 수 있는 한글로 정리했습니다.
+  - `--wpf-workflow-command-state` 단독 테스트 플래그를 추가했습니다.
+  - command-state 테스트에 활성/비활성/작업 중/일괄 검사 중 상태 툴팁이 읽을 수 있는 한글이며 replacement/Hanja-range 깨짐 artifact가 없다는 검증을 추가했습니다.
+- 구조:
+  - 버튼 활성화 판정은 기존 서비스 계산을 유지했습니다.
+  - Shell fanout/code-behind, 실제 검사 실행, 모델 런타임 판정, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-workflow-command-state` 통과.
+  - `--wpf-labeling-shell` 통과.
+  - `--mvvm-infra` 통과.
+  - `rg -n "硫|紐|寃|異|釉|媛|怨|瑜|瑗|諛|댁|곗씠|숈뒿|멸렇|뺤|쒓|ㅼ튂|쒖옉|理|좏깮|대\?|쒖떆|쇨큵|ㅽ뙣" "0. UI/9) WPF/Services/WpfWorkflowCommandStateService.cs"` 결과 없음.
+  - `--wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output artifacts\ui\wpf-workflow-command-tooltips-after-1920.png` 통과.
+- 캡처:
+  - After 1920: `artifacts\ui\wpf-workflow-command-tooltips-after-1920.png`
+- 다음 작업:
+  - 비활성 버튼 툴팁 문구는 정리했습니다. 다음 우선순위는 실제 런타임 준비 상태 카드와 상단 `현재 검사` 버튼의 비활성 사유가 한 문장으로 같은 원인을 말하는지 점검하는 것입니다.
+
+## 2026-07-03 WPF YOLO runtime status readable pass
+
+- 점검 결과:
+  - `WpfLabelingShellWindow.YoloRuntimeStatus.cs`에 상단/상태바로 직접 전달되는 `추론 준비 완료`, `검사 모델 없음`, `모델 후보`, `검사 모델` 문구 일부가 깨진 상태로 남아 있었습니다.
+  - 사용자가 현재 검사 모델이 있는지 확인하는 위치이므로, 모델 설정 카드와 상단 상태가 같은 용어로 읽혀야 합니다.
+- 수정 내용:
+  - 경로 선택 직후 상태 문구를 `선택됨. 저장을 눌러 설정에 반영하세요.`로 정리했습니다.
+  - 추론 준비 상태를 `추론: 준비 완료`로 정리했습니다.
+  - 검사 모델 미설정/후보/적용 상태 문구를 `검사 모델: 없음`, `모델 후보: ...`, `검사 모델: ...`로 정리했습니다.
+  - shell 구성 테스트에 해당 source가 읽을 수 있는 한글 문구를 포함하고 replacement/Hanja-range 깨짐 artifact가 없다는 검증을 추가했습니다.
+- 구조:
+  - Shell UI adapter의 표시 문자열만 변경했습니다.
+  - 런타임 판정, 검사 실행, 모델 저장/후보 결정, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-labeling-shell` 통과.
+  - `--wpf-inference-status-presentation` 통과.
+  - `--wpf-workflow-command-state` 통과.
+  - `rg -n "硫|紐|寃|異|釉|媛|怨|瑜|瑗|諛|댁|곗씠|숈뒿|멸렇|뺤|쒓|ㅼ튂|쒖옉|理|좏깮|대\?|쒖떆|쇨큵|ㅽ뙣|鍮||꾨즺|놁쓬" "0. UI/9) WPF/Views/WpfLabelingShellWindow.YoloRuntimeStatus.cs"` 결과 없음.
+  - `--wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output artifacts\ui\wpf-yolo-runtime-status-readable-after-1920.png` 통과.
+- 캡처:
+  - After 1920: `artifacts\ui\wpf-yolo-runtime-status-readable-after-1920.png`
+- 다음 작업:
+  - 상단/상태바의 모델 상태 문구는 정리했습니다. 다음 우선순위는 `PythonModelSettingsValidator.Validate`의 영어 오류 메시지가 사용자 화면에 그대로 노출되는 경로를 한국어 요약으로 감싸는 것입니다.
+
+## 2026-07-03 Python model validator Korean error pass
+
+- 점검 결과:
+  - `PythonModelSettingsValidator.Validate`가 모델 실행기 경로/가중치/이미지 폴더/숫자 설정 오류를 영어 문장으로 만들고 있었습니다.
+  - 이 메시지는 런타임 상태 카드, 툴팁, 로그로 이어질 수 있으므로 초보 사용자가 바로 조치할 수 있는 한국어 원인 문구가 필요합니다.
+- 수정 내용:
+  - YOLO 프로젝트 폴더, TCP 클라이언트 스크립트, Python 실행 파일, YOLO 가중치 파일, 이미지 폴더 누락 메시지를 한국어로 정리했습니다.
+  - 신뢰도, 검사 시간 제한, 최대 후보 수, 추론 이미지 크기 범위 오류도 한국어로 정리했습니다.
+  - `--python-model-settings-validator` 단독 테스트 플래그를 추가하고, validator 테스트 기대값을 한국어 원인 문구 기준으로 갱신했습니다.
+- 구조:
+  - 오류 생성 문구만 변경했습니다.
+  - 런타임 상태 판정, 경로 검증 조건, self-test, connection service, 실제 Python/worker 실행 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--python-model-settings-validator` 통과.
+  - `--python-model-runtime-self-test` 통과.
+  - `--python-model-runtime-connection` 통과.
+  - `rg -n "was not found|must be between|confidence|timeout|Maximum detection candidates|Inference image size" "1. Core/PythonModelSettingsValidator.cs"` 결과 없음.
+- 캡처:
+  - 레이아웃 변경 없음. 관련 모델 런타임 패널 1920 캡처는 `artifacts\ui\wpf-yolo-runtime-status-readable-after-1920.png`에서 유지 확인했습니다.
+- 다음 작업:
+  - validator 원문 오류는 한국어화했습니다. 다음 우선순위는 모델 런타임 self-test 항목의 설치 필요/실행 연결/가중치 파일 상태가 beginner-friendly 문구로 모두 이어지는지 점검하는 것입니다.
+
+## 2026-07-03 runtime self-test actionable detail pass
+
+- 점검 결과:
+  - 모델 실행기 self-test 카드는 이미 보였지만, 누락 상태의 detail이 `경로 미설정` 또는 원본 경로 중심이라 초보 사용자가 다음 행동을 바로 알기 어려웠습니다.
+  - 특히 검사 모델 누락과 Ultralytics 패키지 누락은 버튼/작업 흐름으로 이어져야 합니다.
+- 수정 내용:
+  - 누락된 프로젝트/모델 루트/이미지 폴더 detail에 `경로를 다시 선택`, `YOLO 프로젝트 폴더 연결`, `검사할 이미지 폴더 선택` 같은 다음 행동을 붙였습니다.
+  - 누락된 실행 스크립트와 검사 모델 파일 detail에 `worker 스크립트 연결`, `학습 완료 후 검사 모델로 저장하거나 .pt 파일 선택` 안내를 추가했습니다.
+  - Ultralytics 패키지 누락 detail에 `설치 실행 버튼으로 설치한 뒤 다시 점검` 안내를 추가했습니다.
+  - self-test 테스트에 missing weights와 missing Ultralytics detail이 해당 행동 문구를 포함하고, self-test report 전체에 깨짐 artifact가 없다는 검증을 추가했습니다.
+- 구조:
+  - 경로/파일 존재 판정은 그대로 유지했습니다.
+  - 외부 설치, Python 실행, worker 실행, shell adapter, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--python-model-runtime-self-test` 통과.
+  - `--python-model-runtime-connection` 통과.
+  - `--wpf-yolo-model-settings-panel` 통과.
+  - `--wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080 --output artifacts\ui\wpf-runtime-selftest-actionable-detail-after-1920.png` 통과.
+- 캡처:
+  - After 1920: `artifacts\ui\wpf-runtime-selftest-actionable-detail-after-1920.png`
+- 다음 작업:
+  - self-test 누락 detail은 action-oriented로 정리했습니다. 다음 우선순위는 설치/연결 결과 카드와 self-test 카드의 용어가 같은지 점검하는 것입니다.
+
+## 2026-07-03 YOLO requirements install status readable pass
+
+- 점검 결과:
+  - legacy 요구 패키지 설치 경로의 상태 문구 중 `설치 건너뜀`, `설치 실패`가 깨진 한글로 남아 있었습니다.
+  - 이 경로는 최신 Ultralytics 설치 카드와 별개지만, 사용자가 모델 실행 환경 설치를 눌렀을 때 바로 보이는 상태이므로 읽을 수 있어야 합니다.
+- 수정 내용:
+  - `ExecuteInstallRequirementsCommand`의 오류/실패 상태를 `설치 건너뜀: ...`, `설치 실패: ...`로 정리했습니다.
+  - `--wpf-yolo-model-settings-panel` 테스트에서 해당 source가 readable status 문구를 포함하고 깨짐 artifact가 없다는 계약을 추가했습니다.
+- 구조:
+  - 설치 조건, requirements check, 실제 install 호출, Python 실행 경로는 변경하지 않았습니다.
+  - Shell UI adapter의 표시 문자열과 테스트만 변경했습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-yolo-model-settings-panel` 통과.
+  - `--wpf-labeling-shell` 통과.
+  - `--mvvm-infra` 통과.
+  - `rg -n "硫|紐|寃|異|釉|媛|怨|瑜|瑗|諛|댁|곗씠|숈뒿|멸렇|뺤|쒓|ㅼ튂|쒖옉|理|좏깮|대\?|쒖떆|쇨큵|ㅽ뙣|鍮|꾨즺|놁쓬|먮룞|붾줎|곸슜" "0. UI/9) WPF/Views/WpfLabelingShellWindow.YoloEnvironmentRuntimeCommands.cs"` 결과 없음.
+- 캡처:
+  - 상태 문구 정리이며 레이아웃 변경 없음. 관련 모델 런타임 패널 1920 캡처는 `artifacts\ui\wpf-runtime-selftest-actionable-detail-after-1920.png`에서 유지 확인했습니다.
+- 다음 작업:
+  - 설치 상태 문구는 정리했습니다. 다음 우선순위는 설치/제거 최근 결과 카드의 `ExitCode`, stdout/stderr 같은 개발자 용어를 사용자용 요약과 상세로 분리할지 점검하는 것입니다.
+
+## 2026-07-03 Ultralytics package result detail readable pass
+
+- 점검 결과:
+  - Ultralytics 설치/제거 최근 결과 detail이 `ExitCode:` 같은 raw 개발자 라벨을 그대로 보여주고 있었습니다.
+  - 실패 원인 확인에는 종료 코드와 명령이 필요하지만, 첫 줄은 사용자가 바로 읽는 결과 요약이어야 합니다.
+- 수정 내용:
+  - `BuildUltralyticsPackageOperationDetail`의 첫 줄을 `결과: ...`로 바꿨습니다.
+  - `ExitCode:` 라벨을 `종료 코드:`로 바꾸고, 출력 요약은 `로그 요약:`으로 표시하도록 정리했습니다.
+  - 관련 테스트에서 recent result detail이 `결과`, `종료 코드`, `로그 요약`을 포함하고 raw `ExitCode:`를 노출하지 않는지 검증합니다.
+- 구조:
+  - 패키지 설치/제거 실행, 확인 dialog, stdout/stderr 수집, shell adapter 흐름은 변경하지 않았습니다.
+  - 결과 detail 포맷과 테스트만 변경했습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-yolo-model-settings-panel` 통과.
+  - `--wpf-labeling-shell` 통과.
+  - `--mvvm-infra` 통과.
+  - `rg -n "ExitCode:|결과:|종료 코드|로그 요약" "0. UI/9) WPF/Views/WpfLabelingShellWindow.YoloEnvironmentRuntimeCommands.cs" tests\LabelingApplication.Tests\Program.cs`에서 source에는 raw `ExitCode:` 없음.
+- 캡처:
+  - 상태 detail 포맷 변경이며 레이아웃 변경 없음. 관련 모델 런타임 패널 1920 캡처는 `artifacts\ui\wpf-runtime-selftest-actionable-detail-after-1920.png`에서 유지 확인했습니다.
+- 다음 작업:
+  - 최근 결과 detail 포맷은 정리했습니다. 다음 우선순위는 `PythonEnvironmentService`의 requirements check/install 결과 Summary가 영어로 남아 UI에 흘러나오는지 점검하는 것입니다.
+
+## 2026-07-03 Python environment summary Korean pass
+
+- 점검 결과:
+  - `PythonEnvironmentService`의 requirements 점검/설치 결과 Summary가 `Missing Python packages`, `Python environment is ready`, `Python requirements installed successfully` 같은 영어 문구를 그대로 반환하고 있었습니다.
+  - 이 Summary는 YOLO/model settings 패널의 설치 상태, 최근 실행 결과, 로그 요약으로 이어지므로 초보 사용자가 실패 원인과 완료 여부를 바로 읽을 수 있어야 합니다.
+- 수정 내용:
+  - 누락 패키지, 준비 완료, requirements 설치 완료, requirements.txt 누락, pip 목록 확인 실패, 패키지 목록 비어 있음, 패키지 이름 오류, Python 프로세스 시작 실패, 명령 시간 초과 문구를 한국어로 정리했습니다.
+  - `--python-environment-summaries` 단독 테스트 플래그를 추가했습니다.
+  - Summary 객체와 source 문자열을 함께 검증해 이전 영어 고정 문구와 깨짐 artifact가 다시 들어오지 않도록 했습니다.
+- 구조:
+  - requirements 파싱, pip 실행, install/uninstall 실행 조건은 변경하지 않았습니다.
+  - package execution은 계속 `PythonEnvironmentService`가 담당하고, WPF shell/view는 해당 Summary를 표시하는 adapter 역할만 유지합니다.
+  - Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--python-environment-summaries` 통과.
+  - `--wpf-yolo-model-settings-panel` 통과.
+  - `--python-model-runtime-self-test` 통과.
+  - `rg -n "Missing Python packages|Python environment is ready|Python requirements installed successfully|No package names were found|Could not inspect installed Python packages|Python package list was empty|requirements.txt was not found|Invalid Python package name|Python process did not start|Python command timed out|Python environment command failed" "1. Core/PythonEnvironmentService.cs" tests\LabelingApplication.Tests\Program.cs`에서 source에는 이전 영어 고정 문구 없음.
+- 캡처:
+  - 레이아웃 변경 없음. 관련 모델 런타임 패널 1920 캡처는 `artifacts\ui\wpf-runtime-selftest-actionable-detail-after-1920.png`에서 유지 확인했습니다.
+- 다음 작업:
+  - Python environment Summary는 한국어화했습니다. 다음 우선순위는 모델 런타임 패널/모델 센터에서 runtime-family별 지원 범위(학습 가능, 현재 검사 가능, 설치 필요)가 같은 용어로 표시되는지 점검하는 것입니다.
+
+## 2026-07-03 runtime command failure Korean pass
+
+- 점검 결과:
+  - 검사/학습 명령이 전송되지 않을 때 Core 서비스가 `DetectImage was not sent...`, `StartTraining was not sent...`, `YOLO detection timed out...` 같은 영어 실패 문구를 `LastError`와 로그로 남기고 있었습니다.
+  - 사용자가 실제 실행 중 실패 원인을 확인하는 경로이므로 로그나 상태 요약에 영어 내부 문장이 그대로 남으면 문제 해결 흐름이 끊깁니다.
+- 수정 내용:
+  - 현재 검사 요청 미전송, 검사 이미지 누락, 이미지 크기 없음, 검사 통신/결과 서비스 미초기화, 검사 시간 초과, AI 후보 건너뛰기 실패/완료 문구를 한국어로 정리했습니다.
+  - 학습 시작/중지 명령 미전송, 학습 통신 미초기화, 학습 준비 점검 실패 문구를 한국어로 정리했습니다.
+  - `--runtime-command-failure-messages` 단독 테스트 플래그를 추가하고, 이전 영어 고정 문구가 Core source에 남지 않는지와 `LastError`가 한국어 원인을 포함하는지 검증했습니다.
+- 구조:
+  - TCP packet, worker 호출, 학습/검사 실행 조건, 후보 overlay 처리, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+  - Core workflow/service의 실패 메시지만 변경했습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--runtime-command-failure-messages` 통과.
+  - `--python-model-status-protocol` 통과.
+  - `--wpf-workflow-command-state` 통과.
+  - `rg -n "YOLO detection communication is not initialized|YOLO detection result service is not initialized|YOLO detection data is not initialized|StartDefect skipped|DetectImage skipped|DetectImage was not sent|Selected detection candidate cannot|YOLO detection timed out after|YOLO training communication is not initialized|StartTraining was not sent|StopTraining was not sent|YOLO training validation failed" "1. Core/DetectionResultApplicationService.cs" "1. Core/YoloDetectionWorkflowService.cs" "1. Core/YoloTrainingWorkflowService.cs" tests\LabelingApplication.Tests\Program.cs`에서 Core source에는 이전 영어 문구 없음.
+- 캡처:
+  - 레이아웃 변경 없음. 관련 검사/학습 버튼 상태 1920 캡처는 `artifacts\ui\wpf-workflow-command-tooltips-after-1920.png`에서 유지 확인했습니다.
+- 다음 작업:
+  - 명령 실패 원인 문구는 한국어화했습니다. 다음 우선순위는 실제 작업 중인 상태에서 로그 하단까지 보지 않아도 상단/패널 상태로 실패 원인을 확인할 수 있는지, 특히 current inspection failure card 쪽을 점검하는 것입니다.
+
+## 2026-07-03 current inspection failure summary pass
+
+- 점검 결과:
+  - Core 실패 원인이 `YoloWorkerSmokeTestResult.Summary`로 올라와도, 단일 현재 검사 UI는 실패 시 `추론 실패: 경과시간`과 `실패: 경과시간`만 보여 원인을 상단 상태에서 확인하기 어려웠습니다.
+  - 1920 화면에서도 상단 추론 상태 칩이 250px 고정 폭이었고, 숨겨진 progress column이 계속 60px를 차지해 긴 실패 원인이 더 빨리 잘렸습니다.
+- 수정 내용:
+  - `RunInteractiveDetectionAsync` 실패 상태가 `BuildInteractiveDetectionFailureSummary(result)`를 통해 `Summary/Error/Errors`의 첫 원인을 명령 상태, 상단 추론 상태, 로그에 같이 표시하도록 했습니다.
+  - 긴 실패 원인은 상단 상태 칩에서 80자 기준으로 줄이고 tooltip에는 기존 `SetGlobalInferenceStatus` detail을 유지합니다.
+  - 상단 inference status column을 250px에서 360px로 늘리고, progress column은 `Auto`로 바꿔 숨김 상태에서 텍스트 공간을 차지하지 않게 했습니다.
+  - visual smoke에 `--show-failed-inference-status` 옵션을 추가해 실패 상태 캡처를 만들 수 있게 했습니다.
+- 구조:
+  - 실제 추론 실행, worker 연결, TCP packet, 후보 overlay, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+  - WPF shell의 상태 표시와 테스트/visual-smoke fixture만 변경했습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-single-detection-path` 통과.
+  - `--runtime-command-failure-messages` 통과.
+  - `--wpf-labeling-shell` 통과.
+  - `--wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --show-failed-inference-status --width 1920 --height 1080 --output artifacts\ui\wpf-current-inspection-failure-summary-after-1920.png` 통과.
+- 캡처:
+  - After 1920: `artifacts\ui\wpf-current-inspection-failure-summary-after-1920.png`
+- 다음 작업:
+  - 현재 검사 실패 원인은 상단 상태와 로그에 함께 표시됩니다. 다음 우선순위는 일괄 검사 실패에서도 같은 원인 요약이 이미지 큐 행/상단 상태/결과 카드에 같은 용어로 표시되는지 확인하는 것입니다.
+
+## 2026-07-03 batch inspection failure summary pass
+
+- 점검 결과:
+  - 일괄 검사는 실패 command/log에는 원인 요약을 갖고 있었지만, 상단 추론 상태는 `일괄 실패: N/M`만 보여 원인을 바로 확인하기 어려웠습니다.
+  - 실제 사용자는 하단 로그를 열지 않고도 왜 일괄 검사가 멈췄는지 알아야 하므로 상단 상태에도 같은 실패 원인이 필요합니다.
+- 수정 내용:
+  - `WpfBatchDetectionProgressService.BuildFailureInferenceStatus`가 실패 원인 요약을 받아 상단 상태에 같이 표시하도록 변경했습니다.
+  - 상단 상태가 너무 길어지지 않도록 실패 원인은 80자 기준으로 줄입니다.
+  - 일괄 검사 실패 상태 focused 테스트 인자 `--wpf-batch-detection-progress`를 추가했습니다.
+  - visual smoke에 `--show-batch-failed-inference-status`를 추가해 1920x1080 상태 표시를 캡처할 수 있게 했습니다.
+- 구조:
+  - 실제 일괄 검사 실행, worker 연결, TCP packet, 후보 overlay, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+  - 상태 표시 서비스, shell adapter 호출부, 테스트 fixture만 변경했습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-batch-detection-progress` 통과.
+  - `--wpf-single-detection-path` 통과.
+  - `--wpf-labeling-shell` 통과.
+  - `--wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --show-batch-failed-inference-status --width 1920 --height 1080 --output artifacts\ui\wpf-batch-inspection-failure-summary-after-1920.png` 통과.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-batch-inspection-failure-summary-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-batch-inspection-failure-summary-after-1920.png`
+- 다음 작업:
+  - 일괄 실패 상단 상태는 실패 원인을 표시합니다. 다음 우선순위는 일괄 검사 중 개별 이미지 행/결과 카드의 실패 사유가 같은 용어와 tooltip으로 이어지는지 점검하는 것입니다.
+
+## 2026-07-03 batch failure result detail pass
+
+- 점검 결과:
+  - 일괄 검사 실패가 개별 이미지에 남을 때 이미지 큐 detail/tooltip은 `Detection request failed.` 같은 원문 영어를 그대로 표시할 수 있었습니다.
+  - 캔버스 실패 결과 카드도 worker summary를 그대로 selected text에 넣어, 이미 상단 상태에서 정리한 `요청 실패` 같은 사용자용 용어와 맞지 않았습니다.
+- 수정 내용:
+  - `WpfImageQueuePresenter.BuildDetailText`가 `LastDetectionMessage`를 그대로 붙이지 않고 `TranslateDetectionMessage`를 거쳐 표시하도록 변경했습니다.
+  - `WpfDetectionResultPresentationService.BuildFailureOverlay`가 실패 카드 제목을 `검사 실패`로 맞추고, selected/detail에 `결과: ...`, `실패 원인: ...` 형태로 사용자용 실패 이유를 표시하도록 변경했습니다.
+  - `--wpf-batch-detection-result` focused 테스트 인자를 추가했습니다.
+- 구조:
+  - 실제 일괄 검사 실행, review status 저장, 후보 overlay 생성, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+  - 실패 메시지 표시 서비스와 테스트 fixture만 변경했습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-batch-detection-result` 통과.
+  - `--wpf-detection-result-presentation` 통과.
+  - `--wpf-image-queue-status` 통과.
+- 캡처:
+  - `artifacts\ui\wpf-batch-failure-result-card-after-1920.png` 생성은 성공했지만, 현재 visual-smoke fixture에서는 실패 결과 카드가 육안으로 드러나지 않아 이번 항목의 주 검증 근거로 쓰지 않았습니다.
+- 다음 작업:
+  - 개별 실패 결과의 용어는 정리했습니다. 다음 우선순위는 실패 결과 카드가 visual-smoke/실제 화면에서 명확히 드러나도록 overlay 표시 조건과 카드 위치 fixture를 점검하는 것입니다.
+
+## 2026-07-03 canvas result card visibility pass
+
+- 점검 결과:
+  - 캔버스 결과 카드는 WPF `DetectionResultOverlay`로 `WindowsFormsHost` 기반 OpenGL 캔버스 위에 떠 있도록 배치되어 있었습니다.
+  - WPF/WinForms airspace 제약 때문에 ViewModel 값은 `Visible`이어도 실제 EXE/캡처에서는 카드가 OpenGL 영역 뒤로 가려질 수 있었습니다.
+  - 실패 결과 카드에는 후보 이동/확정/스킵 버튼도 같이 보여, 실패 상태에서 할 수 없는 동작처럼 보이는 문제가 있었습니다.
+- 수정 내용:
+  - `WpfCanvasPanel.xaml`에서 결과 카드를 OpenGL 캔버스와 같은 row에 띄우지 않고, 캔버스 바로 위 별도 `Auto` row로 이동했습니다.
+  - `WpfCanvasPanelViewModel.DetectionOverlayActionsVisibility`를 추가해 `Confirmable/Duplicate` 후보 카드에서만 action 버튼을 보이고, `Review` 상태인 실패/객체없음 결과 카드에서는 숨기도록 했습니다.
+  - XAML의 legacy mojibake 제목 텍스트가 ViewModel title을 가리지 않도록 `WpfCanvasPanel.xaml.cs`에서 `DetectionOverlayTitleText` 바인딩을 UI adapter로 연결했습니다.
+- 구조:
+  - Viewer/OpenGL/ROI/brush/eraser 렌더링 경로는 변경하지 않았습니다.
+  - 결과 카드의 배치와 ViewModel 표시 상태만 변경했습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-canvas-detection-overlay` 통과.
+  - `--wpf-batch-detection-result` 통과.
+  - `--wpf-detection-display-mode` 통과.
+  - `--wpf-labeling-shell` 통과.
+  - `--wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --show-batch-failure-result-card --width 1920 --height 1080 --output artifacts\ui\wpf-batch-failure-result-card-after-1920.png` 통과.
+- 캡처:
+  - Before 1920: `artifacts\ui\wpf-batch-failure-result-card-before-1920.png`
+  - After 1920: `artifacts\ui\wpf-batch-failure-result-card-after-1920.png`
+- 다음 작업:
+  - 실패 결과 카드는 실제 화면에서 보이게 됐습니다. 다음 우선순위는 같은 결과 카드가 1366x768 같은 좁은 장비 화면에서도 캔버스 공간을 과도하게 밀지 않는지 확인하는 것입니다.
+
+## 2026-07-03 canvas result card 1366 layout verification
+
+- 점검 결과:
+  - 1366x768 화면에서 일괄 검사 실패 결과 카드가 캔버스 상단의 별도 행에 보이고, OpenGL 캔버스 뒤로 가려지지 않았습니다.
+  - 실패 카드의 action 버튼은 숨겨져 있어 실패 상태에서 `후보 이동/확정/스킵` 같은 불가능한 동작으로 오해할 여지가 없었습니다.
+  - 좌측 학습/모델 패널, 중앙 캔버스, 우측 이미지 큐가 모두 화면 안에 들어왔고, 이미지 큐 상단 컨트롤도 잘리지 않았습니다.
+- 수정 내용:
+  - 이번 항목은 직전 결과 카드 위치 수정의 1366x768 검증 pass입니다. 추가 코드 변경은 하지 않았습니다.
+- 구조:
+  - Viewer/OpenGL/ROI/brush/eraser 렌더링 경로는 변경하지 않았습니다.
+- 검증:
+  - `--wpf-responsive-layout --width 1366 --height 768` 통과.
+  - `--wpf-canvas-detection-overlay` 통과.
+  - `--wpf-batch-detection-result` 통과.
+  - `--wpf-labeling-shell` 통과.
+  - `--wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --show-batch-failure-result-card --width 1366 --height 768 --output artifacts\ui\wpf-batch-failure-result-card-after-1366.png` 통과.
+- 캡처:
+  - 1366 검증: `artifacts\ui\wpf-batch-failure-result-card-after-1366.png`
+- 다음 작업:
+  - 결과 카드 1920/1366 표시 문제는 검증 완료로 보고, 다음 우선순위는 학습/모델 센터에서 YOLOv5 현재 검사와 Ultralytics 계열 미지원 상태가 같은 용어로 표시되는지 이어서 점검합니다.
+
+## 2026-07-03 inspection model runtime chip pass
+
+- 점검 결과:
+  - 1366x768 화면에서 상단 추론 상태와 전용 검사 모델 칩은 모델 파일명만 보여 `best.pt`가 YOLOv5인지 YOLO11인지 즉시 알기 어려웠습니다.
+  - 좌측 학습/모델 패널을 열면 런타임이 보이지만, 실제 작업 중에는 상단 상태만 보고 현재 검사 모델을 판단하는 경우가 많습니다.
+- 수정 내용:
+  - `WpfInferenceStatusPresentationService`가 검사 모델/후보 표시 문자열에 런타임 패밀리(`YOLOv5`, `YOLOv8`, `YOLO11`, `ONNX`)를 같이 넣도록 변경했습니다.
+  - 상단 전용 검사 모델 칩도 같은 presentation service 값을 사용하도록 변경해 `검사 모델: YOLOv5 / best.pt` 형태로 보이게 했습니다.
+  - tooltip에는 추론 상태, 런타임, 전체 모델 파일 경로를 같이 표시합니다.
+- 구조:
+  - 런타임/모델 표시 규칙은 service에 두고, WPF shell은 ViewModel에 전달하는 UI adapter 역할만 유지했습니다.
+  - 실제 추론 실행, worker 연결, TCP packet, 후보 overlay, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-inference-status-presentation` 통과.
+  - `--wpf-labeling-shell` 통과.
+  - `--wpf-status-panels` 통과.
+  - `--wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --width 1366 --height 768 --output artifacts\ui\wpf-inspection-model-runtime-chip-after-1366.png` 통과.
+- 캡처:
+  - After 1366: `artifacts\ui\wpf-inspection-model-runtime-chip-after-1366.png`
+- 다음 작업:
+  - 상단 검사 모델 표시에는 런타임명이 붙었습니다. 다음 우선순위는 YOLOv8/YOLO11 선택 상태에서 실행 차단 사유가 상단/모델 센터/설정 패널에서 같은 단어로 이어지는지 점검하는 것입니다.
+
+## 2026-07-03 YOLO11 runtime state audit
+
+- 점검 결과:
+  - `--ultralytics-runtime-ready` 1366x768 캡처에서 상단 추론 상태와 전용 검사 모델 칩이 `YOLO11 / yolo11n.pt`를 표시했습니다.
+  - 좌측 학습/모델 패널의 현재 검사 모델 프로필도 `YOLO11 Ultralytics / adapter-yolov11 / 현재 검사 가능 / 학습 미지원`을 보여, 사용자가 현재 검사는 가능하고 학습은 아직 미지원임을 같은 화면에서 확인할 수 있었습니다.
+- 수정 내용:
+  - 이번 항목은 방금 추가한 런타임명 표시 개선의 YOLO11 상태 검증입니다. 추가 코드 변경은 하지 않았습니다.
+- 검증:
+  - `--wpf-visual-smoke --review-tab yolo-model --right-workflow-expanded --ultralytics-runtime-ready --width 1366 --height 768 --output artifacts\ui\wpf-ultralytics-execution-guard-audit-1366.png` 통과.
+- 캡처:
+  - 1366 audit: `artifacts\ui\wpf-ultralytics-execution-guard-audit-1366.png`
+- 다음 작업:
+  - YOLO11 현재 검사 가능/학습 미지원 상태의 첫 화면 표시는 현재 기준으로 충분합니다. 다음 우선순위는 실제 `현재 검사` 버튼 실행 결과가 YOLO11 adapter key와 결과 로그/후보 표시까지 일관되게 이어지는지 확인하는 것입니다.
+
+## 2026-07-03 DetectImage adapter-key regression pass
+
+- 점검 결과:
+  - `LearningProtocol.BuildDetectImagePacket`은 이미 `model` 필드를 지원하고 있었고, `DetectionResultApplicationService`도 `PythonModelSettings.GetProtocolModelName()` 값을 `SendDetectImage(..., model)`로 넘기고 있었습니다.
+  - 기존 TCP round-trip 테스트는 현재 이미지 bitmap fallback인 `StartDefect` 경로를 검증하고 있어, 파일 경로 기반 `DetectImage` JSON 요청의 adapter key는 직접 보호하지 못했습니다.
+- 수정 내용:
+  - `--yolo-detection-workflow-validation` focused 테스트 플래그를 추가했습니다.
+  - 같은 테스트 안에서 mock TCP client가 `DetectImage` JSON line을 읽고 `"model":"yolo11"`이 실제 요청에 포함되는지 검증하도록 했습니다.
+- 구조:
+  - 실제 프로토콜 생성, TCP 전송, worker 실행, 후보 overlay, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+  - 테스트가 WPF guard와 Core packet 경계를 명확히 나눕니다. WPF는 실행 가능 여부를 막고, Core packet은 선택된 protocol model key를 잃지 않아야 합니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--yolo-detection-workflow-validation` 통과.
+  - `--python-model-runtime-self-test` 통과.
+  - `--wpf-yolo-model-settings-panel` 통과.
+  - `--wpf-inference-status-presentation` 통과.
+  - `--wpf-labeling-shell` 통과.
+- 캡처:
+  - UI 변경 없음. 직전 검증 캡처 `artifacts\ui\wpf-inspection-model-runtime-chip-after-1366.png`와 `artifacts\ui\wpf-ultralytics-execution-guard-audit-1366.png`의 표시 흐름을 코드 테스트로 보강했습니다.
+- 다음 작업:
+  - 현재 검사 요청의 adapter key는 보호됐습니다. 다음 우선순위는 실제 결과 로그/후보 리스트에 `YOLOv5/YOLO11` 같은 실행 모델 출처가 남는지 점검하는 것입니다.
+
+## 2026-07-03 detection result model-source summary pass
+
+- 점검 결과:
+  - `DetectImage` 요청에는 선택된 adapter key가 들어가지만, 성공 결과 요약은 `추론 완료. 후보:N` 형태라 로그/결과만 나중에 보면 어떤 런타임/모델 파일 결과인지 알기 어려웠습니다.
+  - 여러 모델을 비교하는 프로그램 방향에서는 검사 결과 요약과 로그에도 `YOLOv5 / best.pt`, `YOLO11 / yolo11n.pt` 같은 실행 모델 출처가 남아야 합니다.
+- 수정 내용:
+  - `WpfInferenceStatusPresentationService.BuildRuntimeModelLabel`을 추가해 현재 런타임 패밀리와 모델 파일명을 `YOLOv5 / exp7\best.pt`, `YOLO11 / yolo11n.pt` 형태로 재사용할 수 있게 했습니다.
+  - `RunWorkerDetectionForImageAsync`가 추론 시작 로그, 성공 `YoloWorkerSmokeTestResult.Summary`, 완료 Python status, 추론 시간 로그에 같은 모델 출처를 포함하도록 했습니다.
+- 구조:
+  - 모델 출처 표시 문자열은 service에서 만들고, WPF shell은 실행 흐름에서 그 값을 붙이는 adapter 역할만 유지했습니다.
+  - 실제 detection request, TCP packet, worker 실행, 후보 overlay, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-single-detection-path` 통과.
+  - `--wpf-inference-status-presentation` 통과.
+  - `--yolo-detection-workflow-validation` 통과.
+  - `--wpf-labeling-shell` 통과.
+  - `--wpf-responsive-layout --width 1366 --height 768` 통과.
+- 캡처:
+  - UI 배치 변경 없음. 상태 칩 시각 기준은 `artifacts\ui\wpf-inspection-model-runtime-chip-after-1366.png` 유지.
+- 다음 작업:
+  - 요청 adapter key와 결과 요약 모델 출처는 보호됐습니다. 다음 우선순위는 일괄 검사 완료/실패 행의 모델 출처 표시도 같은 기준으로 맞출지 점검하는 것입니다.
+
+## 2026-07-03 batch detection model-source log pass
+
+- 점검 결과:
+  - 단일/현재 검사 결과 summary에는 모델 출처가 들어가도록 보강했지만, 일괄 검사 시작/항목 완료/항목 실패/전체 완료 로그는 여전히 범위, 개수, 후보 수, 시간만 표시했습니다.
+  - 여러 모델을 번갈아 일괄 검사하면 하단 로그만 보고 어떤 모델 결과인지 구분하기 어렵습니다.
+- 수정 내용:
+  - `WpfBatchDetectionProgressService`의 시작/항목 완료/항목 실패/전체 완료 로그 생성 메서드가 선택적으로 `modelSourceText`를 받아 `모델:YOLOv5 / best.pt` 형태를 붙이도록 했습니다.
+  - `RunBatchDetectionAsync`가 `WpfInferenceStatusPresentationService.BuildRuntimeModelLabel`로 같은 모델 출처 라벨을 만들고 batch progress service에 전달하도록 했습니다.
+- 구조:
+  - 일괄 로그 문구는 service에 유지했고, shell은 현재 설정에서 모델 라벨을 한 번 구해 전달하는 adapter 역할만 합니다.
+  - 실제 batch detection 실행, TCP packet, worker 실행, queue status 저장, 후보 overlay, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-batch-detection-progress` 통과.
+  - `--wpf-single-detection-path` 통과.
+  - `--wpf-inference-status-presentation` 통과.
+  - `--yolo-detection-workflow-validation` 통과.
+  - `--wpf-labeling-shell` 통과.
+  - `--wpf-responsive-layout --width 1366 --height 768` 통과.
+- 캡처:
+  - UI 배치 변경 없음. 로그 문구/테스트 계약만 변경했습니다.
+- 다음 작업:
+  - 검사 요청, 단일 결과, 일괄 로그의 모델 출처는 같은 기준으로 맞췄습니다. 다음 우선순위는 모델 비교/후보 검토 화면에서 이 출처가 사용자에게 충분히 이어지는지 점검하는 것입니다.
+
+## 2026-07-03 candidate review model-comparison source pass
+
+- 점검 결과:
+  - 검사 요청, 단일 검사 결과, 일괄 검사 로그에는 모델 출처가 남지만, Candidate Review의 `학습 모델 검증` 카드는 모델 차이 예시와 다음 행동만 보여서 어떤 현재 검사 모델과 어떤 학습 후보를 비교했는지 바로 확인하기 어려웠습니다.
+  - 모델을 여러 개 비교하는 제품 방향에서는 후보 검증 카드 안에서 `현재 검사 모델 -> 학습 후보` 흐름이 직접 보여야 합니다.
+- 수정 내용:
+  - `WpfInferenceStatusPresentationService.BuildModelComparisonSourceText`를 추가해 런타임 패밀리와 현재/후보 모델 파일을 한 줄 비교 대상으로 표시하도록 했습니다.
+  - `WpfCandidateReviewPanelViewModel.ModelComparisonSourceText`와 `SetModelComparisonSourceText`를 추가하고, `WpfCandidateReviewPanel.xaml`의 `ModelComparisonReviewPanel` 제목 바로 아래에 바인딩했습니다.
+  - `UpdateCandidateModelComparisonReviewPanel`이 `WpfTrainingWeightsComparison`의 current/latest weights를 service에 넘겨 Candidate Review ViewModel에 반영하도록 했습니다.
+- 구조:
+  - 비교 대상 문구 생성은 service가 담당하고, ViewModel은 상태를 보관하며, shell은 현재 비교 경로를 전달하는 adapter 역할만 합니다.
+  - 모델 비교 실행, worker/TCP 추론 요청, 후보 overlay, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-candidate-review-panel` 통과.
+  - `--wpf-inference-status-presentation` 통과.
+  - `--wpf-labeling-shell` 통과.
+  - `--wpf-responsive-layout --width 1920 --height 1080` 통과.
+  - `--wpf-visual-smoke --review-tab candidates --width 1920 --height 1080` 통과.
+- 캡처:
+  - 이전: `artifacts\ui\wpf-candidate-review-compact-after-1920.png`
+  - 이후: `artifacts\ui\wpf-candidate-model-source-after-1920.png`
+- 다음 작업:
+  - 후보 검증 카드의 모델 출처는 보강됐습니다. 다음 우선순위는 모델 채택/거절 이후 이력 목록과 상단 검사 모델 배지가 같은 모델 파일을 가리키는지 end-to-end로 확인하는 것입니다.
+
+## 2026-07-03 model adoption consistency recheck
+
+- 점검 결과:
+  - 후보 모델을 검사 모델로 저장한 뒤 상단 검사 모델 배지, 학습/모델 센터의 현재 검사 모델 카드, 모델 레지스트리 이력은 같은 `exp\best.pt`를 가리키는지 기존 스모크로 재검증했습니다.
+  - 이 영역은 이미 model-center confirm-save 계약으로 보호되어 있어, 이번 패스에서는 코드 수정 없이 재검증만 수행했습니다.
+- 검증:
+  - `--wpf-yolo-training-session-smoke --model-center --confirm-model-save --width 1920 --height 1080` 통과.
+- 캡처:
+  - `artifacts\ui\wpf-model-adoption-consistency-verified-1920.png`
+- 다음 작업:
+  - 저장/채택 흐름은 재검증됐습니다. 다음 우선순위는 거절 흐름도 같은 수준으로 상단 상태/모델 센터/후보 검증 카드가 일관되게 유지되는지 확인하는 것입니다.
+
+## 2026-07-03 model rejection consistency smoke
+
+- 점검 결과:
+  - 기존 스모크는 후보 저장/채택 후 상태 일관성은 확인했지만, 후보 거절 후 기준 검사 모델로 되돌아가는 UI 흐름은 같은 수준으로 직접 확인하지 않았습니다.
+- 수정 내용:
+  - `--wpf-yolo-training-session-smoke`에 `--reject-model-candidate` 옵션을 추가했습니다.
+  - 학습 후보가 생성된 뒤 후보 거절 커맨드를 실행하고, 상단 검사 모델 배지와 모델 센터 현재 검사 모델이 기준 `old.pt`로 돌아오며 후보 결정 카드가 `거절` 상태를 표시하는지 검증합니다.
+- 구조:
+  - 테스트 옵션만 추가했습니다. 실제 후보 거절 로직, recipe 저장, 모델 레지스트리 기록, detection/Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `--wpf-yolo-training-session-smoke --model-center --reject-model-candidate --width 1920 --height 1080 --output artifacts\ui\wpf-model-reject-consistency-after-1920.png` 통과.
+- 캡처:
+  - `artifacts\ui\wpf-model-reject-consistency-after-1920.png`
+- 다음 작업:
+  - 후보 저장과 거절의 모델 상태 일관성은 스모크로 보호됐습니다. 다음 우선순위는 모델센터/YOLO 설정/후보 검증 카드에서 사용자가 같은 행동 버튼을 중복으로 보지 않도록 버튼 우선순위를 더 정리하는 것입니다.
+
+## 2026-07-03 model-center duplicate top action cleanup
+
+- 점검 결과:
+  - 학습/모델 센터가 오른쪽 작업 패널의 주 화면으로 열린 상태에서도 상단 workflow summary 오른쪽에 `후보 검증`, `검사 모델로 저장`, `현재 검사` 보조 버튼이 한 번 더 표시됐습니다.
+  - 같은 모델 행동이 모델 센터 우선순위 카드, 상단 보조 영역, lifecycle 영역에 반복되면 사용자가 어느 버튼을 눌러야 하는지 불필요하게 다시 판단해야 합니다.
+- 수정 내용:
+  - `WpfLabelingShellViewModel.IsWorkflowStageModelActionPanelVisible`을 추가했습니다.
+  - 모델 센터가 열린 학습/모델 단계에서는 상단 `WorkflowStageModelActionPanel`을 접고, 모델 행동은 모델 센터 카드 안의 버튼으로 집중되도록 했습니다.
+  - lifecycle 영역의 중복 모델 행동 버튼 3개는 숨겼습니다. 학습 시작/중지 버튼은 그대로 유지했습니다.
+  - XAML의 단계 조건 DataTrigger를 제거하고 ViewModel visibility 바인딩으로 변경했습니다.
+- 구조:
+  - 표시 조건은 ViewModel 상태로 관리합니다.
+  - View는 `BooleanToVisibilityConverter`로 상태를 표시만 하며, 모델 후보 검토/저장/현재 검사 커맨드 자체는 변경하지 않았습니다.
+  - 학습 실행, 모델 비교 실행, 추론 실행, 후보 overlay, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output artifacts\ui\wpf-model-center-no-duplicate-top-actions-after-1920.png` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output artifacts\ui\wpf-model-center-single-action-zone-after-1920.png` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080` 통과.
+  - `git diff --check -- "0. UI/9) WPF/ViewModels/WpfLabelingShellViewModel.cs" "0. UI/9) WPF/Views/WpfLabelingShellWindow.xaml" tests/LabelingApplication.Tests/Program.cs` 통과. LF/CRLF 경고만 표시됐습니다.
+- 캡처:
+  - 이전: `artifacts\ui\wpf-model-reject-consistency-after-1920.png`
+  - 이후: `artifacts\ui\wpf-model-center-single-action-zone-after-1920.png`
+- 다음 작업:
+  - 모델 작업 버튼은 한 곳으로 모였습니다. 다음 우선순위는 모델 센터의 이력/비교 설명이 길어질 때 “현재 검사 모델 / 학습 후보 / 선택 이력”이 한눈에 비교되는지 점검하는 것입니다.
+
+## 2026-07-03 model-history comparison role labels
+
+- 점검 결과:
+  - 모델 센터의 모델 이력 상세에는 현재 검사 모델과 선택 이력 모델의 비교 문구가 있었지만, 두 열의 역할 라벨이 별도로 없어 긴 모델 경로가 보일 때 어느 쪽이 현재 모델이고 어느 쪽이 선택한 이력인지 한 번 더 읽어야 했습니다.
+- 수정 내용:
+  - `SelectedModelHistoryComparisonPanel` 안에 `현재 검사 모델`, `선택 이력 모델` 역할 라벨을 추가했습니다.
+  - 중첩 카드나 추가 패널을 만들지 않고 기존 얇은 비교 영역 안에서 역할만 분리했습니다.
+  - 좁은 화면에서 비교가 이력 리스트 아래로 밀리지 않도록 선택 모델 비교 영역을 모델 이력 리스트 위로 올리고, 이력 리스트 최대 높이를 낮췄습니다.
+  - ViewModel 비교 문구의 `선택 모델` 표현을 `선택 이력`으로 통일했습니다.
+- 구조:
+  - ViewModel의 모델 이력 상태와 비교 문구 생성은 그대로 유지했습니다.
+  - XAML은 기존 ViewModel 바인딩을 표시하고 역할 라벨만 추가합니다.
+  - 모델 레지스트리 저장/적용, 학습 실행, 추론 실행, 후보 overlay, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --model-registry` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output artifacts\ui\wpf-model-history-role-labels-after-1920.png` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1366 --height 768` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --width 1366 --height 768 --output artifacts\ui\wpf-model-history-comparison-above-list-after-1366.png` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output artifacts\ui\wpf-model-history-comparison-above-list-after-1920.png` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --width 1366 --height 768 --output artifacts\ui\wpf-model-history-selected-history-wording-after-1366.png` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output artifacts\ui\wpf-model-history-selected-history-wording-after-1920.png` 통과.
+- 캡처:
+  - 이전: `artifacts\ui\wpf-model-center-single-action-zone-after-1920.png`
+  - 이후: `artifacts\ui\wpf-model-history-selected-history-wording-after-1920.png`
+  - 좁은 화면: `artifacts\ui\wpf-model-history-selected-history-wording-after-1366.png`
+- 다음 작업:
+  - 모델 이력 비교는 좁은 화면에서도 먼저 보이도록 정리됐습니다. 다음 우선순위는 모델 센터의 상태 문구가 길어질 때 상단 상태/좌측 센터/로그가 같은 모델 파일명을 일관되게 줄여 보여주는지 확인하는 것입니다.
+
+## 2026-07-03 dataset context default text encoding guard
+
+- 점검 결과:
+  - 데이터셋을 아직 열지 않은 첫 화면에서 저장 위치와 이미지 폴더 안내 문구가 ViewModel 기본값으로 먼저 노출됩니다.
+  - 해당 기본 문구는 사용자가 처음 보는 데이터셋 맥락 문구라서, 콘솔/소스 인코딩 차이로 깨진 문자열이 다시 들어가면 첫 화면 신뢰도가 바로 떨어집니다.
+- 수정 내용:
+  - `WpfLabelingShellViewModel`의 데이터셋 저장 위치/원본 이미지 폴더 기본 문구를 소스 인코딩에 덜 민감한 `\u` 이스케이프 문자열로 고정했습니다.
+  - `--wpf-labeling-shell` 테스트에 기본 저장 위치/이미지 루트 문구가 읽을 수 있는 한국어 라벨을 포함하는지 확인하는 가드를 유지했습니다.
+- 구조:
+  - 상태와 문구 기본값은 ViewModel에 남겼습니다.
+  - View/XAML/code-behind, 데이터셋 로딩, 라벨 저장, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+- 캡처:
+  - UI 배치 변경이 아니라 기본 문자열/테스트 가드 변경이므로 신규 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 다음 우선순위는 모델 센터와 상단 상태/로그가 같은 모델 파일명을 어떻게 줄여 보여주는지 일관성 점검입니다.
+
+## 2026-07-03 model file display-name regression guard
+
+- 점검 결과:
+  - 상단 검사 모델 배지와 모델 센터는 이미 `FormatWeightsDisplayPath` 기준으로 긴 학습 결과 경로를 `exp7\best.pt`처럼 줄여 보여주고 있습니다.
+  - 다만 모델 레지스트리 테스트는 `best.pt` 포함 여부만 확인하고 있어, 여러 학습 run이 모두 `best.pt`를 만들 때 run 폴더가 사라지는 퇴행을 충분히 막지 못했습니다.
+- 수정 내용:
+  - `--wpf-labeling-shell` 테스트에서 모델 레지스트리 후보 행과 compact summary가 `exp7\best.pt` 형태의 run 폴더 포함 표시명을 유지하는지 확인하도록 보강했습니다.
+  - 같은 후보 경로에 대해 `WpfInferenceStatusPresentationService.BuildRuntimeModelLabel`도 `YOLOv5 / exp7\best.pt`로 표시하는지 함께 확인해, 상단 상태와 모델 센터가 같은 축약 기준을 쓰도록 잠갔습니다.
+- 구조:
+  - 프로덕션 코드는 변경하지 않았습니다.
+  - 모델 레지스트리 표시, 상단 검사 모델 표시, 학습 결과 경로 축약은 기존 ViewModel/Service 경계를 유지합니다.
+  - 학습 실행, 추론 실행, 후보 overlay, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+- 캡처:
+  - 테스트 가드 보강만 수행했으므로 신규 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 모델 파일 축약 기준은 테스트로 보호했습니다. 다음 우선순위는 08:00 이후 이어서 모델센터/튜토리얼 문서의 남은 레거시 깨진 문자열과 공개 문서 문구를 정리하는 것입니다.
+
+## 2026-07-03 public tutorial path/privacy recheck
+
+- 점검 결과:
+  - 공개 튜토리얼/README에 개인 PC 로컬 경로, 특정 Test 데이터셋명, 대화 흔적, 임시 검증 메모가 다시 들어가면 포트폴리오 문서로 쓰기 어렵습니다.
+  - PowerShell 기본 출력은 UTF-8 문서를 깨진 글자로 보여줄 수 있으므로, 문서 내용은 `-Encoding UTF8` 기준으로 확인했습니다.
+- 확인 내용:
+  - `docs\tutorial\README.md`를 UTF-8로 읽었을 때 제목과 본문이 정상 한국어로 표시됨을 확인했습니다.
+  - `README.md`, `docs\tutorial\README.md`, `docs\tutorial\labeling-workbench-tutorial.html`, `docs\tutorial\labeling-workbench-tutorial-standalone.html`에서 `C:\`, `D:\`, `Test01`, `TEST_`, `제가`, `당신`, `Codex`, `이번 확인`, `사용한 데이터`, `artifacts\run`, `LabelingData` 패턴이 잡히지 않았습니다.
+- 수정 내용:
+  - 공개 문서 본문 수정은 필요하지 않았습니다.
+  - 이번 재검수 결과만 작업 추적에 기록했습니다.
+- 검증:
+  - `Select-String -Encoding UTF8 -Path docs\tutorial\README.md,docs\tutorial\labeling-workbench-tutorial.html,docs\tutorial\labeling-workbench-tutorial-standalone.html,README.md -Pattern "C:\\|D:\\|Test01|TEST2|TEST_|제가|당신|Codex|AI가|소통|이번 확인|사용한 데이터|Debug\\DATA|artifacts\\run|LabelingData"` 결과 없음.
+  - `Get-Content -Encoding UTF8 -Path docs\tutorial\README.md -TotalCount 80` 정상 한국어 출력 확인.
+- 다음 작업:
+  - 공개 튜토리얼 본문은 현재 경로/대화 흔적 기준으로 깨끗합니다. 이후 문서 캡처나 HTML을 다시 만들 때도 같은 검색을 반복해야 합니다.
+
+## 2026-07-03 readable test-string cleanup
+
+- 점검 결과:
+  - WPF/Core/Runtime 소스에는 실제 깨진 한글 조각이 잡히지 않았습니다.
+  - `tests\LabelingApplication.Tests\Program.cs`에는 과거 레거시 테스트 단언 몇 개가 `繞벿살탮`, `熬곣뫁`, `嶺뚣끉` 같은 깨진 문자열을 기대하거나 금지하는 형태로 남아 있었습니다.
+  - 테스트 기대값이 깨진 문자열이면 이후 UI 문구를 다시 손볼 때 잘못된 기준이 될 수 있습니다.
+- 수정 내용:
+  - 배치 진행 source-negative 단언을 `일괄 검사 항목 완료`, `일괄 검사 항목 실패`, `최근` 같은 읽을 수 있는 한국어 기준으로 바꿨습니다.
+  - 후보 검토 중복/비교 단언을 `현재 라벨`, `중복 가능`, `크기`, `위치`, `중복` 기준으로 바꿨습니다.
+  - 이미지 로드 status source-negative 단언을 `데이터셋`, `모델` 기준으로 바꿨습니다.
+- 구조:
+  - 테스트 기대값만 정리했습니다.
+  - ViewModel/Service 생산 문구, 후보 검토 워크플로우, 배치 검사 실행, 이미지 로드 실행, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - WPF/Core/Runtime/테스트 범위 UTF-8 스캔에서 `\uFFFD`, Hanja-range mojibake 문자가 더 이상 잡히지 않음.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-batch-detection-progress` 통과.
+- 캡처:
+  - 테스트 문자열 정리만 수행했으므로 신규 UI 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 깨진 테스트 기대값은 정리됐습니다. 08:00 이후에는 실제 화면 캡처가 필요한 UI 변경만 선별해서 진행합니다.
+
+## 2026-07-03 public tutorial documentation guard
+
+- 점검 결과:
+  - 공개 README/튜토리얼은 한 번 수동으로 정리해도 이후 캡처 갱신이나 HTML 재생성 중 개인 PC 경로, 특정 테스트 데이터셋명, 대화 흔적이 다시 들어올 수 있습니다.
+  - standalone HTML은 다른 PC에 복사해서 볼 수 있어야 하므로, 캡처 이미지가 상대 파일 경로에 의존하면 안 됩니다.
+- 수정 내용:
+  - `--priority-workflow-docs`에 공개 문서 금지 패턴 검사를 추가했습니다.
+  - 검사 대상은 `README.md`, `docs/tutorial/README.md`, 일반 튜토리얼 HTML, standalone 튜토리얼 HTML입니다.
+  - 금지 기준은 `C:\`, `D:\`, `LabelingData`, `Test01`, `TEST_`, `artifacts\run`, `AppData`, `Codex`, `제가`, `당신`, `소통`, `이번 확인`, `사용한 데이터` 같은 로컬/대화/임시 검증 흔적입니다.
+  - 일반 HTML의 `src="images/..."` 캡처 수와 standalone HTML의 `src="data:image..."` 임베드 수가 같고, 최소 10장 이상인지 확인합니다.
+  - 일반 HTML의 모든 캡처가 `images/annotated/` 아래 `*-annotated.png`를 참조하고, alt 문구에 `번호와 화살표`가 포함되는지 확인합니다.
+  - 참조한 튜토리얼 캡처 파일이 실제로 존재하고, 1920 기준 캡처 또는 실제 데이터셋 설정 화면 캡처 이름을 유지하는지 확인합니다.
+- 구조:
+  - 문서 본문은 이번 패스에서 다시 바꾸지 않았습니다.
+  - 공개 문서 품질 기준만 테스트로 고정했습니다.
+  - 앱 UI, ViewModel/Service, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` 통과.
+- 캡처:
+  - 문서 검수 테스트 추가만 수행했으므로 신규 UI 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 공개 문서의 경로/대화 흔적과 standalone 이미지 임베드는 테스트로 보호됐습니다. 다음 우선순위는 08:00 이후 실제 화면 기준 UI 변경만 선별해 진행하는 것입니다.
+
+## 2026-07-03 1920 final UX visual audit before 08:00
+
+- 점검 결과:
+  - 08:00 전 마지막 시각 점검으로 학습/모델 센터와 후보 검토 화면을 1920x1080 기준으로 다시 캡처했습니다.
+  - 모델 센터 화면은 상단 중복 모델 액션이 접힌 상태를 유지하고, 현재 검사 모델/학습 후보/모델 적용 판단/모델 레지스트리 정보가 왼쪽 학습/모델 패널 안에서 확인됩니다.
+  - 후보 검토 화면은 `AI 후보`, `저장 전`, `라벨 확정`, `전체 라벨화`, `후보 숨김`, 현재/학습 후보 모델 출처가 첫 화면에서 보입니다.
+  - 오른쪽 이미지 큐는 저장/AI 후보/다음 미완료 상태와 전체 자동 저장 버튼을 노출합니다.
+- 수정 내용:
+  - 이번 항목은 시각 점검만 수행했습니다. 08:00 직전 새 레이아웃 변경을 시작하지 않았습니다.
+- 구조:
+  - 앱 코드, ViewModel/Service, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output artifacts\ui\wpf-model-center-final-audit-1920.png` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --width 1920 --height 1080 --output artifacts\ui\wpf-candidate-review-final-audit-1920.png` 통과.
+- 캡처:
+  - `artifacts\ui\wpf-model-center-final-audit-1920.png`
+  - `artifacts\ui\wpf-candidate-review-final-audit-1920.png`
+- 다음 작업:
+  - 다음 세션에서는 새 구조 변경을 시작하기 전에 이 두 캡처를 기준으로 실제 사용자가 오래 머무는 후보 검토/모델 센터의 문구 밀도와 버튼 우선순위를 다시 판단합니다.
 
 ## 보류/제외
 

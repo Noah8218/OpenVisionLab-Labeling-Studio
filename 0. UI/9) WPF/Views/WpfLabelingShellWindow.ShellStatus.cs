@@ -24,6 +24,7 @@ namespace MvcVisionSystem
             if (StatusBarViewModel != null)
             {
                 StatusBarViewModel.SetDatasetStatus(normalized);
+                RefreshShellDatasetContext();
                 UpdateWorkflowProgressStatus();
                 return;
             }
@@ -32,6 +33,7 @@ namespace MvcVisionSystem
             {
                 DatasetStatusText.Text = normalized;
             }
+            RefreshShellDatasetContext();
         }
 
         private void SetPythonStatus(string text)
@@ -119,7 +121,7 @@ namespace MvcVisionSystem
 
             if (totalCount > 0 && remainingCount > 0)
             {
-                return "다음: 다음 이미지";
+                return "다음: 다음 미완료 이미지";
             }
 
             if (totalCount > 0)
@@ -144,6 +146,27 @@ namespace MvcVisionSystem
             if (ModelStatusText != null)
             {
                 ModelStatusText.Text = normalized;
+            }
+        }
+
+        private void SetInspectionModelStatus(string text, string toolTip = null)
+        {
+            string normalized = string.IsNullOrWhiteSpace(text)
+                ? "\uAC80\uC0AC \uBAA8\uB378: \uC5C6\uC74C"
+                : text.Trim();
+            string normalizedToolTip = string.IsNullOrWhiteSpace(toolTip)
+                ? normalized
+                : toolTip.Trim();
+            if (StatusBarViewModel != null)
+            {
+                StatusBarViewModel.SetInspectionModelStatus(normalized, normalizedToolTip);
+                return;
+            }
+
+            if (InspectionModelStatusText != null)
+            {
+                InspectionModelStatusText.Text = normalized;
+                InspectionModelStatusText.ToolTip = normalizedToolTip;
             }
         }
 
@@ -251,6 +274,7 @@ namespace MvcVisionSystem
 
         private void AppendLog(string message)
         {
+            ShellLogViewModel?.RecordLog(message);
             OVLog.Write(LogCategory.Main, LogLevel.Info, message);
         }
     }

@@ -59,6 +59,7 @@ namespace MvcVisionSystem
             {
                 string previousRecipeName = GetCurrentRecipeName();
                 global.Recipe.Name = recipeName;
+                RememberLastOpenedDatasetRecipe(recipeName);
                 EnsureProjectSettings();
                 ApplyProjectDatasetPurposeToWorkflow();
                 // Recipe changes reload every dependent panel so stale labels, weights, and class lists do not survive the switch.

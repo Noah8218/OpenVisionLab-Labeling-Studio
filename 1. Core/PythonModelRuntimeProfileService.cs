@@ -1,0 +1,187 @@
+using System;
+using System.Collections.Generic;
+
+namespace MvcVisionSystem._1._Core
+{
+    public sealed class PythonModelRuntimeProfile
+    {
+        public PythonModelRuntimeProfile(
+            string engine,
+            string displayName,
+            string runtimeFamilyText,
+            string statusText,
+            string detailText,
+            string nextActionText,
+            string primaryActionText,
+            bool isSelected,
+            bool isRuntimeConnected,
+            bool canTrain,
+            bool canInspect)
+        {
+            Engine = engine ?? string.Empty;
+            DisplayName = displayName ?? string.Empty;
+            RuntimeFamilyText = runtimeFamilyText ?? string.Empty;
+            StatusText = statusText ?? string.Empty;
+            DetailText = detailText ?? string.Empty;
+            NextActionText = nextActionText ?? string.Empty;
+            PrimaryActionText = primaryActionText ?? string.Empty;
+            IsSelected = isSelected;
+            IsRuntimeConnected = isRuntimeConnected;
+            CanTrain = canTrain;
+            CanInspect = canInspect;
+        }
+
+        public string Engine { get; }
+        public string DisplayName { get; }
+        public string RuntimeFamilyText { get; }
+        public string StatusText { get; }
+        public string DetailText { get; }
+        public string NextActionText { get; }
+        public string PrimaryActionText { get; }
+        public bool IsSelected { get; }
+        public bool IsRuntimeConnected { get; }
+        public bool CanTrain { get; }
+        public bool CanInspect { get; }
+    }
+
+    public static class PythonModelRuntimeProfileService
+    {
+        public static IReadOnlyList<PythonModelRuntimeProfile> BuildProfiles(PythonModelSettings settings)
+        {
+            settings ??= new PythonModelSettings();
+            string selectedEngine = PythonModelSettings.NormalizeModelEngine(settings.ModelEngine);
+            PythonModelRuntimeState selectedState = PythonModelSettingsValidator.GetRuntimeState(settings);
+            return new[]
+            {
+                BuildProfile(PythonModelSettings.EngineYoloV5, selectedEngine, selectedState),
+                BuildProfile(PythonModelSettings.EngineYoloV8, selectedEngine, selectedState),
+                BuildProfile(PythonModelSettings.EngineYolo11, selectedEngine, selectedState),
+                BuildProfile(PythonModelSettings.EngineOnnx, selectedEngine, selectedState)
+            };
+        }
+
+        private static PythonModelRuntimeProfile BuildProfile(
+            string engine,
+            string selectedEngine,
+            PythonModelRuntimeState selectedState)
+        {
+            bool isSelected = string.Equals(engine, selectedEngine, StringComparison.OrdinalIgnoreCase);
+            if (isSelected)
+            {
+                return new PythonModelRuntimeProfile(
+                    engine,
+                    FormatDisplayName(engine),
+                    FormatRuntimeFamily(engine),
+                    FormatSelectedStatus(selectedState),
+                    selectedState?.DetailText ?? string.Empty,
+                    selectedState?.NextActionText ?? string.Empty,
+                    FormatSelectedActionText(selectedState),
+                    isSelected: true,
+                    isRuntimeConnected: selectedState?.IsRuntimeInstalled == true,
+                    canTrain: selectedState?.CanRunTraining == true,
+                    canInspect: selectedState?.CanRunInference == true);
+            }
+
+            return engine switch
+            {
+                PythonModelSettings.EngineYoloV8 => BuildDisconnectedProfile(
+                    engine,
+                    "\uC124\uCE58/\uC5F0\uACB0 \uB300\uAE30",
+                    "Ultralytics \uD328\uD0A4\uC9C0\uB97C \uC0AC\uC6A9\uD558\uB294 YOLOv8 \uC2E4\uD589 \uD504\uB85C\uD544\uC785\uB2C8\uB2E4.",
+                    "Ultralytics \uC2E4\uD589\uAE30 \uC124\uCE58 \uB610\uB294 \uACBD\uB85C \uC5F0\uACB0",
+                    "\uC5F0\uACB0"),
+                PythonModelSettings.EngineYolo11 => BuildDisconnectedProfile(
+                    engine,
+                    "\uC124\uCE58/\uC5F0\uACB0 \uB300\uAE30",
+                    "Ultralytics \uD328\uD0A4\uC9C0\uB97C \uC0AC\uC6A9\uD558\uB294 YOLO11 \uC2E4\uD589 \uD504\uB85C\uD544\uC785\uB2C8\uB2E4.",
+                    "Ultralytics \uC2E4\uD589\uAE30 \uC124\uCE58 \uB610\uB294 \uACBD\uB85C \uC5F0\uACB0",
+                    "\uC5F0\uACB0"),
+                PythonModelSettings.EngineOnnx => BuildDisconnectedProfile(
+                    engine,
+                    "\uCD94\uB860 \uC5F0\uACB0 \uB300\uAE30",
+                    "ONNX \uBAA8\uB378\uC744 \uAC80\uC0AC \uC804\uC6A9\uC73C\uB85C \uC5F0\uACB0\uD558\uB294 \uD504\uB85C\uD544\uC785\uB2C8\uB2E4.",
+                    "ONNX \uCD94\uB860 adapter \uC5F0\uACB0"),
+                _ => BuildDisconnectedProfile(
+                    engine,
+                    "YOLOv5 \uD3F4\uB354 \uC5F0\uACB0 \uB300\uAE30",
+                    "YOLOv5 repo \uB610\uB294 \uAE30\uC874 \uC2E4\uD589 \uD3F4\uB354\uB97C \uC5F0\uACB0\uD558\uB294 \uD504\uB85C\uD544\uC785\uB2C8\uB2E4.",
+                    "YOLOv5 \uD3F4\uB354 \uC5F0\uACB0",
+                    "\uC5F0\uACB0")
+            };
+        }
+
+        private static PythonModelRuntimeProfile BuildDisconnectedProfile(
+            string engine,
+            string statusText,
+            string detailText,
+            string nextActionText,
+            string primaryActionText = "\uC120\uD0DD")
+            => new PythonModelRuntimeProfile(
+                engine,
+                FormatDisplayName(engine),
+                FormatRuntimeFamily(engine),
+                statusText,
+                detailText,
+                nextActionText,
+                primaryActionText,
+                isSelected: false,
+                isRuntimeConnected: false,
+                canTrain: false,
+                canInspect: false);
+
+        private static string FormatSelectedStatus(PythonModelRuntimeState state)
+        {
+            if (state == null)
+            {
+                return "\uC120\uD0DD\uB428 / \uC0C1\uD0DC \uD655\uC778 \uD544\uC694";
+            }
+
+            return state.State switch
+            {
+                PythonModelRuntimeStateKind.Ready => "\uC120\uD0DD\uB428 / \uD559\uC2B5\u00B7\uAC80\uC0AC \uAC00\uB2A5",
+                PythonModelRuntimeStateKind.Incomplete => FormatSelectedIncompleteStatus(state),
+                _ => "\uC120\uD0DD\uB428 / \uC2E4\uD589\uAE30 \uBBF8\uC124\uCE58"
+            };
+        }
+
+        private static string FormatSelectedActionText(PythonModelRuntimeState state)
+            => state?.State == PythonModelRuntimeStateKind.Ready
+                || state?.CanRunTraining == true
+                || state?.CanRunInference == true
+                ? "\uD655\uC778"
+                : "\uC5F0\uACB0";
+
+        private static string FormatSelectedIncompleteStatus(PythonModelRuntimeState state)
+        {
+            if (state?.CanRunInference == true && state.CanRunTraining != true)
+            {
+                return "\uC120\uD0DD\uB428 / \uD604\uC7AC \uAC80\uC0AC \uAC00\uB2A5\u00B7\uD559\uC2B5 \uBBF8\uC9C0\uC6D0";
+            }
+
+            if (state?.CanRunTraining == true)
+            {
+                return "\uC120\uD0DD\uB428 / \uD559\uC2B5 \uAC00\uB2A5\u00B7\uAC80\uC0AC \uBAA8\uB378 \uD544\uC694";
+            }
+
+            return "\uC120\uD0DD\uB428 / \uC124\uC815 \uD655\uC778 \uD544\uC694";
+        }
+
+        private static string FormatDisplayName(string engine)
+            => PythonModelSettings.NormalizeModelEngine(engine) switch
+            {
+                PythonModelSettings.EngineYoloV8 => "YOLOv8",
+                PythonModelSettings.EngineYolo11 => "YOLO11",
+                PythonModelSettings.EngineOnnx => "ONNX",
+                _ => "YOLOv5"
+            };
+
+        private static string FormatRuntimeFamily(string engine)
+            => PythonModelSettings.NormalizeModelEngine(engine) switch
+            {
+                PythonModelSettings.EngineYoloV8 => "Ultralytics",
+                PythonModelSettings.EngineYolo11 => "Ultralytics",
+                PythonModelSettings.EngineOnnx => "ONNX Runtime",
+                _ => "YOLOv5 repo"
+            };
+    }
+}

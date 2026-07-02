@@ -1,4 +1,6 @@
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace MvcVisionSystem._3._Communication.TCP
 {
@@ -19,6 +21,9 @@ namespace MvcVisionSystem._3._Communication.TCP
         public string LastError { get; set; } = "";
         public string LastWorkerState { get; set; } = "";
         public string LastWorkerMessage { get; set; } = "";
+        public List<string> WorkerSupportedModels { get; set; } = new List<string>();
+        public List<string> WorkerTrainingModels { get; set; } = new List<string>();
+        public List<string> WorkerDetectionModels { get; set; } = new List<string>();
         public string LastModelState { get; set; } = "";
         public string LastModelMessage { get; set; } = "";
         public bool LastModelLoaded { get; set; }
@@ -52,6 +57,9 @@ namespace MvcVisionSystem._3._Communication.TCP
                 LastError = LastError,
                 LastWorkerState = LastWorkerState,
                 LastWorkerMessage = LastWorkerMessage,
+                WorkerSupportedModels = WorkerSupportedModels?.ToList() ?? new List<string>(),
+                WorkerTrainingModels = WorkerTrainingModels?.ToList() ?? new List<string>(),
+                WorkerDetectionModels = WorkerDetectionModels?.ToList() ?? new List<string>(),
                 LastModelState = LastModelState,
                 LastModelMessage = LastModelMessage,
                 LastModelLoaded = LastModelLoaded,

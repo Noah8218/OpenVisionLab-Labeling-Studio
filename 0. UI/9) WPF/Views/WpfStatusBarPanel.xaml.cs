@@ -1,4 +1,5 @@
 using System.Windows.Controls;
+using UserControl = System.Windows.Controls.UserControl;
 
 namespace MvcVisionSystem
 {
@@ -17,6 +18,7 @@ namespace MvcVisionSystem
         public TextBlock WorkflowNextActionTextBlock => WorkflowNextActionText;
         public TextBlock PythonStatusTextBlock => PythonStatusText;
         public TextBlock AnnotationSaveStatusTextBlock => AnnotationSaveStatusText;
+        public TextBlock InspectionModelStatusTextBlock => InspectionModelStatusText;
         public TextBlock ModelStatusTextBlock => ModelStatusText;
     }
 }

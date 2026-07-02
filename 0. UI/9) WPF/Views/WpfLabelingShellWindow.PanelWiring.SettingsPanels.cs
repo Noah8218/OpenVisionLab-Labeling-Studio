@@ -11,9 +11,9 @@ namespace MvcVisionSystem
             ClassCatalogViewModel.ConfigureCommands(
                 args => ClassNameBox_KeyDown(ClassNameBox, args),
                 ExecuteAddClassCommand,
+                ExecuteRenameClassCommand,
                 ExecuteRemoveClassCommand,
-                ExecuteBrowseOutputRootCommand,
-                ExecuteSaveOutputRootCommand,
+                ExecuteApplyClassColorCommand,
                 selected => ClassListBox_SelectionChanged(ClassListBox, selected));
             RefreshAttachedCommandBindings(ClassNameBox, InputCommandBehaviors.PreviewKeyInputCommandProperty);
             RefreshAttachedCommandBindings(ClassListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
@@ -22,12 +22,20 @@ namespace MvcVisionSystem
         private void RegisterClassCatalogPanelNames()
         {
             ConfigureClassCatalogPanelCommands();
+            RegisterClassCatalogName(nameof(ClassCatalogGuidePanel), ClassCatalogGuidePanel);
+            RegisterClassCatalogName(nameof(ClassCatalogGuideTitleText), ClassCatalogGuideTitleText);
+            RegisterClassCatalogName(nameof(ClassCatalogGuideDetailText), ClassCatalogGuideDetailText);
+            RegisterClassCatalogName(nameof(ClassCatalogSummaryText), ClassCatalogSummaryText);
+            RegisterClassCatalogName(nameof(CurrentDrawingClassTitleText), CurrentDrawingClassTitleText);
+            RegisterClassCatalogName(nameof(CurrentDrawingClassDetailText), CurrentDrawingClassDetailText);
+            RegisterClassCatalogName(nameof(ClassCatalogActionText), ClassCatalogActionText);
             RegisterClassCatalogName(nameof(ClassNameBox), ClassNameBox);
             RegisterClassCatalogName(nameof(AddClassButton), AddClassButton);
+            RegisterClassCatalogName(nameof(RenameClassButton), RenameClassButton);
             RegisterClassCatalogName(nameof(RemoveClassButton), RemoveClassButton);
-            RegisterClassCatalogName(nameof(OutputRootPathBox), OutputRootPathBox);
-            RegisterClassCatalogName(nameof(BrowseOutputRootButton), BrowseOutputRootButton);
-            RegisterClassCatalogName(nameof(SaveOutputRootButton), SaveOutputRootButton);
+            RegisterClassCatalogName(nameof(ClassColorBox), ClassColorBox);
+            RegisterClassCatalogName(nameof(ClassColorAdvancedPanel), ClassColorAdvancedPanel);
+            RegisterClassCatalogName(nameof(ApplyClassColorButton), ApplyClassColorButton);
             RegisterClassCatalogName(nameof(ClassEditStatusText), ClassEditStatusText);
             RegisterClassCatalogName(nameof(ClassListBox), ClassListBox);
         }
@@ -116,12 +124,16 @@ namespace MvcVisionSystem
                 ExecuteBrowseYoloWeightsCommand,
                 ExecuteBrowseYoloImageRootCommand,
                 ExecuteSaveYoloSettingsCommand,
-                ExecuteResetYoloSettingsCommand);
+                ExecuteResetYoloSettingsCommand,
+                ExecuteRuntimeProfileActionCommand,
+                ExecuteInstallUltralyticsPackageCommand,
+                ExecuteUninstallUltralyticsPackageCommand);
         }
 
         private void RegisterYoloModelSettingsPanelNames()
         {
             ConfigureYoloModelSettingsPanelCommands();
+            RegisterYoloModelSettingsName(nameof(YoloInspectionModelQuickPanel), YoloInspectionModelQuickPanel);
             RegisterYoloModelSettingsName(nameof(YoloPythonPathBox), YoloPythonPathBox);
             RegisterYoloModelSettingsName(nameof(YoloModelEngineBox), YoloModelEngineBox);
             RegisterYoloModelSettingsName(nameof(YoloProjectRootBox), YoloProjectRootBox);
@@ -140,6 +152,8 @@ namespace MvcVisionSystem
             RegisterYoloModelSettingsName(nameof(BrowseYoloImageRootButton), BrowseYoloImageRootButton);
             RegisterYoloModelSettingsName(nameof(SaveYoloSettingsButton), SaveYoloSettingsButton);
             RegisterYoloModelSettingsName(nameof(ResetYoloSettingsButton), ResetYoloSettingsButton);
+            RegisterYoloModelSettingsName(nameof(YoloRuntimeInstallPackageButton), YoloRuntimeInstallPackageButton);
+            RegisterYoloModelSettingsName(nameof(YoloRuntimeUninstallPackageButton), YoloRuntimeUninstallPackageButton);
         }
 
         private void RegisterYoloModelSettingsName(string name, FrameworkElement element)
@@ -155,13 +169,20 @@ namespace MvcVisionSystem
             TrainingSettingsViewModel.ConfigureCommands(
                 ExecuteRefreshTrainingReadinessCommand,
                 ExecuteStartTrainingCommand,
-                ExecuteStopTrainingCommand);
+                ExecuteStopTrainingCommand,
+                ExecuteReviewCandidateModelCommand,
+                ExecuteSaveYoloSettingsCommand);
         }
 
         private void RegisterTrainingSettingsPanelNames()
         {
             ConfigureTrainingSettingsPanelCommands();
             RegisterTrainingSettingsName(nameof(TrainingSettingsExpander), TrainingSettingsExpander);
+            RegisterTrainingSettingsName(nameof(PostTrainingModelActionPanel), PostTrainingModelActionPanel);
+            RegisterTrainingSettingsName(nameof(PostTrainingModelStatusText), PostTrainingModelStatusText);
+            RegisterTrainingSettingsName(nameof(PostTrainingModelDetailText), PostTrainingModelDetailText);
+            RegisterTrainingSettingsName(nameof(ReviewTrainedModelButton), ReviewTrainedModelButton);
+            RegisterTrainingSettingsName(nameof(ConfirmTrainedModelButton), ConfirmTrainedModelButton);
             RegisterTrainingSettingsName(nameof(TrainingImageSizeBox), TrainingImageSizeBox);
             RegisterTrainingSettingsName(nameof(TrainingBatchBox), TrainingBatchBox);
             RegisterTrainingSettingsName(nameof(TrainingEpochBox), TrainingEpochBox);
@@ -171,6 +192,7 @@ namespace MvcVisionSystem
             RegisterTrainingSettingsName(nameof(TrainingTestPercentBox), TrainingTestPercentBox);
             RegisterTrainingSettingsName(nameof(TrainingSplitSeedBox), TrainingSplitSeedBox);
             RegisterTrainingSettingsName(nameof(TrainingSplitPolicyHintText), TrainingSplitPolicyHintText);
+            RegisterTrainingSettingsName(nameof(ApplyFastTrainingPresetButton), ApplyFastTrainingPresetButton);
             RegisterTrainingSettingsName(nameof(RefreshTrainingReadinessButton), RefreshTrainingReadinessButton);
             RegisterTrainingSettingsName(nameof(StartTrainingButton), StartTrainingButton);
             RegisterTrainingSettingsName(nameof(StopTrainingButton), StopTrainingButton);
@@ -196,6 +218,7 @@ namespace MvcVisionSystem
             RegisterStatusBarName(nameof(WorkflowNextActionText), WorkflowNextActionText);
             RegisterStatusBarName(nameof(PythonStatusText), PythonStatusText);
             RegisterStatusBarName(nameof(AnnotationSaveStatusText), AnnotationSaveStatusText);
+            RegisterStatusBarName(nameof(InspectionModelStatusText), InspectionModelStatusText);
             RegisterStatusBarName(nameof(ModelStatusText), ModelStatusText);
         }
 

@@ -34,6 +34,10 @@ namespace MvcVisionSystem
         private string recipeName = string.Empty;
         private string outputRootPath = string.Empty;
         private string classNamesText = "Defect";
+        private string classSummaryText = string.Empty;
+        private string storageHelpText = string.Empty;
+        private string imageSourcePreviewText = string.Empty;
+        private string isolationHelpText = string.Empty;
         private string previewText = string.Empty;
         private string statusText = string.Empty;
         private WpfDatasetSamplePresetItem selectedSamplePreset;
@@ -43,7 +47,7 @@ namespace MvcVisionSystem
 
         public WpfDatasetSetupWizardViewModel()
         {
-            DatasetPurposeModes.Add(new WpfLearningModeItem(WpfLearningMode.ObjectDetection, "\uAC1D\uCCB4 \uD0D0\uC9C0", PackIconMaterialKind.ShapeSquareRoundedPlus, "YOLO \uBC15\uC2A4 \uB77C\uBCA8"));
+            DatasetPurposeModes.Add(new WpfLearningModeItem(WpfLearningMode.ObjectDetection, "\uAC1D\uCCB4 \uD0D0\uC9C0", PackIconMaterialKind.ShapeSquareRoundedPlus, "\uBC15\uC2A4 \uB77C\uBCA8 \uB370\uC774\uD130\uC14B"));
             DatasetPurposeModes.Add(new WpfLearningModeItem(WpfLearningMode.Segmentation, "\uC138\uADF8\uBA58\uD14C\uC774\uC158", PackIconMaterialKind.ViewListOutline, "\uD3F4\uB9AC\uACE4\uACFC \uB9C8\uC2A4\uD06C \uB77C\uBCA8"));
             DatasetPurposeModes.Add(new WpfLearningModeItem(WpfLearningMode.AnomalyDetection, "\uC774\uC0C1 \uD0D0\uC9C0", PackIconMaterialKind.AlertCircleOutline, "\uC815\uC0C1/\uC774\uC0C1 \uC0D8\uD50C\uACFC \uC601\uC5ED"));
             SelectedDatasetPurposeMode = DatasetPurposeModes.FirstOrDefault();
@@ -51,6 +55,14 @@ namespace MvcVisionSystem
         }
 
         public string ViewName => nameof(WpfDatasetSetupWizardWindow);
+
+        public string SetupSummaryText => "\uC0C8 \uB370\uC774\uD130\uC14B\uC740 \uC0C8 \uC800\uC7A5 \uD3F4\uB354\uB97C \uB9CC\uB4E4\uACE0, \uC6D0\uBCF8 \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB294 \uBCC4\uB3C4\uB85C \uC5F0\uACB0\uD569\uB2C8\uB2E4.";
+
+        public string SetupSourceRuleTitleText => "\uC800\uC7A5 \uD3F4\uB354\uC640 \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB294 \uC5ED\uD560\uC774 \uB2E4\uB985\uB2C8\uB2E4";
+
+        public string SetupSourceRuleDetailText => "\uC800\uC7A5 \uD3F4\uB354\uB294 \uB77C\uBCA8, Recipe, \uD559\uC2B5 \uACB0\uACFC\uB97C \uBCF4\uAD00\uD558\uB294 \uB370\uC774\uD130\uC14B \uAE30\uC900\uC785\uB2C8\uB2E4. \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB294 \uC6D0\uBCF8 \uC774\uBBF8\uC9C0\uB97C \uBCF4\uB294 \uC704\uCE58\uC77C \uBFD0\uC774\uBBC0\uB85C, \uAC19\uC740 \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB97C \uC368\uB3C4 \uC0C8 \uC800\uC7A5 \uD3F4\uB354\uBA74 \uB77C\uBCA8\uC774 \uC11E\uC774\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+
+        public string SetupSourceRuleChecklistText => "\uC0C8\uB85C \uC2DC\uC791: \uC0C8 \uC800\uC7A5 \uD3F4\uB354 / \uAE30\uC874 \uC791\uC5C5 \uACC4\uC18D: \uAE30\uC874 \uC800\uC7A5 \uD3F4\uB354 / \uC6D0\uBCF8 \uC774\uBBF8\uC9C0\uB9CC \uAD50\uCCB4: \uC774\uBBF8\uC9C0 \uD3F4\uB354 \uBCC0\uACBD";
 
         public ObservableCollection<WpfLearningModeItem> DatasetPurposeModes { get; } = new ObservableCollection<WpfLearningModeItem>();
 
@@ -124,6 +136,30 @@ namespace MvcVisionSystem
             private set => SetProperty(ref previewText, value ?? string.Empty);
         }
 
+        public string ClassSummaryText
+        {
+            get => classSummaryText;
+            private set => SetProperty(ref classSummaryText, value ?? string.Empty);
+        }
+
+        public string StorageHelpText
+        {
+            get => storageHelpText;
+            private set => SetProperty(ref storageHelpText, value ?? string.Empty);
+        }
+
+        public string ImageSourcePreviewText
+        {
+            get => imageSourcePreviewText;
+            private set => SetProperty(ref imageSourcePreviewText, value ?? string.Empty);
+        }
+
+        public string IsolationHelpText
+        {
+            get => isolationHelpText;
+            private set => SetProperty(ref isolationHelpText, value ?? string.Empty);
+        }
+
         public string StatusText
         {
             get => statusText;
@@ -164,7 +200,7 @@ namespace MvcVisionSystem
             RecipeName = recipeName ?? string.Empty;
             OutputRootPath = outputRootPath ?? string.Empty;
             ClassNamesText = string.Join(Environment.NewLine, NormalizeClassNames(classNames).DefaultIfEmpty("Defect"));
-            StatusText = "\uC0DD\uC131 \uC804\uC5D0 \uBAA9\uC801, recipe, \uC800\uC7A5 \uACBD\uB85C, \uD074\uB798\uC2A4\uB97C \uD655\uC778\uD558\uC138\uC694.";
+            StatusText = "\uC0DD\uC131 \uC804\uC5D0 \uC0C8 \uC800\uC7A5 \uD3F4\uB354, \uC2DC\uC791 \uC774\uBBF8\uC9C0, \uD074\uB798\uC2A4\uB97C \uD655\uC778\uD558\uC138\uC694.";
             RefreshPreview();
         }
 
@@ -220,6 +256,7 @@ namespace MvcVisionSystem
         }
 
         public static IReadOnlyList<string> ParseClassNames(string text)
+            // Operators often paste class lists from notes. Accept both visual line breaks and compact comma/semicolon lists.
             => NormalizeClassNames((text ?? string.Empty)
                 .Split(new[] { '\r', '\n', ',', ';' }, StringSplitOptions.RemoveEmptyEntries));
 
@@ -244,16 +281,47 @@ namespace MvcVisionSystem
             LabelingDatasetPurpose purpose = WpfLearningWorkflowPanelViewModel.ToDatasetPurpose(SelectedDatasetPurposeMode?.Mode ?? WpfLearningMode.ObjectDetection);
             IReadOnlyList<string> classNames = ParseClassNames(ClassNamesText);
             string classSummary = classNames.Count == 0 ? "-" : string.Join(", ", classNames);
+            ClassSummaryText = classNames.Count == 0
+                ? "\uC0DD\uC131\uB420 \uD074\uB798\uC2A4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uCD5C\uC18C 1\uAC1C\uB97C \uC785\uB825\uD558\uC138\uC694."
+                : string.Format(CultureInfo.InvariantCulture, "\uC0DD\uC131\uB420 \uD074\uB798\uC2A4 {0}\uAC1C: {1}", classNames.Count, classSummary);
             string outputName = string.IsNullOrWhiteSpace(OutputRootPath) ? "-" : Path.GetFileName(OutputRootPath.Trim());
             string sampleSummary = SelectedSamplePreset == null ? "-" : SelectedSamplePreset.Text;
+            StorageHelpText = string.IsNullOrWhiteSpace(OutputRootPath)
+                ? "\uC0C8 \uC800\uC7A5 \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694. \uC774 \uD3F4\uB354\uAC00 \uB77C\uBCA8, Recipe, \uD559\uC2B5 \uD30C\uC77C\uC744 \uBCF4\uAD00\uD558\uB294 \uB370\uC774\uD130\uC14B \uAE30\uC900\uC785\uB2C8\uB2E4."
+                : $"\uC774 \uC800\uC7A5 \uD3F4\uB354\uAC00 \uB77C\uBCA8/Recipe/\uD559\uC2B5 \uD30C\uC77C\uC758 \uAE30\uC900\uC785\uB2C8\uB2E4. \uC0DD\uC131 \uD6C4 \uB77C\uBCA8\uC740 \uC774 \uACBD\uB85C\uC5D0 \uBD84\uB9AC\uB429\uB2C8\uB2E4: {OutputRootPath.Trim()}";
+            ImageSourcePreviewText = BuildImageSourcePreviewText(SelectedSamplePreset);
+            IsolationHelpText = "\uC800\uC7A5 \uD3F4\uB354\uAC00 \uB370\uC774\uD130\uC14B\uC744 \uAD6C\uBD84\uD569\uB2C8\uB2E4. \uAC19\uC740 \uC6D0\uBCF8 \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB97C \uC368\uB3C4 \uC0C8 \uC800\uC7A5 \uD3F4\uB354\uBA74 \uB77C\uBCA8\uACFC \uD559\uC2B5 \uACB0\uACFC\uAC00 \uBD84\uB9AC\uB429\uB2C8\uB2E4.";
             PreviewText = string.Format(
                 CultureInfo.InvariantCulture,
-                "Purpose: {0} / Sample: {1} / Recipe: {2} / Output: {3} / Classes: {4}",
-                purpose,
+                "\uBAA9\uC801: {0} / \uC2DC\uC791 \uB370\uC774\uD130: {1} / Recipe: {2} / \uC800\uC7A5 \uD3F4\uB354: {3} / \uD074\uB798\uC2A4: {4}",
+                FormatPurposeText(purpose),
                 sampleSummary,
                 string.IsNullOrWhiteSpace(RecipeName) ? "-" : RecipeName.Trim(),
                 string.IsNullOrWhiteSpace(outputName) ? OutputRootPath : outputName,
                 classSummary);
+        }
+
+        private static string BuildImageSourcePreviewText(WpfDatasetSamplePresetItem samplePreset)
+        {
+            if (samplePreset == null || samplePreset.Kind == WpfDatasetSamplePresetKind.Empty)
+            {
+                return "\uC6D0\uBCF8 \uC774\uBBF8\uC9C0 \uD3F4\uB354: \uC0DD\uC131 \uD6C4 \uC0C1\uB2E8\uC758 \uC774\uBBF8\uC9C0 \uD3F4\uB354 \uBC84\uD2BC\uC73C\uB85C \uC5F0\uACB0\uD569\uB2C8\uB2E4.";
+            }
+
+            string sourcePath = string.IsNullOrWhiteSpace(samplePreset.ImageSourcePath)
+                ? "\uC0D8\uD50C \uC6D0\uBCF8 \uACBD\uB85C \uBBF8\uD655\uC778"
+                : samplePreset.ImageSourcePath;
+            return $"\uC6D0\uBCF8 \uC774\uBBF8\uC9C0 \uD3F4\uB354: {sourcePath}";
+        }
+
+        private static string FormatPurposeText(LabelingDatasetPurpose purpose)
+        {
+            return purpose switch
+            {
+                LabelingDatasetPurpose.Segmentation => "\uC138\uADF8\uBA58\uD14C\uC774\uC158",
+                LabelingDatasetPurpose.AnomalyDetection => "\uC774\uC0C1 \uD0D0\uC9C0",
+                _ => "\uAC1D\uCCB4 \uD0D0\uC9C0"
+            };
         }
 
         private void RefreshSamplePresets()

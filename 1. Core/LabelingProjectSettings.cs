@@ -24,6 +24,8 @@ namespace MvcVisionSystem
 
         public YoloTrainingGuideHistory TrainingGuide { get; set; } = new YoloTrainingGuideHistory();
 
+        public ModelRegistrySettings ModelRegistry { get; set; } = new ModelRegistrySettings();
+
         public void EnsureDefaults()
         {
             if (!Enum.IsDefined(typeof(LabelingDatasetPurpose), DatasetPurpose))
@@ -35,7 +37,9 @@ namespace MvcVisionSystem
             Training ??= new TrainingSettings();
             PythonModel ??= new PythonModelSettings();
             TrainingGuide ??= new YoloTrainingGuideHistory();
+            ModelRegistry ??= new ModelRegistrySettings();
             TrainingGuide.EnsureDefaults();
+            ModelRegistry.EnsureDefaults();
             PythonModel.EnsureDefaults();
         }
     }
@@ -95,10 +99,157 @@ namespace MvcVisionSystem
         public bool AppliedWeightsSavedToRecipe { get; set; }
     }
 
+    public class ModelRegistrySettings
+    {
+        public int SchemaVersion { get; set; } = 1;
+
+        public string CurrentProfileId { get; set; } = "";
+
+        public string LatestTrainingRunId { get; set; } = "";
+
+        public string LatestCandidateId { get; set; } = "";
+
+        public string CurrentInspectionModelId { get; set; } = "";
+
+        public List<ModelProfile> Profiles { get; set; } = new List<ModelProfile>();
+
+        public List<TrainingRun> TrainingRuns { get; set; } = new List<TrainingRun>();
+
+        public List<ModelCandidate> Candidates { get; set; } = new List<ModelCandidate>();
+
+        public List<ModelCandidateDecision> CandidateDecisions { get; set; } = new List<ModelCandidateDecision>();
+
+        public List<InspectionModelAdoption> AdoptionHistory { get; set; } = new List<InspectionModelAdoption>();
+
+        public void EnsureDefaults()
+        {
+            SchemaVersion = Math.Max(1, SchemaVersion);
+            Profiles ??= new List<ModelProfile>();
+            TrainingRuns ??= new List<TrainingRun>();
+            Candidates ??= new List<ModelCandidate>();
+            CandidateDecisions ??= new List<ModelCandidateDecision>();
+            AdoptionHistory ??= new List<InspectionModelAdoption>();
+        }
+    }
+
+    public class ModelProfile
+    {
+        public string ProfileId { get; set; } = "";
+
+        public string DisplayName { get; set; } = "";
+
+        public string AdapterKey { get; set; } = "";
+
+        public string ModelEngine { get; set; } = "";
+
+        public string DatasetPurpose { get; set; } = "";
+
+        public string ProjectRootPath { get; set; } = "";
+
+        public string CreatedUtc { get; set; } = "";
+
+        public string LastUsedUtc { get; set; } = "";
+    }
+
+    public class TrainingRun
+    {
+        public string TrainingRunId { get; set; } = "";
+
+        public string ProfileId { get; set; } = "";
+
+        public string EventUtc { get; set; } = "";
+
+        public string OutputRootPath { get; set; } = "";
+
+        public string State { get; set; } = "";
+
+        public int ProgressPercent { get; set; } = -1;
+
+        public string Message { get; set; } = "";
+
+        public string CandidateWeightsPath { get; set; } = "";
+
+        public string BaselineWeightsPath { get; set; } = "";
+
+        public string MetricsSummary { get; set; } = "";
+    }
+
+    public class ModelCandidate
+    {
+        public string CandidateId { get; set; } = "";
+
+        public string ProfileId { get; set; } = "";
+
+        public string TrainingRunId { get; set; } = "";
+
+        public string WeightsPath { get; set; } = "";
+
+        public string BaselineWeightsPath { get; set; } = "";
+
+        public string MetricsSummary { get; set; } = "";
+
+        public string CreatedUtc { get; set; } = "";
+
+        public string LastSeenUtc { get; set; } = "";
+
+        public bool SavedToRecipe { get; set; }
+
+        public bool IsCurrentInspectionModel { get; set; }
+
+        public string Decision { get; set; } = "";
+
+        public string DecisionUtc { get; set; } = "";
+
+        public string DecisionSummary { get; set; } = "";
+    }
+
+    public class ModelCandidateDecision
+    {
+        public string DecisionId { get; set; } = "";
+
+        public string ProfileId { get; set; } = "";
+
+        public string CandidateId { get; set; } = "";
+
+        public string WeightsPath { get; set; } = "";
+
+        public string PreviousWeightsPath { get; set; } = "";
+
+        public string Decision { get; set; } = "";
+
+        public string DecidedUtc { get; set; } = "";
+
+        public bool SavedToRecipe { get; set; }
+
+        public string MetricsSummary { get; set; } = "";
+
+        public string DecisionSummary { get; set; } = "";
+    }
+
+    public class InspectionModelAdoption
+    {
+        public string AdoptionId { get; set; } = "";
+
+        public string ProfileId { get; set; } = "";
+
+        public string CandidateId { get; set; } = "";
+
+        public string WeightsPath { get; set; } = "";
+
+        public string PreviousWeightsPath { get; set; } = "";
+
+        public string AdoptedUtc { get; set; } = "";
+
+        public bool SavedToRecipe { get; set; }
+
+        public string DecisionSummary { get; set; } = "";
+    }
+
     public class PythonModelSettings
     {
         public const string EngineYoloV5 = "YOLOv5";
         public const string EngineYoloV8 = "YOLOv8";
+        public const string EngineYolo11 = "YOLO11";
         public const string EngineOnnx = "ONNX";
 
         private const string ProjectRootPathDefault = @"C:\Git\yolov5";
@@ -164,7 +315,7 @@ namespace MvcVisionSystem
         }
 
         public static IReadOnlyList<string> GetSupportedModelEngines()
-            => new[] { EngineYoloV5, EngineYoloV8, EngineOnnx };
+            => new[] { EngineYoloV5, EngineYoloV8, EngineYolo11, EngineOnnx };
 
         public static string NormalizeModelEngine(string value)
         {
@@ -173,6 +324,12 @@ namespace MvcVisionSystem
                 || string.Equals(normalized, "yolo8", StringComparison.OrdinalIgnoreCase))
             {
                 return EngineYoloV8;
+            }
+
+            if (string.Equals(normalized, "yolo11", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "yolov11", StringComparison.OrdinalIgnoreCase))
+            {
+                return EngineYolo11;
             }
 
             if (string.Equals(normalized, "onnx", StringComparison.OrdinalIgnoreCase)
@@ -189,6 +346,7 @@ namespace MvcVisionSystem
             return NormalizeModelEngine(ModelEngine) switch
             {
                 EngineYoloV8 => "yolov8",
+                EngineYolo11 => "yolo11",
                 EngineOnnx => "onnx",
                 _ => "yolov5"
             };
@@ -202,9 +360,11 @@ namespace MvcVisionSystem
                 return string.Empty;
             }
 
-            return NormalizeModelEngine(ModelEngine) == EngineYoloV5
-                ? Path.Combine(projectRootPath, "yolov5Master")
-                : projectRootPath;
+            return NormalizeModelEngine(ModelEngine) switch
+            {
+                EngineYoloV5 => Path.Combine(projectRootPath, "yolov5Master"),
+                _ => projectRootPath
+            };
         }
 
         public static string GetDefaultProjectRootPath()
@@ -256,7 +416,7 @@ namespace MvcVisionSystem
         {
             string defaultProjectRootPath = GetDefaultProjectRootPath();
             bool repairedProjectRoot = false;
-            if (ShouldRepairProjectRoot(ProjectRootPath, ClientScriptPath) && IsUsableYoloProjectRoot(defaultProjectRootPath))
+            if (string.IsNullOrWhiteSpace(ProjectRootPath) && IsUsableYoloProjectRoot(defaultProjectRootPath))
             {
                 ProjectRootPath = defaultProjectRootPath;
                 repairedProjectRoot = true;
@@ -286,21 +446,6 @@ namespace MvcVisionSystem
             {
                 ImageRootPath = preferredImageRootPath;
             }
-        }
-
-        private static bool ShouldRepairProjectRoot(string projectRootPath, string clientScriptPath)
-        {
-            if (string.IsNullOrWhiteSpace(projectRootPath) || !Directory.Exists(projectRootPath))
-            {
-                return true;
-            }
-
-            if (!string.IsNullOrWhiteSpace(clientScriptPath) && File.Exists(clientScriptPath))
-            {
-                return false;
-            }
-
-            return !IsUsableYoloProjectRoot(projectRootPath);
         }
 
         private static bool IsUsableYoloProjectRoot(string projectRootPath)

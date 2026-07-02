@@ -1,4 +1,7 @@
 using System.Windows.Controls;
+using ComboBox = System.Windows.Controls.ComboBox;
+using TextBox = System.Windows.Controls.TextBox;
+using UserControl = System.Windows.Controls.UserControl;
 using WpfUiButton = Wpf.Ui.Controls.Button;
 
 namespace MvcVisionSystem

@@ -25,7 +25,8 @@ namespace MvcVisionSystem
         public WpfModelComparisonRunRequest BuildRequest(
             CData data,
             WpfTrainingWeightsService trainingWeightsService,
-            string task = "test")
+            string task = "test",
+            string baselineWeightsOverride = "")
         {
             data?.NormalizeOutputPaths();
             data?.NormalizeTrainingSettings();
@@ -34,7 +35,7 @@ namespace MvcVisionSystem
             string projectRoot = settings.ProjectRootPath?.Trim() ?? string.Empty;
             string candidateWeights = string.Empty;
             trainingWeightsService?.TryFindLatestTrainingWeights(projectRoot, data?.OutputRootPath ?? string.Empty, out candidateWeights);
-            string baselineWeights = ResolveBaselineWeightsPath(settings);
+            string baselineWeights = ResolveBaselineWeightsPath(settings, baselineWeightsOverride);
 
             return new WpfModelComparisonRunRequest
             {
@@ -184,8 +185,14 @@ namespace MvcVisionSystem
             return arguments;
         }
 
-        private static string ResolveBaselineWeightsPath(PythonModelSettings settings)
+        private static string ResolveBaselineWeightsPath(PythonModelSettings settings, string baselineWeightsOverride = "")
         {
+            string overridePath = baselineWeightsOverride?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(overridePath))
+            {
+                return overridePath;
+            }
+
             string configured = settings?.WeightsPath?.Trim() ?? string.Empty;
             if (!string.IsNullOrWhiteSpace(configured))
             {

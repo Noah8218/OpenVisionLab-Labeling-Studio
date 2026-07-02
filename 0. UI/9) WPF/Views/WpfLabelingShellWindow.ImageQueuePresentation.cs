@@ -76,7 +76,8 @@ namespace MvcVisionSystem
                 WpfImageQueueFilterService.CountByFilter(imageQueueItems, WpfImageQueueFilter.Failed),
                 WpfImageQueueFilterService.CountByFilter(imageQueueItems, WpfImageQueueFilter.Confirmed),
                 WpfImageQueueFilterService.CountByFilter(imageQueueItems, WpfImageQueueFilter.Skipped),
-                WpfImageQueueFilterService.CountByFilter(imageQueueItems, WpfImageQueueFilter.NoCandidate));
+                WpfImageQueueFilterService.CountByFilter(imageQueueItems, WpfImageQueueFilter.NoCandidate),
+                WpfImageQueueFilterService.CountByFilter(imageQueueItems, WpfImageQueueFilter.Unlabeled));
         }
 
         private WpfImageQueueFilter GetSelectedImageQueueFilter()

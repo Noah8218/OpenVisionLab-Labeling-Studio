@@ -29,6 +29,17 @@ namespace MvcVisionSystem
         public string MetricVerdictText { get; set; } = "";
 
         public string MetricsStatusText { get; set; } = "";
+
+        public bool LatestWeightsMatchesCurrentDataset { get; set; }
+
+        public bool HasCompletedCurrentDatasetTraining
+            => HasLatestWeights && LatestWeightsMatchesCurrentDataset && LatestMetrics != null;
+
+        public string LatestWeightsDisplayName
+            => WpfTrainingWeightsService.FormatWeightsDisplayPath(LatestWeightsPath);
+
+        public string CurrentWeightsDisplayName
+            => WpfTrainingWeightsService.FormatWeightsDisplayPath(CurrentWeightsPath);
     }
 
     public sealed class WpfTrainingRunMetrics
@@ -141,12 +152,7 @@ namespace MvcVisionSystem
 
         public bool TryFindLatestTrainingWeights(string projectRootPath, string outputRootPath, out string latestWeightsPath)
         {
-            latestWeightsPath = EnumerateBestWeightCandidates(projectRootPath)
-                .Concat(EnumerateBestWeightCandidates(outputRootPath))
-                .Where(File.Exists)
-                .Distinct(StringComparer.OrdinalIgnoreCase)
-                .OrderByDescending(File.GetLastWriteTimeUtc)
-                .FirstOrDefault() ?? string.Empty;
+            latestWeightsPath = FindLatestTrainingWeightCandidate(projectRootPath, outputRootPath)?.Path ?? string.Empty;
 
             return !string.IsNullOrWhiteSpace(latestWeightsPath);
         }
@@ -158,30 +164,32 @@ namespace MvcVisionSystem
                 return Array.Empty<string>();
             }
 
-            var candidates = new List<string>
+            var candidates = new List<string>();
+            foreach (string candidateRootPath in EnumerateTrainingWeightRoots(rootPath))
             {
-                Path.Combine(rootPath, "best.pt")
-            };
+                candidates.Add(Path.Combine(candidateRootPath, "best.pt"));
 
-            string trainRunsRoot = Path.Combine(rootPath, "runs", "train");
-            if (!Directory.Exists(trainRunsRoot))
-            {
-                return candidates;
+                string trainRunsRoot = Path.Combine(candidateRootPath, "runs", "train");
+                if (!Directory.Exists(trainRunsRoot))
+                {
+                    continue;
+                }
+
+                candidates.Add(Path.Combine(trainRunsRoot, "weights", "best.pt"));
+                foreach (string runDirectory in Directory.EnumerateDirectories(trainRunsRoot))
+                {
+                    candidates.Add(Path.Combine(runDirectory, "weights", "best.pt"));
+                }
             }
 
-            candidates.Add(Path.Combine(trainRunsRoot, "weights", "best.pt"));
-            foreach (string runDirectory in Directory.EnumerateDirectories(trainRunsRoot))
-            {
-                candidates.Add(Path.Combine(runDirectory, "weights", "best.pt"));
-            }
-
-            return candidates;
+            return candidates.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
 
         public WpfTrainingWeightsComparison BuildComparison(string projectRootPath, string outputRootPath, string currentWeightsPath)
         {
             currentWeightsPath = currentWeightsPath?.Trim() ?? string.Empty;
-            TryFindLatestTrainingWeights(projectRootPath, outputRootPath, out string latestWeightsPath);
+            WpfTrainingWeightCandidate latestCandidate = FindLatestTrainingWeightCandidate(projectRootPath, outputRootPath);
+            string latestWeightsPath = latestCandidate?.Path ?? string.Empty;
             DateTime? latestUtc = File.Exists(latestWeightsPath)
                 ? File.GetLastWriteTimeUtc(latestWeightsPath)
                 : null;
@@ -200,12 +208,50 @@ namespace MvcVisionSystem
                 LatestWeightsUtc = latestUtc,
                 CurrentWeightsUtc = currentUtc,
                 ShouldApplyLatest = shouldApply,
-                StatusText = BuildComparisonStatusText(latestWeightsPath, currentWeightsPath, latestUtc, currentUtc, shouldApply),
+                StatusText = BuildComparisonStatusText(
+                    latestWeightsPath,
+                    currentWeightsPath,
+                    latestUtc,
+                    currentUtc,
+                    shouldApply,
+                    latestCandidate?.MatchesCurrentDataset == true && latestMetrics != null),
                 LatestMetrics = latestMetrics,
                 CurrentMetrics = currentMetrics,
                 MetricVerdictText = metricVerdictText,
-                MetricsStatusText = BuildMetricsStatusText(latestMetrics, currentMetrics)
+                MetricsStatusText = BuildMetricsStatusText(latestMetrics, currentMetrics),
+                LatestWeightsMatchesCurrentDataset = latestCandidate?.MatchesCurrentDataset == true
             };
+        }
+
+        public static string FormatWeightsDisplayPath(string weightsPath)
+        {
+            if (string.IsNullOrWhiteSpace(weightsPath))
+            {
+                return string.Empty;
+            }
+
+            string trimmed = weightsPath.Trim();
+            string fileName = Path.GetFileName(trimmed);
+            if (string.IsNullOrWhiteSpace(fileName))
+            {
+                return trimmed;
+            }
+
+            string directoryPath = Path.GetDirectoryName(trimmed);
+            if (string.IsNullOrWhiteSpace(directoryPath))
+            {
+                return fileName;
+            }
+
+            var directory = new DirectoryInfo(directoryPath);
+            if (string.Equals(directory.Name, "weights", StringComparison.OrdinalIgnoreCase)
+                && directory.Parent != null
+                && !string.IsNullOrWhiteSpace(directory.Parent.Name))
+            {
+                return $"{directory.Parent.Name}{Path.DirectorySeparatorChar}{fileName}";
+            }
+
+            return fileName;
         }
 
         public static bool ShouldPreferTrainingWeights(string latestWeightsPath, string currentWeightsPath)
@@ -232,36 +278,6 @@ namespace MvcVisionSystem
 
         public static bool IsCompletedTrainingState(string state)
             => string.Equals(state?.Trim(), "completed", StringComparison.OrdinalIgnoreCase);
-
-        private static string BuildComparisonStatusText(
-            string latestWeightsPath,
-            string currentWeightsPath,
-            DateTime? latestUtc,
-            DateTime? currentUtc,
-            bool shouldApply)
-        {
-            if (string.IsNullOrWhiteSpace(latestWeightsPath))
-            {
-                return "\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378 \uD6C4\uBCF4 \uC5C6\uC74C";
-            }
-
-            string latestName = Path.GetFileName(latestWeightsPath);
-            if (PathsEqual(latestWeightsPath, currentWeightsPath))
-            {
-                return $"현재 학습 결과 사용 중: {latestName}";
-            }
-
-            if (shouldApply)
-            {
-                string currentText = currentUtc.HasValue ? $" / 기존 {currentUtc.Value:yyyy-MM-dd HH:mm}Z" : string.Empty;
-                string latestText = latestUtc.HasValue ? $" ({latestUtc.Value:yyyy-MM-dd HH:mm}Z)" : string.Empty;
-                return $"새 학습 결과 적용 가능: {latestName}{latestText}{currentText}";
-            }
-
-            return string.IsNullOrWhiteSpace(currentWeightsPath)
-                ? $"학습 결과 적용 불가: {latestName}"
-                : $"기존 weight 유지: {Path.GetFileName(currentWeightsPath)}";
-        }
 
         public static bool TryReadTrainingRunMetrics(string weightsPath, out WpfTrainingRunMetrics metrics)
         {
@@ -303,6 +319,239 @@ namespace MvcVisionSystem
             };
 
             return metrics.HasScore || metrics.BoxLoss.HasValue;
+        }
+
+        private static string BuildComparisonStatusText(
+            string latestWeightsPath,
+            string currentWeightsPath,
+            DateTime? latestUtc,
+            DateTime? currentUtc,
+            bool shouldApply,
+            bool latestMatchesCurrentDataset)
+        {
+            if (string.IsNullOrWhiteSpace(latestWeightsPath))
+            {
+                return "학습 결과 모델 후보 없음";
+            }
+
+            string latestName = FormatWeightsDisplayPath(latestWeightsPath);
+            string currentName = FormatWeightsDisplayPath(currentWeightsPath);
+            if (PathsEqual(latestWeightsPath, currentWeightsPath))
+            {
+                return latestMatchesCurrentDataset
+                    ? $"현재 데이터셋 학습 완료: {latestName} (현재 검사 모델)"
+                    : $"현재 검사 모델: {latestName}";
+            }
+
+            if (shouldApply)
+            {
+                string currentText = currentUtc.HasValue ? $" / 현재 {currentName} {currentUtc.Value:yyyy-MM-dd HH:mm}Z" : string.Empty;
+                string latestText = latestUtc.HasValue ? $" ({latestUtc.Value:yyyy-MM-dd HH:mm}Z)" : string.Empty;
+                string prefix = latestMatchesCurrentDataset ? "현재 데이터셋 학습 완료" : "새 학습 모델 후보";
+                return $"{prefix}: {latestName}{latestText}{currentText}";
+            }
+
+            return string.IsNullOrWhiteSpace(currentWeightsPath)
+                ? $"학습 모델 후보 사용 불가: {latestName}"
+                : latestMatchesCurrentDataset
+                    ? $"현재 데이터셋 학습 완료: {latestName} / 현재 검사 모델 유지: {currentName}"
+                    : $"현재 검사 모델 유지: {currentName}";
+        }
+
+        private static string BuildComparisonStatusText(
+            string latestWeightsPath,
+            string currentWeightsPath,
+            DateTime? latestUtc,
+            DateTime? currentUtc,
+            bool shouldApply)
+        {
+            if (string.IsNullOrWhiteSpace(latestWeightsPath))
+            {
+                return "학습 결과 모델 후보 없음";
+            }
+
+            string latestName = Path.GetFileName(latestWeightsPath);
+            if (PathsEqual(latestWeightsPath, currentWeightsPath))
+            {
+                return $"현재 검사 모델: {latestName}";
+            }
+
+            if (shouldApply)
+            {
+                string currentText = currentUtc.HasValue ? $" / 현재 {currentUtc.Value:yyyy-MM-dd HH:mm}Z" : string.Empty;
+                string latestText = latestUtc.HasValue ? $" ({latestUtc.Value:yyyy-MM-dd HH:mm}Z)" : string.Empty;
+                return $"새 학습 모델 후보: {latestName}{latestText}{currentText}";
+            }
+
+            return string.IsNullOrWhiteSpace(currentWeightsPath)
+                ? $"학습 모델 후보 사용 불가: {latestName}"
+                : $"현재 검사 모델 유지: {Path.GetFileName(currentWeightsPath)}";
+        }
+
+        private WpfTrainingWeightCandidate FindLatestTrainingWeightCandidate(string projectRootPath, string outputRootPath)
+        {
+            List<WpfTrainingWeightCandidate> candidates = EnumerateBestWeightCandidates(projectRootPath)
+                .Concat(EnumerateBestWeightCandidates(outputRootPath))
+                .Where(File.Exists)
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .Select(path => new WpfTrainingWeightCandidate
+                {
+                    Path = path,
+                    LastWriteUtc = File.GetLastWriteTimeUtc(path),
+                    MatchesCurrentDataset = IsTrainingWeightsForOutputRoot(path, outputRootPath)
+                })
+                .ToList();
+
+            if (candidates.Count == 0)
+            {
+                return null;
+            }
+
+            return candidates
+                .Where(candidate => candidate.MatchesCurrentDataset)
+                .OrderByDescending(candidate => candidate.LastWriteUtc)
+                .FirstOrDefault()
+                ?? candidates
+                    .OrderByDescending(candidate => candidate.LastWriteUtc)
+                    .FirstOrDefault();
+        }
+
+        private static IReadOnlyList<string> EnumerateTrainingWeightRoots(string rootPath)
+        {
+            if (string.IsNullOrWhiteSpace(rootPath) || !Directory.Exists(rootPath))
+            {
+                return Array.Empty<string>();
+            }
+
+            var roots = new List<string> { rootPath };
+            string nestedYoloV5Root = Path.Combine(rootPath, "yolov5Master");
+            if (Directory.Exists(nestedYoloV5Root)
+                && !roots.Any(root => PathsEqual(root, nestedYoloV5Root)))
+            {
+                roots.Add(nestedYoloV5Root);
+            }
+
+            return roots;
+        }
+
+        private static bool IsTrainingWeightsForOutputRoot(string weightsPath, string outputRootPath)
+        {
+            string expectedDataYamlPath = ResolveOutputDataYamlPath(outputRootPath);
+            if (string.IsNullOrWhiteSpace(weightsPath) || string.IsNullOrWhiteSpace(expectedDataYamlPath))
+            {
+                return false;
+            }
+
+            if (IsPathUnderDirectory(weightsPath, outputRootPath))
+            {
+                return true;
+            }
+
+            if (!TryFindTrainingRunDirectory(weightsPath, out string runDirectoryPath))
+            {
+                return false;
+            }
+
+            if (!TryReadTrainingOptDataPath(runDirectoryPath, out string optDataPath))
+            {
+                return false;
+            }
+
+            return PathsEqual(optDataPath, expectedDataYamlPath)
+                || PathsEqual(optDataPath, outputRootPath);
+        }
+
+        private static string ResolveOutputDataYamlPath(string outputRootPath)
+        {
+            if (string.IsNullOrWhiteSpace(outputRootPath))
+            {
+                return string.Empty;
+            }
+
+            string trimmed = outputRootPath.Trim();
+            string extension = Path.GetExtension(trimmed);
+            if (string.Equals(extension, ".yaml", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(extension, ".yml", StringComparison.OrdinalIgnoreCase))
+            {
+                return trimmed;
+            }
+
+            return Path.Combine(trimmed, "data.yaml");
+        }
+
+        private static bool TryFindTrainingRunDirectory(string weightsPath, out string runDirectoryPath)
+        {
+            runDirectoryPath = string.Empty;
+            string weightsDirectoryPath = Path.GetDirectoryName(weightsPath?.Trim() ?? string.Empty);
+            if (string.IsNullOrWhiteSpace(weightsDirectoryPath) || !Directory.Exists(weightsDirectoryPath))
+            {
+                return false;
+            }
+
+            var weightsDirectory = new DirectoryInfo(weightsDirectoryPath);
+            runDirectoryPath = string.Equals(weightsDirectory.Name, "weights", StringComparison.OrdinalIgnoreCase)
+                && weightsDirectory.Parent != null
+                    ? weightsDirectory.Parent.FullName
+                    : weightsDirectory.FullName;
+
+            return Directory.Exists(runDirectoryPath);
+        }
+
+        private static bool TryReadTrainingOptDataPath(string runDirectoryPath, out string dataPath)
+        {
+            dataPath = string.Empty;
+            string optYamlPath = Path.Combine(runDirectoryPath ?? string.Empty, "opt.yaml");
+            if (!File.Exists(optYamlPath))
+            {
+                return false;
+            }
+
+            foreach (string line in File.ReadLines(optYamlPath))
+            {
+                string trimmed = line?.Trim() ?? string.Empty;
+                if (!trimmed.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string value = trimmed.Substring("data:".Length).Trim().Trim('"', '\'');
+                if (string.IsNullOrWhiteSpace(value))
+                {
+                    return false;
+                }
+
+                dataPath = Path.IsPathRooted(value)
+                    ? value
+                    : Path.GetFullPath(Path.Combine(runDirectoryPath, value));
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool IsPathUnderDirectory(string path, string directoryPath)
+        {
+            if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(directoryPath) || !Directory.Exists(directoryPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                string fullPath = Path.GetFullPath(path);
+                string fullDirectoryPath = Path.GetFullPath(directoryPath);
+                string relativePath = Path.GetRelativePath(fullDirectoryPath, fullPath);
+                return !relativePath.StartsWith("..", StringComparison.Ordinal)
+                    && !Path.IsPathRooted(relativePath);
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+            catch (NotSupportedException)
+            {
+                return false;
+            }
         }
 
         private static bool TryFindResultsCsvForWeights(string weightsPath, out string resultsCsvPath)
@@ -349,12 +598,12 @@ namespace MvcVisionSystem
         {
             if (latestMetrics == null || !latestMetrics.HasScore)
             {
-                return "학습 지표: results.csv 없음";
+                return "지표 없음: 학습 실패 아님, 후보 검증 후 저장 판단(results.csv 없음)";
             }
 
             if (currentMetrics == null || !currentMetrics.HasScore)
             {
-                return $"학습 지표: 최신 {FormatMetricSnapshot(latestMetrics)}";
+                return $"새 후보 지표: {FormatMetricSnapshot(latestMetrics)}";
             }
 
             var parts = new List<string>();
@@ -365,8 +614,8 @@ namespace MvcVisionSystem
             AddLossComparison(parts, "box loss", latestMetrics.BoxLoss, currentMetrics.BoxLoss);
 
             return parts.Count == 0
-                ? $"학습 지표: 최신 {FormatMetricSnapshot(latestMetrics)}"
-                : $"학습 지표 비교({BuildMetricVerdictText(latestMetrics, currentMetrics)}): {string.Join(", ", parts)}";
+                ? $"새 후보 지표: {FormatMetricSnapshot(latestMetrics)}"
+                : $"지표 비교({BuildMetricVerdictText(latestMetrics, currentMetrics)}): {string.Join(", ", parts)}";
         }
 
         private static string BuildMetricVerdictText(WpfTrainingRunMetrics latestMetrics, WpfTrainingRunMetrics currentMetrics)
@@ -378,12 +627,12 @@ namespace MvcVisionSystem
                 double deltaPercent = ToPercentValue(latestMetrics.PrimaryScore.Value) - ToPercentValue(currentMetrics.PrimaryScore.Value);
                 if (deltaPercent > 0.1D)
                 {
-                    return "최신 우세";
+                    return "새 모델 우세";
                 }
 
                 if (deltaPercent < -0.1D)
                 {
-                    return "기존 우세";
+                    return "현재 모델 우세";
                 }
 
                 return "동률";
@@ -394,12 +643,12 @@ namespace MvcVisionSystem
                 double lossDelta = latestMetrics.BoxLoss.Value - currentMetrics.BoxLoss.Value;
                 if (lossDelta < -0.0001D)
                 {
-                    return "최신 우세";
+                    return "새 모델 우세";
                 }
 
                 if (lossDelta > 0.0001D)
                 {
-                    return "기존 우세";
+                    return "현재 모델 우세";
                 }
 
                 return "동률";
@@ -540,6 +789,15 @@ namespace MvcVisionSystem
             }
 
             return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private sealed class WpfTrainingWeightCandidate
+        {
+            public string Path { get; set; } = string.Empty;
+
+            public DateTime LastWriteUtc { get; set; }
+
+            public bool MatchesCurrentDataset { get; set; }
         }
     }
 }

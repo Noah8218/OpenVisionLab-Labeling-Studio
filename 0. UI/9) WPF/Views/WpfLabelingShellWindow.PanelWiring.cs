@@ -45,12 +45,70 @@ namespace MvcVisionSystem
             }
         }
 
+        private void SelectRightWorkflowView(TabItem tab)
+        {
+            if (tab == null)
+            {
+                return;
+            }
+
+            if (ReviewTabControl != null)
+            {
+                ReviewTabControl.SelectedItem = tab;
+            }
+
+            tab.IsSelected = true;
+        }
+
+        private void ShowSavedLabelsWorkflowView()
+        {
+            ShellViewModel?.SetWorkflowStage(WpfShellWorkflowStage.Labeling);
+            ShellViewModel?.SetRightWorkflowShortcut(WpfRightWorkflowShortcut.SavedLabels);
+            ShellViewModel?.SetRightWorkflowDockExpanded(true);
+            SelectRightWorkflowView(ObjectsReviewTab);
+        }
+
+        private void ShowCandidateReviewWorkflowView()
+        {
+            ShellViewModel?.SetWorkflowStage(WpfShellWorkflowStage.Inference);
+            ShellViewModel?.SetRightWorkflowDockExpanded(true);
+            SelectRightWorkflowView(CandidatesReviewTab);
+        }
+
+        private void ShowGuideToolsWorkflowView(WpfShellWorkflowStage stage)
+        {
+            ShellViewModel?.SetWorkflowStage(stage);
+            ShellViewModel?.SetRightWorkflowShortcut(stage == WpfShellWorkflowStage.Labeling
+                ? WpfRightWorkflowShortcut.LabelingGuide
+                : WpfRightWorkflowShortcut.None);
+            ShellViewModel?.SetRightWorkflowDockExpanded(true);
+            SelectRightWorkflowView(LearningReviewTab);
+        }
+
+        private void ShowClassCatalogWorkflowView(WpfShellWorkflowStage stage)
+        {
+            ShellViewModel?.SetWorkflowStage(stage);
+            ShellViewModel?.SetRightWorkflowShortcut(stage == WpfShellWorkflowStage.Labeling
+                ? WpfRightWorkflowShortcut.ClassCatalog
+                : WpfRightWorkflowShortcut.None);
+            ShellViewModel?.SetRightWorkflowDockExpanded(true);
+            SelectRightWorkflowView(ClassesReviewTab);
+        }
+
+        private void ShowYoloModelCenterWorkflowView()
+        {
+            ShellViewModel?.SetWorkflowStage(WpfShellWorkflowStage.TrainingModel);
+            ShellViewModel?.SetRightWorkflowDockExpanded(true);
+            SelectRightWorkflowView(YoloSettingsReviewTab);
+        }
+
         private void ConfigureLabelingCanvasDefaults()
         {
             MainCanvasViewModel.ShowGroupNames = false;
             MainCanvasViewModel.ShowRoiItemNames = false;
             MainCanvasViewModel.ShowGroupBounds = false;
             MainCanvasViewModel.DrawingShapeKind = CanvasRoiShapeKind.Rectangle;
+            MainCanvasViewModel.ShouldDrawOverExistingRoi = ShouldDrawOverExistingRoiForCurrentClass;
         }
 
         private void SeedImageQueueInputCommands()
@@ -65,7 +123,7 @@ namespace MvcVisionSystem
 
         public void FocusYoloSettingsTab()
         {
-            YoloSettingsReviewTab.IsSelected = true;
+            ShowYoloModelCenterWorkflowView();
             CollapseYoloAdvancedSettingsForOverview();
             UpdateLayout();
             YoloSettingsScrollViewer?.ScrollToTop();
@@ -73,7 +131,7 @@ namespace MvcVisionSystem
 
         private void FocusYoloModelSettingsTab()
         {
-            YoloSettingsReviewTab.IsSelected = true;
+            ShowYoloModelCenterWorkflowView();
             CollapseYoloAdvancedSettingsForOverview();
             YoloModelSettingsPanelControl?.SettingsExpander?.SetCurrentValue(Expander.IsExpandedProperty, true);
             UpdateLayout();
@@ -82,7 +140,7 @@ namespace MvcVisionSystem
 
         private void FocusYoloTrainingSettingsTab()
         {
-            YoloSettingsReviewTab.IsSelected = true;
+            ShowYoloModelCenterWorkflowView();
             CollapseYoloAdvancedSettingsForOverview();
             TrainingSettingsPanelControl?.SettingsExpander?.SetCurrentValue(Expander.IsExpandedProperty, true);
             UpdateLayout();
@@ -101,9 +159,26 @@ namespace MvcVisionSystem
 
         public void FocusAnnotationToolsTab()
         {
-            LearningReviewTab.IsSelected = true;
+            ShowGuideToolsWorkflowView(WpfShellWorkflowStage.Labeling);
             UpdateLayout();
             LearningWorkflowPanelControl?.ShowAnnotationToolPalette();
+        }
+
+        private void FocusDatasetOnboardingTab()
+        {
+            ShowGuideToolsWorkflowView(WpfShellWorkflowStage.Dataset);
+            UpdateLayout();
+            LearningWorkflowPanelControl?.ShowDatasetSetupStart();
+        }
+
+        private void FocusDatasetOnboardingTabIfNoActiveImage()
+        {
+            if (activeImageBitmap != null && imageQueueItems.Count > 0)
+            {
+                return;
+            }
+
+            FocusDatasetOnboardingTab();
         }
 
         private void FocusLabelingSidePanelForTool(WpfAnnotationTool tool)
@@ -131,7 +206,7 @@ namespace MvcVisionSystem
                 case WpfAnnotationTool.Delete:
                     if (HasCanvasLabelObjects())
                     {
-                        ObjectsReviewTab.IsSelected = true;
+                        ShowSavedLabelsWorkflowView();
                     }
                     else
                     {
@@ -177,14 +252,31 @@ namespace MvcVisionSystem
                 ExecuteInferenceModeCommand,
                 ExecuteCheckYoloCommand,
                 ExecuteDetectCurrentImageCommand,
+                TemplateMatchingAutoLabelViewModel.RunCurrentImage,
+                ExecuteChangeDatasetCommand,
+                ExecuteOpenDatasetRootFolderCommand,
+                ExecuteBrowseImageFolderCommand,
                 ExecuteLoadedCommand,
                 ExecuteClosedCommand,
-                ExecuteShellPreviewKeyDownCommand);
+                ExecuteShellPreviewKeyDownCommand,
+                ExecuteDatasetHomeCommand,
+                ExecuteLabelingWorkbenchCommand,
+                ExecuteInferenceReviewCommand,
+                ExecuteTrainingModelCenterCommand,
+                ExecuteReviewCandidateModelCommand,
+                ShowSavedLabelsWorkflowView,
+                FocusAnnotationToolsTab,
+                FocusClassCatalogTab,
+                ExecutePromoteSelectedModelHistoryCommand);
             RefreshAttachedCommandBindings(
                 this,
                 WindowLifecycleCommandBehavior.LoadedCommandProperty,
                 WindowLifecycleCommandBehavior.ClosedCommandProperty,
                 InputCommandBehaviors.PreviewKeyInputCommandProperty);
+            RefreshAttachedCommandBindings(DatasetHomeStageButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
+            RefreshAttachedCommandBindings(LabelingWorkbenchStageButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
+            RefreshAttachedCommandBindings(InferenceReviewStageButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
+            RefreshAttachedCommandBindings(TrainingModelStageButton, System.Windows.Controls.Primitives.ButtonBase.CommandProperty);
         }
     }
 }

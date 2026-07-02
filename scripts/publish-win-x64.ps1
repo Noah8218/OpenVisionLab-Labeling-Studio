@@ -38,9 +38,8 @@ dotnet publish $projectPath `
     -r $Runtime `
     --self-contained:$selfContainedValue `
     -o $publishDir `
-    -m:1 `
-    /nodeReuse:false `
-    -p:UseSharedCompilation=false
+    -m `
+    -p:UseSharedCompilation=true
 
 if ($LASTEXITCODE -ne 0) {
     throw "dotnet publish failed with exit code $LASTEXITCODE"

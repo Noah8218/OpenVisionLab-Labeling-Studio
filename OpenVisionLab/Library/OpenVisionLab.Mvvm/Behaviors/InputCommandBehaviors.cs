@@ -21,6 +21,8 @@ namespace OpenVisionLab.Mvvm.Behaviors
     /// </summary>
     public static class InputCommandBehaviors
     {
+        private static readonly MouseButtonEventHandler MouseClickInputEventHandler = MouseClickInputHandler;
+
         public static readonly DependencyProperty SelectionChangedCommandProperty =
             DependencyProperty.RegisterAttached(
                 "SelectionChangedCommand",
@@ -73,6 +75,12 @@ namespace OpenVisionLab.Mvvm.Behaviors
                 typeof(ICommand),
                 typeof(InputCommandBehaviors),
                 new PropertyMetadata(null, OnMouseDoubleClickInputCommandChanged));
+        public static readonly DependencyProperty MouseClickInputCommandProperty =
+            DependencyProperty.RegisterAttached(
+                "MouseClickInputCommand",
+                typeof(ICommand),
+                typeof(InputCommandBehaviors),
+                new PropertyMetadata(null, OnMouseClickInputCommandChanged));
 
         public static readonly DependencyProperty ValueChangedCommandProperty =
             DependencyProperty.RegisterAttached(
@@ -175,6 +183,15 @@ namespace OpenVisionLab.Mvvm.Behaviors
         public static void SetMouseDoubleClickInputCommand(DependencyObject target, ICommand value)
         {
             target.SetValue(MouseDoubleClickInputCommandProperty, value);
+        }
+        public static ICommand GetMouseClickInputCommand(DependencyObject target)
+        {
+            return (ICommand)target.GetValue(MouseClickInputCommandProperty);
+        }
+
+        public static void SetMouseClickInputCommand(DependencyObject target, ICommand value)
+        {
+            target.SetValue(MouseClickInputCommandProperty, value);
         }
 
         public static ICommand GetValueChangedCommand(DependencyObject target)
@@ -408,6 +425,35 @@ namespace OpenVisionLab.Mvvm.Behaviors
             }
 
             Execute(GetMouseDoubleClickInputCommand(target), null);
+        }
+
+        private static void OnMouseClickInputCommandChanged(DependencyObject target, DependencyPropertyChangedEventArgs e)
+        {
+            if (target is not UIElement element)
+            {
+                return;
+            }
+
+            element.RemoveHandler(UIElement.PreviewMouseLeftButtonUpEvent, MouseClickInputEventHandler);
+            if (e.NewValue != null)
+            {
+                element.AddHandler(UIElement.PreviewMouseLeftButtonUpEvent, MouseClickInputEventHandler, handledEventsToo: true);
+            }
+        }
+
+        private static void MouseClickInputHandler(object sender, MouseButtonEventArgs e)
+        {
+            if (sender is not DependencyObject target)
+            {
+                return;
+            }
+
+            ICommand command = GetMouseClickInputCommand(target);
+            if (command?.CanExecute(null) == true)
+            {
+                command.Execute(null);
+                e.Handled = true;
+            }
         }
 
         private static void OnValueChangedCommandChanged(DependencyObject target, DependencyPropertyChangedEventArgs e)

@@ -24,12 +24,12 @@ namespace MvcVisionSystem
 
             YoloWorkerSmokeCandidate candidate = pendingDetectionCandidates[candidateIndex];
             RefreshCandidateListWithPreferred(candidate);
-            CandidatesReviewTab.IsSelected = true;
+            ShowCandidateReviewWorkflowView();
             CandidateListBox?.ScrollIntoView(CandidateReviewViewModel?.SelectedCandidate);
             ApplyCandidateSelectionReview(candidate);
             UpdateDetectionResultOverlay();
             RedrawReviewRois();
-            SetModelStatus($"검출 후보 선택: {FormatCandidate(candidate)}");
+            SetModelStatus($"AI 후보 선택: {FormatCandidate(candidate)}");
         }
 
         private void ExecuteCandidateConfidenceChangedCommand(double confidence)

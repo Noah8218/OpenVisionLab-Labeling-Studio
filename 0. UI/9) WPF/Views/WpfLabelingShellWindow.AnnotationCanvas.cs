@@ -6,12 +6,70 @@ using OpenVisionLab.ImageCanvas.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using DrawingColor = System.Drawing.Color;
 using DrawingRectangle = System.Drawing.Rectangle;
 
 namespace MvcVisionSystem
 {
     public partial class WpfLabelingShellWindow
     {
+        // Class-aware drawing policy stays in the shell because the canvas library should not know labeling class names.
+        private bool ShouldDrawOverExistingRoiForCurrentClass(CanvasRect<float> roiRect)
+        {
+            if (roiRect == null || string.IsNullOrWhiteSpace(roiRect.UniqueId))
+            {
+                return false;
+            }
+
+            string currentClass = ClassCatalogService.NormalizeClassName(GetSelectedClassName());
+            if (string.IsNullOrWhiteSpace(currentClass))
+            {
+                return false;
+            }
+
+            int index = FindManualRoiIndexByOverlayId(roiRect.UniqueId);
+            if (index < 0 || index >= manualRoiClassNames.Count)
+            {
+                return false;
+            }
+
+            string existingClass = ClassCatalogService.NormalizeClassName(manualRoiClassNames[index]);
+            return !string.IsNullOrWhiteSpace(existingClass)
+                && !string.Equals(currentClass, existingClass, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private DrawingColor GetClassDrawColor(string className)
+        {
+            CClassItem classItem = EnsureClassItem(FirstNonEmpty(className, "Defect"));
+            return classItem?.DrawColor ?? DrawingColor.FromArgb(34, 197, 94);
+        }
+
+        private DrawingColor GetManualRoiDrawColor(int index)
+            => GetClassDrawColor(GetManualRoiClassName(index));
+
+        private string ResolveNewManualRoiClassName(CanvasRect<float> roiRect)
+        {
+            string copiedClassName = ClassCatalogService.NormalizeClassName(roiRect?.UserTag);
+            return FirstNonEmpty(copiedClassName, GetSelectedClassName(), "Defect");
+        }
+
+        private void ApplyManualRoiOverlayColor(int index, bool refreshImmediately = false)
+        {
+            if (index < 0 || index >= manualRois.Count)
+            {
+                return;
+            }
+
+            string className = GetManualRoiClassName(index);
+            MainCanvasViewModel?.SetRoiOverlayUserTag(
+                GetManualRoiOverlayId(index),
+                className);
+            MainCanvasViewModel?.SetRoiOverlayColor(
+                GetManualRoiOverlayId(index),
+                GetClassDrawColor(className),
+                refreshImmediately);
+        }
+
         // Canvas annotation synchronization stays separate from tool input handling so ROI/overlay model mutations are easy to audit.
         private void MainCanvasViewModel_RoiAdded(object sender, OpenVisionLab.ImageCanvas.Model.RoiChangedEventArgs e)
         {
@@ -37,18 +95,23 @@ namespace MvcVisionSystem
 
                 manualRois[existingIndex] = bounds;
                 manualRoiShapeKinds[existingIndex] = e.RoiRect.ShapeKind;
+                e.RoiRect.UserTag = GetManualRoiClassName(existingIndex);
+                ApplyManualRoiOverlayColor(existingIndex);
             }
             else
             {
                 RegisterAnnotationHistoryBeforeChange("박스 추가");
+                string className = ResolveNewManualRoiClassName(e.RoiRect);
+                e.RoiRect.UserTag = className;
                 manualRois.Add(bounds);
-                manualRoiClassNames.Add(FirstNonEmpty(GetSelectedClassName(), "Defect"));
+                manualRoiClassNames.Add(className);
                 manualRoiShapeKinds.Add(e.RoiRect.ShapeKind);
                 manualRoiOverlayIds.Add(overlayId);
+                ApplyManualRoiOverlayColor(manualRois.Count - 1);
             }
 
             RefreshObjectListWithSelection(CreateManualRoiSelection(e.RoiRect));
-            ObjectsReviewTab.IsSelected = true;
+            ShowSavedLabelsWorkflowView();
             string shapeName = FormatManualRoiShapeName(e.RoiRect.ShapeKind);
             SetModelStatus($"라벨 추가: {shapeName} {WpfCandidateReviewPresenter.FormatBoundsCompact(bounds)}");
             AppendLog($"라벨 추가({shapeName}): {bounds.X},{bounds.Y},{bounds.Width},{bounds.Height}");

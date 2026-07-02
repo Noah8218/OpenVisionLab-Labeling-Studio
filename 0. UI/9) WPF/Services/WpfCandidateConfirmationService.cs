@@ -48,13 +48,13 @@ namespace MvcVisionSystem
             int confirmedCount = plan?.ConfirmableCandidates?.Count ?? 0;
             int skippedDuplicateCount = plan?.SkippedDuplicateCount ?? 0;
             string savedReviewText = saved
-                ? $"\uC800\uC7A5 {savedCount}\uAC1C"
+                ? $"\uD30C\uC77C \uC800\uC7A5 {savedCount}\uAC1C"
                 : "\uC800\uC7A5 \uAC74\uB108\uB700";
             string duplicateReviewText = skippedDuplicateCount > 0
                 ? $" / \uC911\uBCF5 \uC81C\uC678 {skippedDuplicateCount}\uAC1C"
                 : string.Empty;
             string savedLogText = saved
-                ? $" \uC800\uC7A5 \uAC1D\uCCB4 {savedCount}. {labelPathSummary ?? string.Empty}"
+                ? $" \uC800\uC7A5 \uB77C\uBCA8 {savedCount}\uAC1C \uD30C\uC77C \uBC18\uC601. {labelPathSummary ?? string.Empty}"
                 : " \uC800\uC7A5 \uAC74\uB108\uB700.";
 
             return new WpfCandidateConfirmationResult(

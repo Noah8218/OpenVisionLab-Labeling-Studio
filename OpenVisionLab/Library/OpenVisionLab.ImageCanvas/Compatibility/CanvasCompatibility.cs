@@ -63,6 +63,8 @@ namespace OpenVisionLab.ImageCanvas.CanvasShapes
 	{
 		public string UniqueId { get; set; }
 		public string GroupType { get; set; }
+		// Caller-owned metadata used by higher layers, e.g. label class preservation across ROI copy/paste.
+		public string UserTag { get; set; } = string.Empty;
 		public bool IsChanged { get; set; } = true;
 		public Action OnChanged { get; set; }
 		public uint DisplayListId { get; set; }
@@ -84,6 +86,9 @@ namespace OpenVisionLab.ImageCanvas.CanvasShapes
 		private float _right;
 		private float _bottom;
 		private const float BoundaryHitEpsilon = 0.001f;
+		private const float MinimumHandleHitScreenPixels = 4.0f;
+		private const float MaximumCornerHitScreenPixels = 18.0f;
+		private const float MaximumEdgeHitScreenPixels = 12.0f;
 
 		public CanvasRect()
 		{
@@ -135,7 +140,7 @@ namespace OpenVisionLab.ImageCanvas.CanvasShapes
 		public bool Contain(float x, float y) => x >= Left && x <= Right && y >= Bottom && y <= Top;
 		public RectangleF ToRobotRectangle() => new RectangleF(Left, Bottom, Width, Height);
 		public Rectangle ToImageArea() => Rectangle.Round(new RectangleF(Left, Bottom, Width, Height));
-		public CanvasRect<T> ToCanvasRect() => new CanvasRect<T>(Left, Top, Right, Bottom) { UniqueId = UniqueId, GroupType = GroupType, LineWidth = LineWidth, IsFill = IsFill, ShapeKind = ShapeKind };
+		public CanvasRect<T> ToCanvasRect() => new CanvasRect<T>(Left, Top, Right, Bottom) { UniqueId = UniqueId, GroupType = GroupType, UserTag = UserTag, LineWidth = LineWidth, IsFill = IsFill, ShapeKind = ShapeKind };
 		public object DeepClone() => ToCanvasRect();
 
 		public void OffsetMove(CanvasSize<float> size, bool notify = true)
@@ -190,57 +195,15 @@ namespace OpenVisionLab.ImageCanvas.CanvasShapes
 
 		public void SetEditingType(float x, float y, float zoomScale, float handleSize)
 		{
-			float cornerTolerance = GetCornerHitTolerance(zoomScale, handleSize);
-			float edgeTolerance = GetEdgeHitTolerance(zoomScale, handleSize);
-			// The spatial lookup may search around the pointer, but selection itself must not leak outside the labeled rectangle.
-			bool isWithinBounds = IsWithinRoiBoundsForHit(x, y);
-
-			// Edges are checked before the body so an overlapped ROI can still be selected
-			// intentionally by clicking its outline instead of the smaller box inside it.
-			if (isWithinBounds && Distance(x, y, Left, Top) <= cornerTolerance)
-			{
-				EditingType = EditingType.LeftTop;
-			}
-			else if (isWithinBounds && Distance(x, y, Right, Top) <= cornerTolerance)
-			{
-				EditingType = EditingType.RightTop;
-			}
-			else if (isWithinBounds && Distance(x, y, Right, Bottom) <= cornerTolerance)
-			{
-				EditingType = EditingType.RightBottom;
-			}
-			else if (isWithinBounds && Distance(x, y, Left, Bottom) <= cornerTolerance)
-			{
-				EditingType = EditingType.LeftBottom;
-			}
-			else if (isWithinBounds && Math.Abs(x - Left) <= edgeTolerance && IsWithinVerticalRange(y, 0.0f))
-			{
-				EditingType = EditingType.Left;
-			}
-			else if (isWithinBounds && Math.Abs(x - Right) <= edgeTolerance && IsWithinVerticalRange(y, 0.0f))
-			{
-				EditingType = EditingType.Right;
-			}
-			else if (isWithinBounds && Math.Abs(y - Top) <= edgeTolerance && IsWithinHorizontalRange(x, 0.0f))
-			{
-				EditingType = EditingType.Top;
-			}
-			else if (isWithinBounds && Math.Abs(y - Bottom) <= edgeTolerance && IsWithinHorizontalRange(x, 0.0f))
-			{
-				EditingType = EditingType.Bottom;
-			}
-			else if (IsInsideRoiBody(x, y))
-			{
-				EditingType = EditingType.Move;
-			}
-			else if (Contain(x, y)) { EditingType = EditingType.Move; }
-			else
-			{
-				EditingType = EditingType.None;
-			}
+			EditingType = GetEditingTypeAtPoint(x, y, zoomScale, handleSize, allowVisibleHandleOutside: true);
 		}
 
-		public LineOverType CheckHandleContainsPosition(float x, float y, float zoomScale, float handleSize) => GetHandleContainsPoint(x, y, zoomScale, handleSize);
+		public LineOverType CheckHandleContainsPosition(float x, float y, float zoomScale, float handleSize)
+		{
+			// Overlay selection itself must not leak outside the labeled rectangle.
+			// Selected ROI editing uses GetHandleContainsPoint so visible handles remain easy to grab.
+			return GetLineOverTypeAtPoint(x, y, zoomScale, handleSize, allowVisibleHandleOutside: false);
+		}
 
 		public void InitializeHandleRects(float handleSize)
 		{
@@ -249,21 +212,9 @@ namespace OpenVisionLab.ImageCanvas.CanvasShapes
 
 		public LineOverType GetHandleContainsPoint(float x, float y, float zoomScale, float handleSize)
 		{
-			if (IsEmpty()) return LineOverType.None;
-
-			float cornerTolerance = GetCornerHitTolerance(zoomScale, handleSize);
-			float edgeTolerance = GetEdgeHitTolerance(zoomScale, handleSize);
-			bool isWithinBounds = IsWithinRoiBoundsForHit(x, y);
-			// Same ordering as SetEditingType: outline clicks must target the outlined ROI
-			// before any smaller overlapping body hit is considered.
-			if (isWithinBounds && Distance(x, y, Left, Top) <= cornerTolerance) return LineOverType.SizeNWSE;
-			if (isWithinBounds && Distance(x, y, Right, Bottom) <= cornerTolerance) return LineOverType.SizeNWSE;
-			if (isWithinBounds && Distance(x, y, Right, Top) <= cornerTolerance) return LineOverType.SizeNESE;
-			if (isWithinBounds && Distance(x, y, Left, Bottom) <= cornerTolerance) return LineOverType.SizeNESE;
-			if (isWithinBounds && (Math.Abs(x - Left) <= edgeTolerance || Math.Abs(x - Right) <= edgeTolerance) && IsWithinVerticalRange(y, 0.0f)) return LineOverType.VSplit;
-			if (isWithinBounds && (Math.Abs(y - Top) <= edgeTolerance || Math.Abs(y - Bottom) <= edgeTolerance) && IsWithinHorizontalRange(x, 0.0f)) return LineOverType.HSplit;
-			if (IsInsideRoiBody(x, y)) return LineOverType.Move2D;
-			return Contain(x, y) ? LineOverType.Move2D : LineOverType.None;
+			// A selected box draws handles centered on the outline, so the editor hit-zone
+			// must include the visible outside half of those handles.
+			return GetLineOverTypeAtPoint(x, y, zoomScale, handleSize, allowVisibleHandleOutside: true);
 		}
 
 		public void CreateExtendedRectangleFromSize(float offset = 20.0f)
@@ -272,6 +223,7 @@ namespace OpenVisionLab.ImageCanvas.CanvasShapes
 			{
 				UniqueId = UniqueId,
 				GroupType = GroupType,
+				UserTag = UserTag,
 				LineWidth = LineWidth
 			};
 		}
@@ -301,36 +253,100 @@ namespace OpenVisionLab.ImageCanvas.CanvasShapes
 		private bool IsWithinHorizontalRange(float x, float tolerance) => x >= Left - tolerance && x <= Right + tolerance;
 		private bool IsWithinVerticalRange(float y, float tolerance) => y >= Bottom - tolerance && y <= Top + tolerance;
 
+		private EditingType GetEditingTypeAtPoint(float x, float y, float zoomScale, float handleSize, bool allowVisibleHandleOutside)
+		{
+			if (IsEmpty()) return EditingType.None;
+
+			float cornerTolerance = GetCornerHitTolerance(zoomScale, handleSize);
+			float edgeTolerance = GetEdgeHitTolerance(zoomScale, handleSize);
+
+			// Edges are checked before the body so an overlapped ROI can still be selected
+			// intentionally by clicking its outline instead of the smaller box inside it.
+			if (IsCornerHit(x, y, Left, Top, cornerTolerance, allowVisibleHandleOutside)) return EditingType.LeftTop;
+			if (IsCornerHit(x, y, Right, Top, cornerTolerance, allowVisibleHandleOutside)) return EditingType.RightTop;
+			if (IsCornerHit(x, y, Right, Bottom, cornerTolerance, allowVisibleHandleOutside)) return EditingType.RightBottom;
+			if (IsCornerHit(x, y, Left, Bottom, cornerTolerance, allowVisibleHandleOutside)) return EditingType.LeftBottom;
+			if (IsVerticalEdgeHit(x, y, Left, edgeTolerance, allowVisibleHandleOutside)) return EditingType.Left;
+			if (IsVerticalEdgeHit(x, y, Right, edgeTolerance, allowVisibleHandleOutside)) return EditingType.Right;
+			if (IsHorizontalEdgeHit(x, y, Top, edgeTolerance, allowVisibleHandleOutside)) return EditingType.Top;
+			if (IsHorizontalEdgeHit(x, y, Bottom, edgeTolerance, allowVisibleHandleOutside)) return EditingType.Bottom;
+			if (IsInsideRoiBody(x, y)) return EditingType.Move;
+			return Contain(x, y) ? EditingType.Move : EditingType.None;
+		}
+
+		private LineOverType GetLineOverTypeAtPoint(float x, float y, float zoomScale, float handleSize, bool allowVisibleHandleOutside)
+		{
+			return GetLineOverTypeFromEditingType(GetEditingTypeAtPoint(x, y, zoomScale, handleSize, allowVisibleHandleOutside));
+		}
+
+		private bool IsCornerHit(float x, float y, float cornerX, float cornerY, float tolerance, bool allowVisibleHandleOutside)
+		{
+			if (Distance(x, y, cornerX, cornerY) > tolerance)
+			{
+				return false;
+			}
+
+			return allowVisibleHandleOutside
+				? IsWithinHorizontalRange(x, tolerance) && IsWithinVerticalRange(y, tolerance)
+				: IsWithinRoiBoundsForHit(x, y);
+		}
+
+		private bool IsVerticalEdgeHit(float x, float y, float edgeX, float tolerance, bool allowVisibleHandleOutside)
+		{
+			if (Math.Abs(x - edgeX) > tolerance || !IsWithinVerticalRange(y, allowVisibleHandleOutside ? tolerance : 0.0f))
+			{
+				return false;
+			}
+
+			return allowVisibleHandleOutside || IsWithinRoiBoundsForHit(x, y);
+		}
+
+		private bool IsHorizontalEdgeHit(float x, float y, float edgeY, float tolerance, bool allowVisibleHandleOutside)
+		{
+			if (Math.Abs(y - edgeY) > tolerance || !IsWithinHorizontalRange(x, allowVisibleHandleOutside ? tolerance : 0.0f))
+			{
+				return false;
+			}
+
+			return allowVisibleHandleOutside || IsWithinRoiBoundsForHit(x, y);
+		}
+
 		private float GetBaseHitTolerance(float zoomScale, float handleSize)
 		{
 			float effectiveHandleSize = Math.Max(handleSize, LineWidth);
-			float scaleAdjustedSize = effectiveHandleSize / Math.Max(zoomScale, 0.0001f);
-			float desiredSize = Math.Max(4.0f, scaleAdjustedSize);
+			float safeZoomScale = Math.Max(zoomScale, 0.0001f);
+			float scaleAdjustedSize = effectiveHandleSize * safeZoomScale;
+			float desiredSize = Math.Max(MinimumHandleHitScreenPixels * safeZoomScale, scaleAdjustedSize);
 			float roiLimitedSize = Math.Max(1.0f, Math.Min(Width, Height) * 0.22f);
 			return Math.Min(desiredSize, roiLimitedSize);
 		}
 
 		private float GetCornerHitTolerance(float zoomScale, float handleSize)
 		{
-			return Math.Min(GetBaseHitTolerance(zoomScale, handleSize), 10.0f);
+			return Math.Min(GetBaseHitTolerance(zoomScale, handleSize), ToWorldPixels(zoomScale, MaximumCornerHitScreenPixels));
 		}
 
 		private float GetEdgeHitTolerance(float zoomScale, float handleSize)
 		{
 			float roiLimitedSize = Math.Max(1.0f, Math.Min(Width, Height) * 0.12f);
-			return Math.Min(Math.Min(GetBaseHitTolerance(zoomScale, handleSize), roiLimitedSize), 6.0f);
+			return Math.Min(Math.Min(GetBaseHitTolerance(zoomScale, handleSize), roiLimitedSize), ToWorldPixels(zoomScale, MaximumEdgeHitScreenPixels));
 		}
 
-		private static EditingType GetEditingTypeFromLineOver(LineOverType type)
+		private static float ToWorldPixels(float zoomScale, float screenPixels)
+		{
+			return Math.Max(0.0001f, zoomScale) * screenPixels;
+		}
+
+		private static LineOverType GetLineOverTypeFromEditingType(EditingType type)
 		{
 			return type switch
 			{
-				LineOverType.HSplit => EditingType.Top,
-				LineOverType.VSplit => EditingType.Left,
-				LineOverType.SizeNWSE => EditingType.LeftTop,
-				LineOverType.SizeNESE => EditingType.RightTop,
-				LineOverType.Move2D => EditingType.Move,
-				_ => EditingType.None
+				EditingType.Top or EditingType.Bottom => LineOverType.HSplit,
+				EditingType.Left or EditingType.Right => LineOverType.VSplit,
+				EditingType.LeftTop or EditingType.RightBottom => LineOverType.SizeNWSE,
+				EditingType.RightTop or EditingType.LeftBottom => LineOverType.SizeNESE,
+				EditingType.Move => LineOverType.Move2D,
+				_ => LineOverType.None
 			};
 		}
 	}

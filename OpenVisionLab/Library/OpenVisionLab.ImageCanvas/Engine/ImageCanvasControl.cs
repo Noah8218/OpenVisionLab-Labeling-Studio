@@ -155,7 +155,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		private System.Drawing.Point _lastPixelReadbackPoint = System.Drawing.Point.Empty;
 
 		public float PixelPermm { get; set; } = 0.001f;
-		public float HandleSize = 10; // 기본 핸들 크기
+		public float HandleSize = 14; // ROI edit handle size in screen pixels.
 		public bool IsVisibleOverlayLodActive => _isVisibleOverlayLodActive;
 		public int VisibleOverlayShapeCount => _visibleOverlayShapeCount;
 		public int VisibleOverlayShapeLimit => _visibleOverlayShapeLimit;
@@ -286,7 +286,6 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 		{
 			OpenGL gl = openGLControl.OpenGL;
 			PrepareForDrawing(gl);
-			//DrawContent(gl);
 			Draw?.Invoke(sender, new OpenVisionLab.ImageCanvas.Canvas.CanvasRenderEventArgs(gl));
 		}
 
@@ -378,7 +377,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			gl.Disable(OpenGL.GL_DEPTH_TEST);
 		}
 
-		#region // public methods
+		#region Public methods
 		public string GetNameGL() => openGLControl.Name;
 		public void SetNameGL(string name) => openGLControl.Name = name;
 		public System.Drawing.Size GetSize() => openGLControl.Size;
@@ -773,7 +772,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 				ImageName = imageName,
 				GLDrawingTextureArea = new System.Drawing.RectangleF(x, textureY, width, height * -1),
 				GLTextureArea = new RectangleF(x, textureY - height, width, height),
-				ImageTexutreArea = new Rectangle(x, y, width, height),
+				ImageTextureArea = new Rectangle(x, y, width, height),
 				IsVisible = true,
 				TextureFullScreen = fullScreen,
 				TitleSize = titleSize,
@@ -840,7 +839,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 				ImageName = imageName,
 				GLDrawingTextureArea = new System.Drawing.RectangleF(x, textureY, width, height * -1),
 				GLTextureArea = new RectangleF(x, textureY - height, width, height),
-				ImageTexutreArea = new Rectangle(x, y, width, height),
+				ImageTextureArea = new Rectangle(x, y, width, height),
 				IsVisible = true,
 				TextureFullScreen = fullScreen,
 				TitleSize = titleSize,
@@ -920,8 +919,8 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 			OpenGlTextureDrawingParam param = currentTextures[0];
 			if (param.BppOriginal != bpp
-				|| param.ImageTexutreArea.Width != imageWidth
-				|| param.ImageTexutreArea.Height != imageHeight)
+				|| param.ImageTextureArea.Width != imageWidth
+				|| param.ImageTextureArea.Height != imageHeight)
 			{
 				return false;
 			}
@@ -932,7 +931,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			param.ImageName = imageName;
 			param.GLDrawingTextureArea = new System.Drawing.RectangleF(x, textureY, width, height * -1);
 			param.GLTextureArea = new RectangleF(x, textureY - height, width, height);
-			param.ImageTexutreArea = new Rectangle(x, y, width, height);
+			param.ImageTextureArea = new Rectangle(x, y, width, height);
 			param.TextureFullScreen = fullScreen;
 			param.TitleSize = titleSize;
 			param.IsVisible = true;
@@ -987,7 +986,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 				ImageName = imageName,
 				GLDrawingTextureArea = new System.Drawing.RectangleF(x, textureY, width, height * -1),
 				GLTextureArea = new RectangleF(x, textureY - height, width, height),
-				ImageTexutreArea = new Rectangle(x, y, width, height),
+				ImageTextureArea = new Rectangle(x, y, width, height),
 				IsVisible = true,
 				TextureFullScreen = fullScreen,
 				TitleSize = titleSize,
@@ -1430,7 +1429,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 
 		#endregion
 
-		#region // private methods
+		#region Private methods
 		private void UpdatePixelStatus(MouseEventArgs e, bool samplePixel, float scale = 1f)
 		{
 			lock (_pixelDatalock)
@@ -1446,8 +1445,6 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 				PixelPos = GetRoundPointF(GetCurrentRobotPos(x, y));
 				ImagePixelPos = GetRoundPointF(ConvertOpenGlToImagePoint(PixelPos));
 
-				//Console.WriteLine($"UpdatePixelStatus Ori: {e.X},{e.Y}");
-				//Console.WriteLine($"UpdatePixelStatus Curr: {PixelPos.X},{PixelPos.Y}");
 			}
 
 		}
@@ -1712,7 +1709,6 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			gl.GetTexLevelParameter(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_TEXTURE_HEIGHT, heightArr);
 			gl.GetTexLevelParameter(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_TEXTURE_INTERNAL_FORMAT, formatArr);
 
-			int width = widthArr[0];
 			int height = heightArr[0];
 			int internalFormat = formatArr[0];
 
@@ -1722,7 +1718,6 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			gl.BufferData(OpenGL.GL_PIXEL_PACK_BUFFER, 4, IntPtr.Zero, OpenGL.GL_STREAM_READ);
 			int invertedY = height - 1 - y;
 
-			// Use appropriate format based on the internal format
 			if (internalFormat == OpenGL.GL_LUMINANCE)
 			{
 				gl.ReadPixels(x, invertedY, 1, 1, OpenGL.GL_LUMINANCE, OpenGL.GL_UNSIGNED_BYTE, IntPtr.Zero);
@@ -1743,80 +1738,13 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 			gl.BindBuffer(OpenGL.GL_PIXEL_PACK_BUFFER, 0);
 			gl.DeleteBuffers(1, pbo);
 
-			// Interpret the pixel data based on the internal format
 			if (internalFormat == OpenGL.GL_LUMINANCE)
 			{
-				// For RED format, we will return a grayscale color
 				return System.Drawing.Color.FromArgb(pixelData[0], pixelData[0], pixelData[0]);
 			}
-			else
-			{
-				return System.Drawing.Color.FromArgb(pixelData[3], pixelData[0], pixelData[1], pixelData[2]);
-			}
+
+			return System.Drawing.Color.FromArgb(pixelData[3], pixelData[0], pixelData[1], pixelData[2]);
 		}
-
-
-		//public System.Drawing.Color ReadTextureColor(OpenGL gl, uint textureId, int x, int y)
-		//{
-		//	gl.BindTexture(OpenGL.GL_TEXTURE_2D, textureId);
-
-		//	int[] widthArr = new int[1];
-		//	int[] heightArr = new int[1];
-		//	int[] formatArr = new int[1];
-		//	gl.GetTexLevelParameter(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_TEXTURE_WIDTH, widthArr);
-		//	gl.GetTexLevelParameter(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_TEXTURE_HEIGHT, heightArr);
-		//	gl.GetTexLevelParameter(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_TEXTURE_INTERNAL_FORMAT, formatArr);
-
-		//	int width = widthArr[0];
-		//	int height = heightArr[0];
-
-		//	//uint[] frameBuffer = new uint[1];
-		//	//gl.GenFramebuffersEXT(1, frameBuffer);
-		//	//gl.BindFramebufferEXT(OpenGL.GL_FRAMEBUFFER_EXT, frameBuffer[0]);
-		//	//gl.FramebufferTexture2DEXT(OpenGL.GL_FRAMEBUFFER_EXT, OpenGL.GL_COLOR_ATTACHMENT0_EXT, OpenGL.GL_TEXTURE_2D, textureId, 0);
-
-		// 이미지 캔버스의 좌표와 텍스처 상태를 처리합니다.
-		//	//uint[] renderBuffer = new uint[1];
-		//	//gl.GenRenderbuffersEXT(1, renderBuffer);
-		//	//gl.BindRenderbufferEXT(OpenGL.GL_RENDERBUFFER_EXT, renderBuffer[0]);
-		//	//gl.RenderbufferStorageEXT(OpenGL.GL_RENDERBUFFER_EXT, OpenGL.GL_STENCIL_INDEX8_EXT, width, height);
-
-		// 이미지 캔버스의 좌표와 텍스처 상태를 처리합니다.
-		//	//gl.FramebufferRenderbufferEXT(OpenGL.GL_FRAMEBUFFER_EXT, OpenGL.GL_STENCIL_ATTACHMENT_EXT, OpenGL.GL_RENDERBUFFER_EXT, renderBuffer[0]);
-
-		//	Stopwatch stopwatch = Stopwatch.StartNew();
-
-
-		// PBO를 생성하고 바인딩합니다.
-		//	uint[] pbo = new uint[1];
-		//	gl.GenBuffers(1, pbo);
-		//	gl.BindBuffer(OpenGL.GL_PIXEL_PACK_BUFFER, pbo[0]);
-		//	gl.BufferData(OpenGL.GL_PIXEL_PACK_BUFFER, 4, IntPtr.Zero, OpenGL.GL_STREAM_READ);
-		//	int invertedY = height - 1 - y;
-		// glReadPixels 호출
-		//	gl.ReadPixels(x, invertedY, 1, 1, OpenGL.GL_RGBA, OpenGL.GL_UNSIGNED_BYTE, IntPtr.Zero);
-
-		// GPU에서 픽셀 데이터를 읽어옵니다.
-		//	byte[] pixelData = new byte[4];
-		//	gl.BindBuffer(OpenGL.GL_PIXEL_PACK_BUFFER, pbo[0]);
-		//	IntPtr ptr = gl.MapBuffer(OpenGL.GL_PIXEL_PACK_BUFFER, OpenGL.GL_READ_ONLY);
-		//	if (ptr != IntPtr.Zero)
-		//	{
-		//		Marshal.Copy(ptr, pixelData, 0, 4);
-		//		gl.UnmapBuffer(OpenGL.GL_PIXEL_PACK_BUFFER);
-		//	}
-		//	gl.BindBuffer(OpenGL.GL_PIXEL_PACK_BUFFER, 0);
-		//	gl.DeleteBuffers(1, pbo);
-		//	//gl.BindTexture(OpenGL.GL_TEXTURE_2D, 0);
-
-		//	//Console.WriteLine($"{stopwatch.ElapsedMilliseconds}");
-
-		// 이미지 캔버스의 좌표와 텍스처 상태를 처리합니다.
-		//	//gl.BindFramebufferEXT(OpenGL.GL_FRAMEBUFFER_EXT, 0);
-		//	//gl.DeleteFramebuffersEXT(1, frameBuffer);
-
-		//	return System.Drawing.Color.FromArgb(pixelData[3], pixelData[0], pixelData[1], pixelData[2]);
-		//}
 
 		public System.Drawing.Color[] ReadTextureColors(uint textureId)
 		{
@@ -1914,8 +1842,6 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 					colors[x + (y * width)] = System.Drawing.Color.FromArgb(flippedPixels[i + 3], flippedPixels[i], flippedPixels[i + 1], flippedPixels[i + 2]);
 				}
 			}
-
-			//Console.WriteLine($"{stopwatch.ElapsedMilliseconds}ms");
 
 			return colors;
 		}
@@ -2189,12 +2115,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 				_ySpan /= _aspectRatio;
 			}
 
-			//gl.Ortho2D(0, openGLControl.Width * ZoomScale, 0, openGLControl.Height * ZoomScale);
-
 			gl.Ortho2D(0, openGLControl.Width * ZoomScale, 0, openGLControl.Height * ZoomScale);
-
-			//gl.Ortho2D(0, _xSpan, 0, _ySpan);
-			//gl.Ortho2D(0, 100, 0, 100);
 
 			//  Back to the modelview.
 			gl.MatrixMode(MatrixMode.Modelview);
@@ -2395,47 +2316,34 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 				OpenGL gl = GetOpenGL();
 				uint[] gtexture = new uint[1];
 
-				gl.GenTextures(1, gtexture); // 텍스처 관련 값입니다.
-				gl.BindTexture(OpenGL.GL_TEXTURE_2D, gtexture[0]); // 텍스처 관련 값입니다.
+				gl.GenTextures(1, gtexture);
+				gl.BindTexture(OpenGL.GL_TEXTURE_2D, gtexture[0]);
 
 				gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_MIN_FILTER, OpenGL.GL_LINEAR);
 				gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_MAG_FILTER, OpenGL.GL_NEAREST);
-
-				// OpenGL 텍스처를 생성합니다.
 				gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_WRAP_S, OpenGL.GL_CLAMP_TO_EDGE);
 				gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_WRAP_T, OpenGL.GL_CLAMP_TO_EDGE);
-
 				gl.PixelStore(OpenGL.GL_UNPACK_ALIGNMENT, 1);
 
 				if (bpp == 3)
 				{
-					// for Color
 					gl.TexImage2D(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_RGB, width, height, 0, OpenGL.GL_RGB, OpenGL.GL_UNSIGNED_BYTE, IntPtr.Zero);
 				}
 				else if (bpp == 4)
 				{
-					// for Color
 					gl.TexImage2D(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_RGBA, width, height, 0, OpenGL.GL_RGBA, OpenGL.GL_UNSIGNED_BYTE, IntPtr.Zero);
 				}
 				else if (bpp == 1)
 				{
-					// for Mono
 					gl.TexImage2D(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_LUMINANCE, width, height, 0, OpenGL.GL_LUMINANCE, OpenGL.GL_UNSIGNED_BYTE, IntPtr.Zero);
 				}
 
 				gl.GenerateMipmapEXT(OpenGL.GL_TEXTURE_2D);
-
-				int[] widthArr = new int[1];
-				int[] heightArr = new int[1];
-				int[] formatArr = new int[1];
-				gl.GetTexLevelParameter(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_TEXTURE_WIDTH, widthArr);
-				gl.GetTexLevelParameter(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_TEXTURE_HEIGHT, heightArr);
-				gl.GetTexLevelParameter(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_TEXTURE_INTERNAL_FORMAT, formatArr);
-
 				gl.BindTexture(OpenGL.GL_TEXTURE_2D, 0);
 
 				return gtexture[0];
 			};
+
 			if (openGLControl.InvokeRequired == true)
 			{
 				openGLControl.Invoke(new MethodInvoker(delegate
@@ -2444,99 +2352,9 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 				}));
 				return textureId;
 			}
-			else
-			{
-				return action();
-			}
+
+			return action();
 		}
-
-		//public uint GenerateOpenGLTexture(int width, int height, uint bpp)
-		//{
-		//	OpenGL gl = GetOpenGL();
-
-		//	uint textureId = 0;
-		//	Func<uint> action = delegate
-		//	{
-		//		uint[] gtexture = new uint[1];
-
-		// 텍스처 관련 값입니다.
-		//									 //CheckGLError(openGLControl.OpenGL, "GenTextures");
-
-		// 텍스처 관련 값입니다.
-
-		//		gl.TexParameter(SharpGL.OpenGL.GL_TEXTURE_2D, SharpGL.OpenGL.GL_TEXTURE_MIN_FILTER, SharpGL.OpenGL.GL_LINEAR);
-		//		gl.TexParameter(SharpGL.OpenGL.GL_TEXTURE_2D, SharpGL.OpenGL.GL_TEXTURE_MAG_FILTER, SharpGL.OpenGL.GL_NEAREST);
-		//		//CheckGLError(openGLControl.OpenGL, "TexParameter");
-
-		// OpenGL 텍스처를 생성합니다.
-		//		gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_WRAP_S, OpenGL.GL_CLAMP_TO_EDGE);
-		//		gl.TexParameter(OpenGL.GL_TEXTURE_2D, OpenGL.GL_TEXTURE_WRAP_T, OpenGL.GL_CLAMP_TO_EDGE);
-
-		//		if (bpp == 3)
-		//		{
-		//			// for Color
-		//			gl.PixelStore(OpenGL.GL_UNPACK_ALIGNMENT, 1);
-		//			gl.TexImage2D(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_RGB, width, height, 0,
-		//			 SharpGL.OpenGL.GL_BGR,
-		//			 OpenGL.GL_UNSIGNED_BYTE,
-		//			 IntPtr.Zero
-		//			 );
-		//			//CheckGLError(openGLControl.OpenGL, "TexImage2D");
-		//		}
-		//		if (bpp == 4)
-		//		{
-		//			// for Color
-		//			gl.PixelStore(OpenGL.GL_UNPACK_ALIGNMENT, 1);
-		//			gl.TexImage2D(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_RGB, width, height, 0,
-		//			 SharpGL.OpenGL.GL_BGRA,
-		//			 OpenGL.GL_UNSIGNED_BYTE,
-		//			 IntPtr.Zero
-		//			 );
-		//		}
-		//		else if (bpp == 1)
-		//		{
-		//			// for Mono
-		//			gl.PixelStore(OpenGL.GL_UNPACK_ALIGNMENT, 1);
-		//			gl.TexImage2D(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_LUMINANCE, width, height, 0,
-		//				OpenGL.GL_LUMINANCE, OpenGL.GL_UNSIGNED_BYTE, IntPtr.Zero);
-		//		}
-
-		//		gl.GenerateMipmapEXT(OpenGL.GL_TEXTURE_2D);
-
-		//		int[] widthArr = new int[1];
-		//		int[] heightArr = new int[1];
-		//		int[] formatArr = new int[1];
-		//		gl.GetTexLevelParameter(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_TEXTURE_WIDTH, widthArr);
-		//		gl.GetTexLevelParameter(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_TEXTURE_HEIGHT, heightArr);
-		//		gl.GetTexLevelParameter(OpenGL.GL_TEXTURE_2D, 0, OpenGL.GL_TEXTURE_INTERNAL_FORMAT, formatArr);
-
-		//		//openGLControl.OpenGL.BindTexture(1, gtexture[0]);
-		//		gl.BindTexture(OpenGL.GL_TEXTURE_2D, 0);
-
-		//		return gtexture[0];
-		//	};
-		//	if (openGLControl.InvokeRequired == true)
-		//	{
-		//		openGLControl.Invoke(new MethodInvoker(delegate
-		//		{
-		//			textureId = action();
-		//		}));
-		//		return textureId;
-		//	}
-		//	else
-		//	{
-		//		return action();
-		//	}
-		//}
-
-		//private void CheckGLError(OpenGL gl, string location)
-		//{
-		//	uint error = gl.GetError();
-		//	if (error != OpenGL.GL_NO_ERROR)
-		//	{
-		//		throw new Exception($"OpenGL error at {location}: {error}");
-		//	}
-		//}
 
 		#endregion
 
@@ -3017,7 +2835,7 @@ namespace OpenVisionLab.ImageCanvas.Rendering
 				return;
 			}
 
-			if (overlayItem.IsExtentionRectange && shape is CanvasRect<float> rect && rect.ExtendedRectangle != null)
+			if (overlayItem.IsExtensionRectangle && shape is CanvasRect<float> rect && rect.ExtendedRectangle != null)
 			{
 				visibleShapes.Add(rect.ExtendedRectangle);
 				if (visibleShapes.Count >= maxShapes)

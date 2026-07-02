@@ -208,22 +208,10 @@ namespace MvcVisionSystem.Yolo
                 {
                     if (segment.IsRasterMask)
                     {
-                        foreach (SegmentationGeometry.SegmentationMaskRegion region in SegmentationGeometry.RasterMaskToRegions(segment.MaskData, segment.MaskSize, imageSize))
+                        SegmentationPolygonRecord maskRecord = BuildRasterMaskPolygonRecord(segment, classIndex, className, imageSize);
+                        if (maskRecord != null)
                         {
-                            if (region.Points.Count < 3)
-                            {
-                                continue;
-                            }
-
-                            records.Add(new SegmentationPolygonRecord
-                            {
-                                ClassIndex = classIndex,
-                                ClassName = className,
-                                Points = region.Points.Select(point => new SegmentationPointRecord { X = point.X, Y = point.Y }).ToList(),
-                                Cutouts = region.Cutouts
-                                    .Select(cutout => cutout.Select(point => new SegmentationPointRecord { X = point.X, Y = point.Y }).ToList())
-                                    .ToList()
-                            });
+                            records.Add(maskRecord);
                         }
 
                         continue;
@@ -250,6 +238,33 @@ namespace MvcVisionSystem.Yolo
             return records;
         }
 
+        private static SegmentationPolygonRecord BuildRasterMaskPolygonRecord(
+            LabelingSegmentationObject segment,
+            int classIndex,
+            string className,
+            Size imageSize)
+        {
+            Rectangle bounds = segment?.Bounds ?? Rectangle.Empty;
+            if (bounds.IsEmpty)
+            {
+                return null;
+            }
+
+            List<Point> points = SegmentationGeometry.RectangleToPolygon(bounds, imageSize);
+            if (points.Count < 3)
+            {
+                return null;
+            }
+
+            return new SegmentationPolygonRecord
+            {
+                ClassIndex = classIndex,
+                ClassName = className,
+                Points = points.Select(point => new SegmentationPointRecord { X = point.X, Y = point.Y }).ToList(),
+                Cutouts = new List<List<SegmentationPointRecord>>()
+            };
+        }
+
         public static IEnumerable<string> GetCandidateSegmentPaths(string imagePath, CData data)
         {
             if (string.IsNullOrWhiteSpace(imagePath))
@@ -263,22 +278,93 @@ namespace MvcVisionSystem.Yolo
                 yield break;
             }
 
+            var emittedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (data != null)
+            {
+                data.NormalizeOutputPaths();
+                string outputRootPath = data.OutputRootPath;
+                if (!string.IsNullOrWhiteSpace(outputRootPath))
+                {
+                    foreach (string mode in DatasetModes)
+                    {
+                        string datasetSegmentPath = Path.Combine(outputRootPath, "data", mode, "segments", $"{fileStem}.json");
+                        if (emittedPaths.Add(datasetSegmentPath))
+                        {
+                            yield return datasetSegmentPath;
+                        }
+                    }
+
+                    if (IsPathUnderDirectory(imagePath, outputRootPath))
+                    {
+                        string outputSiblingSegmentPath = ResolveSiblingSegmentPath(imagePath, fileStem);
+                        if (!string.IsNullOrWhiteSpace(outputSiblingSegmentPath) && emittedPaths.Add(outputSiblingSegmentPath))
+                        {
+                            yield return outputSiblingSegmentPath;
+                        }
+
+                        string outputSidecarSegmentPath = Path.Combine(Path.GetDirectoryName(imagePath) ?? string.Empty, $"{fileStem}.segments.json");
+                        if (!string.IsNullOrWhiteSpace(outputSidecarSegmentPath) && emittedPaths.Add(outputSidecarSegmentPath))
+                        {
+                            yield return outputSidecarSegmentPath;
+                        }
+                    }
+
+                    yield break;
+                }
+            }
+
+            string siblingSegmentPath = ResolveSiblingSegmentPath(imagePath, fileStem);
+            if (!string.IsNullOrWhiteSpace(siblingSegmentPath) && emittedPaths.Add(siblingSegmentPath))
+            {
+                yield return siblingSegmentPath;
+            }
+
+            string sidecarSegmentPath = Path.Combine(Path.GetDirectoryName(imagePath) ?? string.Empty, $"{fileStem}.segments.json");
+            if (!string.IsNullOrWhiteSpace(sidecarSegmentPath) && emittedPaths.Add(sidecarSegmentPath))
+            {
+                yield return sidecarSegmentPath;
+            }
+        }
+
+        private static string ResolveSiblingSegmentPath(string imagePath, string fileStem)
+        {
             DirectoryInfo imageDirectory = Directory.GetParent(imagePath);
             if (imageDirectory != null && string.Equals(imageDirectory.Name, "images", StringComparison.OrdinalIgnoreCase))
             {
                 string siblingSegmentDirectory = Path.Combine(imageDirectory.Parent?.FullName ?? imageDirectory.FullName, "segments");
-                yield return Path.Combine(siblingSegmentDirectory, $"{fileStem}.json");
+                return Path.Combine(siblingSegmentDirectory, $"{fileStem}.json");
             }
 
-            if (data != null)
+            return string.Empty;
+        }
+
+        private static bool IsPathUnderDirectory(string path, string rootDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(rootDirectory))
             {
-                data.NormalizeOutputPaths();
-                yield return Path.Combine(data.OutputRootPath, "data", "train", "segments", $"{fileStem}.json");
-                yield return Path.Combine(data.OutputRootPath, "data", "valid", "segments", $"{fileStem}.json");
-                yield return Path.Combine(data.OutputRootPath, "data", "test", "segments", $"{fileStem}.json");
+                return false;
             }
 
-            yield return Path.Combine(Path.GetDirectoryName(imagePath) ?? string.Empty, $"{fileStem}.segments.json");
+            try
+            {
+                string fullPath = Path.GetFullPath(path);
+                string fullRoot = Path.GetFullPath(rootDirectory);
+                if (!fullRoot.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+                    && !fullRoot.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal))
+                {
+                    fullRoot += Path.DirectorySeparatorChar;
+                }
+
+                return fullPath.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase);
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+            catch (NotSupportedException)
+            {
+                return false;
+            }
         }
 
         private static void SaveMask(string maskPath, Size imageSize, IReadOnlyList<SegmentationPolygonRecord> polygons)

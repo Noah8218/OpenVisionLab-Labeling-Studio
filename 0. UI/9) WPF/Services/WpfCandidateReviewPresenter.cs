@@ -3,6 +3,7 @@ using MvcVisionSystem._1._Core;
 using System;
 using System.Drawing;
 using System.Globalization;
+using System.Linq;
 using MediaBrush = System.Windows.Media.Brush;
 using MediaBrushes = System.Windows.Media.Brushes;
 using MediaColor = System.Windows.Media.Color;
@@ -104,12 +105,8 @@ namespace MvcVisionSystem
         public static string BuildDetectionOverlayLabel(YoloWorkerSmokeCandidate candidate, int fallbackIndex)
         {
             int index = candidate?.Index > 0 ? candidate.Index : fallbackIndex;
-            if (index != int.MinValue)
-            {
-                string labelPrefix = "\uD6C4\uBCF4";
-                return $"{labelPrefix} {index} {GetClassName(candidate)} {FormatConfidence(candidate, "P1")}";
-            }
-            return $"후보 {index} {GetClassName(candidate)} {FormatConfidence(candidate, "P1")}";
+            string className = ToCanvasSafeText(GetClassName(candidate));
+            return $"AI {index} {className} {FormatConfidence(candidate, "P1")}";
         }
 
         public static string FormatCandidate(YoloWorkerSmokeCandidate candidate, Rectangle bounds)
@@ -341,6 +338,17 @@ namespace MvcVisionSystem
 
         public static string GetClassName(YoloWorkerSmokeCandidate candidate)
             => string.IsNullOrWhiteSpace(candidate?.ClassName) ? "Defect" : candidate.ClassName;
+
+        private static string ToCanvasSafeText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return "Defect";
+            }
+
+            string trimmed = text.Trim();
+            return trimmed.All(ch => ch >= 0x20 && ch <= 0x7E) ? trimmed : "Class";
+        }
 
         public static string FormatConfidence(YoloWorkerSmokeCandidate candidate, string format)
             => (candidate?.Confidence ?? 0D).ToString(format, CultureInfo.CurrentCulture);

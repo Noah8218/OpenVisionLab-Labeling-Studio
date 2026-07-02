@@ -57,18 +57,26 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			action();
 		}
 
-		public static void DrawRoiEditHandles(OpenGL gl, CanvasRect<float> canvasRect, float zoomScale, System.Windows.Media.SolidColorBrush color)
+		public static void DrawRoiEditHandles(OpenGL gl, CanvasRect<float> canvasRect, float zoomScale, System.Windows.Media.SolidColorBrush color, float handleScreenSize = 14.0f)
 		{
 			if (canvasRect == null || canvasRect.IsEmpty()) { return; }
 
 			float r, g, b, a;
 			(r, g, b, a) = ConvertColorToOpenGLRGB(color);
 
-			float handleSize = Math.Min(8.0f * Math.Max(zoomScale, 0.001f), maxHandleSize);
-			DrawRectangleWithHandles(gl, canvasRect.Points.Select(x => new PointF(x.X, x.Y)), handleSize, 2, new float[] { r, g, b });
+			float safeZoomScale = Math.Max(zoomScale, 0.001f);
+			float handleSize = GetRoiEditHandleWorldSize(safeZoomScale, handleScreenSize);
+			DrawRectangleWithHandles(gl, canvasRect.Points.Select(x => new PointF(x.X, x.Y)), handleSize, 2, new float[] { r, g, b }, safeZoomScale);
 		}
 
-		public static void DrawRectangleWithHandles(OpenGL gl, IEnumerable<PointF> mainRectPoints, float handleSize, float lineWidth, float[] lineColorRGB)
+		public static float GetRoiEditHandleWorldSize(float zoomScale, float handleScreenSize)
+		{
+			float safeZoomScale = Math.Max(zoomScale, 0.001f);
+			float screenSize = Math.Clamp(handleScreenSize, 10.0f, MaxHandleScreenSize);
+			return screenSize * safeZoomScale;
+		}
+
+		public static void DrawRectangleWithHandles(OpenGL gl, IEnumerable<PointF> mainRectPoints, float handleSize, float lineWidth, float[] lineColorRGB, float zoomScale = 1.0f)
 		{
 			var pointsList = mainRectPoints.ToList();
 			if (pointsList.Count < 4)
@@ -86,7 +94,8 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 
 				// Selection handles are editor affordances, not labels. Draw a dark halo
 				// plus a stable accent color so the ROI class color remains meaningful.
-				DrawSolidLineLoop(gl, pointsList, lineWidth + 2.0f, new float[] { 0f, 0f, 0f }, 0.50f);
+				DrawSolidLineLoop(gl, pointsList, lineWidth + 4.0f, new float[] { 0f, 0f, 0f }, 0.42f);
+				DrawSolidLineLoop(gl, pointsList, lineWidth + 1.5f, new float[] { 1f, 1f, 1f }, 0.82f);
 				DrawSolidLineLoop(gl, pointsList, lineWidth, lineColorRGB, 1.0f);
 
 				PointF topCenter = new PointF((pointsList[0].X + pointsList[1].X) / 2, pointsList[0].Y);
@@ -98,7 +107,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				foreach (var center in allPoints)
 				{
 					float halfSize = handleSize / 2.0f;
-					DrawFilledHandle(gl, center, halfSize, lineColorRGB);
+					DrawFilledHandle(gl, center, halfSize, zoomScale, lineColorRGB);
 				}
 			}
 			finally
@@ -119,11 +128,14 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			gl.End();
 		}
 
-		private static void DrawFilledHandle(OpenGL gl, PointF center, float halfSize, float[] lineColorRGB)
+		private static void DrawFilledHandle(OpenGL gl, PointF center, float halfSize, float zoomScale, float[] lineColorRGB)
 		{
-			float haloHalfSize = halfSize + 1.5f;
-			DrawFilledRect(gl, center, haloHalfSize, new float[] { 0f, 0f, 0f }, 0.55f);
-			DrawFilledRect(gl, center, halfSize, lineColorRGB, 0.92f);
+			float safeZoomScale = Math.Max(zoomScale, 0.001f);
+			float haloHalfSize = halfSize + (2.0f * safeZoomScale);
+			float borderHalfSize = halfSize + (0.8f * safeZoomScale);
+			DrawFilledRect(gl, center, haloHalfSize, new float[] { 0f, 0f, 0f }, 0.42f);
+			DrawFilledRect(gl, center, borderHalfSize, new float[] { 1f, 1f, 1f }, 0.94f);
+			DrawFilledRect(gl, center, halfSize, lineColorRGB, 0.95f);
 			var handlePoints = new List<PointF>
 			{
 				new PointF(center.X - halfSize, center.Y - halfSize),
@@ -189,7 +201,6 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 
 		public static void DrawRectangle(OpenGL gl, PointF start, PointF end, float lineWidth, EnumFillMode enumFillMode, System.Windows.Media.SolidColorBrush color, SizeF textureSize = new SizeF())
 		{
-			//if (start.IsEmpty || end.IsEmpty) { return; }
 			if (start.Equals(end)) { return; }
 
 			gl.Enable(OpenGL.GL_BLEND);
@@ -512,15 +523,6 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			for (int i = 0; i < array.Length; ++i)
 			{
 				gl.Vertex(array[i].X, array[i].Y);
-				//if (i < 3)
-				//if (i < array.Length - 1)
-				//{
-				//	gl.Vertex(array[i + 1].X, array[i + 1].Y);
-				//}
-				//else
-				//{
-				//	gl.Vertex(array[0].X, array[0].Y);
-				//}
 			}
 			gl.End();
 		}
@@ -722,8 +724,6 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 
 			float r, g, b, a;
 			(r, g, b, a) = ConvertColorToOpenGLRGB(color);
-
-			//gl.Enable(OpenGL.GL_BLEND);
 
 			List<PointF> pointList;
 			if (Math.Abs(endPoint.X - startPoint.X) > Math.Abs(endPoint.Y - startPoint.Y))
@@ -1114,35 +1114,27 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			{
 				var points = DrawPointAsSquareAndReturnVertices(new PointF(cx + x, cy + y), lineWidth);
 				allPoints.AddRange(points);
-				//DrawPointAsSquare(gl, new PointF(cx + x, cy + y), lineWidth, r, g, b, 1);
 
 				points = DrawPointAsSquareAndReturnVertices(new PointF(cx - x, cy + y), lineWidth);
 				allPoints.AddRange(points);
-				//DrawPointAsSquare(gl, new PointF(cx - x, cy + y), lineWidth, r, g, b, 1);
 
 				points = DrawPointAsSquareAndReturnVertices(new PointF(cx + x, cy - y), lineWidth);
 				allPoints.AddRange(points);
-				//DrawPointAsSquare(gl, new PointF(cx + x, cy - y), lineWidth, r, g, b, 1);
 
 				points = DrawPointAsSquareAndReturnVertices(new PointF(cx - x, cy - y), lineWidth);
 				allPoints.AddRange(points);
-				//DrawPointAsSquare(gl, new PointF(cx - x, cy - y), lineWidth, r, g, b, 1);
 
 				points = DrawPointAsSquareAndReturnVertices(new PointF(cx + y, cy + x), lineWidth);
 				allPoints.AddRange(points);
-				//DrawPointAsSquare(gl, new PointF(cx + y, cy + x), lineWidth, r, g, b, 1);
 
 				points = DrawPointAsSquareAndReturnVertices(new PointF(cx - y, cy + x), lineWidth);
 				allPoints.AddRange(points);
-				//DrawPointAsSquare(gl, new PointF(cx - y, cy + x), lineWidth, r, g, b, 1);
 
 				points = DrawPointAsSquareAndReturnVertices(new PointF(cx + y, cy - x), lineWidth);
 				allPoints.AddRange(points);
-				//DrawPointAsSquare(gl, new PointF(cx + y, cy - x), lineWidth, r, g, b, 1);
 
 				points = DrawPointAsSquareAndReturnVertices(new PointF(cx - y, cy - x), lineWidth);
 				allPoints.AddRange(points);
-				//DrawPointAsSquare(gl, new PointF(cx - y, cy - x), lineWidth, r, g, b, 1);
 			}
 
 			while (y2 >= x1)
@@ -1163,7 +1155,6 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				DrawCirclePoints((int)centerX, (int)centerY, x1, y2);
 			}
 
-			//return allPoints;
 			return allPoints.Distinct().ToList();
 		}
 
@@ -1409,8 +1400,6 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 		{
 			gl.LineWidth(lineWidth);
 			gl.Color(lineColorRGB);
-			//gl.Enable(OpenGL.GL_BLEND);
-			//gl.BlendFunc(SharpGL.Enumerations.BlendingSourceFactor.OneMinusDestinationColor, SharpGL.Enumerations.BlendingDestinationFactor.OneMinusSourceColor);
 			gl.Begin(OpenGL.GL_LINE_LOOP);
 			{
 				foreach (var pt in points)

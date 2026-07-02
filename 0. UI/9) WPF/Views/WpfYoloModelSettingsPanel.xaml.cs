@@ -1,4 +1,8 @@
 using System.Windows.Controls;
+using CheckBox = System.Windows.Controls.CheckBox;
+using ComboBox = System.Windows.Controls.ComboBox;
+using TextBox = System.Windows.Controls.TextBox;
+using UserControl = System.Windows.Controls.UserControl;
 using WpfUiButton = Wpf.Ui.Controls.Button;
 
 namespace MvcVisionSystem
@@ -13,6 +17,11 @@ namespace MvcVisionSystem
         public WpfYoloModelSettingsPanelViewModel ViewModel => DataContext as WpfYoloModelSettingsPanelViewModel;
 
         public Expander SettingsExpander => YoloModelSettingsExpander;
+        public Expander AdvancedSettingsExpander => YoloAdvancedModelSettingsExpander;
+        public Border SummaryPanel => YoloModelSettingsSummaryPanel;
+        public Border InspectionModelQuickPanel => YoloInspectionModelQuickPanel;
+        public TextBlock SummaryModelTextBlock => YoloModelSettingsSummaryModelText;
+        public TextBlock SummaryRuntimeTextBlock => YoloModelSettingsSummaryRuntimeText;
         public ComboBox ModelEngineBox => YoloModelEngineBox;
         public TextBox PythonPathBox => YoloPythonPathBox;
         public TextBox ProjectRootBox => YoloProjectRootBox;
@@ -31,5 +40,7 @@ namespace MvcVisionSystem
         public WpfUiButton BrowseImageRootButton => BrowseYoloImageRootButton;
         public WpfUiButton SaveButton => SaveYoloSettingsButton;
         public WpfUiButton ResetButton => ResetYoloSettingsButton;
+        public WpfUiButton RuntimeInstallPackageButton => YoloRuntimeInstallPackageButton;
+        public WpfUiButton RuntimeUninstallPackageButton => YoloRuntimeUninstallPackageButton;
     }
 }

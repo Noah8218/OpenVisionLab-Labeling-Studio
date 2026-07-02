@@ -15,13 +15,13 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 		private const int ImmediateGroupBoundsRefreshLimit = 10_000;
 
 		#region Overlay
-		public static void AddOverlay(this ImageCanvasControl canvasViewer, string parentType, string childType, CanvasShape shape, string uniqueId, EnumInspWindowType InspType = EnumInspWindowType.Unit, EnumItemType itemType = EnumItemType.Window, bool isExtentionRectange = false, bool isGroupRectangle = false)
+		public static void AddOverlay(this ImageCanvasControl canvasViewer, string parentType, string childType, CanvasShape shape, string uniqueId, EnumInspWindowType inspectionType = EnumInspWindowType.Unit, EnumItemType itemType = EnumItemType.Window, bool isExtensionRectangle = false, bool isGroupRectangle = false, System.Drawing.Color? drawColorOverride = null)
 		{
 			shape.UniqueId = uniqueId;
 			shape.GroupType = childType;
 
 			// ?덈줈??Shape瑜?異붽??⑸땲??
-			CanvasOverlayItem overlayItem = CreateNewCanvasOverlayItem(canvasViewer, childType, shape, InspType, itemType, isExtentionRectange, isGroupRectangle);
+			CanvasOverlayItem overlayItem = CreateNewCanvasOverlayItem(canvasViewer, childType, shape, inspectionType, itemType, isExtensionRectangle, isGroupRectangle, drawColorOverride);
 			canvasViewer.GetCanvasOverlayManager().AddOverlayItem(parentType, overlayItem);
 
 			if (ShouldRefreshGroupBoundsImmediately(canvasViewer, parentType))
@@ -57,19 +57,23 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			return group == null || group.ChildObjects.Count <= ImmediateGroupBoundsRefreshLimit;
 		}
 
-		private static CanvasOverlayItem CreateNewCanvasOverlayItem(ImageCanvasControl canvasViewer, string childType, CanvasShape shape, EnumInspWindowType InspType, EnumItemType itemType, bool isExtentionRectange, bool isGroupRectangle)
+		private static CanvasOverlayItem CreateNewCanvasOverlayItem(ImageCanvasControl canvasViewer, string childType, CanvasShape shape, EnumInspWindowType inspectionType, EnumItemType itemType, bool isExtensionRectangle, bool isGroupRectangle, System.Drawing.Color? drawColorOverride)
 		{
-			System.Drawing.Color drawColor = System.Drawing.Color.White;
+			bool hasExplicitDrawColor = drawColorOverride.HasValue && !drawColorOverride.Value.IsEmpty;
+			System.Drawing.Color drawColor = hasExplicitDrawColor
+				? drawColorOverride.Value
+				: System.Drawing.Color.White;
 			// Group蹂??됱쓣 ?ㅼ젙?⑸땲??
-			if (canvasViewer.GetCanvasOverlayManager().GroupBrushes.TryGetValue(InspType, out System.Windows.Media.SolidColorBrush brush))
+			if (!hasExplicitDrawColor
+				&& canvasViewer.GetCanvasOverlayManager().GroupBrushes.TryGetValue(inspectionType, out System.Windows.Media.SolidColorBrush brush))
 			{
 				drawColor = System.Drawing.Color.FromArgb(brush.Color.A, brush.Color.R, brush.Color.G, brush.Color.B);
 			}
 
-			CanvasOverlayItem newObject = new CanvasOverlayItem { GroupType = childType, Shape = shape, ItemType = itemType, InspWindowType = InspType, IsExtentionRectange = isExtentionRectange, IsGroupRectangle = isGroupRectangle, Color = drawColor };
-			ConnectOverlayCallback(newObject, canvasViewer.GetOpenGL());
+			CanvasOverlayItem overlayItem = new CanvasOverlayItem { GroupType = childType, Shape = shape, ItemType = itemType, InspWindowType = inspectionType, IsExtensionRectangle = isExtensionRectangle, IsGroupRectangle = isGroupRectangle, Color = drawColor };
+			ConnectOverlayCallback(overlayItem, canvasViewer.GetOpenGL());
 
-			return newObject;
+			return overlayItem;
 		}
 
 		public static void UpdateOverlays(this ImageCanvasControl canvasViewer)
@@ -84,19 +88,18 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 		/// <summary>
 		/// 蹂寃쎌젏??媛먯?媛 ?섎㈃ ?먮룞?쇰줈 ?낅뜲?댄듃?섎뒗 肄쒕깹???곌껐?⑸땲??
 		/// </summary>
-		/// <param name="newObject"></param>
-		private static void ConnectOverlayCallback(CanvasOverlayItem newObject, OpenGL gl)
+		private static void ConnectOverlayCallback(CanvasOverlayItem overlayItem, OpenGL gl)
 		{
-			newObject.Shape.OnChanged = () =>
+			overlayItem.Shape.OnChanged = () =>
 			{
-				if (newObject.Shape.IsChanged)
+				if (overlayItem.Shape.IsChanged)
 				{
-					OpenGlDrawing.CompileOverlayShape(gl, newObject);
-					newObject.Shape.IsChanged = false;
+					OpenGlDrawing.CompileOverlayShape(gl, overlayItem);
+					overlayItem.Shape.IsChanged = false;
 				}
 			};
-			newObject.Shape.IsChanged = true;
-			newObject.Shape.OnChanged?.Invoke();
+			overlayItem.Shape.IsChanged = true;
+			overlayItem.Shape.OnChanged?.Invoke();
 		}
 
 		public static void DeleteOverlay(this ImageCanvasControl canvasViewer, string uniqueId = "", string groupName = "", bool refreshImmediately = true)
@@ -308,7 +311,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 		public static CanvasOverlayItem GetGroupToType(this ImageCanvasControl canvasViewer, string childType) => canvasViewer.GetCanvasOverlayManager().GetGroupToType(childType);
 		public static CanvasOverlayItem GetOverlayByUniqueId(this ImageCanvasControl canvasViewer, string uniqueid) => canvasViewer.GetCanvasOverlayManager().GetOverlayByUniqueId(uniqueid);
 		public static CanvasOverlayItem GetParentToType(this ImageCanvasControl canvasViewer, string childType) => canvasViewer.GetCanvasOverlayManager().GetParentToType(childType);
-		public static string GetNewOverlayName(this ImageCanvasControl canvasViewer, CanvasOverlayItem overlayItem) => canvasViewer.GetCanvasOverlayManager().GetNewname(overlayItem);
+		public static string GetNewOverlayName(this ImageCanvasControl canvasViewer, CanvasOverlayItem overlayItem) => canvasViewer.GetCanvasOverlayManager().GetNewName(overlayItem);
 		public static void ClearOverlays(this ImageCanvasControl canvasViewer)
 		{
 			ReleaseDisplayLists(canvasViewer);

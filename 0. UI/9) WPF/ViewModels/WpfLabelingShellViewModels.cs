@@ -10,6 +10,8 @@ namespace MvcVisionSystem
 
         public WpfImageQueuePanelViewModel ImageQueueViewModel { get; } = new WpfImageQueuePanelViewModel();
 
+        public WpfTemplateMatchingAutoLabelViewModel TemplateMatchingAutoLabelViewModel { get; } = new WpfTemplateMatchingAutoLabelViewModel();
+
         public WpfCanvasPanelViewModel CanvasPanelViewModel { get; } = new WpfCanvasPanelViewModel();
 
         public WpfObjectReviewPanelViewModel ObjectReviewViewModel { get; } = new WpfObjectReviewPanelViewModel();

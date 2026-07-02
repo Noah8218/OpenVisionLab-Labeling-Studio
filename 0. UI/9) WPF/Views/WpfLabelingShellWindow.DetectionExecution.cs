@@ -54,20 +54,21 @@ namespace MvcVisionSystem
                 }
 
                 string elapsed = FormatElapsed(totalStopwatch.Elapsed);
+                string failureSummary = BuildInteractiveDetectionFailureSummary(result);
                 SetYoloCommandStatus(
                     result.Succeeded
                         ? $"추론 완료: 후보 {result.CandidateCount}개 / {elapsed}"
-                        : $"추론 실패: {elapsed}",
+                        : $"추론 실패: {failureSummary} / {elapsed}",
                     isBusy: false);
                 SetGlobalInferenceStatus(
                     result.Succeeded
                         ? $"완료: 후보 {result.CandidateCount}개 / {elapsed}"
-                        : $"실패: {elapsed}",
+                        : $"실패: {failureSummary}",
                     isBusy: false,
                     isWarning: !result.Succeeded);
                 AppendLog(result.Succeeded
                     ? $"단일 이미지 추론 완료: {FormatElapsed(totalStopwatch.Elapsed)} / 경로 {FormatInferencePath(inferencePath)}"
-                    : $"단일 이미지 추론 실패: {FormatElapsed(totalStopwatch.Elapsed)} / 추론 연결 또는 응답을 확인하세요.");
+                    : $"단일 이미지 추론 실패: {FormatElapsed(totalStopwatch.Elapsed)} / {failureSummary}");
             }
             finally
             {
@@ -77,6 +78,16 @@ namespace MvcVisionSystem
             }
         }
 
+        private static string BuildInteractiveDetectionFailureSummary(YoloWorkerSmokeTestResult result)
+        {
+            string summary = FirstNonEmpty(
+                result?.Summary,
+                result?.Error,
+                result?.Errors?.FirstOrDefault(),
+                "추론 연결 또는 응답을 확인하세요.");
+            summary = summary.Replace(Environment.NewLine, " ").Trim();
+            return summary.Length > 80 ? summary.Substring(0, 80) + "..." : summary;
+        }
 
     }
 }

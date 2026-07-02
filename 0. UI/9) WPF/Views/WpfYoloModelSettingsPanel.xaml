@@ -1,8 +1,8 @@
 <UserControl x:Class="MvcVisionSystem.WpfYoloModelSettingsPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                          xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm"
-xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
+             xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
              xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
     <UserControl.Resources>
         <Style x:Key="YoloModelLabelStyle" TargetType="TextBlock">
@@ -61,13 +61,583 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <Style x:Key="YoloRuntimeProfileActionButtonStyle" TargetType="{x:Type ui:Button}">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="MinHeight" Value="26" />
+            <Setter Property="MinWidth" Value="46" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Margin" Value="6,0,0,0" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+                    <Setter Property="Opacity" Value="0.45" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <SolidColorBrush x:Key="YoloRuntimeStatusBrush" Color="#93C5FD" />
     </UserControl.Resources>
 
     <Expander x:Name="YoloModelSettingsExpander"
-              Header="모델 설정"
+              Header="&#xAC80;&#xC0AC;&#xC6A9; &#xBAA8;&#xB378; &#xC694;&#xC57D; / &#xC124;&#xC815;"
               Foreground="{DynamicResource PrimaryTextBrush}"
               Margin="0,12,0,0">
         <StackPanel Margin="0,8,0,0">
+            <Border x:Name="YoloModelSettingsSummaryPanel"
+                    AutomationProperties.AutomationId="YoloModelSettingsSummaryPanel"
+                    Background="{DynamicResource PanelBrush}"
+                    BorderBrush="{DynamicResource AccentBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8"
+                    Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock x:Name="YoloModelSettingsSummaryTitleText"
+                               AutomationProperties.AutomationId="YoloModelSettingsSummaryTitleText"
+                               Text="{Binding SettingsSummaryTitleText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="YoloModelSettingsSummaryModelText"
+                               AutomationProperties.AutomationId="YoloModelSettingsSummaryModelText"
+                               Text="{Binding SettingsSummaryModelText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10.5"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                    <TextBlock x:Name="YoloModelSettingsSummaryRuntimeStatusText"
+                               AutomationProperties.AutomationId="YoloModelSettingsSummaryRuntimeStatusText"
+                               Text="{Binding SettingsSummaryRuntimeStatusText}"
+                               ToolTip="{Binding SettingsSummaryRuntimeStatusText}"
+                               Foreground="{StaticResource YoloRuntimeStatusBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10.5"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Margin="0,3,0,0" />
+                    <TextBlock x:Name="YoloModelSettingsSummaryRuntimeText"
+                               AutomationProperties.AutomationId="YoloModelSettingsSummaryRuntimeText"
+                               Text="{Binding SettingsSummaryRuntimeText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               TextWrapping="Wrap"
+                               Margin="0,2,0,0" />
+                    <TextBlock x:Name="YoloModelSettingsSummaryPathText"
+                               AutomationProperties.AutomationId="YoloModelSettingsSummaryPathText"
+                               Text="{Binding SettingsSummaryPathText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               TextWrapping="Wrap"
+                               Margin="0,2,0,0" />
+                    <TextBlock x:Name="YoloModelSettingsSummaryActionText"
+                               AutomationProperties.AutomationId="YoloModelSettingsSummaryActionText"
+                               Text="{Binding SettingsSummaryActionText}"
+                               Foreground="{DynamicResource AccentBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="9.5"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="YoloRuntimeProfilePanel"
+                    AutomationProperties.AutomationId="YoloRuntimeProfilePanel"
+                    Background="{DynamicResource CanvasBrush}"
+                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="7"
+                    Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock x:Name="YoloRuntimeProfileHeaderText"
+                               AutomationProperties.AutomationId="YoloRuntimeProfileHeaderText"
+                               Text="{Binding RuntimeProfileHeaderText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap" />
+                    <ItemsControl x:Name="YoloRuntimeProfileItems"
+                                  AutomationProperties.AutomationId="YoloRuntimeProfileItems"
+                                  ItemsSource="{Binding RuntimeProfileItems}"
+                                  Margin="0,6,0,0">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource PanelBrush}"
+                                        BorderBrush="{DynamicResource InputBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="3"
+                                        Padding="6"
+                                        Margin="0,0,0,5">
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="64" />
+                                            <ColumnDefinition Width="*" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   TextTrimming="CharacterEllipsis" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding StatusText}"
+                                                   Foreground="{DynamicResource AccentBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="10.5"
+                                                   FontWeight="SemiBold"
+                                                   TextWrapping="Wrap" />
+                                        <ui:Button x:Name="RuntimeProfileActionButton"
+                                                   AutomationProperties.AutomationId="RuntimeProfileActionButton"
+                                                   Grid.Column="2"
+                                                   Grid.RowSpan="3"
+                                                   Style="{StaticResource YoloRuntimeProfileActionButtonStyle}"
+                                                   Content="{Binding PrimaryActionText}"
+                                                   Command="{Binding DataContext.RuntimeProfileActionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
+                                                   CommandParameter="{Binding Engine}"
+                                                   IsEnabled="{Binding DataContext.IsRuntimeProfileActionEnabled, RelativeSource={RelativeSource AncestorType=ItemsControl}}" />
+                                        <TextBlock Grid.Row="1"
+                                                   Text="{Binding RuntimeFamilyText}"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="10"
+                                                   TextTrimming="CharacterEllipsis"
+                                                   Margin="0,3,0,0" />
+                                        <TextBlock Grid.Row="1"
+                                                   Grid.Column="1"
+                                                   Text="{Binding DetailText}"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="10"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,3,0,0" />
+                                        <TextBlock Grid.Row="2"
+                                                   Grid.Column="1"
+                                                   Text="{Binding NextActionText}"
+                                                   Foreground="{DynamicResource DisabledTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="10"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,3,0,0" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                    <TextBlock x:Name="YoloRuntimeProfileActionStatusText"
+                               AutomationProperties.AutomationId="YoloRuntimeProfileActionStatusText"
+                               Text="{Binding RuntimeProfileActionStatusText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Margin="0,2,0,0" />
+                    <Border x:Name="YoloRuntimeExecutionRoutePanel"
+                            AutomationProperties.AutomationId="YoloRuntimeExecutionRoutePanel"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource InputBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="6"
+                            Margin="0,7,0,0">
+                        <StackPanel>
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="94" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock x:Name="YoloRuntimeExecutionTitleText"
+                                           AutomationProperties.AutomationId="YoloRuntimeExecutionTitleText"
+                                           Text="{Binding RuntimeExecutionTitleText}"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10.5"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding RuntimeExecutionTitleText}" />
+                                <TextBlock x:Name="YoloRuntimeExecutionSummaryText"
+                                           AutomationProperties.AutomationId="YoloRuntimeExecutionSummaryText"
+                                           Grid.Column="1"
+                                           Text="{Binding RuntimeExecutionSummaryText}"
+                                           Foreground="{DynamicResource AccentBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding RuntimeExecutionSummaryText}"
+                                           Margin="4,0,0,0" />
+                            </Grid>
+                            <TextBlock x:Name="YoloRuntimeExecutionWorkerText"
+                                       AutomationProperties.AutomationId="YoloRuntimeExecutionWorkerText"
+                                       Text="{Binding RuntimeExecutionWorkerText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9.5"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding RuntimeExecutionWorkerText}"
+                                       Margin="0,4,0,0" />
+                            <TextBlock x:Name="YoloRuntimeExecutionTrainingText"
+                                       AutomationProperties.AutomationId="YoloRuntimeExecutionTrainingText"
+                                       Text="{Binding RuntimeExecutionTrainingText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9.5"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding RuntimeExecutionTrainingText}"
+                                       Margin="0,2,0,0" />
+                            <TextBlock x:Name="YoloRuntimeExecutionInspectionText"
+                                       AutomationProperties.AutomationId="YoloRuntimeExecutionInspectionText"
+                                       Text="{Binding RuntimeExecutionInspectionText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9.5"
+                                       TextTrimming="CharacterEllipsis"
+                                       ToolTip="{Binding RuntimeExecutionInspectionText}"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="YoloRuntimeInstallPlanPanel"
+                            AutomationProperties.AutomationId="YoloRuntimeInstallPlanPanel"
+                            Visibility="{Binding RuntimeInstallPlanVisibility}"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="6"
+                            Margin="0,7,0,0">
+                        <StackPanel>
+                            <TextBlock x:Name="YoloRuntimeInstallPlanTitleText"
+                                       AutomationProperties.AutomationId="YoloRuntimeInstallPlanTitleText"
+                                       Text="{Binding RuntimeInstallPlanTitleText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="YoloRuntimeInstallPlanSummaryText"
+                                       AutomationProperties.AutomationId="YoloRuntimeInstallPlanSummaryText"
+                                       Text="{Binding RuntimeInstallPlanSummaryText}"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10.5"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"
+                                       Margin="0,3,0,0" />
+                            <WrapPanel Margin="0,6,0,0">
+                                <ui:Button x:Name="YoloRuntimeInstallPackageButton"
+                                           AutomationProperties.AutomationId="YoloRuntimeInstallPackageButton"
+                                           Style="{StaticResource YoloModelCommandButtonStyle}"
+                                           Content="&#xC124;&#xCE58; &#xC2E4;&#xD589;"
+                                           MinWidth="84"
+                                           IsEnabled="{Binding IsRuntimeInstallPackageEnabled}"
+                                           Command="{Binding RuntimeInstallPackageCommand}" />
+                                <ui:Button x:Name="YoloRuntimeUninstallPackageButton"
+                                           AutomationProperties.AutomationId="YoloRuntimeUninstallPackageButton"
+                                           Style="{StaticResource YoloModelCommandButtonStyle}"
+                                           Content="&#xC81C;&#xAC70;"
+                                           MinWidth="58"
+                                           IsEnabled="{Binding IsRuntimeUninstallPackageEnabled}"
+                                           Command="{Binding RuntimeUninstallPackageCommand}" />
+                            </WrapPanel>
+                            <Border x:Name="YoloRuntimePackageResultPanel"
+                                    AutomationProperties.AutomationId="YoloRuntimePackageResultPanel"
+                                    Background="{DynamicResource InputBrush}"
+                                    BorderBrush="{DynamicResource InputBorderBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="3"
+                                    Padding="5"
+                                    Margin="0,6,0,0">
+                                <Grid>
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="78" />
+                                        <ColumnDefinition Width="*" />
+                                    </Grid.ColumnDefinitions>
+                                    <Grid.RowDefinitions>
+                                        <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
+                                    </Grid.RowDefinitions>
+                                    <TextBlock x:Name="YoloRuntimePackageResultTitleText"
+                                               AutomationProperties.AutomationId="YoloRuntimePackageResultTitleText"
+                                               Text="{Binding RuntimePackageResultTitleText}"
+                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="9.5"
+                                               FontWeight="SemiBold" />
+                                    <TextBlock x:Name="YoloRuntimePackageResultSummaryText"
+                                               AutomationProperties.AutomationId="YoloRuntimePackageResultSummaryText"
+                                               Grid.Column="1"
+                                               Text="{Binding RuntimePackageResultSummaryText}"
+                                               Foreground="{DynamicResource AccentBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="9.5"
+                                               FontWeight="SemiBold"
+                                               TextWrapping="Wrap"
+                                               TextTrimming="CharacterEllipsis"
+                                               ToolTip="{Binding RuntimePackageResultSummaryText}"
+                                               Margin="4,0,0,0" />
+                                    <TextBlock x:Name="YoloRuntimePackageResultDetailText"
+                                               AutomationProperties.AutomationId="YoloRuntimePackageResultDetailText"
+                                               Grid.Row="1"
+                                               Grid.ColumnSpan="2"
+                                               Text="{Binding RuntimePackageResultDetailText}"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="9.5"
+                                               TextWrapping="Wrap"
+                                               TextTrimming="CharacterEllipsis"
+                                               MaxHeight="34"
+                                               ToolTip="{Binding RuntimePackageResultDetailText}"
+                                               Margin="0,1,0,0" />
+                                </Grid>
+                            </Border>
+                            <TextBlock x:Name="YoloRuntimeInstallPlanConfirmHintText"
+                                       AutomationProperties.AutomationId="YoloRuntimeInstallPlanConfirmHintText"
+                                       Text="&#xBC84;&#xD2BC;&#xC744; &#xB204;&#xB974;&#xBA74; &#xB300;&#xC0C1; venv&#xC640; &#xBA85;&#xB839;&#xC744; &#xD655;&#xC778;&#xD55C; &#xB4A4; &#xC2E4;&#xD589;&#xD569;&#xB2C8;&#xB2E4;."
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       TextWrapping="Wrap"
+                                       Margin="0,4,0,0" />
+                            <Grid Margin="0,5,0,0">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="52" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <TextBlock Text="&#xB300;&#xC0C1;"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold" />
+                                <TextBlock x:Name="YoloRuntimeInstallPlanTargetText"
+                                           AutomationProperties.AutomationId="YoloRuntimeInstallPlanTargetText"
+                                           Grid.Column="1"
+                                           Text="{Binding RuntimeInstallPlanTargetText}"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding RuntimeInstallPlanTargetText}" />
+                                <TextBlock Grid.Row="1"
+                                           Text="&#xBA85;&#xB839;"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Margin="0,3,0,0" />
+                                <TextBlock x:Name="YoloRuntimeInstallPlanCommandText"
+                                           AutomationProperties.AutomationId="YoloRuntimeInstallPlanCommandText"
+                                           Grid.Row="1"
+                                           Grid.Column="1"
+                                           Text="{Binding RuntimeInstallPlanCommandText}"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Consolas"
+                                           FontSize="10"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding RuntimeInstallPlanCommandText}"
+                                           Margin="0,3,0,0" />
+                                <TextBlock Grid.Row="2"
+                                           Text="&#xC81C;&#xAC70;"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Margin="0,3,0,0" />
+                                <TextBlock x:Name="YoloRuntimeInstallPlanUninstallCommandText"
+                                           AutomationProperties.AutomationId="YoloRuntimeInstallPlanUninstallCommandText"
+                                           Grid.Row="2"
+                                           Grid.Column="1"
+                                           Text="{Binding RuntimeInstallPlanUninstallCommandText}"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Consolas"
+                                           FontSize="10"
+                                           TextTrimming="CharacterEllipsis"
+                                           ToolTip="{Binding RuntimeInstallPlanUninstallCommandText}"
+                                           Margin="0,3,0,0" />
+                            </Grid>
+                            <TextBlock x:Name="YoloRuntimeInstallPlanDetailText"
+                                       AutomationProperties.AutomationId="YoloRuntimeInstallPlanDetailText"
+                                       Text="{Binding RuntimeInstallPlanDetailText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       TextWrapping="Wrap"
+                                       Margin="0,4,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="YoloRuntimeSelfTestPanel"
+                            AutomationProperties.AutomationId="YoloRuntimeSelfTestPanel"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource InputBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="6"
+                            Margin="0,7,0,0">
+                        <StackPanel>
+                            <TextBlock x:Name="YoloRuntimeSelfTestTitleText"
+                                       AutomationProperties.AutomationId="YoloRuntimeSelfTestTitleText"
+                                       Text="{Binding RuntimeSelfTestTitleText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="YoloRuntimeSelfTestSummaryText"
+                                       AutomationProperties.AutomationId="YoloRuntimeSelfTestSummaryText"
+                                       Text="{Binding RuntimeSelfTestSummaryText}"
+                                       Foreground="{DynamicResource AccentBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10.5"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"
+                                       Margin="0,3,0,0" />
+                            <TextBlock x:Name="YoloRuntimeSelfTestDetailText"
+                                       AutomationProperties.AutomationId="YoloRuntimeSelfTestDetailText"
+                                       Text="{Binding RuntimeSelfTestDetailText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       TextWrapping="Wrap"
+                                       Margin="0,2,0,0" />
+                            <ItemsControl x:Name="YoloRuntimeSelfTestItems"
+                                          AutomationProperties.AutomationId="YoloRuntimeSelfTestItems"
+                                          ItemsSource="{Binding RuntimeSelfTestItems}"
+                                          Margin="0,5,0,0">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Grid Margin="0,0,0,3">
+                                            <Grid.ColumnDefinitions>
+                                                <ColumnDefinition Width="58" />
+                                                <ColumnDefinition Width="64" />
+                                                <ColumnDefinition Width="*" />
+                                            </Grid.ColumnDefinitions>
+                                            <TextBlock Text="{Binding LabelText}"
+                                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                                       FontFamily="Segoe UI"
+                                                       FontSize="10"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="1"
+                                                       Text="{Binding StatusText}"
+                                                       Foreground="{DynamicResource AccentBrush}"
+                                                       FontFamily="Segoe UI"
+                                                       FontSize="10"
+                                                       FontWeight="SemiBold"
+                                                       TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Grid.Column="2"
+                                                       Text="{Binding DetailText}"
+                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                       FontFamily="Segoe UI"
+                                                       FontSize="10"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       ToolTip="{Binding DetailText}" />
+                                        </Grid>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+                    </Border>
+                </StackPanel>
+            </Border>
+
+            <Border x:Name="YoloInspectionModelQuickPanel"
+                    AutomationProperties.AutomationId="YoloInspectionModelQuickPanel"
+                    Background="{DynamicResource CanvasBrush}"
+                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="7"
+                    Margin="0,0,0,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="82" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Text="&#xAC80;&#xC0AC; &#xBAA8;&#xB378;"
+                               Style="{StaticResource YoloModelLabelStyle}"
+                               Margin="0,0,8,0" />
+                    <TextBox x:Name="YoloWeightsPathBox"
+                             Grid.Column="1"
+                             Style="{StaticResource YoloModelTextBoxStyle}"
+                             Text="{Binding WeightsPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{Binding WeightsPath}"
+                             Margin="0" />
+                    <ui:Button x:Name="BrowseYoloWeightsButton"
+                               Grid.Column="2"
+                               Style="{StaticResource YoloModelBrowseButtonStyle}"
+                               IsEnabled="{Binding IsBrowseWeightsEnabled}"
+                               ToolTip="&#xAC80;&#xC0AC;&#xC5D0; &#xC0AC;&#xC6A9;&#xD560; &#xBAA8;&#xB378; &#xD30C;&#xC77C; &#xC120;&#xD0DD;"
+                               Command="{Binding BrowseWeightsCommand}"
+                               Margin="5,0,0,0">
+                        <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
+                    </ui:Button>
+                    <TextBlock Grid.Row="1"
+                               Grid.Column="1"
+                               Grid.ColumnSpan="2"
+                               Text="&#xD559;&#xC2B5; &#xACB0;&#xACFC; &#xD6C4;&#xBCF4;&#xB098; &#xAC80;&#xC0AC;&#xC5D0; &#xC0AC;&#xC6A9;&#xD560; &#xBAA8;&#xB378; &#xD30C;&#xC77C;&#xC744; &#xC120;&#xD0DD;&#xD569;&#xB2C8;&#xB2E4;."
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                </Grid>
+            </Border>
+
+            <WrapPanel Margin="0,0,0,8">
+                <ui:Button x:Name="SaveYoloSettingsButton"
+                           Style="{StaticResource YoloModelCommandButtonStyle}"
+                           IsEnabled="{Binding IsSaveSettingsEnabled}"
+                           MinWidth="80"
+                           Content="&#xC800;&#xC7A5;"
+                           ToolTip="&#xD604;&#xC7AC; &#xAC80;&#xC0AC; &#xBAA8;&#xB378;&#xACFC; &#xCD94;&#xB860; &#xC124;&#xC815; &#xC800;&#xC7A5;"
+                           Command="{Binding SaveSettingsCommand}" />
+                <ui:Button x:Name="ResetYoloSettingsButton"
+                           Style="{StaticResource YoloModelCommandButtonStyle}"
+                           IsEnabled="{Binding IsResetSettingsEnabled}"
+                           MinWidth="82"
+                           Content="&#xAE30;&#xBCF8;&#xAC12;"
+                           ToolTip="&#xAE30;&#xBCF8; &#xBAA8;&#xB378;&#xACFC; &#xCD94;&#xB860; &#xC124;&#xC815; &#xBCF5;&#xC6D0;"
+                           Command="{Binding ResetSettingsCommand}" />
+            </WrapPanel>
+
+            <Expander x:Name="YoloAdvancedModelSettingsExpander"
+                      AutomationProperties.AutomationId="YoloAdvancedModelSettingsExpander"
+                      Header="{Binding AdvancedSettingsHeaderText}"
+                      Foreground="{DynamicResource PrimaryTextBrush}"
+                      Margin="0">
+                <StackPanel Margin="0,8,0,0">
             <Border x:Name="YoloModelEnginePanel"
                     Background="{DynamicResource PanelBrush}"
                     BorderBrush="{DynamicResource BorderBrushDark}"
@@ -84,7 +654,7 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
-                    <TextBlock Text="엔진"
+                    <TextBlock Text="&#xBAA8;&#xB378; &#xD504;&#xB85C;&#xD544;"
                                Style="{StaticResource YoloModelLabelStyle}"
                                Margin="0,0,8,0" />
                     <ComboBox x:Name="YoloModelEngineBox"
@@ -109,6 +679,7 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                                TextWrapping="Wrap" />
                 </Grid>
             </Border>
+
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="82" />
@@ -128,7 +699,7 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="실행 파일" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBlock Text="&#xC2E4;&#xD589; &#xD30C;&#xC77C;" Style="{StaticResource YoloModelLabelStyle}" />
                 <TextBox x:Name="YoloPythonPathBox"
                          Grid.Column="1"
                          Style="{StaticResource YoloModelTextBoxStyle}"
@@ -138,12 +709,12 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                            Grid.Column="2"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowsePythonEnabled}"
-                           ToolTip="추론 실행 파일 선택"
+                           ToolTip="&#xCD94;&#xB860; &#xC2E4;&#xD589; &#xD30C;&#xC77C; &#xC120;&#xD0DD;"
                            Command="{Binding BrowsePythonCommand}">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
                 </ui:Button>
 
-                <TextBlock Grid.Row="1" Text="프로젝트" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBlock Grid.Row="1" Text="&#xD504;&#xB85C;&#xC81D;&#xD2B8;" Style="{StaticResource YoloModelLabelStyle}" />
                 <TextBox x:Name="YoloProjectRootBox"
                          Grid.Row="1"
                          Grid.Column="1"
@@ -155,12 +726,12 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                            Grid.Column="2"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowseProjectRootEnabled}"
-                           ToolTip="모델 프로젝트 폴더 선택"
+                           ToolTip="&#xBAA8;&#xB378; &#xD504;&#xB85C;&#xC81D;&#xD2B8; &#xD3F4;&#xB354; &#xC120;&#xD0DD;"
                            Command="{Binding BrowseProjectRootCommand}">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
                 </ui:Button>
 
-                <TextBlock Grid.Row="2" Text="실행 스크립트" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBlock Grid.Row="2" Text="&#xC2E4;&#xD589; &#xC2A4;&#xD06C;&#xB9BD;&#xD2B8;" Style="{StaticResource YoloModelLabelStyle}" />
                 <TextBox x:Name="YoloClientScriptBox"
                          Grid.Row="2"
                          Grid.Column="1"
@@ -172,29 +743,12 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                            Grid.Column="2"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowseClientScriptEnabled}"
-                           ToolTip="추론 실행 스크립트 선택"
+                           ToolTip="&#xCD94;&#xB860; &#xC2E4;&#xD589; &#xC2A4;&#xD06C;&#xB9BD;&#xD2B8; &#xC120;&#xD0DD;"
                            Command="{Binding BrowseClientScriptCommand}">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
                 </ui:Button>
 
-                <TextBlock Grid.Row="3" Text="가중치" Style="{StaticResource YoloModelLabelStyle}" />
-                <TextBox x:Name="YoloWeightsPathBox"
-                         Grid.Row="3"
-                         Grid.Column="1"
-                         Style="{StaticResource YoloModelTextBoxStyle}"
-                         Text="{Binding WeightsPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="{Binding WeightsPath}" />
-                <ui:Button x:Name="BrowseYoloWeightsButton"
-                           Grid.Row="3"
-                           Grid.Column="2"
-                           Style="{StaticResource YoloModelBrowseButtonStyle}"
-                           IsEnabled="{Binding IsBrowseWeightsEnabled}"
-                           ToolTip="모델 파일 선택"
-                           Command="{Binding BrowseWeightsCommand}">
-                    <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
-                </ui:Button>
-
-                <TextBlock Grid.Row="4" Text="이미지" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBlock Grid.Row="4" Text="&#xC774;&#xBBF8;&#xC9C0;" Style="{StaticResource YoloModelLabelStyle}" />
                 <TextBox x:Name="YoloImageRootBox"
                          Grid.Row="4"
                          Grid.Column="1"
@@ -206,48 +760,30 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                            Grid.Column="2"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowseImageRootEnabled}"
-                           ToolTip="이미지 루트 폴더 선택"
+                           ToolTip="&#xC774;&#xBBF8;&#xC9C0; &#xB8E8;&#xD2B8; &#xD3F4;&#xB354; &#xC120;&#xD0DD;"
                            Command="{Binding BrowseImageRootCommand}">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
                 </ui:Button>
 
-                <TextBlock Grid.Row="5" Text="신뢰도" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBlock Grid.Row="5" Text="&#xC2E0;&#xB8B0;&#xB3C4;" Style="{StaticResource YoloModelLabelStyle}" />
                 <TextBox x:Name="YoloConfidenceBox"
                          Grid.Row="5"
                          Grid.Column="1"
                          Style="{StaticResource YoloModelTextBoxStyle}"
                          Text="{Binding MinimumConfidenceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="0~1 사이 신뢰도 값"
+                         ToolTip="0~1 &#xC0AC;&#xC774; &#xC2E0;&#xB8B0;&#xB3C4; &#xAC12;"
                          mvvm:InputCommandBehaviors.TextInputFilter="Decimal" />
 
-                <TextBlock Grid.Row="6" Text="시간 제한" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBlock Grid.Row="6" Text="&#xC2DC;&#xAC04; &#xC81C;&#xD55C;" Style="{StaticResource YoloModelLabelStyle}" />
                 <TextBox x:Name="YoloTimeoutBox"
                          Grid.Row="6"
                          Grid.Column="1"
                          Style="{StaticResource YoloModelTextBoxStyle}"
                          Text="{Binding TimeoutSecondsText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="1~600초"
+                         ToolTip="1~600&#xCD08;"
                          mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
 
-                <TextBlock Grid.Row="8" Text="추론 이미지 크기" Style="{StaticResource YoloModelLabelStyle}" />
-                <TextBox x:Name="YoloInferenceImageSizeBox"
-                         Grid.Row="8"
-                         Grid.Column="1"
-                         Style="{StaticResource YoloModelTextBoxStyle}"
-                         Text="{Binding InferenceImageSizeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="64~2048"
-                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
-
-                <TextBlock Grid.Row="9" Text="최대 후보" Style="{StaticResource YoloModelLabelStyle}" />
-                <TextBox x:Name="YoloMaxCandidatesBox"
-                         Grid.Row="9"
-                         Grid.Column="1"
-                         Style="{StaticResource YoloModelTextBoxStyle}"
-                         Text="{Binding MaximumCandidatesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="1~200"
-                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
-
-                <TextBlock Grid.Row="7" Text="검출 자동 시작" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBlock Grid.Row="7" Text="&#xAC80;&#xCD9C; &#xC790;&#xB3D9; &#xC2DC;&#xC791;" Style="{StaticResource YoloModelLabelStyle}" />
                 <CheckBox x:Name="YoloAutoStartCheckBox"
                           Grid.Row="7"
                           Grid.Column="1"
@@ -257,24 +793,27 @@ xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
                           FontSize="11"
                           VerticalAlignment="Center"
                           Margin="0,7,0,0" />
-            </Grid>
 
-            <WrapPanel Margin="0,8,0,0">
-                <ui:Button x:Name="SaveYoloSettingsButton"
-                           Style="{StaticResource YoloModelCommandButtonStyle}"
-                           IsEnabled="{Binding IsSaveSettingsEnabled}"
-                           MinWidth="80"
-                           Content="저장"
-                           ToolTip="현재 모델과 추론 설정 저장"
-                           Command="{Binding SaveSettingsCommand}" />
-                <ui:Button x:Name="ResetYoloSettingsButton"
-                           Style="{StaticResource YoloModelCommandButtonStyle}"
-                           IsEnabled="{Binding IsResetSettingsEnabled}"
-                           MinWidth="82"
-                           Content="기본값"
-                           ToolTip="기본 모델과 추론 설정 복원"
-                           Command="{Binding ResetSettingsCommand}" />
-            </WrapPanel>
+                <TextBlock Grid.Row="8" Text="&#xCD94;&#xB860; &#xC774;&#xBBF8;&#xC9C0; &#xD06C;&#xAE30;" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBox x:Name="YoloInferenceImageSizeBox"
+                         Grid.Row="8"
+                         Grid.Column="1"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding InferenceImageSizeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="64~2048"
+                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
+
+                <TextBlock Grid.Row="9" Text="&#xCD5C;&#xB300; &#xD6C4;&#xBCF4;" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBox x:Name="YoloMaxCandidatesBox"
+                         Grid.Row="9"
+                         Grid.Column="1"
+                         Style="{StaticResource YoloModelTextBoxStyle}"
+                         Text="{Binding MaximumCandidatesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                         ToolTip="1~200"
+                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
+            </Grid>
+                </StackPanel>
+            </Expander>
         </StackPanel>
     </Expander>
 </UserControl>

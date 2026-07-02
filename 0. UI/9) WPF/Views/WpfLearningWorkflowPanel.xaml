@@ -103,6 +103,51 @@
             </Setter>
         </Style>
 
+        <Style x:Key="FirstRunSamplePathShortcutButtonStyle" TargetType="Button">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="5" />
+            <Setter Property="Width" Value="142" />
+            <Setter Property="MinHeight" Value="50" />
+            <Setter Property="Margin" Value="0,0,5,5" />
+            <Setter Property="Cursor" Value="Hand" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="VerticalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="ButtonChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="#172554" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#3B82F6" />
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="#1E3A8A" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="#60A5FA" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource ToolbarButtonDisabledBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource ToolbarButtonDisabledBorderBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="LearningWorkflowMetricButtonStyle" TargetType="Button">
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
             <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
@@ -184,6 +229,157 @@
             </StackPanel>
         </DataTemplate>
 
+        <DataTemplate x:Key="FirstRunChecklistItemTemplate">
+            <Border Background="{DynamicResource PanelBrush}"
+                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="5"
+                    Width="92"
+                    MinHeight="57"
+                    Margin="0,0,5,5"
+                    ToolTip="{Binding ToolTip}"
+                    AutomationProperties.AutomationId="{Binding Order, StringFormat=FirstRunChecklistItem{0}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="20" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="17"
+                            Height="17"
+                            Background="{DynamicResource AccentBrush}"
+                            CornerRadius="8"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top">
+                        <TextBlock Text="{Binding StepText}"
+                                   Foreground="White"
+                                   FontFamily="Segoe UI"
+                                   FontSize="9"
+                                   FontWeight="SemiBold"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="{Binding IconKind}"
+                                                        Width="11"
+                                                        Height="11"
+                                                        Foreground="{DynamicResource SecondaryTextBrush}"
+                                                        Margin="0,1,3,0"
+                                                        VerticalAlignment="Top" />
+                            <TextBlock Text="{Binding Title}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <TextBlock Text="{Binding ActionText}"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="9"
+                                   LineHeight="11"
+                                   MaxHeight="24"
+                                   TextWrapping="Wrap"
+                                   TextTrimming="CharacterEllipsis"
+                                   Margin="0,2,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
+        </DataTemplate>
+
+        <DataTemplate x:Key="FirstRunSamplePathItemTemplate">
+            <Button x:Name="FirstRunSamplePathShortcutButton"
+                    Style="{StaticResource FirstRunSamplePathShortcutButtonStyle}"
+                    Command="{Binding DataContext.FirstRunSamplePathCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                    CommandParameter="{Binding .}"
+                    ToolTip="{Binding ToolTip}"
+                    AutomationProperties.AutomationId="{Binding Order, StringFormat=FirstRunSamplePathShortcut{0}}"
+                    AutomationProperties.Name="{Binding ShortcutAutomationName}"
+                    AutomationProperties.HelpText="{Binding ToolTip}">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="22" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="18"
+                            Height="18"
+                            Background="{DynamicResource AccentBrush}"
+                            CornerRadius="9"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top">
+                        <TextBlock Text="{Binding StepText}"
+                                   Foreground="White"
+                                   FontFamily="Segoe UI"
+                                   FontSize="9"
+                                   FontWeight="SemiBold"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1">
+                        <StackPanel Orientation="Horizontal"
+                                    Margin="0,0,0,2">
+                            <iconPacks:PackIconMaterial Kind="{Binding IconKind}"
+                                                        Width="13"
+                                                        Height="13"
+                                                        Foreground="{DynamicResource SecondaryTextBrush}"
+                                                        Margin="0,1,4,0"
+                                                        VerticalAlignment="Top" />
+                            <TextBlock Text="{Binding Title}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </StackPanel>
+                    <TextBlock Grid.Row="1"
+                               Grid.Column="1"
+                               Text="{Binding ActionText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="8"
+                               LineHeight="9"
+                               MaxHeight="10"
+                               TextWrapping="NoWrap"
+                               TextTrimming="CharacterEllipsis" />
+                    <Border Grid.Row="2"
+                            Grid.Column="1"
+                            Background="#172554"
+                            BorderBrush="#3B82F6"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="3,0"
+                            HorizontalAlignment="Left"
+                            Margin="0,2,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock x:Name="FirstRunSamplePathShortcutText"
+                                       AutomationProperties.AutomationId="{Binding Order, StringFormat=FirstRunSamplePathShortcutText{0}}"
+                                       Text="{Binding ShortcutActionText}"
+                                       Foreground="#DBEAFE"
+                                       FontFamily="Segoe UI"
+                                       FontSize="8"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center" />
+                            <iconPacks:PackIconMaterial Kind="ArrowRight"
+                                                        Width="9"
+                                                        Height="9"
+                                                        Foreground="#DBEAFE"
+                                                        Margin="3,1,0,0"
+                                                        VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </Button>
+        </DataTemplate>
+
         <DataTemplate x:Key="AnnotationToolItemTemplate">
             <StackPanel Orientation="Horizontal"
                         VerticalAlignment="Center"
@@ -237,6 +433,82 @@
                     <Setter TargetName="ToolCapabilityText" Property="Foreground" Value="#9FA7B4" />
                 </DataTrigger>
             </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <DataTemplate x:Key="TemplateWorkflowStepTemplate">
+            <Border Background="{DynamicResource PanelBrush}"
+                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="6"
+                    Margin="0,0,0,5"
+                    ToolTip="{Binding Detail}"
+                    AutomationProperties.AutomationId="{Binding Order, StringFormat=TemplateWorkflowStep{0}}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="22" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border Width="18"
+                            Height="18"
+                            Background="{DynamicResource AccentBrush}"
+                            CornerRadius="9"
+                            HorizontalAlignment="Left"
+                            VerticalAlignment="Top">
+                        <TextBlock Text="{Binding StepText}"
+                                   Foreground="White"
+                                   FontFamily="Segoe UI"
+                                   FontSize="9"
+                                   FontWeight="SemiBold"
+                                   HorizontalAlignment="Center"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <StackPanel Grid.Column="1">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <iconPacks:PackIconMaterial Kind="{Binding IconKind}"
+                                                        Width="12"
+                                                        Height="12"
+                                                        Foreground="{DynamicResource SecondaryTextBrush}"
+                                                        Margin="0,2,4,0"
+                                                        VerticalAlignment="Top" />
+                            <TextBlock Grid.Column="1"
+                                       Text="{Binding Title}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10.5"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                            <Border Grid.Column="2"
+                                    Background="#172554"
+                                    BorderBrush="#3B82F6"
+                                    BorderThickness="1"
+                                    CornerRadius="3"
+                                    Padding="4,1"
+                                    Margin="5,0,0,0"
+                                    VerticalAlignment="Top">
+                                <TextBlock Text="{Binding LocationText}"
+                                           Foreground="#DBEAFE"
+                                           FontFamily="Segoe UI"
+                                           FontSize="8"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Border>
+                        </Grid>
+                        <TextBlock Text="{Binding Detail}"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="9.5"
+                                   LineHeight="12"
+                                   TextWrapping="Wrap"
+                                   Margin="0,3,0,0" />
+                    </StackPanel>
+                </Grid>
+            </Border>
         </DataTemplate>
 
         <DataTemplate x:Key="YoloTrainingWorkflowStepTemplate">
@@ -515,6 +787,44 @@
                        FontSize="10"
                        TextWrapping="Wrap"
                        Margin="0,0,0,6" />
+            <Border x:Name="GuideToolsRolePanel"
+                    AutomationProperties.AutomationId="GuideToolsRolePanel"
+                    Background="{DynamicResource PanelBrush}"
+                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="7"
+                    Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock x:Name="GuideToolsRoleTitleText"
+                               AutomationProperties.AutomationId="GuideToolsRoleTitleText"
+                               Text="{Binding GuideToolsRoleTitleText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,3" />
+                    <TextBlock x:Name="GuideToolsPrimaryTaskText"
+                               AutomationProperties.AutomationId="GuideToolsPrimaryTaskText"
+                               Text="{Binding GuideToolsPrimaryTaskText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               LineHeight="12"
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="GuideToolsHelperTaskText"
+                               AutomationProperties.AutomationId="GuideToolsHelperTaskText"
+                               Text="{Binding GuideToolsHelperTaskText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               LineHeight="12"
+                               TextWrapping="Wrap"
+                               Margin="0,2,0,0" />
+                </StackPanel>
+            </Border>
             <Border x:Name="DatasetSetupActionPanel"
                     Background="{DynamicResource CanvasBrush}"
                     BorderBrush="{DynamicResource AccentBrush}"
@@ -522,51 +832,189 @@
                     CornerRadius="5"
                     Padding="9"
                     Margin="0,0,0,10">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-                    <StackPanel Grid.Column="0"
-                                Margin="0,0,8,0">
-                        <TextBlock Text="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC900;&#xBE44;"
-                                   Style="{StaticResource LearningWorkflowCaptionStyle}" />
-                        <TextBlock x:Name="DatasetSetupFirstActionText"
-                                   Text="{Binding DatasetSetupFirstActionText}"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"
-                                   TextWrapping="Wrap"
-                                   Margin="0,0,0,4" />
-                        <TextBlock x:Name="DatasetSetupStatusText"
-                                   Text="{Binding DatasetSetupStatusText}"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="11"
-                                   FontWeight="SemiBold"
-                                   TextWrapping="Wrap"
-                                   Margin="0,3,0,0" />
-                    </StackPanel>
-                    <Button x:Name="DatasetSetupStartButton"
-                            Grid.Column="1"
-                            Style="{StaticResource LearningWorkflowMiniButtonStyle}"
-                            AutomationProperties.AutomationId="DatasetSetupStartButton"
-                            AutomationProperties.Name="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC0DD;&#xC131; &#xC2DC;&#xC791;"
-                            Command="{Binding DatasetSetupStartCommand}"
-                            CommandParameter="{Binding SelectedDatasetPurposeMode}">
-                        <StackPanel Orientation="Horizontal"
-                                    VerticalAlignment="Center">
-                            <iconPacks:PackIconMaterial Kind="FolderPlusOutline"
-                                                        Width="14"
-                                                        Height="14"
-                                                        Margin="0,0,4,0"
-                                                        VerticalAlignment="Center" />
-                            <TextBlock x:Name="DatasetSetupStartButtonText"
-                                       Text="{Binding DatasetSetupActionText}" />
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0"
+                                    Margin="0,0,8,0">
+                            <TextBlock Text="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC900;&#xBE44;"
+                                       Style="{StaticResource LearningWorkflowCaptionStyle}" />
+                            <TextBlock x:Name="DatasetSetupFirstActionText"
+                                       Text="{Binding DatasetSetupFirstActionText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,4" />
+                            <TextBlock x:Name="DatasetSetupSequenceText"
+                                       AutomationProperties.AutomationId="DatasetSetupSequenceText"
+                                       Text="{Binding DatasetSetupSequenceText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"
+                                       Margin="0,0,0,4" />
                         </StackPanel>
-                    </Button>
-                </Grid>
+                        <StackPanel Grid.Column="1"
+                                    Width="116"
+                                    VerticalAlignment="Top">
+                            <Button x:Name="DatasetSetupStartButton"
+                                    Style="{StaticResource LearningWorkflowMiniButtonStyle}"
+                                    AutomationProperties.AutomationId="DatasetSetupStartButton"
+                                    AutomationProperties.Name="&#xC0C8; &#xB370;&#xC774;&#xD130;&#xC14B; &#xB9CC;&#xB4E4;&#xAE30;"
+                                    ToolTip="&#xC0C8; &#xB370;&#xC774;&#xD130;&#xC14B;&#xC744; &#xB9CC;&#xB4E4;&#xACE0; &#xC774;&#xBBF8;&#xC9C0;/&#xB77C;&#xBCA8; &#xC800;&#xC7A5; &#xD3F4;&#xB354;&#xB97C; &#xBD84;&#xB9AC;&#xD569;&#xB2C8;&#xB2E4;."
+                                    Command="{Binding DatasetSetupStartCommand}"
+                                    CommandParameter="{Binding SelectedDatasetPurposeMode}">
+                                <StackPanel Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Kind="FolderPlusOutline"
+                                                                Width="14"
+                                                                Height="14"
+                                                                Margin="0,0,4,0"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock x:Name="DatasetSetupStartButtonText"
+                                               Text="{Binding DatasetSetupActionText}" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="DatasetOpenExistingButton"
+                                    Style="{StaticResource LearningWorkflowMiniButtonStyle}"
+                                    AutomationProperties.AutomationId="DatasetOpenExistingButton"
+                                    AutomationProperties.Name="&#xAE30;&#xC874; &#xB370;&#xC774;&#xD130;&#xC14B; &#xC5F4;&#xAE30;"
+                                    ToolTip="&#xC774;&#xBBF8; &#xB9CC;&#xB4E4;&#xC5B4; &#xB454; &#xB370;&#xC774;&#xD130;&#xC14B;&#xC744; &#xC120;&#xD0DD;&#xD574;&#xC11C; &#xC5FD;&#xB2C8;&#xB2E4;."
+                                    Command="{Binding DatasetOpenExistingCommand}"
+                                    Margin="0,6,0,0">
+                                <StackPanel Orientation="Horizontal"
+                                            VerticalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Kind="DatabaseSearchOutline"
+                                                                Width="14"
+                                                                Height="14"
+                                                                Margin="0,0,4,0"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock Text="&#xAE30;&#xC874; &#xC5F4;&#xAE30;" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Grid>
+                    <TextBlock x:Name="FirstRunChecklistTitleText"
+                               AutomationProperties.AutomationId="FirstRunChecklistTitleText"
+                               Text="{Binding FirstRunChecklistTitleText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,1" />
+                    <TextBlock x:Name="FirstRunChecklistSummaryText"
+                               AutomationProperties.AutomationId="FirstRunChecklistSummaryText"
+                               Text="{Binding FirstRunChecklistSummaryText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="9"
+                               LineHeight="11"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,4" />
+                    <ItemsControl x:Name="FirstRunChecklistItemsControl"
+                                  AutomationProperties.AutomationId="FirstRunChecklistItemsControl"
+                                  ItemsSource="{Binding FirstRunChecklistItems}"
+                                  ItemTemplate="{StaticResource FirstRunChecklistItemTemplate}"
+                                  Margin="0,0,0,2">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                    <TextBlock x:Name="DatasetSetupStatusText"
+                               Text="{Binding DatasetSetupStatusText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Margin="0,3,0,0" />
+                </StackPanel>
+            </Border>
+            <Border x:Name="FirstRunSamplePathPanel"
+                    AutomationProperties.AutomationId="FirstRunSamplePathPanel"
+                    Background="#111D2A"
+                    BorderBrush="#2563EB"
+                    BorderThickness="1"
+                    CornerRadius="5"
+                    Padding="9"
+                    Margin="0,0,0,10">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,4">
+                        <Border DockPanel.Dock="Right"
+                                Background="#1E3A8A"
+                                BorderBrush="#3B82F6"
+                                BorderThickness="1"
+                                CornerRadius="3"
+                                Padding="5,2"
+                                Margin="6,0,0,0">
+                            <TextBlock Text="1-5"
+                                       Foreground="#DBEAFE"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold" />
+                        </Border>
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="CheckAll"
+                                                        Width="15"
+                                                        Height="15"
+                                                        Foreground="#93C5FD"
+                                                        Margin="0,1,5,0"
+                                                        VerticalAlignment="Top" />
+                            <TextBlock x:Name="FirstRunSamplePathTitleText"
+                                       AutomationProperties.AutomationId="FirstRunSamplePathTitleText"
+                                       Text="{Binding FirstRunSamplePathTitleText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </DockPanel>
+                    <TextBlock x:Name="FirstRunSamplePathSummaryText"
+                               AutomationProperties.AutomationId="FirstRunSamplePathSummaryText"
+                               Text="{Binding FirstRunSamplePathSummaryText}"
+                               Foreground="#C7D2FE"
+                               FontFamily="Segoe UI"
+                               FontSize="9"
+                               LineHeight="11"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,5" />
+                    <Border Background="#172554"
+                            BorderBrush="#3B82F6"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="5"
+                            Margin="0,0,0,5">
+                        <TextBlock x:Name="FirstRunSamplePathPrimaryActionText"
+                                   AutomationProperties.AutomationId="FirstRunSamplePathPrimaryActionText"
+                                   Text="{Binding FirstRunSamplePathPrimaryActionText}"
+                                   Foreground="#DBEAFE"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   LineHeight="12"
+                                   TextWrapping="Wrap" />
+                    </Border>
+                    <ItemsControl x:Name="FirstRunSamplePathItemsControl"
+                                  AutomationProperties.AutomationId="FirstRunSamplePathItemsControl"
+                                  ItemsSource="{Binding FirstRunSamplePathItems}"
+                                  ItemTemplate="{StaticResource FirstRunSamplePathItemTemplate}">
+                        <ItemsControl.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <WrapPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ItemsControl.ItemsPanel>
+                    </ItemsControl>
+                </StackPanel>
             </Border>
             <Border x:Name="YoloDatasetStructurePanel"
                     AutomationProperties.AutomationId="YoloDatasetStructurePanel"
@@ -831,8 +1279,112 @@
                             </ItemsControl>
                         </StackPanel>
                     </Border>
+                    <Border x:Name="TrainingModelLifecycleSummaryPanel"
+                            AutomationProperties.AutomationId="TrainingModelLifecycleSummaryPanel"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="7"
+                            Margin="0,5,0,0">
+                        <StackPanel>
+                            <TextBlock Text="&#xBAA8;&#xB378; &#xD655;&#xC778;"
+                                       Style="{StaticResource LearningWorkflowCaptionStyle}"
+                                       Margin="0,0,0,3" />
+                            <Grid>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="64" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <TextBlock Grid.Row="0"
+                                           Grid.Column="0"
+                                           Text="&#xAC80;&#xC0AC; &#xBAA8;&#xB378;"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="9"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,6,3"
+                                           TextWrapping="Wrap" />
+                                <TextBlock x:Name="TrainingModelLifecycleCurrentText"
+                                           Grid.Row="0"
+                                           Grid.Column="1"
+                                           AutomationProperties.AutomationId="TrainingModelLifecycleCurrentText"
+                                           Text="{Binding TrainingModelLifecycleCurrentText}"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="9.5"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,3"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Grid.Row="1"
+                                           Grid.Column="0"
+                                           Text="&#xD559;&#xC2B5; &#xD6C4;&#xBCF4;"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="9"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,6,3"
+                                           TextWrapping="Wrap" />
+                                <TextBlock x:Name="TrainingModelLifecycleCandidateText"
+                                           Grid.Row="1"
+                                           Grid.Column="1"
+                                           AutomationProperties.AutomationId="TrainingModelLifecycleCandidateText"
+                                           Text="{Binding TrainingModelLifecycleCandidateText}"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="9.5"
+                                           Margin="0,0,0,3"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Grid.Row="2"
+                                           Grid.Column="0"
+                                           Text="&#xD310;&#xB2E8;"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="9"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,6,3"
+                                           TextWrapping="Wrap" />
+                                <TextBlock x:Name="TrainingModelLifecycleDecisionText"
+                                           Grid.Row="2"
+                                           Grid.Column="1"
+                                           AutomationProperties.AutomationId="TrainingModelLifecycleDecisionText"
+                                           Text="{Binding TrainingModelLifecycleDecisionText}"
+                                           Foreground="{DynamicResource AccentBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="9.5"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,0,3"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Grid.Row="3"
+                                           Grid.Column="0"
+                                           Text="&#xB2E4;&#xC74C;"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="9"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,6,0"
+                                           TextWrapping="Wrap" />
+                                <TextBlock x:Name="TrainingModelLifecycleNextActionText"
+                                           Grid.Row="3"
+                                           Grid.Column="1"
+                                           AutomationProperties.AutomationId="TrainingModelLifecycleNextActionText"
+                                           Text="{Binding TrainingModelLifecycleNextActionText}"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="9.5"
+                                           Margin="0"
+                                           TextWrapping="Wrap" />
+                            </Grid>
+                        </StackPanel>
+                    </Border>
                     <Grid x:Name="YoloCurrentTrainingStepPanel"
-                          Margin="0,4,0,0">
+                          Margin="0,5,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" />
                             <ColumnDefinition Width="Auto" />
@@ -967,6 +1519,111 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
             </ItemsControl>
+
+            <Border x:Name="TemplateWorkflowPanel"
+                    AutomationProperties.AutomationId="TemplateWorkflowPanel"
+                    Background="{DynamicResource CanvasBrush}"
+                    BorderBrush="{DynamicResource AccentBrush}"
+                    BorderThickness="1"
+                    CornerRadius="5"
+                    Padding="9"
+                    Margin="0,0,0,10">
+                <StackPanel>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <iconPacks:PackIconMaterial Kind="SelectionSearch"
+                                                    Width="16"
+                                                    Height="16"
+                                                    Foreground="{DynamicResource PrimaryTextBrush}"
+                                                    Margin="0,0,6,0"
+                                                    VerticalAlignment="Center" />
+                        <TextBlock x:Name="TemplateWorkflowTitleText"
+                                   Grid.Column="1"
+                                   AutomationProperties.AutomationId="TemplateWorkflowTitleText"
+                                   Text="{Binding TemplateWorkflowTitleText}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center"
+                                   TextWrapping="Wrap" />
+                    </Grid>
+                    <TextBlock x:Name="TemplateWorkflowSummaryText"
+                               AutomationProperties.AutomationId="TemplateWorkflowSummaryText"
+                               Text="{Binding TemplateWorkflowSummaryText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               Margin="0,6,0,0"
+                               TextWrapping="Wrap" />
+                    <Border x:Name="TemplateWorkflowRolePanel"
+                            AutomationProperties.AutomationId="TemplateWorkflowRolePanel"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource BorderBrushDark}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6,4"
+                            Margin="0,6,0,0">
+                        <TextBlock x:Name="TemplateWorkflowRoleText"
+                                   AutomationProperties.AutomationId="TemplateWorkflowRoleText"
+                                   Text="{Binding TemplateWorkflowRoleText}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   LineHeight="12"
+                                   TextWrapping="Wrap" />
+                    </Border>
+                    <ItemsControl x:Name="TemplateWorkflowItemsControl"
+                                  AutomationProperties.AutomationId="TemplateWorkflowItemsControl"
+                                  ItemsSource="{Binding TemplateWorkflowSteps}"
+                                  ItemTemplate="{StaticResource TemplateWorkflowStepTemplate}"
+                                  Margin="0,7,0,0" />
+                    <WrapPanel Margin="0,1,0,0">
+                        <Button x:Name="TemplateCurrentImageGuideButton"
+                                AutomationProperties.AutomationId="TemplateCurrentImageGuideButton"
+                                AutomationProperties.Name="{Binding TemplateCurrentActionText}"
+                                Style="{StaticResource LearningWorkflowMiniButtonStyle}"
+                                ToolTip="{Binding TemplateCurrentActionToolTipText}"
+                                Command="{Binding TemplateCurrentImageCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="SelectionSearch"
+                                                            Width="12"
+                                                            Height="12"
+                                                            Margin="0,0,4,0"
+                                                            VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding TemplateCurrentActionText}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                        <Button x:Name="TemplateBatchGuideButton"
+                                AutomationProperties.AutomationId="TemplateBatchGuideButton"
+                                AutomationProperties.Name="{Binding TemplateBatchActionText}"
+                                Style="{StaticResource LearningWorkflowMiniButtonStyle}"
+                                ToolTip="{Binding TemplateBatchActionToolTipText}"
+                                Command="{Binding TemplateBatchCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="PlaylistCheck"
+                                                            Width="12"
+                                                            Height="12"
+                                                            Margin="0,0,4,0"
+                                                            VerticalAlignment="Center" />
+                                <TextBlock Text="{Binding TemplateBatchActionText}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </Button>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
 
             <Border x:Name="TutorialIntroPanel"
                     Background="{DynamicResource CanvasBrush}"

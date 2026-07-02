@@ -3,7 +3,6 @@ using MahApps.Metro.IconPacks;
 using MvcVisionSystem._1._Core;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Linq;
 
@@ -25,14 +24,15 @@ namespace MvcVisionSystem
             {
                 UpdateTrainingComparisonViewModel(comparison, comparisonStatusText);
             }
+            RefreshModelCenterDashboard(comparison);
 
             string latestWeightsPath = comparison.LatestWeightsPath;
             if (!comparison.HasLatestWeights)
             {
                 if (logIfUnchanged)
                 {
-                    SetYoloCommandStatus($"{comparisonStatusText}. \uBAA8\uB378 \uC124\uC815\uC5D0\uC11C \uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378\uC744 \uC9C1\uC811 \uC120\uD0DD\uD558\uC138\uC694.", isBusy: false);
-                    AppendLog("\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378 \uD6C4\uBCF4\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
+                    SetYoloCommandStatus($"{comparisonStatusText}. 모델 설정에서 학습 결과 모델을 직접 선택하세요.", isBusy: false);
+                    AppendLog("학습 결과 모델 후보를 찾지 못했습니다.");
                 }
 
                 return false;
@@ -44,7 +44,7 @@ namespace MvcVisionSystem
                 if (logIfUnchanged)
                 {
                     SetYoloCommandStatus(comparisonStatusText, isBusy: false);
-                    AppendLog($"현재 weight 유지: {latestWeightsPath}");
+                    AppendLog($"현재 검사 모델 유지: {latestWeightsPath}");
                 }
 
                 return false;
@@ -55,29 +55,65 @@ namespace MvcVisionSystem
                 if (logIfUnchanged)
                 {
                     SetYoloCommandStatus(comparisonStatusText, isBusy: false);
-                    AppendLog($"기존 weight 유지: {currentWeightsPath}");
+                    AppendLog($"현재 검사 모델 유지: {currentWeightsPath}");
                 }
 
                 return false;
             }
 
+            if (!string.IsNullOrWhiteSpace(currentWeightsPath)
+                && File.Exists(currentWeightsPath)
+                && !string.Equals(currentWeightsPath, latestWeightsPath, StringComparison.OrdinalIgnoreCase))
+            {
+                pendingTrainingBaselineWeightsPath = currentWeightsPath;
+            }
+
             settings.WeightsPath = latestWeightsPath;
             YoloModelSettingsViewModel?.LoadFrom(settings);
-            SetModelStatus($"모델: {Path.GetFileName(latestWeightsPath)}");
+            string latestDisplayName = WpfTrainingWeightsService.FormatWeightsDisplayPath(latestWeightsPath);
+            SetModelStatus($"모델 후보: {Path.GetFileName(latestWeightsPath)}");
             hasPendingTrainingWeightsRecipeSave = true;
+            RefreshModelCenterDashboard(comparison);
+            SetGlobalInferenceStatus(string.Empty, isBusy: false);
+            SetModelStatus($"모델 후보: {latestDisplayName}");
             UpdateAppliedTrainingWeightsHistory(latestWeightsPath, savedToRecipe: false);
             FocusYoloModelSettingsTab();
             SaveYoloSettingsButton?.Focus();
-            SetProjectConfigStatus("\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378 \uC801\uC6A9\uB428. \uC124\uC815 \uC800\uC7A5\uC744 \uB204\uB974\uBA74 \uD504\uB85C\uC81D\uD2B8\uC5D0 \uBC18\uC601\uB429\uB2C8\uB2E4.");
-            SetYoloCommandStatus($"\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378 \uC801\uC6A9: {Path.GetFileName(latestWeightsPath)} / {comparison.MetricsStatusText} / \uC124\uC815 \uC800\uC7A5 \uD544\uC694", isBusy: false);
+            SetProjectConfigStatus("새 학습 모델 후보를 검사 모델 설정에 올렸습니다. 모델 비교 후 저장하면 프로젝트에 반영됩니다.");
+            SetYoloCommandStatus($"새 학습 모델 후보: {Path.GetFileName(latestWeightsPath)} / {comparison.MetricsStatusText} / 모델 비교 후 저장 필요", isBusy: false);
+
+            SetYoloCommandStatus($"현재 데이터셋 학습 완료: {latestDisplayName} / {comparison.MetricsStatusText} / 모델 비교 및 저장 필요", isBusy: false);
 
             if (!string.Equals(lastAutoAppliedTrainingWeightsPath, latestWeightsPath, StringComparison.OrdinalIgnoreCase))
             {
                 lastAutoAppliedTrainingWeightsPath = latestWeightsPath;
-                AppendLog($"\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378 \uC801\uC6A9: {latestWeightsPath} / {comparison.MetricsStatusText} / \uC124\uC815 \uC800\uC7A5 \uD544\uC694");
+                AppendLog($"새 학습 모델 후보 등록: {latestWeightsPath} / baseline={pendingTrainingBaselineWeightsPath} / {comparison.MetricsStatusText} / 모델 비교 후 저장 필요");
             }
 
             return true;
+        }
+
+        private string GetTrainingComparisonCurrentWeightsPath(string configuredWeightsPath)
+        {
+            string pendingBaseline = pendingTrainingBaselineWeightsPath?.Trim() ?? string.Empty;
+            if (!string.IsNullOrWhiteSpace(pendingBaseline)
+                && File.Exists(pendingBaseline)
+                && !string.Equals(pendingBaseline, configuredWeightsPath?.Trim() ?? string.Empty, StringComparison.OrdinalIgnoreCase))
+            {
+                return pendingBaseline;
+            }
+
+            return configuredWeightsPath ?? string.Empty;
+        }
+
+        private WpfTrainingWeightsComparison BuildCurrentTrainingWeightsComparison()
+        {
+            EnsureProjectSettings();
+            PythonModelSettings settings = global.Data.ProjectSettings.PythonModel;
+            return trainingWeightsService.BuildComparison(
+                settings.ProjectRootPath,
+                global.Data.OutputRootPath,
+                GetTrainingComparisonCurrentWeightsPath(settings.WeightsPath));
         }
 
         private static string BuildTrainingComparisonStatusText(WpfTrainingWeightsComparison comparison)
@@ -116,7 +152,7 @@ namespace MvcVisionSystem
             LearningWorkflowViewModel.TrainingResultComparisonSummaryText = BuildTrainingComparisonSummaryText(comparison);
             LearningWorkflowViewModel.TrainingModelAdoptionDecisionText = BuildTrainingModelAdoptionDecisionText(comparison);
             LearningWorkflowViewModel.SetTrainingResultReportItems(BuildTrainingResultReportItems(comparison));
-            UpdateCandidateModelComparisonReviewPanel();
+            UpdateCandidateModelComparisonReviewPanel(comparison);
         }
 
         private static string BuildTrainingModelAdoptionDecisionText(WpfTrainingWeightsComparison comparison)
@@ -133,47 +169,54 @@ namespace MvcVisionSystem
 
             if (string.Equals(comparison.LatestWeightsPath?.Trim(), comparison.CurrentWeightsPath?.Trim(), StringComparison.OrdinalIgnoreCase))
             {
-                return "교체 판단: 이미 현재 모델로 사용 중";
+                return "교체 판단: 이미 현재 검사 모델로 사용 중";
             }
 
             if (comparison.LatestMetrics?.HasScore != true)
             {
-                return "교체 판단: 보류 - 학습 지표가 없어 품질 판단 불가";
+                return "교체 판단: 보류 - 학습 지표가 없어 채택 판단 불가";
             }
 
             if (comparison.CurrentMetrics?.HasScore != true)
             {
-                return "교체 판단: 비교 필요 - 기존 모델 지표가 부족합니다";
+                return "교체 판단: 비교 필요 - 현재 모델 지표가 부족합니다";
             }
 
             return comparison.MetricVerdictText switch
             {
-                "최신 우세" => comparison.ShouldApplyLatest
-                    ? "교체 판단: 새 모델 후보 우세 - 최종 검증 예시 확인 후 적용"
+                "새 모델 우세" => comparison.ShouldApplyLatest
+                    ? "교체 판단: 새 모델 후보 우세 - 최종 검증 예시 확인 후 저장"
                     : "교체 판단: 새 모델 지표 우세 - 파일 상태 확인 필요",
-                "기존 우세" => "교체 판단: 기존 모델 유지",
+                "현재 모델 우세" => "교체 판단: 현재 모델 유지",
                 "동률" => "교체 판단: 보류 - 차이가 작아 예시 확인 필요",
                 _ => "교체 판단: 보류 - 최종 검증 비교 필요"
             };
         }
 
-        private void UpdateCandidateModelComparisonReviewPanel()
+        private void UpdateCandidateModelComparisonReviewPanel(WpfTrainingWeightsComparison comparison = null)
         {
             if (CandidateReviewViewModel == null)
             {
                 return;
             }
 
+            comparison ??= BuildCurrentTrainingWeightsComparison();
             IReadOnlyList<string> classNames = global.Data?.ClassNamedList == null
                 ? Array.Empty<string>()
                 : global.Data.ClassNamedList
                     .Select(item => item?.Text ?? string.Empty)
                     .ToList();
             double confidence = global.Data?.ProjectSettings?.PythonModel?.MinimumDetectionConfidence ?? 0.25D;
+            CandidateReviewViewModel.SetModelComparisonSourceText(
+                WpfInferenceStatusPresentationService.BuildModelComparisonSourceText(
+                    global.Data?.ProjectSettings?.PythonModel,
+                    comparison?.CurrentWeightsPath,
+                    comparison?.LatestWeightsPath));
             // Candidate Review shows visual disagreement examples from the latest model-comparison artifact.
             // This keeps final best.pt adoption tied to held-out examples, not only aggregate metrics.
             WpfModelComparisonReviewReport report = modelComparisonReviewService.BuildLatestReport(classNames, confidence);
             CandidateReviewViewModel.SetModelComparisonReview(report);
+            UpdateCandidateModelDecisionPanel(comparison);
         }
 
         private static IEnumerable<WpfTrainingResultReportItem> BuildTrainingResultReportItems(WpfTrainingWeightsComparison comparison)
@@ -187,9 +230,9 @@ namespace MvcVisionSystem
                 ? "비교 대기"
                 : comparison.MetricVerdictText;
             string decision = comparison.ShouldApplyLatest
-                ? "\uC0C8 \uBAA8\uB378 \uC801\uC6A9 \uAC00\uB2A5"
+                ? "새 모델 후보"
                 : comparison.HasLatestWeights
-                    ? "기존 모델 유지"
+                    ? "현재 모델 유지"
                     : "학습 결과 없음";
             bool hasMetrics = comparison.LatestMetrics?.HasScore == true;
 
@@ -206,7 +249,7 @@ namespace MvcVisionSystem
                 PackIconMaterialKind.ProgressClock,
                 isWarning: !hasMetrics);
             yield return new WpfTrainingResultReportItem(
-                "최신",
+                "새 후보",
                 FormatTrainingReportPath(comparison.LatestWeightsPath),
                 FormatTrainingReportMetricSource(comparison.LatestMetrics),
                 PackIconMaterialKind.FileDocumentOutline,

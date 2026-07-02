@@ -56,9 +56,22 @@ namespace MvcVisionSystem
         private void UpdateAppliedTrainingWeightsHistory(string weightsPath, bool savedToRecipe)
         {
             EnsureProjectSettings();
+            WpfTrainingWeightsComparison comparison = BuildCurrentTrainingWeightsComparison();
             trainingGuideHistoryService.UpdateAppliedWeightsHistory(
                 global.Data.ProjectSettings.TrainingGuide,
                 weightsPath,
+                savedToRecipe);
+            ModelRegistryService.RecordTrainingCandidate(
+                global.Data.ProjectSettings.ModelRegistry,
+                global.Data.ProjectSettings.PythonModel,
+                global.Data.ProjectSettings.DatasetPurpose,
+                global.Data.OutputRootPath,
+                weightsPath,
+                pendingTrainingBaselineWeightsPath,
+                comparison?.MetricsStatusText,
+                global.Data.ProjectSettings.TrainingGuide.LastTrainingState,
+                global.Data.ProjectSettings.TrainingGuide.LastTrainingProgressPercent,
+                global.Data.ProjectSettings.TrainingGuide.LastTrainingMessage,
                 savedToRecipe);
             UpdateYoloTrainingHistoryText();
         }
@@ -86,12 +99,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            EnsureProjectSettings();
-            var settings = global.Data.ProjectSettings.PythonModel;
-            WpfTrainingWeightsComparison comparison = trainingWeightsService.BuildComparison(
-                settings.ProjectRootPath,
-                global.Data.OutputRootPath,
-                settings.WeightsPath);
+            WpfTrainingWeightsComparison comparison = BuildCurrentTrainingWeightsComparison();
 
             // The guide shows metrics as the reason for keeping or switching best.pt,
             // so keep this next to history updates instead of burying it in the log.

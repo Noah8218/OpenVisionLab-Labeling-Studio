@@ -102,7 +102,6 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 						{
 							if (param.IsVisible)
 							{
-								//gl.Color(1.0f, 1.0f, 1.0f, param.IsTransParency ? param.TransParency : 1.0f);
 								gl.Color(1.0f, 1.0f, 1.0f, 1.0f);
 								if (param.IsRotated)
 								{

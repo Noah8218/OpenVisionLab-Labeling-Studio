@@ -39,8 +39,10 @@ namespace MvcVisionSystem
             UpdateBatchDetectionControls(scopeText, string.Empty);
             SetYoloCommandStatus(batchDetectionProgressService.BuildStartCommandStatus(queue.Count), isBusy: true);
             SetGlobalInferenceStatus(batchDetectionProgressService.BuildStartInferenceStatus(queue.Count), isBusy: true);
+            string modelSourceText = WpfInferenceStatusPresentationService.BuildRuntimeModelLabel(
+                global.Data?.ProjectSettings?.PythonModel);
 
-            AppendLog(batchDetectionProgressService.BuildStartLog(scopeText, queue.Count));
+            AppendLog(batchDetectionProgressService.BuildStartLog(scopeText, queue.Count, modelSourceText));
             var batchStopwatch = Stopwatch.StartNew();
             int pendingReviewStatusSaves = 0;
             bool batchFailed = false;
@@ -95,11 +97,11 @@ namespace MvcVisionSystem
                         && ApplyBatchDetectionResultToCanvas(item, result);
                     if (result.Succeeded)
                     {
-                        AppendLog(batchDetectionProgressService.BuildItemCompletedLog(nextCompleted, batchDetectionTotalCount, item.ImagePath, result.CandidateCount, elapsedText));
+                        AppendLog(batchDetectionProgressService.BuildItemCompletedLog(nextCompleted, batchDetectionTotalCount, item.ImagePath, result.CandidateCount, elapsedText, modelSourceText));
                     }
                     else if (!token.IsCancellationRequested)
                     {
-                        AppendLog(batchDetectionProgressService.BuildItemFailedLog(nextCompleted, batchDetectionTotalCount, item.ImagePath, elapsedText, result.Summary));
+                        AppendLog(batchDetectionProgressService.BuildItemFailedLog(nextCompleted, batchDetectionTotalCount, item.ImagePath, elapsedText, result.Summary, modelSourceText));
                     }
 
                     pendingReviewStatusSaves++;
@@ -137,13 +139,13 @@ namespace MvcVisionSystem
                     batchDetectionProgressService.BuildCompletionInferenceStatus(canceled, batchDetectionCompletedCount, batchDetectionTotalCount, totalElapsedText),
                     isBusy: false,
                     isWarning: canceled);
-                AppendLog(batchDetectionProgressService.BuildCompletionLog(canceled, batchDetectionCompletedCount, batchDetectionTotalCount, totalElapsedText, averageElapsedText));
+                AppendLog(batchDetectionProgressService.BuildCompletionLog(canceled, batchDetectionCompletedCount, batchDetectionTotalCount, totalElapsedText, averageElapsedText, modelSourceText));
                 if (batchFailed)
                 {
                     UpdateBatchDetectionControls("실패", string.Empty);
                     SetPythonStatus("\uCD94\uB860: \uC77C\uAD04 \uAC80\uC0AC \uC2E4\uD328");
                     SetYoloCommandStatus(batchDetectionProgressService.BuildFailureCommandStatus(batchDetectionCompletedCount, batchDetectionTotalCount, batchFailureSummary), isBusy: false);
-                    SetGlobalInferenceStatus(batchDetectionProgressService.BuildFailureInferenceStatus(batchDetectionCompletedCount, batchDetectionTotalCount), isBusy: false, isWarning: true);
+                    SetGlobalInferenceStatus(batchDetectionProgressService.BuildFailureInferenceStatus(batchDetectionCompletedCount, batchDetectionTotalCount, batchFailureSummary), isBusy: false, isWarning: true);
                     AppendLog(batchDetectionProgressService.BuildFailureLog(batchDetectionCompletedCount, batchDetectionTotalCount, batchFailureSummary));
                 }
             }

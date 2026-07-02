@@ -16,9 +16,13 @@ namespace MvcVisionSystem
         // Settings panel refresh can run package checks, so it remains separate from cheap status-label updates.
         private async Task RefreshYoloSettingsPanelAsync(PythonModelValidationResult validation = null)
         {
-            EnsureProjectSettings();
+            global.Data.ProjectSettings ??= new LabelingProjectSettings();
+            global.Data.ProjectSettings.PythonModel ??= new PythonModelSettings();
             PythonModelSettings settings = global.Data.ProjectSettings.PythonModel;
-            validation ??= PythonModelSettingsValidator.Validate(settings, requireWeights: true);
+            PythonModelRuntimeState runtimeState = PythonModelSettingsValidator.GetRuntimeState(settings);
+            validation ??= runtimeState.State == PythonModelRuntimeStateKind.NotInstalled
+                ? new PythonModelValidationResult(new[] { runtimeState.NextActionText }, Array.Empty<string>())
+                : PythonModelSettingsValidator.Validate(settings, requireWeights: true);
 
             var detail = new StringBuilder();
             detail.AppendLine($"\uC2E4\uD589 \uD30C\uC77C: {PythonModelSettingsValidator.ResolvePythonExecutable(settings)}");
@@ -45,36 +49,43 @@ namespace MvcVisionSystem
                 }
             }
 
-            try
+            if (!runtimeState.IsRuntimeInstalled)
             {
-                PythonEnvironmentCheckResult environment = await PythonEnvironmentService
-                    .CheckRequirementsAsync(settings)
-                    .ConfigureAwait(true);
                 detail.AppendLine();
-                detail.AppendLine($"패키지: {TranslatePythonEnvironmentSummary(environment.Summary)}");
-                detail.AppendLine($"\uD544\uC694 \uD328\uD0A4\uC9C0: {environment.RequiredPackages.Count}");
-                if (environment.MissingPackages.Count > 0)
-                {
-                    detail.AppendLine($"누락: {string.Join(", ", environment.MissingPackages.Take(12))}");
-                }
+                detail.AppendLine("\uD328\uD0A4\uC9C0: \uBAA8\uB378 \uC2E4\uD589\uAE30 \uC124\uCE58 \uD6C4 \uD655\uC778");
+                detail.AppendLine(runtimeState.DetailText);
             }
-            catch (Exception ex)
+            else
             {
-                detail.AppendLine();
-                detail.AppendLine($"패키지: 점검 실패 - {ex.Message}");
+                try
+                {
+                    PythonEnvironmentCheckResult environment = await PythonEnvironmentService
+                        .CheckRequirementsAsync(settings)
+                        .ConfigureAwait(true);
+                    detail.AppendLine();
+                    detail.AppendLine($"패키지: {TranslatePythonEnvironmentSummary(environment.Summary)}");
+                    detail.AppendLine($"\uD544\uC694 \uD328\uD0A4\uC9C0: {environment.RequiredPackages.Count}");
+                    if (environment.MissingPackages.Count > 0)
+                    {
+                        detail.AppendLine($"누락: {string.Join(", ", environment.MissingPackages.Take(12))}");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    detail.AppendLine();
+                    detail.AppendLine($"패키지: 점검 실패 - {ex.Message}");
+                }
             }
 
             if (YoloStatusViewModel != null)
             {
                 YoloStatusViewModel.SetSettingsStatus(
-                    validation.IsValid ? "YOLO \uC124\uC815 \uC900\uBE44 \uC644\uB8CC" : "YOLO \uC124\uC815 \uD655\uC778 \uD544\uC694",
+                    runtimeState.SummaryText,
                     detail.ToString());
                 return;
             }
 
-            YoloSettingsSummaryText.Text = validation.IsValid
-                ? "YOLO 설정 준비 완료"
-                : "YOLO 설정 확인 필요";
+            YoloSettingsSummaryText.Text = runtimeState.SummaryText;
             YoloSettingsDetailText.Text = detail.ToString();
         }
 

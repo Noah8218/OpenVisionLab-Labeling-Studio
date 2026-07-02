@@ -8,6 +8,9 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
+using Brush = System.Windows.Media.Brush;
+using Color = System.Windows.Media.Color;
+using ColorConverter = System.Windows.Media.ColorConverter;
 using DrawingSize = System.Drawing.Size;
 
 namespace MvcVisionSystem
@@ -30,13 +33,14 @@ namespace MvcVisionSystem
         private string detectStatus = "대기";
         private string dimensions = string.Empty;
         private string detail = string.Empty;
-        private string queueStatusSummary = "상태 확인 전";
+        private string queueStatusSummary = "상태 확인 중";
         private string queueBadgeText = string.Empty;
         private PackIconMaterialKind queueIconKind = PackIconMaterialKind.ImageOutline;
         private Brush queueIconBrush = MutedBrush;
         private Brush queueBadgeBackgroundBrush = TransparentBrush;
         private Brush queueRowAccentBrush = TransparentBrush;
         private bool isLabeled;
+        private bool isSaveRequired;
         private YoloImageReviewState reviewState;
 
         public event PropertyChangedEventHandler PropertyChanged;
@@ -74,6 +78,10 @@ namespace MvcVisionSystem
             get => detail;
             set => SetField(ref detail, value ?? string.Empty);
         }
+
+        public string QueueRowToolTip => BuildQueueRowText(Environment.NewLine);
+
+        public string QueueRowAccessibleName => BuildQueueRowText(" / ");
 
         public string QueueStatusSummary
         {
@@ -117,6 +125,12 @@ namespace MvcVisionSystem
             set => SetField(ref isLabeled, value);
         }
 
+        public bool IsSaveRequired
+        {
+            get => isSaveRequired;
+            set => SetField(ref isSaveRequired, value);
+        }
+
         public YoloImageReviewState ReviewState
         {
             get => reviewState;
@@ -145,7 +159,70 @@ namespace MvcVisionSystem
 
             field = value;
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+            if (AffectsQueueRowText(propertyName))
+            {
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(QueueRowToolTip)));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(QueueRowAccessibleName)));
+            }
+
             return true;
+        }
+
+        private string BuildQueueRowText(string separator)
+        {
+            string normalizedSeparator = string.IsNullOrEmpty(separator) ? " / " : separator;
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(FileName))
+            {
+                parts.Add($"파일: {FileName.Trim()}");
+            }
+
+            parts.Add($"저장: {NormalizeStatusText(LabelStatus, "없음")}");
+            parts.Add($"검사: {NormalizeStatusText(DetectStatus, "대기")}");
+            if (!string.IsNullOrWhiteSpace(Dimensions))
+            {
+                parts.Add($"크기: {Dimensions.Trim()}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(QueueStatusSummary))
+            {
+                parts.Add($"상태: {NormalizeInlineText(QueueStatusSummary)}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(Detail))
+            {
+                parts.Add($"상세: {NormalizeInlineText(Detail)}");
+            }
+
+            return string.Join(normalizedSeparator, parts);
+        }
+
+        private static string NormalizeStatusText(string value, string fallback)
+        {
+            return string.IsNullOrWhiteSpace(value) ? fallback : NormalizeInlineText(value);
+        }
+
+        private static string NormalizeInlineText(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            string[] lines = value
+                .Replace("\r\n", "\n", StringComparison.Ordinal)
+                .Replace('\r', '\n')
+                .Split(new[] { '\n' }, StringSplitOptions.RemoveEmptyEntries);
+            return string.Join(" / ", lines.Select(line => line.Trim()).Where(line => line.Length > 0));
+        }
+
+        private static bool AffectsQueueRowText(string propertyName)
+        {
+            return string.Equals(propertyName, nameof(LabelStatus), StringComparison.Ordinal)
+                || string.Equals(propertyName, nameof(DetectStatus), StringComparison.Ordinal)
+                || string.Equals(propertyName, nameof(Dimensions), StringComparison.Ordinal)
+                || string.Equals(propertyName, nameof(Detail), StringComparison.Ordinal)
+                || string.Equals(propertyName, nameof(QueueStatusSummary), StringComparison.Ordinal);
         }
 
         private static string FormatFileSize(long bytes)
@@ -193,12 +270,12 @@ namespace MvcVisionSystem
         {
             return filter switch
             {
-                WpfImageQueueFilter.Unlabeled => "미완료",
-                WpfImageQueueFilter.Requested => "요청중",
-                WpfImageQueueFilter.Candidate => "후보",
-                WpfImageQueueFilter.Confirmed => "확정",
-                WpfImageQueueFilter.Skipped => "스킵",
-                WpfImageQueueFilter.NoCandidate => "검출없음",
+                WpfImageQueueFilter.Unlabeled => "작업 필요",
+                WpfImageQueueFilter.Requested => "검사중",
+                WpfImageQueueFilter.Candidate => "AI 후보",
+                WpfImageQueueFilter.Confirmed => "저장됨",
+                WpfImageQueueFilter.Skipped => "숨김",
+                WpfImageQueueFilter.NoCandidate => "객체없음",
                 WpfImageQueueFilter.Failed => "실패",
                 _ => "전체"
             };

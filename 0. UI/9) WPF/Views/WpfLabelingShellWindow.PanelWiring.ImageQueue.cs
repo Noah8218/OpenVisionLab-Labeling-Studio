@@ -23,13 +23,16 @@ namespace MvcVisionSystem
             ImageQueueViewModel.ConfigureCommands(
                 ExecuteLoadImageRootQueueCommand,
                 ExecuteBrowseImageFolderCommand,
+                ExecuteOpenCurrentImageFolderCommand,
                 ExecuteRefreshImageQueueCommand,
                 ExecuteNextUnlabeledQueueCommand,
                 ExecuteOpenSelectedQueueImageCommand,
                 ExecuteDetectSelectedQueueCommand,
                 ExecuteBatchDetectQueueCommand,
+                TemplateMatchingAutoLabelViewModel.RunBatch,
                 ExecuteRetryFailedQueueCommand,
                 ExecuteStopBatchQueueCommand,
+                ExecuteQueueFilterUnfinishedCommand,
                 ExecuteQueueFilterAllCommand,
                 ExecuteQueueFilterCandidateCommand,
                 ExecuteQueueFilterFailedCommand,
@@ -57,17 +60,22 @@ namespace MvcVisionSystem
             RegisterImageQueueName(nameof(ImageQueueGrid), ImageQueueGrid);
             RegisterImageQueueName(nameof(BatchStatusText), BatchStatusText);
             RegisterImageQueueName(nameof(BatchProgressBar), BatchProgressBar);
+            RegisterImageQueueName(nameof(CurrentImageFolderPathText), CurrentImageFolderPathText);
+            RegisterImageQueueName(nameof(OpenCurrentImageFolderButton), OpenCurrentImageFolderButton);
             RegisterImageQueueName(nameof(OpenSelectedQueueImageButton), OpenSelectedQueueImageButton);
             RegisterImageQueueName(nameof(DetectSelectedQueueButton), DetectSelectedQueueButton);
             RegisterImageQueueName(nameof(BatchDetectQueueButton), BatchDetectQueueButton);
+            RegisterImageQueueName(nameof(TemplateBatchQueueButton), TemplateBatchQueueButton);
             RegisterImageQueueName(nameof(RetryFailedQueueButton), RetryFailedQueueButton);
             RegisterImageQueueName(nameof(StopBatchQueueButton), StopBatchQueueButton);
+            RegisterImageQueueName(nameof(QueueFilterUnfinishedButton), QueueFilterUnfinishedButton);
             RegisterImageQueueName(nameof(QueueFilterAllButton), QueueFilterAllButton);
             RegisterImageQueueName(nameof(QueueFilterCandidateButton), QueueFilterCandidateButton);
             RegisterImageQueueName(nameof(QueueFilterFailedButton), QueueFilterFailedButton);
             RegisterImageQueueName(nameof(QueueFilterConfirmedButton), QueueFilterConfirmedButton);
             RegisterImageQueueName(nameof(QueueFilterSkippedButton), QueueFilterSkippedButton);
             RegisterImageQueueName(nameof(QueueFilterNoCandidateButton), QueueFilterNoCandidateButton);
+            RegisterImageQueueName(nameof(QueueFilterUnfinishedText), QueueFilterUnfinishedText);
             RegisterImageQueueName(nameof(QueueFilterAllText), QueueFilterAllText);
             RegisterImageQueueName(nameof(QueueFilterCandidateText), QueueFilterCandidateText);
             RegisterImageQueueName(nameof(QueueFilterFailedText), QueueFilterFailedText);

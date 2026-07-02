@@ -30,6 +30,14 @@ namespace OpenVisionLab.ImageCanvas
 
 			activeRoiRect.SetEditingType(imageViewer.PreMousePos.X, imageViewer.PreMousePos.Y, imageViewer.ZoomScale, imageViewer.HandleSize);
 			openGLControl.Cursor = RoiInteractionCursor.GetCursorFromType(activeRoiRect, imageViewer.PreMousePos, imageViewer.ZoomScale, imageViewer.HandleSize);
+			if (IsVisibleSelectedHandleHit(previousRoiRect, imageViewer.PreMousePos))
+			{
+				// A selected ROI draws handles centered on the outline. The outside half of
+				// those handles is not part of general ROI selection, but it must still start editing.
+				activeRoiRect = previousRoiRect;
+				InitializeViewMode(imageViewer, activeRoiRect, isGroupOverlay: false);
+				return;
+			}
 
 			// ?대떦 ?ъ씤?몄뿉 ?ㅼ씠?닿렇?⑥씠 ?덈뒗吏 ?뺤씤
 			//imageViewer._targetGroupOverlay = null;
@@ -40,6 +48,16 @@ namespace OpenVisionLab.ImageCanvas
 			openGLControl.Cursor = RoiInteractionCursor.GetCursorFromType(activeRoiRect, imageViewer.PreMousePos, imageViewer.ZoomScale, imageViewer.HandleSize);
 
 			InitializeViewMode(imageViewer, activeRoiRect, isGroupOverlay);
+		}
+
+		private static bool IsVisibleSelectedHandleHit(CanvasRect<float> rect, System.Drawing.PointF point)
+		{
+			if (rect == null || rect.IsEmpty() || rect.EditingType == EditingType.None || rect.EditingType == EditingType.Move)
+			{
+				return false;
+			}
+
+			return !rect.Contain(point.X, point.Y);
 		}
 
 		private static void InitializeViewMode(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasRect<float> activeRoiRect, bool isGroupOverlay)
@@ -104,7 +122,9 @@ namespace OpenVisionLab.ImageCanvas
 		private static float CalculateHitSearchRadius(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer)
 		{
 			float zoomScale = Math.Max(imageViewer.ZoomScale, 0.0001f);
-			return Math.Max(12.0f, imageViewer.HandleSize / zoomScale + 2.0f);
+			// Hit radius is stored in canvas/world units. HandleSize is a screen-pixel
+			// affordance, so multiply by zoomScale just like the handle renderer does.
+			return Math.Max(1.0f, (imageViewer.HandleSize + 2.0f) * zoomScale);
 		}
 
 		private static (CanvasRect<float>, bool) GetLeftClickOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasMouseEventArgs e)

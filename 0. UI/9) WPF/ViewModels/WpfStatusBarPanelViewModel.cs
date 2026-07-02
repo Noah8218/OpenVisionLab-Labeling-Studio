@@ -7,6 +7,8 @@ namespace MvcVisionSystem
         private string workflowProgressText = "진행: 이미지 없음";
         private string workflowNextActionText = "다음: 이미지 선택";
         private string pythonStatusText = "\uCD94\uB860: \uC810\uAC80 \uC804";
+        private string inspectionModelStatusText = "\uAC80\uC0AC \uBAA8\uB378: \uC5C6\uC74C";
+        private string inspectionModelStatusToolTip = "\uD604\uC7AC \uCD94\uB860\uC5D0 \uC0AC\uC6A9\uD560 \uBAA8\uB378\uC744 \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
         private string modelStatusText = "Model: waiting";
         private string modelStatusAutomationText = string.Empty;
         private bool isAnnotationDirty;
@@ -43,6 +45,18 @@ namespace MvcVisionSystem
         {
             get => pythonStatusText;
             private set => SetProperty(ref pythonStatusText, value ?? string.Empty);
+        }
+
+        public string InspectionModelStatusText
+        {
+            get => inspectionModelStatusText;
+            private set => SetProperty(ref inspectionModelStatusText, value ?? string.Empty);
+        }
+
+        public string InspectionModelStatusToolTip
+        {
+            get => inspectionModelStatusToolTip;
+            private set => SetProperty(ref inspectionModelStatusToolTip, value ?? string.Empty);
         }
 
         public string ModelStatusText
@@ -97,6 +111,16 @@ namespace MvcVisionSystem
         public void SetPythonStatus(string text)
         {
             PythonStatusText = text;
+        }
+
+        public void SetInspectionModelStatus(string text, string toolTip)
+        {
+            InspectionModelStatusText = string.IsNullOrWhiteSpace(text)
+                ? "\uAC80\uC0AC \uBAA8\uB378: \uC5C6\uC74C"
+                : text.Trim();
+            InspectionModelStatusToolTip = string.IsNullOrWhiteSpace(toolTip)
+                ? InspectionModelStatusText
+                : toolTip.Trim();
         }
 
         public void SetModelStatus(string text)

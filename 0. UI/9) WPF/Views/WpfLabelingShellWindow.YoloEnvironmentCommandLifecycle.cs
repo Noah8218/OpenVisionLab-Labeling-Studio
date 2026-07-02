@@ -8,11 +8,12 @@ namespace MvcVisionSystem
         {
             if (isYoloEnvironmentCommandRunning || isTrainingCommandRunning || isDetecting || isBatchDetectionRunning)
             {
-                AppendLog("YOLO 명령이 이미 실행 중입니다.");
+                AppendLog("\uBAA8\uB378 \uC2E4\uD589 \uBA85\uB839\uC774 \uC774\uBBF8 \uC2E4\uD589 \uC911\uC785\uB2C8\uB2E4.");
                 return false;
             }
 
             isYoloEnvironmentCommandRunning = true;
+            ClearYoloRecoveryStatus();
             SetYoloCommandStatus(statusText, isBusy: true);
             UpdateYoloCommandButtons();
             return true;
@@ -43,13 +44,25 @@ namespace MvcVisionSystem
                 return;
             }
 
-            YoloCommandStatusText.Text = string.IsNullOrWhiteSpace(text) ? "YOLO 명령 대기" : text;
+            YoloCommandStatusText.Text = string.IsNullOrWhiteSpace(text) ? "\uBAA8\uB378 \uC2E4\uD589\uAE30 \uB300\uAE30" : text;
             YoloCommandProgressBar.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
             YoloCommandProgressBar.IsIndeterminate = isBusy;
             if (!isBusy)
             {
                 YoloCommandProgressBar.Value = 0;
             }
+        }
+
+        private void SetYoloRecoveryStatus(string titleText, string detailText, string actionText)
+        {
+            ShellViewModel?.SetModelCenterRecoveryState(titleText, detailText, actionText);
+            YoloStatusViewModel?.SetRecoveryState(titleText, detailText, actionText);
+        }
+
+        private void ClearYoloRecoveryStatus()
+        {
+            ShellViewModel?.ClearModelCenterRecoveryState();
+            YoloStatusViewModel?.ClearRecoveryState();
         }
     }
 }

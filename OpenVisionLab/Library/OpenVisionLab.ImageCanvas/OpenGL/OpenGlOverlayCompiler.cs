@@ -17,59 +17,58 @@ using System.Windows.Media;
 namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 {
 	public static partial class OpenGlDrawing
-	{		public static void CompileOverlayShape(OpenGL gl, CanvasOverlayItem newObject)
+	{		public static void CompileOverlayShape(OpenGL gl, CanvasOverlayItem overlayItem)
 		{
-			AllocatDisplayId(gl, newObject.Shape);
+			AllocatDisplayId(gl, overlayItem.Shape);
 			SetStencile(gl);
-			gl.NewList(newObject.Shape.DisplayListId, OpenGL.GL_COMPILE);
+			gl.NewList(overlayItem.Shape.DisplayListId, OpenGL.GL_COMPILE);
 
-			bool isDotted = (newObject.IsGroupRectangle && (newObject.Shape is CanvasRect<float>) && !(newObject.Shape as CanvasRect<float>).IsEmpty()) == true ? true : false;
+			bool isDotted = (overlayItem.IsGroupRectangle && (overlayItem.Shape is CanvasRect<float>) && !(overlayItem.Shape as CanvasRect<float>).IsEmpty()) == true ? true : false;
 
-			if (newObject.Shape is CanvasRect<float>)
+			if (overlayItem.Shape is CanvasRect<float>)
 			{
-				CanvasRect<float> canvasRect = newObject.Shape as CanvasRect<float>;
+				CanvasRect<float> canvasRect = overlayItem.Shape as CanvasRect<float>;
 				bool renderedAsEllipse = false;
 
-				if (canvasRect.ShapeKind == CanvasRoiShapeKind.Ellipse && !newObject.IsGroupRectangle)
+				if (canvasRect.ShapeKind == CanvasRoiShapeKind.Ellipse && !overlayItem.IsGroupRectangle)
 				{
-					EnumFillMode fillMode = newObject.IsFill || canvasRect.IsFill
+					EnumFillMode fillMode = overlayItem.IsFill || canvasRect.IsFill
 						? EnumFillMode.InFill
 						: EnumFillMode.None;
-					DrawEllipse(gl, canvasRect, canvasRect.LineWidth, new SolidColorBrush(ToMediaColor(newObject.Color)), fillMode);
+					DrawEllipse(gl, canvasRect, canvasRect.LineWidth, new SolidColorBrush(ToMediaColor(overlayItem.Color)), fillMode);
 					renderedAsEllipse = true;
 				}
 				else
 				{
-					DrawShape(gl, canvasRect, newObject.Color, isDotted, false, canvasRect.LineWidth);
+					DrawShape(gl, canvasRect, overlayItem.Color, isDotted, false, canvasRect.LineWidth);
 				}
 
 				if (canvasRect.ExtendedRectangle != null)
 				{
-					//DrawShape(gl, (newObject.Shape as CanvasRect<float>).ExtendedRectangle, newObject.Color, true, false);
-					System.Drawing.Color newColor = newObject.Color;
+					System.Drawing.Color extensionColor = overlayItem.Color;
 					if (canvasRect.IsEditing)
 					{
-						newColor = System.Drawing.Color.DeepSkyBlue;
-						DrawShape(gl, canvasRect.ExtendedRectangle, newColor, true, false);
+						extensionColor = System.Drawing.Color.DeepSkyBlue;
+						DrawShape(gl, canvasRect.ExtendedRectangle, extensionColor, true, false);
 					}
 					else
 					{
-						if (newObject.IsExtentionRectange)
+						if (overlayItem.IsExtensionRectangle)
 						{
-							DrawShape(gl, canvasRect.ExtendedRectangle, newColor, true, false);
+							DrawShape(gl, canvasRect.ExtendedRectangle, extensionColor, true, false);
 						}
 					}
 				}
-				if (newObject.IsFill && !renderedAsEllipse)
+				if (overlayItem.IsFill && !renderedAsEllipse)
 				{
 					System.Drawing.PointF start = new System.Drawing.PointF(canvasRect.LeftBottom.X, canvasRect.LeftBottom.Y);
 					System.Drawing.PointF end = new System.Drawing.PointF(canvasRect.RightTop.X, canvasRect.RightTop.Y);
-					OpenGlDrawing.DrawRectangle(gl, start, end, 1, EnumFillMode.InFill, new SolidColorBrush(ToMediaColor(newObject.Color)), new SizeF());
+					OpenGlDrawing.DrawRectangle(gl, start, end, 1, EnumFillMode.InFill, new SolidColorBrush(ToMediaColor(overlayItem.Color)), new SizeF());
 				}
 			}
-			if (newObject.Shape is LineInfo)
+			if (overlayItem.Shape is LineInfo)
 			{
-				LineInfo lineInfo = newObject.Shape as LineInfo;
+				LineInfo lineInfo = overlayItem.Shape as LineInfo;
 				PointF startPoint = new PointF(lineInfo.StartDot.X, lineInfo.StartDot.Y);
 				PointF endPoint = new PointF(lineInfo.EndDot.X, lineInfo.EndDot.Y);
 
@@ -77,14 +76,14 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				byte green = (byte)(lineInfo.LineColor[1] * 255);
 				byte blue = (byte)(lineInfo.LineColor[2] * 255);
 
-				System.Windows.Media.SolidColorBrush brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(newObject.Color.R, newObject.Color.G, newObject.Color.B));
+				System.Windows.Media.SolidColorBrush brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(overlayItem.Color.R, overlayItem.Color.G, overlayItem.Color.B));
 
 				DrawLine(gl, startPoint, endPoint, lineInfo.Width, brush);
 			}
 
-			if (newObject.Shape is RectInfo)
+			if (overlayItem.Shape is RectInfo)
 			{
-				RectInfo rectInfo = newObject.Shape as RectInfo;
+				RectInfo rectInfo = overlayItem.Shape as RectInfo;
 				System.Drawing.PointF start = new PointF(rectInfo.LeftBottom.X, rectInfo.LeftBottom.Y);
 				System.Drawing.PointF end = new PointF(rectInfo.RightTop.X, rectInfo.RightTop.Y);
 
@@ -92,40 +91,37 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				byte green = (byte)(rectInfo.LineColor[1] * 255);
 				byte blue = (byte)(rectInfo.LineColor[2] * 255);
 
-				System.Windows.Media.SolidColorBrush brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(newObject.Color.A, newObject.Color.R, newObject.Color.G, newObject.Color.B));
-				//System.Drawing.Color brush = System.Drawing.Color.FromArgb(red, green, blue);
+				System.Windows.Media.SolidColorBrush brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromArgb(overlayItem.Color.A, overlayItem.Color.R, overlayItem.Color.G, overlayItem.Color.B));
 
 				DrawRectangle(gl, start, end, rectInfo.Width, rectInfo.IsFill, brush);
 			}
-			if (newObject.Shape is CircleInfo)
+			if (overlayItem.Shape is CircleInfo)
 			{
-				CircleInfo circleInfo = newObject.Shape as CircleInfo;
-				//System.Drawing.PointF start = new PointF(circleInfo.StartDot.X, circleInfo.StartDot.Y);
-				//System.Drawing.PointF end = new PointF(circleInfo.EndDot.X, circleInfo.EndDot.Y);
+				CircleInfo circleInfo = overlayItem.Shape as CircleInfo;
 				System.Drawing.PointF center = new PointF(circleInfo.CenterDot.X, circleInfo.CenterDot.Y);
 				float radius = circleInfo.Radius;
 				byte red = (byte)(circleInfo.LineColor[0] * 255);
 				byte green = (byte)(circleInfo.LineColor[1] * 255);
 				byte blue = (byte)(circleInfo.LineColor[2] * 255);
 
-				System.Windows.Media.SolidColorBrush brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(newObject.Color.R, newObject.Color.G, newObject.Color.B));
+				System.Windows.Media.SolidColorBrush brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(overlayItem.Color.R, overlayItem.Color.G, overlayItem.Color.B));
 				FastDrawCircle(gl, center, radius, circleInfo.Width, brush, circleInfo.IsFill);
 			}
-			if (newObject.Shape is PensInfo)
+			if (overlayItem.Shape is PensInfo)
 			{
-				PensInfo pensInfo = newObject.Shape as PensInfo;
+				PensInfo pensInfo = overlayItem.Shape as PensInfo;
 
 				byte red = (byte)(pensInfo.LineColor[0] * 255);
 				byte green = (byte)(pensInfo.LineColor[1] * 255);
 				byte blue = (byte)(pensInfo.LineColor[2] * 255);
 
-				System.Windows.Media.SolidColorBrush brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(newObject.Color.R, newObject.Color.G, newObject.Color.B));
+				System.Windows.Media.SolidColorBrush brush = new System.Windows.Media.SolidColorBrush(System.Windows.Media.Color.FromRgb(overlayItem.Color.R, overlayItem.Color.G, overlayItem.Color.B));
 
-				DrawShape(gl, pensInfo, newObject.Color, false, false);
+				DrawShape(gl, pensInfo, overlayItem.Color, false, false);
 			}
-			if (newObject.Shape is OpenVisionLab.ImageCanvas.CanvasShapes.TextInfo)
+			if (overlayItem.Shape is OpenVisionLab.ImageCanvas.CanvasShapes.TextInfo)
 			{
-				OpenVisionLab.ImageCanvas.CanvasShapes.TextInfo textInfo = newObject.Shape as OpenVisionLab.ImageCanvas.CanvasShapes.TextInfo;
+				OpenVisionLab.ImageCanvas.CanvasShapes.TextInfo textInfo = overlayItem.Shape as OpenVisionLab.ImageCanvas.CanvasShapes.TextInfo;
 
 				float xSpan = textInfo.XSpan;
 				float ySpan = textInfo.YSpan;
@@ -137,7 +133,7 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				int g = (int)(textInfo.LineColor[1] * 255);
 				int b = (int)(textInfo.LineColor[2] * 255);
 
-				System.Drawing.Color color = newObject.Color;
+				System.Drawing.Color color = overlayItem.Color;
 
 				string faceName = textInfo.FaceName;
 				float baseFontSize = textInfo.BaseFontSize;
@@ -145,7 +141,6 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 				{
 					string text = textInfo.Text;
 
-					//DrawTextOnImage(gl, textInfo.FontBitmapEntries, 12000,12000,  x, y, color, faceName, baseFontSize, text);
 					DrawText(gl, textInfo.FontBitmapEntries, xSpan, ySpan, offsetSize, x, y, color, faceName, baseFontSize, text);
 				}
 			}

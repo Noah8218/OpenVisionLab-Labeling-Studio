@@ -23,7 +23,8 @@ namespace MvcVisionSystem
             WpfModelComparisonRunRequest request = modelComparisonRunService.BuildRequest(
                 global.Data,
                 trainingWeightsService,
-                task: "test");
+                task: "test",
+                baselineWeightsOverride: GetTrainingComparisonCurrentWeightsPath(global.Data.ProjectSettings.PythonModel.WeightsPath));
             IReadOnlyList<string> validationErrors = modelComparisonRunService.ValidateRequest(request);
             if (validationErrors.Count > 0)
             {
@@ -61,9 +62,9 @@ namespace MvcVisionSystem
                 WpfTrainingWeightsComparison comparison = trainingWeightsService.BuildComparison(
                     global.Data.ProjectSettings.PythonModel.ProjectRootPath,
                     global.Data.OutputRootPath,
-                    global.Data.ProjectSettings.PythonModel.WeightsPath);
+                    GetTrainingComparisonCurrentWeightsPath(global.Data.ProjectSettings.PythonModel.WeightsPath));
                 UpdateTrainingComparisonViewModel(comparison, BuildTrainingComparisonStatusText(comparison));
-                UpdateCandidateModelComparisonReviewPanel();
+                UpdateCandidateModelComparisonReviewPanel(comparison);
 
                 string summaryName = string.IsNullOrWhiteSpace(result.SummaryPath)
                     ? "comparison-summary.json"
@@ -76,7 +77,7 @@ namespace MvcVisionSystem
                 }
 
                 CandidateReviewViewModel?.AddReviewHistory(completeText);
-                CandidatesReviewTab.IsSelected = true;
+                ShowCandidateReviewWorkflowView();
                 SetYoloCommandStatus(completeText, isBusy: false);
                 AppendLog(completeText);
             }

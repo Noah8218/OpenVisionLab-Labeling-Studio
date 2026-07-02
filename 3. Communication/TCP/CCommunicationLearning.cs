@@ -91,11 +91,11 @@ namespace MvcVisionSystem._3._Communication.TCP
         }
 
 
-        public bool SendTrainingData(string command, string imgSize, string batch, string epoch, string cfg, string weight, string dataYaml = "")
+        public bool SendTrainingData(string command, string imgSize, string batch, string epoch, string cfg, string weight, string dataYaml = "", string model = "yolov5")
         {
             try
             {
-                return SendPacket(command, LearningProtocol.BuildTrainingPacket(command, imgSize, batch, epoch, cfg, weight, dataYaml));
+                return SendPacket(command, LearningProtocol.BuildTrainingPacket(command, imgSize, batch, epoch, cfg, weight, dataYaml, model));
             }
             catch (Exception Desc)
             {
@@ -360,6 +360,7 @@ namespace MvcVisionSystem._3._Communication.TCP
                     item.LastHealthCheckAtUtc = DateTime.UtcNow;
                     item.LastWorkerState = statusMessage.State ?? "";
                     item.LastWorkerMessage = statusMessage.Message ?? "";
+                    UpdateWorkerCapabilities(item, statusMessage);
                 }
                 else if (string.Equals(statusMessage.Type, PythonModelStatusProtocol.ModelStatusResultType, StringComparison.OrdinalIgnoreCase))
                 {
@@ -367,6 +368,7 @@ namespace MvcVisionSystem._3._Communication.TCP
                     item.LastModelState = statusMessage.State ?? "";
                     item.LastModelMessage = statusMessage.Message ?? "";
                     item.LastModelLoaded = statusMessage.Loaded == true;
+                    UpdateWorkerCapabilities(item, statusMessage);
                 }
                 else
                 {
@@ -384,6 +386,29 @@ namespace MvcVisionSystem._3._Communication.TCP
             });
 
             return true;
+        }
+
+        private static void UpdateWorkerCapabilities(PythonCommunicationStatus item, PythonModelStatusMessage statusMessage)
+        {
+            if (item == null || statusMessage == null)
+            {
+                return;
+            }
+
+            if (statusMessage.SupportedModels?.Count > 0)
+            {
+                item.WorkerSupportedModels = statusMessage.SupportedModels;
+            }
+
+            if (statusMessage.TrainingModels?.Count > 0)
+            {
+                item.WorkerTrainingModels = statusMessage.TrainingModels;
+            }
+
+            if (statusMessage.DetectionModels?.Count > 0)
+            {
+                item.WorkerDetectionModels = statusMessage.DetectionModels;
+            }
         }
 
         private static string BuildModelStatusSummary(PythonModelStatusMessage statusMessage)

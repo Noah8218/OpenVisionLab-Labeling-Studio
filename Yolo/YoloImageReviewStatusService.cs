@@ -319,6 +319,11 @@ namespace MvcVisionSystem.Yolo
                     return SetReviewState(status.ImagePath, status.ImageName, YoloImageReviewState.Confirmed, 0, "Candidates confirmed.");
                 }
 
+                if (status.LabelStatus?.HasLabelFile == true)
+                {
+                    return SetReviewState(status.ImagePath, status.ImageName, YoloImageReviewState.NoCandidate, 0, "Reviewed as no object.");
+                }
+
                 return SetDetectionCandidatesCore(status.ImagePath, status.ImageName, 0);
             }
         }

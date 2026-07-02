@@ -111,6 +111,7 @@ namespace MvcVisionSystem
                 ? example?.LocationText ?? string.Empty
                 : WpfCandidateReviewPresenter.FormatBoundsCompact(bounds);
             CandidateReviewViewModel?.SetModelComparisonFocus(example, boundsText);
+            ApplyCanvasDisplayMode(WpfCanvasDisplayMode.InferenceOnly, redraw: true, logChange: false);
 
             if (bounds.IsEmpty)
             {
@@ -170,13 +171,13 @@ namespace MvcVisionSystem
             switch (example?.Kind)
             {
                 case "CandidateOnly":
-                    return "\uC0C8 \uBAA8\uB378\uB9CC";
+                    return "NEW";
                 case "BaselineOnly":
-                    return "\uAE30\uC874 \uBAA8\uB378\uB9CC";
+                    return "BASE";
                 case "ClassChanged":
-                    return "\uB77C\uBCA8 \uB2E4\uB984";
+                    return "CLASS";
                 default:
-                    return "\uCC28\uC774 \uC704\uCE58";
+                    return "DIFF";
             }
         }
 
@@ -193,13 +194,13 @@ namespace MvcVisionSystem
                 offset);
             if (selection.Status == WpfCandidateNavigationStatus.NoCandidates)
             {
-                AppendLog("이동할 검출 후보가 없습니다.");
+                AppendLog("이동할 AI 후보가 없습니다.");
                 return;
             }
 
             if (selection.Status == WpfCandidateNavigationStatus.SingleCandidate)
             {
-                AppendLog("이동할 다른 검출 후보가 없습니다.");
+                AppendLog("이동할 다른 AI 후보가 없습니다.");
                 return;
             }
 

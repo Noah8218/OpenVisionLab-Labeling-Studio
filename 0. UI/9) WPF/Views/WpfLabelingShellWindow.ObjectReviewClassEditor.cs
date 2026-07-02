@@ -50,7 +50,12 @@ namespace MvcVisionSystem
 
         private IReadOnlyList<string> GetClassNames()
         {
-            EnsureClassItem("Defect");
+            if (global.Data.ClassNamedList == null
+                || !global.Data.ClassNamedList.Any(item => item != null && !string.IsNullOrWhiteSpace(item.Text)))
+            {
+                EnsureClassItem("Defect");
+            }
+
             return global.Data.ClassNamedList
                 .Where(item => item != null && !string.IsNullOrWhiteSpace(item.Text))
                 .Select(item => item.Text)

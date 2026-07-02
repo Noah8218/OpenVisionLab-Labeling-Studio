@@ -104,6 +104,30 @@
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="4,0,0,0" />
         </Style>
+        <Style x:Key="CanvasAnnotationSaveButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource CanvasCommandButtonStyle}">
+            <Setter Property="Height" Value="27" />
+            <Setter Property="MinWidth" Value="88" />
+            <Setter Property="Padding" Value="8,0" />
+            <Setter Property="Margin" Value="8,0,4,0" />
+            <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="True">
+                    <Setter Property="Background" Value="#DC2626" />
+                    <Setter Property="BorderBrush" Value="#EF4444" />
+                    <Setter Property="Foreground" Value="White" />
+                </Trigger>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="#EF4444" />
+                    <Setter Property="BorderBrush" Value="#F87171" />
+                    <Setter Property="Foreground" Value="White" />
+                </Trigger>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                    <Setter Property="Opacity" Value="0.62" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
         <Style x:Key="CanvasAnnotationToolListBoxStyle" TargetType="ListBox">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
@@ -113,8 +137,8 @@
         </Style>
 
         <Style x:Key="CanvasAnnotationToolItemStyle" TargetType="ListBoxItem">
-            <Setter Property="Width" Value="54" />
-            <Setter Property="Height" Value="34" />
+            <Setter Property="Width" Value="60" />
+            <Setter Property="Height" Value="27" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0,0,4,0" />
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
@@ -154,32 +178,32 @@
         </Style>
 
         <DataTemplate x:Key="CanvasAnnotationToolItemTemplate">
-            <Grid Width="52"
-                  Height="32"
+            <Grid Width="58"
+                  Height="25"
                   mvvm:EventCommandBehavior.EventName="MouseLeftButtonUp"
                   mvvm:EventCommandBehavior.Command="{Binding DataContext.AnnotationToolSelectionChangedCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                   mvvm:EventCommandBehavior.CommandParameter="{Binding}"
                   ToolTip="{Binding ToolTip}">
-                <Grid.RowDefinitions>
-                    <RowDefinition Height="17" />
-                    <RowDefinition Height="*" />
-                </Grid.RowDefinitions>
-                <iconPacks:PackIconMaterial x:Name="ToolIcon"
-                                            Kind="{Binding IconKind}"
-                                            Width="15"
-                                            Height="15"
-                                            HorizontalAlignment="Center"
-                                            VerticalAlignment="Center" />
-                <TextBlock x:Name="CanvasToolNameText"
-                           Grid.Row="1"
-                           Text="{Binding Text}"
-                           Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"
-                           FontFamily="Segoe UI"
-                           FontSize="9"
-                           FontWeight="SemiBold"
-                           TextAlignment="Center"
-                           TextTrimming="CharacterEllipsis"
-                           VerticalAlignment="Top" />
+                <StackPanel Orientation="Horizontal"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Center">
+                    <iconPacks:PackIconMaterial x:Name="ToolIcon"
+                                                Kind="{Binding IconKind}"
+                                                Width="13"
+                                                Height="13"
+                                                Margin="0,0,4,0"
+                                                VerticalAlignment="Center" />
+                    <TextBlock x:Name="CanvasToolNameText"
+                               Text="{Binding Text}"
+                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"
+                               FontFamily="Segoe UI"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               MaxWidth="36"
+                               TextAlignment="Center"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                </StackPanel>
                 <Ellipse x:Name="PendingBadge"
                          Width="5"
                          Height="5"
@@ -199,6 +223,129 @@
                     <Setter TargetName="CanvasToolNameText" Property="Opacity" Value="0.66" />
                 </DataTrigger>
             </DataTemplate.Triggers>
+        </DataTemplate>
+
+        <Style x:Key="CanvasLabelClassListBoxStyle" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="MaxWidth" Value="240" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="CanvasLabelClassItemStyle" TargetType="ListBoxItem">
+            <Setter Property="MinWidth" Value="58" />
+            <Setter Property="Height" Value="27" />
+            <Setter Property="Padding" Value="7,0" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ItemChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource ToolbarButtonHoverBrush}" />
+                                <Setter TargetName="ItemChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="ItemChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <DataTemplate x:Key="CanvasLabelClassItemTemplate">
+            <StackPanel Orientation="Horizontal"
+                        ToolTip="{Binding ToolTip}">
+                <Border Width="10"
+                        Height="10"
+                        CornerRadius="2"
+                        Background="{Binding DrawBrush}"
+                        Margin="0,0,5,0"
+                        VerticalAlignment="Center" />
+                <TextBlock x:Name="CanvasLabelClassNameText"
+                           Text="{Binding DisplayText}"
+                           Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           FontWeight="SemiBold"
+                           MaxWidth="82"
+                           TextTrimming="CharacterEllipsis"
+                           VerticalAlignment="Center" />
+            </StackPanel>
+        </DataTemplate>
+
+        <Style x:Key="CanvasDisplayModeListBoxStyle" TargetType="ListBox">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+        </Style>
+
+        <Style x:Key="CanvasDisplayModeItemStyle" TargetType="ListBoxItem">
+            <Setter Property="MinWidth" Value="42" />
+            <Setter Property="Height" Value="27" />
+            <Setter Property="Padding" Value="7,0" />
+            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ItemChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource ToolbarButtonHoverBrush}" />
+                                <Setter TargetName="ItemChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemChrome" Property="Background" Value="{DynamicResource AccentBrush}" />
+                                <Setter TargetName="ItemChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="White" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <DataTemplate x:Key="CanvasDisplayModeItemTemplate">
+            <TextBlock Text="{Binding DisplayText}"
+                       ToolTip="{Binding ToolTip}"
+                       Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"
+                       FontFamily="Segoe UI"
+                       FontSize="11"
+                       FontWeight="SemiBold"
+                       TextAlignment="Center"
+                       VerticalAlignment="Center" />
         </DataTemplate>
         <Style x:Key="DetectionOverlaySelectedBorderStyle" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource DetectionOverlaySelectedBackgroundBrush}" />
@@ -230,7 +377,9 @@
             CornerRadius="6">
         <Grid>
             <Grid.RowDefinitions>
-                <RowDefinition Height="34" />
+                <RowDefinition Height="32" />
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="Auto" />
                 <RowDefinition Height="*" />
@@ -280,7 +429,7 @@
                         </ui:Button>
                         <ui:Button x:Name="FocusCandidateCanvasButton"
                                    Style="{StaticResource CanvasCommandButtonStyle}"
-                                   ToolTip="선택한 검출 후보 위치로 이동합니다."
+                                   ToolTip="선택한 AI 후보 위치로 이동합니다."
                                    IsEnabled="{Binding IsFocusCandidateEnabled}"
                                    Command="{Binding FocusCandidateCommand}">
                             <StackPanel Orientation="Horizontal">
@@ -290,7 +439,7 @@
                         </ui:Button>
                         <ui:Button x:Name="ResetAiOverlayCanvasButton"
                                    Style="{StaticResource CanvasCommandButtonStyle}"
-                                   ToolTip="수동 라벨은 유지하고 검출 후보 표시만 지웁니다."
+                                   ToolTip="수동 라벨은 유지하고 AI 후보 표시만 지웁니다."
                                    IsEnabled="{Binding IsResetAiOverlayEnabled}"
                                    Command="{Binding ResetAiOverlayCommand}">
                             <StackPanel Orientation="Horizontal">
@@ -306,9 +455,10 @@
                     Background="{DynamicResource PanelBrush}"
                     BorderBrush="{DynamicResource BorderBrushDark}"
                     BorderThickness="0,0,0,1"
-                    Padding="8,6">
+                    Padding="8,4">
                 <Grid>
                     <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -316,7 +466,7 @@
                     <Border x:Name="CanvasWorkflowStepChip"
                             Background="{DynamicResource AccentBrush}"
                             CornerRadius="4"
-                            Padding="7,4"
+                            Padding="7,3"
                             Margin="0,0,7,0"
                             VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
@@ -340,7 +490,7 @@
                             BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
                             BorderThickness="1"
                             CornerRadius="4"
-                            Padding="7,4"
+                            Padding="7,3"
                             Margin="0,0,8,0"
                             VerticalAlignment="Center">
                         <StackPanel Orientation="Horizontal">
@@ -362,7 +512,34 @@
                                        VerticalAlignment="Center" />
                         </StackPanel>
                     </Border>
-                    <DockPanel Grid.Column="2"
+                    <Border Grid.Column="2"
+                            Background="{DynamicResource CanvasBrush}"
+                            BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="7,3"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center"
+                            ToolTip="{Binding FirstLabelLoopText}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="ArrowDecisionAutoOutline"
+                                                        Width="13"
+                                                        Height="13"
+                                                        Margin="0,0,5,0"
+                                                        Foreground="{DynamicResource SecondaryTextBrush}"
+                                                        VerticalAlignment="Center" />
+                            <TextBlock x:Name="CanvasFirstLabelLoopText"
+                                       Text="{Binding FirstLabelLoopText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       MaxWidth="260"
+                                       TextTrimming="CharacterEllipsis"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Border>
+                    <DockPanel Grid.Column="3"
                                LastChildFill="True"
                                VerticalAlignment="Center"
                                ToolTip="{Binding CurrentWorkflowActionText}">
@@ -385,24 +562,272 @@
                     </DockPanel>
                 </Grid>
             </Border>
-            <Border x:Name="CanvasAnnotationToolBar"
+            <Border x:Name="CanvasLayerVisibilityStrip"
                     Grid.Row="2"
+                    Background="{DynamicResource PanelBrush}"
+                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    BorderThickness="0,0,0,1"
+                    Padding="8,3"
+                    ToolTip="{Binding CanvasLayerModeToolTip}">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <Border Background="{DynamicResource ToolbarButtonBrush}"
+                            BorderBrush="{DynamicResource AccentBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="7,3"
+                            Margin="0,0,8,0"
+                            VerticalAlignment="Center">
+                        <TextBlock x:Name="CanvasLayerModeTitleText"
+                                   Text="{Binding CanvasLayerModeTitleText}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <TextBlock x:Name="CanvasLayerModeDetailText"
+                               Grid.Column="1"
+                               Text="{Binding CanvasLayerModeDetailText}"
+                               Visibility="Collapsed"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10.5"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                    <Border x:Name="CanvasLabelLayerChip"
+                            Grid.Column="2"
+                            Background="{DynamicResource CanvasBrush}"
+                            BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="7,3"
+                            Margin="8,0,0,0"
+                            VerticalAlignment="Center">
+                        <TextBlock x:Name="CanvasLabelLayerText"
+                                   Text="{Binding CanvasLabelLayerText}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                    <Border x:Name="CanvasInferenceLayerChip"
+                            Grid.Column="3"
+                            Background="{DynamicResource CanvasBrush}"
+                            BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="7,3"
+                            Margin="4,0,0,0"
+                            VerticalAlignment="Center">
+                        <TextBlock x:Name="CanvasInferenceLayerText"
+                                   Text="{Binding CanvasInferenceLayerText}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </Border>
+                </Grid>
+            </Border>
+            <Border x:Name="CanvasAnnotationToolBar"
+                    Grid.Row="3"
+                    MinHeight="37"
                     Background="{DynamicResource FrameBrush}"
                     BorderBrush="{DynamicResource BorderBrushDark}"
                     BorderThickness="0,0,0,1"
-                    Padding="8,5">
-                <DockPanel LastChildFill="True">
+                    Padding="8,3">
+                <WrapPanel x:Name="CanvasAnnotationToolBarItems"
+                           Orientation="Horizontal"
+                           VerticalAlignment="Center">
                     <TextBlock Text="빠른 도구"
-                               DockPanel.Dock="Left"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                FontFamily="Segoe UI"
                                FontSize="11"
                                FontWeight="SemiBold"
                                Margin="0,0,8,0"
-                               VerticalAlignment="Center" />
-                    <StackPanel DockPanel.Dock="Right"
-                                Orientation="Horizontal"
-                                VerticalAlignment="Center">
+                               VerticalAlignment="Center"
+                               Visibility="Collapsed" />
+                    <ListBox x:Name="CanvasAnnotationToolListBox"
+                             Style="{StaticResource CanvasAnnotationToolListBoxStyle}"
+                             ItemContainerStyle="{StaticResource CanvasAnnotationToolItemStyle}"
+                             ItemTemplate="{StaticResource CanvasAnnotationToolItemTemplate}"
+                             ItemsSource="{Binding AnnotationTools}"
+                             SelectedItem="{Binding SelectedAnnotationTool, Mode=TwoWay}"
+                             mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding AnnotationToolSelectionChangedCommand}">
+                        <ListBox.ItemsPanel>
+                            <ItemsPanelTemplate>
+                                <StackPanel Orientation="Horizontal" />
+                            </ItemsPanelTemplate>
+                        </ListBox.ItemsPanel>
+                    </ListBox>
+                        <TextBlock Text="&#xBAA8;&#xB4DC;"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   Margin="0,0,5,0"
+                                   VerticalAlignment="Center" />
+                        <ListBox x:Name="CanvasDisplayModeListBox"
+                                 Style="{StaticResource CanvasDisplayModeListBoxStyle}"
+                                 ItemContainerStyle="{StaticResource CanvasDisplayModeItemStyle}"
+                                 ItemTemplate="{StaticResource CanvasDisplayModeItemTemplate}"
+                                 ItemsSource="{Binding DisplayModes}"
+                                 SelectedItem="{Binding SelectedDisplayMode, Mode=TwoWay}"
+                                 ToolTip="{Binding CanvasLayerModeToolTip}"
+                                 mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding DisplayModeSelectionChangedCommand}">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                        </ListBox>
+                        <ui:Button x:Name="CanvasSaveAnnotationButton"
+                                   Style="{StaticResource CanvasAnnotationSaveButtonStyle}"
+                                   ToolTip="{Binding AnnotationSaveToolTip}"
+                                   IsEnabled="{Binding IsAnnotationSaveEnabled}"
+                                   Command="{Binding SaveAnnotationCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="ContentSaveOutline"
+                                                            Width="13"
+                                                            Height="13"
+                                                            Margin="0,0,5,0"
+                                                            VerticalAlignment="Center" />
+                                <TextBlock x:Name="CanvasSaveAnnotationText"
+                                           Text="{Binding AnnotationSaveActionText}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ui:Button>
+                        <ui:Button x:Name="CanvasCompleteNoObjectButton"
+                                   Style="{StaticResource CanvasAnnotationSaveButtonStyle}"
+                                   MinWidth="92"
+                                   ToolTip="{Binding NoObjectCompletionToolTip}"
+                                   AutomationProperties.AutomationId="CanvasCompleteNoObjectButton"
+                                   AutomationProperties.Name="{Binding NoObjectCompletionActionText}"
+                                   IsEnabled="{Binding IsNoObjectCompletionEnabled}"
+                                   Command="{Binding CompleteNoObjectCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="MinusCircleOutline"
+                                                            Width="13"
+                                                            Height="13"
+                                                            Margin="0,0,5,0"
+                                                            VerticalAlignment="Center" />
+                                <TextBlock x:Name="CanvasCompleteNoObjectText"
+                                           Text="{Binding NoObjectCompletionActionText}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                        </ui:Button>
+                        <Border x:Name="CanvasAnnotationSaveStateCard"
+                                Background="{DynamicResource CanvasBrush}"
+                                BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="7,3"
+                                Margin="4,0,0,0"
+                                VerticalAlignment="Center"
+                                ToolTip="{Binding AnnotationSaveToolTip}">
+                            <StackPanel>
+                                <TextBlock x:Name="CanvasAnnotationSaveStatusTitleText"
+                                           Text="{Binding AnnotationSaveStatusTitleText}"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10.5"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="CanvasAnnotationSaveStatusDetailText"
+                                           Text="{Binding AnnotationSaveStatusDetailText}"
+                                           Visibility="Collapsed"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="9.5"
+                                           MaxWidth="230"
+                                           TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Border>
+                        <StackPanel Orientation="Horizontal"
+                                    Margin="6,0,0,0"
+                                    VerticalAlignment="Center">
+                            <TextBlock x:Name="CanvasLabelClassSelectorLabel"
+                                       Text="&#xD074;&#xB798;&#xC2A4;"
+                                       ToolTip="새 박스에 적용할 클래스입니다. 현재 이미지에 저장된 라벨 목록이 아닙니다."
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,5,0"
+                                       VerticalAlignment="Center" />
+                            <ListBox x:Name="CanvasLabelClassListBox"
+                                     Style="{StaticResource CanvasLabelClassListBoxStyle}"
+                                     ItemContainerStyle="{StaticResource CanvasLabelClassItemStyle}"
+                                     ItemTemplate="{StaticResource CanvasLabelClassItemTemplate}"
+                                     ItemsSource="{Binding LabelClasses}"
+                                     SelectedItem="{Binding SelectedLabelClass, Mode=TwoWay}"
+                                     mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding LabelClassSelectionChangedCommand}">
+                                <ListBox.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <StackPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ListBox.ItemsPanel>
+                            </ListBox>
+                            <ui:Button x:Name="CanvasOpenClassCatalogButton"
+                                       Style="{StaticResource CanvasAnnotationCommandButtonStyle}"
+                                       AutomationProperties.AutomationId="CanvasOpenClassCatalogButton"
+                                       AutomationProperties.Name="&#xD074;&#xB798;&#xC2A4; &#xAD00;&#xB9AC;"
+                                       ToolTip="{Binding ActiveLabelClassActionToolTip}"
+                                       Command="{Binding OpenClassCatalogCommand}">
+                                <Grid>
+                                    <iconPacks:PackIconMaterial Kind="TagMultipleOutline"
+                                                                Width="14"
+                                                                Height="14"
+                                                                HorizontalAlignment="Center"
+                                                                VerticalAlignment="Center" />
+                                    <TextBlock x:Name="CanvasActiveLabelClassActionText"
+                                               Text="{Binding ActiveLabelClassActionText}"
+                                               Visibility="Collapsed" />
+                                </Grid>
+                            </ui:Button>
+                        </StackPanel>
+                        <Border x:Name="CanvasActiveLabelClassCard"
+                                Background="{DynamicResource CanvasBrush}"
+                                BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="7,3"
+                                Margin="4,0,0,0"
+                                VerticalAlignment="Center"
+                                Visibility="Collapsed"
+                                ToolTip="{Binding ActiveLabelClassDetailText}">
+                            <StackPanel>
+                                    <TextBlock x:Name="CanvasActiveLabelClassTitleText"
+                                               Text="{Binding ActiveLabelClassTitleText}"
+                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="10.5"
+                                               FontWeight="SemiBold"
+                                               TextTrimming="CharacterEllipsis" />
+                                    <TextBlock x:Name="CanvasActiveLabelClassDetailText"
+                                               Text="{Binding ActiveLabelClassDetailText}"
+                                               Visibility="Collapsed"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="9.5"
+                                               MaxWidth="250"
+                                               TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Border>
                         <Border x:Name="CanvasSelectedToolChip"
                                 Background="{DynamicResource PanelBrush}"
                                 BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
@@ -411,6 +836,7 @@
                                 Padding="7,3"
                                 Margin="8,0,4,0"
                                 VerticalAlignment="Center"
+                                Visibility="Collapsed"
                                 ToolTip="{Binding SelectedAnnotationTool.ToolTip}">
                             <StackPanel Orientation="Horizontal">
                                 <TextBlock Text="선택"
@@ -452,27 +878,11 @@
                                    Command="{Binding DeleteAnnotationCommand}">
                             <iconPacks:PackIconMaterial Kind="TrashCanOutline" Width="14" Height="14" />
                         </ui:Button>
-                    </StackPanel>
-                    <ListBox x:Name="CanvasAnnotationToolListBox"
-                             Style="{StaticResource CanvasAnnotationToolListBoxStyle}"
-                             ItemContainerStyle="{StaticResource CanvasAnnotationToolItemStyle}"
-                             ItemTemplate="{StaticResource CanvasAnnotationToolItemTemplate}"
-                             ItemsSource="{Binding AnnotationTools}"
-                             SelectedItem="{Binding SelectedAnnotationTool, Mode=TwoWay}"
-                             mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding AnnotationToolSelectionChangedCommand}">
-                        <ListBox.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ListBox.ItemsPanel>
-                    </ListBox>
-                </DockPanel>
+                </WrapPanel>
             </Border>
-            <Grid Grid.Row="3">
-                <canvas:RoiImageCanvasView x:Name="MainCanvasView" />
-                <Border x:Name="DetectionResultOverlay"
-                        Panel.ZIndex="10"
-                        Margin="10,8,0,0"
+            <Border x:Name="DetectionResultOverlay"
+                    Grid.Row="4"
+                    Margin="10,8,10,8"
                         MaxWidth="560"
                         MaxHeight="92"
                         ClipToBounds="True"
@@ -480,7 +890,7 @@
                         VerticalAlignment="Top"
                         Style="{StaticResource DetectionOverlayPanelStyle}"
                         ToolTip="{Binding DetectionOverlayDetailText}"
-                        Visibility="{Binding DetectionOverlayVisibility}">
+                    Visibility="{Binding DetectionOverlayVisibility}">
                     <Grid>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
@@ -514,13 +924,15 @@
                                 Padding="6,4"
                                 Style="{StaticResource DetectionOverlaySelectedBorderStyle}">
                             <DockPanel LastChildFill="True">
-                                <WrapPanel DockPanel.Dock="Right"
-                                           Margin="8,0,0,0">
+                                <WrapPanel x:Name="DetectionOverlayActionPanel"
+                                           DockPanel.Dock="Right"
+                                           Margin="8,0,0,0"
+                                           Visibility="{Binding DetectionOverlayActionsVisibility}">
                             <ui:Button x:Name="CanvasOverlayPreviousCandidateButton"
                                        Style="{StaticResource DetectionOverlayActionButtonStyle}"
                                        AutomationProperties.AutomationId="CanvasOverlayPreviousCandidateButton"
                                        AutomationProperties.Name="&#xC774;&#xC804; &#xD6C4;&#xBCF4;"
-                                       ToolTip="이전 검출 후보를 선택합니다."
+                                       ToolTip="이전 AI 후보를 선택합니다."
                                        IsEnabled="{Binding IsPreviousCandidateEnabled}"
                                        Command="{Binding PreviousCandidateCommand}">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -532,7 +944,7 @@
                                        Style="{StaticResource DetectionOverlayActionButtonStyle}"
                                        AutomationProperties.AutomationId="CanvasOverlayFocusCandidateButton"
                                        AutomationProperties.Name="&#xD6C4;&#xBCF4; &#xCD08;&#xC810;"
-                                       ToolTip="선택한 검출 후보를 캔버스 가운데로 가져옵니다."
+                                       ToolTip="선택한 AI 후보를 캔버스 가운데로 가져옵니다."
                                        IsEnabled="{Binding IsFocusCandidateEnabled}"
                                        Command="{Binding FocusCandidateCommand}">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -556,7 +968,7 @@
                                        Style="{StaticResource DetectionOverlayActionButtonStyle}"
                                        AutomationProperties.AutomationId="CanvasOverlayNextCandidateButton"
                                        AutomationProperties.Name="&#xB2E4;&#xC74C; &#xD6C4;&#xBCF4;"
-                                       ToolTip="다음 검출 후보를 선택합니다."
+                                       ToolTip="다음 AI 후보를 선택합니다."
                                        IsEnabled="{Binding IsNextCandidateEnabled}"
                                        Command="{Binding NextCandidateCommand}">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -568,7 +980,7 @@
                                        Style="{StaticResource DetectionOverlayActionButtonStyle}"
                                        AutomationProperties.AutomationId="CanvasOverlayConfirmSelectedCandidateButton"
                                        AutomationProperties.Name="&#xC120;&#xD0DD; &#xD655;&#xC815;"
-                                       ToolTip="선택한 검출 후보를 라벨로 확정합니다."
+                                       ToolTip="선택한 AI 후보를 라벨로 확정합니다."
                                        IsEnabled="{Binding IsConfirmSelectedEnabled}"
                                        Command="{Binding ConfirmSelectedCommand}">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -580,7 +992,7 @@
                                        Style="{StaticResource DetectionOverlayActionButtonStyle}"
                                        AutomationProperties.AutomationId="CanvasOverlaySkipSelectedCandidateButton"
                                        AutomationProperties.Name="&#xC2A4;&#xD0B5;"
-                                       ToolTip="선택한 검출 후보를 스킵합니다."
+                                       ToolTip="선택한 AI 후보를 스킵합니다."
                                        IsEnabled="{Binding IsSkipSelectedEnabled}"
                                        Command="{Binding SkipSelectedCommand}">
                                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
@@ -609,6 +1021,8 @@
                                    Visibility="Collapsed" />
                     </Grid>
                 </Border>
+            <Grid Grid.Row="5">
+                <canvas:RoiImageCanvasView x:Name="MainCanvasView" />
             </Grid>
         </Grid>
     </Border>

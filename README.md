@@ -8,13 +8,15 @@
 
 이 프로젝트는 그 흐름을 한 화면 안에서 끊기지 않게 이어가도록 만들고 있습니다.
 
-![OpenVisionLab Labeling Studio workbench](docs/tutorial/images/annotated/01-overview-1920-annotated.png)
+![OpenVisionLab Labeling Studio workflow](docs/tutorial/images/annotated/01-overview-1920-annotated.png)
+
+데이터셋 만들기, 이미지 리스트 확인, 클래스 설정, 라벨링, 학습 결과 확인, 현재 검사 실행까지 이어지는 과정은 [docs/tutorial/README.md](docs/tutorial/README.md)에 정리했습니다.
 
 ## 프로젝트 방향
 
 OpenVisionLab Labeling Studio는 `라벨링 툴`이라기보다 `검사 모델을 만들기 위한 작업대`에 가깝습니다.
 
-제가 중요하게 본 지점은 세 가지입니다.
+프로젝트에서 중요하게 잡은 기준은 세 가지입니다.
 
 1. 라벨링을 처음 하는 사람도 지금 무엇을 해야 하는지 알 수 있어야 합니다.
 2. 라벨과 AI 추론 후보가 섞여 보이면 안 됩니다. 정답 데이터와 모델 제안은 분리해서 보여야 합니다.
@@ -111,12 +113,7 @@ HTML 파일 하나만 다른 PC에 복사해서 보려면 이미지가 포함된
 
 ## 실행
 
-권장 폴더 구조:
-
-```text
-C:\Git\Labelling_Application
-C:\Git\yolov5
-```
+모델 런타임 경로는 각자 환경에 맞게 연결합니다. 개인 PC의 절대 경로는 Git에 올리지 않고 로컬 설정으로 분리합니다.
 
 Debug 실행:
 
@@ -174,8 +171,9 @@ Viewer/OpenGL/ROI/brush/eraser 성능 경로는 별도 focused gate로 보호합
 | [docs/SEGMENTATION_UX_COMPLETION.md](docs/SEGMENTATION_UX_COMPLETION.md) | 세그멘테이션 UX 기준 |
 | [docs/ANOMALY_DETECTION_FLOW.md](docs/ANOMALY_DETECTION_FLOW.md) | 이상탐지 흐름과 완료 전제 |
 
-README와 튜토리얼을 수정할 때 화면 이미지는 반드시 현재 EXE 기준의 최신 UI 캡처로 갱신합니다.
-이전 UI 캡처를 그대로 재사용하지 않고, 사용자가 이미지만 보고 따라갈 수 있도록 필요한 곳에는 번호와 화살표를 넣습니다.
+문서에 쓰는 화면 이미지는 현재 앱 UI 기준으로 갱신합니다.
+사용자가 이미지만 보고 따라갈 수 있도록 필요한 곳에는 번호와 화살표를 넣습니다.
+공개 문서에는 개인 로컬 경로, 임시 검증 메모, 특정 PC에만 맞는 폴더명을 적지 않습니다.
 HTML 튜토리얼을 바꾼 뒤에는 standalone HTML도 다시 생성해 이미지가 함께 포함되도록 합니다.
 
 ## 커밋 전 기준

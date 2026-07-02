@@ -35,6 +35,9 @@ namespace MvcVisionSystem
         [JsonProperty("outputRootPath")]
         public string OutputRootPath { get; set; } = "";
 
+        [JsonProperty("imageRootPath")]
+        public string ImageRootPath { get; set; } = "";
+
         [JsonProperty("dataYamlFilePath")]
         public string DataYamlFilePath { get; set; } = "";
 
@@ -124,6 +127,7 @@ namespace MvcVisionSystem
                 AnnotationProfile = ResolveAnnotationProfile(settings.DatasetPurpose),
                 VisibleTools = ResolveVisibleTools(settings.DatasetPurpose).ToList(),
                 OutputRootPath = data.OutputRootPath,
+                ImageRootPath = settings.PythonModel?.ImageRootPath ?? string.Empty,
                 DataYamlFilePath = data.DataYamlFilePath,
                 Classes = data.ClassNamedList?
                     .Select(item => item?.Text)

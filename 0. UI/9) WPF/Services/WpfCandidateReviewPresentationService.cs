@@ -26,22 +26,22 @@ namespace MvcVisionSystem
             if (pending.Count == 0)
             {
                 rows.Add(WpfCandidateReviewListItem.Empty(
-                    "\uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C",
-                    "\uAC80\uCD9C \uACB0\uACFC \uD6C4\uBCF4\uAC00 \uC5C6\uAC70\uB098 \uC544\uC9C1 \uAC80\uC0AC\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4."));
+                    "AI \uD6C4\uBCF4 \uC5C6\uC74C",
+                    "\uD604\uC7AC \uAC80\uC0AC \uACB0\uACFC AI \uD6C4\uBCF4\uAC00 \uC5C6\uAC70\uB098 \uC544\uC9C1 \uAC80\uC0AC\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4."));
                 return new WpfCandidateReviewListPresentation(
                     rows,
-                    "\uAC80\uCD9C \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+                    "AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
                     null);
             }
 
             if (visible.Count == 0)
             {
                 rows.Add(WpfCandidateReviewListItem.Empty(
-                    "\uD544\uD130 \uD1B5\uACFC \uD6C4\uBCF4 \uC5C6\uC74C",
-                    "\uC2E0\uB8B0\uB3C4 \uAE30\uC900\uC744 \uB0AE\uCD94\uBA74 \uC228\uACA8\uC9C4 \uD6C4\uBCF4\uB97C \uB2E4\uC2DC \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4."));
+                    "\uD544\uD130 \uD1B5\uACFC AI \uD6C4\uBCF4 \uC5C6\uC74C",
+                    "\uC2E0\uB8B0\uB3C4 \uAE30\uC900\uC744 \uB0AE\uCD94\uBA74 \uC228\uACA8\uC9C4 AI \uD6C4\uBCF4\uB97C \uB2E4\uC2DC \uBCFC \uC218 \uC788\uC2B5\uB2C8\uB2E4."));
                 return new WpfCandidateReviewListPresentation(
                     rows,
-                    $"{confidenceFilter.ToString("P0", CultureInfo.CurrentCulture)} \uC774\uC0C1 \uAC80\uCD9C \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+                    $"{confidenceFilter.ToString("P0", CultureInfo.CurrentCulture)} \uC774\uC0C1 AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
                     null);
             }
 
@@ -86,22 +86,23 @@ namespace MvcVisionSystem
                 ? "-"
                 : Path.GetFileName(activeImagePath);
             string summary =
-                $"{imageName} / \uD6C4\uBCF4 {pending.Count}\uAC1C / \uAE30\uC900 {confidenceFilter.ToString("P0", CultureInfo.CurrentCulture)}";
+                $"{imageName} / AI \uD6C4\uBCF4 {pending.Count}\uAC1C / \uC800\uC7A5 \uC804 / \uAE30\uC900 {confidenceFilter.ToString("P0", CultureInfo.CurrentCulture)}";
 
             YoloWorkerSmokeCandidate selected = selectedCandidate ?? pending.FirstOrDefault(candidate => candidate != null);
             bool selectedDuplicate = selected != null && SafeInvoke(isDuplicate, selected);
             bool selectedConfirmable = selected != null && SafeInvoke(isConfirmable, selected);
             int selectedIndex = IndexOfCandidate(pending, selected);
             int fallbackIndex = selectedIndex >= 0 ? selectedIndex + 1 : 1;
+            int displayIndex = selected?.Index > 0 ? selected.Index : fallbackIndex;
             string selectedText = selected == null
-                ? "\uC120\uD0DD \uD6C4\uBCF4 \uC5C6\uC74C"
-                : $"\uC120\uD0DD: {WpfCandidateReviewPresenter.BuildDetectionOverlayLabel(selected, fallbackIndex)} / {SafeSecondaryText(buildSecondaryText, selected)}";
+                ? "\uC120\uD0DD AI \uD6C4\uBCF4 \uC5C6\uC74C"
+                : $"\uC120\uD0DD: AI \uD6C4\uBCF4 {displayIndex} {WpfCandidateReviewPresenter.GetClassName(selected)} {WpfCandidateReviewPresenter.FormatConfidence(selected, "P1")} / {SafeSecondaryText(buildSecondaryText, selected)}";
             string detail = string.Join(
                 "\n",
                 pending
                     .Where(candidate => candidate != null)
                     .Take(4)
-                    .Select((candidate, index) => $"{index + 1}. {WpfCandidateReviewPresenter.GetClassName(candidate)} {WpfCandidateReviewPresenter.FormatConfidence(candidate, "P1")}  {SafeSecondaryText(buildSecondaryText, candidate)}"));
+                    .Select((candidate, index) => $"{index + 1}. AI \uD6C4\uBCF4 {WpfCandidateReviewPresenter.GetClassName(candidate)} {WpfCandidateReviewPresenter.FormatConfidence(candidate, "P1")}  {SafeSecondaryText(buildSecondaryText, candidate)}"));
             WpfDetectionOverlayStatus status = selectedDuplicate
                 ? WpfDetectionOverlayStatus.Duplicate
                 : selectedConfirmable
@@ -110,7 +111,7 @@ namespace MvcVisionSystem
 
             return new WpfDetectionOverlayPresentation(
                 isEmpty: false,
-                title: "\uAC80\uCD9C \uACB0\uACFC",
+                title: "AI \uD6C4\uBCF4(\uC800\uC7A5 \uC804)",
                 summary: summary,
                 selectedText: selectedText,
                 detail: detail,

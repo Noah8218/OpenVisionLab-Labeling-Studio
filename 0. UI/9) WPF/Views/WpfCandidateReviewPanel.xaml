@@ -60,6 +60,11 @@
 
         <SolidColorBrush x:Key="CandidateComparisonWarningBrush" Color="#F5C542" />
         <SolidColorBrush x:Key="CandidateComparisonWarningBorderBrush" Color="#806A2A" />
+        <SolidColorBrush x:Key="CandidateReviewAiBackgroundBrush" Color="#102223" />
+        <SolidColorBrush x:Key="CandidateReviewAiPanelBrush" Color="#132427" />
+        <SolidColorBrush x:Key="CandidateReviewAiBorderBrush" Color="#247C83" />
+        <SolidColorBrush x:Key="CandidateReviewAiTextBrush" Color="#67D8DF" />
+        <SolidColorBrush x:Key="CandidateReviewModelTextBrush" Color="#93C5FD" />
 
         <Style x:Key="CandidateComparisonPanelStyle" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource CanvasBrush}" />
@@ -97,6 +102,10 @@
             <Setter Property="FontSize" Value="11" />
             <Setter Property="FontWeight" Value="SemiBold" />
             <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="LineHeight" Value="13" />
+            <Setter Property="MaxHeight" Value="39" />
+            <Setter Property="ToolTip" Value="{Binding ComparisonDecisionText}" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding IsComparisonHighOverlap}" Value="True">
                     <Setter Property="Foreground" Value="{StaticResource CandidateComparisonWarningBrush}" />
@@ -119,6 +128,14 @@
                     <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
                 </Trigger>
             </Style.Triggers>
+        </Style>
+
+        <Style x:Key="CandidateDisclosureExpanderStyle" TargetType="{x:Type Expander}">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderThickness" Value="0" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="Margin" Value="0,4,0,0" />
         </Style>
 
         <DataTemplate x:Key="ModelComparisonExampleTemplate">
@@ -176,9 +193,177 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <Grid Margin="0,0,0,8">
+        <Border x:Name="CandidateReviewModePanel"
+                AutomationProperties.AutomationId="CandidateReviewModePanel"
+                Background="{DynamicResource CanvasBrush}"
+                BorderBrush="{DynamicResource BorderBrushDark}"
+                BorderThickness="1"
+                CornerRadius="5"
+                Padding="8,6"
+                Margin="0,0,0,8">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="CandidateReviewModeTitleText"
+                               AutomationProperties.AutomationId="CandidateReviewModeTitleText"
+                               Text="{Binding PanelModeTitleText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <Border x:Name="CandidateReviewModeBadge"
+                            Grid.Column="1"
+                            AutomationProperties.AutomationId="CandidateReviewModeBadge"
+                            Background="{StaticResource CandidateReviewAiBackgroundBrush}"
+                            BorderBrush="{StaticResource CandidateReviewAiBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="6,2"
+                            Margin="6,0,0,0"
+                            VerticalAlignment="Center">
+                        <TextBlock x:Name="CandidateReviewModeBadgeText"
+                                   AutomationProperties.AutomationId="CandidateReviewModeBadgeText"
+                                   Text="{Binding PanelModeBadgeText}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                    </Border>
+                </Grid>
+                <TextBlock x:Name="CandidateReviewModeScopeText"
+                           AutomationProperties.AutomationId="CandidateReviewModeScopeText"
+                           Text="{Binding PanelModeScopeText}"
+                           Foreground="{StaticResource CandidateReviewAiTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="10"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"
+                           Margin="0,3,0,0" />
+                <TextBlock x:Name="CandidateReviewModeDetailText"
+                           AutomationProperties.AutomationId="CandidateReviewModeDetailText"
+                           Text="{Binding PanelModeDetailText}"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="9"
+                           TextWrapping="Wrap"
+                           Margin="0,2,0,0" />
+                <Grid x:Name="CandidateReviewRoleSplitPanel"
+                      AutomationProperties.AutomationId="CandidateReviewRoleSplitPanel"
+                      Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="CurrentImageCandidateRoleCard"
+                            AutomationProperties.AutomationId="CurrentImageCandidateRoleCard"
+                            Background="{StaticResource CandidateReviewAiPanelBrush}"
+                            BorderBrush="{StaticResource CandidateReviewAiBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6"
+                            Margin="0,0,4,0">
+                        <StackPanel>
+                            <TextBlock x:Name="CurrentImageReviewRoleTitleText"
+                                       AutomationProperties.AutomationId="CurrentImageReviewRoleTitleText"
+                                       Text="{Binding CurrentImageReviewRoleTitleText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="CurrentImageReviewRoleDetailText"
+                                       AutomationProperties.AutomationId="CurrentImageReviewRoleDetailText"
+                                       Text="{Binding CurrentImageReviewRoleDetailText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="8.5"
+                                       LineHeight="10"
+                                       MaxHeight="22"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       Margin="0,2,0,0" />
+                            <TextBlock x:Name="CurrentImageReviewRoleResultText"
+                                       AutomationProperties.AutomationId="CurrentImageReviewRoleResultText"
+                                       Text="{Binding CurrentImageReviewRoleResultText}"
+                                       Foreground="{StaticResource CandidateReviewAiTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="8.5"
+                                       FontWeight="SemiBold"
+                                       LineHeight="10"
+                                       MaxHeight="22"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="ModelValidationRoleCard"
+                            Grid.Column="1"
+                            AutomationProperties.AutomationId="ModelValidationRoleCard"
+                            Background="#111D2A"
+                            BorderBrush="#2563EB"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6"
+                            Margin="4,0,0,0">
+                        <StackPanel>
+                            <TextBlock x:Name="ModelValidationRoleTitleText"
+                                       AutomationProperties.AutomationId="ModelValidationRoleTitleText"
+                                       Text="{Binding ModelValidationRoleTitleText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="ModelValidationRoleDetailText"
+                                       AutomationProperties.AutomationId="ModelValidationRoleDetailText"
+                                       Text="{Binding ModelValidationRoleDetailText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="8.5"
+                                       LineHeight="10"
+                                       MaxHeight="22"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       Margin="0,2,0,0" />
+                            <TextBlock x:Name="ModelValidationRoleResultText"
+                                       AutomationProperties.AutomationId="ModelValidationRoleResultText"
+                                       Text="{Binding ModelValidationRoleResultText}"
+                                       Foreground="{StaticResource CandidateReviewModelTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="8.5"
+                                       FontWeight="SemiBold"
+                                       LineHeight="10"
+                                       MaxHeight="22"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       Margin="0,2,0,0" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+                <TextBlock x:Name="CandidateReviewActionGuideText"
+                           AutomationProperties.AutomationId="CandidateReviewActionGuideText"
+                           Text="{Binding ReviewActionGuideText}"
+                           Foreground="{StaticResource CandidateReviewAiTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="9"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"
+                           Margin="0,5,0,0" />
+            </StackPanel>
+        </Border>
+        <Grid x:Name="CandidateConfidenceFilterPanel"
+              Grid.Row="5"
+              AutomationProperties.AutomationId="CandidateConfidenceFilterPanel"
+              Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="72" />
                 <ColumnDefinition Width="*" />
@@ -205,15 +390,19 @@
                        VerticalAlignment="Center" />
         </Grid>
         <TextBlock x:Name="CandidateDetailText"
-                   Grid.Row="1"
+                   Grid.Row="6"
                    Text="{Binding DetailText}"
+                   ToolTip="{Binding DetailText}"
                    Foreground="{DynamicResource SecondaryTextBrush}"
                    FontFamily="Segoe UI"
                    FontSize="12"
                    TextWrapping="Wrap"
+                   TextTrimming="CharacterEllipsis"
+                   LineHeight="14"
+                   MaxHeight="32"
                    Margin="0,0,0,8" />
         <Border x:Name="ModelComparisonReviewPanel"
-                Grid.Row="2"
+                Grid.Row="4"
                 AutomationProperties.AutomationId="ModelComparisonReviewPanel"
                 Background="{DynamicResource CanvasBrush}"
                 BorderBrush="{DynamicResource BorderBrushDark}"
@@ -223,48 +412,169 @@
                 Margin="0,0,0,8"
                 Visibility="{Binding ModelComparisonVisibility}">
             <StackPanel>
-                <TextBlock x:Name="ModelComparisonStatusText"
-                           AutomationProperties.AutomationId="ModelComparisonStatusText"
-                           Text="{Binding ModelComparisonStatusText}"
+                <TextBlock x:Name="ModelComparisonSectionTitleText"
+                           AutomationProperties.AutomationId="ModelComparisonSectionTitleText"
+                           Text="{Binding ModelComparisonSectionTitleText}"
                            Foreground="{DynamicResource PrimaryTextBrush}"
                            FontFamily="Segoe UI"
-                           FontSize="11"
+                           FontSize="12"
                            FontWeight="SemiBold"
-                           TextTrimming="CharacterEllipsis" />
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,5" />
+                <TextBlock x:Name="ModelComparisonSourceText"
+                           AutomationProperties.AutomationId="ModelComparisonSourceText"
+                           Text="{Binding ModelComparisonSourceText}"
+                           ToolTip="{Binding ModelComparisonSourceText}"
+                           Foreground="{StaticResource CandidateReviewModelTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="9.5"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"
+                           Margin="0,0,0,5" />
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock Text="&#xBAA8;&#xB378; &#xBE44;&#xAD50; &#xC0C1;&#xD0DC;"
+                               Foreground="{DynamicResource DisabledTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               Margin="0,0,8,0"
+                               VerticalAlignment="Top" />
+                    <TextBlock x:Name="ModelComparisonStatusText"
+                               Grid.Column="1"
+                               AutomationProperties.AutomationId="ModelComparisonStatusText"
+                               Text="{Binding ModelComparisonStatusText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap" />
+                </Grid>
                 <TextBlock x:Name="ModelComparisonDetailText"
                            AutomationProperties.AutomationId="ModelComparisonDetailText"
                            Text="{Binding ModelComparisonDetailText}"
                            Foreground="{DynamicResource SecondaryTextBrush}"
                            FontFamily="Segoe UI"
                            FontSize="9"
-                           TextTrimming="CharacterEllipsis"
+                           TextWrapping="Wrap"
                            Margin="0,2,0,0" />
                 <TextBlock x:Name="ModelComparisonActionText"
                            AutomationProperties.AutomationId="ModelComparisonActionText"
                            Text="{Binding ModelComparisonActionText}"
-                           Foreground="{DynamicResource AccentBrush}"
+                           Foreground="{StaticResource CandidateReviewModelTextBrush}"
                            FontFamily="Segoe UI"
                            FontSize="9"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
                            Margin="0,3,0,0" />
-                <ScrollViewer x:Name="ModelComparisonExampleScrollViewer"
-                              AutomationProperties.AutomationId="ModelComparisonExampleScrollViewer"
-                              MaxHeight="132"
-                              VerticalScrollBarVisibility="Auto"
-                              HorizontalScrollBarVisibility="Disabled"
-                              CanContentScroll="True"
-                              Focusable="False"
-                              Margin="0,2,0,0">
-                    <ItemsControl x:Name="ModelComparisonExampleItems"
-                                  AutomationProperties.AutomationId="ModelComparisonExampleItems"
-                                  ItemsSource="{Binding ModelComparisonExamples}"
-                                  ItemTemplate="{StaticResource ModelComparisonExampleTemplate}" />
-                </ScrollViewer>
+                <Border x:Name="ModelCandidateDecisionPanel"
+                        AutomationProperties.AutomationId="ModelCandidateDecisionPanel"
+                        Background="{DynamicResource ToolbarButtonBrush}"
+                        BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="7,6"
+                        Margin="0,6,0,0"
+                        Visibility="{Binding ModelCandidateDecisionVisibility}">
+                    <StackPanel>
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <TextBlock Text="&#xD6C4;&#xBCF4; &#xACB0;&#xC815;"
+                                       Foreground="{DynamicResource DisabledTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,8,0"
+                                       VerticalAlignment="Top" />
+                            <TextBlock x:Name="ModelCandidateDecisionStatusText"
+                                       Grid.Column="1"
+                                       AutomationProperties.AutomationId="ModelCandidateDecisionStatusText"
+                                       Text="{Binding ModelCandidateDecisionStatusText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10.5"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                        </Grid>
+                        <TextBlock x:Name="ModelCandidateDecisionDetailText"
+                                   AutomationProperties.AutomationId="ModelCandidateDecisionDetailText"
+                                   Text="{Binding ModelCandidateDecisionDetailText}"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="9"
+                                   TextWrapping="Wrap"
+                                   Margin="0,3,0,6" />
+                        <UniformGrid Columns="2">
+                            <ui:Button x:Name="SaveModelCandidateButton"
+                                       AutomationProperties.AutomationId="SaveModelCandidateButton"
+                                       AutomationProperties.Name="&#xAC80;&#xC0AC; &#xBAA8;&#xB378;&#xB85C; &#xC800;&#xC7A5;"
+                                       Command="{Binding SaveModelCandidateCommand}"
+                                       IsEnabled="{Binding IsSaveModelCandidateEnabled}"
+                                       ToolTip="{Binding SaveModelCandidateToolTip}"
+                                       Style="{StaticResource CandidateReviewButtonStyle}"
+                                       Margin="0,0,4,0">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="ContentSaveOutline" />
+                                    <TextBlock Text="&#xAC80;&#xC0AC; &#xBAA8;&#xB378;&#xB85C; &#xC800;&#xC7A5;" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ui:Button>
+                            <ui:Button x:Name="RejectModelCandidateButton"
+                                       AutomationProperties.AutomationId="RejectModelCandidateButton"
+                                       AutomationProperties.Name="&#xD6C4;&#xBCF4; &#xAC70;&#xC808;"
+                                       Command="{Binding RejectModelCandidateCommand}"
+                                       IsEnabled="{Binding IsRejectModelCandidateEnabled}"
+                                       ToolTip="{Binding RejectModelCandidateToolTip}"
+                                       Style="{StaticResource CandidateReviewButtonStyle}"
+                                       Margin="4,0,0,0">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="MinusCircleOutline" />
+                                    <TextBlock Text="&#xD6C4;&#xBCF4; &#xAC70;&#xC808;" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ui:Button>
+                        </UniformGrid>
+                    </StackPanel>
+                </Border>
+                <Expander x:Name="ModelComparisonExampleExpander"
+                          AutomationProperties.AutomationId="ModelComparisonExampleExpander"
+                          Header="{Binding ModelComparisonExampleHeaderText}"
+                          IsExpanded="{Binding IsModelComparisonExamplesExpanded, Mode=TwoWay}"
+                          Visibility="{Binding ModelComparisonExampleListVisibility}"
+                          Style="{StaticResource CandidateDisclosureExpanderStyle}">
+                    <StackPanel>
+                        <TextBlock x:Name="ModelComparisonExampleSummaryText"
+                                   AutomationProperties.AutomationId="ModelComparisonExampleSummaryText"
+                                   Text="{Binding ModelComparisonExampleSummaryText}"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="9"
+                                   TextWrapping="Wrap"
+                                   Margin="0,0,0,2" />
+                        <ScrollViewer x:Name="ModelComparisonExampleScrollViewer"
+                                      AutomationProperties.AutomationId="ModelComparisonExampleScrollViewer"
+                                      Visibility="{Binding ModelComparisonExampleListVisibility}"
+                                      MaxHeight="132"
+                                      VerticalScrollBarVisibility="Auto"
+                                      HorizontalScrollBarVisibility="Disabled"
+                                      CanContentScroll="True"
+                                      Focusable="False"
+                                      Margin="0,2,0,0">
+                            <ItemsControl x:Name="ModelComparisonExampleItems"
+                                          AutomationProperties.AutomationId="ModelComparisonExampleItems"
+                                          ItemsSource="{Binding ModelComparisonExamples}"
+                                          ItemTemplate="{StaticResource ModelComparisonExampleTemplate}" />
+                        </ScrollViewer>
+                    </StackPanel>
+                </Expander>
             </StackPanel>
         </Border>
         <Border x:Name="SelectedCandidateSummaryPanel"
-                Grid.Row="3"
+                Grid.Row="2"
                 Background="{DynamicResource ToolbarButtonBrush}"
                 BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
                 BorderThickness="1"
@@ -286,16 +596,20 @@
                 <TextBlock x:Name="SelectedCandidateSummaryText"
                            Grid.Column="1"
                            Text="{Binding SelectedCandidateSummaryText}"
+                           ToolTip="{Binding SelectedCandidateSummaryText}"
                            Foreground="{DynamicResource PrimaryTextBrush}"
                            FontFamily="Segoe UI"
                            FontSize="11"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
+                           TextTrimming="CharacterEllipsis"
+                           LineHeight="13"
+                           MaxHeight="28"
                            VerticalAlignment="Center" />
             </Grid>
         </Border>
         <Border x:Name="CandidateComparisonPanel"
-                Grid.Row="4"
+                Grid.Row="3"
                 Style="{StaticResource CandidateComparisonPanelStyle}"
                 Visibility="{Binding ComparisonVisibility}">
             <Grid>
@@ -311,48 +625,60 @@
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <TextBlock Text="&#xAC80;&#xCD9C; &#xD6C4;&#xBCF4;"
+                           Grid.Row="1"
                            Foreground="{DynamicResource DisabledTextBrush}"
                            FontFamily="Segoe UI"
                            FontSize="10"
                            FontWeight="SemiBold" />
-                <TextBlock Grid.Column="2"
+                <TextBlock Grid.Row="1"
+                           Grid.Column="2"
                            Text="&#xD604;&#xC7AC; &#xB77C;&#xBCA8;"
                            Foreground="{DynamicResource DisabledTextBrush}"
                            FontFamily="Segoe UI"
                            FontSize="10"
                            FontWeight="SemiBold" />
                 <TextBlock x:Name="CandidateCompareCandidateText"
-                           Grid.Row="1"
+                           Grid.Row="2"
                            Text="{Binding ComparisonCandidateText}"
+                           ToolTip="{Binding ComparisonCandidateText}"
                            Foreground="{DynamicResource PrimaryTextBrush}"
                            FontFamily="Segoe UI"
                            FontSize="11"
                            TextWrapping="Wrap"
+                           TextTrimming="CharacterEllipsis"
+                           LineHeight="13"
+                           MaxHeight="39"
                            Margin="0,4,0,0" />
                 <TextBlock x:Name="CandidateCompareCurrentText"
-                           Grid.Row="1"
+                           Grid.Row="2"
                            Grid.Column="2"
                            Text="{Binding ComparisonCurrentText}"
+                           ToolTip="{Binding ComparisonCurrentText}"
                            Foreground="{DynamicResource PrimaryTextBrush}"
                            FontFamily="Segoe UI"
                            FontSize="11"
                            TextWrapping="Wrap"
+                           TextTrimming="CharacterEllipsis"
+                           LineHeight="13"
+                           MaxHeight="39"
                            Margin="0,4,0,0" />
                 <TextBlock x:Name="CandidateCompareOverlapText"
-                           Grid.Row="0"
+                           Grid.Row="1"
                            Grid.Column="1"
                            Grid.RowSpan="2"
                            Text="{Binding ComparisonOverlapText}"
                            Style="{StaticResource CandidateComparisonOverlapTextStyle}" />
                 <TextBlock x:Name="CandidateCompareDecisionText"
-                           Grid.Row="2"
+                           Grid.Row="3"
                            Grid.ColumnSpan="3"
                            Text="{Binding ComparisonDecisionText}"
                            Style="{StaticResource CandidateComparisonDecisionTextStyle}"
                            Margin="0,8,0,0" />
-                <StackPanel Grid.Row="3"
-                            Grid.ColumnSpan="3"
-                            Margin="0,8,0,0">
+                <StackPanel x:Name="CandidateReviewPrimaryActionsPanel"
+                            Grid.Row="0"
+                             Grid.ColumnSpan="3"
+                             Margin="0,0,0,8"
+                             AutomationProperties.AutomationId="CandidateReviewPrimaryActionsPanel">
                     <UniformGrid Columns="4">
                         <ui:Button x:Name="PreviousCandidateButton"
                                    Style="{StaticResource CandidateReviewButtonStyle}"
@@ -412,7 +738,7 @@
                                    Command="{Binding ConfirmSelectedCommand}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="CheckboxMarkedCircleOutline" />
-                                <TextBlock Text="&#xD655;&#xC815;" VerticalAlignment="Center" />
+                                <TextBlock Text="&#xB77C;&#xBCA8; &#xD655;&#xC815;" VerticalAlignment="Center" />
                             </StackPanel>
                         </ui:Button>
                         <ui:Button x:Name="ConfirmAllCandidatesButton"
@@ -423,7 +749,7 @@
                                    Command="{Binding ConfirmAllCommand}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="CheckAll" />
-                                <TextBlock Text="&#xC804;&#xCCB4; &#xD655;&#xC815;" VerticalAlignment="Center" />
+                                <TextBlock Text="&#xC804;&#xCCB4; &#xB77C;&#xBCA8;&#xD654;" VerticalAlignment="Center" />
                             </StackPanel>
                         </ui:Button>
                         <ui:Button x:Name="SkipSelectedCandidateButton"
@@ -434,39 +760,87 @@
                                    Command="{Binding SkipSelectedCommand}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                 <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="SkipNext" />
-                                <TextBlock Text="&#xC2A4;&#xD0B5;" VerticalAlignment="Center" />
+                                <TextBlock Text="&#xD6C4;&#xBCF4; &#xC228;&#xAE40;" VerticalAlignment="Center" />
                             </StackPanel>
                         </ui:Button>
                     </UniformGrid>
                 </StackPanel>
             </Grid>
         </Border>
-        <StackPanel Grid.Row="5"
-                    Margin="0,0,0,8">
-            <ui:Button x:Name="CompleteImageAndNextButton"
-                       Style="{StaticResource CandidateReviewButtonStyle}"
-                       AutomationProperties.AutomationId="CompleteImageAndNextButton"
-                       AutomationProperties.Name="&#xC774;&#xBBF8;&#xC9C0; &#xC644;&#xB8CC;"
-                       ToolTip="{Binding CompleteImageAndNextToolTip}"
-                       IsEnabled="{Binding IsCompleteImageAndNextEnabled}"
-                       Command="{Binding CompleteImageAndNextCommand}"
-                       HorizontalAlignment="Stretch"
-                       Margin="0,0,4,0">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
-                    <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="ArrowRightBoldCircleOutline" />
-                    <TextBlock Text="&#xC774;&#xBBF8;&#xC9C0; &#xC644;&#xB8CC;" VerticalAlignment="Center" />
+        <Border x:Name="CandidateCompletionStatePanel"
+                Grid.Row="1"
+                AutomationProperties.AutomationId="CandidateCompletionStatePanel"
+                Background="{DynamicResource CanvasBrush}"
+                BorderBrush="{DynamicResource BorderBrushDark}"
+                BorderThickness="1"
+                CornerRadius="5"
+                Padding="8,6"
+                Margin="0,0,0,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0"
+                            Margin="0,0,8,0">
+                    <TextBlock x:Name="CandidateCompletionTitleText"
+                               AutomationProperties.AutomationId="CandidateCompletionTitleText"
+                               Text="{Binding CompletionTitleText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock x:Name="CandidateCompletionDetailText"
+                               AutomationProperties.AutomationId="CandidateCompletionDetailText"
+                               Text="{Binding CompletionDetailText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               TextWrapping="Wrap"
+                               Margin="0,2,0,0" />
+                    <TextBlock x:Name="CandidateCompletionNextActionText"
+                               AutomationProperties.AutomationId="CandidateCompletionNextActionText"
+                               Text="{Binding CompletionNextActionText}"
+                               Foreground="{DynamicResource AccentBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Margin="0,3,0,0" />
                 </StackPanel>
-            </ui:Button>
-            <TextBlock x:Name="CandidatePostActionPolicyText"
-                       Text="{Binding PostActionPolicyText}"
-                       Foreground="{DynamicResource DisabledTextBrush}"
-                       FontFamily="Segoe UI"
-                       FontSize="10"
-                       Margin="2,5,0,0"
-                       TextTrimming="CharacterEllipsis" />
-        </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Width="104"
+                            VerticalAlignment="Center">
+                    <ui:Button x:Name="CompleteImageAndNextButton"
+                               Style="{StaticResource CandidateReviewButtonStyle}"
+                               AutomationProperties.AutomationId="CompleteImageAndNextButton"
+                               AutomationProperties.Name="{Binding CompleteImageAndNextActionText}"
+                               ToolTip="{Binding CompleteImageAndNextToolTip}"
+                               IsEnabled="{Binding IsCompleteImageAndNextEnabled}"
+                               Command="{Binding CompleteImageAndNextCommand}"
+                               HorizontalAlignment="Stretch"
+                               Margin="0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center" HorizontalAlignment="Center">
+                            <iconPacks:PackIconMaterial Style="{StaticResource CandidateReviewIconStyle}" Kind="ArrowRightBoldCircleOutline" />
+                            <TextBlock x:Name="CompleteImageAndNextActionText"
+                                       Text="{Binding CompleteImageAndNextActionText}"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ui:Button>
+                    <TextBlock x:Name="CandidatePostActionPolicyText"
+                               Text="{Binding PostActionPolicyText}"
+                               Foreground="{DynamicResource DisabledTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="9"
+                               Margin="0,4,0,0"
+                               TextAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Grid>
+        </Border>
         <Border x:Name="CandidateReviewHistoryPanel"
-                 Grid.Row="6"
+                 Grid.Row="7"
                 Background="{DynamicResource CanvasBrush}"
                 BorderBrush="{DynamicResource BorderBrushDark}"
                 BorderThickness="1"
@@ -474,30 +848,39 @@
                 Padding="8,6"
                 Margin="0,0,0,8"
                 Visibility="{Binding ReviewHistoryVisibility}">
-            <StackPanel>
-                <TextBlock Text="&#xAC80;&#xD1A0; &#xC774;&#xB825;"
-                           Foreground="{DynamicResource DisabledTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="10"
-                           FontWeight="SemiBold"
-                           Margin="0,0,0,4" />
-                <ItemsControl x:Name="CandidateReviewHistoryItems"
-                              ItemsSource="{Binding ReviewHistory}">
-                    <ItemsControl.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10"
-                                       TextTrimming="CharacterEllipsis"
-                                       Margin="0,1,0,0" />
-                        </DataTemplate>
-                    </ItemsControl.ItemTemplate>
-                </ItemsControl>
-            </StackPanel>
+            <Expander x:Name="CandidateReviewHistoryExpander"
+                      AutomationProperties.AutomationId="CandidateReviewHistoryExpander"
+                      Header="{Binding ReviewHistoryHeaderText}"
+                      IsExpanded="{Binding IsReviewHistoryExpanded, Mode=TwoWay}"
+                      Style="{StaticResource CandidateDisclosureExpanderStyle}"
+                      Margin="0">
+                <StackPanel>
+                    <TextBlock x:Name="CandidateReviewHistorySummaryText"
+                               AutomationProperties.AutomationId="CandidateReviewHistorySummaryText"
+                               Text="{Binding ReviewHistorySummaryText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="9"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,3" />
+                    <ItemsControl x:Name="CandidateReviewHistoryItems"
+                                  ItemsSource="{Binding ReviewHistory}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding}"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           TextTrimming="CharacterEllipsis"
+                                           Margin="0,1,0,0" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Expander>
         </Border>
         <ListBox x:Name="CandidateListBox"
-                 Grid.Row="7"
+                 Grid.Row="8"
                  Background="Transparent"
                  BorderThickness="0"
                  Foreground="{DynamicResource SecondaryTextBrush}"

@@ -25,7 +25,8 @@ namespace MvcVisionSystem.Yolo
             Image image,
             IReadOnlyDictionary<string, List<CRectangleObject>> roiByClass,
             IReadOnlyList<CClassItem> classes,
-            CData data)
+            CData data,
+            string sourceImagePath = "")
         {
             if (string.IsNullOrWhiteSpace(imageName) || image == null || data == null)
             {
@@ -42,7 +43,7 @@ namespace MvcVisionSystem.Yolo
             }
 
             List<string> lines = BuildAnnotationLines(roiByClass, classes, image.Size);
-            string imageExtension = ResolveSourceImageExtension(fileStem, data);
+            string imageExtension = ResolveSourceImageExtension(fileStem, data, sourceImagePath);
             var targetModes = new HashSet<string>(
                 YoloDatasetSplitService.SelectModesForImage(fileStem, data.ProjectSettings?.YoloDataset),
                 StringComparer.OrdinalIgnoreCase);
@@ -268,22 +269,93 @@ namespace MvcVisionSystem.Yolo
                 yield break;
             }
 
+            var emittedPaths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            if (data != null)
+            {
+                data.NormalizeOutputPaths();
+                string outputRootPath = data.OutputRootPath;
+                if (!string.IsNullOrWhiteSpace(outputRootPath))
+                {
+                    foreach (string mode in DatasetModes)
+                    {
+                        string datasetLabelPath = Path.Combine(outputRootPath, "data", mode, "labels", $"{fileStem}.txt");
+                        if (emittedPaths.Add(datasetLabelPath))
+                        {
+                            yield return datasetLabelPath;
+                        }
+                    }
+
+                    if (IsPathUnderDirectory(imagePath, outputRootPath))
+                    {
+                        string outputSiblingLabelPath = ResolveSiblingLabelPath(imagePath, fileStem);
+                        if (!string.IsNullOrWhiteSpace(outputSiblingLabelPath) && emittedPaths.Add(outputSiblingLabelPath))
+                        {
+                            yield return outputSiblingLabelPath;
+                        }
+
+                        string outputSidecarLabelPath = Path.ChangeExtension(imagePath, ".txt");
+                        if (!string.IsNullOrWhiteSpace(outputSidecarLabelPath) && emittedPaths.Add(outputSidecarLabelPath))
+                        {
+                            yield return outputSidecarLabelPath;
+                        }
+                    }
+
+                    yield break;
+                }
+            }
+
+            string siblingLabelPath = ResolveSiblingLabelPath(imagePath, fileStem);
+            if (!string.IsNullOrWhiteSpace(siblingLabelPath) && emittedPaths.Add(siblingLabelPath))
+            {
+                yield return siblingLabelPath;
+            }
+
+            string sidecarLabelPath = Path.ChangeExtension(imagePath, ".txt");
+            if (!string.IsNullOrWhiteSpace(sidecarLabelPath) && emittedPaths.Add(sidecarLabelPath))
+            {
+                yield return sidecarLabelPath;
+            }
+        }
+
+        private static string ResolveSiblingLabelPath(string imagePath, string fileStem)
+        {
             DirectoryInfo imageDirectory = Directory.GetParent(imagePath);
             if (imageDirectory != null && string.Equals(imageDirectory.Name, "images", StringComparison.OrdinalIgnoreCase))
             {
                 string siblingLabelDirectory = Path.Combine(imageDirectory.Parent?.FullName ?? imageDirectory.FullName, "labels");
-                yield return Path.Combine(siblingLabelDirectory, $"{fileStem}.txt");
+                return Path.Combine(siblingLabelDirectory, $"{fileStem}.txt");
             }
 
-            if (data != null)
+            return string.Empty;
+        }
+
+        private static bool IsPathUnderDirectory(string path, string rootDirectory)
+        {
+            if (string.IsNullOrWhiteSpace(path) || string.IsNullOrWhiteSpace(rootDirectory))
             {
-                data.NormalizeOutputPaths();
-                yield return Path.Combine(data.OutputRootPath, "data", "train", "labels", $"{fileStem}.txt");
-                yield return Path.Combine(data.OutputRootPath, "data", "valid", "labels", $"{fileStem}.txt");
-                yield return Path.Combine(data.OutputRootPath, "data", "test", "labels", $"{fileStem}.txt");
+                return false;
             }
 
-            yield return Path.ChangeExtension(imagePath, ".txt");
+            try
+            {
+                string fullPath = Path.GetFullPath(path);
+                string fullRoot = Path.GetFullPath(rootDirectory);
+                if (!fullRoot.EndsWith(Path.DirectorySeparatorChar.ToString(), StringComparison.Ordinal)
+                    && !fullRoot.EndsWith(Path.AltDirectorySeparatorChar.ToString(), StringComparison.Ordinal))
+                {
+                    fullRoot += Path.DirectorySeparatorChar;
+                }
+
+                return fullPath.StartsWith(fullRoot, StringComparison.OrdinalIgnoreCase);
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+            catch (NotSupportedException)
+            {
+                return false;
+            }
         }
 
         public static IReadOnlyList<string> GetTargetLabelPaths(string imageName, CData data)
@@ -306,9 +378,11 @@ namespace MvcVisionSystem.Yolo
                 .ToList();
         }
 
-        private static string ResolveSourceImageExtension(string fileStem, CData data)
+        private static string ResolveSourceImageExtension(string fileStem, CData data, string sourceImagePath)
         {
-            string sourcePath = data?.LastSelectImagePath;
+            string sourcePath = string.IsNullOrWhiteSpace(sourceImagePath)
+                ? data?.LastSelectImagePath
+                : sourceImagePath;
             if (!string.IsNullOrWhiteSpace(sourcePath)
                 && string.Equals(Path.GetFileNameWithoutExtension(sourcePath), fileStem, StringComparison.OrdinalIgnoreCase)
                 && IsSupportedImageExtension(Path.GetExtension(sourcePath)))

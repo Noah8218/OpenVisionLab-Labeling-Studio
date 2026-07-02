@@ -8,8 +8,8 @@ $ErrorActionPreference = "Stop"
 $repoRoot = Split-Path -Parent $PSScriptRoot
 Push-Location $repoRoot
 try {
-    if (-not $SkipBuild) {
-        dotnet build ".\MvcVisionSystem.sln" -c $Configuration -v:minimal /nodeReuse:false -m:1
+if (-not $SkipBuild) {
+        dotnet build ".\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj" -c $Configuration -v:minimal -m
     }
 
     $testAssembly = Join-Path $repoRoot "tests\LabelingApplication.Tests\bin\$Configuration\net8.0-windows\LabelingApplication.Tests.dll"

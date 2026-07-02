@@ -112,6 +112,40 @@ namespace MvcVisionSystem
             }
         }
 
+        private bool IsActiveImageQueueSaveRequired(WpfImageQueueItem item)
+        {
+            return item != null
+                && !string.IsNullOrWhiteSpace(annotationDirtyReason)
+                && !string.IsNullOrWhiteSpace(activeImagePath)
+                && string.Equals(item.ImagePath, activeImagePath, StringComparison.OrdinalIgnoreCase);
+        }
+
+        private void ApplyActiveImageQueueSaveRequiredStatus(string reason)
+        {
+            ApplySaveRequiredStatusToQueueItem(FindImageQueueItem(activeImagePath), reason);
+            imageQueueView?.Refresh();
+            UpdateImageQueueStatusText();
+        }
+
+        private static void ApplySaveRequiredStatusToQueueItem(WpfImageQueueItem item, string reason)
+        {
+            if (item == null)
+            {
+                return;
+            }
+
+            string displayReason = string.IsNullOrWhiteSpace(reason) ? "\uB77C\uBCA8 \uD3B8\uC9D1" : reason.Trim();
+            item.IsSaveRequired = true;
+            item.LabelStatus = "\uC800\uC7A5 \uD544\uC694";
+            item.QueueIconKind = PackIconMaterialKind.AlertCircleOutline;
+            item.QueueIconBrush = WpfImageQueueItem.WarningBrush;
+            item.QueueBadgeBackgroundBrush = WpfImageQueueItem.WarningBadgeBrush;
+            item.QueueRowAccentBrush = WpfImageQueueItem.WarningBrush;
+            item.QueueBadgeText = "\uC800\uC7A5 \uD544\uC694";
+            item.QueueStatusSummary = $"\uB77C\uBCA8 \uC800\uC7A5 \uD544\uC694: {displayReason}";
+            item.Detail = $"{item.FileName}{Environment.NewLine}\uD30C\uC77C\uC5D0 \uBC18\uC601\uD558\uB824\uBA74 \uB77C\uBCA8 \uC800\uC7A5\uC744 \uB20C\uB7EC\uC57C \uD569\uB2C8\uB2E4.{Environment.NewLine}{displayReason}";
+        }
+
         private void SetActiveImageDetectionStatus(int candidateCount, bool succeeded)
         {
             if (string.IsNullOrWhiteSpace(activeImagePath))
@@ -139,6 +173,26 @@ namespace MvcVisionSystem
             }
 
             YoloImageReviewStatus status = imageReviewStatus.MarkConfirmed(activeImagePath, Path.GetFileNameWithoutExtension(activeImagePath));
+            if (!activeImageSize.IsEmpty)
+            {
+                status = imageReviewStatus.RefreshLabelStatusAndReviewState(activeImagePath, activeImageSize, global.Data, hasActiveCandidates: false) ?? status;
+            }
+
+            ApplyReviewStatusToItem(FindImageQueueItem(activeImagePath), status);
+            imageReviewStatus.SaveReviewStatus(global.Data);
+            imageQueueView?.Refresh();
+            UpdateImageQueueStatusText();
+        }
+
+        private void MarkActiveImageNoCandidate()
+        {
+            if (string.IsNullOrWhiteSpace(activeImagePath))
+            {
+                return;
+            }
+
+            string imageName = Path.GetFileNameWithoutExtension(activeImagePath);
+            YoloImageReviewStatus status = imageReviewStatus.SetDetectionNoCandidates(activeImagePath, imageName);
             if (!activeImageSize.IsEmpty)
             {
                 status = imageReviewStatus.RefreshLabelStatusAndReviewState(activeImagePath, activeImageSize, global.Data, hasActiveCandidates: false) ?? status;

@@ -1,6 +1,7 @@
 using Microsoft.Win32;
 using System.IO;
 using System.Windows;
+using OpenFileDialog = Microsoft.Win32.OpenFileDialog;
 
 namespace MvcVisionSystem
 {

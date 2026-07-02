@@ -7,6 +7,8 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
+using Binding = System.Windows.Data.Binding;
+using ProgressBar = System.Windows.Controls.ProgressBar;
 using MediaBrush = System.Windows.Media.Brush;
 using MediaBrushes = System.Windows.Media.Brushes;
 
@@ -23,6 +25,7 @@ namespace MvcVisionSystem
             }
 
             isTrainingCommandRunning = true;
+            ClearYoloRecoveryStatus();
             SetTrainingReadinessStatus(statusText);
             SetTrainingProgressStatus(
                 string.IsNullOrWhiteSpace(statusText) ? "\uD559\uC2B5 \uBA85\uB839 \uC2E4\uD589 \uC911" : statusText,
@@ -85,6 +88,11 @@ namespace MvcVisionSystem
         {
             string normalizedProgress = progressText ?? string.Empty;
             string normalizedEpoch = epochText ?? string.Empty;
+            ShellViewModel?.SetModelCenterTrainingState(
+                normalizedProgress,
+                string.IsNullOrWhiteSpace(normalizedEpoch)
+                    ? TrainingSettingsViewModel?.TrainingReadinessText
+                    : normalizedEpoch);
             if (TrainingSettingsViewModel != null)
             {
                 EnsureTrainingStatusBindings();
@@ -218,6 +226,7 @@ namespace MvcVisionSystem
                     $"학습 데이터 확인 필요: {report.Errors.FirstOrDefault() ?? "원인 미확인"} / 학습 {statistics.TrainImageCount} / 검증 {statistics.ValidImageCount} / 테스트 {statistics.TestImageCount}{segmentText}";
             }
 
+            readinessText = WpfTrainingReadinessPresentationService.BuildStatusText(global.Data, report);
             SetTrainingReadinessStatus(readinessText);
             UpdateYoloTrainingChecklist(report, recordHistory: refreshYaml);
             UpdateTrainingProgressFromWorker();

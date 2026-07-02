@@ -8,6 +8,12 @@ namespace MvcVisionSystem
         private void SetWorkflowMode(WorkflowMode mode)
         {
             currentWorkflowMode = mode;
+            ApplyCanvasDisplayMode(
+                mode == WorkflowMode.Inference
+                    ? WpfCanvasDisplayMode.InferenceOnly
+                    : WpfCanvasDisplayMode.LabelsOnly,
+                redraw: true,
+                logChange: false);
             UpdateYoloCommandButtons();
             UpdateCandidateActionState();
             SetModelStatus(mode == WorkflowMode.Inference
@@ -15,6 +21,10 @@ namespace MvcVisionSystem
                 : "모드: 라벨링");
             RefreshCanvasWorkflowContext();
             UpdateWorkflowProgressStatus();
+            ShellViewModel?.SetWorkflowStage(
+                mode == WorkflowMode.Inference
+                    ? WpfShellWorkflowStage.Inference
+                    : WpfShellWorkflowStage.Labeling);
         }
 
         private void UpdateWorkflowModeUi()

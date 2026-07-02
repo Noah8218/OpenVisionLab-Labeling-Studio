@@ -23,6 +23,9 @@ namespace MvcVisionSystem
         {
             ConfigureObjectReviewPanelCommands();
             RegisterObjectReviewName(nameof(ObjectReviewSummaryText), ObjectReviewSummaryText);
+            RegisterObjectReviewName(nameof(ObjectReviewLabelSaveBadge), ObjectReviewLabelSaveBadge);
+            RegisterObjectReviewName(nameof(ObjectReviewLabelSaveBadgeText), ObjectReviewLabelSaveBadgeText);
+            RegisterObjectReviewName(nameof(ObjectReviewLabelSaveDetailText), ObjectReviewLabelSaveDetailText);
             RegisterObjectReviewName(nameof(DeleteObjectButton), DeleteObjectButton);
             RegisterObjectReviewName(nameof(ObjectClassBox), ObjectClassBox);
             RegisterObjectReviewName(nameof(ApplyObjectClassButton), ApplyObjectClassButton);
@@ -51,7 +54,9 @@ namespace MvcVisionSystem
                 ExecuteCandidateSelectionChangedCommand,
                 ExecuteCandidatePreviewKeyDownCommand,
                 ExecuteCompleteImageAndNextCommand,
-                ExecuteOpenModelComparisonExampleCommand);
+                ExecuteOpenModelComparisonExampleCommand,
+                ExecuteSaveModelCandidateCommand,
+                ExecuteRejectModelCandidateCommand);
             RefreshAttachedCommandBindings(CandidateConfidenceSlider, InputCommandBehaviors.ValueInputCommandProperty);
             RefreshAttachedCommandBindings(
                 CandidateListBox,
@@ -63,6 +68,20 @@ namespace MvcVisionSystem
         {
             ConfigureCandidateReviewPanelCommands();
             RegisterCandidateReviewName(nameof(CandidateConfidenceSlider), CandidateConfidenceSlider);
+            RegisterCandidateReviewName(nameof(CandidateReviewRoleSplitPanel), CandidateReviewRoleSplitPanel);
+            RegisterCandidateReviewName(nameof(CurrentImageCandidateRoleCard), CurrentImageCandidateRoleCard);
+            RegisterCandidateReviewName(nameof(ModelValidationRoleCard), ModelValidationRoleCard);
+            RegisterCandidateReviewName(nameof(CurrentImageReviewRoleTitleText), CurrentImageReviewRoleTitleText);
+            RegisterCandidateReviewName(nameof(CurrentImageReviewRoleDetailText), CurrentImageReviewRoleDetailText);
+            RegisterCandidateReviewName(nameof(CurrentImageReviewRoleResultText), CurrentImageReviewRoleResultText);
+            RegisterCandidateReviewName(nameof(ModelValidationRoleTitleText), ModelValidationRoleTitleText);
+            RegisterCandidateReviewName(nameof(ModelValidationRoleDetailText), ModelValidationRoleDetailText);
+            RegisterCandidateReviewName(nameof(ModelValidationRoleResultText), ModelValidationRoleResultText);
+            RegisterCandidateReviewName(nameof(ModelCandidateDecisionPanel), ModelCandidateDecisionPanel);
+            RegisterCandidateReviewName(nameof(ModelCandidateDecisionStatusText), ModelCandidateDecisionStatusText);
+            RegisterCandidateReviewName(nameof(ModelCandidateDecisionDetailText), ModelCandidateDecisionDetailText);
+            RegisterCandidateReviewName(nameof(SaveModelCandidateButton), SaveModelCandidateButton);
+            RegisterCandidateReviewName(nameof(RejectModelCandidateButton), RejectModelCandidateButton);
             RegisterCandidateReviewName(nameof(CandidateConfidenceText), CandidateConfidenceText);
             RegisterCandidateReviewName(nameof(CandidateDetailText), CandidateDetailText);
             RegisterCandidateReviewName(nameof(SelectedCandidateSummaryPanel), SelectedCandidateSummaryPanel);

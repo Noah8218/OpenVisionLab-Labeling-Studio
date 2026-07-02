@@ -27,6 +27,7 @@ namespace MvcVisionSystem
             }
 
             currentImageRoot = imageRoot;
+            ImageQueueViewModel?.SetCurrentImageFolder(currentImageRoot, canOpenFolder: true);
             CancelImageQueueDetailRefresh(waitForCompletion: false);
             imageQueueDetailLoadCts = new CancellationTokenSource();
             imageQueueDetailLoadTask = Task.CompletedTask;

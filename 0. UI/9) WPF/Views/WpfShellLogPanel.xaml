@@ -1,27 +1,119 @@
 <UserControl x:Class="MvcVisionSystem.WpfShellLogPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks"
              xmlns:logView="clr-namespace:OpenVisionLab.Logging.Controls.View;assembly=OpenVisionLab.Logging.Controls">
     <Border Style="{DynamicResource PanelBorderStyle}">
         <Grid>
-            <Grid.RowDefinitions>
-                <RowDefinition Height="34" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-            <Border Background="{DynamicResource PanelHeaderBrush}"
-                    CornerRadius="6,6,0,0"
+            <Border x:Name="ShellLogCollapsedSummary"
+                    AutomationProperties.AutomationId="ShellLogCollapsedSummary"
+                    Background="{DynamicResource PanelHeaderBrush}"
+                    CornerRadius="6"
                     BorderBrush="{DynamicResource BorderBrushDark}"
-                    BorderThickness="0,0,0,1">
-                <TextBlock Text="로그"
-                           Foreground="{DynamicResource PrimaryTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="12"
-                           FontWeight="SemiBold"
-                           Margin="12,0"
-                           VerticalAlignment="Center" />
+                    BorderThickness="0,0,0,1"
+                    Visibility="{Binding CollapsedSummaryVisibility}">
+                <Grid Margin="12,0,10,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Grid.Column="0"
+                                Orientation="Horizontal"
+                                VerticalAlignment="Center"
+                                Margin="0,0,10,0">
+                        <iconPacks:PackIconMaterial Kind="TextBoxSearchOutline"
+                                                    Width="14"
+                                                    Height="14"
+                                                    Margin="0,0,6,0"
+                                                    VerticalAlignment="Center" />
+                        <TextBlock x:Name="ShellLogCollapsedTitleText"
+                                   AutomationProperties.AutomationId="ShellLogCollapsedTitleText"
+                                   Text="&#xC2E4;&#xD589; &#xB85C;&#xADF8;"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="12"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                    <TextBlock x:Name="ShellLogLatestSummaryText"
+                               Grid.Column="1"
+                               AutomationProperties.AutomationId="ShellLogLatestSummaryText"
+                               Text="{Binding LatestLogText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="11"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                    <Border Grid.Column="2"
+                            Background="{DynamicResource CanvasBrush}"
+                            BorderBrush="{DynamicResource BorderBrushDark}"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="8,2"
+                            Margin="10,0,8,0"
+                            VerticalAlignment="Center">
+                        <TextBlock x:Name="ShellLogCollapsedCountText"
+                                   AutomationProperties.AutomationId="ShellLogCollapsedCountText"
+                                   Text="{Binding LogSummaryText}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10.5" />
+                    </Border>
+                    <Button x:Name="ShellLogToggleButton"
+                            Grid.Column="3"
+                            AutomationProperties.AutomationId="ShellLogToggleButton"
+                            AutomationProperties.Name="{Binding LogPaneToggleText}"
+                            ToolTip="{Binding LogPaneToggleToolTip}"
+                            Command="{Binding ToggleLogPaneCommand}"
+                            MinWidth="82"
+                            Height="26"
+                            Padding="8,0"
+                            VerticalAlignment="Center">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="ChevronUp"
+                                                        Width="13"
+                                                        Height="13"
+                                                        Margin="0,0,5,0"
+                                                        VerticalAlignment="Center" />
+                            <TextBlock Text="{Binding LogPaneToggleText}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="11"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </Grid>
             </Border>
-            <logView:LogPanelView x:Name="ShellLogPanel"
-                                  Grid.Row="1" />
+
+            <Grid x:Name="ShellLogExpandedContent"
+                  AutomationProperties.AutomationId="ShellLogExpandedContent"
+                  Visibility="{Binding ExpandedLogVisibility}">
+                <logView:LogPanelView x:Name="ShellLogPanel" />
+                <Button x:Name="ShellLogExpandedToggleButton"
+                        AutomationProperties.AutomationId="ShellLogExpandedToggleButton"
+                        AutomationProperties.Name="{Binding LogPaneToggleText}"
+                        ToolTip="{Binding LogPaneToggleToolTip}"
+                        Command="{Binding ToggleLogPaneCommand}"
+                        Width="72"
+                        Height="24"
+                        Padding="6,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Top"
+                        Margin="0,8,80,0">
+                    <StackPanel Orientation="Horizontal">
+                        <iconPacks:PackIconMaterial Kind="ChevronDown"
+                                                    Width="12"
+                                                    Height="12"
+                                                    Margin="0,0,4,0"
+                                                    VerticalAlignment="Center" />
+                        <TextBlock Text="&#xC811;&#xAE30;"
+                                   FontFamily="Segoe UI"
+                                   FontSize="11"
+                                   VerticalAlignment="Center" />
+                    </StackPanel>
+                </Button>
+            </Grid>
         </Grid>
     </Border>
 </UserControl>

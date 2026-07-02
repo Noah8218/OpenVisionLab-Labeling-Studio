@@ -1,6 +1,8 @@
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace MvcVisionSystem._3._Communication.TCP
 {
@@ -21,6 +23,12 @@ namespace MvcVisionSystem._3._Communication.TCP
         public int? Epoch { get; set; }
         public int? TotalEpochs { get; set; }
         public string Error { get; set; } = "";
+        public string FailureReason { get; set; } = "";
+        public int? ExitCode { get; set; }
+        public List<string> LogTail { get; set; } = new List<string>();
+        public List<string> SupportedModels { get; set; } = new List<string>();
+        public List<string> TrainingModels { get; set; } = new List<string>();
+        public List<string> DetectionModels { get; set; } = new List<string>();
         public bool? Ok { get; set; }
         public bool? Loaded { get; set; }
 
@@ -116,7 +124,10 @@ namespace MvcVisionSystem._3._Communication.TCP
                 State = string.IsNullOrWhiteSpace(state) ? (ok ? "ready" : "error") : state,
                 Message = BuildHealthSummary(root),
                 Error = FormatError(root["error"]),
-                Ok = ok
+                Ok = ok,
+                SupportedModels = ExtractCapabilityList(root, "supportedModels", "models", "adapters"),
+                TrainingModels = ExtractCapabilityList(root, "trainingModels", "trainModels", "training", "train"),
+                DetectionModels = ExtractCapabilityList(root, "detectionModels", "detectModels", "inspectionModels", "detect", "inspection")
             };
         }
 
@@ -128,16 +139,24 @@ namespace MvcVisionSystem._3._Communication.TCP
                 return null;
             }
 
+            string state = root["state"]?.Value<string>() ?? string.Empty;
+            List<string> logTail = ExtractStringArray(root["logTail"] as JArray);
+            string failureReason = root["failureReason"]?.Value<string>() ?? string.Empty;
+            string message = BuildTaskStatusMessage(root, state, failureReason, logTail);
+
             return new PythonModelStatusMessage
             {
                 Type = TrainingStatusType,
                 Version = root["version"]?.Value<int?>() ?? 1,
-                State = root["state"]?.Value<string>() ?? string.Empty,
-                Message = root["message"]?.Value<string>() ?? string.Empty,
+                State = state,
+                Message = message,
                 ProgressPercent = root["progressPercent"]?.Value<int?>(),
                 Epoch = root["epoch"]?.Value<int?>(),
                 TotalEpochs = root["totalEpochs"]?.Value<int?>(),
-                Error = FormatError(root["error"])
+                Error = FormatError(root["error"]),
+                FailureReason = failureReason,
+                ExitCode = root["exitCode"]?.Value<int?>(),
+                LogTail = logTail
             };
         }
 
@@ -175,7 +194,99 @@ namespace MvcVisionSystem._3._Communication.TCP
                 Message = !string.IsNullOrWhiteSpace(weights) ? $"weights: {weights}" : "model status",
                 Error = FormatError(root["error"] ?? model?["lastError"]),
                 Ok = ok,
-                Loaded = loaded
+                Loaded = loaded,
+                SupportedModels = ExtractCapabilityList(root, "supportedModels", "models", "adapters"),
+                TrainingModels = ExtractCapabilityList(root, "trainingModels", "trainModels", "training", "train"),
+                DetectionModels = ExtractCapabilityList(root, "detectionModels", "detectModels", "inspectionModels", "detect", "inspection")
+            };
+        }
+
+        private static List<string> ExtractCapabilityList(JObject root, params string[] names)
+        {
+            var values = new List<string>();
+            if (root == null || names == null)
+            {
+                return values;
+            }
+
+            foreach (string name in names)
+            {
+                AppendCapabilityValues(root[name], values);
+            }
+
+            if (root["capabilities"] is JObject capabilities)
+            {
+                foreach (string name in names)
+                {
+                    AppendCapabilityValues(capabilities[name], values);
+                }
+            }
+
+            if (root["worker"] is JObject worker && worker["capabilities"] is JObject workerCapabilities)
+            {
+                foreach (string name in names)
+                {
+                    AppendCapabilityValues(workerCapabilities[name], values);
+                }
+            }
+
+            return values
+                .Select(NormalizeCapabilityModel)
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static void AppendCapabilityValues(JToken token, List<string> values)
+        {
+            if (token == null || values == null)
+            {
+                return;
+            }
+
+            if (token.Type == JTokenType.Array)
+            {
+                foreach (JToken item in token)
+                {
+                    AppendCapabilityValues(item, values);
+                }
+
+                return;
+            }
+
+            if (token.Type == JTokenType.String)
+            {
+                string text = token.Value<string>() ?? string.Empty;
+                foreach (string part in text.Split(new[] { ',', ';', ' ' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    values.Add(part);
+                }
+            }
+        }
+
+        private static string NormalizeCapabilityModel(string value)
+        {
+            string trimmed = value?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(trimmed))
+            {
+                return string.Empty;
+            }
+
+            string lower = trimmed.ToLowerInvariant();
+            return lower switch
+            {
+                "yolov5" => "yolov5",
+                "yolo5" => "yolov5",
+                "v5" => "yolov5",
+                "yolov8" => "yolov8",
+                "yolo8" => "yolov8",
+                "v8" => "yolov8",
+                "yolo11" => "yolo11",
+                "yolov11" => "yolo11",
+                "v11" => "yolo11",
+                "onnx" => "onnx",
+                "onnxruntime" => "onnx",
+                _ => lower
             };
         }
 
@@ -214,6 +325,67 @@ namespace MvcVisionSystem._3._Communication.TCP
             }
 
             return !string.IsNullOrWhiteSpace(message) ? message : error.ToString(Formatting.None);
+        }
+
+        private static string BuildTaskStatusMessage(JObject root, string state, string failureReason, List<string> logTail)
+        {
+            if (!string.IsNullOrWhiteSpace(failureReason))
+            {
+                return failureReason;
+            }
+
+            string message = root["message"]?.Value<string>() ?? string.Empty;
+            if (!string.Equals(state, "failed", StringComparison.OrdinalIgnoreCase))
+            {
+                return message;
+            }
+
+            string inferred = InferTrainingFailureReason(logTail);
+            return !string.IsNullOrWhiteSpace(inferred) ? inferred : message;
+        }
+
+        private static string InferTrainingFailureReason(List<string> logTail)
+        {
+            if (logTail == null || logTail.Count == 0)
+            {
+                return string.Empty;
+            }
+
+            string joined = string.Join("\n", logTail).ToLowerInvariant();
+            bool startedTraining = joined.Contains("starting training", StringComparison.Ordinal)
+                || joined.Contains("epoch", StringComparison.Ordinal);
+            bool hasExplicitError = joined.Contains("traceback", StringComparison.Ordinal)
+                || joined.Contains("runtimeerror", StringComparison.Ordinal)
+                || joined.Contains("exception", StringComparison.Ordinal)
+                || joined.Contains("out of memory", StringComparison.Ordinal)
+                || joined.Contains("memoryerror", StringComparison.Ordinal);
+
+            if (startedTraining && !hasExplicitError)
+            {
+                return "Training failed: process exited near the first training batch. On CPU the selected training size may be too large. Try yolov5s, image 320, batch 4.";
+            }
+
+            return string.Empty;
+        }
+
+        private static List<string> ExtractStringArray(JArray array)
+        {
+            List<string> values = new List<string>();
+            if (array == null)
+            {
+                return values;
+            }
+
+            foreach (JToken token in array)
+            {
+                string value = token?.Value<string>();
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    values.Add(value);
+                }
+            }
+
+            return values;
         }
 
         private static bool IsKnownStatusType(string type)

@@ -15,11 +15,12 @@ namespace MvcVisionSystem._1._Core
 
             if (communication == null)
             {
-                AppLog.ABNORMAL("YOLO training communication is not initialized.");
+                AppLog.ABNORMAL("YOLO 학습 통신이 초기화되지 않았습니다.");
                 return false;
             }
 
             TrainingSettings training = data.GetTrainingSettings();
+            string model = data?.ProjectSettings?.PythonModel?.GetProtocolModelName() ?? "yolov5";
             bool sent = communication.SendTrainingData(
                 CCommunicationLearning.CommandLearning.StartTraining.ToString(),
                 training.ImageSize.ToString(),
@@ -27,11 +28,12 @@ namespace MvcVisionSystem._1._Core
                 training.Epoch.ToString(),
                 $"{training.Cfg}.yaml",
                 $"{training.Weight}.pt",
-                data.DataYamlFilePath);
+                data.DataYamlFilePath,
+                model);
 
             if (!sent)
             {
-                AppLog.ABNORMAL("StartTraining was not sent because the Python model client is not connected.");
+                AppLog.ABNORMAL("Python 모델 클라이언트가 연결되지 않아 학습 시작 명령을 보내지 못했습니다.");
             }
 
             return sent;
@@ -41,14 +43,14 @@ namespace MvcVisionSystem._1._Core
         {
             if (communication == null)
             {
-                AppLog.ABNORMAL("YOLO training communication is not initialized.");
+                AppLog.ABNORMAL("YOLO 학습 통신이 초기화되지 않았습니다.");
                 return false;
             }
 
             bool sent = communication.Send(CCommunicationLearning.CommandLearning.StopTraining.ToString());
             if (!sent)
             {
-                AppLog.ABNORMAL("StopTraining was not sent because the Python model client is not connected.");
+                AppLog.ABNORMAL("Python 모델 클라이언트가 연결되지 않아 학습 중지 명령을 보내지 못했습니다.");
             }
 
             return sent;
@@ -59,7 +61,7 @@ namespace MvcVisionSystem._1._Core
             YoloDatasetReadinessReport report = YoloDatasetReadinessService.Build(data, refreshYaml: true);
             foreach (string error in report.Errors)
             {
-                AppLog.ABNORMAL($"YOLO training validation failed: {error}");
+                AppLog.ABNORMAL($"YOLO 학습 준비 점검 실패: {error}");
             }
 
             if (!report.IsReady)

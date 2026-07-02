@@ -15,7 +15,13 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 		public string ImageName { get; set; }
 		public System.Drawing.RectangleF GLDrawingTextureArea { get; set; } // OpenGL 텍스처를 실제로 그리는 좌표 영역
 		public System.Drawing.RectangleF GLTextureArea { get; set; } // OpenGL 텍스처 좌표 영역
-		public System.Drawing.Rectangle ImageTexutreArea { get; set; }  // 원본 이미지 기준 텍스처 좌표 영역
+		public System.Drawing.Rectangle ImageTextureArea { get; set; }  // 원본 이미지 기준 텍스처 좌표 영역
+		[System.Obsolete("Use ImageTextureArea instead.")]
+		public System.Drawing.Rectangle ImageTexutreArea
+		{
+			get => ImageTextureArea;
+			set => ImageTextureArea = value;
+		}
 		public System.Drawing.Size TextureFullScreen { get; set; } // 전체 텍스처 크기
 		public System.Drawing.Size TitleSize { get; set; } // 분할 타일 크기. 예: 5000 x 5000
 		public bool IsVisible { get; set; } = true; // 해당 텍스처 표시 여부

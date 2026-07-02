@@ -20,7 +20,11 @@ namespace MvcVisionSystem
                 ExecuteFixYoloLabelsCommand,
                 ExecuteFixYoloDatasetCommand,
                 ExecuteDatasetDashboardMetricCommand,
-                ExecuteRunModelComparisonCommand);
+                ExecuteRunModelComparisonCommand,
+                ExecuteChangeDatasetCommand,
+                ExecuteFirstRunSamplePathCommand,
+                TemplateMatchingAutoLabelViewModel.RunCurrentImage,
+                TemplateMatchingAutoLabelViewModel.RunBatch);
             RefreshAttachedCommandBindings(DatasetPurposeListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
             RefreshAttachedCommandBindings(LearningModeListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
             RefreshAttachedCommandBindings(AnnotationToolListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
@@ -33,7 +37,13 @@ namespace MvcVisionSystem
             RegisterLearningWorkflowName(nameof(DatasetPurposeListBox), DatasetPurposeListBox);
             RegisterLearningWorkflowName(nameof(DatasetPurposeSummaryText), DatasetPurposeSummaryText);
             RegisterLearningWorkflowName(nameof(DatasetPurposeToolSummaryText), DatasetPurposeToolSummaryText);
+            RegisterLearningWorkflowName(nameof(FirstRunSamplePathPanel), FirstRunSamplePathPanel);
+            RegisterLearningWorkflowName(nameof(FirstRunSamplePathTitleText), FirstRunSamplePathTitleText);
+            RegisterLearningWorkflowName(nameof(FirstRunSamplePathSummaryText), FirstRunSamplePathSummaryText);
+            RegisterLearningWorkflowName(nameof(FirstRunSamplePathPrimaryActionText), FirstRunSamplePathPrimaryActionText);
+            RegisterLearningWorkflowName(nameof(FirstRunSamplePathItemsControl), FirstRunSamplePathItemsControl);
             RegisterLearningWorkflowName(nameof(DatasetSetupStartButton), DatasetSetupStartButton);
+            RegisterLearningWorkflowName(nameof(DatasetOpenExistingButton), DatasetOpenExistingButton);
             RegisterLearningWorkflowName(nameof(DatasetSetupStatusText), DatasetSetupStatusText);
             RegisterLearningWorkflowName(nameof(CurrentWorkflowActionText), CurrentWorkflowActionText);
             RegisterLearningWorkflowName(nameof(LearningModeListBox), LearningModeListBox);
@@ -56,6 +66,12 @@ namespace MvcVisionSystem
             RegisterLearningWorkflowName(nameof(YoloTrainingHistoryText), YoloTrainingHistoryText);
             RegisterLearningWorkflowName(nameof(YoloTrainingRunHistoryItemsControl), YoloTrainingRunHistoryItemsControl);
             RegisterLearningWorkflowName(nameof(YoloRunModelComparisonButton), YoloRunModelComparisonButton);
+            RegisterLearningWorkflowName(nameof(TemplateWorkflowPanel), TemplateWorkflowPanel);
+            RegisterLearningWorkflowName(nameof(TemplateWorkflowTitleText), TemplateWorkflowTitleText);
+            RegisterLearningWorkflowName(nameof(TemplateWorkflowSummaryText), TemplateWorkflowSummaryText);
+            RegisterLearningWorkflowName(nameof(TemplateWorkflowItemsControl), TemplateWorkflowItemsControl);
+            RegisterLearningWorkflowName(nameof(TemplateCurrentImageGuideButton), TemplateCurrentImageGuideButton);
+            RegisterLearningWorkflowName(nameof(TemplateBatchGuideButton), TemplateBatchGuideButton);
             RegisterLearningWorkflowName(nameof(TutorialOpenHtmlGuideButton), TutorialOpenHtmlGuideButton);
             RegisterLearningWorkflowName(nameof(YoloFixClassesButton), YoloFixClassesButton);
             RegisterLearningWorkflowName(nameof(YoloFixLabelsButton), YoloFixLabelsButton);

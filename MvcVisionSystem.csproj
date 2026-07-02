@@ -118,12 +118,16 @@
 
   <ItemGroup>
     <ProjectReference Include="$(LibraryNoahSourceRoot)\Lib.Common\Lib.Common.csproj" />
+    <ProjectReference Include="$(LibraryNoahSourceRoot)\Lib.OpenCV\Lib.OpenCV.csproj"
+                      Condition="Exists('$(LibraryNoahSourceRoot)\Lib.OpenCV\Lib.OpenCV.csproj')" />
     <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Mvvm\OpenVisionLab.Mvvm.csproj"
                       Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Mvvm\OpenVisionLab.Mvvm.csproj')" />
     <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Logging\OpenVisionLab.Logging.csproj"
                       Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Logging\OpenVisionLab.Logging.csproj')" />
     <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Logging.Controls\OpenVisionLab.Logging.Controls.csproj"
                       Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Logging.Controls\OpenVisionLab.Logging.Controls.csproj')" />
+    <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Wpf.MessageDialogs\OpenVisionLab.Wpf.MessageDialogs.csproj"
+                      Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Wpf.MessageDialogs\OpenVisionLab.Wpf.MessageDialogs.csproj')" />
     <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageSpace.Core\OpenVisionLab.ImageSpace.Core.csproj"
                       Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageSpace.Core\OpenVisionLab.ImageSpace.Core.csproj')" />
     <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.ImageCanvas\OpenVisionLab.ImageCanvas.csproj"
@@ -152,6 +156,10 @@
   <ItemGroup>
     <None Update="log4net.config">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="Runtime\Python\openvisionlab_ultralytics_worker.py">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+      <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
     <Content Include="$(LibraryNoahSourceRoot)\Lib.Common\DLL\OpenCvSharp.dll">
       <Link>OpenCvSharp.dll</Link>

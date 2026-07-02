@@ -24,7 +24,8 @@ namespace MvcVisionSystem
         private int GetWorkerConnectTimeoutMilliseconds()
         {
             int detectionTimeoutSeconds = global.Data?.ProjectSettings?.PythonModel?.DetectionTimeoutSeconds ?? 30;
-            return Math.Clamp(detectionTimeoutSeconds * 1000, 8000, 60000);
+            int startupTimeoutSeconds = Math.Clamp(detectionTimeoutSeconds + 90, 120, 300);
+            return startupTimeoutSeconds * 1000;
         }
 
         private int GetInteractiveWorkerConnectTimeoutMilliseconds()

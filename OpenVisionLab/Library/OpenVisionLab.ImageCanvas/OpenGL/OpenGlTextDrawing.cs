@@ -68,8 +68,6 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 
 			//  Call the lists for the string.
 			gl.CallLists(lists.Length, lists);
-			//gl.Flush();
-
 			//  Reset the list bit.
 			gl.PopAttrib();
 
@@ -261,11 +259,5 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			gl.DrawText(x, y, r, g, b, faceName, fontSize / zoomScale, text);
 		}
 
-		public static void DrawText(OpenGL gl, int x, int y, string text)
-		{
-			//var LocationX = (x + _offsetSize.Width) / _zoom * GetControlMinSize();
-			//var LocationY = -1 * (_offsetSize.Height - y) / _zoom * GetControlMinSize();
-			//gl.DrawText((int)LocationX, (int)LocationY, 0.0f, 256.0f, 0.0f, "Arial", 10, text);
-		}
 	}
 }

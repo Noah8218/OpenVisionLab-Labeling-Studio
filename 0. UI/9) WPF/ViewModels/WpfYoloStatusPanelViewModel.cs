@@ -7,9 +7,13 @@ namespace MvcVisionSystem
 {
     public sealed class WpfYoloStatusPanelViewModel : WpfObservableViewModel
     {
-        private string summaryText = "YOLO \uC124\uC815 \uBBF8\uD655\uC778";
+        private string summaryText = "\uBAA8\uB378 \uC2E4\uD589 \uD658\uACBD \uBBF8\uD655\uC778";
         private string detailText = string.Empty;
-        private string commandStatusText = "YOLO \uBA85\uB839 \uB300\uAE30";
+        private string commandStatusText = "\uBAA8\uB378 \uC2E4\uD589\uAE30 \uB300\uAE30";
+        private bool isRecoveryVisible;
+        private string recoveryTitleText = string.Empty;
+        private string recoveryDetailText = string.Empty;
+        private string recoveryActionText = string.Empty;
         private Visibility commandProgressVisibility = Visibility.Collapsed;
         private bool commandProgressIsIndeterminate;
         private double commandProgressValue;
@@ -74,6 +78,30 @@ namespace MvcVisionSystem
             set => SetProperty(ref commandStatusText, value ?? string.Empty);
         }
 
+        public bool IsRecoveryVisible
+        {
+            get => isRecoveryVisible;
+            private set => SetProperty(ref isRecoveryVisible, value);
+        }
+
+        public string RecoveryTitleText
+        {
+            get => recoveryTitleText;
+            private set => SetProperty(ref recoveryTitleText, value ?? string.Empty);
+        }
+
+        public string RecoveryDetailText
+        {
+            get => recoveryDetailText;
+            private set => SetProperty(ref recoveryDetailText, value ?? string.Empty);
+        }
+
+        public string RecoveryActionText
+        {
+            get => recoveryActionText;
+            private set => SetProperty(ref recoveryActionText, value ?? string.Empty);
+        }
+
         public Visibility CommandProgressVisibility
         {
             get => commandProgressVisibility;
@@ -129,7 +157,7 @@ namespace MvcVisionSystem
             Action restartWorker,
             Action stopWorker)
         {
-            // YOLO status actions remain shell-owned; this panel only declares the command surface.
+            // Model runtime actions remain shell-owned; this panel only declares the command surface.
             CheckCommand = new RelayCommand(check ?? NoOpCommand);
             InstallRequirementsCommand = new RelayCommand(installRequirements ?? NoOpCommand);
             RunSmokeCommand = new RelayCommand(runSmoke ?? NoOpCommand);
@@ -145,8 +173,23 @@ namespace MvcVisionSystem
 
         public void SetCommandStatus(string text, bool isBusy)
         {
-            CommandStatusText = string.IsNullOrWhiteSpace(text) ? "YOLO \uBA85\uB839 \uB300\uAE30" : text;
+            CommandStatusText = string.IsNullOrWhiteSpace(text) ? "\uBAA8\uB378 \uC2E4\uD589\uAE30 \uB300\uAE30" : text;
             SetCommandBusy(isBusy);
+        }
+
+        public void SetRecoveryState(string titleText, string detailText, string actionText)
+        {
+            RecoveryTitleText = (titleText ?? string.Empty).Trim();
+            RecoveryDetailText = (detailText ?? string.Empty).Trim();
+            RecoveryActionText = (actionText ?? string.Empty).Trim();
+            IsRecoveryVisible = !string.IsNullOrWhiteSpace(RecoveryTitleText)
+                || !string.IsNullOrWhiteSpace(RecoveryDetailText)
+                || !string.IsNullOrWhiteSpace(RecoveryActionText);
+        }
+
+        public void ClearRecoveryState()
+        {
+            SetRecoveryState(string.Empty, string.Empty, string.Empty);
         }
 
         public void SetCommandBusy(bool isBusy)

@@ -72,15 +72,6 @@ namespace OpenVisionLab.ImageCanvas.Model
 			set => _group = value;
 		}
 
-		//public string UniqueId { get; set; }
-
-		//private bool _isExtentionRectange;
-		//public bool IsExtentionRectange
-		//{
-		//	get => _isExtentionRectange;
-		//	set => _isExtentionRectange = value;
-		//}
-
 		public override string ToString()
 		{
 			return String.Format($"Robot : {String.Join(",", RobotPos.Select(x => String.Format($"({x.X},{x.Y})")))}, PixelPos : {String.Join(",", PixelPos.Select(x => String.Format($"({x.X},{x.Y})")))}");

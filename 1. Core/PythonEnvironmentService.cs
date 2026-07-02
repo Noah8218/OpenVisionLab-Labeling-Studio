@@ -38,10 +38,10 @@ namespace MvcVisionSystem._1._Core
 
                 if (MissingPackages.Count > 0)
                 {
-                    return $"Missing Python packages: {string.Join(", ", MissingPackages.Take(6))}";
+                    return $"누락 패키지: {string.Join(", ", MissingPackages.Take(6))}";
                 }
 
-                return Warnings.Count > 0 ? Warnings[0] : "Python environment is ready.";
+                return Warnings.Count > 0 ? Warnings[0] : "Python 실행 환경 준비 완료.";
             }
         }
     }
@@ -59,7 +59,7 @@ namespace MvcVisionSystem._1._Core
         public string Error { get; set; } = string.Empty;
 
         public string Summary => Succeeded
-            ? "Python requirements installed successfully."
+            ? "Python requirements 설치 완료."
             : !string.IsNullOrWhiteSpace(Error) ? Error : Output;
     }
 
@@ -92,7 +92,7 @@ namespace MvcVisionSystem._1._Core
 
             if (requiredPackages.Count == 0)
             {
-                warnings.Add($"No package names were found in requirements.txt: {requirementsPath}");
+                warnings.Add($"requirements.txt에서 설치할 패키지 이름을 찾지 못했습니다: {requirementsPath}");
                 return BuildCheckResult(pythonExecutablePath, requirementsPath, requiredPackages, Array.Empty<string>(), errors, warnings);
             }
 
@@ -105,14 +105,14 @@ namespace MvcVisionSystem._1._Core
 
             if (pipList.ExitCode != 0)
             {
-                errors.Add(FirstNonEmpty(pipList.Error, pipList.Output, "Could not inspect installed Python packages."));
+                errors.Add(FirstNonEmpty(pipList.Error, pipList.Output, "설치된 Python 패키지 목록을 확인하지 못했습니다."));
                 return BuildCheckResult(pythonExecutablePath, requirementsPath, requiredPackages, Array.Empty<string>(), errors, warnings);
             }
 
             IReadOnlyCollection<string> installedPackages = ParseInstalledPackageNames(pipList.Output);
             if (installedPackages.Count == 0)
             {
-                errors.Add("Python package list was empty or unreadable.");
+                errors.Add("Python 패키지 목록이 비어 있거나 읽을 수 없습니다.");
                 return BuildCheckResult(pythonExecutablePath, requirementsPath, requiredPackages, Array.Empty<string>(), errors, warnings);
             }
 
@@ -141,7 +141,7 @@ namespace MvcVisionSystem._1._Core
                     Succeeded = false,
                     ExitCode = -1,
                     CommandLine = commandLine,
-                    Error = $"requirements.txt was not found: {requirementsPath}"
+                    Error = $"requirements.txt 파일을 찾을 수 없습니다: {requirementsPath}"
                 };
             }
 
@@ -161,6 +161,28 @@ namespace MvcVisionSystem._1._Core
                 Error = result.Error
             };
         }
+
+        public static Task<PythonPackageInstallResult> InstallPackageAsync(
+            PythonModelSettings settings,
+            string packageName,
+            CancellationToken cancellationToken = default)
+            => RunPackageCommandAsync(
+                settings,
+                packageName,
+                new[] { "-m", "pip", "install", "--upgrade", packageName?.Trim() ?? string.Empty },
+                "install",
+                cancellationToken);
+
+        public static Task<PythonPackageInstallResult> UninstallPackageAsync(
+            PythonModelSettings settings,
+            string packageName,
+            CancellationToken cancellationToken = default)
+            => RunPackageCommandAsync(
+                settings,
+                packageName,
+                new[] { "-m", "pip", "uninstall", "-y", packageName?.Trim() ?? string.Empty },
+                "uninstall",
+                cancellationToken);
 
         public static IReadOnlyList<string> ReadRequirementPackageNames(string requirementsPath)
         {
@@ -189,7 +211,7 @@ namespace MvcVisionSystem._1._Core
         {
             if (string.IsNullOrWhiteSpace(requirementsPath) || !File.Exists(requirementsPath))
             {
-                errors.Add($"requirements.txt was not found: {requirementsPath}");
+                errors.Add($"requirements.txt 파일을 찾을 수 없습니다: {requirementsPath}");
                 return;
             }
 
@@ -281,6 +303,50 @@ namespace MvcVisionSystem._1._Core
             return (packageName ?? string.Empty).Trim().Replace('_', '-').ToLowerInvariant();
         }
 
+        private static async Task<PythonPackageInstallResult> RunPackageCommandAsync(
+            PythonModelSettings settings,
+            string packageName,
+            IReadOnlyList<string> arguments,
+            string operationName,
+            CancellationToken cancellationToken)
+        {
+            settings ??= new PythonModelSettings();
+            settings.EnsureDefaults();
+            string trimmedPackage = packageName?.Trim() ?? string.Empty;
+            string pythonExecutablePath = PythonModelSettingsValidator.ResolvePythonExecutable(settings);
+            string commandLine = $"{pythonExecutablePath} {string.Join(" ", arguments ?? Array.Empty<string>())}";
+            if (!IsSafePackageName(trimmedPackage))
+            {
+                return new PythonPackageInstallResult
+                {
+                    Succeeded = false,
+                    ExitCode = -1,
+                    CommandLine = commandLine,
+                    Error = $"Python 패키지 이름이 올바르지 않습니다({operationName}): {trimmedPackage}"
+                };
+            }
+
+            ProcessExecutionResult result = await RunPythonAsync(
+                pythonExecutablePath,
+                settings.ProjectRootPath,
+                arguments,
+                InstallTimeoutMilliseconds,
+                cancellationToken).ConfigureAwait(false);
+
+            return new PythonPackageInstallResult
+            {
+                Succeeded = result.ExitCode == 0,
+                ExitCode = result.ExitCode,
+                CommandLine = commandLine,
+                Output = result.Output,
+                Error = result.Error
+            };
+        }
+
+        private static bool IsSafePackageName(string packageName)
+            => !string.IsNullOrWhiteSpace(packageName)
+                && Regex.IsMatch(packageName, @"^[A-Za-z0-9_.-]+$");
+
         private static PythonEnvironmentCheckResult BuildCheckResult(
             string pythonExecutablePath,
             string requirementsPath,
@@ -329,7 +395,7 @@ namespace MvcVisionSystem._1._Core
             {
                 if (!process.Start())
                 {
-                    return new ProcessExecutionResult(-1, string.Empty, "Python process did not start.");
+                    return new ProcessExecutionResult(-1, string.Empty, "Python 프로세스를 시작하지 못했습니다.");
                 }
 
                 Task<string> outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
@@ -339,7 +405,7 @@ namespace MvcVisionSystem._1._Core
                 if (completed != waitTask)
                 {
                     TryKill(process);
-                    return new ProcessExecutionResult(-1, await SafeRead(outputTask).ConfigureAwait(false), "Python command timed out.");
+                    return new ProcessExecutionResult(-1, await SafeRead(outputTask).ConfigureAwait(false), "Python 명령 시간이 초과되었습니다.");
                 }
 
                 string output = await SafeRead(outputTask).ConfigureAwait(false);
@@ -348,7 +414,7 @@ namespace MvcVisionSystem._1._Core
             }
             catch (Exception ex)
             {
-                AppLog.ABNORMAL($"Python environment command failed: {ex.Message}");
+                AppLog.ABNORMAL($"Python 환경 명령 실패: {ex.Message}");
                 return new ProcessExecutionResult(-1, string.Empty, ex.Message);
             }
         }

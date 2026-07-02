@@ -68,6 +68,42 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <Style x:Key="ClassColorPresetItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="Margin" Value="0,0,5,5" />
+            <Setter Property="MinWidth" Value="70" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <DataTemplate x:Key="ClassCatalogColorPresetTemplate">
+            <StackPanel Orientation="Horizontal">
+                <Border Width="11"
+                        Height="11"
+                        CornerRadius="2"
+                        Background="{Binding Brush}"
+                        Margin="0,0,7,0"
+                        VerticalAlignment="Center" />
+                <TextBlock Text="{Binding Name}"
+                           VerticalAlignment="Center"
+                           TextTrimming="CharacterEllipsis" />
+            </StackPanel>
+        </DataTemplate>
     </UserControl.Resources>
 
     <Grid Margin="8">
@@ -77,14 +113,76 @@
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
 
-        <TextBlock Text="&#xD074;&#xB798;&#xC2A4;"
+        <Border x:Name="ClassCatalogGuidePanel"
+                Background="{DynamicResource SurfaceAltBrush}"
+                BorderBrush="{DynamicResource BorderBrushDark}"
+                BorderThickness="1"
+                Padding="8"
+                Margin="0,0,0,10">
+            <StackPanel>
+                <TextBlock x:Name="ClassCatalogGuideTitleText"
+                           Text="{Binding ClassCatalogGuideTitleText}"
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="13"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap" />
+                <TextBlock x:Name="ClassCatalogGuideDetailText"
+                           Text="{Binding ClassCatalogGuideDetailText}"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           TextWrapping="Wrap"
+                           Margin="0,4,0,0" />
+                <TextBlock x:Name="ClassCatalogSummaryText"
+                           AutomationProperties.AutomationId="ClassCatalogSummaryText"
+                           Text="{Binding ClassCatalogSummaryText}"
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"
+                           Margin="0,5,0,0" />
+                <TextBlock x:Name="CurrentDrawingClassTitleText"
+                           AutomationProperties.AutomationId="CurrentDrawingClassTitleText"
+                           Text="{Binding CurrentDrawingClassTitleText}"
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"
+                           Margin="0,6,0,0" />
+                <TextBlock x:Name="CurrentDrawingClassDetailText"
+                           AutomationProperties.AutomationId="CurrentDrawingClassDetailText"
+                           Text="{Binding CurrentDrawingClassDetailText}"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="10.5"
+                           TextWrapping="Wrap"
+                           Margin="0,2,0,0" />
+                <TextBlock x:Name="ClassCatalogActionText"
+                           AutomationProperties.AutomationId="ClassCatalogActionText"
+                           Text="{Binding ClassCatalogActionText}"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="10.5"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"
+                           Margin="0,3,0,0" />
+            </StackPanel>
+        </Border>
+
+        <TextBlock Grid.Row="1"
+                   Text="&#xD074;&#xB798;&#xC2A4;"
                    Style="{StaticResource ClassCatalogSectionLabelStyle}" />
-        <Grid Grid.Row="1">
+        <Grid Grid.Row="2">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
@@ -107,7 +205,7 @@
                 </StackPanel>
             </ui:Button>
             <ui:Button x:Name="RemoveClassButton"
-                       Grid.Column="2"
+                       Grid.Column="3"
                        Style="{StaticResource ClassCatalogButtonStyle}"
                        MinWidth="76"
                        AutomationProperties.Name="&#xD074;&#xB798;&#xC2A4; &#xC0AD;&#xC81C;"
@@ -118,47 +216,66 @@
                     <TextBlock Text="&#xC0AD;&#xC81C;" VerticalAlignment="Center" />
                 </StackPanel>
             </ui:Button>
-        </Grid>
-
-        <TextBlock Grid.Row="2"
-                   Text="&#xC800;&#xC7A5; &#xACBD;&#xB85C;"
-                   Style="{StaticResource ClassCatalogSectionLabelStyle}"
-                   Margin="0,9,0,5" />
-        <Grid Grid.Row="3">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBox x:Name="OutputRootPathBox"
-                     Style="{StaticResource ClassCatalogTextBoxStyle}"
-                     Text="{Binding OutputRootPath, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                     ToolTip="{Binding OutputRootPath}" />
-            <ui:Button x:Name="BrowseOutputRootButton"
-                       Grid.Column="1"
-                       Style="{StaticResource ClassCatalogButtonStyle}"
-                       MinWidth="66"
-                       AutomationProperties.Name="&#xC800;&#xC7A5; &#xACBD;&#xB85C; &#xC120;&#xD0DD;"
-                       ToolTip="YOLO &#xB370;&#xC774;&#xD130;&#xC14B; &#xCD9C;&#xB825; &#xACBD;&#xB85C; &#xC120;&#xD0DD;"
-                       Command="{Binding BrowseOutputRootCommand}">
-                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <iconPacks:PackIconMaterial Style="{StaticResource ClassCatalogIconStyle}" Kind="FolderOpenOutline" />
-                    <TextBlock Text="&#xACBD;&#xB85C;" VerticalAlignment="Center" />
-                </StackPanel>
-            </ui:Button>
-            <ui:Button x:Name="SaveOutputRootButton"
+            <ui:Button x:Name="RenameClassButton"
                        Grid.Column="2"
                        Style="{StaticResource ClassCatalogButtonStyle}"
-                       MinWidth="66"
-                       AutomationProperties.Name="&#xC800;&#xC7A5; &#xACBD;&#xB85C; &#xC801;&#xC6A9;"
-                       ToolTip="YOLO &#xB370;&#xC774;&#xD130;&#xC14B; &#xCD9C;&#xB825; &#xACBD;&#xB85C; &#xC801;&#xC6A9;"
-                       Command="{Binding SaveOutputRootCommand}">
+                       MinWidth="64"
+                       AutomationProperties.Name="&#xC120;&#xD0DD;&#xD55C; &#xD074;&#xB798;&#xC2A4; &#xC774;&#xB984; &#xBCC0;&#xACBD;"
+                       ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xD074;&#xB798;&#xC2A4; &#xC774;&#xB984; &#xBCC0;&#xACBD;"
+                       Command="{Binding RenameClassCommand}">
                 <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                    <iconPacks:PackIconMaterial Style="{StaticResource ClassCatalogIconStyle}" Kind="ContentSaveOutline" />
-                    <TextBlock Text="&#xC801;&#xC6A9;" VerticalAlignment="Center" />
+                    <iconPacks:PackIconMaterial Style="{StaticResource ClassCatalogIconStyle}" Kind="PencilOutline" />
+                    <TextBlock Text="&#xBCC0;&#xACBD;" VerticalAlignment="Center" />
                 </StackPanel>
             </ui:Button>
         </Grid>
+
+        <Expander x:Name="ClassColorAdvancedPanel"
+                  Grid.Row="3"
+                  Header="{Binding ClassColorSectionTitleText}"
+                  Foreground="{DynamicResource SecondaryTextBrush}"
+                  FontFamily="Segoe UI"
+                  FontSize="11"
+                  FontWeight="SemiBold"
+                  IsExpanded="False"
+                  Margin="0,9,0,0">
+            <Grid Margin="0,5,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <ListBox x:Name="ClassColorBox"
+                         AutomationProperties.AutomationId="ClassColorBox"
+                         AutomationProperties.Name="&#xD074;&#xB798;&#xC2A4; &#xC0C9;&#xC0C1;"
+                         Background="Transparent"
+                         BorderThickness="0"
+                         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                         ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                         ItemsSource="{Binding ColorPresets}"
+                         SelectedItem="{Binding SelectedColorPreset, Mode=TwoWay}"
+                         ItemTemplate="{StaticResource ClassCatalogColorPresetTemplate}"
+                         ItemContainerStyle="{StaticResource ClassColorPresetItemStyle}"
+                         ToolTip="&#xD074;&#xB798;&#xC2A4; &#xC0C9;&#xC0C1;&#xC744; &#xC120;&#xD0DD;&#xD558;&#xC138;&#xC694;. &#xC815;&#xC0C1;&#xC740; &#xCD08;&#xB85D;, &#xBD88;&#xB7C9;&#xC740; &#xBE68;&#xAC15;&#xCC98;&#xB7FC; &#xD604;&#xC7A5; &#xAE30;&#xC900;&#xC73C;&#xB85C; &#xAD6C;&#xBD84;&#xD569;&#xB2C8;&#xB2E4;.">
+                    <ListBox.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel Orientation="Horizontal" />
+                        </ItemsPanelTemplate>
+                    </ListBox.ItemsPanel>
+                </ListBox>
+                <ui:Button x:Name="ApplyClassColorButton"
+                           Grid.Column="1"
+                           Style="{StaticResource ClassCatalogButtonStyle}"
+                           MinWidth="76"
+                           AutomationProperties.Name="&#xC120;&#xD0DD;&#xD55C; &#xD074;&#xB798;&#xC2A4; &#xC0C9;&#xC0C1; &#xC801;&#xC6A9;"
+                           ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xD074;&#xB798;&#xC2A4; &#xC0C9;&#xC0C1; &#xC801;&#xC6A9;"
+                           Command="{Binding ApplyClassColorCommand}">
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <iconPacks:PackIconMaterial Style="{StaticResource ClassCatalogIconStyle}" Kind="PaletteOutline" />
+                        <TextBlock Text="&#xC0C9; &#xC801;&#xC6A9;" VerticalAlignment="Center" />
+                    </StackPanel>
+                </ui:Button>
+            </Grid>
+        </Expander>
 
         <TextBlock x:Name="ClassEditStatusText"
                    Grid.Row="4"
@@ -168,8 +285,14 @@
                    FontSize="11"
                    TextWrapping="Wrap"
                    Margin="0,7,0,6" />
+        <TextBlock x:Name="RecipeClassListHeader"
+                   Grid.Row="5"
+                   Text="{Binding RecipeClassListTitleText}"
+                   ToolTip="{Binding RecipeClassListGuideText}"
+                   Style="{StaticResource ClassCatalogSectionLabelStyle}"
+                   Margin="0,2,0,5" />
         <ListBox x:Name="ClassListBox"
-                 Grid.Row="5"
+                 Grid.Row="6"
                  Background="Transparent"
                  BorderThickness="0"
                  Foreground="{DynamicResource SecondaryTextBrush}"
@@ -193,5 +316,6 @@
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
+
     </Grid>
 </UserControl>

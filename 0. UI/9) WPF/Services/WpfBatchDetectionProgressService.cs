@@ -95,9 +95,10 @@ namespace MvcVisionSystem
             return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uCD94\uB860 \uC2DC\uC791: {0}\uAC1C", totalCount);
         }
 
-        public string BuildStartLog(string scopeText, int totalCount)
+        public string BuildStartLog(string scopeText, int totalCount, string modelSourceText = "")
         {
-            return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uAC80\uC0AC \uC2DC\uC791. \uBC94\uC704:{0}, \uAC1C\uC218:{1}", scopeText, totalCount);
+            string modelText = BuildModelSourceSuffix(modelSourceText);
+            return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uAC80\uC0AC \uC2DC\uC791. \uBC94\uC704:{0}, \uAC1C\uC218:{1}{2}", scopeText, totalCount, modelText);
         }
 
         public string BuildWorkerPreparingInferenceStatus(int totalCount)
@@ -115,27 +116,31 @@ namespace MvcVisionSystem
                 ResolveImageFileName(imagePath));
         }
 
-        public string BuildItemCompletedLog(int completedCount, int totalCount, string imagePath, int candidateCount, string elapsedText)
+        public string BuildItemCompletedLog(int completedCount, int totalCount, string imagePath, int candidateCount, string elapsedText, string modelSourceText = "")
         {
+            string modelText = BuildModelSourceSuffix(modelSourceText);
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "\uC77C\uAD04 \uAC80\uC0AC \uD56D\uBAA9 \uC644\uB8CC: {0}/{1} {2} \uD6C4\uBCF4:{3} / {4}",
+                "\uC77C\uAD04 \uAC80\uC0AC \uD56D\uBAA9 \uC644\uB8CC: {0}/{1} {2} \uD6C4\uBCF4:{3} / {4}{5}",
                 completedCount,
                 totalCount,
                 ResolveImageFileName(imagePath),
                 candidateCount,
-                elapsedText);
+                elapsedText,
+                modelText);
         }
 
-        public string BuildItemFailedLog(int completedCount, int totalCount, string imagePath, string elapsedText, string summary)
+        public string BuildItemFailedLog(int completedCount, int totalCount, string imagePath, string elapsedText, string summary, string modelSourceText = "")
         {
+            string modelText = BuildModelSourceSuffix(modelSourceText);
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "\uC77C\uAD04 \uAC80\uC0AC \uD56D\uBAA9 \uC2E4\uD328: {0}/{1} {2} / {3} / {4}",
+                "\uC77C\uAD04 \uAC80\uC0AC \uD56D\uBAA9 \uC2E4\uD328: {0}/{1} {2} / {3}{4} / {5}",
                 completedCount,
                 totalCount,
                 ResolveImageFileName(imagePath),
                 elapsedText,
+                modelText,
                 summary);
         }
 
@@ -165,17 +170,19 @@ namespace MvcVisionSystem
             return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uC644\uB8CC: {0}/{1} / {2}", completedCount, totalCount, totalElapsedText);
         }
 
-        public string BuildCompletionLog(bool canceled, int completedCount, int totalCount, string totalElapsedText, string averageElapsedText)
+        public string BuildCompletionLog(bool canceled, int completedCount, int totalCount, string totalElapsedText, string averageElapsedText, string modelSourceText = "")
         {
             string stateText = canceled ? "\uC911\uC9C0" : "\uC644\uB8CC";
+            string modelText = BuildModelSourceSuffix(modelSourceText);
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "\uC77C\uAD04 \uAC80\uC0AC {0}. \uC644\uB8CC:{1}/{2} / \uC804\uCCB4:{3} / {4}",
+                "\uC77C\uAD04 \uAC80\uC0AC {0}. \uC644\uB8CC:{1}/{2} / \uC804\uCCB4:{3} / {4}{5}",
                 stateText,
                 completedCount,
                 totalCount,
                 totalElapsedText,
-                averageElapsedText);
+                averageElapsedText,
+                modelText);
         }
 
         public string BuildFailureCommandStatus(int completedCount, int totalCount, string failureSummary)
@@ -183,14 +190,34 @@ namespace MvcVisionSystem
             return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uAC80\uC0AC \uC2E4\uD328: {0}/{1} / {2}", completedCount, totalCount, failureSummary);
         }
 
-        public string BuildFailureInferenceStatus(int completedCount, int totalCount)
+        public string BuildFailureInferenceStatus(int completedCount, int totalCount, string failureSummary)
         {
-            return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uC2E4\uD328: {0}/{1}", completedCount, totalCount);
+            string summary = ShortenMessage(failureSummary, 80);
+            return string.IsNullOrWhiteSpace(summary)
+                ? string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uC2E4\uD328: {0}/{1}", completedCount, totalCount)
+                : string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uC2E4\uD328: {0}/{1} / {2}", completedCount, totalCount, summary);
         }
 
         public string BuildFailureLog(int completedCount, int totalCount, string failureSummary)
         {
             return string.Format(CultureInfo.CurrentCulture, "\uC77C\uAD04 \uAC80\uC0AC \uC2E4\uD328. \uC644\uB8CC:{0}/{1} / {2}", completedCount, totalCount, failureSummary);
+        }
+
+        private static string BuildModelSourceSuffix(string modelSourceText)
+        {
+            return string.IsNullOrWhiteSpace(modelSourceText)
+                ? string.Empty
+                : string.Format(CultureInfo.CurrentCulture, " / \uBAA8\uB378:{0}", modelSourceText.Trim());
+        }
+
+        private static string ShortenMessage(string message, int maxLength)
+        {
+            if (string.IsNullOrWhiteSpace(message) || message.Length <= maxLength)
+            {
+                return message ?? string.Empty;
+            }
+
+            return message.Substring(0, Math.Max(0, maxLength - 3)) + "...";
         }
 
         public string ResolveImageFileName(string imagePath)

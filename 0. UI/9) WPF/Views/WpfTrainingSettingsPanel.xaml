@@ -1,17 +1,24 @@
 <UserControl x:Class="MvcVisionSystem.WpfTrainingSettingsPanel"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-                          xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm"
-xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
-    <!-- Keep this panel's visible text beginner-facing; avoid reintroducing encoded legacy labels. -->
+             xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm"
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
     <UserControl.Resources>
         <Style x:Key="TrainingLabelStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
             <Setter Property="FontFamily" Value="Segoe UI" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="0,6,8,0" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Margin" Value="0,8,8,0" />
+        </Style>
+
+        <Style x:Key="TrainingHelpTextStyle" TargetType="TextBlock">
+            <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="10.5" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,3,0,0" />
         </Style>
 
         <Style x:Key="TrainingTextBoxStyle" TargetType="TextBox">
@@ -22,7 +29,6 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
             <Setter Property="FontFamily" Value="Segoe UI" />
             <Setter Property="FontSize" Value="11" />
             <Setter Property="Padding" Value="6,3" />
-            <Setter Property="Margin" Value="0,5,0,0" />
         </Style>
 
         <Style x:Key="TrainingComboBoxStyle" TargetType="ComboBox">
@@ -32,7 +38,6 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
             <Setter Property="BorderBrush" Value="{DynamicResource InputBorderBrush}" />
             <Setter Property="FontFamily" Value="Segoe UI" />
             <Setter Property="FontSize" Value="11" />
-            <Setter Property="Margin" Value="0,5,0,0" />
             <Setter Property="ItemContainerStyle">
                 <Setter.Value>
                     <Style TargetType="ComboBoxItem">
@@ -126,10 +131,98 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
     </UserControl.Resources>
 
     <Expander x:Name="TrainingSettingsExpander"
-              Header="학습 설정"
+              Header="&#xD559;&#xC2B5; &#xC694;&#xC57D; / &#xC124;&#xC815;"
               Foreground="{DynamicResource PrimaryTextBrush}"
               Margin="0,12,0,0">
         <StackPanel Margin="0,8,0,0">
+            <Border x:Name="TrainingSettingsSummaryPanel"
+                    AutomationProperties.AutomationId="TrainingSettingsSummaryPanel"
+                    Background="{DynamicResource PanelBrush}"
+                    BorderBrush="{DynamicResource AccentBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8"
+                    Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock x:Name="TrainingSettingsSummaryTitleText"
+                               AutomationProperties.AutomationId="TrainingSettingsSummaryTitleText"
+                               Text="{Binding TrainingSettingsSummaryTitleText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="TrainingSettingsSummaryModelText"
+                               AutomationProperties.AutomationId="TrainingSettingsSummaryModelText"
+                               Text="{Binding TrainingSettingsSummaryModelText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10.5"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                    <TextBlock x:Name="TrainingSettingsSummaryRuntimeText"
+                               AutomationProperties.AutomationId="TrainingSettingsSummaryRuntimeText"
+                               Text="{Binding TrainingSettingsSummaryRuntimeText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               TextWrapping="Wrap"
+                               Margin="0,2,0,0" />
+                    <TextBlock x:Name="TrainingSettingsSummarySplitText"
+                               AutomationProperties.AutomationId="TrainingSettingsSummarySplitText"
+                               Text="{Binding TrainingSettingsSummarySplitText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               TextWrapping="Wrap"
+                               Margin="0,2,0,0" />
+                    <TextBlock x:Name="TrainingSettingsSummaryActionText"
+                               AutomationProperties.AutomationId="TrainingSettingsSummaryActionText"
+                               Text="{Binding TrainingSettingsSummaryActionText}"
+                               Foreground="{DynamicResource AccentBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="9.5"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                </StackPanel>
+            </Border>
+
+            <Border Background="#151D26"
+                    BorderBrush="{DynamicResource InputBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8"
+                    Margin="0,0,0,8">
+                <StackPanel>
+                    <TextBlock Text="{Binding TrainingRecommendationTitleText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="12"
+                               FontWeight="SemiBold" />
+                    <TextBlock x:Name="TrainingRecommendationText"
+                               Text="{Binding TrainingRecommendationText}"
+                               Style="{StaticResource TrainingHelpTextStyle}" />
+                    <ui:Button x:Name="ApplyFastTrainingPresetButton"
+                               AutomationProperties.AutomationId="ApplyFastTrainingPresetButton"
+                               AutomationProperties.Name="&#xBE60;&#xB978; &#xCD94;&#xCC9C;&#xAC12; &#xC801;&#xC6A9;"
+                               Style="{StaticResource TrainingCommandButtonStyle}"
+                               IsEnabled="{Binding IsApplyFastRecommendationEnabled}"
+                               MinWidth="116"
+                               HorizontalAlignment="Left"
+                               Margin="0,7,0,0"
+                               Content="&#xBE60;&#xB978; &#xCD94;&#xCC9C; &#xC801;&#xC6A9;"
+                               ToolTip="{Binding TrainingRecommendationText}"
+                               Command="{Binding ApplyFastRecommendationCommand}" />
+                </StackPanel>
+            </Border>
+
+            <Expander x:Name="TrainingAdvancedSettingsExpander"
+                      AutomationProperties.AutomationId="TrainingAdvancedSettingsExpander"
+                      Header="{Binding AdvancedTrainingSettingsHeaderText}"
+                      Foreground="{DynamicResource PrimaryTextBrush}"
+                      Margin="0,0,0,8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="82" />
@@ -147,107 +240,134 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
 
-                <TextBlock Text="이미지 크기" Style="{StaticResource TrainingLabelStyle}" />
-                <TextBox x:Name="TrainingImageSizeBox"
-                         Grid.Column="1"
-                         Style="{StaticResource TrainingTextBoxStyle}"
-                         Text="{Binding ImageSizeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="학습에 사용할 이미지 크기"
-                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
+                <TextBlock Text="&#xC774;&#xBBF8;&#xC9C0; &#xD06C;&#xAE30;" Style="{StaticResource TrainingLabelStyle}" />
+                <StackPanel Grid.Column="1" Margin="0,4,0,5">
+                    <TextBox x:Name="TrainingImageSizeBox"
+                             Style="{StaticResource TrainingTextBoxStyle}"
+                             Text="{Binding ImageSizeText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{Binding ImageSizeGuideText}"
+                             mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
+                    <TextBlock x:Name="TrainingImageSizeGuideText"
+                               Text="{Binding ImageSizeGuideText}"
+                               Style="{StaticResource TrainingHelpTextStyle}" />
+                </StackPanel>
 
-                <TextBlock Grid.Row="1" Text="배치" Style="{StaticResource TrainingLabelStyle}" />
-                <TextBox x:Name="TrainingBatchBox"
-                         Grid.Row="1"
-                         Grid.Column="1"
-                         Style="{StaticResource TrainingTextBoxStyle}"
-                         Text="{Binding BatchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="한 번에 학습할 이미지 수"
-                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
+                <TextBlock Grid.Row="1" Text="&#xBC30;&#xCE58;" Style="{StaticResource TrainingLabelStyle}" />
+                <StackPanel Grid.Row="1" Grid.Column="1" Margin="0,4,0,5">
+                    <TextBox x:Name="TrainingBatchBox"
+                             Style="{StaticResource TrainingTextBoxStyle}"
+                             Text="{Binding BatchText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{Binding BatchGuideText}"
+                             mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
+                    <TextBlock x:Name="TrainingBatchGuideText"
+                               Text="{Binding BatchGuideText}"
+                               Style="{StaticResource TrainingHelpTextStyle}" />
+                </StackPanel>
 
-                <TextBlock Grid.Row="2" Text="에포크" Style="{StaticResource TrainingLabelStyle}" />
-                <TextBox x:Name="TrainingEpochBox"
-                         Grid.Row="2"
-                         Grid.Column="1"
-                         Style="{StaticResource TrainingTextBoxStyle}"
-                         Text="{Binding EpochText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="전체 데이터를 반복 학습할 횟수"
-                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
+                <TextBlock Grid.Row="2" Text="&#xC5D0;&#xD3ED;" Style="{StaticResource TrainingLabelStyle}" />
+                <StackPanel Grid.Row="2" Grid.Column="1" Margin="0,4,0,5">
+                    <TextBox x:Name="TrainingEpochBox"
+                             Style="{StaticResource TrainingTextBoxStyle}"
+                             Text="{Binding EpochText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{Binding EpochGuideText}"
+                             mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
+                    <TextBlock x:Name="TrainingEpochGuideText"
+                               Text="{Binding EpochGuideText}"
+                               Style="{StaticResource TrainingHelpTextStyle}" />
+                </StackPanel>
 
-                <TextBlock Grid.Row="3" Text="모델 구조" Style="{StaticResource TrainingLabelStyle}" />
-                <ComboBox x:Name="TrainingCfgBox"
-                          Grid.Row="3"
-                          Grid.Column="1"
-                          SelectedItem="{Binding Cfg, Mode=TwoWay}"
-                          Style="{StaticResource TrainingComboBoxStyle}" />
+                <TextBlock Grid.Row="3" Text="&#xBAA8;&#xB378; &#xAD6C;&#xC870;" Style="{StaticResource TrainingLabelStyle}" />
+                <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,4,0,5">
+                    <ComboBox x:Name="TrainingCfgBox"
+                              SelectedItem="{Binding Cfg, Mode=TwoWay}"
+                              Style="{StaticResource TrainingComboBoxStyle}"
+                              ToolTip="{Binding CfgGuideText}" />
+                    <TextBlock x:Name="TrainingCfgGuideText"
+                               Text="{Binding CfgGuideText}"
+                               Style="{StaticResource TrainingHelpTextStyle}" />
+                </StackPanel>
 
-                <TextBlock Grid.Row="4" Text="가중치" Style="{StaticResource TrainingLabelStyle}" />
-                <ComboBox x:Name="TrainingWeightBox"
-                          Grid.Row="4"
-                          Grid.Column="1"
-                          SelectedItem="{Binding Weight, Mode=TwoWay}"
-                          Style="{StaticResource TrainingComboBoxStyle}" />
+                <TextBlock Grid.Row="4" Text="&#xD559;&#xC2B5; &#xC2DC;&#xC791; &#xAC00;&#xC911;&#xCE58;" Style="{StaticResource TrainingLabelStyle}" />
+                <StackPanel Grid.Row="4" Grid.Column="1" Margin="0,4,0,5">
+                    <ComboBox x:Name="TrainingWeightBox"
+                              SelectedItem="{Binding Weight, Mode=TwoWay}"
+                              Style="{StaticResource TrainingComboBoxStyle}"
+                              ToolTip="{Binding WeightGuideText}" />
+                    <TextBlock x:Name="TrainingWeightGuideText"
+                               Text="{Binding WeightGuideText}"
+                               Style="{StaticResource TrainingHelpTextStyle}" />
+                </StackPanel>
 
-                <TextBlock Grid.Row="5" Text="검증 %" Style="{StaticResource TrainingLabelStyle}" />
-                <TextBox x:Name="TrainingValidationPercentBox"
-                         Grid.Row="5"
-                         Grid.Column="1"
-                         Style="{StaticResource TrainingTextBoxStyle}"
-                         Text="{Binding ValidationPercentText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="학습 중 확인용으로 나눌 이미지 비율"
-                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
+                <TextBlock Grid.Row="5" Text="&#xAC80;&#xC99D; %" Style="{StaticResource TrainingLabelStyle}" />
+                <StackPanel Grid.Row="5" Grid.Column="1" Margin="0,4,0,5">
+                    <TextBox x:Name="TrainingValidationPercentBox"
+                             Style="{StaticResource TrainingTextBoxStyle}"
+                             Text="{Binding ValidationPercentText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{Binding ValidationPercentGuideText}"
+                             mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
+                    <TextBlock x:Name="TrainingValidationPercentGuideText"
+                               Text="{Binding ValidationPercentGuideText}"
+                               Style="{StaticResource TrainingHelpTextStyle}" />
+                </StackPanel>
 
-                <TextBlock Grid.Row="6" Text="분할 기준값" Style="{StaticResource TrainingLabelStyle}" />
-                <TextBox x:Name="TrainingSplitSeedBox"
-                         Grid.Row="6"
-                         Grid.Column="1"
-                         Style="{StaticResource TrainingTextBoxStyle}"
-                         Text="{Binding SplitSeedText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="데이터를 나눌 때 반복 재현에 쓰는 기준값"
-                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
-                <TextBlock Grid.Row="7" Text="최종 검증 %" Style="{StaticResource TrainingLabelStyle}" />
-                <TextBox x:Name="TrainingTestPercentBox"
-                         Grid.Row="7"
-                         Grid.Column="1"
-                         Style="{StaticResource TrainingTextBoxStyle}"
-                         Text="{Binding TestPercentText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
-                         ToolTip="최종 모델 비교에 남겨둘 이미지 비율"
-                         mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
+                <TextBlock Grid.Row="6" Text="&#xBD84;&#xD560; &#xAE30;&#xC900;&#xAC12;" Style="{StaticResource TrainingLabelStyle}" />
+                <StackPanel Grid.Row="6" Grid.Column="1" Margin="0,4,0,5">
+                    <TextBox x:Name="TrainingSplitSeedBox"
+                             Style="{StaticResource TrainingTextBoxStyle}"
+                             Text="{Binding SplitSeedText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="{Binding SplitSeedGuideText}"
+                             mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
+                    <TextBlock x:Name="TrainingSplitSeedGuideText"
+                               Text="{Binding SplitSeedGuideText}"
+                               Style="{StaticResource TrainingHelpTextStyle}" />
+                </StackPanel>
+
+                <TextBlock Grid.Row="7" Text="&#xCD5C;&#xC885; &#xAC80;&#xC99D; %" Style="{StaticResource TrainingLabelStyle}" />
+                <StackPanel Grid.Row="7" Grid.Column="1" Margin="0,4,0,5">
+                    <TextBox x:Name="TrainingTestPercentBox"
+                             Style="{StaticResource TrainingTextBoxStyle}"
+                             Text="{Binding TestPercentText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="&#xCD5C;&#xC885; &#xAC80;&#xC99D; &#xBE44;&#xC728; (0~10% &#xAD8C;&#xC7A5;)"
+                             mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
+                    <TextBlock x:Name="TrainingTestPercentGuideText"
+                               Text="{Binding TestPercentGuideText}"
+                               Style="{StaticResource TrainingHelpTextStyle}" />
+                </StackPanel>
+
                 <TextBlock x:Name="TrainingSplitPolicyHintText"
                            Grid.Row="8"
                            Grid.ColumnSpan="2"
                            Text="{Binding SplitPolicyHintText}"
-                           Foreground="{DynamicResource DisabledTextBrush}"
-                           FontFamily="Segoe UI"
-                           FontSize="10.5"
-                           TextWrapping="Wrap"
-                           Margin="0,7,0,0" />
+                           Style="{StaticResource TrainingHelpTextStyle}"
+                           Margin="0,8,0,0" />
             </Grid>
+            </Expander>
 
             <WrapPanel Margin="0,8,0,0">
                 <ui:Button x:Name="RefreshTrainingReadinessButton"
                            AutomationProperties.AutomationId="RefreshTrainingReadinessButton"
-                           AutomationProperties.Name="학습 데이터셋 새로고침"
+                           AutomationProperties.Name="&#xD559;&#xC2B5; &#xC0C1;&#xD0DC; &#xC0C8;&#xB85C;&#xACE0;&#xCE68;"
                            Style="{StaticResource TrainingCommandButtonStyle}"
                            IsEnabled="{Binding IsRefreshReadinessEnabled}"
                            MinWidth="78"
-                           Content="새로고침"
-                           ToolTip="학습 데이터셋과 설정 준비 상태 새로고침"
+                           Content="&#xC0C8;&#xB85C;&#xACE0;&#xCE68;"
+                           ToolTip="&#xD604;&#xC7AC; &#xB370;&#xC774;&#xD130;&#xC14B;&#xACFC; &#xD559;&#xC2B5; &#xC124;&#xC815;&#xC774; &#xC2DC;&#xC791; &#xAC00;&#xB2A5;&#xD55C;&#xC9C0; &#xB2E4;&#xC2DC; &#xD655;&#xC778;&#xD569;&#xB2C8;&#xB2E4;."
                            Command="{Binding RefreshReadinessCommand}" />
                 <ui:Button x:Name="StartTrainingButton"
                            AutomationProperties.AutomationId="StartTrainingButton"
-                           AutomationProperties.Name="YOLO 학습 시작"
+                           AutomationProperties.Name="&#xD559;&#xC2B5; &#xC2DC;&#xC791;"
                            Style="{StaticResource TrainingCommandButtonStyle}"
                            IsEnabled="{Binding IsStartTrainingEnabled}"
                            MinWidth="70"
-                           Content="시작"
-                           ToolTip="현재 설정으로 YOLO 학습 시작"
+                           Content="&#xC2DC;&#xC791;"
+                           ToolTip="{Binding StartTrainingToolTip}"
                            Command="{Binding StartTrainingCommand}" />
                 <ui:Button x:Name="StopTrainingButton"
                            Style="{StaticResource TrainingCommandButtonStyle}"
                            IsEnabled="{Binding IsStopTrainingEnabled}"
                            MinWidth="68"
-                           Content="중지"
-                           ToolTip="진행 중인 YOLO 학습 중지"
+                           Content="&#xC911;&#xC9C0;"
+                           ToolTip="&#xC9C4;&#xD589; &#xC911;&#xC778; &#xD559;&#xC2B5;&#xC744; &#xC911;&#xC9C0;&#xD569;&#xB2C8;&#xB2E4;."
                            Command="{Binding StopTrainingCommand}" />
             </WrapPanel>
 
@@ -276,7 +396,7 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                            Foreground="{Binding TrainingProgressForeground}"
                            FontFamily="Segoe UI"
                            FontSize="11"
-                           TextTrimming="CharacterEllipsis" />
+                           TextWrapping="Wrap" />
                 <TextBlock x:Name="TrainingEpochText"
                            Grid.Column="1"
                            Text="{Binding TrainingEpochStatusText}"
@@ -285,6 +405,69 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                            FontSize="11"
                            Margin="8,0,0,0" />
             </Grid>
+
+            <Border x:Name="PostTrainingModelActionPanel"
+                    AutomationProperties.AutomationId="PostTrainingModelActionPanel"
+                    Background="{DynamicResource PanelBrush}"
+                    BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="8"
+                    Margin="0,8,0,0">
+                <StackPanel>
+                    <TextBlock x:Name="PostTrainingModelActionTitleText"
+                               AutomationProperties.AutomationId="PostTrainingModelActionTitleText"
+                               Text="{Binding PostTrainingModelActionTitleText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="PostTrainingModelStatusText"
+                               AutomationProperties.AutomationId="PostTrainingModelStatusText"
+                               Text="{Binding PostTrainingModelStatusText}"
+                               Foreground="{DynamicResource AccentBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10.5"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Margin="0,4,0,0" />
+                    <TextBlock x:Name="PostTrainingModelDetailText"
+                               AutomationProperties.AutomationId="PostTrainingModelDetailText"
+                               Text="{Binding PostTrainingModelDetailText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               TextWrapping="Wrap"
+                               Margin="0,2,0,0" />
+                    <WrapPanel Margin="0,7,0,0">
+                        <ui:Button x:Name="ReviewTrainedModelButton"
+                                   AutomationProperties.AutomationId="ReviewTrainedModelButton"
+                                   AutomationProperties.Name="{Binding ReviewTrainedModelActionText}"
+                                   Style="{StaticResource TrainingCommandButtonStyle}"
+                                   IsEnabled="{Binding IsReviewTrainedModelEnabled}"
+                                   MinWidth="86"
+                                   ToolTip="{Binding ReviewTrainedModelToolTip}"
+                                   Command="{Binding ReviewTrainedModelCommand}">
+                            <TextBlock x:Name="ReviewTrainedModelButtonText"
+                                       Text="{Binding ReviewTrainedModelActionText}"
+                                       VerticalAlignment="Center" />
+                        </ui:Button>
+                        <ui:Button x:Name="ConfirmTrainedModelButton"
+                                   AutomationProperties.AutomationId="ConfirmTrainedModelButton"
+                                   AutomationProperties.Name="{Binding ConfirmTrainedModelActionText}"
+                                   Style="{StaticResource TrainingCommandButtonStyle}"
+                                   IsEnabled="{Binding IsConfirmTrainedModelEnabled}"
+                                   MinWidth="112"
+                                   ToolTip="{Binding ConfirmTrainedModelToolTip}"
+                                   Command="{Binding ConfirmTrainedModelCommand}">
+                            <TextBlock x:Name="ConfirmTrainedModelButtonText"
+                                       Text="{Binding ConfirmTrainedModelActionText}"
+                                       VerticalAlignment="Center" />
+                        </ui:Button>
+                    </WrapPanel>
+                </StackPanel>
+            </Border>
         </StackPanel>
     </Expander>
 </UserControl>

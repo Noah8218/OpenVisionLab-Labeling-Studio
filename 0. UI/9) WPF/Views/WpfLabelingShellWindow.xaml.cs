@@ -51,6 +51,8 @@ namespace MvcVisionSystem
         private const int TrainingStatusPollTimeoutSeconds = 600;
         private const int AnnotationHistoryLimit = 50;
         private const int ObjectReviewFullRefreshDeleteLimit = 10_000;
+        private const double PreferredInitialShellWidth = 1920D;
+        private const double PreferredInitialShellHeight = 1080D;
         private readonly CGlobal global = CGlobal.Inst;
         private readonly ObservableCollection<WpfImageQueueItem> imageQueueItems = new ObservableCollection<WpfImageQueueItem>();
         private readonly YoloImageReviewStatusService imageReviewStatus = new YoloImageReviewStatusService();
@@ -80,6 +82,7 @@ namespace MvcVisionSystem
         private readonly WpfCandidateReviewStateService candidateReviewState = new WpfCandidateReviewStateService();
         private readonly WpfCandidateReviewPresentationService candidateReviewPresentationService = new WpfCandidateReviewPresentationService();
         private readonly WpfCandidateConfirmationService candidateConfirmationService = new WpfCandidateConfirmationService();
+        private readonly WpfCandidateReviewCompletionPresentationService candidateReviewCompletionPresentationService = new WpfCandidateReviewCompletionPresentationService();
         private readonly WpfDetectionResultPresentationService detectionResultPresentationService = new WpfDetectionResultPresentationService();
         private readonly WpfDetectionTargetService detectionTargetService = new WpfDetectionTargetService();
         private readonly WpfBatchDetectionProgressService batchDetectionProgressService = new WpfBatchDetectionProgressService();
@@ -97,6 +100,7 @@ namespace MvcVisionSystem
         private bool isBatchDetectionRunning;
         private bool isYoloEnvironmentCommandRunning;
         private bool isTrainingCommandRunning;
+        private bool isTrainingWorkflowRunning;
         private bool isModelComparisonRunning;
         private bool suppressProjectRecipeSelection;
         private int batchDetectionTotalCount;
@@ -108,11 +112,13 @@ namespace MvcVisionSystem
         private readonly DispatcherTimer maskStrokeCommitQueueTimer;
         private DateTime trainingStatusPollStartedUtc = DateTime.MinValue;
         private string lastAutoAppliedTrainingWeightsPath = string.Empty;
+        private string pendingTrainingBaselineWeightsPath = string.Empty;
         private bool hasPendingTrainingWeightsRecipeSave;
         private YoloDatasetReadinessReport lastYoloTrainingReadinessReport;
         private string lastRecordedTrainingGuideRunSignature = string.Empty;
         private ShellTheme currentTheme = ShellTheme.Dark;
         private WorkflowMode currentWorkflowMode = WorkflowMode.Labeling;
+        private WpfCanvasDisplayMode canvasDisplayMode = WpfCanvasDisplayMode.LabelsOnly;
         private WpfAnnotationTool activeAnnotationTool = WpfAnnotationTool.Select;
         private bool applyingAnnotationToolSelection;
         private System.Drawing.Point? lastMaskStrokePoint;
@@ -155,6 +161,7 @@ namespace MvcVisionSystem
         {
             this.viewModels = viewModels ?? throw new ArgumentNullException(nameof(viewModels));
             InitializeComponent();
+            ApplyInitialWindowSizeToWorkArea();
             inferenceStatusPulseTimer = new DispatcherTimer(DispatcherPriority.Render, Dispatcher)
             {
                 Interval = TimeSpan.FromMilliseconds(33)
@@ -176,6 +183,7 @@ namespace MvcVisionSystem
             };
             maskStrokeCommitQueueTimer.Tick += MaskStrokeCommitQueueTimer_Tick;
             DataContext = viewModels;
+            TemplateMatchingAutoLabelViewModel.ConfigureHost(this);
             ComposePanelViewModels();
             ApplyProjectDatasetPurposeToWorkflow();
             ConfigureShellCommands();
@@ -206,6 +214,7 @@ namespace MvcVisionSystem
             MainCanvasView.DataContext = MainCanvasViewModel;
             InitializeImageQueuePanel();
             InitializeYoloEditorPanel();
+            TryRestoreLastOpenedDatasetOnStartup();
             PopulateClassList();
             RefreshCandidateList();
             RefreshObjectList();
@@ -214,6 +223,25 @@ namespace MvcVisionSystem
             RefreshTrainingReadinessPanel(refreshYaml: false);
             SetAnnotationSaveStatusWaiting();
             RefreshAnnotationHistoryToolState();
+            RefreshShellDatasetContext();
+            FocusDatasetOnboardingTabIfNoActiveImage();
+        }
+
+        private void ApplyInitialWindowSizeToWorkArea()
+        {
+            Rect workArea = SystemParameters.WorkArea;
+            Width = ClampInitialWindowDimension(PreferredInitialShellWidth, MinWidth, workArea.Width);
+            Height = ClampInitialWindowDimension(PreferredInitialShellHeight, MinHeight, workArea.Height);
+        }
+
+        private static double ClampInitialWindowDimension(double preferred, double minimum, double available)
+        {
+            if (double.IsNaN(available) || available <= 0D)
+            {
+                return preferred;
+            }
+
+            return Math.Max(Math.Min(preferred, available), minimum);
         }
 
 

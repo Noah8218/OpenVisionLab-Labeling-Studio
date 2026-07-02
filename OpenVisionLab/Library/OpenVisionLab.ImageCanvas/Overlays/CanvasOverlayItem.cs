@@ -12,7 +12,13 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 		public string GroupType { get; set; } // 그룹 타입
 		public bool IsVisible { get; set; } = true; // 해당 Group을 보일지 안보일지				
 		public EnumInspWindowType InspWindowType { get; set; } = EnumInspWindowType.Panel;
-		public bool IsExtentionRectange { get; set; } // 해당 Object에 Extention ROI를 추가할지 안할지 결정, 해당 ROI는 User가 화면에서 수정이 안됩니다.		
+		public bool IsExtensionRectangle { get; set; } // 해당 Object에 확장 ROI를 추가할지 결정합니다. 해당 ROI는 사용자가 화면에서 수정하지 않습니다.
+		[Obsolete("Use IsExtensionRectangle instead.")]
+		public bool IsExtentionRectange
+		{
+			get => IsExtensionRectangle;
+			set => IsExtensionRectangle = value;
+		}
 		public bool IsGroupRectangle { get; set; } // 해당 Object가 Group안에 ROI를 포함하는 Rectangle인지 결정합니다. 해당 ROI는 User가 화면에서 수정이 안됩니다.
 		public bool IsFill { get; set; } // 해당 Object 안쪽을 가득 채울지 안채울지 플래그
 		public bool IsControlLock { get; set; } = false;
@@ -49,7 +55,7 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 				{
 					RectangleF rt = rect.ToRobotRectangle();
 
-					if (childOverlay.IsExtentionRectange)
+					if (childOverlay.IsExtensionRectangle)
 					{
 						findExtendedRectangle = true;
 						var dots = rect.ExtendedRectangle.ShapePoints.ToArray();
@@ -57,9 +63,9 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 						float shapeRight = dots.Max(dot => dot.X);
 						float shapeTop = dots.Max(dot => dot.Y);
 						float shapeBottom = dots.Min(dot => dot.Y);
-						CanvasRect<float> xRect = new CanvasRect<float>(shapeLeft, shapeTop, shapeRight, shapeBottom);
+						CanvasRect<float> extendedRect = new CanvasRect<float>(shapeLeft, shapeTop, shapeRight, shapeBottom);
 
-						rt = xRect.ToRobotRectangle();
+						rt = extendedRect.ToRobotRectangle();
 					}
 
 					// 최소, 최대 X 및 Y 좌표 업데이트

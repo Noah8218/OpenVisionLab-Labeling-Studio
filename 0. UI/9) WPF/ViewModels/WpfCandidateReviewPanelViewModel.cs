@@ -14,6 +14,7 @@ namespace MvcVisionSystem
 {
     public sealed class WpfCandidateReviewPanelViewModel : WpfObservableViewModel
     {
+        private const string DefaultModelComparisonSourceText = "\uBE44\uAD50 \uB300\uC0C1: \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378 / \uD559\uC2B5 \uD6C4\uBCF4 \uD655\uC778 \uD544\uC694";
         private static readonly Action NoOpCommand = () => { };
         private static readonly Action<double> NoOpValueCommand = _ => { };
         private static readonly Action<object> NoOpSelectionCommand = _ => { };
@@ -31,6 +32,10 @@ namespace MvcVisionSystem
         private bool isFocusCandidateEnabled;
         private bool isFocusCurrentLabelEnabled;
         private bool isCompleteImageAndNextEnabled;
+        private string completionTitleText = "\uAC80\uD1A0 \uB300\uAE30";
+        private string completionDetailText = "\uC774\uBBF8\uC9C0\uB97C \uC5F4\uAC70\uB098 \uD604\uC7AC \uC774\uBBF8\uC9C0\uB97C \uAC80\uC0AC\uD558\uBA74 \uD6C4\uBCF4 \uAC80\uD1A0 \uC0C1\uD0DC\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+        private string completionNextActionText = "\uB2E4\uC74C: \uC774\uBBF8\uC9C0 \uC120\uD0DD \uB610\uB294 \uAC80\uC0AC";
+        private string completeImageAndNextActionText = "\uC774\uBBF8\uC9C0 \uC644\uB8CC";
         private string confirmSelectedToolTip = "\uD655\uC815\uD560 \uAC80\uCD9C \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
         private string confirmAllToolTip = "\uD655\uC815 \uAC00\uB2A5\uD55C \uD45C\uC2DC \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
         private string skipSelectedToolTip = "\uC2A4\uD0B5\uD560 \uAC80\uCD9C \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
@@ -43,10 +48,25 @@ namespace MvcVisionSystem
         private string comparisonDecisionText = string.Empty;
         private string postActionPolicyText = string.Empty;
         private Visibility reviewHistoryVisibility = Visibility.Collapsed;
+        private bool isReviewHistoryExpanded;
+        private string reviewHistoryHeaderText = "\uAC80\uD1A0 \uC774\uB825 0\uAC74";
+        private string reviewHistorySummaryText = "\uD655\uC815/\uC228\uAE40 \uC791\uC5C5\uC774 \uC788\uC73C\uBA74 \uC5EC\uAE30\uC5D0 \uC694\uC57D\uB429\uB2C8\uB2E4.";
         private Visibility modelComparisonVisibility = Visibility.Collapsed;
-        private string modelComparisonStatusText = string.Empty;
-        private string modelComparisonDetailText = string.Empty;
-        private string modelComparisonActionText = string.Empty;
+        private Visibility modelComparisonExampleListVisibility = Visibility.Collapsed;
+        private bool isModelComparisonExamplesExpanded;
+        private string modelComparisonExampleHeaderText = "\uAC80\uC99D \uC608\uC2DC 0\uAC74";
+        private string modelComparisonExampleSummaryText = "\uC608\uC2DC\uAC00 \uC788\uC73C\uBA74 \uD3BC\uCCD0\uC11C \uC774\uBBF8\uC9C0\uBCC4 \uCC28\uC774 \uC704\uCE58\uB97C \uD655\uC778\uD569\uB2C8\uB2E4.";
+        private string modelComparisonStatusText = "\uBAA8\uB378 \uBE44\uAD50: \uB300\uAE30";
+        private string modelComparisonSourceText = DefaultModelComparisonSourceText;
+        private string modelComparisonDetailText = "\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378 \uD6C4\uBCF4\uB97C \uAC80\uC99D\uD558\uBA74 \uC774\uACF3\uC5D0 \uAE30\uC874 \uBAA8\uB378\uACFC \uC0C8 \uBAA8\uB378\uC758 \uCC28\uC774\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+        private string modelComparisonActionText = "\uB2E4\uC74C: \uD6C4\uBCF4\uAC00 \uC788\uC73C\uBA74 \uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uC758 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB204\uB974\uACE0, \uAC80\uD1A0 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694.";
+        private string modelCandidateDecisionStatusText = "\uD6C4\uBCF4 \uACB0\uC815: \uB300\uAE30";
+        private string modelCandidateDecisionDetailText = "\uBE44\uAD50 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uAC70\uB098 \uD6C4\uBCF4\uB97C \uAC70\uC808\uD574 \uD604\uC7AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4.";
+        private string saveModelCandidateToolTip = "\uC800\uC7A5\uD560 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
+        private string rejectModelCandidateToolTip = "\uAC70\uC808\uD560 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
+        private bool isSaveModelCandidateEnabled;
+        private bool isRejectModelCandidateEnabled;
+        private Visibility modelCandidateDecisionVisibility = Visibility.Collapsed;
         private bool isComparisonHighOverlap;
         private ICommand confidenceChangedCommand = new RelayCommand<double>(NoOpValueCommand);
         private ICommand confirmSelectedCommand = new RelayCommand(NoOpCommand);
@@ -58,10 +78,38 @@ namespace MvcVisionSystem
         private ICommand focusCurrentLabelCommand = new RelayCommand(NoOpCommand);
         private ICommand completeImageAndNextCommand = new RelayCommand(NoOpCommand);
         private ICommand modelComparisonExampleCommand = new RelayCommand<WpfModelComparisonReviewExample>(NoOpModelComparisonExampleCommand);
+        private ICommand saveModelCandidateCommand = new RelayCommand(NoOpCommand);
+        private ICommand rejectModelCandidateCommand = new RelayCommand(NoOpCommand);
         private ICommand candidateSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand candidatePreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(NoOpKeyCommand);
 
         public string ViewName => nameof(WpfCandidateReviewPanel);
+
+        public string PanelModeTitleText => "\uD604\uC7AC \uC774\uBBF8\uC9C0 \uD6C4\uBCF4 \uAC80\uD1A0";
+
+        public string PanelModeBadgeText => "AI \uD6C4\uBCF4 \uAC80\uD1A0";
+
+        public string PanelModeScopeText => "\uD655\uC815 \uC804\uC5D0\uB294 \uC800\uC7A5 \uB77C\uBCA8 \uC544\uB2D8";
+
+        public string PanelModeDetailText => "\uC774 \uD328\uB110\uC740 \uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 AI \uAC80\uCD9C \uD6C4\uBCF4\uB97C \uAC80\uD1A0\uD569\uB2C8\uB2E4. \uD655\uC815\uD558\uAE30 \uC804\uC5D0\uB294 \uC800\uC7A5 \uB77C\uBCA8\uC774 \uC544\uB2C8\uBA70, \uD655\uC815\uD55C \uD6C4\uBCF4\uB294 \uC800\uC7A5 \uB77C\uBCA8\uB85C \uC804\uD658\uB418\uACE0 \uD604\uC7AC \uC774\uBBF8\uC9C0 \uD30C\uC77C\uC5D0 \uBC18\uC601\uB429\uB2C8\uB2E4.";
+
+        public string ReviewActionGuideText => "\uBA3C\uC800 \uD604\uC7AC \uC774\uBBF8\uC9C0 \uD6C4\uBCF4\uB97C \uD655\uC815/\uC2A4\uD0B5\uD558\uC138\uC694. \uD655\uC815\uD55C \uD6C4\uBCF4\uB294 \uC800\uC7A5 \uB77C\uBCA8\uC5D0 \uCD94\uAC00\uB418\uACE0 \uC800\uC7A5 \uC0C1\uD0DC\uAC00 \uAC31\uC2E0\uB418\uBA70, \uBAA8\uB378 \uAC80\uC99D\uC740 \uC544\uB798 \uCE74\uB4DC\uC5D0\uC11C \uB530\uB85C \uD310\uB2E8\uD569\uB2C8\uB2E4.";
+
+        public string ModelComparisonSectionTitleText => "\uD559\uC2B5 \uBAA8\uB378 \uAC80\uC99D";
+
+        public string ModelComparisonSectionDetailText => "\uD559\uC2B5\uC774 \uB05D\uB09C \uBAA8\uB378 \uD6C4\uBCF4\uB97C \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uACFC \uBE44\uAD50\uD558\uACE0 \uCC44\uD0DD \uC5EC\uBD80\uB97C \uD310\uB2E8\uD569\uB2C8\uB2E4.";
+
+        public string CurrentImageReviewRoleTitleText => "\uD604\uC7AC \uC774\uBBF8\uC9C0 \uD6C4\uBCF4";
+
+        public string CurrentImageReviewRoleDetailText => "\uC218\uB77D/\uC2A4\uD0B5\uC740 \uC9C0\uAE08 \uBCF4\uB294 \uC774\uBBF8\uC9C0\uC5D0\uB9CC \uC801\uC6A9";
+
+        public string CurrentImageReviewRoleResultText => "\uACB0\uACFC: \uD655\uC815 \uC989\uC2DC \uC800\uC7A5 \uB77C\uBCA8 \uBC18\uC601 \uB610\uB294 \uD6C4\uBCF4 \uC228\uAE40";
+
+        public string ModelValidationRoleTitleText => "\uD559\uC2B5 \uBAA8\uB378 \uAC80\uC99D";
+
+        public string ModelValidationRoleDetailText => "\uD559\uC2B5 \uACB0\uACFC \uD6C4\uBCF4\uB97C \uAE30\uC874 \uAC80\uC0AC \uBAA8\uB378\uACFC \uBE44\uAD50";
+
+        public string ModelValidationRoleResultText => "\uACB0\uACFC: \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uCC44\uD0DD/\uC720\uC9C0 \uD655\uC815";
 
         public WpfBulkObservableCollection<WpfCandidateReviewListItem> Candidates { get; } = new WpfBulkObservableCollection<WpfCandidateReviewListItem>();
 
@@ -132,6 +180,18 @@ namespace MvcVisionSystem
         {
             get => modelComparisonExampleCommand;
             private set => SetProperty(ref modelComparisonExampleCommand, value);
+        }
+
+        public ICommand SaveModelCandidateCommand
+        {
+            get => saveModelCandidateCommand;
+            private set => SetProperty(ref saveModelCandidateCommand, value);
+        }
+
+        public ICommand RejectModelCandidateCommand
+        {
+            get => rejectModelCandidateCommand;
+            private set => SetProperty(ref rejectModelCandidateCommand, value);
         }
 
         public ICommand CandidateSelectionChangedCommand
@@ -218,6 +278,30 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isCompleteImageAndNextEnabled, value);
         }
 
+        public string CompletionTitleText
+        {
+            get => completionTitleText;
+            private set => SetProperty(ref completionTitleText, value ?? string.Empty);
+        }
+
+        public string CompletionDetailText
+        {
+            get => completionDetailText;
+            private set => SetProperty(ref completionDetailText, value ?? string.Empty);
+        }
+
+        public string CompletionNextActionText
+        {
+            get => completionNextActionText;
+            private set => SetProperty(ref completionNextActionText, value ?? string.Empty);
+        }
+
+        public string CompleteImageAndNextActionText
+        {
+            get => completeImageAndNextActionText;
+            private set => SetProperty(ref completeImageAndNextActionText, value ?? string.Empty);
+        }
+
         public string ConfirmSelectedToolTip
         {
             get => confirmSelectedToolTip;
@@ -296,16 +380,64 @@ namespace MvcVisionSystem
             private set => SetProperty(ref reviewHistoryVisibility, value);
         }
 
+        public bool IsReviewHistoryExpanded
+        {
+            get => isReviewHistoryExpanded;
+            set => SetProperty(ref isReviewHistoryExpanded, value);
+        }
+
+        public string ReviewHistoryHeaderText
+        {
+            get => reviewHistoryHeaderText;
+            private set => SetProperty(ref reviewHistoryHeaderText, value ?? string.Empty);
+        }
+
+        public string ReviewHistorySummaryText
+        {
+            get => reviewHistorySummaryText;
+            private set => SetProperty(ref reviewHistorySummaryText, value ?? string.Empty);
+        }
+
         public Visibility ModelComparisonVisibility
         {
             get => modelComparisonVisibility;
             private set => SetProperty(ref modelComparisonVisibility, value);
         }
 
+        public Visibility ModelComparisonExampleListVisibility
+        {
+            get => modelComparisonExampleListVisibility;
+            private set => SetProperty(ref modelComparisonExampleListVisibility, value);
+        }
+
+        public bool IsModelComparisonExamplesExpanded
+        {
+            get => isModelComparisonExamplesExpanded;
+            set => SetProperty(ref isModelComparisonExamplesExpanded, value);
+        }
+
+        public string ModelComparisonExampleHeaderText
+        {
+            get => modelComparisonExampleHeaderText;
+            private set => SetProperty(ref modelComparisonExampleHeaderText, value ?? string.Empty);
+        }
+
+        public string ModelComparisonExampleSummaryText
+        {
+            get => modelComparisonExampleSummaryText;
+            private set => SetProperty(ref modelComparisonExampleSummaryText, value ?? string.Empty);
+        }
+
         public string ModelComparisonStatusText
         {
             get => modelComparisonStatusText;
             private set => SetProperty(ref modelComparisonStatusText, value ?? string.Empty);
+        }
+
+        public string ModelComparisonSourceText
+        {
+            get => modelComparisonSourceText;
+            private set => SetProperty(ref modelComparisonSourceText, value ?? string.Empty);
         }
 
         public string ModelComparisonDetailText
@@ -320,6 +452,48 @@ namespace MvcVisionSystem
             private set => SetProperty(ref modelComparisonActionText, value ?? string.Empty);
         }
 
+        public string ModelCandidateDecisionStatusText
+        {
+            get => modelCandidateDecisionStatusText;
+            private set => SetProperty(ref modelCandidateDecisionStatusText, value ?? string.Empty);
+        }
+
+        public string ModelCandidateDecisionDetailText
+        {
+            get => modelCandidateDecisionDetailText;
+            private set => SetProperty(ref modelCandidateDecisionDetailText, value ?? string.Empty);
+        }
+
+        public bool IsSaveModelCandidateEnabled
+        {
+            get => isSaveModelCandidateEnabled;
+            private set => SetProperty(ref isSaveModelCandidateEnabled, value);
+        }
+
+        public bool IsRejectModelCandidateEnabled
+        {
+            get => isRejectModelCandidateEnabled;
+            private set => SetProperty(ref isRejectModelCandidateEnabled, value);
+        }
+
+        public Visibility ModelCandidateDecisionVisibility
+        {
+            get => modelCandidateDecisionVisibility;
+            private set => SetProperty(ref modelCandidateDecisionVisibility, value);
+        }
+
+        public string SaveModelCandidateToolTip
+        {
+            get => saveModelCandidateToolTip;
+            private set => SetProperty(ref saveModelCandidateToolTip, value ?? string.Empty);
+        }
+
+        public string RejectModelCandidateToolTip
+        {
+            get => rejectModelCandidateToolTip;
+            private set => SetProperty(ref rejectModelCandidateToolTip, value ?? string.Empty);
+        }
+
         public void ConfigureCommands(
             Action<double> confidenceChanged,
             Action confirmSelected,
@@ -332,7 +506,9 @@ namespace MvcVisionSystem
             Action<object> candidateSelectionChanged,
             Action<KeyInputCommandArgs> candidatePreviewKeyDown,
             Action completeImageAndNext = null,
-            Action<WpfModelComparisonReviewExample> openModelComparisonExample = null)
+            Action<WpfModelComparisonReviewExample> openModelComparisonExample = null,
+            Action saveModelCandidate = null,
+            Action rejectModelCandidate = null)
         {
             // Candidate review stays virtualized; commands keep the view declarative while shell owns workflow state.
             ConfidenceChangedCommand = new RelayCommand<double>(confidenceChanged ?? NoOpValueCommand);
@@ -347,6 +523,8 @@ namespace MvcVisionSystem
             CandidatePreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(candidatePreviewKeyDown ?? NoOpKeyCommand);
             CompleteImageAndNextCommand = new RelayCommand(completeImageAndNext ?? NoOpCommand);
             ModelComparisonExampleCommand = new RelayCommand<WpfModelComparisonReviewExample>(openModelComparisonExample ?? NoOpModelComparisonExampleCommand);
+            SaveModelCandidateCommand = new RelayCommand(saveModelCandidate ?? NoOpCommand);
+            RejectModelCandidateCommand = new RelayCommand(rejectModelCandidate ?? NoOpCommand);
         }
 
         public void SetCandidates(IEnumerable<WpfCandidateReviewListItem> candidates, string detail, object preferredPayload = null)
@@ -394,6 +572,28 @@ namespace MvcVisionSystem
         {
             IsCompleteImageAndNextEnabled = enabled;
             CompleteImageAndNextToolTip = toolTip;
+            CompleteImageAndNextActionText = "\uC774\uBBF8\uC9C0 \uC644\uB8CC";
+        }
+
+        public void SetCompletionState(WpfCandidateReviewCompletionPresentation presentation)
+        {
+            if (presentation == null)
+            {
+                SetCompletionState(false, "\uC644\uB8CC\uD560 \uC774\uBBF8\uC9C0\uB97C \uBA3C\uC800 \uC5F4\uC5B4\uC8FC\uC138\uC694.");
+                CompletionTitleText = "\uAC80\uD1A0 \uB300\uAE30";
+                CompletionDetailText = "\uC774\uBBF8\uC9C0\uB97C \uC5F4\uAC70\uB098 \uD604\uC7AC \uC774\uBBF8\uC9C0\uB97C \uAC80\uC0AC\uD558\uBA74 \uD6C4\uBCF4 \uAC80\uD1A0 \uC0C1\uD0DC\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+                CompletionNextActionText = "\uB2E4\uC74C: \uC774\uBBF8\uC9C0 \uC120\uD0DD \uB610\uB294 \uAC80\uC0AC";
+                return;
+            }
+
+            IsCompleteImageAndNextEnabled = presentation.CanComplete;
+            CompleteImageAndNextToolTip = presentation.ToolTip;
+            CompleteImageAndNextActionText = string.IsNullOrWhiteSpace(presentation.ButtonText)
+                ? "\uC774\uBBF8\uC9C0 \uC644\uB8CC"
+                : presentation.ButtonText;
+            CompletionTitleText = presentation.TitleText;
+            CompletionDetailText = presentation.DetailText;
+            CompletionNextActionText = presentation.NextActionText;
         }
 
         public void ClearComparison()
@@ -437,16 +637,28 @@ namespace MvcVisionSystem
         public void ClearReviewHistory()
         {
             ReviewHistory.Clear();
-            ReviewHistoryVisibility = Visibility.Collapsed;
+            IsReviewHistoryExpanded = false;
+            UpdateReviewHistoryDisclosure();
         }
 
         public void ClearModelComparisonReview()
         {
-            ModelComparisonStatusText = string.Empty;
-            ModelComparisonDetailText = string.Empty;
-            ModelComparisonActionText = string.Empty;
             ModelComparisonExamples.Clear();
+            IsModelComparisonExamplesExpanded = false;
+            UpdateModelComparisonExampleDisclosure();
+            ModelComparisonStatusText = "\uBAA8\uB378 \uBE44\uAD50: \uB300\uAE30";
+            ModelComparisonSourceText = DefaultModelComparisonSourceText;
+            ModelComparisonDetailText = "\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378 \uD6C4\uBCF4\uB97C \uAC80\uC99D\uD558\uBA74 \uC774\uACF3\uC5D0 \uAE30\uC874 \uBAA8\uB378\uACFC \uC0C8 \uBAA8\uB378\uC758 \uCC28\uC774\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+            ModelComparisonActionText = "\uB2E4\uC74C: \uD6C4\uBCF4\uAC00 \uC788\uC73C\uBA74 \uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uC758 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB204\uB974\uACE0, \uAC80\uD1A0 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694.";
             ModelComparisonVisibility = Visibility.Collapsed;
+            SetModelCandidateDecisionState(false, false, null, null, null, null);
+        }
+
+        public void SetModelComparisonSourceText(string sourceText)
+        {
+            ModelComparisonSourceText = string.IsNullOrWhiteSpace(sourceText)
+                ? DefaultModelComparisonSourceText
+                : sourceText.Trim();
         }
 
         public void SetModelComparisonReview(WpfModelComparisonReviewReport report)
@@ -454,7 +666,12 @@ namespace MvcVisionSystem
             ModelComparisonExamples.Clear();
             if (report?.HasComparison != true)
             {
-                ClearModelComparisonReview();
+                IsModelComparisonExamplesExpanded = false;
+                UpdateModelComparisonExampleDisclosure();
+                ModelComparisonStatusText = "\uBAA8\uB378 \uBE44\uAD50: \uC544\uC9C1 \uC2E4\uD589 \uC548 \uB428";
+                ModelComparisonDetailText = "\uBE44\uAD50 \uACB0\uACFC \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uC5D0\uC11C \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB204\uB974\uAC70\uB098 Guide\uC5D0\uC11C \uBAA8\uB378 \uBE44\uAD50\uB97C \uC2E4\uD589\uD558\uC138\uC694.";
+                ModelComparisonActionText = "\uBAA8\uB378 \uD6C4\uBCF4\uB97C \uC801\uC6A9\uD558\uB824\uBA74 \uBE44\uAD50 \uACB0\uACFC\uB97C \uD655\uC778\uD55C \uB4A4 \uBAA8\uB378\uC13C\uD130\uC758 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5 \uBC84\uD2BC\uC744 \uB204\uB974\uC138\uC694.";
+                ModelComparisonVisibility = Visibility.Visible;
                 return;
             }
 
@@ -463,8 +680,8 @@ namespace MvcVisionSystem
                 ? report.DetailText
                 : $"{report.DetailText} / {System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(report.SourcePath) ?? report.SourcePath)}";
             ModelComparisonActionText = (report.Examples?.Count ?? 0) > 0
-                ? "\uB2E4\uC74C: \uC544\uB798 \uC608\uC2DC\uB97C \uD074\uB9AD\uD574 \uC774\uBBF8\uC9C0 \uC704\uCE58\uB97C \uD655\uC778\uD55C \uB4A4 Guide\uC758 \uAD50\uCCB4 \uD310\uB2E8\uC744 \uBCF4\uC138\uC694."
-                : "\uB2E4\uC74C: \uBAA8\uB378 \uCC28\uC774\uAC00 \uC5C6\uC73C\uBA74 \uCD5C\uC885 \uAC80\uC99D \uC774\uBBF8\uC9C0\uB97C \uB354 \uD655\uC778\uD55C \uB4A4 \uAD50\uCCB4\uB97C \uD310\uB2E8\uD558\uC138\uC694.";
+                ? "\uB2E4\uC74C: \uC544\uB798 \uC608\uC2DC\uB97C \uD074\uB9AD\uD574 \uC774\uBBF8\uC9C0 \uC704\uCE58\uB97C \uD655\uC778\uD55C \uB4A4 Guide\uC758 \uAD50\uCCB4 \uD310\uB2E8\uC744 \uBCF4\uACE0, \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694."
+                : "\uB2E4\uC74C: \uBAA8\uB378 \uCC28\uC774 \uC608\uC2DC\uAC00 \uC5C6\uC73C\uBA74 \uAC80\uC99D \uB370\uC774\uD130 \uC218\uC640 \uC9C0\uD45C\uB97C \uD655\uC778\uD55C \uB4A4 \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uAC70\uB098 \uD604\uC7AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD558\uC138\uC694.";
 
             foreach (WpfModelComparisonReviewExample example in report.Examples ?? Array.Empty<WpfModelComparisonReviewExample>())
             {
@@ -474,7 +691,36 @@ namespace MvcVisionSystem
                 }
             }
 
+            IsModelComparisonExamplesExpanded = false;
+            UpdateModelComparisonExampleDisclosure();
             ModelComparisonVisibility = Visibility.Visible;
+        }
+
+        public void SetModelCandidateDecisionState(
+            bool canSave,
+            bool canReject,
+            string statusText,
+            string detailText,
+            string saveToolTip,
+            string rejectToolTip)
+        {
+            IsSaveModelCandidateEnabled = canSave;
+            IsRejectModelCandidateEnabled = canReject;
+            ModelCandidateDecisionVisibility = canSave || canReject
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+            ModelCandidateDecisionStatusText = string.IsNullOrWhiteSpace(statusText)
+                ? "\uD6C4\uBCF4 \uACB0\uC815: \uB300\uAE30"
+                : statusText;
+            ModelCandidateDecisionDetailText = string.IsNullOrWhiteSpace(detailText)
+                ? "\uBE44\uAD50 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uAC70\uB098 \uD6C4\uBCF4\uB97C \uAC70\uC808\uD574 \uD604\uC7AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4."
+                : detailText;
+            SaveModelCandidateToolTip = string.IsNullOrWhiteSpace(saveToolTip)
+                ? "\uC800\uC7A5\uD560 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4."
+                : saveToolTip;
+            RejectModelCandidateToolTip = string.IsNullOrWhiteSpace(rejectToolTip)
+                ? "\uAC70\uC808\uD560 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4."
+                : rejectToolTip;
         }
 
         public void SetModelComparisonFocus(WpfModelComparisonReviewExample example, string locationText)
@@ -494,7 +740,8 @@ namespace MvcVisionSystem
                 : string.IsNullOrWhiteSpace(action)
                     ? location
                     : $"{location} / {action}";
-            ModelComparisonActionText = "\uD655\uC778 \uD6C4: \uC774 \uC608\uC2DC\uAC00 \uC0C8 \uBAA8\uB378\uC5D0 \uC720\uB9AC\uD55C\uC9C0 \uD310\uB2E8\uD558\uACE0, Guide\uC758 \uAD50\uCCB4 \uD310\uB2E8\uC73C\uB85C \uB3CC\uC544\uAC00\uC138\uC694.";
+            ModelComparisonActionText = "\uD655\uC778 \uD6C4: \uC774 \uC608\uC2DC\uAC00 \uC0C8 \uBAA8\uB378\uC5D0 \uC720\uB9AC\uD55C\uC9C0 \uD310\uB2E8\uD558\uACE0, Guide\uC758 \uAD50\uCCB4 \uD310\uB2E8\uC744 \uBCF8 \uB4A4 \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694.";
+            UpdateModelComparisonExampleDisclosure();
             ModelComparisonVisibility = Visibility.Visible;
         }
 
@@ -511,7 +758,39 @@ namespace MvcVisionSystem
                 ReviewHistory.RemoveAt(ReviewHistory.Count - 1);
             }
 
-            ReviewHistoryVisibility = ReviewHistory.Count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            UpdateReviewHistoryDisclosure();
+        }
+
+        private void UpdateModelComparisonExampleDisclosure()
+        {
+            int count = ModelComparisonExamples.Count;
+            ModelComparisonExampleListVisibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            ModelComparisonExampleHeaderText = count <= 0
+                ? "\uAC80\uC99D \uC608\uC2DC 0\uAC74"
+                : $"\uAC80\uC99D \uC608\uC2DC {count}\uAC74";
+            ModelComparisonExampleSummaryText = count <= 0
+                ? "\uC608\uC2DC\uAC00 \uC788\uC73C\uBA74 \uD3BC\uCCD0\uC11C \uC774\uBBF8\uC9C0\uBCC4 \uCC28\uC774 \uC704\uCE58\uB97C \uD655\uC778\uD569\uB2C8\uB2E4."
+                : "\uAE30\uBCF8\uC740 \uC811\uC5B4 \uB450\uACE0, \uD544\uC694\uD560 \uB54C\uB9CC \uD3BC\uCCD0\uC11C \uC774\uBBF8\uC9C0\uBCC4 \uCC28\uC774\uB97C \uD655\uC778\uD569\uB2C8\uB2E4.";
+            if (count <= 0)
+            {
+                IsModelComparisonExamplesExpanded = false;
+            }
+        }
+
+        private void UpdateReviewHistoryDisclosure()
+        {
+            int count = ReviewHistory.Count;
+            ReviewHistoryVisibility = count > 0 ? Visibility.Visible : Visibility.Collapsed;
+            ReviewHistoryHeaderText = count <= 0
+                ? "\uAC80\uD1A0 \uC774\uB825 0\uAC74"
+                : $"\uAC80\uD1A0 \uC774\uB825 {count}\uAC74";
+            ReviewHistorySummaryText = count <= 0
+                ? "\uD655\uC815/\uC228\uAE40 \uC791\uC5C5\uC774 \uC788\uC73C\uBA74 \uC5EC\uAE30\uC5D0 \uC694\uC57D\uB429\uB2C8\uB2E4."
+                : "\uCD5C\uADFC \uAC80\uD1A0 \uC791\uC5C5\uB9CC \uC694\uC57D\uD558\uACE0, \uC0C1\uC138 \uC774\uB825\uC740 \uD3BC\uCCD0\uC11C \uD655\uC778\uD569\uB2C8\uB2E4.";
+            if (count <= 0)
+            {
+                IsReviewHistoryExpanded = false;
+            }
         }
     }
 

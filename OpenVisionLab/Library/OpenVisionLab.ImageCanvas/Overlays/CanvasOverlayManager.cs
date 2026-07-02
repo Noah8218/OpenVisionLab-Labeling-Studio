@@ -4,7 +4,6 @@ using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
-using System.Threading;
 
 namespace OpenVisionLab.ImageCanvas.Overlays
 {
@@ -31,12 +30,8 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 		{
 			{ EnumInspWindowType.Align, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Orange) },
 			{ EnumInspWindowType.Module, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Green) },
-			//{ EnumInspWindowType.Target, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.Aquamarine) },
-			//{ EnumInspWindowType.Reference, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.LightSeaGreen) },
 			{ EnumInspWindowType.Unit, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.DodgerBlue) },
-			//{ EnumInspWindowType.Warpage, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.MediumOrchid) },
 			{ EnumInspWindowType.Thickness, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.SlateGray) },
-			//{ EnumInspWindowType.Fitting, new System.Windows.Media.SolidColorBrush(System.Windows.Media.Colors.SandyBrown) },
 		};
 		#endregion
 
@@ -131,16 +126,14 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 			return null; // 해당 그룹을 찾지 못한 경우
 		}
 
-		public string GetNewname(CanvasOverlayItem overlayItem)
+		public string GetNewName(CanvasOverlayItem overlayItem)
 		{
 			string newName = "";
 			int count = 0;
 			while (true)
 			{
-				Thread.Sleep(1);
 				bool isExist = false;
 				newName = IncrementLastNumber(overlayItem.GroupType, count);
-				//newName = $"{overlayItem.GroupType}-[{count}]";
 				isExist = IsExistGroupTypeAll(newName);
 
 				if (!isExist) { break; }
@@ -148,6 +141,9 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 			}
 			return newName;
 		}
+
+		[Obsolete("Use GetNewName instead.")]
+		public string GetNewname(CanvasOverlayItem overlayItem) => GetNewName(overlayItem);
 
 		public bool IsExistGroupTypeAll(string name)
 		{
@@ -317,13 +313,13 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 			}
 		}
 
-		public void AddOverlayItem(string parentType, CanvasOverlayItem newObject)
+		public void AddOverlayItem(string parentType, CanvasOverlayItem overlayItem)
 		{
 			lock (_lock)
 			{
 				if (parentType == "")
 				{
-					_overlayItems.Add(newObject);
+					_overlayItems.Add(overlayItem);
 				}
 				else
 				{
@@ -331,16 +327,16 @@ namespace OpenVisionLab.ImageCanvas.Overlays
 
 					if (parent != null)
 					{
-						newObject.Parent = parent;
+						overlayItem.Parent = parent;
 
-						parent.AddChildGroup(newObject);
+						parent.AddChildGroup(overlayItem);
 					}
 					else
 					{
-						_overlayItems.Add(newObject);						
+						_overlayItems.Add(overlayItem);
 					}
 				}
-				RegisterOverlayTree(newObject);
+				RegisterOverlayTree(overlayItem);
 			}
 		}
 

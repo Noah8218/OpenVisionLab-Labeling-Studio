@@ -27,7 +27,7 @@ namespace MvcVisionSystem
                     break;
 
                 case WpfLearningStepWorkflowAction.ShowCandidateReview:
-                    CandidatesReviewTab.IsSelected = true;
+                    ShowCandidateReviewWorkflowView();
                     break;
 
                 case WpfLearningStepWorkflowAction.SaveAnnotations:

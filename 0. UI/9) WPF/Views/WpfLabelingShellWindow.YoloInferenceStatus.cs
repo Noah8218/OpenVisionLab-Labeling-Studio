@@ -1,12 +1,5 @@
 using MahApps.Metro.IconPacks;
-using MvcVisionSystem._1._Core;
-using MvcVisionSystem._3._Communication.TCP;
 using System;
-using System.Globalization;
-using System.IO;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 
 namespace MvcVisionSystem
@@ -21,7 +14,15 @@ namespace MvcVisionSystem
                 return;
             }
 
-            InferenceStatusText.Text = string.IsNullOrWhiteSpace(text) ? "대기" : text;
+            string statusText = string.IsNullOrWhiteSpace(text) ? "\uB300\uAE30" : text;
+            InferenceStatusText.Text = WpfInferenceStatusPresentationService.BuildStatusText(
+                statusText,
+                global?.Data?.ProjectSettings?.PythonModel,
+                hasPendingTrainingWeightsRecipeSave);
+            InferenceStatusBorder.ToolTip = WpfInferenceStatusPresentationService.BuildToolTip(
+                statusText,
+                global?.Data?.ProjectSettings?.PythonModel,
+                hasPendingTrainingWeightsRecipeSave);
             InferenceStatusProgressBar.Visibility = isBusy ? Visibility.Visible : Visibility.Collapsed;
             InferenceStatusProgressBar.IsIndeterminate = false;
             if (isBusy)
@@ -32,6 +33,7 @@ namespace MvcVisionSystem
             {
                 StopInferenceStatusPulse();
             }
+
             InferenceStatusIcon.Kind = isBusy
                 ? PackIconMaterialKind.ProgressClock
                 : isWarning

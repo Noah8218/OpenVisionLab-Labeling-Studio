@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Windows.Media;
+using Brush = System.Windows.Media.Brush;
 
 namespace MvcVisionSystem
 {
@@ -33,7 +34,7 @@ namespace MvcVisionSystem
             var parts = new List<string>();
             if (candidateCount > 0)
             {
-                parts.Add($"후보 {candidateCount}");
+                parts.Add($"AI 후보 {candidateCount}");
             }
 
             if (failedCount > 0)
@@ -43,17 +44,17 @@ namespace MvcVisionSystem
 
             if (confirmedCount > 0)
             {
-                parts.Add($"확정 {confirmedCount}");
+                parts.Add($"저장됨 {confirmedCount}");
             }
 
             if (skippedCount > 0)
             {
-                parts.Add($"스킵 {skippedCount}");
+                parts.Add($"숨김 {skippedCount}");
             }
 
             if (noCandidateCount > 0)
             {
-                parts.Add($"검출없음 {noCandidateCount}");
+                parts.Add($"객체없음 {noCandidateCount}");
             }
 
             return parts.Count == 0 ? string.Empty : " / " + string.Join(" / ", parts);
@@ -69,7 +70,7 @@ namespace MvcVisionSystem
             if (string.Equals(labelText, "Empty Label", StringComparison.OrdinalIgnoreCase))
             {
                 // Empty YOLO files are intentional "no object" completions, not unknown labels.
-                return "빈완료";
+                return "객체 없음";
             }
 
             if (labelText?.StartsWith("Label ", StringComparison.OrdinalIgnoreCase) == true)
@@ -91,16 +92,16 @@ namespace MvcVisionSystem
             string detectionText = status?.DetectionText ?? string.Empty;
             if (detectionText.StartsWith("Candidate ", StringComparison.OrdinalIgnoreCase))
             {
-                return $"후보 {detectionText.Substring("Candidate ".Length).Trim()}";
+                return $"AI 후보 {detectionText.Substring("Candidate ".Length).Trim()}";
             }
 
             return detectionText switch
             {
-                "Requested" => "요청중",
+                "Requested" => "검사중",
                 "Failed" => status?.DetectionAttemptCount > 1 ? $"실패 x{status.DetectionAttemptCount}" : "실패",
-                "No Candidate" => "없음",
-                "Confirmed" => "확정",
-                "Skipped" => "스킵",
+                "No Candidate" => "객체 없음",
+                "Confirmed" => "저장됨",
+                "Skipped" => "후보 숨김",
                 _ => "대기"
             };
         }
@@ -162,18 +163,18 @@ namespace MvcVisionSystem
             return status.ReviewState switch
             {
                 YoloImageReviewState.Requested => status.DetectionAttemptCount > 1
-                    ? $"요청 {status.DetectionAttemptCount}"
-                    : "요청중",
+                    ? $"검사 {status.DetectionAttemptCount}"
+                    : "검사중",
                 YoloImageReviewState.Candidate => status.DetectionCandidateCount > 0
-                    ? $"후보 {status.DetectionCandidateCount}"
-                    : "후보",
+                    ? $"AI {status.DetectionCandidateCount}"
+                    : "AI",
                 YoloImageReviewState.Failed => status.DetectionAttemptCount > 1
                     ? $"실패 {status.DetectionAttemptCount}"
                     : "실패",
-                YoloImageReviewState.Confirmed => "완료",
-                YoloImageReviewState.Skipped => "스킵",
-                YoloImageReviewState.NoCandidate => "검출없음",
-                _ => status.IsLabeled ? "완료" : string.Empty
+                YoloImageReviewState.Confirmed => "저장",
+                YoloImageReviewState.Skipped => "숨김",
+                YoloImageReviewState.NoCandidate => "없음",
+                _ => status.IsLabeled ? "저장" : string.Empty
             };
         }
 
@@ -181,7 +182,7 @@ namespace MvcVisionSystem
         {
             if (status == null)
             {
-                return "상태 확인 전";
+                return "상태 확인 중";
             }
 
             if (status.ReviewState == YoloImageReviewState.Failed)
@@ -191,12 +192,27 @@ namespace MvcVisionSystem
 
             if (status.ReviewState == YoloImageReviewState.Candidate && status.DetectionCandidateCount > 0)
             {
-                return $"후보 {status.DetectionCandidateCount}개 확인 필요";
+                return $"AI 후보 {status.DetectionCandidateCount}개 검토 필요";
             }
 
             string label = FormatLabelStatus(status.LabelText);
+            if (status.ReviewState == YoloImageReviewState.Confirmed)
+            {
+                return $"저장 완료: 라벨 {label}";
+            }
+
+            if (status.ReviewState == YoloImageReviewState.NoCandidate)
+            {
+                return $"객체 없음 완료: 라벨 {label}";
+            }
+
+            if (status.ReviewState == YoloImageReviewState.Skipped)
+            {
+                return $"후보 숨김 완료: 라벨 {label}";
+            }
+
             string detection = FormatDetectionStatus(status);
-            return $"{label} / AI {detection}";
+            return $"저장 라벨 {label} / AI {detection}";
         }
 
         public static string TranslateDetectionMessage(string message)
@@ -208,7 +224,7 @@ namespace MvcVisionSystem
 
             return message.Trim() switch
             {
-                "Detection failed." => "검출 실패",
+                "Detection failed." => "검사 실패",
                 "Detection request failed." => "요청 실패",
                 "Batch detection timed out." => "시간 초과",
                 "YOLO client is not connected." => "YOLO 미연결",
@@ -235,8 +251,8 @@ namespace MvcVisionSystem
 
             List<string> details = new List<string>
             {
-                $"라벨: {FormatLabelStatus(status.LabelText)}",
-                $"AI: {FormatDetectionStatus(status)}"
+                $"저장 라벨: {FormatLabelStatus(status.LabelText)}",
+                $"AI 후보: {FormatDetectionStatus(status)}"
             };
             if (status.DetectionAttemptCount > 0)
             {
@@ -245,7 +261,7 @@ namespace MvcVisionSystem
 
             if (!string.IsNullOrWhiteSpace(status.LastDetectionMessage))
             {
-                details.Add(status.LastDetectionMessage);
+                details.Add(TranslateDetectionMessage(status.LastDetectionMessage));
             }
 
             return string.Join(" / ", details);

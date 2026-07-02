@@ -122,66 +122,240 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                 </Trigger>
             </Style.Triggers>
         </Style>
+
+        <Style x:Key="ObjectReviewLabelSaveBadgeStyle" TargetType="Border">
+            <Setter Property="Background" Value="#1A2736" />
+            <Setter Property="BorderBrush" Value="#46515F" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="3" />
+            <Setter Property="Padding" Value="6,2" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding LabelSaveStateKey}" Value="Dirty">
+                    <Setter Property="Background" Value="#3D2517" />
+                    <Setter Property="BorderBrush" Value="#F5A623" />
+                </DataTrigger>
+                <DataTrigger Binding="{Binding LabelSaveStateKey}" Value="Saved">
+                    <Setter Property="Background" Value="#173B29" />
+                    <Setter Property="BorderBrush" Value="#57C785" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </UserControl.Resources>
 
     <Grid Margin="8">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
         </Grid.RowDefinitions>
-        <Grid Margin="0,0,0,6">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <TextBlock x:Name="ObjectReviewSummaryText"
-                       AutomationProperties.AutomationId="ObjectReviewSummaryText"
-                       Text="{Binding SummaryText}"
-                       Foreground="{DynamicResource SecondaryTextBrush}"
-                       FontFamily="Segoe UI"
-                       FontSize="11"
-                       VerticalAlignment="Center"
-                       TextTrimming="CharacterEllipsis" />
-            <ui:Button x:Name="DeleteObjectButton"
-                       Grid.Column="1"
-                       AutomationProperties.AutomationId="DeleteObjectButton"
-                       Style="{StaticResource ObjectReviewButtonStyle}"
-                       MinWidth="68"
-                       Height="26"
-                       Padding="8,0"
-                       Content="&#xC0AD;&#xC81C;"
-                       ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xD604;&#xC7AC; &#xB77C;&#xBCA8; &#xC0AD;&#xC81C;"
-                       IsEnabled="{Binding IsDeleteEnabled}"
-                       Command="{Binding DeleteObjectCommand}" />
-        </Grid>
-        <Grid Grid.Row="1" Margin="0,0,0,6">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*" />
-                <ColumnDefinition Width="Auto" />
-            </Grid.ColumnDefinitions>
-            <ComboBox x:Name="ObjectClassBox"
-                      AutomationProperties.AutomationId="ObjectClassBox"
-                      Style="{StaticResource ObjectReviewComboBoxStyle}"
-                      ItemsSource="{Binding ClassNames}"
-                      SelectedItem="{Binding SelectedClassName, Mode=TwoWay}"
-                      ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xD604;&#xC7AC; &#xB77C;&#xBCA8;&#xC5D0; &#xC801;&#xC6A9;&#xD560; &#xD074;&#xB798;&#xC2A4;" />
-            <ui:Button x:Name="ApplyObjectClassButton"
-                       Grid.Column="1"
-                       AutomationProperties.AutomationId="ApplyObjectClassButton"
-                       Style="{StaticResource ObjectReviewButtonStyle}"
-                       MinWidth="62"
-                       Height="26"
-                       Padding="8,0"
-                       Margin="6,0,0,0"
-                       Content="&#xC801;&#xC6A9;"
-                       ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xD604;&#xC7AC; &#xB77C;&#xBCA8; &#xD074;&#xB798;&#xC2A4; &#xBCC0;&#xACBD;"
-                       IsEnabled="{Binding IsApplyClassEnabled}"
-                       Command="{Binding ApplyObjectClassCommand}" />
-        </Grid>
+        <Border x:Name="ObjectReviewModePanel"
+                AutomationProperties.AutomationId="ObjectReviewModePanel"
+                Background="{DynamicResource CanvasBrush}"
+                BorderBrush="{DynamicResource BorderBrushDark}"
+                BorderThickness="1"
+                CornerRadius="5"
+                Padding="8,6"
+                Margin="0,0,0,8">
+            <StackPanel>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="ObjectReviewModeTitleText"
+                               AutomationProperties.AutomationId="ObjectReviewModeTitleText"
+                               Text="{Binding PanelModeTitleText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <Border x:Name="ObjectReviewModeBadge"
+                            Grid.Column="1"
+                            AutomationProperties.AutomationId="ObjectReviewModeBadge"
+                            Background="#173B29"
+                            BorderBrush="#57C785"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="6,2"
+                            Margin="6,0,0,0"
+                            VerticalAlignment="Center">
+                        <TextBlock x:Name="ObjectReviewModeBadgeText"
+                                   AutomationProperties.AutomationId="ObjectReviewModeBadgeText"
+                                   Text="{Binding PanelModeBadgeText}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                    </Border>
+                </Grid>
+                <TextBlock x:Name="ObjectReviewModeScopeText"
+                           AutomationProperties.AutomationId="ObjectReviewModeScopeText"
+                           Text="{Binding PanelModeScopeText}"
+                           Foreground="#57C785"
+                           FontFamily="Segoe UI"
+                           FontSize="10"
+                           FontWeight="SemiBold"
+                           TextWrapping="Wrap"
+                           Margin="0,3,0,0" />
+                <TextBlock x:Name="ObjectReviewModeDetailText"
+                           AutomationProperties.AutomationId="ObjectReviewModeDetailText"
+                           Text="{Binding PanelModeDetailText}"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="10"
+                           TextWrapping="Wrap"
+                           Margin="0,2,0,0" />
+                <TextBlock x:Name="ObjectReviewActionGuideText"
+                           AutomationProperties.AutomationId="ObjectReviewActionGuideText"
+                           Text="{Binding ActionGuideText}"
+                           Foreground="{DynamicResource DisabledTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="10"
+                           TextWrapping="Wrap"
+                           Margin="0,3,0,0" />
+            </StackPanel>
+        </Border>
+        <Border x:Name="ObjectReviewCurrentTaskPanel"
+                AutomationProperties.AutomationId="ObjectReviewCurrentTaskPanel"
+                Grid.Row="1"
+                Background="{DynamicResource CanvasBrush}"
+                BorderBrush="{DynamicResource BorderBrushDark}"
+                BorderThickness="1"
+                CornerRadius="5"
+                Padding="8,6"
+                Margin="0,0,0,8">
+            <StackPanel>
+                <TextBlock x:Name="ObjectReviewSummaryText"
+                           AutomationProperties.AutomationId="ObjectReviewSummaryText"
+                           Text="{Binding SummaryText}"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="10.5"
+                           TextTrimming="CharacterEllipsis" />
+                <Grid Margin="0,5,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="ObjectReviewLabelSaveBadge"
+                            AutomationProperties.AutomationId="ObjectReviewLabelSaveBadge"
+                            Style="{StaticResource ObjectReviewLabelSaveBadgeStyle}">
+                        <TextBlock x:Name="ObjectReviewLabelSaveBadgeText"
+                                   AutomationProperties.AutomationId="ObjectReviewLabelSaveBadgeText"
+                                   Text="{Binding LabelSaveBadgeText}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                    </Border>
+                    <TextBlock x:Name="ObjectReviewLabelSaveDetailText"
+                               Grid.Column="1"
+                               AutomationProperties.AutomationId="ObjectReviewLabelSaveDetailText"
+                               Text="{Binding LabelSaveDetailText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               Margin="6,1,0,0"
+                               TextWrapping="Wrap" />
+                </Grid>
+                <TextBlock x:Name="ObjectReviewSelectedTaskTitleText"
+                           AutomationProperties.AutomationId="ObjectReviewSelectedTaskTitleText"
+                           Text="{Binding SelectedObjectTaskTitleText}"
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="12"
+                           FontWeight="SemiBold"
+                           Margin="0,3,0,0"
+                           TextTrimming="CharacterEllipsis" />
+                <TextBlock x:Name="ObjectReviewSelectedTaskDetailText"
+                           AutomationProperties.AutomationId="ObjectReviewSelectedTaskDetailText"
+                           Text="{Binding SelectedObjectTaskDetailText}"
+                           Foreground="{DynamicResource PrimaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           Margin="0,2,0,0"
+                           TextWrapping="Wrap" />
+                <TextBlock x:Name="ObjectReviewSelectedTaskActionText"
+                           AutomationProperties.AutomationId="ObjectReviewSelectedTaskActionText"
+                           Text="{Binding SelectedObjectTaskActionText}"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="10"
+                           Margin="0,3,0,0"
+                           TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+        <Border x:Name="ObjectReviewEditPanel"
+                AutomationProperties.AutomationId="ObjectReviewEditPanel"
+                Grid.Row="2"
+                Background="{DynamicResource CanvasBrush}"
+                BorderBrush="{DynamicResource BorderBrushDark}"
+                BorderThickness="1"
+                CornerRadius="5"
+                Padding="8,6"
+                Margin="0,0,0,8">
+            <StackPanel>
+                <Grid Margin="0,0,0,5">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock x:Name="ObjectReviewEditTitleText"
+                               AutomationProperties.AutomationId="ObjectReviewEditTitleText"
+                               Text="&#xC120;&#xD0DD; &#xB77C;&#xBCA8; &#xC218;&#xC815;"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="12"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               TextTrimming="CharacterEllipsis" />
+                    <ui:Button x:Name="DeleteObjectButton"
+                               Grid.Column="1"
+                               AutomationProperties.AutomationId="DeleteObjectButton"
+                               Style="{StaticResource ObjectReviewButtonStyle}"
+                               MinWidth="58"
+                               Height="24"
+                               Padding="8,0"
+                               Content="&#xC0AD;&#xC81C;"
+                               ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xC800;&#xC7A5; &#xB77C;&#xBCA8; &#xC0AD;&#xC81C;"
+                               IsEnabled="{Binding IsDeleteEnabled}"
+                               Command="{Binding DeleteObjectCommand}" />
+                </Grid>
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <ComboBox x:Name="ObjectClassBox"
+                              AutomationProperties.AutomationId="ObjectClassBox"
+                              Style="{StaticResource ObjectReviewComboBoxStyle}"
+                              ItemsSource="{Binding ClassNames}"
+                              SelectedItem="{Binding SelectedClassName, Mode=TwoWay}"
+                              ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xC800;&#xC7A5; &#xB77C;&#xBCA8;&#xC5D0; &#xC801;&#xC6A9;&#xD560; &#xD074;&#xB798;&#xC2A4;" />
+                    <ui:Button x:Name="ApplyObjectClassButton"
+                               Grid.Column="1"
+                               AutomationProperties.AutomationId="ApplyObjectClassButton"
+                               Style="{StaticResource ObjectReviewButtonStyle}"
+                               MinWidth="58"
+                               Height="24"
+                               Padding="8,0"
+                               Margin="6,0,0,0"
+                               Content="&#xC801;&#xC6A9;"
+                               ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xC800;&#xC7A5; &#xB77C;&#xBCA8; &#xD074;&#xB798;&#xC2A4; &#xBCC0;&#xACBD;"
+                               IsEnabled="{Binding IsApplyClassEnabled}"
+                               Command="{Binding ApplyObjectClassCommand}" />
+                </Grid>
+            </StackPanel>
+        </Border>
         <ListBox x:Name="ObjectListBox"
                  AutomationProperties.AutomationId="ObjectListBox"
-                 Grid.Row="2"
+                 Grid.Row="3"
                  Background="Transparent"
                  BorderThickness="0"
                  Foreground="{DynamicResource SecondaryTextBrush}"

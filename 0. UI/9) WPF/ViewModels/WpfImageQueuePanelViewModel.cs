@@ -1,5 +1,8 @@
 using OpenVisionLab.Mvvm;
 using System;
+using System.ComponentModel;
+using System.IO;
+using System.Linq;
 using System.Windows.Input;
 
 namespace MvcVisionSystem
@@ -14,14 +17,17 @@ namespace MvcVisionSystem
         private bool isOpenSelectedImageEnabled;
         private bool isDetectSelectedEnabled;
         private bool isBatchDetectEnabled;
+        private bool isTemplateBatchEnabled;
         private bool isRetryFailedEnabled;
         private bool isStopBatchEnabled;
+        private string queueFilterUnfinishedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC791\uC5C5 \uD544\uC694", 0);
         private string queueFilterAllText = "\uC804\uCCB4";
-        private string queueFilterCandidateText = WpfImageQueuePresenter.FormatQuickFilterText("\uD6C4\uBCF4", 0);
+        private string queueFilterCandidateText = WpfImageQueuePresenter.FormatQuickFilterText("AI \uD6C4\uBCF4", 0);
         private string queueFilterFailedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC2E4\uD328", 0);
-        private string queueFilterConfirmedText = WpfImageQueuePresenter.FormatQuickFilterText("\uD655\uC815", 0);
-        private string queueFilterSkippedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC2A4\uD0B5", 0);
-        private string queueFilterNoCandidateText = WpfImageQueuePresenter.FormatQuickFilterText("\uAC80\uCD9C\uC5C6\uC74C", 0);
+        private string queueFilterConfirmedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC800\uC7A5\uB428", 0);
+        private string queueFilterSkippedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC228\uAE40", 0);
+        private string queueFilterNoCandidateText = WpfImageQueuePresenter.FormatQuickFilterText("\uAC1D\uCCB4\uC5C6\uC74C", 0);
+        private bool isQueueFilterUnfinishedActive;
         private bool isQueueFilterAllActive = true;
         private bool isQueueFilterCandidateActive;
         private bool isQueueFilterFailedActive;
@@ -29,16 +35,27 @@ namespace MvcVisionSystem
         private bool isQueueFilterSkippedActive;
         private bool isQueueFilterNoCandidateActive;
         private WpfImageQueueItem selectedQueueItem;
+        private string currentImageTaskTitleText = "\uC774\uBBF8\uC9C0 \uC120\uD0DD";
+        private string currentImageTaskDetailText = "\uC67C\uCABD \uBAA9\uB85D\uC5D0\uC11C \uC774\uBBF8\uC9C0\uB97C \uC120\uD0DD\uD558\uBA74 \uC800\uC7A5/\uAC80\uC0AC \uC0C1\uD0DC\uB97C \uBCF4\uC5EC\uC90D\uB2C8\uB2E4.";
+        private string currentImageTaskBadgeText = "\uB300\uAE30";
+        private string currentImageTaskKey = "Waiting";
+        private string currentImageTaskToolTip = "\uC774\uBBF8\uC9C0\uB97C \uC120\uD0DD\uD558\uBA74 \uD604\uC7AC \uC791\uC5C5 \uC0C1\uD0DC\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
         private Action<WpfImageQueueItem> selectedQueueItemChanged = NoOpQueueItemCommand;
+        private string currentImageFolderPath = string.Empty;
+        private string currentImageFolderDisplayText = "이미지 폴더를 선택하세요.";
+        private bool isOpenCurrentImageFolderEnabled;
         private ICommand loadImageRootCommand = new RelayCommand(NoOpCommand);
         private ICommand browseImageFolderCommand = new RelayCommand(NoOpCommand);
+        private ICommand openCurrentImageFolderCommand = new RelayCommand(NoOpCommand);
         private ICommand refreshImageQueueCommand = new RelayCommand(NoOpCommand);
         private ICommand nextUnlabeledCommand = new RelayCommand(NoOpCommand);
         private ICommand openSelectedQueueImageCommand = new RelayCommand(NoOpCommand);
         private ICommand detectSelectedQueueCommand = new RelayCommand(NoOpCommand);
         private ICommand batchDetectQueueCommand = new RelayCommand(NoOpCommand);
+        private ICommand templateBatchQueueCommand = new RelayCommand(NoOpCommand);
         private ICommand retryFailedQueueCommand = new RelayCommand(NoOpCommand);
         private ICommand stopBatchQueueCommand = new RelayCommand(NoOpCommand);
+        private ICommand queueFilterUnfinishedCommand = new RelayCommand(NoOpCommand);
         private ICommand queueFilterAllCommand = new RelayCommand(NoOpCommand);
         private ICommand queueFilterCandidateCommand = new RelayCommand(NoOpCommand);
         private ICommand queueFilterFailedCommand = new RelayCommand(NoOpCommand);
@@ -52,17 +69,67 @@ namespace MvcVisionSystem
 
         public string ViewName => nameof(WpfImageQueuePanel);
 
+        public string NextUnlabeledActionText => "\uB2E4\uC74C \uBBF8\uC644\uB8CC";
+
+        public string NextUnlabeledToolTip => "\uC800\uC7A5\uB428/\uAC1D\uCCB4\uC5C6\uC74C \uC774\uBBF8\uC9C0\uB294 \uAC74\uB108\uB6F0\uACE0 \uB77C\uBCA8\uC774 \uD544\uC694\uD55C \uB2E4\uC74C \uC774\uBBF8\uC9C0\uB97C \uC5FD\uB2C8\uB2E4.";
+
         public WpfImageQueueItem SelectedQueueItem
         {
             get => selectedQueueItem;
             // Run selection from the bound property too, so headless tests and first-click UI paths do not depend on event attach timing.
             set
             {
+                if (ReferenceEquals(selectedQueueItem, value))
+                {
+                    return;
+                }
+
+                if (selectedQueueItem != null)
+                {
+                    selectedQueueItem.PropertyChanged -= OnSelectedQueueItemPropertyChanged;
+                }
+
                 if (SetProperty(ref selectedQueueItem, value))
                 {
+                    if (selectedQueueItem != null)
+                    {
+                        selectedQueueItem.PropertyChanged += OnSelectedQueueItemPropertyChanged;
+                    }
+
+                    RefreshCurrentImageTaskSummary();
                     selectedQueueItemChanged(value);
                 }
             }
+        }
+
+        public string CurrentImageTaskTitleText
+        {
+            get => currentImageTaskTitleText;
+            private set => SetProperty(ref currentImageTaskTitleText, value ?? string.Empty);
+        }
+
+        public string CurrentImageTaskDetailText
+        {
+            get => currentImageTaskDetailText;
+            private set => SetProperty(ref currentImageTaskDetailText, value ?? string.Empty);
+        }
+
+        public string CurrentImageTaskBadgeText
+        {
+            get => currentImageTaskBadgeText;
+            private set => SetProperty(ref currentImageTaskBadgeText, value ?? string.Empty);
+        }
+
+        public string CurrentImageTaskKey
+        {
+            get => currentImageTaskKey;
+            private set => SetProperty(ref currentImageTaskKey, value ?? "Waiting");
+        }
+
+        public string CurrentImageTaskToolTip
+        {
+            get => currentImageTaskToolTip;
+            private set => SetProperty(ref currentImageTaskToolTip, value ?? string.Empty);
         }
 
         public ICommand LoadImageRootCommand
@@ -75,6 +142,12 @@ namespace MvcVisionSystem
         {
             get => browseImageFolderCommand;
             private set => SetProperty(ref browseImageFolderCommand, value);
+        }
+
+        public ICommand OpenCurrentImageFolderCommand
+        {
+            get => openCurrentImageFolderCommand;
+            private set => SetProperty(ref openCurrentImageFolderCommand, value);
         }
 
         public ICommand RefreshImageQueueCommand
@@ -107,6 +180,12 @@ namespace MvcVisionSystem
             private set => SetProperty(ref batchDetectQueueCommand, value);
         }
 
+        public ICommand TemplateBatchQueueCommand
+        {
+            get => templateBatchQueueCommand;
+            private set => SetProperty(ref templateBatchQueueCommand, value);
+        }
+
         public ICommand RetryFailedQueueCommand
         {
             get => retryFailedQueueCommand;
@@ -117,6 +196,12 @@ namespace MvcVisionSystem
         {
             get => stopBatchQueueCommand;
             private set => SetProperty(ref stopBatchQueueCommand, value);
+        }
+
+        public ICommand QueueFilterUnfinishedCommand
+        {
+            get => queueFilterUnfinishedCommand;
+            private set => SetProperty(ref queueFilterUnfinishedCommand, value);
         }
 
         public ICommand QueueFilterAllCommand
@@ -197,6 +282,12 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isBatchDetectEnabled, value);
         }
 
+        public bool IsTemplateBatchEnabled
+        {
+            get => isTemplateBatchEnabled;
+            private set => SetProperty(ref isTemplateBatchEnabled, value);
+        }
+
         public bool IsRetryFailedEnabled
         {
             get => isRetryFailedEnabled;
@@ -207,6 +298,30 @@ namespace MvcVisionSystem
         {
             get => isStopBatchEnabled;
             private set => SetProperty(ref isStopBatchEnabled, value);
+        }
+
+        public string CurrentImageFolderPath
+        {
+            get => currentImageFolderPath;
+            private set => SetProperty(ref currentImageFolderPath, value ?? string.Empty);
+        }
+
+        public string CurrentImageFolderDisplayText
+        {
+            get => currentImageFolderDisplayText;
+            private set => SetProperty(ref currentImageFolderDisplayText, value ?? string.Empty);
+        }
+
+        public bool IsOpenCurrentImageFolderEnabled
+        {
+            get => isOpenCurrentImageFolderEnabled;
+            private set => SetProperty(ref isOpenCurrentImageFolderEnabled, value);
+        }
+
+        public string QueueFilterUnfinishedText
+        {
+            get => queueFilterUnfinishedText;
+            private set => SetProperty(ref queueFilterUnfinishedText, value);
         }
 
         public string QueueFilterAllText
@@ -243,6 +358,12 @@ namespace MvcVisionSystem
         {
             get => queueFilterNoCandidateText;
             private set => SetProperty(ref queueFilterNoCandidateText, value);
+        }
+
+        public bool IsQueueFilterUnfinishedActive
+        {
+            get => isQueueFilterUnfinishedActive;
+            private set => SetProperty(ref isQueueFilterUnfinishedActive, value);
         }
 
         public bool IsQueueFilterAllActive
@@ -284,13 +405,16 @@ namespace MvcVisionSystem
         public void ConfigureCommands(
             Action loadImageRoot,
             Action browseImageFolder,
+            Action openCurrentImageFolder,
             Action refreshImageQueue,
             Action nextUnlabeled,
             Action openSelectedQueueImage,
             Action detectSelectedQueue,
             Action batchDetectQueue,
+            Action templateBatchQueue,
             Action retryFailedQueue,
             Action stopBatchQueue,
+            Action queueFilterUnfinished,
             Action queueFilterAll,
             Action queueFilterCandidate,
             Action queueFilterFailed,
@@ -306,13 +430,16 @@ namespace MvcVisionSystem
             // Queue actions stay injected so the virtualized queue view does not relay UI events through code-behind.
             LoadImageRootCommand = new RelayCommand(loadImageRoot ?? NoOpCommand);
             BrowseImageFolderCommand = new RelayCommand(browseImageFolder ?? NoOpCommand);
+            OpenCurrentImageFolderCommand = new RelayCommand(openCurrentImageFolder ?? NoOpCommand);
             RefreshImageQueueCommand = new RelayCommand(refreshImageQueue ?? NoOpCommand);
             NextUnlabeledCommand = new RelayCommand(nextUnlabeled ?? NoOpCommand);
             OpenSelectedQueueImageCommand = new RelayCommand(openSelectedQueueImage ?? NoOpCommand);
             DetectSelectedQueueCommand = new RelayCommand(detectSelectedQueue ?? NoOpCommand);
             BatchDetectQueueCommand = new RelayCommand(batchDetectQueue ?? NoOpCommand);
+            TemplateBatchQueueCommand = new RelayCommand(templateBatchQueue ?? NoOpCommand);
             RetryFailedQueueCommand = new RelayCommand(retryFailedQueue ?? NoOpCommand);
             StopBatchQueueCommand = new RelayCommand(stopBatchQueue ?? NoOpCommand);
+            QueueFilterUnfinishedCommand = new RelayCommand(queueFilterUnfinished ?? NoOpCommand);
             QueueFilterAllCommand = new RelayCommand(queueFilterAll ?? NoOpCommand);
             QueueFilterCandidateCommand = new RelayCommand(queueFilterCandidate ?? NoOpCommand);
             QueueFilterFailedCommand = new RelayCommand(queueFilterFailed ?? NoOpCommand);
@@ -325,6 +452,15 @@ namespace MvcVisionSystem
             QueueSelectionChangedCommand = new RelayCommand<object>(queueSelectionChanged ?? NoOpSelectionCommand);
             QueueMouseDoubleClickCommand = new RelayCommand(queueMouseDoubleClick ?? NoOpMouseCommand);
         }
+
+        public void SetCurrentImageFolder(string folderPath, bool canOpenFolder)
+        {
+            string normalizedPath = string.IsNullOrWhiteSpace(folderPath) ? string.Empty : folderPath.Trim();
+            CurrentImageFolderPath = normalizedPath;
+            CurrentImageFolderDisplayText = FormatFolderDisplayPath(normalizedPath);
+            IsOpenCurrentImageFolderEnabled = canOpenFolder && !string.IsNullOrWhiteSpace(normalizedPath);
+        }
+
         public void SetSelectedImageAvailability(bool canOpenSelectedImage)
         {
             IsOpenSelectedImageEnabled = canOpenSelectedImage;
@@ -335,6 +471,7 @@ namespace MvcVisionSystem
             bool canRunInference = state?.CanRunInference == true;
             IsDetectSelectedEnabled = canRunInference;
             IsBatchDetectEnabled = canRunInference;
+            IsTemplateBatchEnabled = state?.CanRunGeneralCommands == true;
             IsRetryFailedEnabled = canRunInference;
             IsStopBatchEnabled = state?.CanStopBatchDetection == true;
         }
@@ -345,21 +482,210 @@ namespace MvcVisionSystem
             int failedCount,
             int confirmedCount,
             int skippedCount,
-            int noCandidateCount)
+            int noCandidateCount,
+            int unfinishedCount = 0)
         {
+            QueueFilterUnfinishedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC791\uC5C5 \uD544\uC694", unfinishedCount);
             QueueFilterAllText = "\uC804\uCCB4";
-            QueueFilterCandidateText = WpfImageQueuePresenter.FormatQuickFilterText("\uD6C4\uBCF4", candidateCount);
+            QueueFilterCandidateText = WpfImageQueuePresenter.FormatQuickFilterText("AI \uD6C4\uBCF4", candidateCount);
             QueueFilterFailedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC2E4\uD328", failedCount);
-            QueueFilterConfirmedText = WpfImageQueuePresenter.FormatQuickFilterText("\uD655\uC815", confirmedCount);
-            QueueFilterSkippedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC2A4\uD0B5", skippedCount);
-            QueueFilterNoCandidateText = WpfImageQueuePresenter.FormatQuickFilterText("\uAC80\uCD9C\uC5C6\uC74C", noCandidateCount);
+            QueueFilterConfirmedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC800\uC7A5\uB428", confirmedCount);
+            QueueFilterSkippedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC228\uAE40", skippedCount);
+            QueueFilterNoCandidateText = WpfImageQueuePresenter.FormatQuickFilterText("\uAC1D\uCCB4\uC5C6\uC74C", noCandidateCount);
 
+            IsQueueFilterUnfinishedActive = selectedFilter == WpfImageQueueFilter.Unlabeled;
             IsQueueFilterAllActive = selectedFilter == WpfImageQueueFilter.All;
             IsQueueFilterCandidateActive = selectedFilter == WpfImageQueueFilter.Candidate;
             IsQueueFilterFailedActive = selectedFilter == WpfImageQueueFilter.Failed;
             IsQueueFilterConfirmedActive = selectedFilter == WpfImageQueueFilter.Confirmed;
             IsQueueFilterSkippedActive = selectedFilter == WpfImageQueueFilter.Skipped;
             IsQueueFilterNoCandidateActive = selectedFilter == WpfImageQueueFilter.NoCandidate;
+        }
+
+        private void OnSelectedQueueItemPropertyChanged(object sender, PropertyChangedEventArgs e)
+        {
+            if (string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.QueueStatusSummary), StringComparison.Ordinal)
+                || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.QueueBadgeText), StringComparison.Ordinal)
+                || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.LabelStatus), StringComparison.Ordinal)
+                || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.DetectStatus), StringComparison.Ordinal)
+                || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.ReviewState), StringComparison.Ordinal)
+                || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.IsLabeled), StringComparison.Ordinal)
+                || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.IsSaveRequired), StringComparison.Ordinal)
+                || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.FileName), StringComparison.Ordinal))
+            {
+                RefreshCurrentImageTaskSummary();
+            }
+        }
+
+        private void RefreshCurrentImageTaskSummary()
+        {
+            WpfImageQueueItem item = selectedQueueItem;
+            if (item == null)
+            {
+                CurrentImageTaskTitleText = "\uC774\uBBF8\uC9C0 \uC120\uD0DD";
+                CurrentImageTaskDetailText = "\uC67C\uCABD \uBAA9\uB85D\uC5D0\uC11C \uC774\uBBF8\uC9C0\uB97C \uC120\uD0DD\uD558\uBA74 \uC800\uC7A5/\uAC80\uC0AC \uC0C1\uD0DC\uB97C \uBCF4\uC5EC\uC90D\uB2C8\uB2E4.";
+                CurrentImageTaskBadgeText = "\uB300\uAE30";
+                CurrentImageTaskKey = "Waiting";
+                CurrentImageTaskToolTip = BuildCurrentImageTaskToolTip(
+                    null,
+                    CurrentImageTaskTitleText,
+                    CurrentImageTaskDetailText,
+                    "\uC774\uBBF8\uC9C0\uB97C \uC120\uD0DD\uD558\uBA74 \uD604\uC7AC \uC791\uC5C5 \uC0C1\uD0DC\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.");
+                return;
+            }
+
+            string labelStatus = string.IsNullOrWhiteSpace(item.LabelStatus) ? "\uC5C6\uC74C" : item.LabelStatus;
+            string detectStatus = string.IsNullOrWhiteSpace(item.DetectStatus) ? "\uB300\uAE30" : item.DetectStatus;
+            string statusSummary = string.IsNullOrWhiteSpace(item.QueueStatusSummary)
+                ? $"\uC800\uC7A5 {labelStatus} / \uAC80\uC0AC {detectStatus}"
+                : item.QueueStatusSummary;
+
+            if (item.IsSaveRequired)
+            {
+                CurrentImageTaskTitleText = "\uB77C\uBCA8 \uC800\uC7A5 \uD544\uC694";
+                CurrentImageTaskDetailText = statusSummary;
+                CurrentImageTaskBadgeText = string.IsNullOrWhiteSpace(item.QueueBadgeText)
+                    ? "\uC800\uC7A5 \uD544\uC694"
+                    : item.QueueBadgeText;
+                CurrentImageTaskKey = "SaveRequired";
+                CurrentImageTaskToolTip = BuildCurrentImageTaskToolTip(
+                    item.FileName,
+                    CurrentImageTaskTitleText,
+                    CurrentImageTaskDetailText,
+                    statusSummary);
+                return;
+            }
+
+            switch (item.ReviewState)
+            {
+                case Yolo.YoloImageReviewState.Requested:
+                    CurrentImageTaskTitleText = "\uAC80\uC0AC \uC9C4\uD589 \uC911";
+                    CurrentImageTaskDetailText = "\uAC80\uC0AC \uACB0\uACFC\uB97C \uAE30\uB2E4\uB9AC\uB294 \uC774\uBBF8\uC9C0\uC785\uB2C8\uB2E4.";
+                    CurrentImageTaskBadgeText = "\uAC80\uC0AC\uC911";
+                    CurrentImageTaskKey = "Requested";
+                    break;
+                case Yolo.YoloImageReviewState.Candidate:
+                    CurrentImageTaskTitleText = "AI \uD6C4\uBCF4 \uAC80\uD1A0";
+                    CurrentImageTaskDetailText = "\uD6C4\uBCF4\uB97C \uD655\uC815\uD558\uAC70\uB098 \uC228\uAE30\uC138\uC694. \uD655\uC815\uD558\uBA74 \uC800\uC7A5 \uB77C\uBCA8\uC5D0 \uC790\uB3D9 \uBC18\uC601\uB429\uB2C8\uB2E4.";
+                    CurrentImageTaskBadgeText = string.IsNullOrWhiteSpace(item.QueueBadgeText) ? "AI" : item.QueueBadgeText;
+                    CurrentImageTaskKey = "Candidate";
+                    break;
+                case Yolo.YoloImageReviewState.Failed:
+                    CurrentImageTaskTitleText = "\uAC80\uC0AC \uC2E4\uD328";
+                    CurrentImageTaskDetailText = statusSummary;
+                    CurrentImageTaskBadgeText = "\uC2E4\uD328";
+                    CurrentImageTaskKey = "Failed";
+                    break;
+                case Yolo.YoloImageReviewState.Confirmed:
+                    CurrentImageTaskTitleText = "\uB77C\uBCA8 \uC800\uC7A5 \uC644\uB8CC";
+                    CurrentImageTaskDetailText = "\uB2E4\uC74C \uBBF8\uC644\uB8CC\uB85C \uC774\uB3D9\uD558\uAC70\uB098, \uD544\uC694\uD558\uBA74 \uB2E4\uC2DC \uC5F4\uC5B4 \uC218\uC815\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
+                    CurrentImageTaskBadgeText = "\uC800\uC7A5";
+                    CurrentImageTaskKey = "Saved";
+                    break;
+                case Yolo.YoloImageReviewState.NoCandidate:
+                    CurrentImageTaskTitleText = "\uAC1D\uCCB4 \uC5C6\uC74C \uC644\uB8CC";
+                    CurrentImageTaskDetailText = "\uAC1D\uCCB4 \uC5C6\uC74C\uC73C\uB85C \uC800\uC7A5\uB428. \uB2E4\uC74C \uBBF8\uC644\uB8CC\uB85C \uC774\uB3D9\uD558\uAC70\uB098 \uB2E4\uC2DC \uC5F4\uC5B4 \uC218\uC815\uD558\uC138\uC694.";
+                    CurrentImageTaskBadgeText = "\uAC1D\uCCB4\uC5C6\uC74C";
+                    CurrentImageTaskKey = "Saved";
+                    break;
+                case Yolo.YoloImageReviewState.Skipped:
+                    CurrentImageTaskTitleText = "\uD6C4\uBCF4 \uC228\uAE40";
+                    CurrentImageTaskDetailText = "AI \uD6C4\uBCF4\uB97C \uC228\uAE34 \uC0C1\uD0DC\uC785\uB2C8\uB2E4. \uD544\uC694\uD558\uBA74 \uB2E4\uC2DC \uAC80\uD1A0\uD558\uC138\uC694.";
+                    CurrentImageTaskBadgeText = "\uC228\uAE40";
+                    CurrentImageTaskKey = "Skipped";
+                    break;
+                default:
+                    if (item.IsLabeled)
+                    {
+                        CurrentImageTaskTitleText = "\uC800\uC7A5 \uB77C\uBCA8 \uC788\uC74C";
+                        CurrentImageTaskDetailText = $"\uC800\uC7A5 {labelStatus} / \uAC80\uC0AC {detectStatus}. \uB2E4\uC74C \uBBF8\uC644\uB8CC\uB85C \uC774\uB3D9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
+                        CurrentImageTaskBadgeText = "\uC800\uC7A5";
+                        CurrentImageTaskKey = "Saved";
+                    }
+                    else
+                    {
+                        CurrentImageTaskTitleText = "\uB77C\uBCA8 \uC791\uC5C5 \uD544\uC694";
+                        CurrentImageTaskDetailText = "\uBC15\uC2A4\uB97C \uADF8\uB9B0 \uB4A4 \uB77C\uBCA8 \uC800\uC7A5, \uB610\uB294 \uAC1D\uCCB4 \uC5C6\uC74C\uC744 \uC120\uD0DD\uD558\uC138\uC694.";
+                        CurrentImageTaskBadgeText = "\uC791\uC5C5";
+                        CurrentImageTaskKey = "NeedsLabel";
+                    }
+
+                    break;
+            }
+
+            CurrentImageTaskToolTip = BuildCurrentImageTaskToolTip(
+                item.FileName,
+                CurrentImageTaskTitleText,
+                CurrentImageTaskDetailText,
+                statusSummary);
+        }
+
+        private static string BuildCurrentImageTaskToolTip(
+            string fileName,
+            string title,
+            string detail,
+            string statusSummary)
+        {
+            string normalizedTitle = string.IsNullOrWhiteSpace(title) ? string.Empty : title.Trim();
+            string normalizedDetail = string.IsNullOrWhiteSpace(detail) ? string.Empty : detail.Trim();
+            string normalizedStatus = string.IsNullOrWhiteSpace(statusSummary) ? string.Empty : statusSummary.Trim();
+            string normalizedFileName = string.IsNullOrWhiteSpace(fileName) ? string.Empty : fileName.Trim();
+            string text = string.IsNullOrWhiteSpace(normalizedFileName)
+                ? normalizedTitle
+                : $"{normalizedFileName}{Environment.NewLine}{normalizedTitle}";
+
+            if (!string.IsNullOrWhiteSpace(normalizedDetail)
+                && !string.Equals(normalizedDetail, normalizedTitle, StringComparison.Ordinal))
+            {
+                text = string.IsNullOrWhiteSpace(text)
+                    ? normalizedDetail
+                    : $"{text}{Environment.NewLine}{normalizedDetail}";
+            }
+
+            if (!string.IsNullOrWhiteSpace(normalizedStatus)
+                && !string.Equals(normalizedStatus, normalizedDetail, StringComparison.Ordinal)
+                && !string.Equals(normalizedStatus, normalizedTitle, StringComparison.Ordinal))
+            {
+                text = string.IsNullOrWhiteSpace(text)
+                    ? normalizedStatus
+                    : $"{text}{Environment.NewLine}\uC0C1\uD0DC: {normalizedStatus}";
+            }
+
+            return text;
+        }
+
+        private static string FormatFolderDisplayPath(string folderPath)
+        {
+            if (string.IsNullOrWhiteSpace(folderPath))
+            {
+                return "이미지 폴더를 선택하세요.";
+            }
+
+            const int MaximumVisibleCharacters = 54;
+            if (folderPath.Length <= MaximumVisibleCharacters)
+            {
+                return folderPath;
+            }
+
+            try
+            {
+                string root = Path.GetPathRoot(folderPath) ?? string.Empty;
+                string relativePath = folderPath.Substring(root.Length);
+                string[] segments = relativePath
+                    .Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar }, StringSplitOptions.RemoveEmptyEntries);
+                if (segments.Length <= 3)
+                {
+                    return folderPath;
+                }
+
+                string separator = Path.DirectorySeparatorChar.ToString();
+                string tail = string.Join(separator, segments.Skip(Math.Max(0, segments.Length - 3)));
+                return $"{root}...{separator}{tail}";
+            }
+            catch (ArgumentException)
+            {
+                return folderPath;
+            }
         }
     }
 }

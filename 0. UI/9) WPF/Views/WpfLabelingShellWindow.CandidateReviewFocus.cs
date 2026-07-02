@@ -20,7 +20,7 @@ namespace MvcVisionSystem
             {
                 if (logIfMissing)
                 {
-                    AppendLog("초점을 맞출 검출 후보를 선택하세요.");
+                    AppendLog("초점을 맞출 AI 후보를 선택하세요.");
                 }
 
                 return false;
@@ -60,8 +60,9 @@ namespace MvcVisionSystem
             }
 
             // Candidate Review can point at the existing label, but Object Review still owns label editing.
+            ApplyCanvasDisplayMode(WpfCanvasDisplayMode.LabelsOnly, redraw: true, logChange: false);
             RefreshObjectListWithSelection(overlap.CurrentObjectRef);
-            ObjectsReviewTab.IsSelected = true;
+            ShowSavedLabelsWorkflowView();
             if (overlap.CurrentObjectRef.Source == WpfObjectReviewSource.ManualRoi)
             {
                 MainCanvasViewModel.SelectRoiOverlayById(overlap.CurrentObjectRef.SourceId, refreshImmediately: true);
@@ -99,6 +100,7 @@ namespace MvcVisionSystem
                 return false;
             }
 
+            ApplyCanvasDisplayMode(WpfCanvasDisplayMode.InferenceOnly, redraw: true, logChange: false);
             MainCanvasViewModel.ImageViewer.FitToRect(BuildCandidateFocusRect(bounds));
             SetModelStatus($"후보 초점: {candidate.ClassName} {candidate.Confidence:P1}  {WpfCandidateReviewPresenter.FormatBoundsCompact(bounds)}");
             return true;

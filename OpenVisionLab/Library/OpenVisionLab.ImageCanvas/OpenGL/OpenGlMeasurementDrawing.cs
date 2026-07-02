@@ -74,12 +74,8 @@ namespace OpenVisionLab.ImageCanvas.OpenGLRendering
 			string faceName = glFontRenderOptions.FontName;
 			float fontSize = glFontRenderOptions.FontSize;
 			System.Drawing.Color color = glFontRenderOptions.Color;
-			System.Drawing.Color color2 = System.Drawing.Color.Blue;
-			System.Drawing.Color color3 = System.Drawing.Color.Yellow;
 
-			//DrawViewerBaseText(gl, fontBitmapEntries, xSpanPixed, ySpanPixed, (int)midX, (int)midY, color2, faceName, 30, distanceText);
 			DrawText(gl, fontBitmapEntries, xSpan, ySpan, offsetSize, (int)midX, (int)midY, color, faceName, fontSize, distanceText);
-			//DrawFixedText(gl, fontBitmapEntries, (int)midX, (int)midY, offsetSizePixed, color3, faceName, fontSize, distanceText);
 		}
 
 		public static void DrawTextOnTexture(OpenGL gl, string text, float texCoordX, float texCoordY, Size glControlSize)

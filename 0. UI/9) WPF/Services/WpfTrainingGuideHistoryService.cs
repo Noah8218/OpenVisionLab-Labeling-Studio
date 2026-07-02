@@ -120,7 +120,7 @@ namespace MvcVisionSystem
             if (!string.IsNullOrWhiteSpace(history.AppliedWeightsPath))
             {
                 string savedText = history.AppliedWeightsSavedToRecipe ? "recipe 저장됨" : "recipe 미저장";
-                parts.Add($"weight {Path.GetFileName(history.AppliedWeightsPath)} / {savedText}");
+                parts.Add($"weight {WpfTrainingWeightsService.FormatWeightsDisplayPath(history.AppliedWeightsPath)} / {savedText}");
             }
 
             return parts.Count == 0

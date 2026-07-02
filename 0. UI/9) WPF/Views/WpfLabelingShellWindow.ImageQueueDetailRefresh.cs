@@ -94,6 +94,7 @@ namespace MvcVisionSystem
             item.LabelStatus = FormatLabelStatusForQueue(status.LabelText);
             item.DetectStatus = FormatDetectionStatusForQueue(status);
             item.IsLabeled = status.IsLabeled;
+            item.IsSaveRequired = false;
             item.ReviewState = status.ReviewState;
             item.QueueIconKind = GetQueueIconKind(status);
             item.QueueIconBrush = GetQueueIconBrush(status);
@@ -102,6 +103,11 @@ namespace MvcVisionSystem
             item.QueueBadgeText = BuildQueueBadgeText(status);
             item.QueueStatusSummary = BuildQueueStatusSummary(status);
             item.Detail = BuildReviewDetailText(status);
+            if (IsActiveImageQueueSaveRequired(item))
+            {
+                ApplySaveRequiredStatusToQueueItem(item, annotationDirtyReason);
+            }
+
             RefreshYoloTrainingStepCompletion();
         }
     }

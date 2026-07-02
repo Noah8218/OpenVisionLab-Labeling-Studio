@@ -5,10 +5,10 @@
         xmlns:local="clr-namespace:MvcVisionSystem"
         xmlns:shell="clr-namespace:System.Windows.Shell;assembly=PresentationFramework"
         Title="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC0DD;&#xC131;"
-        Width="600"
-        Height="740"
-        MinWidth="560"
-        MinHeight="650"
+        Width="900"
+        Height="820"
+        MinWidth="820"
+        MinHeight="680"
         WindowStartupLocation="CenterOwner"
         Background="#151515"
         Foreground="#F3F4F6"
@@ -129,11 +129,59 @@
 
             <StackPanel Grid.Row="0" Margin="0,0,0,14">
                 <TextBlock x:Name="WizardSummaryText"
-                           Text="&#xBAA9;&#xC801;, Recipe, &#xC800;&#xC7A5; &#xACBD;&#xB85C;, &#xCD08;&#xAE30; &#xD074;&#xB798;&#xC2A4;&#xB97C; &#xD655;&#xC778;&#xD55C; &#xB4A4; &#xB77C;&#xBCA8;&#xB9C1;&#xC744; &#xC2DC;&#xC791;&#xD569;&#xB2C8;&#xB2E4;."
+                           AutomationProperties.AutomationId="WizardSummaryText"
+                           Text="{Binding SetupSummaryText}"
                            Foreground="{StaticResource SecondaryTextBrush}"
                            FontFamily="Segoe UI"
                            FontSize="12"
                            TextWrapping="Wrap" />
+                <Border x:Name="DatasetSetupSourceRuleSection"
+                        AutomationProperties.AutomationId="DatasetSetupSourceRuleSection"
+                        Background="#211C1C"
+                        BorderBrush="{StaticResource AccentBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6"
+                        Padding="12"
+                        Margin="0,10,0,0">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <iconPacks:PackIconMaterial Kind="DatabaseCogOutline"
+                                                    Width="20"
+                                                    Height="20"
+                                                    Foreground="{StaticResource AccentBrush}"
+                                                    VerticalAlignment="Top"
+                                                    Margin="0,2,10,0" />
+                        <StackPanel Grid.Column="1">
+                            <TextBlock x:Name="WizardSourceRuleTitleText"
+                                       AutomationProperties.AutomationId="WizardSourceRuleTitleText"
+                                       Text="{Binding SetupSourceRuleTitleText}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="WizardSourceRuleDetailText"
+                                       AutomationProperties.AutomationId="WizardSourceRuleDetailText"
+                                       Text="{Binding SetupSourceRuleDetailText}"
+                                       Foreground="{StaticResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="11"
+                                       TextWrapping="Wrap"
+                                       Margin="0,5,0,0" />
+                            <TextBlock x:Name="WizardSourceRuleChecklistText"
+                                       AutomationProperties.AutomationId="WizardSourceRuleChecklistText"
+                                       Text="{Binding SetupSourceRuleChecklistText}"
+                                       Foreground="#E5E7EB"
+                                       FontFamily="Segoe UI"
+                                       FontSize="11"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"
+                                       Margin="0,6,0,0" />
+                        </StackPanel>
+                    </Grid>
+                </Border>
             </StackPanel>
 
             <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto">
@@ -188,6 +236,14 @@
                                     </ItemsPanelTemplate>
                                 </ListBox.ItemsPanel>
                             </ListBox>
+                            <TextBlock x:Name="WizardImageSourceText"
+                                       AutomationProperties.AutomationId="WizardImageSourceText"
+                                       Text="{Binding ImageSourcePreviewText}"
+                                       Foreground="{StaticResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="11"
+                                       TextWrapping="Wrap"
+                                       Margin="0,8,0,0" />
                         </StackPanel>
                     </Border>
 
@@ -244,6 +300,14 @@
                                     </StackPanel>
                                 </Button>
                             </Grid>
+                            <TextBlock x:Name="WizardStorageHelpText"
+                                       AutomationProperties.AutomationId="WizardStorageHelpText"
+                                       Text="{Binding StorageHelpText}"
+                                       Foreground="{StaticResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="11"
+                                       TextWrapping="Wrap"
+                                       Margin="0,7,0,0" />
                         </StackPanel>
                     </Border>
 
@@ -254,16 +318,30 @@
                             CornerRadius="6"
                             Padding="12">
                         <StackPanel>
-                            <TextBlock Text="&#xCD08;&#xAE30; &#xD074;&#xB798;&#xC2A4;" Style="{StaticResource WizardLabelStyle}" />
+                            <TextBlock Text="&#xCD08;&#xAE30; &#xD074;&#xB798;&#xC2A4; (&#xC5EC;&#xB7EC; &#xAC1C; &#xAC00;&#xB2A5;)" Style="{StaticResource WizardLabelStyle}" />
                             <TextBox x:Name="WizardClassNamesBox"
                                      Style="{StaticResource WizardInputStyle}"
                                      AutomationProperties.AutomationId="WizardClassNamesBox"
-                                     AutomationProperties.Name="&#xCD08;&#xAE30; &#xD074;&#xB798;&#xC2A4;"
+                                     AutomationProperties.Name="&#xCD08;&#xAE30; &#xD074;&#xB798;&#xC2A4; (&#xC5EC;&#xB7EC; &#xAC1C; &#xAC00;&#xB2A5;)"
                                      Text="{Binding ClassNamesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                                      AcceptsReturn="True"
                                      TextWrapping="Wrap"
                                      VerticalScrollBarVisibility="Auto"
                                      MinHeight="70" />
+                            <TextBlock Text="&#xC27C;&#xD45C;(,) &#xB610;&#xB294; &#xC904;&#xBC14;&#xAFC8;&#xC73C;&#xB85C; &#xAD6C;&#xBD84;&#xD558;&#xC138;&#xC694;. &#xC608;: Defect, OK, NG"
+                                       Foreground="{StaticResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="11"
+                                       TextWrapping="Wrap"
+                                       Margin="0,6,0,0" />
+                            <TextBlock x:Name="WizardClassSummaryText"
+                                       Text="{Binding ClassSummaryText}"
+                                       Foreground="#E5E7EB"
+                                       FontFamily="Segoe UI"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"
+                                       Margin="0,5,0,0" />
                         </StackPanel>
                     </Border>
                 </StackPanel>
@@ -285,6 +363,14 @@
                                FontFamily="Segoe UI"
                                FontSize="12"
                                TextWrapping="Wrap" />
+                    <TextBlock x:Name="WizardIsolationHelpText"
+                               AutomationProperties.AutomationId="WizardIsolationHelpText"
+                               Text="{Binding IsolationHelpText}"
+                               Foreground="{StaticResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="11"
+                               TextWrapping="Wrap"
+                               Margin="0,7,0,0" />
                 </StackPanel>
             </Border>
 

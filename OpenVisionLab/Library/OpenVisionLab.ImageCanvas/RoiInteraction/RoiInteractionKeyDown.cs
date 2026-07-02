@@ -20,48 +20,65 @@ namespace OpenVisionLab.ImageCanvas
 		/// </summary>
 		public static void PasteRectangle(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, ref CanvasRect<float> copyRoiRect, OverlayAddedCallback callbackRoiAdded, OverlayGroupAddedCallback callbackGroupAddition)
 		{
-			if (copyRoiRect == null) return;
+			if (imageViewer == null || copyRoiRect == null) return;
 
 			CanvasOverlayItem overlayItem = imageViewer.GetOverlayByUniqueId(copyRoiRect.UniqueId);
 
-			if (overlayItem.IsGroupRectangle)
+			if (overlayItem?.IsGroupRectangle == true)
 			{
 				CopyGroupAddition(imageViewer, overlayItem, -60, 60, callbackGroupAddition);
 			}
 			else
 			{
-				CanvasRect<float> canvasRect = CreateOffsetRect(copyRoiRect, 20, 20);
+				// When the copied ROI is not in the current overlay manager, the operator
+				// changed images. Paste at the same image coordinates for repeat labeling.
+				bool pasteOnSameImage = overlayItem != null;
+				CanvasRect<float> canvasRect = CreateOffsetRect(copyRoiRect, pasteOnSameImage ? 20 : 0, pasteOnSameImage ? 20 : 0);
+				CanvasOverlayItem parentOverlay = ResolvePasteParentOverlay(imageViewer, copyRoiRect);
+				if (parentOverlay == null)
+				{
+					return;
+				}
 
-				CanvasOverlayItem parentOverlay = imageViewer.GetGroupToType(copyRoiRect.GroupType);
+				canvasRect.GroupType = parentOverlay.GroupType;
 				AddNewOverlay(imageViewer, parentOverlay.GroupType, canvasRect.GroupType, canvasRect, canvasRect.UniqueId, parentOverlay.InspWindowType, EnumItemType.Window);
 
 				// 肄쒕갚 ?몄텧
 				callbackRoiAdded?.Invoke(canvasRect, parentOverlay);
+				// Paste is a discrete object mutation, so repaint immediately instead of waiting
+				// for the next mouse/viewport event to reveal the copied label.
+				imageViewer.RefreshGL();
 			}
-
-			copyRoiRect = null;
 		}
 
-		private static void CopyGroupAddition(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasOverlayItem copyGroupOb, float row, float col, OverlayGroupAddedCallback callbackGroupAddition)
+		private static CanvasOverlayItem ResolvePasteParentOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasRect<float> copyRoiRect)
+		{
+			return imageViewer.GetGroupToType(copyRoiRect.GroupType)
+				?? imageViewer.GetLastGroup()
+				?? imageViewer.GetGroupToType(EnumInspWindowType.Module.ToString());
+		}
+
+		private static void CopyGroupAddition(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, CanvasOverlayItem copiedGroupOverlay, float row, float col, OverlayGroupAddedCallback callbackGroupAddition)
 		{
 
-			CanvasOverlayItem parentOb = imageViewer.GetParentToType(copyGroupOb.GroupType);
-			string groupNewname = imageViewer.GetNewOverlayName(copyGroupOb);
+			CanvasOverlayItem parentOverlay = imageViewer.GetParentToType(copiedGroupOverlay.GroupType);
+			string newGroupName = imageViewer.GetNewOverlayName(copiedGroupOverlay);
 
-			CanvasRect<float> rect = CreateOffsetRect((CanvasRect<float>)copyGroupOb.Shape, col, row * -1);
-			AddNewOverlay(imageViewer, parentOb.GroupType, groupNewname, rect, rect.UniqueId, copyGroupOb.InspWindowType, EnumItemType.Group);
+			CanvasRect<float> rect = CreateOffsetRect((CanvasRect<float>)copiedGroupOverlay.Shape, col, row * -1);
+			AddNewOverlay(imageViewer, parentOverlay.GroupType, newGroupName, rect, rect.UniqueId, copiedGroupOverlay.InspWindowType, EnumItemType.Group);
 
-			foreach (CanvasOverlayItem overlayItem in copyGroupOb.ChildObjects)
+			foreach (CanvasOverlayItem overlayItem in copiedGroupOverlay.ChildObjects)
 			{
-				CanvasRect<float> xRect = CreateOffsetRect((CanvasRect<float>)overlayItem.Shape, col, row * -1);
-				AddNewOverlay(imageViewer, groupNewname, groupNewname, xRect, xRect.UniqueId, copyGroupOb.InspWindowType, EnumItemType.Window);
+				CanvasRect<float> childRect = CreateOffsetRect((CanvasRect<float>)overlayItem.Shape, col, row * -1);
+				AddNewOverlay(imageViewer, newGroupName, newGroupName, childRect, childRect.UniqueId, copiedGroupOverlay.InspWindowType, EnumItemType.Window);
 			}
 
 
 			OpenVisionLab.ImageCanvas.Model.RoiChangedEventArgs arg = new OpenVisionLab.ImageCanvas.Model.RoiChangedEventArgs();
-			arg.Group = imageViewer.GetGroupToType(groupNewname);
+			arg.Group = imageViewer.GetGroupToType(newGroupName);
 
 			callbackGroupAddition?.Invoke(arg);
+			imageViewer.RefreshGL();
 		}
 
 		private static CanvasRect<float> CreateOffsetRect(CanvasRect<float> sourceRect, float offsetX, float offsetY)
@@ -79,10 +96,10 @@ namespace OpenVisionLab.ImageCanvas
 			return newRect;
 		}
 
-		private static void AddNewOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, string groupType, string groupNewName, CanvasRect<float> shape, string uniqueId, EnumInspWindowType inspWindowType, EnumItemType itemType, bool isExtentionRectange = false)
+		private static void AddNewOverlay(OpenVisionLab.ImageCanvas.Rendering.ImageCanvasControl imageViewer, string groupType, string groupNewName, CanvasRect<float> shape, string uniqueId, EnumInspWindowType inspWindowType, EnumItemType itemType, bool isExtensionRectangle = false)
 		{
 			bool isGroupRectangle = itemType == EnumItemType.Group ? true : false;
-			imageViewer.AddOverlay(groupType, groupNewName, shape, uniqueId, inspWindowType, itemType, isExtentionRectange, isGroupRectangle);
+			imageViewer.AddOverlay(groupType, groupNewName, shape, uniqueId, inspWindowType, itemType, isExtensionRectangle, isGroupRectangle);
 		}
 	}
 }

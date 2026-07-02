@@ -67,7 +67,6 @@ namespace MvcVisionSystem
                 : default;
             bool canFocusCurrentLabel = hasVisibleCandidates && hasSelectedCandidate && selectedOverlap.HasCurrentObject;
             bool hasImage = activeImageBitmap != null && !activeImageSize.IsEmpty && !isDetecting;
-            bool canCompleteImage = hasImage && pendingDetectionCandidates.Count == 0;
             CandidateReviewViewModel?.SetActionState(
                 selectedConfirmable,
                 hasConfirmableCandidates,
@@ -81,26 +80,14 @@ namespace MvcVisionSystem
                 canFocusCurrentLabel
                     ? "\uACB9\uCE58\uB294 \uD604\uC7AC \uB77C\uBCA8\uC744 \uB77C\uBCA8 \uBAA9\uB85D\uC5D0\uC11C \uC120\uD0DD\uD569\uB2C8\uB2E4."
                     : "\uACB9\uCE58\uB294 \uD604\uC7AC \uB77C\uBCA8\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
-            CandidateReviewViewModel?.SetCompletionState(canCompleteImage, BuildCompleteImageAndNextToolTip(hasImage));
+            CandidateReviewViewModel?.SetCompletionState(candidateReviewCompletionPresentationService.Build(
+                hasImage,
+                isDetecting,
+                pendingDetectionCandidates.Count,
+                GetCanvasLabelObjectCount(),
+                !string.IsNullOrWhiteSpace(annotationDirtyReason)));
             UpdateCanvasCommandButtons();
             UpdateWorkflowProgressStatus();
-        }
-
-        private string BuildCompleteImageAndNextToolTip(bool hasImage)
-        {
-            if (!hasImage)
-            {
-                return "\uC644\uB8CC\uD560 \uC774\uBBF8\uC9C0\uB97C \uBA3C\uC800 \uC5F4\uC5B4\uC8FC\uC138\uC694.";
-            }
-
-            if (pendingDetectionCandidates.Count > 0)
-            {
-                return "\uB0A8\uC740 \uAC80\uCD9C \uD6C4\uBCF4\uB97C \uD655\uC815\uD558\uAC70\uB098 \uC2A4\uD0B5\uD55C \uB4A4 \uC644\uB8CC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
-            }
-
-            return HasCanvasLabelObjects()
-                ? "\uD604\uC7AC \uB77C\uBCA8\uC744 \uC800\uC7A5\uD558\uACE0 \uB2E4\uC74C \uC791\uC5C5\uC73C\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4."
-                : "\uAC1D\uCCB4 \uC5C6\uC74C\uC744 \uC644\uB8CC\uB85C \uC800\uC7A5\uD558\uACE0 \uB2E4\uC74C \uC791\uC5C5\uC73C\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4.";
         }
 
         private void UpdateCanvasCommandButtons()
@@ -206,7 +193,7 @@ namespace MvcVisionSystem
             {
                 if (candidate == null)
                 {
-                    CandidateReviewViewModel.ApplySelectionReview("선택된 검출 후보가 없습니다.", default, showComparison: false);
+                    CandidateReviewViewModel.ApplySelectionReview("선택된 AI 후보가 없습니다.", default, showComparison: false);
                     return;
                 }
 

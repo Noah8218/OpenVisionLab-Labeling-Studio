@@ -1,6 +1,8 @@
+using MvcVisionSystem._1._Core;
 using MvcVisionSystem.Yolo;
 using System.Windows;
 using System.Windows.Controls;
+using Control = System.Windows.Controls.Control;
 
 namespace MvcVisionSystem
 {
@@ -8,14 +10,18 @@ namespace MvcVisionSystem
     {
         private void UpdateYoloCommandButtons()
         {
+            PythonModelRuntimeState runtimeState = GetPythonModelRuntimeState();
             WpfWorkflowCommandState state = WpfWorkflowCommandStateService.Build(
                 isInferenceMode: currentWorkflowMode == WorkflowMode.Inference,
                 isYoloEnvironmentCommandRunning: isYoloEnvironmentCommandRunning || isModelComparisonRunning,
                 isDetecting: isDetecting,
                 isBatchDetectionRunning: isBatchDetectionRunning,
-                isTrainingCommandRunning: isTrainingCommandRunning,
+                isTrainingCommandRunning: isTrainingCommandRunning || isTrainingWorkflowRunning,
                 isTrainingStopAvailable: IsTrainingStopAvailable(global.GetPythonCommunicationStatusSnapshot()),
-                hasCurrentRecipeName: !string.IsNullOrWhiteSpace(GetCurrentRecipeName()));
+                hasCurrentRecipeName: !string.IsNullOrWhiteSpace(GetCurrentRecipeName()),
+                canRunModelTraining: runtimeState.CanRunTraining,
+                canRunModelInference: runtimeState.CanRunInference,
+                modelRuntimeUnavailableHint: runtimeState.NextActionText);
 
             // Keep the transitional fallback controls beside the shared state fan-out so command gating stays consistent while panels move to view models.
             ApplyYoloStatusCommandState(state);

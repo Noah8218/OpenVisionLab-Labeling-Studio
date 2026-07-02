@@ -26,6 +26,8 @@ namespace MvcVisionSystem
         {
             var stopwatch = Stopwatch.StartNew();
             EnsureProjectSettings();
+            string modelSourceText = WpfInferenceStatusPresentationService.BuildRuntimeModelLabel(
+                global.Data?.ProjectSettings?.PythonModel);
             if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
             {
                 return new YoloWorkerSmokeTestResult
@@ -108,7 +110,7 @@ namespace MvcVisionSystem
                         : $"일괄 추론 중: {Path.GetFileName(imagePath)}",
                     isBusy: true);
                 SetPythonStatus("\uCD94\uB860: \uC2E4\uD589 \uC911");
-                AppendLog($"\uCD94\uB860 \uC2DC\uC791: {Path.GetFileName(imagePath)}");
+                AppendLog($"\uCD94\uB860 \uC2DC\uC791: {Path.GetFileName(imagePath)} / \uBAA8\uB378 {modelSourceText}");
                 SetYoloCommandStatus("AI 추론 요청 중...", isBusy: true);
                 bool started = applyToCanvas
                     ? global.DetectionWorkflow.TryStartCurrentImageDetection(
@@ -156,7 +158,7 @@ namespace MvcVisionSystem
                 var result = new YoloWorkerSmokeTestResult
                 {
                     Succeeded = true,
-                    Summary = $"\uCD94\uB860 \uC644\uB8CC. \uD6C4\uBCF4:{candidates.Count}",
+                    Summary = $"\uCD94\uB860 \uC644\uB8CC. \uBAA8\uB378:{modelSourceText} / \uD6C4\uBCF4:{candidates.Count}",
                     ImagePath = imagePath,
                     CandidateCount = candidates.Count,
                     FirstClassName = first?.ClassName ?? string.Empty,
@@ -167,10 +169,10 @@ namespace MvcVisionSystem
                 if (applyToCanvas)
                 {
                     ApplyDetectionCandidates(result.Candidates, result.Succeeded);
-                    SetPythonStatus($"\uCD94\uB860: \uC644\uB8CC  \uD6C4\uBCF4 {result.CandidateCount}");
+                    SetPythonStatus($"\uCD94\uB860: \uC644\uB8CC  \uBAA8\uB378 {modelSourceText} / \uD6C4\uBCF4 {result.CandidateCount}");
                 }
 
-                AppendLog($"\uCD94\uB860 \uC2DC\uAC04: {FormatElapsed(stopwatch.Elapsed)}");
+                AppendLog($"\uCD94\uB860 \uC2DC\uAC04: {FormatElapsed(stopwatch.Elapsed)} / \uBAA8\uB378 {modelSourceText}");
                 return result;
             }
             catch (OperationCanceledException)

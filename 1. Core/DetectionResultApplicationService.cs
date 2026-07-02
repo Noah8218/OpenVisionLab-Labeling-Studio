@@ -7,6 +7,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using Timer = System.Threading.Timer;
 
 namespace MvcVisionSystem._1._Core
 {
@@ -200,13 +201,13 @@ namespace MvcVisionSystem._1._Core
         {
             if (communication == null)
             {
-                AppLog.ABNORMAL("YOLO detection communication is not initialized.");
+                AppLog.ABNORMAL("YOLO 검사 통신이 초기화되지 않았습니다.");
                 return false;
             }
 
             if (CDisplayManager.ImageSrc == null || CDisplayManager.ImageSrc.Empty())
             {
-                const string message = "StartDefect skipped because source image is empty.";
+                const string message = "현재 이미지가 비어 있어 검사 요청을 보낼 수 없습니다.";
                 communication.SetLastError(message);
                 AppLog.COMM(message);
                 return false;
@@ -231,7 +232,7 @@ namespace MvcVisionSystem._1._Core
                 if (!sent)
                 {
                     ClearPendingDetectionContext();
-                    const string message = "DetectImage was not sent because the Python model client is not connected.";
+                    const string message = "Python 모델 클라이언트가 연결되지 않아 현재 검사 요청을 보내지 못했습니다.";
                     communication.SetLastError(message);
                     AppLog.ABNORMAL(message);
                     return false;
@@ -252,13 +253,13 @@ namespace MvcVisionSystem._1._Core
         {
             if (communication == null)
             {
-                AppLog.ABNORMAL("YOLO detection communication is not initialized.");
+                AppLog.ABNORMAL("YOLO 검사 통신이 초기화되지 않았습니다.");
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
             {
-                string message = $"DetectImage skipped because image path is missing: {imagePath}";
+                string message = $"검사 이미지 파일을 찾을 수 없습니다: {imagePath}";
                 communication.SetLastError(message);
                 AppLog.COMM(message);
                 return false;
@@ -266,7 +267,7 @@ namespace MvcVisionSystem._1._Core
 
             if (imageSize.IsEmpty)
             {
-                string message = $"DetectImage skipped because image size is empty: {imagePath}";
+                string message = $"검사 이미지 크기를 확인할 수 없습니다: {imagePath}";
                 communication.SetLastError(message);
                 AppLog.COMM(message);
                 return false;
@@ -290,7 +291,7 @@ namespace MvcVisionSystem._1._Core
             if (!sent)
             {
                 ClearPendingDetectionContext();
-                const string message = "DetectImage was not sent because the Python model client is not connected.";
+                const string message = "Python 모델 클라이언트가 연결되지 않아 현재 검사 요청을 보내지 못했습니다.";
                 communication.SetLastError(message);
                 AppLog.ABNORMAL(message);
                 return false;
@@ -583,14 +584,14 @@ namespace MvcVisionSystem._1._Core
             int selectedIndex = GetSelectedCandidateIndex();
             if (selectedIndex <= 0 || selectedIndex > defects.Count)
             {
-                AppLog.COMM("No detection candidate is selected to skip.");
+                AppLog.COMM("건너뛸 AI 후보가 선택되지 않았습니다.");
                 return false;
             }
 
             DetectionCandidateReviewItem selectedItem = GetSelectedCandidateReviewItem(data);
             if (selectedItem == null)
             {
-                AppLog.COMM("Selected detection candidate cannot be skipped because the active image changed.");
+                AppLog.COMM("현재 이미지가 바뀌어 선택한 AI 후보를 건너뛸 수 없습니다.");
                 return false;
             }
 
@@ -606,7 +607,7 @@ namespace MvcVisionSystem._1._Core
                 CDisplayManager.SetDetectionOverlays("Main", null);
                 ClearLastResult();
                 RaiseDetectionCandidatesUpdated(detectionContext, 0, DetectionCandidateUpdateReason.CandidateSkipped);
-                AppLog.NORMAL($"Detection candidate skipped. Candidate:{selectedIndex}");
+                AppLog.NORMAL($"AI 후보를 건너뛰었습니다. 후보:{selectedIndex}");
                 return true;
             }
 
@@ -614,7 +615,7 @@ namespace MvcVisionSystem._1._Core
             List<DetectionOverlayItem> overlays = PythonDetectionResultProtocol.BuildDetectionOverlays(remainingDefects, ResolveClassColor);
             CDisplayManager.SetDetectionOverlays("Main", overlays);
             RaiseDetectionCandidatesUpdated(detectionContext, overlays.Count, DetectionCandidateUpdateReason.CandidatesChanged);
-            AppLog.NORMAL($"Detection candidate skipped. Candidate:{selectedIndex}");
+            AppLog.NORMAL($"AI 후보를 건너뛰었습니다. 후보:{selectedIndex}");
             return true;
         }
 
@@ -813,7 +814,7 @@ namespace MvcVisionSystem._1._Core
             }
 
             CDisplayManager.SetDetectionOverlays("Main", null);
-            AppLog.ABNORMAL($"YOLO detection timed out after {timeoutSeconds}s. Image:{timedOutContext.DisplayName}");
+            AppLog.ABNORMAL($"YOLO 검사 시간이 초과되었습니다. 제한:{timeoutSeconds}초 / 이미지:{timedOutContext.DisplayName}");
             RaiseDetectionCandidatesUpdated(timedOutContext, 0, DetectionCandidateUpdateReason.RequestTimedOut);
         }
 

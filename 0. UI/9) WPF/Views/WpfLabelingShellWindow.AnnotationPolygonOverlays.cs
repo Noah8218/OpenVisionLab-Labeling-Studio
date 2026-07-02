@@ -27,7 +27,7 @@ namespace MvcVisionSystem
             polygonAnnotationService.Reset();
             RefreshPolygonOverlays();
             RefreshObjectList();
-            ObjectsReviewTab.IsSelected = true;
+            ShowSavedLabelsWorkflowView();
             SetModelStatus($"Polygon added: {annotation.ClassName} / {annotation.Points.Count} points");
             AppendLog($"Polygon added: {annotation.ClassName} / {annotation.Points.Count} points / {FormatSegmentBoundsCompact(annotation)}");
             RefreshActiveImageQueueStatus(hasActiveCandidates: pendingDetectionCandidates.Count > 0);
@@ -40,11 +40,9 @@ namespace MvcVisionSystem
                 return;
             }
 
-            if (!IsSegmentationDatasetPurposeActive())
+            if (!ShouldShowLabelOverlays() || !IsSegmentationDatasetPurposeActive())
             {
-                MainCanvasViewModel.SetSegmentationOverlays(
-                    Array.Empty<RoiImageCanvasPolygonOverlay>(),
-                    Array.Empty<RoiImageCanvasMaskOverlay>());
+                ClearSegmentationOverlays();
                 return;
             }
 
@@ -104,6 +102,13 @@ namespace MvcVisionSystem
             }
 
             MainCanvasViewModel.SetSegmentationOverlays(overlays, maskOverlays);
+        }
+
+        private void ClearSegmentationOverlays()
+        {
+            MainCanvasViewModel?.SetSegmentationOverlays(
+                Array.Empty<RoiImageCanvasPolygonOverlay>(),
+                Array.Empty<RoiImageCanvasMaskOverlay>());
         }
     }
 }

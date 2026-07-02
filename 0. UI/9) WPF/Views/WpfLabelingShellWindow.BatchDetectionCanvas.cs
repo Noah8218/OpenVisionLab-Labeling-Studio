@@ -127,15 +127,13 @@ namespace MvcVisionSystem
             int loadedCount = candidateReviewState.LoadPendingCandidates(candidates, clearConfirmed: true);
             CandidateReviewViewModel?.ClearReviewHistory();
 
+            ApplyCanvasDisplayMode(WpfCanvasDisplayMode.InferenceOnly, redraw: false, logChange: false);
             RefreshCandidateList();
             RefreshObjectList();
             RedrawReviewRois();
             SetActiveImageDetectionStatus(loadedCount, succeeded);
             AddCandidateReviewHistory(detectionResultPresentationService.BuildCandidateLoadHistory(loadedCount, succeeded, GetCandidateConfidenceFilter()));
-            if (candidateReviewState.HasPendingCandidates)
-            {
-                CandidatesReviewTab.IsSelected = true;
-            }
+            ShowCandidateReviewWorkflowView();
 
             CenterCanvasAfterInferenceResult();
         }

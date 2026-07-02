@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using TextBox = System.Windows.Controls.TextBox;
 
 namespace MvcVisionSystem
 {

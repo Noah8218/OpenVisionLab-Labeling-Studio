@@ -23,13 +23,13 @@ namespace MvcVisionSystem._1._Core
 
             if (communication == null)
             {
-                AppLog.ABNORMAL("YOLO detection communication is not initialized.");
+                AppLog.ABNORMAL("YOLO 검사 통신이 초기화되지 않았습니다.");
                 return false;
             }
 
             if (detectionResults == null)
             {
-                AppLog.ABNORMAL("YOLO detection result service is not initialized.");
+                AppLog.ABNORMAL("YOLO 검사 결과 서비스가 초기화되지 않았습니다.");
                 return false;
             }
 
@@ -58,25 +58,25 @@ namespace MvcVisionSystem._1._Core
 
             if (communication == null)
             {
-                AppLog.ABNORMAL("YOLO detection communication is not initialized.");
+                AppLog.ABNORMAL("YOLO 검사 통신이 초기화되지 않았습니다.");
                 return false;
             }
 
             if (detectionResults == null)
             {
-                AppLog.ABNORMAL("YOLO detection result service is not initialized.");
+                AppLog.ABNORMAL("YOLO 검사 결과 서비스가 초기화되지 않았습니다.");
                 return false;
             }
 
             if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
             {
-                communication.SetLastError($"YOLO detection image was not found: {imagePath}");
+                communication.SetLastError($"검사 이미지 파일을 찾을 수 없습니다: {imagePath}");
                 return false;
             }
 
             if (imageSize.IsEmpty)
             {
-                communication.SetLastError($"YOLO detection image size is empty: {imagePath}");
+                communication.SetLastError($"검사 이미지 크기를 확인할 수 없습니다: {imagePath}");
                 return false;
             }
 
@@ -99,7 +99,7 @@ namespace MvcVisionSystem._1._Core
             validationError = "";
             if (data == null)
             {
-                validationError = "YOLO detection data is not initialized.";
+                validationError = "YOLO 검사 데이터가 초기화되지 않았습니다.";
                 AppLog.ABNORMAL(validationError);
                 return false;
             }

@@ -56,8 +56,21 @@ namespace MvcVisionSystem
             }
 
             PushAnnotationHistorySnapshot(beforeChange);
+            if (item.Source == WpfObjectReviewSource.ManualRoi)
+            {
+                ApplyManualRoiOverlayColor(item.Index, refreshImmediately: true);
+            }
+            else if (item.Source == WpfObjectReviewSource.ConfirmedAi)
+            {
+                RedrawReviewRois();
+            }
+            else
+            {
+                RefreshPolygonOverlays();
+            }
+
             RefreshObjectList();
-            RefreshPolygonOverlays();
+            MarkAnnotationsDirty($"\uAC1D\uCCB4 \uD074\uB798\uC2A4 \uBCC0\uACBD: {appliedClassName}");
 
             AppendLog($"Changed object class: {appliedClassName}");
         }
@@ -126,6 +139,7 @@ namespace MvcVisionSystem
             }
 
             RefreshObjectReviewAfterDelete(item.Source, selectedObjectRowIndex);
+            MarkAnnotationsDirty($"\uB77C\uBCA8 \uC0AD\uC81C: {removedText}");
             QueueActiveImageQueueStatusRefresh(hasActiveCandidates: pendingDetectionCandidates.Count > 0);
             AppendLog($"Removed object from review: {removedText}");
             return true;

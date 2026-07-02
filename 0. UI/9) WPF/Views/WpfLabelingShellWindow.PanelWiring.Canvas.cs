@@ -28,9 +28,24 @@ namespace MvcVisionSystem
                 ExecuteUndoAnnotationCommand,
                 ExecuteRedoAnnotationCommand,
                 ExecuteDeleteObjectCommand);
+            CanvasPanelViewModel.ConfigureAnnotationSaveCommand(
+                ExecuteSaveAnnotationsCommand);
+            CanvasPanelViewModel.ConfigureNoObjectCompletionCommand(
+                ExecuteCompleteNoObjectAndNextCommand);
+            CanvasPanelViewModel.ConfigureLabelClassSelection(
+                selected => CanvasLabelClass_SelectionChanged(CanvasLabelClassListBox, selected),
+                () => ShowClassCatalogWorkflowView(WpfShellWorkflowStage.Labeling));
+            CanvasPanelViewModel.ConfigureDisplayModeSelection(
+                ExecuteCanvasDisplayModeSelectionChanged);
             RefreshCanvasWorkflowContext();
             RefreshAttachedCommandBindings(
                 CanvasAnnotationToolListBox,
+                InputCommandBehaviors.SelectedItemChangedCommandProperty);
+            RefreshAttachedCommandBindings(
+                CanvasLabelClassListBox,
+                InputCommandBehaviors.SelectedItemChangedCommandProperty);
+            RefreshAttachedCommandBindings(
+                CanvasDisplayModeListBox,
                 InputCommandBehaviors.SelectedItemChangedCommandProperty);
         }
 
@@ -105,31 +120,31 @@ namespace MvcVisionSystem
         {
             if (activeImageSize.IsEmpty)
             {
-                return "이미지를 열거나 왼쪽 큐에서 선택하세요.";
+                return "왼쪽 이미지 큐에서 작업할 이미지를 열고 첫 라벨을 시작하세요.";
             }
 
             if (effectiveStep == WpfLearningStep.Label)
             {
                 return selectedTool?.Tool switch
                 {
-                    WpfAnnotationTool.Rectangle => "박스 라벨링: 캔버스에서 드래그하고 클래스를 확인하세요.",
-                    WpfAnnotationTool.Ellipse => "원형 라벨링: 드래그해 영역을 만들고 클래스와 위치를 확인하세요.",
+                    WpfAnnotationTool.Rectangle => "박스 라벨링: 캔버스에서 드래그하고 클래스가 맞는지 확인한 뒤 라벨 저장을 누르세요.",
+                    WpfAnnotationTool.Ellipse => "원형 라벨링: 드래그해 영역을 만들고 클래스와 위치를 확인한 뒤 라벨 저장을 누르세요.",
                     WpfAnnotationTool.Polygon => "폴리곤 라벨링: 꼭짓점을 찍고 마지막 점에서 마무리하세요.",
-                    WpfAnnotationTool.Brush => "마스크 칠하기: 드래그하고 놓은 뒤 결과를 확인하세요.",
+                    WpfAnnotationTool.Brush => "마스크 칠하기: 드래그하고 놓은 뒤 결과를 확인한 다음 라벨 저장을 누르세요.",
                     WpfAnnotationTool.Eraser => "마스크 편집: 마스크 위를 드래그해 지울 영역을 정리하세요.",
                     WpfAnnotationTool.PanZoom => "화면 이동: 이미지를 끌어 위치를 맞춘 뒤 라벨 도구로 돌아가세요.",
-                    _ when !string.IsNullOrWhiteSpace(annotationDirtyReason) => "저장 필요: 저장 버튼을 눌러 현재 이미지의 라벨을 저장하세요.",
-                    _ when HasCanvasLabelObjects() => "객체 검토: 박스 위치와 클래스를 확인한 뒤 저장하세요.",
-                    _ => "라벨링 시작: 빠른 도구에서 박스나 브러시를 선택하세요."
+                    _ when !string.IsNullOrWhiteSpace(annotationDirtyReason) => "저장 필요: 라벨 저장 버튼을 눌러 현재 이미지의 라벨을 저장하세요.",
+                    _ when HasCanvasLabelObjects() => "객체 검토: 박스 위치와 클래스를 확인한 뒤 라벨 저장을 누르세요.",
+                    _ => "라벨링 시작: 빠른 도구에서 박스나 브러시를 선택하고 캔버스에 그리세요."
                 };
             }
 
             return effectiveStep switch
             {
-                WpfLearningStep.Sample => "이미지 선택: 이미지를 열거나 왼쪽 큐에서 선택하세요.",
-                WpfLearningStep.Infer => "추론 실행: 현재 검사로 검출 후보를 만들고 검토 탭에서 확인하세요.",
+                WpfLearningStep.Sample => "이미지 선택: 왼쪽 이미지 큐에서 작업할 이미지를 여세요.",
+                WpfLearningStep.Infer => "추론 실행: 현재 검사로 AI 후보를 만들고 검토 탭에서 확인하세요.",
                 WpfLearningStep.Review => "후보 검토: 확정, 전체 확정, 또는 스킵하세요.",
-                WpfLearningStep.Save when !string.IsNullOrWhiteSpace(annotationDirtyReason) => "저장 필요: 저장 버튼을 눌러 현재 라벨을 파일에 반영하세요.",
+                WpfLearningStep.Save when !string.IsNullOrWhiteSpace(annotationDirtyReason) => "저장 필요: 라벨 저장 버튼으로 현재 라벨을 파일에 반영하세요.",
                 WpfLearningStep.Save => "저장 완료: 왼쪽 큐의 다음 버튼으로 이어서 작업하세요.",
                 _ => "다음 작업을 선택하세요."
             };
@@ -143,19 +158,36 @@ namespace MvcVisionSystem
                 || tool == WpfAnnotationTool.Eraser;
 
         private bool HasCanvasLabelObjects()
-            => manualRois.Count > 0
-                || GetVisibleManualSegmentCount() > 0
-                || confirmedDetectionCandidates.Count > 0;
+            => GetCanvasLabelObjectCount() > 0;
+
+        private int GetCanvasLabelObjectCount()
+            => manualRois.Count + GetVisibleManualSegmentCount() + confirmedDetectionCandidates.Count;
 
         private void RegisterCanvasPanelNames()
         {
             ConfigureCanvasPanelCommands();
             RegisterCanvasName(nameof(MainCanvasView), MainCanvasView);
             RegisterCanvasName(nameof(CanvasAnnotationToolListBox), CanvasAnnotationToolListBox);
+            RegisterCanvasName(nameof(CanvasLabelClassListBox), CanvasLabelClassListBox);
+            RegisterCanvasName(nameof(CanvasDisplayModeListBox), CanvasDisplayModeListBox);
             RegisterCanvasName(nameof(CanvasWorkflowContextStrip), CanvasWorkflowContextStrip);
             RegisterCanvasName(nameof(CanvasCurrentStepText), CanvasCurrentStepText);
             RegisterCanvasName(nameof(CanvasCurrentToolText), CanvasCurrentToolText);
             RegisterCanvasName(nameof(CanvasNextActionText), CanvasNextActionText);
+            RegisterCanvasName(nameof(CanvasLayerVisibilityStrip), CanvasLayerVisibilityStrip);
+            RegisterCanvasName(nameof(CanvasLayerModeTitleText), CanvasLayerModeTitleText);
+            RegisterCanvasName(nameof(CanvasLayerModeDetailText), CanvasLayerModeDetailText);
+            RegisterCanvasName(nameof(CanvasLabelLayerText), CanvasLabelLayerText);
+            RegisterCanvasName(nameof(CanvasInferenceLayerText), CanvasInferenceLayerText);
+            RegisterCanvasName(nameof(CanvasSaveAnnotationButton), CanvasSaveAnnotationButton);
+            RegisterCanvasName(nameof(CanvasCompleteNoObjectButton), CanvasCompleteNoObjectButton);
+            RegisterCanvasName(nameof(CanvasAnnotationSaveStateCard), CanvasAnnotationSaveStateCard);
+            RegisterCanvasName(nameof(CanvasAnnotationSaveStatusTitleText), CanvasAnnotationSaveStatusTitleText);
+            RegisterCanvasName(nameof(CanvasAnnotationSaveStatusDetailText), CanvasAnnotationSaveStatusDetailText);
+            RegisterCanvasName(nameof(CanvasActiveLabelClassCard), CanvasActiveLabelClassCard);
+            RegisterCanvasName(nameof(CanvasActiveLabelClassTitleText), CanvasActiveLabelClassTitleText);
+            RegisterCanvasName(nameof(CanvasActiveLabelClassDetailText), CanvasActiveLabelClassDetailText);
+            RegisterCanvasName(nameof(CanvasOpenClassCatalogButton), CanvasOpenClassCatalogButton);
             RegisterCanvasName(nameof(FitCanvasButton), FitCanvasButton);
             RegisterCanvasName(nameof(ActualSizeCanvasButton), ActualSizeCanvasButton);
             RegisterCanvasName(nameof(PanCanvasButton), PanCanvasButton);

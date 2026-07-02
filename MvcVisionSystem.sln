@@ -33,6 +33,8 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Library", "Library", "{9374
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenVisionLab.Mvvm", "OpenVisionLab\Library\OpenVisionLab.Mvvm\OpenVisionLab.Mvvm.csproj", "{02A028E5-FEAF-48D8-8B47-5F764AA491D6}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenVisionLab.Wpf.MessageDialogs", "OpenVisionLab\Library\OpenVisionLab.Wpf.MessageDialogs\OpenVisionLab.Wpf.MessageDialogs.csproj", "{0F8F459A-F5B6-4F6A-B817-27E75BAB4B5B}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -187,6 +189,18 @@ Global
 		{02A028E5-FEAF-48D8-8B47-5F764AA491D6}.Release|x64.Build.0 = Release|Any CPU
 		{02A028E5-FEAF-48D8-8B47-5F764AA491D6}.Release|x86.ActiveCfg = Release|Any CPU
 		{02A028E5-FEAF-48D8-8B47-5F764AA491D6}.Release|x86.Build.0 = Release|Any CPU
+		{0F8F459A-F5B6-4F6A-B817-27E75BAB4B5B}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0F8F459A-F5B6-4F6A-B817-27E75BAB4B5B}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0F8F459A-F5B6-4F6A-B817-27E75BAB4B5B}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0F8F459A-F5B6-4F6A-B817-27E75BAB4B5B}.Debug|x64.Build.0 = Debug|Any CPU
+		{0F8F459A-F5B6-4F6A-B817-27E75BAB4B5B}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0F8F459A-F5B6-4F6A-B817-27E75BAB4B5B}.Debug|x86.Build.0 = Debug|Any CPU
+		{0F8F459A-F5B6-4F6A-B817-27E75BAB4B5B}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0F8F459A-F5B6-4F6A-B817-27E75BAB4B5B}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0F8F459A-F5B6-4F6A-B817-27E75BAB4B5B}.Release|x64.ActiveCfg = Release|Any CPU
+		{0F8F459A-F5B6-4F6A-B817-27E75BAB4B5B}.Release|x64.Build.0 = Release|Any CPU
+		{0F8F459A-F5B6-4F6A-B817-27E75BAB4B5B}.Release|x86.ActiveCfg = Release|Any CPU
+		{0F8F459A-F5B6-4F6A-B817-27E75BAB4B5B}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
@@ -204,6 +218,7 @@ Global
 		{1387CBD1-723F-48E7-9053-8CF31768C467} = {7E0C2A34-F3B6-456E-BDB1-0568147B37FF}
 		{937490E9-4E24-49AD-F94E-E27D635163CC} = {7E0C2A34-F3B6-456E-BDB1-0568147B37FF}
 		{02A028E5-FEAF-48D8-8B47-5F764AA491D6} = {937490E9-4E24-49AD-F94E-E27D635163CC}
+		{0F8F459A-F5B6-4F6A-B817-27E75BAB4B5B} = {937490E9-4E24-49AD-F94E-E27D635163CC}
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {B6BCC3D2-D39A-48EE-950C-07D87629A137}

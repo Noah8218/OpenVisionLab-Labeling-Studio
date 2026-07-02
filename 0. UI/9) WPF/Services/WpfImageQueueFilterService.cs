@@ -99,8 +99,13 @@ namespace MvcVisionSystem
                 return false;
             }
 
+            if (item.IsSaveRequired)
+            {
+                return false;
+            }
+
             // A saved empty label file has no objects, but it is still a reviewed normal image.
-            // Treat confirmed/skipped/no-candidate rows as complete so "미완료" means work remains.
+            // Treat confirmed/skipped/no-candidate rows as complete so the work-needed filter means work remains.
             return item.IsLabeled
                 || item.ReviewState == YoloImageReviewState.Confirmed
                 || item.ReviewState == YoloImageReviewState.Skipped

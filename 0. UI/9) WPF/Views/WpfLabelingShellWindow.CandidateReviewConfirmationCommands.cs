@@ -20,7 +20,7 @@ namespace MvcVisionSystem
             YoloWorkerSmokeCandidate candidate = GetSelectedCandidate();
             if (candidate == null)
             {
-                AppendLog("먼저 검출 후보를 선택하세요.");
+                AppendLog("먼저 AI 후보를 선택하세요.");
                 return;
             }
 
@@ -32,7 +32,7 @@ namespace MvcVisionSystem
             IReadOnlyList<YoloWorkerSmokeCandidate> candidates = GetVisibleCandidateList();
             if (candidates.Count == 0)
             {
-                AppendLog("확정할 표시 검출 후보가 없습니다.");
+                AppendLog("확정할 표시 AI 후보가 없습니다.");
                 return;
             }
 
@@ -44,13 +44,18 @@ namespace MvcVisionSystem
             YoloWorkerSmokeCandidate candidate = GetSelectedCandidate();
             if (candidate == null)
             {
-                AppendLog("스킵할 검출 후보를 선택하세요.");
+                AppendLog("스킵할 AI 후보를 선택하세요.");
                 return;
             }
 
             YoloWorkerSmokeCandidate nextCandidate = FindNextVisibleCandidateAfter(candidate, new[] { candidate });
             RegisterAnnotationHistoryBeforeChange("Skip AI candidate", markDirty: false);
             candidateReviewState.SkipCandidate(candidate);
+            if (!candidateReviewState.HasPendingCandidates)
+            {
+                ApplyCanvasDisplayMode(WpfCanvasDisplayMode.LabelsOnly, redraw: false, logChange: false);
+            }
+
             RefreshCandidateListWithPreferred(nextCandidate);
             RedrawReviewRois();
             FocusCandidateInViewer(nextCandidate, logIfMissing: false);
@@ -70,7 +75,7 @@ namespace MvcVisionSystem
 
             if (candidateReviewState.HasPendingCandidates)
             {
-                CandidatesReviewTab.IsSelected = true;
+                ShowCandidateReviewWorkflowView();
                 FocusSelectedCandidateInViewer(logIfMissing: false);
                 AddCandidateReviewHistory($"\uC644\uB8CC \uBCF4\uB958: \uB0A8\uC740 \uD6C4\uBCF4 {candidateReviewState.PendingCount}\uAC1C");
                 AppendLog($"\uB0A8\uC740 \uAC80\uCD9C \uD6C4\uBCF4 {candidateReviewState.PendingCount}\uAC1C\uB97C \uBA3C\uC800 \uD655\uC815\uD558\uAC70\uB098 \uC2A4\uD0B5\uD558\uC138\uC694.");
@@ -94,7 +99,7 @@ namespace MvcVisionSystem
             }
             else
             {
-                SetActiveImageDetectionStatus(candidateCount: 0, succeeded: true);
+                MarkActiveImageNoCandidate();
                 AddCandidateReviewHistory("\uC774\uBBF8\uC9C0 \uC644\uB8CC: \uAC1D\uCCB4 \uC5C6\uC74C");
             }
 
@@ -151,7 +156,12 @@ namespace MvcVisionSystem
             YoloWorkerSmokeCandidate selectedBeforeConfirm = GetSelectedCandidate();
             YoloWorkerSmokeCandidate nextCandidate = FindNextVisibleCandidateAfter(selectedBeforeConfirm, plan.ConfirmableCandidates);
             RegisterAnnotationHistoryBeforeChange($"Confirm {scope}");
+            EnsureConfirmedCandidateClassItems(plan.ConfirmableCandidates);
             candidateConfirmationService.ApplyConfirmation(candidateReviewState, plan);
+            if (!candidateReviewState.HasPendingCandidates)
+            {
+                ApplyCanvasDisplayMode(WpfCanvasDisplayMode.LabelsOnly, redraw: false, logChange: false);
+            }
 
             bool saved = SaveCurrentAnnotations(out int savedCount);
             WpfCandidateConfirmationResult result = candidateConfirmationService.BuildConfirmedResult(
@@ -165,18 +175,19 @@ namespace MvcVisionSystem
             RefreshObjectList();
             RedrawReviewRois();
             PopulateClassList();
+            SyncObjectClassEditorToSelection();
             if (saved)
             {
                 MarkActiveImageConfirmed();
             }
             if (candidateReviewState.HasPendingCandidates)
             {
-                CandidatesReviewTab.IsSelected = true;
+                ShowCandidateReviewWorkflowView();
                 FocusCandidateInViewer(nextCandidate, logIfMissing: false);
             }
             else
             {
-                ObjectsReviewTab.IsSelected = true;
+                ShowSavedLabelsWorkflowView();
             }
             SetPythonStatus($"\uCD94\uB860: \uB300\uAE30 {candidateReviewState.PendingCount} / \uD655\uC815 {candidateReviewState.ConfirmedCount}");
 
@@ -184,6 +195,17 @@ namespace MvcVisionSystem
             if (!string.IsNullOrWhiteSpace(result.DuplicateLogMessage))
             {
                 AppendLog(result.DuplicateLogMessage);
+            }
+        }
+
+        private void EnsureConfirmedCandidateClassItems(IEnumerable<YoloWorkerSmokeCandidate> candidates)
+        {
+            foreach (string className in (candidates ?? Array.Empty<YoloWorkerSmokeCandidate>())
+                .Select(WpfCandidateReviewPresenter.GetClassName)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .Distinct(StringComparer.OrdinalIgnoreCase))
+            {
+                EnsureClassItem(className);
             }
         }
     }

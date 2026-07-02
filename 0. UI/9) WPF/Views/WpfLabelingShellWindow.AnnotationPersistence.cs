@@ -26,7 +26,8 @@ namespace MvcVisionSystem
             savedCount = CountAnnotationRois(roisByClass) + CountAnnotationSegments(segmentsByClass);
             if (savedCount == 0)
             {
-                return false;
+                return !string.IsNullOrWhiteSpace(annotationDirtyReason)
+                    && SaveCurrentEmptyAnnotations();
             }
 
             bool saved = LabelingAnnotationPersistence.SaveCurrent(activeImageBitmap, roisByClass, segmentsByClass, global.Data);
@@ -56,7 +57,7 @@ namespace MvcVisionSystem
                 global.Data);
             if (saved)
             {
-                MarkAnnotationsSaved("\uBE48 YOLO \uB77C\uBCA8 \uC800\uC7A5 \uC644\uB8CC");
+                MarkAnnotationsSaved("\uBE48 \uB77C\uBCA8 \uD30C\uC77C \uC800\uC7A5 \uC644\uB8CC");
                 global.System?.UpdateData();
             }
 
@@ -168,6 +169,16 @@ namespace MvcVisionSystem
                 isDirty: true,
                 text: "라벨 저장 필요",
                 toolTip: $"아직 파일에 저장되지 않은 편집: {annotationDirtyReason}");
+            CanvasPanelViewModel?.SetAnnotationSaveState(
+                true,
+                "\uB77C\uBCA8 \uC800\uC7A5",
+                "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 \uBC15\uC2A4\uC640 \uC120\uD0DD\uD55C \uD074\uB798\uC2A4\uB97C \uC800\uC7A5\uD569\uB2C8\uB2E4.");
+            ObjectReviewViewModel?.SetLabelSaveState(
+                "Dirty",
+                "\uC800\uC7A5 \uD544\uC694",
+                $"\uD30C\uC77C \uBBF8\uBC18\uC601: {annotationDirtyReason}");
+            ApplyActiveImageQueueSaveRequiredStatus(annotationDirtyReason);
+            RefreshCanvasLayerVisibilityState();
             RefreshCanvasWorkflowContext();
             UpdateWorkflowProgressStatus();
         }
@@ -181,6 +192,17 @@ namespace MvcVisionSystem
                 toolTip: string.IsNullOrWhiteSpace(reason)
                     ? "현재 라벨이 파일에 저장되었습니다."
                     : reason);
+            CanvasPanelViewModel?.SetAnnotationSaveState(
+                false,
+                "\uC800\uC7A5 \uC644\uB8CC",
+                "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 \uB77C\uBCA8\uC774 \uC800\uC7A5\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4.");
+            ObjectReviewViewModel?.SetLabelSaveState(
+                "Saved",
+                "\uC800\uC7A5\uB428",
+                string.IsNullOrWhiteSpace(reason)
+                    ? "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 \uB77C\uBCA8\uC774 \uD30C\uC77C\uC5D0 \uBC18\uC601\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
+                    : reason);
+            RefreshCanvasLayerVisibilityState();
             RefreshCanvasWorkflowContext();
             UpdateWorkflowProgressStatus();
         }
@@ -192,6 +214,15 @@ namespace MvcVisionSystem
                 isDirty: false,
                 text: "라벨 대기",
                 toolTip: "이미지를 열면 라벨 저장 상태를 표시합니다.");
+            CanvasPanelViewModel?.SetAnnotationSaveState(
+                false,
+                "\uC800\uC7A5 \uB300\uAE30",
+                "\uC774\uBBF8\uC9C0\uB97C \uBD88\uB7EC\uC624\uBA74 \uB77C\uBCA8 \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4.");
+            ObjectReviewViewModel?.SetLabelSaveState(
+                "Waiting",
+                "\uB77C\uBCA8 \uB300\uAE30",
+                "\uC774\uBBF8\uC9C0\uB97C \uC5F4\uBA74 \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4.");
+            RefreshCanvasLayerVisibilityState();
             RefreshCanvasWorkflowContext();
             UpdateWorkflowProgressStatus();
         }

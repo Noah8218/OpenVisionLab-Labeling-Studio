@@ -1,0 +1,443 @@
+using MvcVisionSystem._1._Core;
+using MvcVisionSystem.Yolo;
+using OpenVisionLab.Mvvm;
+using System;
+using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
+using System.IO;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
+using System.Windows.Input;
+
+namespace MvcVisionSystem
+{
+    public interface IWpfTemplateMatchingAutoLabelHost
+    {
+        bool IsAutoLabelBusy { get; }
+        bool HasActiveAutoLabelImage { get; }
+        Bitmap ActiveAutoLabelImage { get; }
+        string ActiveAutoLabelImagePath { get; }
+        CData AutoLabelData { get; }
+        int MaximumTemplateMatchingCandidateCount { get; }
+
+        bool TryResolveTemplateMatchingSource(out Rectangle templateBounds, out string className);
+        CClassItem EnsureAutoLabelClassItem(string className);
+        IReadOnlyList<WpfImageQueueItem> GetVisibleAutoLabelQueueItems();
+        IReadOnlyList<WpfImageQueueItem> GetAllAutoLabelQueueItems();
+        IReadOnlyList<WpfImageQueueItem> BuildAutoLabelBatchQueue(IEnumerable<WpfImageQueueItem> items);
+        void AppendAutoLabelLog(string message);
+        void ShowAutoLabelGuide(string title, string message);
+        int ApplyAutoLabelCandidates(IReadOnlyList<YoloWorkerSmokeCandidate> candidates, bool succeeded);
+        void SetAutoLabelPythonStatus(string text);
+        void SetAutoLabelCommandStatus(string text, bool isBusy);
+        void SetAutoLabelGlobalInferenceStatus(string text, bool isBusy, bool isWarning = false);
+        CancellationToken StartAutoLabelBatch(int totalCount, string scopeText);
+        void MarkAutoLabelBatchItemRequested(WpfImageQueueItem item);
+        void UpdateAutoLabelBatchProgress(string scopeText, string currentFileName, int completedCount, int totalCount);
+        void ApplyAutoLabelBatchResult(WpfImageQueueItem item, TemplateMatchingBatchAutoLabelItemResult result, bool saveReviewStatus);
+        void SaveAutoLabelReviewStatus();
+        void CompleteAutoLabelBatch(bool canceled, int completedCount, int totalCount, string scopeText);
+        void NotifyAutoLabelDataChanged();
+        Task YieldAutoLabelBatchFrameAsync(CancellationToken token);
+    }
+
+    public sealed class WpfTemplateMatchingAutoLabelViewModel : WpfObservableViewModel
+    {
+        private static readonly Action NoOpCommand = () => { };
+        private readonly TemplateMatchingAutoLabelService templateMatchingAutoLabelService;
+        private readonly TemplateMatchingBatchAutoLabelService templateMatchingBatchAutoLabelService;
+        private IWpfTemplateMatchingAutoLabelHost host;
+        private Bitmap registeredTemplateImage;
+        private string registeredTemplateClassName = string.Empty;
+        private string registeredTemplateSourceImagePath = string.Empty;
+        private Rectangle registeredTemplateSourceBounds = Rectangle.Empty;
+        private ICommand runCurrentImageCommand = new RelayCommand(NoOpCommand);
+        private ICommand runBatchCommand = new RelayCommand(NoOpCommand);
+
+        public WpfTemplateMatchingAutoLabelViewModel()
+            : this(new TemplateMatchingAutoLabelService(), new TemplateMatchingBatchAutoLabelService())
+        {
+        }
+
+        public WpfTemplateMatchingAutoLabelViewModel(
+            TemplateMatchingAutoLabelService templateMatchingAutoLabelService,
+            TemplateMatchingBatchAutoLabelService templateMatchingBatchAutoLabelService)
+        {
+            this.templateMatchingAutoLabelService = templateMatchingAutoLabelService ?? new TemplateMatchingAutoLabelService();
+            this.templateMatchingBatchAutoLabelService = templateMatchingBatchAutoLabelService ?? new TemplateMatchingBatchAutoLabelService();
+            RunCurrentImageCommand = new RelayCommand(RunCurrentImage);
+            RunBatchCommand = new RelayCommand(RunBatch);
+        }
+
+        public ICommand RunCurrentImageCommand
+        {
+            get => runCurrentImageCommand;
+            private set => SetProperty(ref runCurrentImageCommand, value);
+        }
+
+        public ICommand RunBatchCommand
+        {
+            get => runBatchCommand;
+            private set => SetProperty(ref runBatchCommand, value);
+        }
+
+        private bool HasRegisteredTemplate => registeredTemplateImage != null && !string.IsNullOrWhiteSpace(registeredTemplateClassName);
+
+        public void ConfigureHost(IWpfTemplateMatchingAutoLabelHost host)
+        {
+            this.host = host;
+        }
+
+        public void RunCurrentImage()
+        {
+            IWpfTemplateMatchingAutoLabelHost currentHost = host;
+            if (currentHost == null)
+            {
+                return;
+            }
+
+            if (!currentHost.HasActiveAutoLabelImage)
+            {
+                ShowTemplateGuide(
+                    currentHost,
+                    "이미지가 필요합니다",
+                    "템플릿을 등록하거나 적용하려면 먼저 이미지 큐에서 이미지를 열어야 합니다.");
+                return;
+            }
+
+            bool hasSourceBox = currentHost.TryResolveTemplateMatchingSource(out Rectangle templateBounds, out string className);
+            bool isRegisteredSourceImage = HasRegisteredTemplate
+                && !string.IsNullOrWhiteSpace(currentHost.ActiveAutoLabelImagePath)
+                && string.Equals(currentHost.ActiveAutoLabelImagePath, registeredTemplateSourceImagePath, StringComparison.OrdinalIgnoreCase);
+
+            if (hasSourceBox && (!HasRegisteredTemplate || isRegisteredSourceImage))
+            {
+                RegisterCurrentTemplate(currentHost, templateBounds, className);
+                return;
+            }
+
+            if (!HasRegisteredTemplate)
+            {
+                ShowTemplateGuide(
+                    currentHost,
+                    "기준 라벨이 필요합니다",
+                    "먼저 기준 이미지에서 라벨 박스 1개를 선택하고 도구 > 현재 이미지 라벨 초안 생성을 눌러 기준 템플릿으로 등록하세요. 그 다음 다른 이미지에서 같은 버튼을 누르면 라벨 초안을 생성합니다.");
+                return;
+            }
+
+            ApplyRegisteredTemplateToCurrentImage(currentHost);
+        }
+
+        private void RegisterCurrentTemplate(
+            IWpfTemplateMatchingAutoLabelHost currentHost,
+            Rectangle templateBounds,
+            string className)
+        {
+            Bitmap templateImage = templateMatchingAutoLabelService.CloneTemplateImage(
+                currentHost.ActiveAutoLabelImage,
+                templateBounds,
+                out string cloneError);
+            if (templateImage == null)
+            {
+                ShowTemplateGuide(
+                    currentHost,
+                    "기준 라벨을 사용할 수 없습니다",
+                    $"선택한 라벨 박스를 템플릿으로 만들 수 없습니다. {cloneError}");
+                return;
+            }
+
+            registeredTemplateImage?.Dispose();
+            registeredTemplateImage = templateImage;
+            registeredTemplateClassName = string.IsNullOrWhiteSpace(className) ? "Defect" : className.Trim();
+            registeredTemplateSourceImagePath = currentHost.ActiveAutoLabelImagePath ?? string.Empty;
+            registeredTemplateSourceBounds = templateBounds;
+
+            string status = $"템플릿 등록: {registeredTemplateClassName} {templateBounds.Width}x{templateBounds.Height} / 다음: 다른 이미지에서 라벨 초안 생성";
+            currentHost.SetAutoLabelGlobalInferenceStatus(status, isBusy: false);
+            currentHost.SetAutoLabelCommandStatus(status, isBusy: false);
+            currentHost.SetAutoLabelPythonStatus("Auto label: template registered");
+            currentHost.AppendAutoLabelLog($"Template registered: class={registeredTemplateClassName}, source={templateBounds.X},{templateBounds.Y},{templateBounds.Width},{templateBounds.Height}, image={registeredTemplateSourceImagePath}");
+        }
+
+        private void ApplyRegisteredTemplateToCurrentImage(IWpfTemplateMatchingAutoLabelHost currentHost)
+        {
+            TemplateMatchingAutoLabelResult result = templateMatchingAutoLabelService.MatchImageWithTemplate(
+                currentHost.ActiveAutoLabelImage,
+                registeredTemplateImage,
+                registeredTemplateClassName,
+                BuildCurrentImageApplyOptions(currentHost));
+
+            if (!result.Succeeded)
+            {
+                currentHost.AppendAutoLabelLog($"Template matching failed: {result.Message}");
+                currentHost.SetAutoLabelGlobalInferenceStatus($"템플릿 적용 실패: {result.Message}", isBusy: false, isWarning: true);
+                currentHost.SetAutoLabelPythonStatus("Auto label: template matching failed");
+                currentHost.ApplyAutoLabelCandidates(Array.Empty<YoloWorkerSmokeCandidate>(), succeeded: false);
+                return;
+            }
+
+            int addedCount = currentHost.ApplyAutoLabelCandidates(result.Candidates, succeeded: true);
+            string status = addedCount > 0
+                ? $"템플릿 라벨 초안 {addedCount}개 생성 - 위치 확인 후 라벨 저장"
+                : result.Candidates.Count > 0
+                    ? "템플릿 위치는 찾았지만 기존 라벨과 겹쳐 초안 추가 없음"
+                    : "템플릿 위치를 찾지 못했습니다";
+            currentHost.SetAutoLabelGlobalInferenceStatus(status, isBusy: false, isWarning: addedCount == 0);
+            currentHost.SetAutoLabelCommandStatus(status, isBusy: false);
+            currentHost.SetAutoLabelPythonStatus($"Auto label: template labels {addedCount}");
+            currentHost.AppendAutoLabelLog($"Template applied: labels={addedCount}, candidates={result.Candidates.Count}, registeredSource={registeredTemplateSourceBounds.X},{registeredTemplateSourceBounds.Y},{registeredTemplateSourceBounds.Width},{registeredTemplateSourceBounds.Height}, elapsed={result.Elapsed.TotalMilliseconds:0.0}ms");
+        }
+
+        public async void RunBatch()
+        {
+            IWpfTemplateMatchingAutoLabelHost currentHost = host;
+            if (currentHost == null)
+            {
+                return;
+            }
+
+            if (currentHost.IsAutoLabelBusy)
+            {
+                currentHost.AppendAutoLabelLog("Template batch skipped: another detection task is running.");
+                return;
+            }
+
+            if (HasRegisteredTemplate)
+            {
+                await RunRegisteredTemplateBatchAsync(currentHost).ConfigureAwait(true);
+                return;
+            }
+
+            if (!currentHost.HasActiveAutoLabelImage)
+            {
+                ShowTemplateGuide(
+                    currentHost,
+                    "이미지가 필요합니다",
+                    "전체 이미지 자동 저장을 실행하려면 먼저 기준 이미지를 열고, 그 이미지에서 기준 라벨 박스 1개를 선택해야 합니다.");
+                return;
+            }
+
+            if (!currentHost.TryResolveTemplateMatchingSource(out Rectangle templateBounds, out string className))
+            {
+                ShowTemplateGuide(
+                    currentHost,
+                    "기준 라벨이 필요합니다",
+                    "전체 이미지 자동 저장은 선택한 라벨 박스 모양을 라벨 없는 이미지에 바로 저장합니다. 먼저 기준 이미지에서 라벨 박스 1개를 선택하세요.");
+                return;
+            }
+
+            using Bitmap templateImage = templateMatchingAutoLabelService.CloneTemplateImage(
+                currentHost.ActiveAutoLabelImage,
+                templateBounds,
+                out string cloneError);
+            if (templateImage == null)
+            {
+                ShowTemplateGuide(
+                    currentHost,
+                    "기준 라벨을 사용할 수 없습니다",
+                    $"선택한 라벨 박스를 템플릿으로 만들 수 없습니다. {cloneError}");
+                return;
+            }
+
+            CClassItem classItem = currentHost.EnsureAutoLabelClassItem(className);
+            string normalizedClassName = classItem?.Text ?? className;
+            IReadOnlyList<WpfImageQueueItem> queue = BuildBatchQueue(currentHost);
+            await RunBatchAsync(currentHost, queue, templateImage, classItem, normalizedClassName).ConfigureAwait(true);
+        }
+
+        private async Task RunRegisteredTemplateBatchAsync(IWpfTemplateMatchingAutoLabelHost currentHost)
+        {
+            if (registeredTemplateImage == null)
+            {
+                ShowTemplateGuide(
+                    currentHost,
+                    "템플릿 등록이 필요합니다",
+                    "먼저 기준 이미지에서 라벨 박스 1개를 선택하고 도구 > 현재 이미지 라벨 초안 생성으로 기준 템플릿을 등록하세요.");
+                return;
+            }
+
+            using Bitmap templateImage = (Bitmap)registeredTemplateImage.Clone();
+            CClassItem classItem = currentHost.EnsureAutoLabelClassItem(registeredTemplateClassName);
+            string normalizedClassName = classItem?.Text ?? registeredTemplateClassName;
+            IReadOnlyList<WpfImageQueueItem> queue = BuildRegisteredTemplateBatchQueue(currentHost);
+            await RunBatchAsync(currentHost, queue, templateImage, classItem, normalizedClassName).ConfigureAwait(true);
+        }
+
+        private async Task RunBatchAsync(
+            IWpfTemplateMatchingAutoLabelHost currentHost,
+            IReadOnlyList<WpfImageQueueItem> queue,
+            Bitmap templateImage,
+            CClassItem classItem,
+            string className)
+        {
+            if (queue == null || queue.Count == 0)
+            {
+                ShowTemplateGuide(
+                    currentHost,
+                    "처리할 이미지가 없습니다",
+                    "전체 이미지 자동 저장은 현재 기준 이미지를 제외한 라벨 없는 이미지에만 적용됩니다. 이미지 큐에 라벨 없는 이미지가 있는지 확인하세요.");
+                return;
+            }
+
+            const string scopeText = "template";
+            CancellationToken token = currentHost.StartAutoLabelBatch(queue.Count, scopeText);
+            currentHost.SetAutoLabelCommandStatus($"전체 이미지 템플릿 자동 저장 시작: {queue.Count}장", isBusy: true);
+            currentHost.SetAutoLabelGlobalInferenceStatus($"전체 이미지 템플릿 자동 저장 중: 0/{queue.Count}", isBusy: true);
+            currentHost.SetAutoLabelPythonStatus("Auto label: template batch running");
+
+            var batchStopwatch = Stopwatch.StartNew();
+            int savedImageCount = 0;
+            int savedObjectCount = 0;
+            int noCandidateCount = 0;
+            int failedCount = 0;
+            int pendingReviewStatusSaves = 0;
+            int completedCount = 0;
+
+            try
+            {
+                foreach (WpfImageQueueItem item in queue)
+                {
+                    if (token.IsCancellationRequested)
+                    {
+                        break;
+                    }
+
+                    string fileName = Path.GetFileName(item.ImagePath);
+                    currentHost.MarkAutoLabelBatchItemRequested(item);
+                    currentHost.UpdateAutoLabelBatchProgress(scopeText, fileName, completedCount, queue.Count);
+                    currentHost.SetAutoLabelGlobalInferenceStatus($"전체 이미지 템플릿 자동 저장 {completedCount + 1}/{queue.Count}: {fileName}", isBusy: true);
+
+                    TemplateMatchingBatchAutoLabelItemResult result = await Task
+                        .Run(() => templateMatchingBatchAutoLabelService.MatchAndSaveImage(
+                            item.ImagePath,
+                            templateImage,
+                            classItem,
+                            className,
+                            currentHost.AutoLabelData,
+                            BuildBatchOptions(currentHost),
+                            token))
+                        .ConfigureAwait(true);
+
+                    currentHost.ApplyAutoLabelBatchResult(item, result, saveReviewStatus: false);
+                    if (result.Saved)
+                    {
+                        savedImageCount++;
+                        savedObjectCount += result.CandidateCount;
+                        currentHost.AppendAutoLabelLog($"Template batch saved: {completedCount + 1}/{queue.Count} {fileName} objects={result.CandidateCount} / {result.Elapsed.TotalMilliseconds:0.0}ms");
+                    }
+                    else if (result.NoCandidate)
+                    {
+                        noCandidateCount++;
+                        currentHost.AppendAutoLabelLog($"Template batch no candidate: {completedCount + 1}/{queue.Count} {fileName} / {result.Elapsed.TotalMilliseconds:0.0}ms");
+                    }
+                    else if (!token.IsCancellationRequested)
+                    {
+                        failedCount++;
+                        currentHost.AppendAutoLabelLog($"Template batch failed: {completedCount + 1}/{queue.Count} {fileName} / {result.Message}");
+                    }
+
+                    completedCount++;
+                    pendingReviewStatusSaves++;
+                    if (pendingReviewStatusSaves >= 10)
+                    {
+                        currentHost.SaveAutoLabelReviewStatus();
+                        pendingReviewStatusSaves = 0;
+                    }
+
+                    currentHost.SetAutoLabelPythonStatus($"Auto label: template batch {completedCount}/{queue.Count}");
+                    await currentHost.YieldAutoLabelBatchFrameAsync(token).ConfigureAwait(true);
+                }
+            }
+            finally
+            {
+                bool canceled = token.IsCancellationRequested;
+                if (pendingReviewStatusSaves > 0 || completedCount > 0)
+                {
+                    currentHost.SaveAutoLabelReviewStatus();
+                }
+
+                currentHost.CompleteAutoLabelBatch(canceled, completedCount, queue.Count, scopeText);
+                currentHost.SetAutoLabelPythonStatus(canceled ? "Auto label: template batch canceled" : "Auto label: template batch complete");
+                currentHost.SetAutoLabelCommandStatus(
+                    $"전체 이미지 템플릿 자동 저장 {(canceled ? "취소" : "완료")}: 저장 {savedImageCount}장, 라벨 {savedObjectCount}개, 위치 없음 {noCandidateCount}장, 실패 {failedCount}장",
+                    isBusy: false);
+                currentHost.SetAutoLabelGlobalInferenceStatus(
+                    $"전체 이미지 템플릿 자동 저장 {(canceled ? "취소" : "완료")}: {completedCount}/{queue.Count} / {batchStopwatch.Elapsed.TotalSeconds:0.0}s",
+                    isBusy: false,
+                    isWarning: failedCount > 0 || canceled);
+                currentHost.AppendAutoLabelLog($"Template batch {(canceled ? "canceled" : "complete")}: processed={completedCount}/{queue.Count}, saved images={savedImageCount}, objects={savedObjectCount}, no candidate={noCandidateCount}, failed={failedCount}, elapsed={batchStopwatch.Elapsed.TotalSeconds:0.0}s");
+                currentHost.NotifyAutoLabelDataChanged();
+            }
+        }
+
+        private IReadOnlyList<WpfImageQueueItem> BuildBatchQueue(IWpfTemplateMatchingAutoLabelHost currentHost)
+        {
+            IReadOnlyList<WpfImageQueueItem> queueItems = currentHost.BuildAutoLabelBatchQueue(currentHost.GetVisibleAutoLabelQueueItems());
+            var processPaths = new HashSet<string>(
+                templateMatchingBatchAutoLabelService.BuildUnlabeledImagePathQueue(
+                    queueItems.Select(item => item.ImagePath),
+                    currentHost.AutoLabelData,
+                    currentHost.ActiveAutoLabelImagePath),
+                StringComparer.OrdinalIgnoreCase);
+
+            return queueItems
+                .Where(item => processPaths.Contains(item.ImagePath))
+                .ToList();
+        }
+
+        private IReadOnlyList<WpfImageQueueItem> BuildRegisteredTemplateBatchQueue(IWpfTemplateMatchingAutoLabelHost currentHost)
+        {
+            IReadOnlyList<WpfImageQueueItem> allQueueItems = currentHost.GetAllAutoLabelQueueItems() ?? Array.Empty<WpfImageQueueItem>();
+            if (allQueueItems.Count == 0)
+            {
+                allQueueItems = currentHost.GetVisibleAutoLabelQueueItems() ?? Array.Empty<WpfImageQueueItem>();
+            }
+
+            IReadOnlyList<WpfImageQueueItem> queueItems = currentHost.BuildAutoLabelBatchQueue(allQueueItems);
+            var processPaths = new HashSet<string>(
+                templateMatchingBatchAutoLabelService.BuildUnlabeledImagePathQueue(
+                    queueItems.Select(item => item.ImagePath),
+                    currentHost.AutoLabelData,
+                    registeredTemplateSourceImagePath),
+                StringComparer.OrdinalIgnoreCase);
+
+            return queueItems
+                .Where(item => processPaths.Contains(item.ImagePath))
+                .ToList();
+        }
+
+        private static TemplateMatchingAutoLabelOptions BuildCurrentImageApplyOptions(IWpfTemplateMatchingAutoLabelHost currentHost)
+        {
+            return new TemplateMatchingAutoLabelOptions
+            {
+                MinimumScore = 0.7D,
+                MaximumCandidates = Math.Max(1, currentHost.MaximumTemplateMatchingCandidateCount),
+                ExcludeSourceRegion = false
+            };
+        }
+
+        private static TemplateMatchingAutoLabelOptions BuildBatchOptions(IWpfTemplateMatchingAutoLabelHost currentHost)
+        {
+            return new TemplateMatchingAutoLabelOptions
+            {
+                MinimumScore = 0.7D,
+                MaximumCandidates = currentHost.MaximumTemplateMatchingCandidateCount,
+                ExcludeSourceRegion = false
+            };
+        }
+
+        private static void ShowTemplateGuide(
+            IWpfTemplateMatchingAutoLabelHost currentHost,
+            string title,
+            string message)
+        {
+            string guide = $"{message}{Environment.NewLine}{Environment.NewLine}사용 순서:{Environment.NewLine}1. 기준 이미지에서 찾고 싶은 모양을 라벨 박스로 저장합니다.{Environment.NewLine}2. 객체 검토 목록에서 그 라벨 박스 1개를 선택합니다.{Environment.NewLine}3. 도구 > 현재 이미지 라벨 초안 생성으로 기준 템플릿을 등록합니다.{Environment.NewLine}4. 다른 이미지를 열고 현재 이미지 라벨 초안 생성 또는 전체 이미지 자동 저장을 실행합니다.{Environment.NewLine}5. 현재 이미지에 생성된 라벨 초안은 위치를 확인한 뒤 라벨 저장을 누릅니다.{Environment.NewLine}6. 전체 이미지 자동 저장은 라벨 없는 이미지에 바로 저장됩니다.";
+            currentHost.SetAutoLabelGlobalInferenceStatus(title, isBusy: false, isWarning: true);
+            currentHost.SetAutoLabelPythonStatus($"Template guide: {title}");
+            currentHost.AppendAutoLabelLog($"Template guide: {title} / {message}");
+            currentHost.ShowAutoLabelGuide(title, guide);
+        }
+    }
+}

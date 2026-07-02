@@ -1,4 +1,5 @@
 using System.Drawing;
+using System.Linq;
 
 namespace MvcVisionSystem
 {
@@ -15,10 +16,21 @@ namespace MvcVisionSystem
         {
             get
             {
-                string className = string.IsNullOrWhiteSpace(ClassName) ? "Unknown" : ClassName;
-                string indexText = CandidateIndex > 0 ? $"#{CandidateIndex} " : string.Empty;
-                return $"\uD6C4\uBCF4 {indexText}{className} {Confidence * 100F:0}%";
+                string className = ToCanvasSafeText(string.IsNullOrWhiteSpace(ClassName) ? "Unknown" : ClassName);
+                string indexText = CandidateIndex > 0 ? $"{CandidateIndex} " : string.Empty;
+                return $"AI {indexText}{className} {Confidence * 100F:0.#}%";
             }
+        }
+
+        private static string ToCanvasSafeText(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text))
+            {
+                return "Unknown";
+            }
+
+            string trimmed = text.Trim();
+            return trimmed.All(ch => ch >= 0x20 && ch <= 0x7E) ? trimmed : "Class";
         }
     }
 }

@@ -51,8 +51,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		public event EventHandler<CanvasImagePointEventArgs> ImagePointReleased = delegate { };
 		public event EventHandler<RoiImageCanvasRenderDiagnosticsEventArgs> RenderDiagnosticsCaptured = delegate { };
 
-		// 모델?�리???�성???�시�??�니??
-		public Action OnWindowsChanged { get; set; } // 콜백 추�?
+		// Callback fired when the viewer window state changes.
+		public Action OnWindowsChanged { get; set; } // window-state changed callback
 		#endregion
 
 		#region Fields
@@ -115,6 +115,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		{
 			get { return _imageViewer; }
 		}
+
+		public Predicate<CanvasRect<float>> ShouldDrawOverExistingRoi { get; set; }
 
 		public System.Windows.Controls.ContextMenu ContextMenu { get; set; }
 
@@ -313,7 +315,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 				return string.Format(
 					System.Globalization.CultureInfo.InvariantCulture,
-					"표시 ROI: {0:N0}+",
+					"Overlay ROI: {0:N0}+",
 					_imageViewer.VisibleOverlayShapeLimit);
 			}
 		}
@@ -568,7 +570,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				// Keep ROI manipulation responsive: draw the cached static ROI scene plus the active ROI only.
 				// Detection/mask/text overlays are restored on the full repaint after mouse-up.
 				phaseTicks = Stopwatch.GetTimestamp();
-				OpenGlDrawing.DrawRoiEditHandles(gl, _selectedRect, _imageViewer.ZoomScale, System.Windows.Media.Brushes.DeepSkyBlue);
+				OpenGlDrawing.DrawRoiEditHandles(gl, _selectedRect, _imageViewer.ZoomScale, System.Windows.Media.Brushes.DeepSkyBlue, _imageViewer.HandleSize);
 				miscMilliseconds += ElapsedMilliseconds(phaseTicks);
 				PublishRenderDiagnosticsIfNeeded(captureDiagnostics, diagnosticsReason, diagnosticsStartTicks, frameStartTicks, contentMilliseconds, maskMilliseconds, detectionMilliseconds, polygonMilliseconds, miscMilliseconds, usedMaskPreview, pendingPreviewCommandCount);
 				return;
@@ -591,7 +593,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			DrawPolygonOverlays(gl);
 			polygonMilliseconds = ElapsedMilliseconds(phaseTicks);
 			phaseTicks = Stopwatch.GetTimestamp();
-			OpenGlDrawing.DrawRoiEditHandles(gl, GetOverlayRect(), _imageViewer.ZoomScale, System.Windows.Media.Brushes.DeepSkyBlue);
+			OpenGlDrawing.DrawRoiEditHandles(gl, GetOverlayRect(), _imageViewer.ZoomScale, System.Windows.Media.Brushes.DeepSkyBlue, _imageViewer.HandleSize);
 			if (!usedMaskPreview)
 			{
 				DrawSelectedMaskOverlayMarkers(gl);
@@ -2924,33 +2926,20 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			_imageViewer.PreMousePos = currentRobotyPos;
 			_imageViewer.PostMousePos = currentRobotyPos;
 
-			// Existing ROI hit wins over starting a new box so selection handles appear on mouse-down.
-			var (hitRect, _) = RoiInteractionMouseDown.FindOverlayAtPosition(_imageViewer, currentRobotyPos);
-			if (hitRect != null && !hitRect.IsEmpty())
+			// A selected ROI owns its visible edit handles/body even when another label is active.
+			// The active label is only the default class for a new box, not a reason to redraw the
+			// ROI the operator is already resizing or moving.
+			if (TryBeginSelectedRoiEdit(openGLControl, currentRobotyPos))
 			{
-				_mouseDownOnExistingRoi = true;
-				_drawingRect = new CanvasRect<float>();
-				_selectedRect = hitRect;
-				_selectedRect.SetEditingType(currentRobotyPos.X, currentRobotyPos.Y, _imageViewer.ZoomScale, _imageViewer.HandleSize);
-				_selectedRect.IsEditing = true;
-				MarkRoiDisplayChanged(_selectedRect);
-				_imageViewer.SetViewMode(_selectedRect.EditingType == EditingType.Move ? CanvasInteractionMode.Move : CanvasInteractionMode.Edit);
-				openGLControl.Cursor = RoiInteractionCursor.GetCursorFromType(_selectedRect, currentRobotyPos, _imageViewer.ZoomScale, _imageViewer.HandleSize);
-				_imageViewer.RefreshGL();
 				return true;
 			}
 
-			if (IsSelectedRoiHit(currentRobotyPos))
+			// Unselected ROI hits stay editable unless the shell explicitly allows drawing a
+			// different-class nested box over that ROI.
+			var (hitRect, _) = RoiInteractionMouseDown.FindOverlayAtPosition(_imageViewer, currentRobotyPos);
+			if (hitRect != null && !hitRect.IsEmpty() && !ShouldBeginNewDrawingOverRoi(hitRect))
 			{
-				_mouseDownOnExistingRoi = true;
-				_drawingRect = new CanvasRect<float>();
-				_selectedRect.SetEditingType(currentRobotyPos.X, currentRobotyPos.Y, _imageViewer.ZoomScale, _imageViewer.HandleSize);
-				_selectedRect.IsEditing = true;
-				MarkRoiDisplayChanged(_selectedRect);
-				_imageViewer.SetViewMode(_selectedRect.EditingType == EditingType.Move ? CanvasInteractionMode.Move : CanvasInteractionMode.Edit);
-				openGLControl.Cursor = RoiInteractionCursor.GetCursorFromType(_selectedRect, currentRobotyPos, _imageViewer.ZoomScale, _imageViewer.HandleSize);
-				_imageViewer.RefreshGL();
-				return true;
+				return BeginRoiEdit(openGLControl, hitRect, currentRobotyPos);
 			}
 
 			if (_selectedRect != null)
@@ -2966,6 +2955,42 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			};
 			openGLControl.Cursor = System.Windows.Forms.Cursors.Cross;
 			return true;
+		}
+
+		private bool TryBeginSelectedRoiEdit(OpenGLControl openGLControl, System.Drawing.PointF currentRobotyPos)
+		{
+			if (!IsSelectedRoiHit(currentRobotyPos))
+			{
+				return false;
+			}
+
+			return BeginRoiEdit(openGLControl, _selectedRect, currentRobotyPos);
+		}
+
+		private bool BeginRoiEdit(OpenGLControl openGLControl, CanvasRect<float> roiRect, System.Drawing.PointF currentRobotyPos)
+		{
+			if (roiRect == null || roiRect.IsEmpty())
+			{
+				return false;
+			}
+
+			_mouseDownOnExistingRoi = true;
+			_drawingRect = new CanvasRect<float>();
+			_selectedRect = roiRect;
+			_selectedRect.SetEditingType(currentRobotyPos.X, currentRobotyPos.Y, _imageViewer.ZoomScale, _imageViewer.HandleSize);
+			_selectedRect.IsEditing = true;
+			MarkRoiDisplayChanged(_selectedRect);
+			_imageViewer.SetViewMode(_selectedRect.EditingType == EditingType.Move ? CanvasInteractionMode.Move : CanvasInteractionMode.Edit);
+			openGLControl.Cursor = RoiInteractionCursor.GetCursorFromType(_selectedRect, currentRobotyPos, _imageViewer.ZoomScale, _imageViewer.HandleSize);
+			_imageViewer.RefreshGL();
+			return true;
+		}
+
+		private bool ShouldBeginNewDrawingOverRoi(CanvasRect<float> existingRoi)
+		{
+			return existingRoi != null
+				&& !existingRoi.IsEmpty()
+				&& ShouldDrawOverExistingRoi?.Invoke(existingRoi) == true;
 		}
 
 		private bool TryBeginPanModeMouseDown(OpenGLControl openGLControl, System.Drawing.PointF currentRobotyPos)
@@ -3220,7 +3245,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				if (IsAddRoiArrayMode)
 				{
 					RoiInteractionMouseUp.OpenAddRoiArrayView(_imageViewer, _addRoiArrayVm, OnRoiAdded);
-					// ?�성???�료?�면 ?�당 모드�?종료?�다.
+					// Exit add-roi-array mode after the array edit dialog is acknowledged.
 					IsAddRoiArrayMode = false;
 				}
 				else
@@ -3453,7 +3478,9 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		{
 			return _selectedRect != null
 				&& !_selectedRect.IsEmpty()
-				&& _selectedRect.CheckHandleContainsPosition(currentRobotyPos.X, currentRobotyPos.Y, _imageViewer.ZoomScale, _imageViewer.HandleSize) != LineOverType.None;
+				// Selected handles are visual editor controls. They are allowed to extend
+				// slightly outside the label so users can grab corners and side handles reliably.
+				&& _selectedRect.GetHandleContainsPoint(currentRobotyPos.X, currentRobotyPos.Y, _imageViewer.ZoomScale, _imageViewer.HandleSize) != LineOverType.None;
 		}
 
 		private static void MarkRoiDisplayChanged(CanvasRect<float> canvasRect)
@@ -4126,7 +4153,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				}
 			}
 		}
-		public CanvasRect<float> AddInitialRoi(System.Drawing.Rectangle roi, CanvasRoiShapeKind shapeKind = CanvasRoiShapeKind.Rectangle)
+		public CanvasRect<float> AddInitialRoi(System.Drawing.Rectangle roi, CanvasRoiShapeKind shapeKind = CanvasRoiShapeKind.Rectangle, System.Drawing.Color? drawColor = null, string userTag = "")
 		{
 			if (roi.IsEmpty || roi.Width <= 0 || roi.Height <= 0) { return null; }
 
@@ -4139,15 +4166,65 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			CanvasRect<float> rect = new CanvasRect<float>(roi.Left, canvasTop, roi.Right, canvasBottom)
 			{
 				UniqueId = Guid.NewGuid().ToString(),
+				UserTag = userTag ?? string.Empty,
 				ShapeKind = shapeKind,
 				IsFill = shapeKind == CanvasRoiShapeKind.Ellipse
 			};
 
-			_imageViewer.AddOverlay(parentOverlay.GroupType, parentOverlay.GroupType, rect, rect.UniqueId, parentOverlay.InspWindowType, EnumItemType.Window);
+			_imageViewer.AddOverlay(parentOverlay.GroupType, parentOverlay.GroupType, rect, rect.UniqueId, parentOverlay.InspWindowType, EnumItemType.Window, drawColorOverride: drawColor);
 			_selectedRect = rect;
 			_drawingRect = new CanvasRect<float>();
 			_imageViewer.RefreshGL();
 			return rect;
+		}
+
+		public bool SetRoiOverlayUserTag(string uniqueId, string userTag)
+		{
+			if (string.IsNullOrWhiteSpace(uniqueId))
+			{
+				return false;
+			}
+
+			CanvasOverlayItem overlayItem = _imageViewer.GetCanvasOverlayManager().GetOverlayByUniqueId(uniqueId);
+			if (overlayItem?.Shape == null)
+			{
+				return false;
+			}
+
+			overlayItem.Shape.UserTag = userTag ?? string.Empty;
+			return true;
+		}
+
+		public bool SetRoiOverlayColor(string uniqueId, System.Drawing.Color drawColor, bool refreshImmediately = true)
+		{
+			if (string.IsNullOrWhiteSpace(uniqueId) || drawColor.IsEmpty)
+			{
+				return false;
+			}
+
+			CanvasOverlayItem overlayItem = _imageViewer.GetCanvasOverlayManager().GetOverlayByUniqueId(uniqueId);
+			if (overlayItem?.Shape == null)
+			{
+				return false;
+			}
+
+			if (overlayItem.Color.ToArgb() == drawColor.ToArgb())
+			{
+				return true;
+			}
+
+			// Class color is semantic label state. Recompile only this ROI display list so
+			// changing OK/NG/Defect color does not rebuild the entire overlay scene.
+			overlayItem.Color = drawColor;
+			overlayItem.Shape.IsChanged = true;
+			overlayItem.Shape.OnChanged?.Invoke();
+			_imageViewer.InvalidateVisibleOverlayCache();
+			if (refreshImmediately)
+			{
+				_imageViewer.RefreshGL();
+			}
+
+			return true;
 		}
 
 		#region EventHandler

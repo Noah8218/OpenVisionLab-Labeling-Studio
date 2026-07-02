@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using DrawingSize = System.Drawing.Size;
@@ -32,7 +33,53 @@ namespace MvcVisionSystem
 
             EnsureProjectSettings();
             global.Data.ProjectSettings.PythonModel.ImageRootPath = selectedPath;
+            SaveCurrentImageRootToRecipe(selectedPath);
             LoadImageQueueFromRoot(selectedPath, string.Empty, loadFirstImage: true);
+            RefreshShellDatasetContext();
+        }
+
+        private void SaveCurrentImageRootToRecipe(string selectedPath)
+        {
+            string recipeName = GetCurrentRecipeName();
+            if (string.IsNullOrWhiteSpace(recipeName))
+            {
+                AppendLog($"\uC774\uBBF8\uC9C0 \uD3F4\uB354 \uC120\uD0DD: {selectedPath}");
+                return;
+            }
+
+            try
+            {
+                // Image folder is part of the dataset context. Persist it immediately
+                // so switching away and back reloads the right queue for this recipe.
+                global.Data.SaveConfig(recipeName);
+                PopulateYoloEditorFields();
+                PopulateProjectConfigPanelFields();
+                AppendLog($"\uC774\uBBF8\uC9C0 \uD3F4\uB354 \uC800\uC7A5: {selectedPath}");
+            }
+            catch (Exception ex)
+            {
+                AppendLog($"\uC774\uBBF8\uC9C0 \uD3F4\uB354 \uC800\uC7A5 \uC2E4\uD328: {ex.Message}");
+            }
+        }
+
+        private void ExecuteOpenCurrentImageFolderCommand()
+        {
+            string root = Directory.Exists(currentImageRoot)
+                ? currentImageRoot
+                : global.Data.ProjectSettings?.PythonModel?.ImageRootPath;
+            if (string.IsNullOrWhiteSpace(root) || !Directory.Exists(root))
+            {
+                AppendLog($"현재 이미지 폴더를 열 수 없습니다: {root}");
+                ImageQueueViewModel?.SetCurrentImageFolder(root, canOpenFolder: false);
+                return;
+            }
+
+            // This is separate from Browse so users can inspect the loaded image folder without changing the queue root.
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = root,
+                UseShellExecute = true
+            });
         }
 
         private void ExecuteRefreshImageQueueCommand()
@@ -97,6 +144,11 @@ namespace MvcVisionSystem
         private void ExecuteQueueFilterAllCommand()
         {
             SetImageQueueFilter(WpfImageQueueFilter.All);
+        }
+
+        private void ExecuteQueueFilterUnfinishedCommand()
+        {
+            SetImageQueueFilter(WpfImageQueueFilter.Unlabeled);
         }
 
         private void ExecuteQueueFilterCandidateCommand()

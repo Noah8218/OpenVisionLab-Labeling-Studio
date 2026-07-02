@@ -226,7 +226,12 @@ try {
 
     if (-not $SkipBuild) {
         Write-Step "Build"
-        dotnet build ".\MvcVisionSystem.sln" -c $Configuration -p:Platform=x64 -v:minimal /nodeReuse:false -m:1
+        if ($SkipTests) {
+            dotnet build ".\MvcVisionSystem.csproj" -c $Configuration -p:Platform=x64 -v:minimal -m
+        }
+        else {
+            dotnet build ".\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj" -c $Configuration -v:minimal -m
+        }
     }
 
     if (-not $SkipTests) {

@@ -7,8 +7,8 @@
                  xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm"
                  xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
                  Title="OpenVisionLab Labeling Studio"
-                 Width="1440"
-                 Height="900"
+                 Width="1920"
+                 Height="1080"
                  MinWidth="1100"
                  MinHeight="720"
                  Background="{DynamicResource AppBackgroundBrush}"
@@ -36,6 +36,10 @@
         <SolidColorBrush x:Key="PrimaryTextBrush" Color="#F7F7F7" />
         <SolidColorBrush x:Key="SecondaryTextBrush" Color="#B7B7B7" />
         <SolidColorBrush x:Key="AccentBrush" Color="#E53935" />
+        <SolidColorBrush x:Key="ModelCenterCandidateBrush" Color="#38BDF8" />
+        <SolidColorBrush x:Key="ModelCenterDecisionBrush" Color="#F59E0B" />
+        <SolidColorBrush x:Key="ModelCenterCandidatePanelBrush" Color="#0D1E28" />
+        <SolidColorBrush x:Key="ModelCenterDecisionPanelBrush" Color="#211807" />
         <SolidColorBrush x:Key="ToolbarButtonBrush" Color="#252525" />
         <SolidColorBrush x:Key="ToolbarButtonBorderBrush" Color="#3A3A3A" />
         <SolidColorBrush x:Key="ToolbarButtonHoverBrush" Color="#333333" />
@@ -57,6 +61,123 @@
         <SolidColorBrush x:Key="DetectionOverlaySelectedBackgroundBrush" Color="#1F24D366" />
         <SolidColorBrush x:Key="DetectionOverlaySelectedTextBrush" Color="#FFFFFF" />
         <SolidColorBrush x:Key="DetectionOverlayDetailTextBrush" Color="#C9D4E2" />
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
+        <Style x:Key="WorkflowViewHostTabItemStyle" TargetType="{x:Type TabItem}">
+            <Setter Property="MinHeight" Value="28" />
+            <Setter Property="Padding" Value="10,5" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type TabItem}">
+                        <Border x:Name="WorkflowTabHeaderBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1,1,1,0"
+                                CornerRadius="4,4,0,0"
+                                Margin="0,0,2,0"
+                                Padding="{TemplateBinding Padding}"
+                                SnapsToDevicePixels="True">
+                            <ContentPresenter x:Name="WorkflowTabHeaderContent"
+                                              ContentSource="Header"
+                                              RecognizesAccessKey="True"
+                                              HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              TextElement.Foreground="{TemplateBinding Foreground}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="WorkflowTabHeaderBorder" Property="Background" Value="{DynamicResource ToolbarButtonHoverBrush}" />
+                                <Setter TargetName="WorkflowTabHeaderBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="WorkflowTabHeaderBorder" Property="Background" Value="{DynamicResource PanelBrush}" />
+                                <Setter TargetName="WorkflowTabHeaderBorder" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                                <Setter Property="FontWeight" Value="SemiBold" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter TargetName="WorkflowTabHeaderBorder" Property="Background" Value="{DynamicResource ToolbarButtonDisabledBrush}" />
+                                <Setter TargetName="WorkflowTabHeaderBorder" Property="BorderBrush" Value="{DynamicResource ToolbarButtonDisabledBorderBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding ShellViewModel.IsRightWorkflowSubNavigationVisible, RelativeSource={RelativeSource AncestorType={x:Type local:WpfLabelingShellWindow}}}"
+                             Value="False">
+                    <Setter Property="Height" Value="0" />
+                    <Setter Property="MinHeight" Value="0" />
+                    <Setter Property="Padding" Value="0" />
+                    <Setter Property="Margin" Value="0" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="RightWorkflowShortcutButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Height" Value="30" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="Padding" Value="6,0" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="11.5" />
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Style.Triggers>
+                <Trigger Property="Tag" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="FontWeight" Value="SemiBold" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="RightWorkflowDockButtonStyle" TargetType="{x:Type Button}">
+            <Setter Property="Height" Value="26" />
+            <Setter Property="Width" Value="28" />
+            <Setter Property="MinWidth" Value="28" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource ToolbarButtonHoverBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="RightWorkflowRailButtonStyle" TargetType="{x:Type Button}" BasedOn="{StaticResource RightWorkflowDockButtonStyle}">
+            <Setter Property="Height" Value="42" />
+            <Setter Property="Width" Value="60" />
+            <Setter Property="MinWidth" Value="60" />
+            <Setter Property="Margin" Value="0,0,0,6" />
+            <Setter Property="Tag" Value="False" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="9" />
+            <Style.Triggers>
+                <Trigger Property="Tag" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="Foreground" Value="White" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
 
         <Style x:Key="PanelBorderStyle" TargetType="Border">
             <Setter Property="Background" Value="{DynamicResource PanelBrush}" />
@@ -144,7 +265,63 @@
             </Style.Triggers>
         </Style>
 
+        <Style x:Key="HeaderToolMenuToggleButtonStyle" TargetType="{x:Type ToggleButton}">
+            <Setter Property="Height" Value="30" />
+            <Setter Property="Width" Value="36" />
+            <Setter Property="MinWidth" Value="36" />
+            <Setter Property="Margin" Value="4,0,0,0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="FontFamily" Value="Segoe UI" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type ToggleButton}">
+                        <Border x:Name="ButtonChrome"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="3">
+                            <ContentPresenter HorizontalAlignment="Center"
+                                              VerticalAlignment="Center"
+                                              Margin="{TemplateBinding Padding}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource ToolbarButtonHoverBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="ButtonChrome" Property="Background" Value="{DynamicResource ToolbarButtonHoverBrush}" />
+                                <Setter TargetName="ButtonChrome" Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
         <Style x:Key="WorkflowModeToolbarButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource WpfUiToolbarButtonStyle}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="Foreground" Value="White" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
+        <Style x:Key="WorkflowStageButtonStyle" TargetType="{x:Type ui:Button}" BasedOn="{StaticResource WpfUiToolbarButtonStyle}">
+            <Setter Property="Height" Value="34" />
+            <Setter Property="MinWidth" Value="132" />
+            <Setter Property="Padding" Value="9,0" />
+            <Setter Property="Margin" Value="0,0,6,0" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="ToolTipService.ShowOnDisabled" Value="True" />
             <Style.Triggers>
                 <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="True">
                     <Setter Property="Background" Value="{DynamicResource AccentBrush}" />
@@ -381,6 +558,53 @@
             </Style.Triggers>
         </Style>
 
+        <Style x:Key="ModelRegistryHistoryListBoxItemStyle" TargetType="ListBoxItem">
+            <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="BorderBrush" Value="Transparent" />
+            <Setter Property="Padding" Value="6,4" />
+            <Setter Property="Margin" Value="0,1" />
+            <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+            <Setter Property="FocusVisualStyle" Value="{x:Null}" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBoxItem">
+                        <Border x:Name="ItemBorder"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="1"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                              VerticalAlignment="{TemplateBinding VerticalContentAlignment}" />
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource RowHoverBrush}" />
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource BorderBrushDark}" />
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter TargetName="ItemBorder" Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+                                <Setter TargetName="ItemBorder" Property="BorderBrush" Value="{DynamicResource ModelCenterCandidateBrush}" />
+                                <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
+                            </Trigger>
+                            <Trigger Property="IsEnabled" Value="False">
+                                <Setter Property="Foreground" Value="{DynamicResource DisabledTextBrush}" />
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource RowHoverBrush}" />
+                </Trigger>
+                <Trigger Property="IsSelected" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource SelectedRowTextBrush}" />
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+
         <Style x:Key="ImageQueueTextStyle" TargetType="TextBlock">
             <Setter Property="Margin" Value="5,1" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
@@ -409,17 +633,17 @@
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="160" />
                     <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="250" />
+                    <ColumnDefinition Width="360" />
                 </Grid.ColumnDefinitions>
 
                 <StackPanel VerticalAlignment="Center">
-                    <TextBlock Text="라벨링 워크벤치"
+                    <TextBlock Text="&#xB77C;&#xBCA8;&#xB9C1; &#xC6CC;&#xD06C;&#xBCA4;&#xCE58;"
                                Foreground="{DynamicResource PrimaryTextBrush}"
                                FontFamily="Segoe UI"
                                FontSize="16"
                                FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis" />
-                    <TextBlock Text="큐 / 캔버스 / YOLO"
+                    <TextBlock Text="&#xD050; / &#xCE94;&#xBC84;&#xC2A4; / &#xBAA8;&#xB378;"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                FontFamily="Segoe UI"
                                FontSize="11"
@@ -429,63 +653,172 @@
                 <StackPanel Grid.Column="1"
                             Orientation="Horizontal"
                             VerticalAlignment="Center"
-                            HorizontalAlignment="Stretch"
+                            HorizontalAlignment="Right"
                             ClipToBounds="True">
-                    <ui:Button x:Name="ThemeToggleButton"
+                    <ui:Button x:Name="SaveAnnotationsButton"
                                Style="{StaticResource WpfUiToolbarButtonStyle}"
-                               MinWidth="112"
-                               AutomationProperties.Name="Theme"
-                               ToolTip="다크/라이트 테마 전환"
-                               Command="{Binding ShellViewModel.ToggleThemeCommand}">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ThemeLightDark" />
-                            <TextBlock x:Name="ThemeToggleText" Text="테마: 다크" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </ui:Button>
-                    <ui:Button x:Name="LoadSampleButton" Style="{StaticResource WpfUiToolbarButtonStyle}" AutomationProperties.Name="샘플" ToolTip="설정된 샘플 이미지 다시 불러오기" Command="{Binding ShellViewModel.LoadSampleCommand}">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ImageSearch" />
-                            <TextBlock Text="샘플" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </ui:Button>
-                    <ui:Button x:Name="AddSampleRoiButton" Style="{StaticResource WpfUiToolbarButtonStyle}" AutomationProperties.Name="박스" ToolTip="현재 이미지 중앙에 새 박스 라벨 추가" Command="{Binding ShellViewModel.AddSampleRoiCommand}">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ShapeSquareRoundedPlus" />
-                            <TextBlock Text="박스" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </ui:Button>
-                    <ui:Button x:Name="SaveAnnotationsButton" Style="{StaticResource WpfUiToolbarButtonStyle}" AutomationProperties.Name="저장" ToolTip="현재 박스와 확정 라벨 저장" Command="{Binding ShellViewModel.SaveAnnotationsCommand}">
+                               MinWidth="92"
+                               AutomationProperties.Name="&#xB77C;&#xBCA8; &#xC800;&#xC7A5;"
+                               ToolTip="&#xD604;&#xC7AC; &#xBC15;&#xC2A4;&#xC640; &#xD655;&#xC815; &#xB77C;&#xBCA8; &#xC800;&#xC7A5;"
+                               Command="{Binding ShellViewModel.SaveAnnotationsCommand}">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ContentSave" />
-                            <TextBlock Text="저장" VerticalAlignment="Center" />
+                            <TextBlock Text="&#xB77C;&#xBCA8; &#xC800;&#xC7A5;" VerticalAlignment="Center" />
                         </StackPanel>
                     </ui:Button>
-                    <Border Width="1" Height="24" Margin="6,0" Background="{DynamicResource BorderBrushDark}" />
-                    <ui:Button x:Name="TeachingModeButton" Style="{StaticResource WorkflowModeToolbarButtonStyle}" AutomationProperties.Name="라벨링 시작" ToolTip="라벨링 도구 팔레트를 열고 그리기 모드로 이동" IsEnabled="{Binding ShellViewModel.IsLabelingModeButtonEnabled}" Tag="{Binding ShellViewModel.IsLabelingModeActive}" Command="{Binding ShellViewModel.LabelingModeCommand}">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="SchoolOutline" />
-                            <TextBlock Text="라벨링 시작" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </ui:Button>
-                    <ui:Button x:Name="InferenceModeButton" Style="{StaticResource WorkflowModeToolbarButtonStyle}" AutomationProperties.Name="추론 검토" ToolTip="현재 이미지와 큐 검출 버튼을 활성화" IsEnabled="{Binding ShellViewModel.IsInferenceModeButtonEnabled}" Tag="{Binding ShellViewModel.IsInferenceModeActive}" Command="{Binding ShellViewModel.InferenceModeCommand}">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="RobotIndustrial" />
-                            <TextBlock Text="추론 검토" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </ui:Button>
-                    <Border Width="1" Height="24" Margin="6,0" Background="{DynamicResource BorderBrushDark}" />
-                    <ui:Button x:Name="CheckYoloButton" Style="{StaticResource WpfUiToolbarButtonStyle}" AutomationProperties.Name="YOLO" ToolTip="YOLO 경로와 Python 환경 점검" Command="{Binding ShellViewModel.CheckYoloCommand}">
-                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="Tune" />
-                            <TextBlock Text="YOLO" VerticalAlignment="Center" />
-                        </StackPanel>
-                    </ui:Button>
-                    <ui:Button x:Name="DetectButton" Style="{StaticResource WpfUiToolbarButtonStyle}" AutomationProperties.Name="현재 이미지 검사" ToolTip="현재 이미지로 YOLO 검출 실행" IsEnabled="{Binding ShellViewModel.IsCurrentImageDetectionEnabled}" Command="{Binding ShellViewModel.DetectCurrentImageCommand}">
+                    <ui:Button x:Name="DetectButton"
+                               Style="{StaticResource WpfUiToolbarButtonStyle}"
+                               MinWidth="96"
+                               AutomationProperties.Name="&#xD604;&#xC7AC; &#xC774;&#xBBF8;&#xC9C0; &#xAC80;&#xC0AC;"
+                               ToolTip="&#xD604;&#xC7AC; &#xC774;&#xBBF8;&#xC9C0;&#xB85C; &#xBAA8;&#xB378; &#xAC80;&#xC0AC; &#xC2E4;&#xD589;"
+                               IsEnabled="{Binding ShellViewModel.IsCurrentImageDetectionEnabled}"
+                               Command="{Binding ShellViewModel.DetectCurrentImageCommand}">
                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ImageSearch" />
-                            <TextBlock Text="현재 검사" VerticalAlignment="Center" />
+                            <TextBlock Text="&#xD604;&#xC7AC; &#xAC80;&#xC0AC;" VerticalAlignment="Center" />
                         </StackPanel>
                     </ui:Button>
+                    <ToggleButton x:Name="HeaderToolsMenuButton"
+                                  Style="{StaticResource HeaderToolMenuToggleButtonStyle}"
+                                  AutomationProperties.AutomationId="HeaderToolsMenuButton"
+                                  AutomationProperties.Name="&#xC124;&#xC815;/&#xB3C4;&#xAD6C;"
+                                  ToolTip="&#xC124;&#xC815;&#xACFC; &#xBCF4;&#xC870; &#xB3C4;&#xAD6C; &#xC5F4;&#xAE30;">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconMaterial x:Name="HeaderToolsMenuIcon"
+                                                        Width="15"
+                                                        Height="15"
+                                                        Margin="0"
+                                                        Kind="CogOutline"
+                                                        VerticalAlignment="Center" />
+                        </StackPanel>
+                    </ToggleButton>
+                    <Popup x:Name="HeaderToolsPopup"
+                           PlacementTarget="{Binding ElementName=HeaderToolsMenuButton}"
+                           Placement="Bottom"
+                           AllowsTransparency="True"
+                           StaysOpen="False"
+                           IsOpen="{Binding IsChecked, ElementName=HeaderToolsMenuButton}"
+                           DataContext="{Binding DataContext, ElementName=ShellWindow}">
+                        <Border Width="242"
+                                Margin="0,4,0,0"
+                                Padding="8"
+                                Background="{DynamicResource PanelBrush}"
+                                BorderBrush="{DynamicResource AccentBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4">
+                            <StackPanel>
+                                <TextBlock x:Name="HeaderToolsMenuTitleText"
+                                           Text="&#xC124;&#xC815;/&#xB3C4;&#xAD6C;"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           Margin="2,0,0,2" />
+                                <TextBlock x:Name="HeaderToolsMenuScreenSectionText"
+                                           Text="&#xD654;&#xBA74;"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Margin="2,4,0,6" />
+                                <ui:Button x:Name="ThemeToggleButton"
+                                           Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                           HorizontalAlignment="Stretch"
+                                           MinWidth="218"
+                                           Margin="0,0,0,8"
+                                           AutomationProperties.AutomationId="ThemeToggleButton"
+                                           AutomationProperties.Name="Theme"
+                                           ToolTip="&#xB2E4;&#xD06C;/&#xB77C;&#xC774;&#xD2B8; &#xD14C;&#xB9C8; &#xC804;&#xD658;"
+                                           Command="{Binding ShellViewModel.ToggleThemeCommand}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ThemeLightDark" />
+                                        <TextBlock x:Name="ThemeToggleText" Text="&#xD14C;&#xB9C8;: &#xB2E4;&#xD06C;" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </ui:Button>
+                                <TextBlock x:Name="HeaderToolsMenuAssistSectionText"
+                                           Text="&#xC0D8;&#xD50C;/&#xB77C;&#xBCA8; &#xBCF4;&#xC870;"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Margin="2,0,0,6" />
+                                <Border x:Name="HeaderTemplateFlowGuidePanel"
+                                        AutomationProperties.AutomationId="HeaderTemplateFlowGuidePanel"
+                                        Background="{DynamicResource CanvasBrush}"
+                                        BorderBrush="{DynamicResource BorderBrushDark}"
+                                        BorderThickness="1"
+                                        CornerRadius="4"
+                                        Padding="8,6"
+                                        Margin="0,0,0,6">
+                                    <StackPanel>
+                                        <TextBlock x:Name="HeaderTemplateFlowTitleText"
+                                                   Text="&#xD15C;&#xD50C;&#xB9BF; &#xD750;&#xB984;"
+                                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold" />
+                                        <TextBlock x:Name="HeaderTemplateFlowStepText"
+                                                   Text="1 기준 라벨 선택 -> 2 라벨 초안 생성 -> 3 위치 확인 -> 4 라벨 저장"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="10"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,2,0,0" />
+                                    </StackPanel>
+                                </Border>
+                                <ui:Button x:Name="LoadSampleButton" Style="{StaticResource WpfUiToolbarButtonStyle}" HorizontalAlignment="Stretch" MinWidth="218" Margin="0,0,0,4" AutomationProperties.AutomationId="LoadSampleButton" AutomationProperties.Name="&#xC0D8;&#xD50C;" ToolTip="&#xC124;&#xC815;&#xB41C; &#xC0D8;&#xD50C; &#xC774;&#xBBF8;&#xC9C0; &#xB2E4;&#xC2DC; &#xBD88;&#xB7EC;&#xC624;&#xAE30;" Command="{Binding ShellViewModel.LoadSampleCommand}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ImageSearch" />
+                                        <TextBlock Text="&#xC0D8;&#xD50C; &#xBD88;&#xB7EC;&#xC624;&#xAE30;" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </ui:Button>
+                                <ui:Button x:Name="AddSampleRoiButton" Style="{StaticResource WpfUiToolbarButtonStyle}" HorizontalAlignment="Stretch" MinWidth="218" Margin="0,0,0,4" AutomationProperties.AutomationId="AddSampleRoiButton" AutomationProperties.Name="&#xBC15;&#xC2A4;" ToolTip="&#xD604;&#xC7AC; &#xC774;&#xBBF8;&#xC9C0; &#xC911;&#xC559;&#xC5D0; &#xC0C8; &#xBC15;&#xC2A4; &#xB77C;&#xBCA8; &#xCD94;&#xAC00;" Command="{Binding ShellViewModel.AddSampleRoiCommand}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ShapeSquareRoundedPlus" />
+                                        <TextBlock Text="&#xC911;&#xC559; &#xBC15;&#xC2A4; &#xCD94;&#xAC00;" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </ui:Button>
+                                <ui:Button x:Name="TemplateMatchingButton" Style="{StaticResource WpfUiToolbarButtonStyle}" HorizontalAlignment="Stretch" MinWidth="218" Margin="0,0,0,4" AutomationProperties.AutomationId="TemplateMatchingButton" AutomationProperties.Name="현재 이미지 템플릿 라벨 초안 생성" ToolTip="선택 라벨을 기준 템플릿으로 등록하거나, 등록된 템플릿으로 현재 이미지에 저장 전 라벨 초안을 생성" Command="{Binding ShellViewModel.RunTemplateMatchingCommand}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="SelectionSearch" />
+                                        <TextBlock x:Name="TemplateMatchingButtonText" Text="현재 이미지 초안 생성" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </ui:Button>
+                                <ui:Button x:Name="HeaderTemplateBatchButton" Style="{StaticResource WpfUiToolbarButtonStyle}" HorizontalAlignment="Stretch" MinWidth="218" Margin="0,0,0,8" AutomationProperties.AutomationId="HeaderTemplateBatchButton" AutomationProperties.Name="전체 이미지 템플릿 자동 저장" ToolTip="등록된 템플릿으로 이미지 목록을 한 번씩 검사하고 라벨 없는 이미지에만 바로 저장" IsEnabled="{Binding ImageQueueViewModel.IsTemplateBatchEnabled}" Command="{Binding ImageQueueViewModel.TemplateBatchQueueCommand}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="PlaylistCheck" />
+                                        <TextBlock x:Name="HeaderTemplateBatchButtonText" Text="전체 이미지 자동 저장" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </ui:Button>
+                                <Border Height="1" Margin="0,4,0,8" Background="{DynamicResource BorderBrushDark}" />
+                                <TextBlock x:Name="HeaderToolsMenuWorkflowSectionText"
+                                           Text="&#xC791;&#xC5C5; &#xC804;&#xD658;/&#xD658;&#xACBD;"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Margin="2,0,0,6" />
+                                <ui:Button x:Name="TeachingModeButton" Style="{StaticResource WorkflowModeToolbarButtonStyle}" HorizontalAlignment="Stretch" MinWidth="218" Margin="0,0,0,4" AutomationProperties.Name="&#xB77C;&#xBCA8;&#xB9C1; &#xC2DC;&#xC791;" ToolTip="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C; &#xD314;&#xB808;&#xD2B8;&#xB97C; &#xC5F4;&#xACE0; &#xADF8;&#xB9AC;&#xAE30; &#xBAA8;&#xB4DC;&#xB85C; &#xC774;&#xB3D9;" IsEnabled="{Binding ShellViewModel.IsLabelingModeButtonEnabled}" Tag="{Binding ShellViewModel.IsLabelingModeActive}" Command="{Binding ShellViewModel.LabelingModeCommand}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="SchoolOutline" />
+                                        <TextBlock Text="&#xB77C;&#xBCA8;&#xB9C1; &#xC2DC;&#xC791;" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </ui:Button>
+                                <ui:Button x:Name="InferenceModeButton" Style="{StaticResource WorkflowModeToolbarButtonStyle}" HorizontalAlignment="Stretch" MinWidth="218" Margin="0,0,0,4" AutomationProperties.Name="&#xCD94;&#xB860; &#xAC80;&#xD1A0;" ToolTip="&#xD604;&#xC7AC; &#xC774;&#xBBF8;&#xC9C0;&#xC640; &#xD050; &#xAC80;&#xCD9C; &#xBC84;&#xD2BC;&#xC744; &#xD65C;&#xC131;&#xD654;" IsEnabled="{Binding ShellViewModel.IsInferenceModeButtonEnabled}" Tag="{Binding ShellViewModel.IsInferenceModeActive}" Command="{Binding ShellViewModel.InferenceModeCommand}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="RobotIndustrial" />
+                                        <TextBlock Text="&#xCD94;&#xB860; &#xAC80;&#xD1A0;" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </ui:Button>
+                                <ui:Button x:Name="CheckYoloButton" Style="{StaticResource WpfUiToolbarButtonStyle}" HorizontalAlignment="Stretch" MinWidth="218" Margin="0" AutomationProperties.Name="&#xBAA8;&#xB378; &#xC2E4;&#xD589; &#xD658;&#xACBD;" ToolTip="&#xBAA8;&#xB378; &#xC2E4;&#xD589; &#xACBD;&#xB85C;&#xC640; Python &#xD658;&#xACBD; &#xC810;&#xAC80;" Command="{Binding ShellViewModel.CheckYoloCommand}">
+                                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                        <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="Tune" />
+                                        <TextBlock Text="&#xBAA8;&#xB378; &#xC810;&#xAC80;" VerticalAlignment="Center" />
+                                    </StackPanel>
+                                </ui:Button>
+                            </StackPanel>
+                        </Border>
+                    </Popup>
                 </StackPanel>
 
                 <Border x:Name="InferenceStatusBorder"
@@ -498,12 +831,12 @@
                         BorderThickness="1"
                         CornerRadius="4"
                         VerticalAlignment="Center"
-                        ToolTip="현재 추론 실행 상태">
+                        ToolTip="&#xD604;&#xC7AC; &#xCD94;&#xB860; &#xC2E4;&#xD589; &#xC0C1;&#xD0DC;">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="20" />
                             <ColumnDefinition Width="*" />
-                            <ColumnDefinition Width="60" />
+                            <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
                         <iconPacks:PackIconMaterial x:Name="InferenceStatusIcon"
                                                     Width="15"
@@ -514,14 +847,14 @@
                                                     VerticalAlignment="Center" />
                         <StackPanel Grid.Column="1"
                                     VerticalAlignment="Center">
-                            <TextBlock Text="추론 상태"
+                            <TextBlock Text="&#xCD94;&#xB860; &#xC0C1;&#xD0DC;"
                                        Foreground="{DynamicResource SecondaryTextBrush}"
                                        FontFamily="Segoe UI"
                                        FontSize="9"
                                        FontWeight="SemiBold"
                                        TextTrimming="CharacterEllipsis" />
                             <TextBlock x:Name="InferenceStatusText"
-                                       Text="대기"
+                                       Text="&#xB300;&#xAE30;"
                                        Foreground="{DynamicResource PrimaryTextBrush}"
                                        FontFamily="Segoe UI"
                                        FontSize="11"
@@ -532,6 +865,7 @@
                                      Grid.Column="2"
                                      Width="54"
                                      Height="6"
+                                     Margin="8,0,0,0"
                                      Minimum="0"
                                      Maximum="100"
                                      Value="0"
@@ -543,112 +877,1476 @@
             </Grid>
         </Border>
 
+        <Border x:Name="WorkflowStageRail"
+                DockPanel.Dock="Top"
+                Height="54"
+                Background="#15181D"
+                BorderBrush="{DynamicResource BorderBrushDark}"
+                BorderThickness="0,0,0,1">
+            <Grid Margin="16,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="78" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <StackPanel VerticalAlignment="Center"
+                            Margin="0,0,12,0">
+                    <TextBlock Text="&#xC791;&#xC5C5; &#xD750;&#xB984;"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                    <TextBlock Text="1-4"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            ClipToBounds="True">
+                    <ui:Button x:Name="DatasetHomeStageButton"
+                               Style="{StaticResource WorkflowStageButtonStyle}"
+                               AutomationProperties.AutomationId="DatasetHomeStageButton"
+                               AutomationProperties.Name="&#xB370;&#xC774;&#xD130;&#xC14B; &#xD648;"
+                               ToolTip="&#xB370;&#xC774;&#xD130;&#xC14B;&#xC744; &#xB9CC;&#xB4E4;&#xAC70;&#xB098; &#xAE30;&#xC874; &#xB370;&#xC774;&#xD130;&#xC14B;&#xC744; &#xC5F4;&#xC5B4; &#xC2DC;&#xC791;&#xD569;&#xB2C8;&#xB2E4;."
+                               Tag="{Binding ShellViewModel.IsDatasetStageActive, ElementName=ShellWindow}"
+                               Command="{Binding ShellViewModel.DatasetHomeCommand, ElementName=ShellWindow}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="DatabaseOutline" />
+                            <TextBlock Grid.Column="1"
+                                       Text="1 &#xB370;&#xC774;&#xD130;&#xC14B;"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                    </ui:Button>
+                    <ui:Button x:Name="LabelingWorkbenchStageButton"
+                               Style="{StaticResource WorkflowStageButtonStyle}"
+                               AutomationProperties.AutomationId="LabelingWorkbenchStageButton"
+                               AutomationProperties.Name="&#xB77C;&#xBCA8;&#xB9C1; &#xC6CC;&#xD06C;&#xBCA4;&#xCE58;"
+                               ToolTip="&#xB77C;&#xBCA8;&#xB9CC; &#xBCF4;&#xBA74;&#xC11C; &#xC815;&#xB2F5;&#xC744; &#xB9CC;&#xB4E4;&#xACE0; &#xC800;&#xC7A5;&#xD569;&#xB2C8;&#xB2E4;."
+                               Tag="{Binding ShellViewModel.IsLabelingStageActive, ElementName=ShellWindow}"
+                               Command="{Binding ShellViewModel.LabelingWorkbenchCommand, ElementName=ShellWindow}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="SchoolOutline" />
+                            <TextBlock Grid.Column="1"
+                                       Text="2 &#xB77C;&#xBCA8;&#xB9C1;"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                    </ui:Button>
+                    <ui:Button x:Name="InferenceReviewStageButton"
+                               Style="{StaticResource WorkflowStageButtonStyle}"
+                               AutomationProperties.AutomationId="InferenceReviewStageButton"
+                               AutomationProperties.Name="&#xCD94;&#xB860; &#xAC80;&#xD1A0;"
+                               ToolTip="&#xBAA8;&#xB378; &#xD6C4;&#xBCF4;&#xB9CC; &#xBCF4;&#xBA74;&#xC11C; &#xC218;&#xB77D;&#xD558;&#xAC70;&#xB098; &#xAC70;&#xC808;&#xD569;&#xB2C8;&#xB2E4;."
+                               Tag="{Binding ShellViewModel.IsInferenceStageActive, ElementName=ShellWindow}"
+                               Command="{Binding ShellViewModel.InferenceReviewCommand, ElementName=ShellWindow}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="RobotIndustrial" />
+                            <TextBlock Grid.Column="1"
+                                       Text="3 &#xCD94;&#xB860; &#xAC80;&#xD1A0;"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                    </ui:Button>
+                    <ui:Button x:Name="TrainingModelStageButton"
+                               Style="{StaticResource WorkflowStageButtonStyle}"
+                               AutomationProperties.AutomationId="TrainingModelStageButton"
+                               AutomationProperties.Name="&#xD559;&#xC2B5;/&#xBAA8;&#xB378; &#xC13C;&#xD130;"
+                               ToolTip="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC810;&#xAC80;, &#xD559;&#xC2B5; &#xC9C4;&#xD589;, &#xBAA8;&#xB378; &#xD6C4;&#xBCF4; &#xC801;&#xC6A9;&#xC744; &#xD655;&#xC778;&#xD569;&#xB2C8;&#xB2E4;."
+                               Tag="{Binding ShellViewModel.IsTrainingModelStageActive, ElementName=ShellWindow}"
+                               Command="{Binding ShellViewModel.TrainingModelCenterCommand, ElementName=ShellWindow}">
+                        <Grid>
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="20" />
+                                <ColumnDefinition Width="*" />
+                            </Grid.ColumnDefinitions>
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="Tune" />
+                            <TextBlock Grid.Column="1"
+                                       Text="4 &#xD559;&#xC2B5;/&#xBAA8;&#xB378;"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       TextTrimming="CharacterEllipsis" />
+                        </Grid>
+                    </ui:Button>
+                </StackPanel>
+                <Border x:Name="WorkflowStageSummaryPanel"
+                        Grid.Column="2"
+                        AutomationProperties.AutomationId="WorkflowStageSummaryPanel"
+                        AutomationProperties.Name="&#xD604;&#xC7AC; &#xC791;&#xC5C5; &#xB2E8;&#xACC4; &#xC694;&#xC57D;"
+                        ToolTip="{Binding ShellViewModel.WorkflowStageDetailText, ElementName=ShellWindow}"
+                        Background="{DynamicResource CanvasBrush}"
+                        BorderBrush="{DynamicResource BorderBrushDark}"
+                        BorderThickness="1"
+                        CornerRadius="5"
+                        Padding="9,5"
+                        Margin="8,0,0,0"
+                        VerticalAlignment="Center">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Border Background="{DynamicResource ToolbarButtonBrush}"
+                                BorderBrush="{DynamicResource AccentBrush}"
+                                BorderThickness="1"
+                                CornerRadius="3"
+                                Padding="7,2"
+                                Margin="0,0,9,0"
+                                VerticalAlignment="Top">
+                            <TextBlock x:Name="WorkflowStageSummaryProgressText"
+                                       Text="{Binding ShellViewModel.WorkflowStageProgressText, ElementName=ShellWindow}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                        </Border>
+                        <StackPanel Grid.Column="1"
+                                    VerticalAlignment="Center">
+                            <TextBlock x:Name="WorkflowStageSummaryTitleText"
+                                       Text="{Binding ShellViewModel.WorkflowStageTitleText, ElementName=ShellWindow}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                             <TextBlock x:Name="WorkflowStageSummaryDetailText"
+                                        Text="{Binding ShellViewModel.WorkflowStageDetailText, ElementName=ShellWindow}"
+                                        Foreground="{DynamicResource SecondaryTextBrush}"
+                                        FontFamily="Segoe UI"
+                                        FontSize="10"
+                                        Margin="0,1,0,0"
+                                        Visibility="Collapsed"
+                                        TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="WorkflowStageSummaryNextActionText"
+                                       Text="{Binding ShellViewModel.WorkflowStageNextActionText, ElementName=ShellWindow}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       Margin="0,1,0,0"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                        <WrapPanel x:Name="WorkflowStageModelActionPanel"
+                                   Grid.Column="2"
+                                   AutomationProperties.AutomationId="WorkflowStageModelActionPanel"
+                                   Margin="10,0,0,0"
+                                   VerticalAlignment="Center"
+                                   Visibility="{Binding ShellViewModel.IsWorkflowStageModelActionPanelVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <ui:Button x:Name="WorkflowStageReviewCandidateModelButton"
+                                       Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                       AutomationProperties.AutomationId="WorkflowStageReviewCandidateModelButton"
+                                       AutomationProperties.Name="{Binding ShellViewModel.ModelCenterReviewCandidateButtonText, ElementName=ShellWindow}"
+                                       ToolTip="{Binding ShellViewModel.ModelCenterReviewCandidateButtonToolTip, ElementName=ShellWindow}"
+                                       IsEnabled="{Binding ShellViewModel.IsModelCenterReviewCandidateEnabled, ElementName=ShellWindow}"
+                                       Command="{Binding ShellViewModel.ReviewCandidateModelCommand, ElementName=ShellWindow}"
+                                       Height="23"
+                                       MinHeight="23"
+                                       MinWidth="74"
+                                       MaxWidth="112"
+                                       Padding="7,0"
+                                       Margin="0,0,4,0">
+                                <TextBlock x:Name="WorkflowStageReviewCandidateModelButtonText"
+                                           Text="{Binding ShellViewModel.ModelCenterReviewCandidateButtonText, ElementName=ShellWindow}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" />
+                            </ui:Button>
+                            <ui:Button x:Name="WorkflowStageSaveModelSettingsButton"
+                                       Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                       AutomationProperties.AutomationId="WorkflowStageSaveModelSettingsButton"
+                                       AutomationProperties.Name="{Binding ShellViewModel.ModelCenterConfirmModelButtonText, ElementName=ShellWindow}"
+                                       ToolTip="{Binding ShellViewModel.ModelCenterConfirmModelButtonToolTip, ElementName=ShellWindow}"
+                                       IsEnabled="{Binding ShellViewModel.IsModelCenterConfirmModelEnabled, ElementName=ShellWindow}"
+                                       Command="{Binding YoloModelSettingsViewModel.SaveSettingsCommand, ElementName=ShellWindow}"
+                                       Height="23"
+                                       MinHeight="23"
+                                       MinWidth="92"
+                                       MaxWidth="128"
+                                       Padding="7,0"
+                                       Margin="0">
+                                <TextBlock x:Name="WorkflowStageSaveModelSettingsButtonText"
+                                           Text="{Binding ShellViewModel.ModelCenterConfirmModelButtonText, ElementName=ShellWindow}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" />
+                            </ui:Button>
+                            <ui:Button x:Name="WorkflowStageInspectCurrentImageButton"
+                                       Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                       AutomationProperties.AutomationId="WorkflowStageInspectCurrentImageButton"
+                                       AutomationProperties.Name="{Binding ShellViewModel.ModelCenterInspectCurrentImageButtonText, ElementName=ShellWindow}"
+                                       ToolTip="{Binding ShellViewModel.ModelCenterInspectCurrentImageButtonToolTip, ElementName=ShellWindow}"
+                                       IsEnabled="{Binding ShellViewModel.IsModelCenterInspectCurrentImageEnabled, ElementName=ShellWindow}"
+                                       Command="{Binding ShellViewModel.DetectCurrentImageCommand, ElementName=ShellWindow}"
+                                       Height="23"
+                                       MinHeight="23"
+                                       MinWidth="74"
+                                       MaxWidth="112"
+                                       Padding="7,0"
+                                       Margin="4,0,0,0">
+                                <TextBlock x:Name="WorkflowStageInspectCurrentImageButtonText"
+                                           Text="{Binding ShellViewModel.ModelCenterInspectCurrentImageButtonText, ElementName=ShellWindow}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           VerticalAlignment="Center"
+                                           TextTrimming="CharacterEllipsis" />
+                            </ui:Button>
+                        </WrapPanel>
+                    </Grid>
+                </Border>
+            </Grid>
+        </Border>
+
+        <Border x:Name="CurrentDatasetContextBar"
+                DockPanel.Dock="Top"
+                Height="48"
+                Background="#111418"
+                BorderBrush="{DynamicResource BorderBrushDark}"
+                BorderThickness="0,0,0,1"
+                ToolTip="{Binding ShellViewModel.CurrentDatasetToolTip, ElementName=ShellWindow}">
+            <Grid Margin="16,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Margin="0,0,14,0">
+                    <iconPacks:PackIconMaterial Kind="DatabaseOutline"
+                                                Width="15"
+                                                Height="15"
+                                                Margin="0,0,6,0"
+                                                Foreground="{DynamicResource AccentBrush}"
+                                                VerticalAlignment="Center" />
+                    <TextBlock Text="&#xD604;&#xC7AC; &#xB370;&#xC774;&#xD130;&#xC14B;"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               VerticalAlignment="Center" />
+                </StackPanel>
+                <StackPanel Grid.Column="1"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Margin="0,0,14,0">
+                    <TextBlock x:Name="CurrentDatasetNameText"
+                               AutomationProperties.AutomationId="CurrentDatasetNameText"
+                               Text="{Binding ShellViewModel.CurrentDatasetName, ElementName=ShellWindow}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="13"
+                               FontWeight="SemiBold"
+                               MaxWidth="220"
+                               TextTrimming="CharacterEllipsis"
+                               VerticalAlignment="Center" />
+                    <Border Background="{DynamicResource ToolbarButtonBrush}"
+                            BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="6,2"
+                            Margin="8,0,0,0"
+                            VerticalAlignment="Center">
+                        <TextBlock x:Name="CurrentDatasetPurposeText"
+                                   AutomationProperties.AutomationId="CurrentDatasetPurposeText"
+                                   Text="{Binding ShellViewModel.CurrentDatasetPurposeText, ElementName=ShellWindow}"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   TextTrimming="CharacterEllipsis" />
+                    </Border>
+                </StackPanel>
+                <Grid Grid.Column="2"
+                      VerticalAlignment="Center"
+                      Margin="0,0,12,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Border x:Name="DatasetStoragePathCard"
+                            AutomationProperties.AutomationId="DatasetStoragePathCard"
+                            AutomationProperties.Name="라벨 및 레시피 저장 폴더"
+                            Background="{DynamicResource CanvasBrush}"
+                            BorderBrush="{DynamicResource BorderBrushDark}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="8,4"
+                            Visibility="Collapsed"
+                            ToolTip="{Binding ShellViewModel.CurrentDatasetToolTip, ElementName=ShellWindow}">
+                        <StackPanel>
+                            <TextBlock Text="저장 폴더"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="CurrentDatasetStoragePathText"
+                                       AutomationProperties.AutomationId="CurrentDatasetStoragePathText"
+                                       Text="{Binding ShellViewModel.CurrentDatasetStoragePathText, ElementName=ShellWindow}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="DatasetImageRootCard"
+                             Grid.Column="0"
+                            AutomationProperties.AutomationId="DatasetImageRootCard"
+                            AutomationProperties.Name="원본 이미지 폴더"
+                            Background="{DynamicResource CanvasBrush}"
+                            BorderBrush="{DynamicResource BorderBrushDark}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="8,4"
+                            Visibility="Collapsed"
+                            ToolTip="{Binding ShellViewModel.CurrentDatasetToolTip, ElementName=ShellWindow}">
+                        <StackPanel>
+                            <TextBlock Text="이미지 폴더"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="CurrentDatasetImageRootText"
+                                       AutomationProperties.AutomationId="CurrentDatasetImageRootText"
+                                       Text="{Binding ShellViewModel.CurrentDatasetImageRootText, ElementName=ShellWindow}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </Border>
+                    <Border x:Name="DatasetSourceCard"
+                            Grid.Column="0"
+                            AutomationProperties.AutomationId="DatasetSourceCard"
+                            AutomationProperties.Name="&#xC791;&#xC5C5; &#xAE30;&#xC900;"
+                            Background="{DynamicResource CanvasBrush}"
+                            BorderBrush="{DynamicResource BorderBrushDark}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="8,4"
+                            ToolTip="{Binding ShellViewModel.CurrentDatasetToolTip, ElementName=ShellWindow}">
+                        <StackPanel>
+                            <TextBlock Text="&#xC791;&#xC5C5; &#xAE30;&#xC900;"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="CurrentDatasetSourceText"
+                                       AutomationProperties.AutomationId="CurrentDatasetSourceText"
+                                       Text="{Binding ShellViewModel.CurrentDatasetSourceText, ElementName=ShellWindow}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+                <StackPanel Grid.Column="3"
+                            Orientation="Horizontal"
+                            VerticalAlignment="Center"
+                            Margin="0">
+                    <Button x:Name="ChangeDatasetButton"
+                               Style="{StaticResource ToolbarButtonStyle}"
+                               MinWidth="84"
+                               AutomationProperties.AutomationId="ChangeDatasetButton"
+                               AutomationProperties.Name="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC120;&#xD0DD;"
+                               ToolTip="&#xC774;&#xBBF8; &#xB9CC;&#xB4E4;&#xC5B4;&#xC9C4; &#xB370;&#xC774;&#xD130;&#xC14B;&#xC744; &#xC120;&#xD0DD;&#xD574; &#xC5FD;&#xB2C8;&#xB2E4;."
+                               mvvm:InputCommandBehaviors.MouseClickInputCommand="{Binding ShellViewModel.ChangeDatasetCommand, ElementName=ShellWindow}"
+                               Command="{Binding ShellViewModel.ChangeDatasetCommand, ElementName=ShellWindow}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="DatabaseSearchOutline" />
+                            <TextBlock Text="&#xB370;&#xC774;&#xD130;&#xC14B;" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="OpenDatasetFolderButton"
+                               Style="{StaticResource ToolbarButtonStyle}"
+                               MinWidth="84"
+                               AutomationProperties.AutomationId="OpenDatasetFolderButton"
+                               AutomationProperties.Name="라벨 및 레시피 저장 폴더 열기"
+                               ToolTip="현재 데이터셋의 라벨, 레시피, 학습 산출물이 저장되는 폴더를 엽니다."
+                               IsEnabled="{Binding ShellViewModel.IsOpenDatasetFolderEnabled, ElementName=ShellWindow}"
+                               mvvm:InputCommandBehaviors.MouseClickInputCommand="{Binding ShellViewModel.OpenDatasetFolderCommand, ElementName=ShellWindow}"
+                               Command="{Binding ShellViewModel.OpenDatasetFolderCommand, ElementName=ShellWindow}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="FolderOpenOutline" />
+                            <TextBlock Text="저장 폴더" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="ChangeImageFolderButton"
+                               Style="{StaticResource ToolbarButtonStyle}"
+                               MinWidth="88"
+                               AutomationProperties.AutomationId="ChangeImageFolderButton"
+                               AutomationProperties.Name="&#xC774;&#xBBF8;&#xC9C0; &#xD3F4;&#xB354; &#xBCC0;&#xACBD;"
+                               ToolTip="현재 데이터셋이 읽을 원본 이미지 폴더를 다시 선택합니다. 저장 폴더의 기존 라벨은 별도로 유지됩니다."
+                               mvvm:InputCommandBehaviors.MouseClickInputCommand="{Binding ShellViewModel.ChangeImageFolderCommand, ElementName=ShellWindow}"
+                               Command="{Binding ShellViewModel.ChangeImageFolderCommand, ElementName=ShellWindow}">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="FolderImage" />
+                            <TextBlock Text="이미지 폴더" VerticalAlignment="Center" />
+                        </StackPanel>
+                    </Button>
+                </StackPanel>
+            </Grid>
+        </Border>
+
         <local:WpfStatusBarPanel x:Name="StatusBarPanelControl"
                                  DockPanel.Dock="Top" />
 
-        <Grid Margin="10">
+        <Grid x:Name="MainWorkspaceGrid" Margin="10">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="300" />
+                <ColumnDefinition x:Name="RightWorkflowColumn"
+                                  Width="{Binding ShellViewModel.RightWorkflowPaneGridLength, ElementName=ShellWindow}" />
                 <ColumnDefinition Width="10" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="10" />
-                <ColumnDefinition Width="340" />
+                <ColumnDefinition Width="300" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
-                <RowDefinition Height="10" />
-                <RowDefinition Height="160" />
+                <RowDefinition x:Name="ShellLogSeparatorRow"
+                               Height="{Binding ShellLogViewModel.LogPaneSeparatorGridLength, ElementName=ShellWindow}" />
+                <RowDefinition x:Name="ShellLogRow"
+                               Height="{Binding ShellLogViewModel.LogPaneGridLength, ElementName=ShellWindow}" />
             </Grid.RowDefinitions>
 
-            <local:WpfImageQueuePanel x:Name="ImageQueuePanelControl" Grid.RowSpan="3" />
+            <local:WpfImageQueuePanel x:Name="ImageQueuePanelControl"
+                                      Grid.Column="4"
+                                      Grid.RowSpan="3" />
 
             <local:WpfCanvasPanel x:Name="CanvasPanelControl" Grid.Column="2" />
 
-            <Border Grid.Column="4" Style="{StaticResource PanelBorderStyle}">
+            <Border x:Name="RightWorkflowDockPanel"
+                    Grid.Column="0"
+                    AutomationProperties.AutomationId="RightWorkflowDockPanel"
+                    AutomationProperties.Name="&#xC791;&#xC5C5; &#xD328;&#xB110;"
+                    Style="{StaticResource PanelBorderStyle}">
                 <Grid>
-                    <Grid.RowDefinitions>
-                        <RowDefinition Height="34" />
-                        <RowDefinition Height="*" />
-                    </Grid.RowDefinitions>
-                    <Border Background="{DynamicResource PanelHeaderBrush}"
-                            CornerRadius="6,6,0,0"
+                    <Grid x:Name="RightWorkflowExpandedContent"
+                          AutomationProperties.AutomationId="RightWorkflowExpandedContent"
+                        Visibility="{Binding ShellViewModel.IsRightWorkflowDockExpanded, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="48" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Border Background="{DynamicResource PanelHeaderBrush}"
+                                CornerRadius="6,6,0,0"
+                                BorderBrush="{DynamicResource BorderBrushDark}"
+                                BorderThickness="0,0,0,1">
+                            <Grid Margin="8,0,8,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="Auto" />
+                                <ColumnDefinition Width="*" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <Button x:Name="RightWorkflowDockToggleButton"
+                                    Grid.Column="0"
+                                    AutomationProperties.AutomationId="RightWorkflowDockToggleButton"
+                                    AutomationProperties.Name="{Binding ShellViewModel.RightWorkflowDockToggleText, ElementName=ShellWindow}"
+                                    ToolTip="{Binding ShellViewModel.RightWorkflowDockToggleToolTip, ElementName=ShellWindow}"
+                                    Command="{Binding ShellViewModel.ToggleRightWorkflowDockCommand, ElementName=ShellWindow}"
+                                    Style="{StaticResource RightWorkflowDockButtonStyle}"
+                                    Margin="0,0,8,0"
+                                    VerticalAlignment="Center">
+                                <iconPacks:PackIconMaterial Kind="ChevronLeft" Width="14" Height="14" />
+                            </Button>
+                            <StackPanel Grid.Column="1"
+                                        VerticalAlignment="Center">
+                                <TextBlock x:Name="RightWorkflowViewTitleText"
+                                           Text="{Binding ShellViewModel.RightWorkflowViewTitleText, ElementName=ShellWindow}"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="12"
+                                           FontWeight="SemiBold"
+                                           TextTrimming="CharacterEllipsis" />
+                                <TextBlock x:Name="RightWorkflowViewDetailText"
+                                           Text="{Binding ShellViewModel.RightWorkflowViewDetailText, ElementName=ShellWindow}"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="9.5"
+                                           TextTrimming="CharacterEllipsis"
+                                           Margin="0,1,6,0" />
+                            </StackPanel>
+                        </Grid>
+                    </Border>
+                    <Border x:Name="RightWorkflowLocalTaskSwitcherPanel"
+                            Grid.Row="1"
+                            AutomationProperties.AutomationId="RightWorkflowLocalTaskSwitcherPanel"
+                            AutomationProperties.Name="&#xB77C;&#xBCA8;&#xB9C1; &#xC791;&#xC5C5; &#xD328;&#xB110; &#xC804;&#xD658;"
+                            Background="{DynamicResource CanvasBrush}"
                             BorderBrush="{DynamicResource BorderBrushDark}"
-                            BorderThickness="0,0,0,1">
-                        <TextBlock Text="객체 검토"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"
-                                   Margin="12,0"
-                                   VerticalAlignment="Center" />
+                            BorderThickness="1"
+                            CornerRadius="5"
+                            Padding="8,7"
+                            Margin="8,8,8,6"
+                            Visibility="{Binding ShellViewModel.IsRightWorkflowShortcutBarVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel>
+                            <TextBlock x:Name="RightWorkflowLocalTaskTitleText"
+                                       Text="&#xB77C;&#xBCA8;&#xB9C1; &#xC791;&#xC5C5; &#xD328;&#xB110;"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="RightWorkflowLocalTaskDetailText"
+                                       Text="&#xC800;&#xC7A5; &#xB77C;&#xBCA8;, &#xBC18;&#xBCF5; &#xB3C4;&#xAD6C;, &#xD074;&#xB798;&#xC2A4; &#xC124;&#xC815;&#xC744; &#xC5EC;&#xAE30;&#xC11C; &#xC804;&#xD658;&#xD569;&#xB2C8;&#xB2E4;."
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10.5"
+                                       TextWrapping="Wrap"
+                                       Margin="0,2,0,0" />
+                            <UniformGrid x:Name="RightWorkflowShortcutBar"
+                                         Columns="3"
+                                         Margin="0,8,0,0"
+                                         Visibility="{Binding ShellViewModel.IsRightWorkflowShortcutBarVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                <Button x:Name="RightWorkflowSavedLabelsButton"
+                                        AutomationProperties.AutomationId="RightWorkflowSavedLabelsButton"
+                                        AutomationProperties.Name="&#xC800;&#xC7A5; &#xB77C;&#xBCA8; &#xBCF4;&#xAE30;"
+                                        ToolTip="&#xC800;&#xC7A5;&#xB41C; &#xB77C;&#xBCA8;&#xC744; &#xBCF4;&#xACE0; &#xC218;&#xC815;&#xD569;&#xB2C8;&#xB2E4;."
+                                        Command="{Binding ShellViewModel.ShowSavedLabelsViewCommand, ElementName=ShellWindow}"
+                                        Tag="{Binding ShellViewModel.IsSavedLabelsShortcutActive, ElementName=ShellWindow}"
+                                        Style="{StaticResource RightWorkflowShortcutButtonStyle}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="PlaylistCheck" Width="12" Height="12" Margin="0,0,4,0" />
+                                        <TextBlock Text="&#xB77C;&#xBCA8;" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="RightWorkflowGuideToolsButton"
+                                        AutomationProperties.AutomationId="RightWorkflowGuideToolsButton"
+                                        AutomationProperties.Name="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C; &#xBCF4;&#xAE30;"
+                                        ToolTip="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C;&#xC640; &#xAC00;&#xC774;&#xB4DC;&#xB97C; &#xBCF4;&#xC5EC;&#xC90D;&#xB2C8;&#xB2E4;."
+                                        Command="{Binding ShellViewModel.ShowLabelingGuideViewCommand, ElementName=ShellWindow}"
+                                        Tag="{Binding ShellViewModel.IsLabelingGuideShortcutActive, ElementName=ShellWindow}"
+                                        Style="{StaticResource RightWorkflowShortcutButtonStyle}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="ShapeSquareRoundedPlus" Width="12" Height="12" Margin="0,0,4,0" />
+                                        <TextBlock Text="&#xB3C4;&#xAD6C;" />
+                                    </StackPanel>
+                                </Button>
+                                <Button x:Name="RightWorkflowClassCatalogButton"
+                                        AutomationProperties.AutomationId="RightWorkflowClassCatalogButton"
+                                        AutomationProperties.Name="&#xD074;&#xB798;&#xC2A4; &#xAD00;&#xB9AC; &#xBCF4;&#xAE30;"
+                                        ToolTip="&#xB77C;&#xBCA8; &#xD074;&#xB798;&#xC2A4;&#xB97C; &#xCD94;&#xAC00;&#xD558;&#xAC70;&#xB098; &#xC218;&#xC815;&#xD569;&#xB2C8;&#xB2E4;."
+                                        Command="{Binding ShellViewModel.ShowClassCatalogViewCommand, ElementName=ShellWindow}"
+                                        Tag="{Binding ShellViewModel.IsClassCatalogShortcutActive, ElementName=ShellWindow}"
+                                        Style="{StaticResource RightWorkflowShortcutButtonStyle}">
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="TagMultipleOutline" Width="12" Height="12" Margin="0,0,4,0" />
+                                        <TextBlock Text="&#xD074;&#xB798;&#xC2A4;" />
+                                    </StackPanel>
+                                </Button>
+                            </UniformGrid>
+                        </StackPanel>
                     </Border>
                     <TabControl x:Name="ReviewTabControl"
-                                Grid.Row="1"
+                                AutomationProperties.AutomationId="RightWorkflowViewHost"
+                                AutomationProperties.Name="&#xC791;&#xC5C5; &#xB2E8;&#xACC4; &#xD654;&#xBA74;"
+                                Grid.Row="2"
+                                TabStripPlacement="Top"
                                 Background="Transparent"
                                 BorderThickness="0"
                                 FontFamily="Segoe UI"
-                                FontSize="12">
+                                FontSize="12"
+                                ItemContainerStyle="{StaticResource WorkflowViewHostTabItemStyle}">
                         <TabItem x:Name="ObjectsReviewTab"
                                  AutomationProperties.AutomationId="ObjectsReviewTab"
-                                 AutomationProperties.Name="&#xAC1D;&#xCCB4;"
-                                 Header="객체">
+                                 AutomationProperties.Name="&#xC800;&#xC7A5; &#xB77C;&#xBCA8;"
+                                 Header="&#xC800;&#xC7A5; &#xB77C;&#xBCA8;"
+                                 Visibility="{Binding ShellViewModel.IsSavedLabelsViewVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <local:WpfObjectReviewPanel x:Name="ObjectReviewPanelControl" />
                         </TabItem>
-                        <TabItem x:Name="CandidatesReviewTab" Header="후보">
+                        <TabItem x:Name="CandidatesReviewTab"
+                                 AutomationProperties.AutomationId="CandidatesReviewTab"
+                                 AutomationProperties.Name="AI &#xD6C4;&#xBCF4;"
+                                 Header="AI &#xD6C4;&#xBCF4;"
+                                 Visibility="{Binding ShellViewModel.IsCandidateReviewViewVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <local:WpfCandidateReviewPanel x:Name="CandidateReviewPanelControl" />
                         </TabItem>
                         <TabItem x:Name="LearningReviewTab"
                                  AutomationProperties.AutomationId="LearningReviewTab"
                                  AutomationProperties.Name="&#xAC00;&#xC774;&#xB4DC;/&#xB3C4;&#xAD6C;"
-                                 Header="&#xAC00;&#xC774;&#xB4DC;/&#xB3C4;&#xAD6C;">
+                                 Header="&#xAC00;&#xC774;&#xB4DC;/&#xB3C4;&#xAD6C;"
+                                 Visibility="{Binding ShellViewModel.IsGuideToolsViewVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <local:WpfLearningWorkflowPanel x:Name="LearningWorkflowPanelControl" />
                         </TabItem>
-                        <TabItem x:Name="ClassesReviewTab" Header="클래스">
+                        <TabItem x:Name="ClassesReviewTab"
+                                 Header="&#xD074;&#xB798;&#xC2A4;"
+                                 Visibility="{Binding ShellViewModel.IsClassCatalogViewVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <local:WpfClassCatalogPanel x:Name="ClassCatalogPanelControl" />
                         </TabItem>
-                        <TabItem x:Name="YoloSettingsReviewTab" Header="YOLO">
+                        <TabItem x:Name="YoloSettingsReviewTab"
+                                 Header="&#xBAA8;&#xB378;"
+                                 Visibility="{Binding ShellViewModel.IsYoloModelCenterViewVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
                             <ScrollViewer x:Name="YoloSettingsScrollViewer"
                                           AutomationProperties.AutomationId="YoloSettingsScrollViewer"
-                                          AutomationProperties.Name="YOLO 설정 스크롤"
+                                          AutomationProperties.Name="&#xBAA8;&#xB378; &#xC124;&#xC815; &#xC2A4;&#xD06C;&#xB864;"
                                           VerticalScrollBarVisibility="Auto">
                                 <StackPanel Margin="10">
-                                    <Border x:Name="YoloDatasetReadinessQuickPanel"
+                                    <Border x:Name="YoloModelLifecycleDashboardPanel"
+                                            AutomationProperties.AutomationId="YoloModelLifecycleDashboardPanel"
+                                            AutomationProperties.Name="&#xD559;&#xC2B5; &#xBC0F; &#xBAA8;&#xB378; &#xC0C1;&#xD0DC; &#xC694;&#xC57D;"
                                             Background="{DynamicResource CanvasBrush}"
-                                            BorderBrush="{DynamicResource AccentBrush}"
+                                            BorderBrush="{DynamicResource BorderBrushDark}"
                                             BorderThickness="1"
                                             CornerRadius="5"
-                                            Padding="8"
+                                            Padding="10"
                                             Margin="0,0,0,8">
-                                        <Grid>
-                                            <Grid.ColumnDefinitions>
-                                                <ColumnDefinition Width="*" />
-                                                <ColumnDefinition Width="Auto" />
-                                            </Grid.ColumnDefinitions>
-                                            <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                                                <TextBlock Text="데이터셋 점검"
+                                        <StackPanel>
+                                            <Grid Margin="0,0,0,6">
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <TextBlock Grid.Column="0"
+                                                           Text="&#xD559;&#xC2B5;/&#xBAA8;&#xB378; &#xC13C;&#xD130;"
                                                            Foreground="{DynamicResource PrimaryTextBrush}"
                                                            FontFamily="Segoe UI"
-                                                           FontSize="12"
-                                                           FontWeight="SemiBold" />
-                                                <TextBlock x:Name="YoloDatasetQuickReadinessText"
-                                                           Text="{Binding TrainingSettingsViewModel.TrainingReadinessText}"
-                                                           Foreground="{Binding TrainingSettingsViewModel.TrainingReadinessForeground}"
+                                                           FontSize="13"
+                                                           FontWeight="SemiBold"
+                                                           TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding TrainingSettingsViewModel.TrainingProgressValue, StringFormat={}{0:0}%}"
+                                                           Foreground="{Binding TrainingSettingsViewModel.TrainingProgressForeground}"
                                                            FontFamily="Segoe UI"
-                                                           FontSize="10.5"
-                                                           Margin="0,3,0,0"
-                                                           TextWrapping="Wrap" />
-                                            </StackPanel>
-                                            <ui:Button x:Name="YoloDatasetQuickRefreshButton"
-                                                       Grid.Column="1"
-                                                       Style="{StaticResource WpfUiToolbarButtonStyle}"
-                                                       AutomationProperties.AutomationId="YoloDatasetQuickRefreshButton"
-                                                       AutomationProperties.Name="학습 데이터셋 새로고침"
-                                                       ToolTip="저장된 라벨과 학습 설정 준비 상태 점검"
-                                                       Command="{Binding TrainingSettingsViewModel.RefreshReadinessCommand}">
-                                                <TextBlock Text="점검" VerticalAlignment="Center" />
-                                            </ui:Button>
-                                        </Grid>
+                                                           FontSize="11"
+                                                           FontWeight="SemiBold"
+                                                           Margin="8,0,0,0"
+                                                           VerticalAlignment="Center" />
+                                            </Grid>
+                                            <ProgressBar x:Name="YoloModelLifecycleProgressBar"
+                                                         AutomationProperties.AutomationId="YoloModelLifecycleProgressBar"
+                                                         Minimum="0"
+                                                         Maximum="100"
+                                                         Height="4"
+                                                         Margin="0,0,0,8"
+                                                         Value="{Binding TrainingSettingsViewModel.TrainingProgressValue, Mode=OneWay}"
+                                                         IsIndeterminate="{Binding TrainingSettingsViewModel.TrainingProgressIsIndeterminate, Mode=OneWay}" />
+                                            <TextBlock x:Name="YoloModelLifecycleTrainingStatusText"
+                                                       Text="{Binding ShellViewModel.ModelCenterTrainingStatusText}"
+                                                       Foreground="{Binding TrainingSettingsViewModel.TrainingProgressForeground}"
+                                                       FontFamily="Segoe UI"
+                                                       FontSize="11.5"
+                                                       FontWeight="SemiBold"
+                                                       TextWrapping="Wrap" />
+                                             <TextBlock x:Name="YoloModelLifecycleTrainingDetailText"
+                                                        Text="{Binding ShellViewModel.ModelCenterTrainingDetailText}"
+                                                        Foreground="{DynamicResource SecondaryTextBrush}"
+                                                        FontFamily="Segoe UI"
+                                                        FontSize="10.5"
+                                                        Margin="0,2,0,7"
+                                                        TextWrapping="Wrap" />
+                                             <Border x:Name="ModelCenterPriorityPanel"
+                                                     AutomationProperties.AutomationId="ModelCenterPriorityPanel"
+                                                     Background="{DynamicResource ModelCenterCandidatePanelBrush}"
+                                                     BorderBrush="{DynamicResource ModelCenterCandidateBrush}"
+                                                     BorderThickness="1"
+                                                     CornerRadius="4"
+                                                     Padding="8"
+                                                     Margin="0,0,0,7">
+                                                 <StackPanel>
+                                                     <Grid>
+                                                         <Grid.ColumnDefinitions>
+                                                             <ColumnDefinition Width="*" />
+                                                             <ColumnDefinition Width="Auto" />
+                                                         </Grid.ColumnDefinitions>
+                                                         <TextBlock x:Name="ModelCenterPriorityTitleText"
+                                                                    AutomationProperties.AutomationId="ModelCenterPriorityTitleText"
+                                                                    Text="&#xBAA8;&#xB378; &#xC801;&#xC6A9; &#xC21C;&#xC11C;"
+                                                                    Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                    FontFamily="Segoe UI"
+                                                                    FontSize="11"
+                                                                    FontWeight="SemiBold"
+                                                                    VerticalAlignment="Center" />
+                                                         <TextBlock x:Name="ModelCenterPriorityStateText"
+                                                                    Grid.Column="1"
+                                                                    AutomationProperties.AutomationId="ModelCenterPriorityStateText"
+                                                                    Text="{Binding ShellViewModel.ModelCenterDecisionSummaryText}"
+                                                                    Foreground="{DynamicResource ModelCenterDecisionBrush}"
+                                                                    FontFamily="Segoe UI"
+                                                                    FontSize="9.5"
+                                                                    FontWeight="SemiBold"
+                                                                    Margin="8,0,0,0"
+                                                                    TextTrimming="CharacterEllipsis"
+                                                                    MaxWidth="150"
+                                                                    VerticalAlignment="Center" />
+                                                     </Grid>
+                                                     <Grid Margin="0,6,0,0">
+                                                         <Grid.RowDefinitions>
+                                                             <RowDefinition Height="Auto" />
+                                                             <RowDefinition Height="Auto" />
+                                                             <RowDefinition Height="Auto" />
+                                                         </Grid.RowDefinitions>
+                                                         <Grid.ColumnDefinitions>
+                                                             <ColumnDefinition Width="68" />
+                                                             <ColumnDefinition Width="*" />
+                                                         </Grid.ColumnDefinitions>
+                                                         <TextBlock Grid.Row="0"
+                                                                    Grid.Column="0"
+                                                                    Text="&#xD604;&#xC7AC; &#xAC80;&#xC0AC;"
+                                                                    Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                    FontFamily="Segoe UI"
+                                                                    FontSize="9"
+                                                                    FontWeight="SemiBold"
+                                                                    Margin="0,0,7,3" />
+                                                         <TextBlock x:Name="ModelCenterPriorityCurrentModelText"
+                                                                    Grid.Row="0"
+                                                                    Grid.Column="1"
+                                                                    AutomationProperties.AutomationId="ModelCenterPriorityCurrentModelText"
+                                                                    Text="{Binding ShellViewModel.ModelRegistryInspectionModelText}"
+                                                                    Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                    FontFamily="Segoe UI"
+                                                                    FontSize="9.5"
+                                                                    FontWeight="SemiBold"
+                                                                    TextTrimming="CharacterEllipsis"
+                                                                    Margin="0,0,0,3" />
+                                                         <TextBlock Grid.Row="1"
+                                                                    Grid.Column="0"
+                                                                    Text="&#xD559;&#xC2B5; &#xD6C4;&#xBCF4;"
+                                                                    Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                    FontFamily="Segoe UI"
+                                                                    FontSize="9"
+                                                                    FontWeight="SemiBold"
+                                                                    Margin="0,0,7,3" />
+                                                         <TextBlock x:Name="ModelCenterPriorityCandidateModelText"
+                                                                    Grid.Row="1"
+                                                                    Grid.Column="1"
+                                                                    AutomationProperties.AutomationId="ModelCenterPriorityCandidateModelText"
+                                                                    Text="{Binding ShellViewModel.ModelCenterCandidateModelDetailText}"
+                                                                    Foreground="{DynamicResource ModelCenterCandidateBrush}"
+                                                                    FontFamily="Segoe UI"
+                                                                    FontSize="9.5"
+                                                                    FontWeight="SemiBold"
+                                                                    TextTrimming="CharacterEllipsis"
+                                                                    Margin="0,0,0,3" />
+                                                         <TextBlock Grid.Row="2"
+                                                                    Grid.Column="0"
+                                                                    Text="&#xB2E4;&#xC74C;"
+                                                                    Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                    FontFamily="Segoe UI"
+                                                                    FontSize="9"
+                                                                    FontWeight="SemiBold"
+                                                                    Margin="0,0,7,0" />
+                                                         <TextBlock x:Name="ModelCenterPriorityNextActionText"
+                                                                    Grid.Row="2"
+                                                                    Grid.Column="1"
+                                                                    AutomationProperties.AutomationId="ModelCenterPriorityNextActionText"
+                                                                    Text="{Binding ShellViewModel.ModelCenterNextActionDetailText}"
+                                                                    Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                    FontFamily="Segoe UI"
+                                                                    FontSize="9.5"
+                                                                    FontWeight="SemiBold"
+                                                                    TextWrapping="Wrap" />
+                                                     </Grid>
+                                                     <WrapPanel Margin="0,8,0,0">
+                                                         <ui:Button x:Name="ModelCenterPriorityReviewCandidateButton"
+                                                                    Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                                    AutomationProperties.AutomationId="ModelCenterPriorityReviewCandidateButton"
+                                                                    ToolTip="{Binding ShellViewModel.ModelCenterReviewCandidateButtonToolTip}"
+                                                                    Command="{Binding ShellViewModel.ReviewCandidateModelCommand}"
+                                                                    IsEnabled="{Binding ShellViewModel.IsModelCenterReviewCandidateEnabled}"
+                                                                    MinWidth="74"
+                                                                    Height="26"
+                                                                    Padding="8,0"
+                                                                    Margin="0,0,4,0">
+                                                             <TextBlock Text="{Binding ShellViewModel.ModelCenterReviewCandidateButtonText}"
+                                                                        FontSize="10"
+                                                                        VerticalAlignment="Center" />
+                                                         </ui:Button>
+                                                         <ui:Button x:Name="ModelCenterPrioritySaveModelButton"
+                                                                    Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                                    AutomationProperties.AutomationId="ModelCenterPrioritySaveModelButton"
+                                                                    ToolTip="{Binding ShellViewModel.ModelCenterConfirmModelButtonToolTip}"
+                                                                    Command="{Binding YoloModelSettingsViewModel.SaveSettingsCommand}"
+                                                                    IsEnabled="{Binding ShellViewModel.IsModelCenterConfirmModelEnabled}"
+                                                                    MinWidth="96"
+                                                                    Height="26"
+                                                                    Padding="8,0"
+                                                                    Margin="0,0,4,0">
+                                                             <TextBlock Text="{Binding ShellViewModel.ModelCenterConfirmModelButtonText}"
+                                                                        FontSize="10"
+                                                                        VerticalAlignment="Center" />
+                                                         </ui:Button>
+                                                         <ui:Button x:Name="ModelCenterPriorityInspectCurrentButton"
+                                                                    Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                                    AutomationProperties.AutomationId="ModelCenterPriorityInspectCurrentButton"
+                                                                    ToolTip="{Binding ShellViewModel.ModelCenterInspectCurrentImageButtonToolTip}"
+                                                                    Command="{Binding ShellViewModel.DetectCurrentImageCommand}"
+                                                                    IsEnabled="{Binding ShellViewModel.IsModelCenterInspectCurrentImageEnabled}"
+                                                                    MinWidth="68"
+                                                                    Height="26"
+                                                                    Padding="8,0"
+                                                                    Margin="0">
+                                                             <TextBlock Text="{Binding ShellViewModel.ModelCenterInspectCurrentImageButtonText}"
+                                                                        FontSize="10"
+                                                                        VerticalAlignment="Center" />
+                                                         </ui:Button>
+                                                     </WrapPanel>
+                                                     <TextBlock x:Name="ModelCenterPriorityButtonStateText"
+                                                                AutomationProperties.AutomationId="ModelCenterPriorityButtonStateText"
+                                                                Text="{Binding ShellViewModel.ModelCenterActionStateText}"
+                                                                ToolTip="{Binding ShellViewModel.ModelCenterActionStateText}"
+                                                                Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                FontFamily="Segoe UI"
+                                                                FontSize="8.8"
+                                                                Margin="0,4,0,0"
+                                                                LineHeight="12"
+                                                                TextWrapping="Wrap" />
+                                                 </StackPanel>
+                                             </Border>
+                                             <Border x:Name="ModelRegistrySummaryPanel"
+                                                     AutomationProperties.AutomationId="ModelRegistrySummaryPanel"
+                                                     BorderBrush="{DynamicResource BorderBrushDark}"
+                                                     BorderThickness="0,1,0,1"
+                                                     Padding="0,7"
+                                                     Margin="0,0,0,7">
+                                                 <StackPanel>
+                                                     <TextBlock x:Name="ModelRegistryTitleText"
+                                                                AutomationProperties.AutomationId="ModelRegistryTitleText"
+                                                                Text="{Binding ShellViewModel.ModelRegistryTitleText}"
+                                                                Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                FontFamily="Segoe UI"
+                                                                FontSize="11"
+                                                                FontWeight="SemiBold"
+                                                                TextWrapping="Wrap" />
+                                                     <TextBlock x:Name="ModelRegistrySummaryPrimaryText"
+                                                                AutomationProperties.AutomationId="ModelRegistrySummaryPrimaryText"
+                                                                Text="{Binding ShellViewModel.ModelRegistrySummaryPrimaryText}"
+                                                                ToolTip="{Binding ShellViewModel.ModelRegistrySummaryPrimaryText}"
+                                                                Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                FontFamily="Segoe UI"
+                                                                FontSize="9.8"
+                                                                FontWeight="SemiBold"
+                                                                Margin="0,3,0,0"
+                                                                TextTrimming="CharacterEllipsis" />
+                                                     <TextBlock x:Name="ModelRegistrySummarySecondaryText"
+                                                                AutomationProperties.AutomationId="ModelRegistrySummarySecondaryText"
+                                                                Text="{Binding ShellViewModel.ModelRegistrySummarySecondaryText}"
+                                                                ToolTip="{Binding ShellViewModel.ModelRegistrySummarySecondaryText}"
+                                                                Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                FontFamily="Segoe UI"
+                                                                FontSize="9"
+                                                                Margin="0,2,0,0"
+                                                                TextTrimming="CharacterEllipsis" />
+                                                     <Expander x:Name="ModelRegistryDetailExpander"
+                                                               AutomationProperties.AutomationId="ModelRegistryDetailExpander"
+                                                               Header="&#xC0C1;&#xC138;"
+                                                               IsExpanded="False"
+                                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                                               FontFamily="Segoe UI"
+                                                               FontSize="9"
+                                                               Margin="0,3,0,0">
+                                                         <StackPanel Margin="0,3,0,0">
+                                                             <TextBlock x:Name="ModelRegistryProfileText"
+                                                                        AutomationProperties.AutomationId="ModelRegistryProfileText"
+                                                                        Text="{Binding ShellViewModel.ModelRegistryProfileText}"
+                                                                        Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                        FontFamily="Segoe UI"
+                                                                        FontSize="9.5"
+                                                                        TextWrapping="Wrap" />
+                                                             <TextBlock x:Name="ModelRegistryTrainingRunText"
+                                                                        AutomationProperties.AutomationId="ModelRegistryTrainingRunText"
+                                                                        Text="{Binding ShellViewModel.ModelRegistryTrainingRunText}"
+                                                                        Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                        FontFamily="Segoe UI"
+                                                                        FontSize="9.5"
+                                                                        Margin="0,2,0,0"
+                                                                        TextWrapping="Wrap" />
+                                                             <TextBlock x:Name="ModelRegistryCandidateModelText"
+                                                                        AutomationProperties.AutomationId="ModelRegistryCandidateModelText"
+                                                                        Text="{Binding ShellViewModel.ModelRegistryCandidateModelText}"
+                                                                        Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                        FontFamily="Segoe UI"
+                                                                        FontSize="9.5"
+                                                                        Margin="0,2,0,0"
+                                                                        TextWrapping="Wrap" />
+                                                             <TextBlock x:Name="ModelRegistryInspectionModelText"
+                                                                        AutomationProperties.AutomationId="ModelRegistryInspectionModelText"
+                                                                        Text="{Binding ShellViewModel.ModelRegistryInspectionModelText}"
+                                                                        Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                        FontFamily="Segoe UI"
+                                                                        FontSize="9.5"
+                                                                        Margin="0,2,0,0"
+                                                                        TextWrapping="Wrap" />
+                                                             <TextBlock x:Name="ModelRegistryActionText"
+                                                                        AutomationProperties.AutomationId="ModelRegistryActionText"
+                                                                        Text="{Binding ShellViewModel.ModelRegistryActionText}"
+                                                                        Foreground="{DynamicResource ModelCenterDecisionBrush}"
+                                                                        FontFamily="Segoe UI"
+                                                                        FontSize="9.5"
+                                                                        FontWeight="SemiBold"
+                                                                        Margin="0,3,0,0"
+                                                                        TextWrapping="Wrap" />
+                                                         </StackPanel>
+                                                     </Expander>
+                                                     <Border x:Name="ModelRegistryHistoryPanel"
+                                                             AutomationProperties.AutomationId="ModelRegistryHistoryPanel"
+                                                             BorderBrush="{DynamicResource BorderBrushDark}"
+                                                             BorderThickness="0,1,0,0"
+                                                             Padding="0,6,0,0"
+                                                             Margin="0,7,0,0"
+                                                             Visibility="{Binding ShellViewModel.IsModelRegistryHistoryVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                         <StackPanel>
+                                                             <TextBlock x:Name="ModelRegistryHistoryHeaderText"
+                                                                        AutomationProperties.AutomationId="ModelRegistryHistoryHeaderText"
+                                                                        Text="{Binding ShellViewModel.ModelRegistryHistoryHeaderText}"
+                                                                        Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                        FontFamily="Segoe UI"
+                                                                        FontSize="10"
+                                                                        FontWeight="SemiBold"
+                                                                        TextWrapping="Wrap" />
+                                                             <TextBlock x:Name="ModelRegistryHistorySummaryText"
+                                                                        AutomationProperties.AutomationId="ModelRegistryHistorySummaryText"
+                                                                        Text="{Binding ShellViewModel.ModelRegistryHistorySummaryText}"
+                                                                        Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                        FontFamily="Segoe UI"
+                                                                        FontSize="9"
+                                                                        Margin="0,2,0,3"
+                                                                        TextWrapping="Wrap" />
+                                                             <Grid x:Name="SelectedModelHistoryComparisonPanel"
+                                                                   AutomationProperties.AutomationId="SelectedModelHistoryComparisonPanel"
+                                                                   Margin="0,1,0,6"
+                                                                   Visibility="{Binding ShellViewModel.IsSelectedModelHistoryVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                 <Grid.RowDefinitions>
+                                                                     <RowDefinition Height="Auto" />
+                                                                     <RowDefinition Height="Auto" />
+                                                                     <RowDefinition Height="Auto" />
+                                                                     <RowDefinition Height="Auto" />
+                                                                 </Grid.RowDefinitions>
+                                                                 <Grid.ColumnDefinitions>
+                                                                     <ColumnDefinition Width="*" />
+                                                                     <ColumnDefinition Width="6" />
+                                                                     <ColumnDefinition Width="*" />
+                                                                 </Grid.ColumnDefinitions>
+                                                                 <TextBlock x:Name="SelectedModelHistoryComparisonTitleText"
+                                                                            AutomationProperties.AutomationId="SelectedModelHistoryComparisonTitleText"
+                                                                            Grid.Row="0"
+                                                                            Grid.ColumnSpan="3"
+                                                                            Text="{Binding ShellViewModel.SelectedModelHistoryComparisonTitleText}"
+                                                                            Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                            FontFamily="Segoe UI"
+                                                                            FontSize="9.2"
+                                                                            FontWeight="SemiBold"
+                                                                            TextTrimming="CharacterEllipsis"
+                                                                            ToolTip="{Binding ShellViewModel.SelectedModelHistoryComparisonTitleText}" />
+                                                                 <TextBlock x:Name="SelectedModelHistoryCurrentModelText"
+                                                                            AutomationProperties.AutomationId="SelectedModelHistoryCurrentModelText"
+                                                                            Grid.Row="2"
+                                                                            Grid.Column="0"
+                                                                            Text="{Binding ShellViewModel.SelectedModelHistoryCurrentModelText}"
+                                                                            ToolTip="{Binding ShellViewModel.SelectedModelHistoryCurrentModelText}"
+                                                                            Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                            FontFamily="Segoe UI"
+                                                                            FontSize="8.7"
+                                                                            Margin="0,1,0,0"
+                                                                            TextTrimming="CharacterEllipsis" />
+                                                                 <TextBlock x:Name="SelectedModelHistoryCurrentRoleText"
+                                                                            AutomationProperties.AutomationId="SelectedModelHistoryCurrentRoleText"
+                                                                            Grid.Row="1"
+                                                                            Grid.Column="0"
+                                                                            Text="&#xD604;&#xC7AC; &#xAC80;&#xC0AC; &#xBAA8;&#xB378;"
+                                                                            Foreground="{DynamicResource DisabledTextBrush}"
+                                                                            FontFamily="Segoe UI"
+                                                                            FontSize="8.2"
+                                                                            FontWeight="SemiBold"
+                                                                            Margin="0,3,0,0"
+                                                                            TextTrimming="CharacterEllipsis" />
+                                                                 <TextBlock x:Name="SelectedModelHistorySelectedRoleText"
+                                                                            AutomationProperties.AutomationId="SelectedModelHistorySelectedRoleText"
+                                                                            Grid.Row="1"
+                                                                            Grid.Column="2"
+                                                                            Text="&#xC120;&#xD0DD; &#xC774;&#xB825; &#xBAA8;&#xB378;"
+                                                                            Foreground="{DynamicResource ModelCenterCandidateBrush}"
+                                                                            FontFamily="Segoe UI"
+                                                                            FontSize="8.2"
+                                                                            FontWeight="SemiBold"
+                                                                            Margin="0,3,0,0"
+                                                                            TextTrimming="CharacterEllipsis" />
+                                                                 <TextBlock x:Name="SelectedModelHistorySelectedModelText"
+                                                                            AutomationProperties.AutomationId="SelectedModelHistorySelectedModelText"
+                                                                            Grid.Row="2"
+                                                                            Grid.Column="2"
+                                                                            Text="{Binding ShellViewModel.SelectedModelHistorySelectedModelText}"
+                                                                            ToolTip="{Binding ShellViewModel.SelectedModelHistorySelectedModelText}"
+                                                                            Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                            FontFamily="Segoe UI"
+                                                                            FontSize="8.7"
+                                                                            FontWeight="SemiBold"
+                                                                            Margin="0,1,0,0"
+                                                                            TextTrimming="CharacterEllipsis" />
+                                                                 <TextBlock x:Name="SelectedModelHistoryComparisonMetricText"
+                                                                            AutomationProperties.AutomationId="SelectedModelHistoryComparisonMetricText"
+                                                                            Grid.Row="3"
+                                                                            Grid.ColumnSpan="3"
+                                                                            Text="{Binding ShellViewModel.SelectedModelHistoryComparisonMetricText}"
+                                                                            ToolTip="{Binding ShellViewModel.SelectedModelHistoryComparisonMetricText}"
+                                                                            Foreground="{DynamicResource ModelCenterDecisionBrush}"
+                                                                            FontFamily="Segoe UI"
+                                                                            FontSize="8.8"
+                                                                            FontWeight="SemiBold"
+                                                                            Margin="0,3,0,0"
+                                                                            TextTrimming="CharacterEllipsis" />
+                                                             </Grid>
+                                                             <ListBox x:Name="ModelRegistryHistoryItems"
+                                                                     AutomationProperties.AutomationId="ModelRegistryHistoryItems"
+                                                                     ItemsSource="{Binding ShellViewModel.ModelRegistryHistoryItems}"
+                                                                     SelectedItem="{Binding ShellViewModel.SelectedModelRegistryHistoryItem, ElementName=ShellWindow, Mode=TwoWay}"
+                                                                     ItemContainerStyle="{StaticResource ModelRegistryHistoryListBoxItemStyle}"
+                                                                     Background="Transparent"
+                                                                      BorderThickness="0"
+                                                                      Padding="0"
+                                                                      Margin="0,2,0,0"
+                                                                      MaxHeight="56"
+                                                                      ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                                                 <ListBox.ItemTemplate>
+                                                                     <DataTemplate>
+                                                                         <Border BorderBrush="{DynamicResource BorderBrushDark}"
+                                                                                 BorderThickness="0,1,0,0"
+                                                                                 Padding="0,5,0,4"
+                                                                                 MinHeight="32">
+                                                                             <Grid>
+                                                                                 <Grid.ColumnDefinitions>
+                                                                                     <ColumnDefinition Width="*" />
+                                                                                     <ColumnDefinition Width="Auto" />
+                                                                                 </Grid.ColumnDefinitions>
+                                                                                 <TextBlock x:Name="ModelRegistryHistoryItemSummaryText"
+                                                                                            AutomationProperties.AutomationId="ModelRegistryHistoryItemSummaryText"
+                                                                                            Grid.Column="0"
+                                                                                            Text="{Binding TitleText}"
+                                                                                            Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                                            FontFamily="Segoe UI"
+                                                                                            FontSize="9.5"
+                                                                                            FontWeight="SemiBold"
+                                                                                            TextTrimming="CharacterEllipsis"
+                                                                                            ToolTip="{Binding TitleText}" />
+                                                                                 <TextBlock x:Name="ModelRegistryHistoryItemDecisionText"
+                                                                                            AutomationProperties.AutomationId="ModelRegistryHistoryItemDecisionText"
+                                                                                            Grid.Column="1"
+                                                                                            Text="{Binding DecisionText}"
+                                                                                            Foreground="{DynamicResource ModelCenterDecisionBrush}"
+                                                                                            FontFamily="Segoe UI"
+                                                                                            FontSize="9"
+                                                                                            FontWeight="SemiBold"
+                                                                                            Margin="8,0,0,0"
+                                                                                            TextTrimming="CharacterEllipsis"
+                                                                                            ToolTip="{Binding DecisionText}" />
+                                                                             </Grid>
+                                                                         </Border>
+                                                                     </DataTemplate>
+                                                                 </ListBox.ItemTemplate>
+                                                             </ListBox>
+                                                             <Border x:Name="ModelRegistrySelectedHistoryPanel"
+                                                                     AutomationProperties.AutomationId="ModelRegistrySelectedHistoryPanel"
+                                                                     BorderBrush="{DynamicResource ModelCenterCandidateBrush}"
+                                                                     BorderThickness="1"
+                                                                     CornerRadius="4"
+                                                                     Padding="8"
+                                                                     Margin="0,7,0,0"
+                                                                     Visibility="{Binding ShellViewModel.IsSelectedModelHistoryVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                                 <StackPanel>
+                                                                     <TextBlock x:Name="SelectedModelHistoryTitleText"
+                                                                                AutomationProperties.AutomationId="SelectedModelHistoryTitleText"
+                                                                                Text="{Binding ShellViewModel.SelectedModelHistoryTitleText}"
+                                                                                Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                                FontFamily="Segoe UI"
+                                                                                FontSize="10"
+                                                                                FontWeight="SemiBold"
+                                                                                TextWrapping="Wrap" />
+                                                                     <TextBlock x:Name="SelectedModelHistoryDecisionText"
+                                                                                AutomationProperties.AutomationId="SelectedModelHistoryDecisionText"
+                                                                                Text="{Binding ShellViewModel.SelectedModelHistoryDecisionText}"
+                                                                                Foreground="{DynamicResource ModelCenterDecisionBrush}"
+                                                                                FontFamily="Segoe UI"
+                                                                                FontSize="9"
+                                                                                FontWeight="SemiBold"
+                                                                                Margin="0,3,0,0"
+                                                                                TextWrapping="Wrap" />
+                                                                     <TextBlock x:Name="SelectedModelHistoryDetailText"
+                                                                                AutomationProperties.AutomationId="SelectedModelHistoryDetailText"
+                                                                                Text="{Binding ShellViewModel.SelectedModelHistoryDetailText}"
+                                                                                Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                                FontFamily="Segoe UI"
+                                                                                FontSize="9"
+                                                                                Margin="0,2,0,0"
+                                                                                TextWrapping="Wrap" />
+                                                                     <TextBlock x:Name="SelectedModelHistoryMetricText"
+                                                                                AutomationProperties.AutomationId="SelectedModelHistoryMetricText"
+                                                                                Text="{Binding ShellViewModel.SelectedModelHistoryMetricText}"
+                                                                                Foreground="{DynamicResource DisabledTextBrush}"
+                                                                                FontFamily="Segoe UI"
+                                                                                FontSize="9"
+                                                                                Margin="0,2,0,5"
+                                                                                TextWrapping="Wrap" />
+                                                                     <ui:Button x:Name="PromoteSelectedModelHistoryButton"
+                                                                                AutomationProperties.AutomationId="PromoteSelectedModelHistoryButton"
+                                                                                Height="28"
+                                                                                HorizontalAlignment="Left"
+                                                                                Padding="9,0"
+                                                                                Command="{Binding ShellViewModel.PromoteSelectedModelHistoryCommand, ElementName=ShellWindow}"
+                                                                                IsEnabled="{Binding ShellViewModel.IsSelectedModelHistoryActionEnabled, ElementName=ShellWindow}"
+                                                                                ToolTip="{Binding ShellViewModel.SelectedModelHistoryActionToolTip, ElementName=ShellWindow}">
+                                                                         <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                                                             <iconPacks:PackIconMaterial Kind="CheckCircleOutline"
+                                                                                                         Width="13"
+                                                                                                         Height="13"
+                                                                                                         Margin="0,0,5,0" />
+                                                                             <TextBlock x:Name="PromoteSelectedModelHistoryButtonText"
+                                                                                        AutomationProperties.AutomationId="PromoteSelectedModelHistoryButtonText"
+                                                                                        Text="{Binding ShellViewModel.SelectedModelHistoryActionText, ElementName=ShellWindow}"
+                                                                                        FontFamily="Segoe UI"
+                                                                                        FontSize="9.5"
+                                                                                        FontWeight="SemiBold" />
+                                                                         </StackPanel>
+                                                                     </ui:Button>
+                                                                 </StackPanel>
+                                                             </Border>
+                                                         </StackPanel>
+                                                     </Border>
+                                                 </StackPanel>
+                                             </Border>
+                                             <Border x:Name="YoloModelRecoveryPanel"
+                                                     AutomationProperties.AutomationId="YoloModelRecoveryPanel"
+                                                     Background="#2A1518"
+                                                     BorderBrush="#E5484D"
+                                                     BorderThickness="1"
+                                                     CornerRadius="4"
+                                                     Padding="7"
+                                                     Margin="0,0,0,7">
+                                                 <Border.Style>
+                                                     <Style TargetType="{x:Type Border}">
+                                                         <Setter Property="Visibility" Value="Collapsed" />
+                                                         <Style.Triggers>
+                                                             <DataTrigger Binding="{Binding ShellViewModel.IsModelCenterRecoveryVisible}" Value="True">
+                                                                 <Setter Property="Visibility" Value="Visible" />
+                                                             </DataTrigger>
+                                                         </Style.Triggers>
+                                                     </Style>
+                                                 </Border.Style>
+                                                 <StackPanel>
+                                                     <TextBlock x:Name="YoloModelRecoveryTitleText"
+                                                                AutomationProperties.AutomationId="YoloModelRecoveryTitleText"
+                                                                Text="{Binding ShellViewModel.ModelCenterRecoveryTitleText}"
+                                                                Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                FontFamily="Segoe UI"
+                                                                FontSize="11"
+                                                                FontWeight="SemiBold"
+                                                                TextWrapping="Wrap" />
+                                                     <TextBlock x:Name="YoloModelRecoveryDetailText"
+                                                                AutomationProperties.AutomationId="YoloModelRecoveryDetailText"
+                                                                Text="{Binding ShellViewModel.ModelCenterRecoveryDetailText}"
+                                                                Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                FontFamily="Segoe UI"
+                                                                FontSize="10.5"
+                                                                Margin="0,3,0,0"
+                                                                TextWrapping="Wrap" />
+                                                     <TextBlock x:Name="YoloModelRecoveryActionText"
+                                                                AutomationProperties.AutomationId="YoloModelRecoveryActionText"
+                                                                Text="{Binding ShellViewModel.ModelCenterRecoveryActionText}"
+                                                                Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                FontFamily="Segoe UI"
+                                                                FontSize="10.5"
+                                                                FontWeight="SemiBold"
+                                                                Margin="0,3,0,0"
+                                                                TextWrapping="Wrap" />
+                                                 </StackPanel>
+                                             </Border>
+                                             <Border x:Name="YoloModelAdoptionDecisionPanel"
+                                                     AutomationProperties.AutomationId="YoloModelAdoptionDecisionPanel"
+                                                     Background="{DynamicResource ModelCenterDecisionPanelBrush}"
+                                                     BorderBrush="{DynamicResource ModelCenterDecisionBrush}"
+                                                     BorderThickness="1"
+                                                     CornerRadius="4"
+                                                     Padding="7"
+                                                     Margin="0,0,0,7">
+                                                 <StackPanel>
+                                                     <TextBlock x:Name="YoloModelAdoptionDecisionTitleText"
+                                                                AutomationProperties.AutomationId="YoloModelAdoptionDecisionTitleText"
+                                                                Text="{Binding ShellViewModel.ModelCenterDecisionTitleText}"
+                                                                Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                FontFamily="Segoe UI"
+                                                                FontSize="11"
+                                                                FontWeight="SemiBold"
+                                                                TextWrapping="Wrap" />
+                                                     <TextBlock x:Name="YoloModelAdoptionDecisionSummaryText"
+                                                                AutomationProperties.AutomationId="YoloModelAdoptionDecisionSummaryText"
+                                                                Text="{Binding ShellViewModel.ModelCenterDecisionSummaryText}"
+                                                                ToolTip="{Binding ShellViewModel.ModelCenterDecisionSummaryText}"
+                                                                Foreground="{DynamicResource ModelCenterDecisionBrush}"
+                                                                FontFamily="Segoe UI"
+                                                                FontSize="10.5"
+                                                                FontWeight="SemiBold"
+                                                                Margin="0,3,0,0"
+                                                                TextTrimming="CharacterEllipsis" />
+                                                     <Expander x:Name="YoloModelAdoptionDecisionDetailExpander"
+                                                               AutomationProperties.AutomationId="YoloModelAdoptionDecisionDetailExpander"
+                                                               Header="&#xADFC;&#xAC70;/&#xC0C1;&#xC138;"
+                                                               IsExpanded="False"
+                                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                                               FontFamily="Segoe UI"
+                                                               FontSize="9"
+                                                               Margin="0,3,0,0">
+                                                         <StackPanel Margin="0,3,0,0">
+                                                             <TextBlock x:Name="YoloModelAdoptionDecisionEvidenceText"
+                                                                        AutomationProperties.AutomationId="YoloModelAdoptionDecisionEvidenceText"
+                                                                        Text="{Binding ShellViewModel.ModelCenterDecisionEvidenceText}"
+                                                                        Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                        FontFamily="Segoe UI"
+                                                                        FontSize="9.5"
+                                                                        TextWrapping="Wrap" />
+                                                             <TextBlock x:Name="YoloModelAdoptionDecisionActionText"
+                                                                        AutomationProperties.AutomationId="YoloModelAdoptionDecisionActionText"
+                                                                        Text="{Binding ShellViewModel.ModelCenterDecisionActionText}"
+                                                                        Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                        FontFamily="Segoe UI"
+                                                                        FontSize="9.5"
+                                                                        FontWeight="SemiBold"
+                                                                        Margin="0,2,0,0"
+                                                                        TextWrapping="Wrap" />
+                                                         </StackPanel>
+                                                     </Expander>
+                                                 </StackPanel>
+                                             </Border>
+                                             <Border BorderBrush="{DynamicResource BorderBrushDark}"
+                                                     BorderThickness="0,1,0,0"
+                                                     Padding="0,7,0,0">
+                                                <Grid>
+                                                    <Grid.RowDefinitions>
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                        <RowDefinition Height="Auto" />
+                                                    </Grid.RowDefinitions>
+                                                    <Grid.ColumnDefinitions>
+                                                        <ColumnDefinition Width="78" />
+                                                        <ColumnDefinition Width="*" />
+                                                    </Grid.ColumnDefinitions>
+                                                    <TextBlock x:Name="YoloModelLifecycleCurrentModelTitleText"
+                                                               Grid.Row="0"
+                                                               Grid.Column="0"
+                                                               Text="{Binding ShellViewModel.ModelCenterCurrentModelTitleText}"
+                                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                                               FontFamily="Segoe UI"
+                                                               FontSize="10"
+                                                               FontWeight="SemiBold"
+                                                               Margin="0,0,8,4"
+                                                               TextWrapping="Wrap" />
+                                                    <TextBlock x:Name="YoloModelLifecycleCurrentModelText"
+                                                               Grid.Row="0"
+                                                               Grid.Column="1"
+                                                               Text="{Binding ShellViewModel.ModelCenterCurrentModelDetailText}"
+                                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                                               FontFamily="Segoe UI"
+                                                               FontSize="10.5"
+                                                               FontWeight="SemiBold"
+                                                               Margin="0,0,0,4"
+                                                               TextWrapping="Wrap" />
+                                                    <TextBlock x:Name="YoloModelLifecycleCandidateModelTitleText"
+                                                               Grid.Row="1"
+                                                               Grid.Column="0"
+                                                               Text="{Binding ShellViewModel.ModelCenterCandidateModelTitleText}"
+                                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                                               FontFamily="Segoe UI"
+                                                               FontSize="10"
+                                                               FontWeight="SemiBold"
+                                                               Margin="0,0,8,4"
+                                                               TextWrapping="Wrap" />
+                                                    <TextBlock x:Name="YoloModelLifecycleCandidateModelText"
+                                                               Grid.Row="1"
+                                                               Grid.Column="1"
+                                                               Text="{Binding ShellViewModel.ModelCenterCandidateModelDetailText}"
+                                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                                               FontFamily="Segoe UI"
+                                                               FontSize="10.5"
+                                                               Margin="0,0,0,4"
+                                                               TextWrapping="Wrap" />
+                                                    <TextBlock x:Name="YoloModelLifecycleAdoptionTitleText"
+                                                               Grid.Row="2"
+                                                               Grid.Column="0"
+                                                               Text="{Binding ShellViewModel.ModelCenterAdoptionTitleText}"
+                                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                                               FontFamily="Segoe UI"
+                                                               FontSize="10"
+                                                               FontWeight="SemiBold"
+                                                               Margin="0,0,8,4"
+                                                               TextWrapping="Wrap" />
+                                                    <TextBlock x:Name="YoloModelLifecycleAdoptionText"
+                                                               Grid.Row="2"
+                                                               Grid.Column="1"
+                                                               Text="{Binding ShellViewModel.ModelCenterAdoptionDetailText}"
+                                                               Foreground="{DynamicResource ModelCenterDecisionBrush}"
+                                                               FontFamily="Segoe UI"
+                                                               FontSize="10.5"
+                                                               FontWeight="SemiBold"
+                                                               Margin="0,0,0,4"
+                                                               TextWrapping="Wrap" />
+                                                    <TextBlock x:Name="YoloModelLifecycleNextActionTitleText"
+                                                               Grid.Row="3"
+                                                               Grid.Column="0"
+                                                               Text="{Binding ShellViewModel.ModelCenterNextActionTitleText}"
+                                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                                               FontFamily="Segoe UI"
+                                                               FontSize="10"
+                                                               FontWeight="SemiBold"
+                                                               Margin="0,0,8,0"
+                                                               TextWrapping="Wrap" />
+                                                    <TextBlock x:Name="YoloModelLifecycleNextActionText"
+                                                               Grid.Row="3"
+                                                               Grid.Column="1"
+                                                               Text="{Binding ShellViewModel.ModelCenterNextActionDetailText}"
+                                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                                               FontFamily="Segoe UI"
+                                                               FontSize="10.5"
+                                                               TextWrapping="Wrap" />
+                                                </Grid>
+                                            </Border>
+                                            <WrapPanel Margin="0,8,0,0">
+                                                <ui:Button x:Name="YoloLifecycleRefreshButton"
+                                                           Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                           AutomationProperties.AutomationId="YoloLifecycleRefreshButton"
+                                                           AutomationProperties.Name="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC810;&#xAC80;"
+                                                           ToolTip="&#xB77C;&#xBCA8;&#xACFC; &#xD559;&#xC2B5; &#xC124;&#xC815; &#xC900;&#xBE44; &#xC0C1;&#xD0DC;&#xB97C; &#xD655;&#xC778;"
+                                                           Command="{Binding TrainingSettingsViewModel.RefreshReadinessCommand}"
+                                                           IsEnabled="{Binding TrainingSettingsViewModel.IsRefreshReadinessEnabled}"
+                                                           MinWidth="62"
+                                                           Margin="0,0,4,4">
+                                                    <TextBlock Text="&#xC810;&#xAC80;" VerticalAlignment="Center" />
+                                                </ui:Button>
+                                                <ui:Button x:Name="YoloLifecycleStartTrainingButton"
+                                                           Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                           AutomationProperties.AutomationId="YoloLifecycleStartTrainingButton"
+                                                           AutomationProperties.Name="&#xD559;&#xC2B5; &#xC2DC;&#xC791;"
+                                                           ToolTip="&#xBAA8;&#xB378; &#xD559;&#xC2B5; &#xC2DC;&#xC791;"
+                                                           Command="{Binding TrainingSettingsViewModel.StartTrainingCommand}"
+                                                           IsEnabled="{Binding TrainingSettingsViewModel.IsStartTrainingEnabled}"
+                                                           MinWidth="82"
+                                                           Margin="0,0,4,4">
+                                                    <TextBlock Text="&#xD559;&#xC2B5; &#xC2DC;&#xC791;" VerticalAlignment="Center" />
+                                                </ui:Button>
+                                                <ui:Button x:Name="YoloLifecycleStopTrainingButton"
+                                                           Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                           AutomationProperties.AutomationId="YoloLifecycleStopTrainingButton"
+                                                           AutomationProperties.Name="&#xD559;&#xC2B5; &#xC911;&#xC9C0;"
+                                                           ToolTip="&#xC2E4;&#xD589; &#xC911;&#xC778; &#xD559;&#xC2B5; &#xC911;&#xC9C0;"
+                                                           Command="{Binding TrainingSettingsViewModel.StopTrainingCommand}"
+                                                           IsEnabled="{Binding TrainingSettingsViewModel.IsStopTrainingEnabled}"
+                                                           MinWidth="62"
+                                                           Margin="0,0,4,4">
+                                                    <TextBlock Text="&#xC911;&#xC9C0;" VerticalAlignment="Center" />
+                                                </ui:Button>
+                                                <ui:Button x:Name="YoloLifecycleReviewCandidateModelButton"
+                                                           Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                           AutomationProperties.AutomationId="YoloLifecycleReviewCandidateModelButton"
+                                                           AutomationProperties.Name="{Binding ShellViewModel.ModelCenterReviewCandidateButtonText}"
+                                                           ToolTip="{Binding ShellViewModel.ModelCenterReviewCandidateButtonToolTip}"
+                                                           Command="{Binding ShellViewModel.ReviewCandidateModelCommand}"
+                                                           IsEnabled="{Binding ShellViewModel.IsModelCenterReviewCandidateEnabled}"
+                                                           Visibility="Collapsed"
+                                                           MinWidth="82"
+                                                           Margin="0,0,4,4">
+                                                    <TextBlock x:Name="YoloLifecycleReviewCandidateModelButtonText"
+                                                               Text="{Binding ShellViewModel.ModelCenterReviewCandidateButtonText}"
+                                                               VerticalAlignment="Center" />
+                                                </ui:Button>
+                                                <ui:Button x:Name="YoloLifecycleSaveModelSettingsButton"
+                                                           Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                           AutomationProperties.AutomationId="YoloLifecycleSaveModelSettingsButton"
+                                                           AutomationProperties.Name="{Binding ShellViewModel.ModelCenterConfirmModelButtonText}"
+                                                           ToolTip="{Binding ShellViewModel.ModelCenterConfirmModelButtonToolTip}"
+                                                           Command="{Binding YoloModelSettingsViewModel.SaveSettingsCommand}"
+                                                           IsEnabled="{Binding ShellViewModel.IsModelCenterConfirmModelEnabled}"
+                                                           Visibility="Collapsed"
+                                                           MinWidth="108"
+                                                           Margin="0,0,0,4">
+                                                    <TextBlock x:Name="YoloLifecycleSaveModelSettingsButtonText"
+                                                               Text="{Binding ShellViewModel.ModelCenterConfirmModelButtonText}"
+                                                               VerticalAlignment="Center" />
+                                                </ui:Button>
+                                                <ui:Button x:Name="YoloLifecycleInspectCurrentImageButton"
+                                                           Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                           AutomationProperties.AutomationId="YoloLifecycleInspectCurrentImageButton"
+                                                           AutomationProperties.Name="{Binding ShellViewModel.ModelCenterInspectCurrentImageButtonText}"
+                                                           ToolTip="{Binding ShellViewModel.ModelCenterInspectCurrentImageButtonToolTip}"
+                                                           Command="{Binding ShellViewModel.DetectCurrentImageCommand}"
+                                                           IsEnabled="{Binding ShellViewModel.IsModelCenterInspectCurrentImageEnabled}"
+                                                           Visibility="Collapsed"
+                                                           MinWidth="82"
+                                                           Margin="4,0,0,4">
+                                                    <TextBlock x:Name="YoloLifecycleInspectCurrentImageButtonText"
+                                                               Text="{Binding ShellViewModel.ModelCenterInspectCurrentImageButtonText}"
+                                                               VerticalAlignment="Center" />
+                                                </ui:Button>
+                                            </WrapPanel>
+                                        </StackPanel>
                                     </Border>
+                                    <Expander x:Name="YoloDatasetReadinessQuickPanel"
+                                              AutomationProperties.AutomationId="YoloDatasetReadinessQuickPanel"
+                                              Header="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC810;&#xAC80; &#xC0C1;&#xC138;"
+                                              IsExpanded="False"
+                                              Foreground="{DynamicResource PrimaryTextBrush}"
+                                              Margin="0,0,0,8">
+                                        <Border Background="{DynamicResource CanvasBrush}"
+                                                BorderBrush="{DynamicResource BorderBrushDark}"
+                                                BorderThickness="1"
+                                                CornerRadius="5"
+                                                Padding="8"
+                                                Margin="0,6,0,0">
+                                            <Grid>
+                                                <Grid.ColumnDefinitions>
+                                                    <ColumnDefinition Width="*" />
+                                                    <ColumnDefinition Width="Auto" />
+                                                </Grid.ColumnDefinitions>
+                                                <StackPanel Grid.Column="0" Margin="0,0,8,0">
+                                                    <TextBlock Text="&#xD559;&#xC2B5; &#xB370;&#xC774;&#xD130;&#xC14B; &#xC810;&#xAC80;"
+                                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                                               FontFamily="Segoe UI"
+                                                               FontSize="12"
+                                                               FontWeight="SemiBold" />
+                                                    <TextBlock x:Name="YoloDatasetQuickReadinessText"
+                                                               Text="{Binding TrainingSettingsViewModel.TrainingReadinessText}"
+                                                               Foreground="{Binding TrainingSettingsViewModel.TrainingReadinessForeground}"
+                                                               FontFamily="Segoe UI"
+                                                               FontSize="10.5"
+                                                               Margin="0,3,0,0"
+                                                               TextWrapping="Wrap" />
+                                                </StackPanel>
+                                                <ui:Button x:Name="YoloDatasetQuickRefreshButton"
+                                                           Grid.Column="1"
+                                                           Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                           AutomationProperties.AutomationId="YoloDatasetQuickRefreshButton"
+                                                           AutomationProperties.Name="&#xD559;&#xC2B5; &#xB370;&#xC774;&#xD130;&#xC14B; &#xC0C8;&#xB85C;&#xACE0;&#xCE68;"
+                                                           ToolTip="&#xC800;&#xC7A5;&#xB41C; &#xB77C;&#xBCA8;&#xACFC; &#xD559;&#xC2B5; &#xC124;&#xC815; &#xC900;&#xBE44; &#xC0C1;&#xD0DC; &#xC810;&#xAC80;"
+                                                           Command="{Binding TrainingSettingsViewModel.RefreshReadinessCommand}">
+                                                    <TextBlock Text="&#xC810;&#xAC80;" VerticalAlignment="Center" />
+                                                </ui:Button>
+                                            </Grid>
+                                        </Border>
+                                    </Expander>
                                     <local:WpfYoloStatusPanel x:Name="YoloStatusPanelControl" />
                                     <local:WpfProjectConfigPanel x:Name="ProjectConfigPanelControl" />
                                     <local:WpfYoloModelSettingsPanel x:Name="YoloModelSettingsPanelControl" />
@@ -657,11 +2355,124 @@
                             </ScrollViewer>
                         </TabItem>
                     </TabControl>
+                    </Grid>
+                    <Border x:Name="RightWorkflowCollapsedRail"
+                            AutomationProperties.AutomationId="RightWorkflowCollapsedRail"
+                            AutomationProperties.Name="&#xC811;&#xD78C; &#xC791;&#xC5C5; &#xD328;&#xB110;"
+                            Background="{DynamicResource PanelBrush}"
+                            CornerRadius="6"
+                            Visibility="{Binding ShellViewModel.IsRightWorkflowDockRailVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
+                        <StackPanel Margin="5,7" HorizontalAlignment="Center">
+                            <Border x:Name="RightWorkflowRailContextBadge"
+                                    AutomationProperties.AutomationId="RightWorkflowRailContextBadge"
+                                    AutomationProperties.Name="&#xC791;&#xC5C5; &#xD328;&#xB110; &#xD604;&#xC7AC; &#xBCF4;&#xAE30;"
+                                    Width="60"
+                                    Background="{DynamicResource CanvasBrush}"
+                                    BorderBrush="{DynamicResource AccentBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="4"
+                                    Padding="3"
+                                    Margin="0,0,0,6"
+                                    ToolTip="{Binding ShellViewModel.RightWorkflowViewTitleText, ElementName=ShellWindow}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <TextBlock x:Name="RightWorkflowRailContextTitleText"
+                                               Text="&#xC791;&#xC5C5;"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="9"
+                                               TextAlignment="Center" />
+                                    <TextBlock x:Name="RightWorkflowRailCurrentViewText"
+                                               Text="{Binding ShellViewModel.RightWorkflowRailCurrentViewText, ElementName=ShellWindow}"
+                                               Foreground="{DynamicResource AccentBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="10.5"
+                                               FontWeight="SemiBold"
+                                               TextAlignment="Center"
+                                               TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
+                            </Border>
+                            <Button x:Name="RightWorkflowRailOpenButton"
+                                    AutomationProperties.AutomationId="RightWorkflowRailOpenButton"
+                                    AutomationProperties.Name="&#xC791;&#xC5C5; &#xD328;&#xB110; &#xC5F4;&#xAE30;"
+                                    ToolTip="{Binding ShellViewModel.RightWorkflowDockToggleToolTip, ElementName=ShellWindow}"
+                                    Command="{Binding ShellViewModel.ToggleRightWorkflowDockCommand, ElementName=ShellWindow}"
+                                    Style="{StaticResource RightWorkflowRailButtonStyle}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Kind="ChevronRight"
+                                                                Width="15"
+                                                                Height="15"
+                                                                HorizontalAlignment="Center" />
+                                    <TextBlock x:Name="RightWorkflowRailOpenText"
+                                               Text="&#xC5F4;&#xAE30;"
+                                               Margin="0,2,0,0"
+                                               TextAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Rectangle Height="1"
+                                       Fill="{DynamicResource BorderBrushDark}"
+                                       Width="54"
+                                       Margin="0,1,0,8" />
+                            <Button x:Name="RightWorkflowRailSavedLabelsButton"
+                                    AutomationProperties.AutomationId="RightWorkflowRailSavedLabelsButton"
+                                    AutomationProperties.Name="&#xC800;&#xC7A5; &#xB77C;&#xBCA8; &#xD328;&#xB110; &#xC5F4;&#xAE30;"
+                                    ToolTip="&#xC800;&#xC7A5;&#xB41C; &#xB77C;&#xBCA8; &#xBAA9;&#xB85D;&#xC744; &#xC5FD;&#xB2C8;&#xB2E4;."
+                                    Command="{Binding ShellViewModel.ShowSavedLabelsViewCommand, ElementName=ShellWindow}"
+                                    Tag="{Binding ShellViewModel.IsSavedLabelsShortcutActive, ElementName=ShellWindow}"
+                                    Style="{StaticResource RightWorkflowRailButtonStyle}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Kind="PlaylistCheck"
+                                                                Width="15"
+                                                                Height="15"
+                                                                HorizontalAlignment="Center" />
+                                    <TextBlock x:Name="RightWorkflowRailSavedLabelsText"
+                                               Text="&#xB77C;&#xBCA8;"
+                                               Margin="0,2,0,0"
+                                               TextAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="RightWorkflowRailGuideToolsButton"
+                                    AutomationProperties.AutomationId="RightWorkflowRailGuideToolsButton"
+                                    AutomationProperties.Name="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C; &#xD328;&#xB110; &#xC5F4;&#xAE30;"
+                                    ToolTip="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C;&#xC640; &#xAC00;&#xC774;&#xB4DC;&#xB97C; &#xC5FD;&#xB2C8;&#xB2E4;."
+                                    Command="{Binding ShellViewModel.ShowLabelingGuideViewCommand, ElementName=ShellWindow}"
+                                    Tag="{Binding ShellViewModel.IsLabelingGuideShortcutActive, ElementName=ShellWindow}"
+                                    Style="{StaticResource RightWorkflowRailButtonStyle}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Kind="ShapeSquareRoundedPlus"
+                                                                Width="15"
+                                                                Height="15"
+                                                                HorizontalAlignment="Center" />
+                                    <TextBlock x:Name="RightWorkflowRailGuideToolsText"
+                                               Text="&#xB3C4;&#xAD6C;"
+                                               Margin="0,2,0,0"
+                                               TextAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                            <Button x:Name="RightWorkflowRailClassCatalogButton"
+                                    AutomationProperties.AutomationId="RightWorkflowRailClassCatalogButton"
+                                    AutomationProperties.Name="&#xD074;&#xB798;&#xC2A4; &#xD328;&#xB110; &#xC5F4;&#xAE30;"
+                                    ToolTip="&#xD074;&#xB798;&#xC2A4; &#xAD00;&#xB9AC;&#xB97C; &#xC5FD;&#xB2C8;&#xB2E4;."
+                                    Command="{Binding ShellViewModel.ShowClassCatalogViewCommand, ElementName=ShellWindow}"
+                                    Tag="{Binding ShellViewModel.IsClassCatalogShortcutActive, ElementName=ShellWindow}"
+                                    Style="{StaticResource RightWorkflowRailButtonStyle}">
+                                <StackPanel HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Kind="TagMultipleOutline"
+                                                                Width="15"
+                                                                Height="15"
+                                                                HorizontalAlignment="Center" />
+                                    <TextBlock x:Name="RightWorkflowRailClassCatalogText"
+                                               Text="&#xD074;&#xB798;&#xC2A4;"
+                                               Margin="0,2,0,0"
+                                               TextAlignment="Center" />
+                                </StackPanel>
+                            </Button>
+                        </StackPanel>
+                    </Border>
                 </Grid>
             </Border>
 
             <local:WpfShellLogPanel x:Name="ShellLogPanelControl"
-                                    Grid.Column="2"
+                                    Grid.Column="0"
                                     Grid.ColumnSpan="3"
                                     Grid.Row="2" />
         </Grid>

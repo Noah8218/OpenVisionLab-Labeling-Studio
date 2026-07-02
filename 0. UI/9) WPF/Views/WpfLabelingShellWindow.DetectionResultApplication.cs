@@ -1,6 +1,7 @@
 using MvcVisionSystem._1._Core;
 using MvcVisionSystem._3._Communication.TCP;
 using MvcVisionSystem.Yolo;
+using OpenVisionLab.ImageCanvas.ViewModels;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -22,22 +23,23 @@ namespace MvcVisionSystem
             int loadedCount = candidateReviewState.LoadPendingCandidates(candidates, clearConfirmed: true);
             CandidateReviewViewModel?.ClearReviewHistory();
 
+            ApplyCanvasDisplayMode(WpfCanvasDisplayMode.InferenceOnly, redraw: false, logChange: false);
             RefreshCandidateList();
             RefreshObjectList();
             RedrawReviewRois();
             SetActiveImageDetectionStatus(loadedCount, succeeded);
             AddCandidateReviewHistory(detectionResultPresentationService.BuildCandidateLoadHistory(loadedCount, succeeded, GetCandidateConfidenceFilter()));
+            ShowCandidateReviewWorkflowView();
 
             if (!candidateReviewState.HasPendingCandidates)
             {
                 CenterCanvasAfterInferenceResult();
-                AppendLog("검출 후보가 없습니다.");
+                AppendLog("AI 후보가 없습니다.");
                 return;
             }
 
-            CandidatesReviewTab.IsSelected = true;
             CenterCanvasAfterInferenceResult();
-            AppendLog($"검출 후보 로드: {loadedCount}개");
+            AppendLog($"AI 후보 로드: {loadedCount}개");
         }
         private void AddCandidateReviewHistory(string message)
         {
@@ -65,32 +67,54 @@ namespace MvcVisionSystem
         private void RedrawReviewRois()
         {
             EnsureManualRoiMetadataCount();
+            RefreshCanvasLayerVisibilityState();
+            bool showLabels = ShouldShowLabelOverlays();
+            bool showInference = ShouldShowInferenceOverlays();
             using (MainCanvasViewModel.ImageViewer.SuppressRefresh())
             {
                 MainCanvasViewModel.ClearRois();
-                for (int i = 0; i < manualRois.Count; i++)
+                if (showLabels)
                 {
-                    DrawingRectangle roi = manualRois[i];
-                    if (roi.IsEmpty)
+                    for (int i = 0; i < manualRois.Count; i++)
                     {
-                        continue;
+                        DrawingRectangle roi = manualRois[i];
+                        if (roi.IsEmpty)
+                        {
+                            continue;
+                        }
+
+                        string className = GetManualRoiClassName(i);
+                        var overlay = MainCanvasViewModel.AddInitialRoi(roi, GetManualRoiShapeKind(i), GetClassDrawColor(className), className);
+                        manualRoiOverlayIds[i] = overlay?.UniqueId ?? string.Empty;
                     }
 
-                    var overlay = MainCanvasViewModel.AddInitialRoi(roi, GetManualRoiShapeKind(i));
-                    manualRoiOverlayIds[i] = overlay?.UniqueId ?? string.Empty;
-                }
-
-                foreach (YoloWorkerSmokeCandidate candidate in confirmedDetectionCandidates)
-                {
-                    DrawingRectangle bounds = GetClippedCandidateBounds(candidate);
-                    if (!bounds.IsEmpty)
+                    foreach (YoloWorkerSmokeCandidate candidate in confirmedDetectionCandidates)
                     {
-                        MainCanvasViewModel.AddInitialRoi(bounds);
+                        DrawingRectangle bounds = GetClippedCandidateBounds(candidate);
+                        if (!bounds.IsEmpty)
+                        {
+                            MainCanvasViewModel.AddInitialRoi(bounds, OpenVisionLab.ImageCanvas.CanvasShapes.CanvasRoiShapeKind.Rectangle, GetClassDrawColor(candidate.ClassName), candidate.ClassName);
+                        }
                     }
                 }
 
-                MainCanvasViewModel.SetDetectionOverlays(BuildDetectionOverlays(pendingDetectionCandidates));
-                RefreshPolygonOverlays();
+                if (showInference)
+                {
+                    MainCanvasViewModel.SetDetectionOverlays(BuildDetectionOverlays(pendingDetectionCandidates));
+                }
+                else
+                {
+                    MainCanvasViewModel.SetDetectionOverlays(Array.Empty<RoiImageCanvasDetectionOverlay>());
+                }
+
+                if (showLabels)
+                {
+                    RefreshPolygonOverlays();
+                }
+                else
+                {
+                    ClearSegmentationOverlays();
+                }
             }
 
             MainCanvasViewModel.ImageViewer.RefreshGL();

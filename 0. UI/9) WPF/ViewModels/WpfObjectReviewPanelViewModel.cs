@@ -15,6 +15,12 @@ namespace MvcVisionSystem
         private static readonly Action<object> NoOpSelectionCommand = _ => { };
         private static readonly Action<KeyInputCommandArgs> NoOpKeyCommand = _ => { };
         private string summaryText = "\uD604\uC7AC \uC774\uBBF8\uC9C0 \uAC1D\uCCB4 \uC5C6\uC74C";
+        private string selectedObjectTaskTitleText = "\uC120\uD0DD \uB77C\uBCA8 \uC5C6\uC74C";
+        private string selectedObjectTaskDetailText = "\uCE94\uBC84\uC2A4\uB098 \uBAA9\uB85D\uC5D0\uC11C \uC218\uC815\uD560 \uB77C\uBCA8\uC744 \uC120\uD0DD\uD558\uC138\uC694.";
+        private string selectedObjectTaskActionText = "\uB77C\uBCA8\uC744 \uADF8\uB9B0 \uD6C4\uC5D0\uB294 \uB77C\uBCA8 \uC800\uC7A5\uC744 \uB20C\uB7EC \uD30C\uC77C\uC5D0 \uBC18\uC601\uD558\uC138\uC694.";
+        private string labelSaveStateKey = "Waiting";
+        private string labelSaveBadgeText = "\uB77C\uBCA8 \uB300\uAE30";
+        private string labelSaveDetailText = "\uC774\uBBF8\uC9C0\uB97C \uC5F4\uBA74 \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
         private WpfObjectReviewListItem selectedObject;
         private string selectedClassName = string.Empty;
         private bool isDeleteEnabled;
@@ -26,6 +32,16 @@ namespace MvcVisionSystem
         private ICommand objectPreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(NoOpKeyCommand);
 
         public string ViewName => nameof(WpfObjectReviewPanel);
+
+        public string PanelModeTitleText => "\uC800\uC7A5 \uB77C\uBCA8";
+
+        public string PanelModeBadgeText => "\uC800\uC7A5 \uB77C\uBCA8\uB9CC";
+
+        public string PanelModeScopeText => "\uBBF8\uD655\uC815 AI \uD6C4\uBCF4 \uD45C\uC2DC \uC548 \uD568";
+
+        public string PanelModeDetailText => "\uC774 \uD328\uB110\uC740 \uD30C\uC77C\uC5D0 \uBC18\uC601\uB420 \uC800\uC7A5 \uB77C\uBCA8\uB9CC \uD3B8\uC9D1\uD569\uB2C8\uB2E4. \uBBF8\uD655\uC815 AI \uD6C4\uBCF4\uB294 \uD45C\uC2DC\uD558\uC9C0 \uC54A\uC73C\uBA70, AI \uD6C4\uBCF4\uB97C \uD655\uC815\uD558\uBA74 \uC800\uC7A5 \uB77C\uBCA8\uB85C \uC804\uD658\uB418\uC5B4 \uC5EC\uAE30\uC5D0 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+
+        public string ActionGuideText => "\uC0AD\uC81C/\uD074\uB798\uC2A4 \uBCC0\uACBD\uC740 \uD604\uC7AC \uC774\uBBF8\uC9C0\uC5D0 \uBC14\uB85C \uBC18\uC601\uB418\uACE0 \uC800\uC7A5 \uD544\uC694 \uC0C1\uD0DC\uB85C \uBC14\uB00D\uB2C8\uB2E4. \uD30C\uC77C\uC5D0 \uBC18\uC601\uD558\uB824\uBA74 \uB77C\uBCA8 \uC800\uC7A5\uC744 \uB204\uB974\uC138\uC694.";
 
         public WpfBulkObservableCollection<WpfObjectReviewListItem> Objects { get; } = new WpfBulkObservableCollection<WpfObjectReviewListItem>();
 
@@ -58,7 +74,49 @@ namespace MvcVisionSystem
         public string SummaryText
         {
             get => summaryText;
-            set => SetProperty(ref summaryText, value ?? string.Empty);
+            set
+            {
+                if (SetProperty(ref summaryText, value ?? string.Empty))
+                {
+                    RefreshSelectedObjectTaskText();
+                }
+            }
+        }
+
+        public string SelectedObjectTaskTitleText
+        {
+            get => selectedObjectTaskTitleText;
+            private set => SetProperty(ref selectedObjectTaskTitleText, value ?? string.Empty);
+        }
+
+        public string SelectedObjectTaskDetailText
+        {
+            get => selectedObjectTaskDetailText;
+            private set => SetProperty(ref selectedObjectTaskDetailText, value ?? string.Empty);
+        }
+
+        public string SelectedObjectTaskActionText
+        {
+            get => selectedObjectTaskActionText;
+            private set => SetProperty(ref selectedObjectTaskActionText, value ?? string.Empty);
+        }
+
+        public string LabelSaveStateKey
+        {
+            get => labelSaveStateKey;
+            private set => SetProperty(ref labelSaveStateKey, value ?? string.Empty);
+        }
+
+        public string LabelSaveBadgeText
+        {
+            get => labelSaveBadgeText;
+            private set => SetProperty(ref labelSaveBadgeText, value ?? string.Empty);
+        }
+
+        public string LabelSaveDetailText
+        {
+            get => labelSaveDetailText;
+            private set => SetProperty(ref labelSaveDetailText, value ?? string.Empty);
         }
 
         public WpfObjectReviewListItem SelectedObject
@@ -259,11 +317,45 @@ namespace MvcVisionSystem
             SetClassNames(classNames, WpfObjectReviewEditService.NormalizeClassName(className));
         }
 
+        public void SetLabelSaveState(string stateKey, string badgeText, string detailText)
+        {
+            LabelSaveStateKey = string.IsNullOrWhiteSpace(stateKey) ? "Waiting" : stateKey.Trim();
+            LabelSaveBadgeText = string.IsNullOrWhiteSpace(badgeText) ? "\uB77C\uBCA8 \uB300\uAE30" : badgeText.Trim();
+            LabelSaveDetailText = string.IsNullOrWhiteSpace(detailText)
+                ? "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 \uB77C\uBCA8 \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4."
+                : detailText.Trim();
+        }
+
         public void RefreshActionState()
         {
             bool hasSelectedObject = SelectedObject?.IsEnabled == true;
             IsDeleteEnabled = hasSelectedObject;
             IsApplyClassEnabled = hasSelectedObject && !string.IsNullOrWhiteSpace(SelectedClassName);
+            RefreshSelectedObjectTaskText();
+        }
+
+        private void RefreshSelectedObjectTaskText()
+        {
+            if (SelectedObject?.IsEnabled == true)
+            {
+                SelectedObjectTaskTitleText = "\uC120\uD0DD \uB77C\uBCA8 \uC218\uC815";
+                SelectedObjectTaskDetailText = string.IsNullOrWhiteSpace(SelectedObject.DisplayText)
+                    ? SummaryText
+                    : SelectedObject.DisplayText;
+                SelectedObjectTaskActionText = "\uD074\uB798\uC2A4\uB97C \uBC14\uAFB8\uAC70\uB098 \uC0AD\uC81C\uD558\uBA74 \uC800\uC7A5 \uD544\uC694 \uC0C1\uD0DC\uAC00 \uB429\uB2C8\uB2E4. \uB77C\uBCA8 \uC800\uC7A5\uC73C\uB85C \uD30C\uC77C\uC5D0 \uBC18\uC601\uD558\uC138\uC694.";
+                return;
+            }
+
+            bool hasAnyEnabledObject = Objects.Any(item => item?.IsEnabled == true);
+            SelectedObjectTaskTitleText = hasAnyEnabledObject
+                ? "\uC120\uD0DD \uB77C\uBCA8 \uC5C6\uC74C"
+                : "\uD604\uC7AC \uC774\uBBF8\uC9C0 \uB77C\uBCA8 \uC5C6\uC74C";
+            SelectedObjectTaskDetailText = hasAnyEnabledObject
+                ? "\uBAA9\uB85D\uC5D0\uC11C \uB77C\uBCA8\uC744 \uC120\uD0DD\uD558\uBA74 \uD074\uB798\uC2A4 \uBCC0\uACBD\uACFC \uC0AD\uC81C\uAC00 \uD65C\uC131\uD654\uB429\uB2C8\uB2E4."
+                : SummaryText;
+            SelectedObjectTaskActionText = hasAnyEnabledObject
+                ? "\uC120\uD0DD \uD6C4 \uD544\uC694\uD55C \uBCC0\uACBD\uC744 \uD558\uACE0, \uB77C\uBCA8 \uC800\uC7A5\uC73C\uB85C \uC644\uB8CC\uD558\uC138\uC694."
+                : "\uAC1D\uCCB4\uAC00 \uC5C6\uB2E4\uBA74 \uB2E4\uC74C \uC774\uBBF8\uC9C0\uB85C \uC774\uB3D9\uD558\uAC70\uB098 \uAC1D\uCCB4 \uC5C6\uC74C \uC791\uC5C5\uC73C\uB85C \uC644\uB8CC\uD558\uC138\uC694.";
         }
 
         private void ReleaseSelectionNotificationSuppression()

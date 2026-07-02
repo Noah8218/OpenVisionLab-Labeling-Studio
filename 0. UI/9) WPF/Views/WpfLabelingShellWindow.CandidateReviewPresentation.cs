@@ -45,6 +45,12 @@ namespace MvcVisionSystem
                 return;
             }
 
+            if (!ShouldShowInferenceOverlays())
+            {
+                CanvasPanelViewModel.ClearDetectionOverlay();
+                return;
+            }
+
             WpfDetectionOverlayPresentation presentation = candidateReviewPresentationService.BuildOverlayPresentation(
                 activeImagePath,
                 pendingDetectionCandidates,

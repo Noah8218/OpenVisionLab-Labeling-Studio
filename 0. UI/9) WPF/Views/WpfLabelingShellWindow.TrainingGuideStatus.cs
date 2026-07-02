@@ -358,7 +358,7 @@ namespace MvcVisionSystem
                 "ValidImages" => "\uAC80\uC99D \uC774\uBBF8\uC9C0\uAC00 \uD544\uC694\uD569\uB2C8\uB2E4. \uBD84\uD560 \uC124\uC815\uC744 \uD655\uC778\uD558\uC138\uC694.",
                 "Split" => "\uD559\uC2B5/\uAC80\uC99D/\uCD5C\uC885 \uAC80\uC99D\uC5D0 \uAC19\uC740 \uC774\uBBF8\uC9C0\uAC00 \uC11E\uC5EC \uC788\uC2B5\uB2C8\uB2E4. \uD559\uC2B5\uACFC \uAC80\uC99D\uC740 \uB2E4\uB978 \uC774\uBBF8\uC9C0\uB85C \uBD84\uB9AC\uD558\uC138\uC694.",
                 "DataYaml" => "\uD559\uC2B5 \uC124\uC815\uC774 \uD604\uC7AC \uD504\uB85C\uC81D\uD2B8\uC640 \uB9DE\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uB370\uC774\uD130\uC14B \uC810\uAC80\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.",
-                "LabelFormat" => "YOLO txt \uB77C\uBCA8 \uD615\uC2DD\uC774 \uC798\uBABB\uB41C \uD30C\uC77C\uC774 \uC788\uC2B5\uB2C8\uB2E4.",
+                "LabelFormat" => "\uBC15\uC2A4 \uB77C\uBCA8 \uD30C\uC77C \uD615\uC2DD\uC774 \uC798\uBABB\uB41C \uD30C\uC77C\uC774 \uC788\uC2B5\uB2C8\uB2E4.",
                 "OutputRoot" => "\uB370\uC774\uD130\uC14B \uC800\uC7A5 \uACBD\uB85C\uB97C \uD655\uC778\uD558\uC138\uC694.",
                 "Images" => "\uD559\uC2B5\uD560 \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB97C \uB2E4\uC2DC \uC120\uD0DD\uD558\uC138\uC694.",
                 _ => "\uB370\uC774\uD130\uC14B \uC810\uAC80 \uACB0\uACFC\uB97C \uD655\uC778\uD558\uACE0 \uD544\uC694\uD55C \uD56D\uBAA9\uC744 \uC218\uC815\uD558\uC138\uC694."
@@ -403,7 +403,7 @@ namespace MvcVisionSystem
                     issueKind,
                     "데이터셋: 세그먼트 저장됨 / 박스 라벨 필요",
                     failureDetail,
-                    "현재 YOLO detection 학습은 박스 txt가 필요합니다. 박스 라벨을 추가하거나 segmentation 학습/export 정책을 선택하세요."),
+                    "\uD604\uC7AC \uAC1D\uCCB4\uD0D0\uC9C0 \uD559\uC2B5\uC740 \uBC15\uC2A4 \uB77C\uBCA8 \uD30C\uC77C\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. \uBC15\uC2A4 \uB77C\uBCA8\uC744 \uCD94\uAC00\uD558\uAC70\uB098 segmentation \uD559\uC2B5/export \uC815\uCC45\uC744 \uC120\uD0DD\uD558\uC138\uC694."),
                 "SegmentationLabels" => new YoloTrainingIssuePresentation(
                     issueKind,
                     "데이터셋: 세그멘테이션 준비 불가 / 마스크 라벨 필요",
@@ -433,7 +433,7 @@ namespace MvcVisionSystem
                     issueKind,
                     "데이터셋: 학습 불가 / 저장 경로 확인 필요",
                     failureDetail,
-                    "클래스 탭에서 YOLO 출력 경로를 확인하고 저장하세요."),
+                    "\uB370\uC774\uD130\uC14B \uD648\uC5D0\uC11C \uC800\uC7A5 \uD3F4\uB354\uB97C \uD655\uC778\uD558\uACE0 \uC124\uC815\uC744 \uC800\uC7A5\uD558\uC138\uC694."),
                 "Images" => new YoloTrainingIssuePresentation(
                     issueKind,
                     "데이터셋: 학습 불가 / 이미지 폴더 확인 필요",
@@ -501,7 +501,7 @@ namespace MvcVisionSystem
             {
                 LabelingDatasetPurpose.Segmentation => "이제 세그멘테이션 학습/export 설정을 확인하고 시작하세요.",
                 LabelingDatasetPurpose.AnomalyDetection => "이제 이상 탐지 학습 설정을 확인하고 시작하세요.",
-                _ => "이제 5단계 YOLO 학습에서 설정을 확인하고 시작하세요."
+                _ => "\uC774\uC81C 5\uB2E8\uACC4 \uBAA8\uB378 \uD559\uC2B5\uC5D0\uC11C \uC124\uC815\uC744 \uD655\uC778\uD558\uACE0 \uC2DC\uC791\uD558\uC138\uC694."
             };
         }
 
@@ -509,7 +509,7 @@ namespace MvcVisionSystem
         {
             if (warnings == null || warnings.Count == 0)
             {
-                return "이제 5단계 YOLO 학습에서 설정을 확인하고 시작하세요.";
+                return "\uC774\uC81C 5\uB2E8\uACC4 \uBAA8\uB378 \uD559\uC2B5\uC5D0\uC11C \uC124\uC815\uC744 \uD655\uC778\uD558\uACE0 \uC2DC\uC791\uD558\uC138\uC694.";
             }
 
             return string.Join(" / ", warnings.Take(2).Select(FormatDatasetQualityWarning));
