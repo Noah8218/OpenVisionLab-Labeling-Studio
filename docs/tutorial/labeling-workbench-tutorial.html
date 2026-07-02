@@ -3,22 +3,28 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>OpenVisionLab Labeling Studio 튜토리얼</title>
+  <title>OpenVisionLab Labeling Studio 사용 가이드</title>
   <style>
     :root {
-      --bg: #101214;
-      --panel: #171a1d;
+      --bg: #0f1114;
+      --panel: #171a1f;
       --panel-2: #20252b;
-      --text: #f2f5f8;
-      --muted: #a9b0b8;
-      --line: #30363d;
-      --accent: #e63d3d;
-      --green: #25c66a;
-      --yellow: #f5c542;
+      --panel-3: #101922;
+      --text: #f3f6f9;
+      --muted: #a9b1bb;
+      --line: #313841;
+      --accent: #ef3f3f;
+      --accent-2: #42a5f5;
+      --green: #27ca6b;
+      --yellow: #f5c84c;
     }
 
     * {
       box-sizing: border-box;
+    }
+
+    html {
+      background: var(--bg);
     }
 
     body {
@@ -26,156 +32,205 @@
       background: var(--bg);
       color: var(--text);
       font-family: "Segoe UI", "Malgun Gothic", Arial, sans-serif;
-      line-height: 1.55;
+      line-height: 1.6;
     }
 
     header {
+      background: #0a0c0f;
       border-bottom: 1px solid var(--line);
-      background: #0b0d0f;
-      padding: 28px 32px 24px;
+      padding: 28px 40px 26px;
+    }
+
+    header h1 {
+      margin: 0 0 10px;
+      font-size: 32px;
+      letter-spacing: 0;
+    }
+
+    header p {
+      max-width: 1180px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
     }
 
     main {
-      max-width: 1180px;
+      width: min(1760px, calc(100vw - 48px));
       margin: 0 auto;
-      padding: 28px 24px 60px;
+      padding: 28px 0 64px;
     }
 
-    h1,
     h2,
+    h3,
     p {
       margin-top: 0;
     }
 
-    h1 {
-      font-size: 30px;
-      margin-bottom: 8px;
-    }
-
     h2 {
-      font-size: 22px;
-      margin-bottom: 12px;
+      margin-bottom: 10px;
+      font-size: 24px;
+      letter-spacing: 0;
     }
 
-    .lead {
-      color: var(--muted);
-      max-width: 900px;
-      margin-bottom: 0;
+    h3 {
+      margin-bottom: 8px;
+      font-size: 18px;
     }
 
-    .quick-path {
+    a {
+      color: #9ed0ff;
+    }
+
+    code {
+      border: 1px solid #263746;
+      border-radius: 4px;
+      background: #101820;
+      color: #d8ecff;
+      padding: 1px 5px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 0.95em;
+    }
+
+    .notice {
       display: grid;
-      grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-      gap: 10px;
-      margin: 0 0 28px;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+      margin-bottom: 22px;
     }
 
-    .quick-path span {
+    .notice-card,
+    .section,
+    .check-panel {
       border: 1px solid var(--line);
-      background: var(--panel);
-      border-radius: 6px;
-      padding: 10px 12px;
-      font-weight: 700;
-    }
-
-    .quick-path b {
-      color: var(--accent);
-      margin-right: 6px;
-    }
-
-    .note {
-      border: 1px solid #34513d;
-      background: #14231a;
-      border-radius: 6px;
-      padding: 12px 14px;
-      margin: 0 0 28px;
-      color: #dff8e8;
-    }
-
-    .step {
-      border: 1px solid var(--line);
-      background: var(--panel);
       border-radius: 8px;
-      margin: 0 0 24px;
+      background: var(--panel);
+    }
+
+    .notice-card {
+      padding: 14px 16px;
+    }
+
+    .notice-card strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--text);
+    }
+
+    .notice-card span {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .section {
+      margin-bottom: 26px;
       overflow: hidden;
     }
 
-    .step-title {
-      display: flex;
-      gap: 10px;
-      align-items: center;
+    .section-head {
+      display: grid;
+      grid-template-columns: auto 1fr;
+      gap: 14px;
+      align-items: start;
       border-bottom: 1px solid var(--line);
       background: var(--panel-2);
-      padding: 13px 18px;
+      padding: 16px 20px;
     }
 
-    .step-number {
+    .num {
       display: inline-flex;
+      width: 34px;
+      height: 34px;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 28px;
-      border-radius: 50%;
+      border-radius: 6px;
       background: var(--accent);
-      color: white;
+      color: #fff;
       font-weight: 800;
-      flex: 0 0 auto;
     }
 
-    .step-body {
-      display: grid;
-      grid-template-columns: minmax(260px, 380px) minmax(0, 1fr);
-      gap: 18px;
-      padding: 18px;
-      align-items: start;
-    }
-
-    .tag {
-      display: inline-flex;
-      align-items: center;
-      min-height: 24px;
-      border: 1px solid var(--line);
-      border-radius: 999px;
-      padding: 2px 9px;
+    .section-head p {
+      margin-bottom: 0;
       color: var(--muted);
-      font-size: 12px;
-      font-weight: 700;
-      margin-bottom: 9px;
     }
 
-    ul {
-      padding-left: 20px;
+    .section-body {
+      padding: 18px 20px 22px;
+    }
+
+    figure {
+      margin: 0 0 18px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      overflow: hidden;
+      background: #050607;
+    }
+
+    figure img {
+      display: block;
+      width: 100%;
+      height: auto;
+    }
+
+    figcaption {
+      border-top: 1px solid var(--line);
+      padding: 9px 12px;
+      color: var(--muted);
+      background: #111418;
+      font-size: 13px;
+    }
+
+    .two-col {
+      display: grid;
+      grid-template-columns: minmax(260px, 1fr) minmax(260px, 1fr);
+      gap: 14px;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 7px;
+      background: var(--panel-3);
+      padding: 14px 16px;
+    }
+
+    .panel p:last-child,
+    .panel ul:last-child,
+    .panel ol:last-child {
+      margin-bottom: 0;
+    }
+
+    ul,
+    ol {
       margin: 8px 0 0;
+      padding-left: 22px;
+      color: var(--muted);
     }
 
     li {
       margin: 4px 0;
-      color: var(--muted);
     }
 
-    strong {
-      color: var(--text);
-    }
-
-    code {
-      color: #cbe6ff;
-      background: #111820;
-      border: 1px solid #243342;
-      border-radius: 4px;
-      padding: 1px 5px;
-      font-family: Consolas, "Courier New", monospace;
-    }
-
-    img {
+    table {
       width: 100%;
-      height: auto;
-      display: block;
-      border: 1px solid var(--line);
-      border-radius: 6px;
-      background: #050607;
+      border-collapse: collapse;
+      margin-top: 10px;
+      color: var(--muted);
+      font-size: 14px;
     }
 
-    .done {
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: var(--text);
+      background: #1f252c;
+    }
+
+    .ok {
       color: var(--green);
       font-weight: 700;
     }
@@ -185,24 +240,49 @@
       font-weight: 700;
     }
 
-    footer {
-      color: var(--muted);
-      border-top: 1px solid var(--line);
-      padding-top: 18px;
-      margin-top: 28px;
-      font-size: 13px;
+    .bad {
+      color: #ff7777;
+      font-weight: 700;
     }
 
-    @media (max-width: 760px) {
+    .path {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 0 0 24px;
+    }
+
+    .path span {
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: var(--panel-2);
+      padding: 9px 12px;
+      font-weight: 700;
+    }
+
+    .path b {
+      color: var(--accent);
+      margin-right: 5px;
+    }
+
+    .legacy {
+      color: var(--muted);
+      font-size: 13px;
+      margin-top: 18px;
+    }
+
+    @media (max-width: 900px) {
       header {
-        padding: 24px 20px 20px;
+        padding: 22px 18px;
       }
 
       main {
-        padding: 22px 14px 44px;
+        width: min(100vw - 20px, 1760px);
+        padding-top: 18px;
       }
 
-      .step-body {
+      .section-head,
+      .two-col {
         grid-template-columns: 1fr;
       }
     }
@@ -210,148 +290,432 @@
 </head>
 <body>
   <header>
-    <h1>OpenVisionLab Labeling Studio 튜토리얼</h1>
-    <p class="lead">
-      처음 실행한 사용자가 객체탐지 데이터셋을 만들고, 박스 라벨을 저장하고, 검출 후보를 검토하는 기본 흐름입니다.
-      아래 순서대로 진행하면 현재 화면에서 다음에 할 일을 놓치지 않습니다.
+    <h1>OpenVisionLab Labeling Studio 사용 가이드</h1>
+    <p>
+      라벨을 그리고 끝나는 프로그램이 아니라, 데이터셋을 만들고 학습한 모델로 다시 검사해보는 작업 흐름을 정리한 문서입니다.
+      캡처 안의 빨간 번호와 화살표를 순서대로 보면 어디를 눌러야 하는지 바로 확인할 수 있습니다.
+      README와 튜토리얼 이미지는 문서를 수정할 때마다 현재 EXE 기준의 최신 UI 캡처로 갱신하는 것을 원칙으로 합니다.
     </p>
   </header>
 
   <main>
-    <section class="quick-path" aria-label="빠른 순서">
-      <span><b>1</b>가이드 확인</span>
-      <span><b>2</b>이미지 열기</span>
-      <span><b>3</b>클래스 등록</span>
-      <span><b>4</b>박스 라벨링</span>
-      <span><b>5</b>저장과 점검</span>
-      <span><b>6</b>검출 후보 검토</span>
+    <nav class="path" aria-label="작업 순서">
+      <span><b>1</b>데이터셋</span>
+      <span><b>2</b>라벨링</span>
+      <span><b>3</b>저장과 검토</span>
+      <span><b>4</b>템플릿</span>
+      <span><b>5</b>학습</span>
+      <span><b>6</b>추론</span>
+      <span><b>7</b>모델 적용</span>
+    </nav>
+
+    <section class="notice" aria-label="핵심 주의 사항">
+      <div class="notice-card">
+        <strong>이미지 폴더와 저장 폴더는 다르게 봅니다</strong>
+        <span>이미지는 원본 위치에 있고, 라벨과 학습 파일은 저장 폴더에 쌓입니다. 새 실험이면 저장 폴더도 새로 잡습니다.</span>
+      </div>
+      <div class="notice-card">
+        <strong>AI 후보는 아직 정답이 아닙니다</strong>
+        <span>후보를 확정하고 라벨 저장까지 눌러야 실제 학습 데이터가 됩니다.</span>
+      </div>
+      <div class="notice-card">
+        <strong>학습 완료와 모델 적용은 다른 일입니다</strong>
+        <span><code>best.pt</code>가 생겼다는 것과 그 모델로 현재 검사한다는 것은 분리해서 봅니다.</span>
+      </div>
     </section>
 
-    <p class="note">
-      이미 검증된 Viewer 성능, ROI 삭제, 브러시/지우개, Candidate Review 기본 동작은 완료 항목입니다.
-      튜토리얼에서는 사용자가 실제로 눌러야 할 버튼과 판단 순서만 안내합니다.
-    </p>
-
-    <section class="step">
-      <div class="step-title">
-        <span class="step-number">1</span>
-        <h2>가이드에서 오늘 할 일을 확인합니다</h2>
-      </div>
-      <div class="step-body">
+    <section class="section">
+      <div class="section-head">
+        <span class="num">1</span>
         <div>
-          <span class="tag">오른쪽 가이드/도구</span>
-          <p>처음에는 오른쪽 <strong>가이드/도구</strong> 탭을 봅니다. 현재 단계와 다음 행동이 함께 표시됩니다.</p>
-          <ul>
-            <li>데이터셋 목적이 객체탐지인지 확인합니다.</li>
-            <li><strong>객체탐지 MVP 완료까지</strong> 문구가 다음 작업을 알려줍니다.</li>
-            <li>단계 카드를 누르면 필요한 화면으로 이동합니다.</li>
-          </ul>
+          <h2>처음에는 현재 작업 위치부터 봅니다</h2>
+          <p>왼쪽은 이미지 큐, 가운데는 캔버스, 오른쪽은 지금 단계에서 필요한 작업 패널입니다. 상단에는 데이터셋과 모델 상태가 계속 남아 있습니다.</p>
         </div>
-        <img src="images/01-guide.png" alt="가이드 탭의 객체탐지 단계 안내">
+      </div>
+      <div class="section-body">
+        <figure>
+          <img src="images/annotated/01-overview-1920-annotated.png" alt="번호와 화살표가 표시된 최신 전체 작업 화면">
+          <figcaption>전체 작업 화면입니다. 이미지 상태, 라벨, 작업 패널, 현재 모델 상태를 한 화면에서 확인합니다.</figcaption>
+        </figure>
+        <div class="two-col">
+          <div class="panel">
+            <h3>먼저 볼 곳</h3>
+            <ul>
+              <li>상단 현재 데이터셋에서 이름과 목적을 봅니다.</li>
+              <li>저장 폴더가 오늘 작업 폴더인지 확인합니다.</li>
+              <li>왼쪽 이미지 큐에서 저장 필요, 저장됨, AI 후보 수를 봅니다.</li>
+              <li>오른쪽 패널에서 지금 처리할 일을 확인합니다.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>헷갈릴 때 기준</h3>
+            <ul>
+              <li><span class="warn">저장 필요</span>는 아직 파일에 쓰지 않았다는 뜻입니다.</li>
+              <li><span class="ok">저장됨</span>은 라벨 파일에 반영됐다는 뜻입니다.</li>
+              <li><span class="bad">AI 후보</span>는 모델이 낸 제안입니다.</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </section>
 
-    <section class="step">
-      <div class="step-title">
-        <span class="step-number">2</span>
-        <h2>이미지 큐에서 작업 이미지를 엽니다</h2>
-      </div>
-      <div class="step-body">
+    <section class="section">
+      <div class="section-head">
+        <span class="num">2</span>
         <div>
-          <span class="tag">왼쪽 이미지 큐</span>
-          <p>이미지 폴더를 열면 왼쪽 큐에 파일이 표시됩니다. 행을 클릭하면 중앙 캔버스에 바로 열립니다.</p>
-          <ul>
-            <li><code>샘플</code> 또는 폴더 버튼으로 이미지를 불러옵니다.</li>
-            <li><code>다음</code> 버튼은 아직 처리할 이미지로 이동합니다.</li>
-            <li>후보, 실패, 확정, 스킵, 검출없음 필터로 검토 대상을 줄일 수 있습니다.</li>
-          </ul>
+          <h2>데이터셋은 이미지 폴더와 저장 폴더를 따로 잡습니다</h2>
+          <p>이 단계가 잘못되면 새 데이터셋을 만들었는데도 이전 라벨이 다시 보입니다.</p>
         </div>
-        <img src="images/02-image-queue.png" alt="이미지 큐와 중앙 캔버스">
+      </div>
+      <div class="section-body">
+        <figure>
+          <img src="images/annotated/02-dataset-wizard-actual-annotated.png" alt="번호와 화살표가 표시된 최신 데이터셋 확인 화면">
+          <figcaption>데이터셋 목적, 원본 이미지 위치, 저장 위치를 따로 확인합니다. 새 실험은 저장 폴더도 새로 잡는 것이 안전합니다.</figcaption>
+        </figure>
+        <table>
+          <thead>
+            <tr>
+              <th>항목</th>
+              <th>의미</th>
+              <th>실수했을 때 증상</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>이미지 폴더</td>
+              <td>원본 이미지가 들어 있는 폴더입니다.</td>
+              <td>이미지는 보이는데 기존 라벨이 같이 보일 수 있습니다. 라벨은 이미지 폴더만 따라가지 않습니다.</td>
+            </tr>
+            <tr>
+              <td>저장 폴더</td>
+              <td>라벨, 클래스, <code>data.yaml</code>, 학습 분할 파일이 저장됩니다.</td>
+              <td>같은 저장 폴더를 쓰면 이전 라벨과 학습 파일을 다시 읽습니다.</td>
+            </tr>
+            <tr>
+              <td>데이터셋 목적</td>
+              <td>객체탐지, 세그멘테이션, 이상탐지 흐름을 정합니다.</td>
+              <td>도구와 학습 준비 항목이 맞지 않습니다.</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
-    <section class="step">
-      <div class="step-title">
-        <span class="step-number">3</span>
-        <h2>모델이 배울 클래스를 등록합니다</h2>
-      </div>
-      <div class="step-body">
+    <section class="section">
+      <div class="section-head">
+        <span class="num">3</span>
         <div>
-          <span class="tag">클래스 탭</span>
-          <p>박스를 그리기 전에 모델이 배울 이름을 먼저 등록합니다. 예시는 <code>OK</code>, <code>NG</code>, <code>Defect</code>처럼 단순하게 시작합니다.</p>
-          <ul>
-            <li>오른쪽 <strong>클래스</strong> 탭으로 이동합니다.</li>
-            <li>클래스 이름을 추가하고 저장 경로를 확인합니다.</li>
-            <li>클래스 순서는 YOLO 라벨 파일의 class index 기준이 됩니다.</li>
-          </ul>
+          <h2>라벨링은 그리고, 확인하고, 저장하는 순서입니다</h2>
+          <p>저장 라벨 패널은 실제 학습 데이터로 들어갈 라벨을 보는 곳입니다. 모델 후보와 같은 의미로 보지 않습니다.</p>
         </div>
-        <img src="images/03-classes.png" alt="클래스 등록 화면">
+      </div>
+      <div class="section-body">
+        <figure>
+          <img src="images/annotated/03-labeling-workbench-1920-annotated.png" alt="번호와 화살표가 표시된 최신 객체탐지 라벨링 워크벤치">
+          <figcaption>박스 도구로 대상 영역을 그리고, 오른쪽에서 클래스와 저장 상태를 확인합니다.</figcaption>
+        </figure>
+        <ol>
+          <li>상단에서 <strong>2 라벨링</strong>을 선택합니다.</li>
+          <li>툴바에서 <strong>박스</strong>를 선택합니다.</li>
+          <li>대상 영역을 드래그합니다.</li>
+          <li>오른쪽 저장 라벨 패널에서 클래스와 크기를 확인합니다.</li>
+          <li>필요하면 클래스를 바꾸고 <strong>적용</strong>을 누릅니다.</li>
+          <li><strong>라벨 저장</strong>을 눌러 파일에 반영합니다.</li>
+        </ol>
       </div>
     </section>
 
-    <section class="step">
-      <div class="step-title">
-        <span class="step-number">4</span>
-        <h2>박스 라벨을 그리고 저장합니다</h2>
-      </div>
-      <div class="step-body">
+    <section class="section">
+      <div class="section-head">
+        <span class="num">4</span>
         <div>
-          <span class="tag">라벨링 모드</span>
-          <p>중앙 캔버스에서 객체를 박스로 표시합니다. 저장하면 같은 이름의 이미지와 라벨 txt가 데이터셋에 기록됩니다.</p>
-          <ul>
-            <li>상단 <code>라벨링</code> 모드에서 <code>박스</code> 도구를 선택합니다.</li>
-            <li>이미지 밖 검은 영역이 아니라 실제 이미지 위에서 드래그합니다.</li>
-            <li>오른쪽 <strong>객체</strong> 탭에서 클래스, 크기, 위치를 확인합니다.</li>
-            <li><code>저장</code>을 눌러 현재 라벨을 파일에 반영합니다.</li>
-          </ul>
+          <h2>저장 라벨과 AI 후보는 분리해서 봅니다</h2>
+          <p>둘을 같이 보면 비교는 편하지만, 의미는 다릅니다. 작업 중에는 보기 모드를 바꿔가며 무엇을 보고 있는지 확인합니다.</p>
         </div>
-        <img src="images/04-labeling.png" alt="박스 라벨링과 객체 검토 화면">
+      </div>
+      <div class="section-body">
+        <figure>
+          <img src="images/annotated/04-saved-label-panel-1920-annotated.png" alt="번호와 화살표가 표시된 최신 저장 라벨 패널">
+          <figcaption>저장 라벨만 볼 때는 학습 데이터로 들어갈 실제 라벨만 확인합니다.</figcaption>
+        </figure>
+        <figure>
+          <img src="images/annotated/05-label-vs-ai-1920-annotated.png" alt="번호와 화살표가 표시된 최신 저장 라벨과 AI 후보 비교 화면">
+          <figcaption>모두 보기에서는 저장 라벨과 AI 후보 차이를 비교합니다. 후보는 확정 전까지 정답으로 보지 않습니다.</figcaption>
+        </figure>
+        <table>
+          <thead>
+            <tr>
+              <th>보기</th>
+              <th>보이는 것</th>
+              <th>언제 쓰는지</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>라벨</td>
+              <td>저장 또는 편집 중인 라벨</td>
+              <td>학습 데이터 확인</td>
+            </tr>
+            <tr>
+              <td>추론</td>
+              <td>AI 후보</td>
+              <td>모델이 찾은 위치 확인</td>
+            </tr>
+            <tr>
+              <td>모두</td>
+              <td>저장 라벨과 AI 후보</td>
+              <td>정답과 후보 차이 비교</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </section>
 
-    <section class="step">
-      <div class="step-title">
-        <span class="step-number">5</span>
-        <h2>데이터셋을 점검하고 학습 준비를 봅니다</h2>
-      </div>
-      <div class="step-body">
+    <section class="section">
+      <div class="section-head">
+        <span class="num">5</span>
         <div>
-          <span class="tag">YOLO / 가이드</span>
-          <p>라벨을 저장한 뒤에는 데이터셋 점검으로 이미지, 라벨, 클래스, 분할 상태를 확인합니다.</p>
-          <ul>
-            <li>가이드의 데이터셋 카드 또는 YOLO 화면에서 점검을 실행합니다.</li>
-            <li>문제가 있으면 클래스 등록, 라벨링, 데이터셋 설정 중 필요한 화면으로 이동합니다.</li>
-            <li>학습은 점검이 통과된 뒤 시작합니다.</li>
-          </ul>
+          <h2>저장 라벨을 고쳤으면 다시 저장합니다</h2>
+          <p>클래스 변경, 삭제, 위치 수정은 메모리 상태를 먼저 바꿉니다. 파일에 반영됐는지는 저장 상태가 사라지는지 봐야 합니다.</p>
         </div>
-        <img src="images/05-yolo-settings.png" alt="YOLO 설정과 데이터셋 점검 화면">
+      </div>
+      <div class="section-body">
+        <figure>
+          <img src="images/annotated/07-save-required-1920-annotated.png" alt="번호와 화살표가 표시된 최신 저장 필요 상태">
+          <figcaption>수정 직후에는 상단, 왼쪽 큐, 오른쪽 패널에 저장 필요 상태가 같이 떠야 합니다.</figcaption>
+        </figure>
+        <figure>
+          <img src="images/annotated/08-save-done-1920-annotated.png" alt="번호와 화살표가 표시된 최신 라벨 저장 완료 상태">
+          <figcaption>저장 후에는 저장 필요 배지가 사라지고 저장됨 상태로 돌아옵니다.</figcaption>
+        </figure>
       </div>
     </section>
 
-    <section class="step">
-      <div class="step-title">
-        <span class="step-number">6</span>
-        <h2>검출 후보를 검토합니다</h2>
-      </div>
-      <div class="step-body">
+    <section class="section">
+      <div class="section-head">
+        <span class="num">6</span>
         <div>
-          <span class="tag">후보 탭</span>
-          <p>검출을 실행하면 중앙 캔버스와 오른쪽 <strong>후보</strong> 탭에 검출 후보가 표시됩니다. 후보는 바로 정답이 아니라 검토 대상입니다.</p>
-          <ul>
-            <li><code>현재 검사</code>로 현재 이미지를 검사합니다.</li>
-            <li><strong>후보 위치</strong>는 선택 후보를 화면 중앙으로 가져옵니다.</li>
-            <li><strong>기존 라벨</strong>은 겹치는 현재 라벨을 선택합니다.</li>
-            <li><span class="done">맞으면 확정</span>, 같은 객체라면 <span class="warn">스킵</span>하고 <strong>다음 후보</strong>로 넘어갑니다.</li>
-          </ul>
+          <h2>반복되는 위치는 템플릿으로 후보를 만듭니다</h2>
+          <p>템플릿은 학습 기능이 아니라 반복 작업을 줄이는 보조 도구입니다. 기준 라벨과 비슷한 위치를 찾아 후보를 만듭니다.</p>
         </div>
-        <img src="images/06-inference-review.png" alt="검출 후보 검토와 후보 위치 버튼">
+      </div>
+      <div class="section-body">
+        <figure>
+          <img src="images/annotated/06-template-batch-1920-annotated.png" alt="번호와 화살표가 표시된 최신 템플릿 반복 라벨링 화면">
+          <figcaption>기준 라벨을 저장한 뒤 현재 이미지 후보로 먼저 확인하고, 괜찮으면 전체 이미지 후보를 실행합니다.</figcaption>
+        </figure>
+        <div class="two-col">
+          <div class="panel">
+            <h3>사용 순서</h3>
+            <ol>
+              <li>기준 이미지에서 박스를 그립니다.</li>
+              <li>그 박스를 저장 라벨로 저장합니다.</li>
+              <li>현재 이미지 후보로 한 장을 검증합니다.</li>
+              <li>전체 이미지 후보로 목록을 한 번씩 돕니다.</li>
+              <li>만들어진 후보를 보고 저장합니다.</li>
+            </ol>
+          </div>
+          <div class="panel">
+            <h3>못 찾는 경우</h3>
+            <ul>
+              <li>기준 박스가 배경을 너무 많이 포함했습니다.</li>
+              <li>이미 같은 위치가 저장 라벨로 잡혀 후보에서 제외됐습니다.</li>
+              <li>이미지마다 대상 크기나 밝기가 너무 다릅니다.</li>
+              <li>현재 이미지 한 장 검증 없이 전체 후보부터 돌렸습니다.</li>
+            </ul>
+          </div>
+        </div>
       </div>
     </section>
 
-    <footer>
-      이 문서는 현재 라벨링 워크벤치의 기본 객체탐지 흐름을 기준으로 합니다.
-      화면 배치가 바뀌면 <code>docs/tutorial/images</code>의 캡처를 함께 갱신합니다.
-    </footer>
+    <section class="section">
+      <div class="section-head">
+        <span class="num">7</span>
+        <div>
+          <h2>학습은 데이터셋 점검 후에 시작합니다</h2>
+          <p>경고가 있어도 실행은 될 수 있습니다. 다만 결과를 믿을 수 있는지는 데이터셋 상태를 보고 판단해야 합니다.</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <figure>
+          <img src="images/annotated/09-model-center-1920-annotated.png" alt="번호와 화살표가 표시된 최신 학습과 모델 센터 화면">
+          <figcaption>학습/모델 센터에서는 점검, 학습 시작, 후보 검증, 검사 모델 적용까지 이어집니다.</figcaption>
+        </figure>
+        <ul>
+          <li>이미지 수와 라벨 수가 맞는지 봅니다.</li>
+          <li>train, valid, test 분할이 있는지 봅니다.</li>
+          <li>클래스별 라벨 수가 너무 치우치지 않았는지 봅니다.</li>
+          <li>Python, YOLOv5 경로, client script 경로가 맞는지 봅니다.</li>
+          <li>학습 중에는 epoch 로그와 실패 사유를 패널에서 확인합니다.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <span class="num">8</span>
+        <div>
+          <h2>학습 완료 후에는 모델 후보와 현재 검사 모델을 따로 봅니다</h2>
+          <p><code>best.pt</code>가 만들어졌다는 것과 그 모델로 검사한다는 것은 다른 단계입니다.</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <figure>
+          <img src="images/annotated/10-training-complete-1920-annotated.png" alt="번호와 화살표가 표시된 최신 학습 완료와 모델 후보 화면">
+          <figcaption>학습 완료 후 새 후보가 등록됩니다. 검사 모델로 저장할지는 검증 후 판단합니다.</figcaption>
+        </figure>
+        <figure>
+          <img src="images/annotated/11-model-history-1920-annotated.png" alt="번호와 화살표가 표시된 최신 모델 이력 화면">
+          <figcaption>모델 이력에서 현재 검사 모델과 후보 모델을 구분합니다.</figcaption>
+        </figure>
+        <table>
+          <thead>
+            <tr>
+              <th>상태</th>
+              <th>의미</th>
+              <th>다음 행동</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>학습 완료</td>
+              <td>학습이 끝나고 weight 파일이 만들어졌습니다.</td>
+              <td>후보 검증을 실행합니다.</td>
+            </tr>
+            <tr>
+              <td>모델 후보</td>
+              <td>새 weight가 등록됐지만 아직 검사 모델로 확정되지 않았습니다.</td>
+              <td>기존 모델과 비교합니다.</td>
+            </tr>
+            <tr>
+              <td>현재 검사 모델</td>
+              <td>지금 현재 검사 버튼이 사용하는 모델입니다.</td>
+              <td>상단 상태와 모델 센터에서 다시 확인합니다.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <span class="num">9</span>
+        <div>
+          <h2>추론 검토는 후보를 확정하거나 버리는 단계입니다</h2>
+          <p>현재 검사 모델로 후보를 만들고, 맞는 후보만 저장 라벨로 넘깁니다.</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <figure>
+          <img src="images/annotated/12-inference-dock-1920-annotated.png" alt="번호와 화살표가 표시된 최신 추론 검토 패널">
+          <figcaption>오른쪽 추론 검토 패널에서 후보를 보고 확정, 스킵, 저장 흐름을 진행합니다.</figcaption>
+        </figure>
+        <ol>
+          <li><strong>3 추론 검토</strong>로 이동합니다.</li>
+          <li><strong>현재 검사</strong>를 실행합니다.</li>
+          <li>후보가 있으면 위치와 클래스를 봅니다.</li>
+          <li>맞으면 확정합니다.</li>
+          <li>틀리면 스킵합니다.</li>
+          <li>확정된 후보는 저장 라벨이 되므로 마지막에 라벨 저장을 누릅니다.</li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <span class="num">10</span>
+        <div>
+          <h2>모델은 비교하고 나서 적용합니다</h2>
+          <p>새 모델이 생겼다고 바로 바꾸지 않습니다. 기존 모델과 비교한 뒤 현재 검사 모델로 저장할지 결정합니다.</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <figure>
+          <img src="images/annotated/13-model-decision-1920-annotated.png" alt="번호와 화살표가 표시된 최신 후보 모델 결정 화면">
+          <figcaption>후보 모델을 현재 검사 모델로 바꿀지 판단하는 화면입니다.</figcaption>
+        </figure>
+        <figure>
+          <img src="images/annotated/14-model-inspect-1920-annotated.png" alt="번호와 화살표가 표시된 최신 모델 검사와 비교 화면">
+          <figcaption>성능 지표와 실제 후보 결과를 보고 기존 모델을 유지할지 새 모델을 적용할지 결정합니다.</figcaption>
+        </figure>
+        <ul>
+          <li>같은 test split으로 비교합니다.</li>
+          <li>같은 클래스 목록과 라벨 기준으로 비교합니다.</li>
+          <li>precision, recall, 놓침, 과검출을 같이 봅니다.</li>
+          <li>근거가 부족하면 기존 검사 모델을 유지합니다.</li>
+          <li>적용 후에는 상단 `추론 상태`에서 모델명이 바뀌었는지 확인합니다.</li>
+        </ul>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <span class="num">11</span>
+        <div>
+          <h2>세그멘테이션과 이상탐지는 목적이 다릅니다</h2>
+          <p>데이터셋, 저장, 학습, 추론 흐름은 유지하되 라벨 형태와 검증 기준은 달라집니다.</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="two-col">
+          <div class="panel">
+            <h3>세그멘테이션</h3>
+            <ul>
+              <li>박스 대신 polygon, brush, eraser로 영역을 만듭니다.</li>
+              <li>라벨 파일 형식이 객체탐지와 다릅니다.</li>
+              <li>브러시와 지우개는 성능 경로가 중요하므로 UI 수정과 별도로 검증합니다.</li>
+            </ul>
+          </div>
+          <div class="panel">
+            <h3>이상탐지</h3>
+            <ul>
+              <li>대부분 이미지 단위 정상/비정상부터 봅니다.</li>
+              <li>결함 위치까지 필요한지 프로젝트 기준을 먼저 정합니다.</li>
+              <li>gate가 없는 기능은 완료된 기능처럼 표시하지 않습니다.</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-head">
+        <span class="num">12</span>
+        <div>
+          <h2>하루 작업 체크리스트</h2>
+          <p>아래 항목만 지켜도 저장 폴더 혼동, 후보와 라벨 혼동, 모델 적용 혼동을 대부분 줄일 수 있습니다.</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="two-col">
+          <div class="check-panel panel">
+            <h3>라벨링 시작 전</h3>
+            <ul>
+              <li>데이터셋 이름 확인</li>
+              <li>이미지 폴더 확인</li>
+              <li>저장 폴더 확인</li>
+              <li>클래스 목록 확인</li>
+              <li>현재 검사 모델 확인</li>
+            </ul>
+          </div>
+          <div class="check-panel panel">
+            <h3>학습 후</h3>
+            <ul>
+              <li><code>best.pt</code> 후보 등록 확인</li>
+              <li>후보 검증 실행</li>
+              <li>기존 모델과 비교</li>
+              <li>검사 모델로 저장 여부 결정</li>
+              <li>상단 모델 상태 다시 확인</li>
+            </ul>
+          </div>
+        </div>
+        <p class="legacy">
+          이전 6장 샘플 캡처는 테스트 호환을 위해 남겨 둡니다:
+          <a href="images/01-guide.png">images/01-guide.png</a>,
+          <a href="images/06-inference-review.png">images/06-inference-review.png</a>.
+        </p>
+      </div>
+    </section>
   </main>
 </body>
 </html>

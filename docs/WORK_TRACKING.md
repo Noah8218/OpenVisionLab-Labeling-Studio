@@ -1,6 +1,6 @@
 ﻿# Work Tracking
 
-Last updated: 2026-06-28
+Last updated: 2026-07-02
 
 이 문서는 반복 작업을 막기 위한 작업 현황판입니다.
 새 작업을 시작하기 전에는 이 문서를 먼저 보고, 작업을 마무리할 때 완료/진행 필요 항목을 갱신합니다.
@@ -2295,6 +2295,66 @@ Last updated: 2026-06-28
   - 단일 ROI 삭제는 이제 overlay manager/spatial index/visible cache에서 해당 객체만 빠지는 구조입니다.
   - 50만 개 목록에서 작은 목록처럼 즉시 전체 재번호를 강제하지 않습니다. 대신 SourceId로 후속 명령 정확성을 유지하고, 다음 전체 refresh 시 표시 번호가 정규화됩니다.
   - 실제 사용자 화면처럼 "우측 목록은 비었지만 선택 핸들이 남는" 상태는 `_selectedRect`가 overlay 생명주기와 분리되어 있었기 때문입니다. 앞으로 side-panel 삭제는 반드시 canvas live selection까지 함께 정리합니다.
+
+## 2026-07-02 tutorial realism and large-capture pass
+
+- 점검 결과: 첫 튜토리얼은 실제 사용 절차보다 개요 설명에 가까웠고, 화면 예시도 여섯 장뿐이라 실제 작업자가 보며 따라가기에는 부족했습니다.
+- 문서 변경:
+  - `docs/tutorial/README.md`를 데이터셋 준비부터 모델 적용까지 따라가는 작업 가이드로 다시 작성했습니다.
+  - `docs/tutorial/labeling-workbench-tutorial.html`은 넓은 화면에서 보는 캡처 중심 가이드로 다시 구성했습니다.
+  - `docs/tutorial/images`에 실제 화면 흐름을 보여주는 캡처 14장을 추가했습니다: 전체 화면, 데이터셋 확인, 라벨링, 저장 라벨, 라벨/후보 비교, 템플릿, 저장 필요/완료, 모델 센터, 학습 완료, 모델 이력, 추론 검토, 모델 판단, 모델 검사.
+  - `docs/tutorial/labeling-workbench-tutorial-standalone.html`은 표시 이미지 14장이 모두 포함되도록 다시 생성했습니다.
+  - 기존 튜토리얼 테스트 계약 때문에 `images/01-guide.png`, `images/06-inference-review.png` 링크는 유지하고, 실제로 보이는 가이드는 큰 캡처로 교체했습니다.
+- 변경 범위:
+  - 문서와 이미지 자산만 변경했습니다.
+  - WPF code-behind, ViewModel, Service, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- Verified:
+  - Standalone tutorial generation check found 14 `src` image references in the HTML, 14 embedded `data:image/png;base64` images in the standalone HTML, and 0 remaining `src="images/...` references.
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --priority-workflow-docs` passed.
+  - Local HTML image check passed: 14 displayed image paths exist, legacy `images/01-guide.png` and `images/06-inference-review.png` references remain for the existing tutorial contract, and standalone has 0 remaining image-file `src` paths.
+  - `git diff --check -- "docs/tutorial/README.md" "docs/tutorial/labeling-workbench-tutorial.html" "docs/tutorial/labeling-workbench-tutorial-standalone.html" "docs/WORK_TRACKING.md" "docs/STABLE_VERIFIED_AREAS.md"` passed with only LF-to-CRLF warnings.
+  - Chrome headless rendered the HTML guide at 1920x1080 and captured `artifacts\ui\tutorial-expanded-html-after-1920.png`, confirming the guide opens with a large actual workbench screenshot instead of the previous small example layout.
+- Next planned work: return to the commit scope summary and separate this expanded tutorial pass from the pre-existing dirty worktree changes before any staging decision.
+## 2026-07-02 README and tutorial portfolio documentation pass
+
+- 점검 결과: README와 튜토리얼에 필요한 정보는 있었지만, 첫인상이 기능 목록 위주였습니다. 포트폴리오에 쓰려면 데이터셋 준비, 저장 라벨, 학습, 추론 검토, 모델 적용이 이어지는 프로그램의 정체성이 먼저 보여야 합니다.
+- 문서 변경:
+  - `README.md`는 프로그램의 목적, 지원 흐름, 설계 기준, 구조, 실행, 검증, 관련 문서가 먼저 보이도록 다시 정리했습니다.
+  - `docs/tutorial/README.md`는 작업자가 바로 따라갈 수 있는 말투로 다듬고, 데이터셋 준비부터 라벨링, 템플릿 보조, 학습, 추론 검토, 모델 판단까지의 흐름을 유지했습니다.
+  - HTML 튜토리얼은 이미지 폴더와 저장 폴더, 저장 라벨과 AI 후보, 학습 완료와 현재 검사 모델의 차이가 바로 보이도록 문장을 다시 다듬었습니다.
+  - 수정한 HTML을 기준으로 `docs/tutorial/labeling-workbench-tutorial-standalone.html`을 다시 생성했습니다.
+- 변경 범위:
+  - 문서만 변경했습니다.
+  - WPF code-behind, ViewModel, Service, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- Verified:
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --priority-workflow-docs` passed.
+  - Local README/tutorial link and image check passed for `README.md`, `docs/tutorial/README.md`, and `docs/tutorial/labeling-workbench-tutorial.html`.
+  - Standalone tutorial check passed: 14 embedded `data:image/png;base64` images and 0 remaining `src="images/...` references.
+  - `git diff --check -- README.md docs/tutorial/README.md docs/tutorial/labeling-workbench-tutorial.html docs/tutorial/labeling-workbench-tutorial-standalone.html docs/WORK_TRACKING.md` passed with only LF-to-CRLF warnings.
+  - Custom trailing-whitespace check passed for the updated README/tutorial/tracking files.
+  - Chrome headless rendered the HTML guide at 1920x1080.
+- Next planned work: review the README/tutorial wording once more from the portfolio reader's perspective, then stage Scope A only if the user asks to prepare a commit.
+## 2026-07-02 tutorial annotated-screenshot and latest-image rule pass
+
+- 점검 결과: 캡처가 크다는 설명만으로는 부족했습니다. 사용자가 이미지를 먼저 보고 따라갈 수 있도록 캡처 안에 번호와 화살표가 필요했고, UI가 바뀐 뒤에도 예전 캡처를 그대로 두지 않는 규칙이 필요했습니다.
+- 문서 변경:
+  - `docs/tutorial/images/annotated` 아래 캡처에 빨간 번호와 화살표를 넣었습니다.
+  - `README.md`, `docs/tutorial/README.md`, `docs/tutorial/labeling-workbench-tutorial.html`이 annotated 캡처를 사용하도록 바꿨습니다.
+  - README/튜토리얼 이미지는 최신 EXE UI 캡처 기준으로 갱신한다는 규칙을 `README.md`, `docs/tutorial/README.md`, HTML 튜토리얼, `docs/STABLE_VERIFIED_AREAS.md`에 남겼습니다.
+  - annotated 최신 캡처가 포함되도록 `docs/tutorial/labeling-workbench-tutorial-standalone.html`을 다시 생성했습니다.
+- 변경 범위:
+  - 문서와 이미지 자산만 변경했습니다.
+  - WPF code-behind, ViewModel, Service, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- Verified:
+  - `dotnet "C:\Git\Labelling_Application\artifacts\isolated-out\LabelingApplication.Tests.dll" --priority-workflow-docs` passed.
+  - Local README/tutorial image check passed for `README.md`, `docs/tutorial/README.md`, and `docs/tutorial/labeling-workbench-tutorial.html`.
+  - Latest-image rule text exists in `README.md`, `docs/tutorial/README.md`, `docs/tutorial/labeling-workbench-tutorial.html`, and `docs/STABLE_VERIFIED_AREAS.md`.
+  - HTML tutorial has 14 `src="images/annotated/...` references and 0 non-annotated image `src` references.
+  - Standalone tutorial has 14 embedded `data:image/png;base64` images and 0 remaining `src="images/...` references.
+  - The old `1920 x 1080 기준 캡처` / `해상도 기준` wording is no longer present in the visible tutorial image path/alt checks.
+  - `git diff --check -- README.md docs/tutorial/README.md docs/tutorial/labeling-workbench-tutorial.html docs/tutorial/labeling-workbench-tutorial-standalone.html docs/STABLE_VERIFIED_AREAS.md docs/WORK_TRACKING.md` passed with only LF-to-CRLF warnings.
+  - Chrome headless rendered the HTML guide at 1920x1080 and captured `artifacts\ui\tutorial-annotated-guide-after-1920.png`.
+- Next planned work: review Scope A documentation as a single staging candidate, then continue the app UX/MVVM audit only after the documentation slice is cleanly separated from the broader dirty worktree.
 
 ## 보류/제외
 
