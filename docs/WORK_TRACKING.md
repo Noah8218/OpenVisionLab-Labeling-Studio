@@ -7010,6 +7010,38 @@ Last updated: 2026-07-03
 - Next:
   - Check the remaining training progress/status abnormal-failure recovery wording and move it to presentation/service boundaries if it is still assembled in View code-behind.
 
+## 2026-07-03 git push policy guard
+
+- User rule:
+  - Do not run `git push` unless the user explicitly asks for `push`.
+  - A `commit` request means local commit only. Push requires a separate explicit request.
+- Documentation:
+  - Added the rule to `CODEX_NEXT_PROMPT.md` both in the visible header and inside the reusable next-prompt block.
+- Verification:
+  - This is a workflow/documentation guard. No UI screenshot is required.
+
+## 2026-07-03 training progress presentation split
+
+- Self-evaluation:
+  - Training polling and live status application should remain in `WpfLabelingShellWindow.TrainingProgressStatus.cs`, but progress wording, no-response recovery, failed-training recovery, state labels, epoch labels, and first-batch failure guidance were still assembled in the View partial.
+  - This is the exact area users rely on when training appears stuck or fails, so the text should be service-owned and test-protected.
+- Changes:
+  - Added `WpfTrainingProgressPresentationService`.
+  - Moved accepted-worker wait text, idle text, no-response status/recovery, failed-training recovery, failure detail, progress summary, epoch summary, state formatting, and worker-message translation into the service.
+  - Kept the shell partial as a polling/status adapter: it reads `PythonCommunicationStatus`, sets progress values, updates brushes, starts/stops polling, and applies service-built text to the UI.
+  - Added `--wpf-training-status-summaries` as a focused test option.
+  - Extended `TestWpfTrainingStatusSummaries` so service ownership and no-inline recovery text are guarded.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-status-summaries` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+- Capture:
+  - No new screenshot was generated because this pass did not change UI layout or visuals.
+- Next:
+  - Continue scanning shell code-behind for remaining user-facing model/training/runtime strings that can be moved into existing presentation services without changing execution paths.
+
 ## 2026-07-03 Ultralytics package operation presentation split
 
 - 자체 평가:

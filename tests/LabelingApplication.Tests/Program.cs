@@ -540,6 +540,11 @@ internal static class Program
             return RunSingleSmoke("WPF training readiness presentation is operator-readable", TestWpfTrainingReadinessPresentationService);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--wpf-training-status-summaries", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF training status summaries are operator-readable", TestWpfTrainingStatusSummaries);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--wpf-workflow-command-state", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("WPF workflow command state service gates commands", TestWpfWorkflowCommandStateService);
@@ -22309,6 +22314,9 @@ internal static class Program
         AssertTrue(failedSummary.Contains("yolov5s", StringComparison.OrdinalIgnoreCase), "failed training summary should include the safe model recommendation");
         AssertTrue(failedSummary.Contains("320", StringComparison.Ordinal), "failed training summary should include the safe image-size recommendation");
         AssertTrue(failedSummary.Contains("4", StringComparison.Ordinal), "failed training summary should include the safe batch recommendation");
+        AssertTrue(WpfTrainingProgressPresentationService.BuildProgressSummary(failed).Contains("yolov5s", StringComparison.OrdinalIgnoreCase), "training progress presentation service should own the failed first-batch recommendation");
+        AssertTrue(WpfTrainingProgressPresentationService.BuildStatusNoResponseRecovery("timeout").Action.Contains("\uC7AC\uC2DC\uC791", StringComparison.Ordinal), "training progress presentation service should own no-response recovery guidance");
+        AssertTrue(WpfTrainingProgressPresentationService.BuildFailedRecovery("failed").Action.Contains("320", StringComparison.Ordinal), "training progress presentation service should own failed-training recovery guidance");
 
         var clamped = new PythonCommunicationStatus
         {
@@ -22324,6 +22332,16 @@ internal static class Program
         AssertTrue(InvokePrivateStaticResult<bool>(typeof(WpfLabelingShellWindow), "IsTrainingStopAvailable", accepted), "accepted training status should allow stop");
         AssertTrue(!InvokePrivateStaticResult<bool>(typeof(WpfLabelingShellWindow), "IsTrainingStopAvailable", clamped), "completed training status should not allow stop");
         AssertTrue(!InvokePrivateStaticResult<bool>(typeof(WpfLabelingShellWindow), "IsTrainingStopAvailable", new PythonCommunicationStatus()), "idle training status should not allow stop");
+
+        string root = FindRepositoryRoot();
+        string trainingProgressShellSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.TrainingProgressStatus.cs"));
+        string trainingProgressPresentationSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfTrainingProgressPresentationService.cs"));
+        AssertTrue(trainingProgressShellSource.Contains("WpfTrainingProgressPresentationService.BuildStatusNoResponseText", StringComparison.Ordinal), "training progress shell should delegate no-response wording to the presentation service");
+        AssertTrue(trainingProgressShellSource.Contains("WpfTrainingProgressPresentationService.BuildFailedRecovery", StringComparison.Ordinal), "training progress shell should delegate failed-training recovery wording to the presentation service");
+        AssertTrue(trainingProgressPresentationSource.Contains("BuildProgressSummary", StringComparison.Ordinal), "training progress presentation service should own progress summary wording");
+        AssertTrue(!trainingProgressShellSource.Contains("\\uD559\\uC2B5 \\uC0C1\\uD0DC \\uC751\\uB2F5 \\uC5C6\\uC74C:", StringComparison.Ordinal), "training progress shell should not inline no-response status text");
+        AssertTrue(!trainingProgressShellSource.Contains("\\uD559\\uC2B5 \\uC2E4\\uD328 - \\uC870\\uCE58 \\uD544\\uC694", StringComparison.Ordinal), "training progress shell should not inline failed-training recovery title");
+        AssertTrue(!ContainsVisibleMojibakeArtifact(trainingProgressPresentationSource), "training progress presentation service should not contain visible mojibake artifacts");
     }
 
     private static void TestWpfTrainingReadinessPresentationService()

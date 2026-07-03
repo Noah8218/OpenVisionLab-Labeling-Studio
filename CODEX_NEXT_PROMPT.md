@@ -1,5 +1,11 @@
 # Next Codex Prompt
 
+## Current Git Rule
+
+- Do not run `git push` unless the user explicitly asks for `push`.
+- A commit request means create a local commit only. Pushing requires a separate explicit user request.
+- If in doubt, stop after commit and report the commit hash.
+
 아래 내용을 새 Codex 대화에 그대로 붙여 넣으세요.
 
 ```text
@@ -9,6 +15,7 @@ C:\Git\Labelling_Application 작업을 이어서 진행해주세요.
 
 중요 원칙:
 - git status --short를 먼저 확인하고, 사용자가 만든 변경 또는 이전 Codex 변경을 임의로 revert하지 마세요.
+- 사용자가 명시적으로 `push`를 요청하지 않으면 `git push`를 실행하지 마세요. `커밋` 요청은 로컬 커밋 생성까지만 의미하며, 푸시는 별도 명시가 필요합니다.
 - 우리는 MVVM을 지향합니다. View code-behind에는 XAML로 불가능한 UI adapter만 남기고, Command/상태/워크플로우는 ViewModel/Service로 분리합니다.
 - Viewer/OpenGL/ROI/브러시/지우개 성능 경로는 이미 여러 focused 테스트로 검증되었습니다. 재현 없이 임의로 수정하지 마세요.
 - 새 사용자-facing 문구에는 OpenGL 같은 내부 기술 용어를 넣지 마세요.
