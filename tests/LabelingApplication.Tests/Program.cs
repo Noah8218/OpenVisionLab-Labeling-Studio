@@ -20818,6 +20818,24 @@ internal static class Program
         AssertTrue(!startTrainingCommandSource.Contains("pendingRecoveryTitle", StringComparison.Ordinal), "start training command should keep recovery state in a single typed DTO instead of duplicate title/detail/action locals");
         AssertTrue(!stopTrainingCommandSource.Contains("pendingRecoveryTitle", StringComparison.Ordinal), "stop training command should keep recovery state in a single typed DTO instead of duplicate title/detail/action locals");
 
+        string modelCandidateDecisionPresentationSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfModelCandidateDecisionPresentationService.cs"));
+        string modelCandidateDecisionCommandSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.ModelCandidateDecisionCommands.cs"));
+        WpfModelCandidateDecisionPresentation pendingModelDecision = WpfModelCandidateDecisionPresentationService.BuildPendingCandidate(
+            Path.Combine("runs", "train", "exp7", "weights", "best.pt"),
+            Path.Combine("models", "baseline.pt"),
+            canReject: true);
+        WpfModelCandidateDecisionPresentation rejectedModelDecision = WpfModelCandidateDecisionPresentationService.BuildRejectedCandidate("best.pt", string.Empty);
+        AssertTrue(modelCandidateDecisionPresentationSource.Contains("BuildPendingCandidate", StringComparison.Ordinal), "model candidate decision presentation service should own pending decision wording");
+        AssertTrue(modelCandidateDecisionPresentationSource.Contains("BuildRejectCommandStatus", StringComparison.Ordinal), "model candidate decision presentation service should own reject-result wording");
+        AssertTrue(pendingModelDecision.CanSave && pendingModelDecision.CanReject, "pending model candidate decision should allow both save and reject when a baseline exists");
+        AssertTrue(pendingModelDecision.StatusText.Contains("best.pt", StringComparison.Ordinal), "pending model candidate decision should name the trained weights");
+        AssertTrue(pendingModelDecision.DetailText.Contains("baseline.pt", StringComparison.Ordinal), "pending model candidate decision should name the retained baseline model");
+        AssertTrue(rejectedModelDecision.DetailText.Contains("채택하지 않았습니다", StringComparison.Ordinal), "rejected model candidate decision should explain the candidate was not adopted");
+        AssertTrue(modelCandidateDecisionCommandSource.Contains("WpfModelCandidateDecisionPresentationService", StringComparison.Ordinal), "model candidate decision command should delegate operator-facing wording to the presentation service");
+        AssertTrue(modelCandidateDecisionCommandSource.Contains("ApplyModelCandidateDecisionPresentation", StringComparison.Ordinal), "model candidate decision command should only adapt presentation DTOs into the ViewModel");
+        AssertTrue(!modelCandidateDecisionCommandSource.Contains("후보 결정: 저장 또는 거절 필요", StringComparison.Ordinal), "model candidate decision command should not inline pending decision wording");
+        AssertTrue(!modelCandidateDecisionCommandSource.Contains("이미 거절된 후보입니다", StringComparison.Ordinal), "model candidate decision command should not inline rejected-candidate tooltips");
+
         if (System.Windows.Application.Current == null)
         {
             _ = new System.Windows.Application

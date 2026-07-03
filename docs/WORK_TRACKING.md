@@ -6935,6 +6935,30 @@ Last updated: 2026-07-03
 - 다음 작업:
   - 모델 후보 저장/거절 결정 패널 쪽 status/detail/tooltip 문구가 shell code-behind에 직접 남아 있으므로, 다음 소형 작업은 Candidate Review model decision presentation service 분리입니다.
 
+## 2026-07-03 model candidate decision presentation split
+
+- 자체 평가:
+  - Candidate Review의 모델 후보 저장/거절 패널은 기능적으로 동작했지만, `WpfLabelingShellWindow.ModelCandidateDecisionCommands.cs` 안에서 pending/rejected/saved/review/no-candidate 상태 문구와 reject 결과 문구를 직접 조합하고 있었습니다.
+  - 이 영역은 사용자가 학습한 모델을 검사 모델로 쓸지, 기존 모델을 유지할지 결정하는 곳이므로 View code-behind에 문구와 workflow가 섞이면 이후 UX 문구 수정 시 위험도가 커진다고 판단했습니다.
+- 수정 내용:
+  - `WpfModelCandidateDecisionPresentationService`와 `WpfModelCandidateDecisionPresentation` DTO를 추가했습니다.
+  - 후보 저장/거절 필요, 거절됨, 검사 모델로 저장됨, 검토 가능, 후보 없음 상태의 status/detail/tooltip 문구를 presentation service로 옮겼습니다.
+  - 후보 거절 command의 없음/성공/recipe 저장 실패/예외/로그 문구도 같은 service로 옮겼습니다.
+  - `WpfLabelingShellWindow.ModelCandidateDecisionCommands.cs`는 baseline 복원, registry 기록, 패널 새로고침 같은 workflow와 DTO를 ViewModel에 적용하는 adapter 역할만 남겼습니다.
+  - `--wpf-labeling-shell` 소스 검증에 service 사용 여부, command 파일 inline 문구 재도입 금지, pending/rejected presentation 직접 검증을 추가했습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과, 경고 0 / 오류 0.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --model-registry` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` 통과.
+  - `git diff --check` 통과. 줄 끝 변환 경고만 있었고 공백 오류는 없었습니다.
+- 캡처:
+  - UI 배치 변경이 아니므로 새 캡처는 생성하지 않았습니다.
+- 다음 작업:
+  - 남은 우선순위는 모델센터/후보 검토 이후 흐름에서 실제 사용자가 보는 model comparison 결과 요약과 batch/current inspection status 문구가 service 계약으로 충분히 보호되는지 재점검하는 것입니다.
+
 ## 보류/제외
 
 - C# 앱 안에 YOLO 학습 로직을 직접 넣지 않습니다.
