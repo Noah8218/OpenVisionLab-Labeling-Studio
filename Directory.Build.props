@@ -6,8 +6,8 @@
     <PackageId Condition="'$(MSBuildProjectName)' == 'OpenVisionLab.LabelingStudio'">OpenVisionLab.LabelingStudio</PackageId>
     <Copyright>Copyright (c) 2026 최노아 (Noah-Choi)</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
-    <PackageProjectUrl>https://github.com/Noah8218/Labelling_Application</PackageProjectUrl>
-    <RepositoryUrl>https://github.com/Noah8218/Labelling_Application</RepositoryUrl>
+    <PackageProjectUrl>https://github.com/Noah8218/OpenVisionLab-Labeling-Studio</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Noah8218/OpenVisionLab-Labeling-Studio</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
   </PropertyGroup>

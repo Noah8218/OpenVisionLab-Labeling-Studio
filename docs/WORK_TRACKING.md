@@ -6898,6 +6898,20 @@ Last updated: 2026-07-03
 - 다음 작업:
   - Shell code-behind에 남은 status/log 직접 조합 중 실제 사용자 흐름에 드러나는 부분을 계속 줄입니다. 다음 후보는 학습/모델센터 쪽 command 상태와 상세 로그 조합입니다.
 
+## 2026-07-03 repository URL metadata alignment
+
+- 점검 결과:
+  - `git push` 중 GitHub가 저장소 이동을 알렸습니다. 새 위치는 `https://github.com/Noah8218/OpenVisionLab-Labeling-Studio.git`입니다.
+  - 로컬 `origin`과 `Directory.Build.props`의 repository/package URL은 이전 저장소명 `Labelling_Application`을 가리키고 있었습니다.
+- 수정 내용:
+  - 로컬 `origin` URL을 `https://github.com/Noah8218/OpenVisionLab-Labeling-Studio.git`로 변경했습니다.
+  - `Directory.Build.props`의 `PackageProjectUrl`, `RepositoryUrl`을 새 GitHub 저장소 URL로 변경했습니다.
+- 검증:
+  - `git remote -v`로 fetch/push 원격 URL이 새 저장소를 가리키는지 확인했습니다.
+  - `rg -n "Noah8218/Labelling_Application" Directory.Build.props README.md NOTICE OpenVisionLab.LabelingStudio.csproj` 결과가 없는지 확인합니다.
+- 다음 작업:
+  - 새 저장소 URL 기준으로 README/tutorial 링크가 깨지지 않는지 최종 공개 문서 확인을 이어갑니다.
+
 ## 보류/제외
 
 - C# 앱 안에 YOLO 학습 로직을 직접 넣지 않습니다.
