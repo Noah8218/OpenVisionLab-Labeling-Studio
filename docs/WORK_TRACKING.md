@@ -6854,6 +6854,50 @@ Last updated: 2026-07-03
 - 다음 작업:
   - 내부 네임스페이스 `MvcVisionSystem` rename은 XAML/partial class 영향이 크므로 별도 큰 작업으로 분리합니다.
 
+## 2026-07-03 public product naming guard follow-up
+
+- 자체 평가:
+  - 공개 README/튜토리얼은 최신 제품명과 현재 UI 캡처 기준으로 정리되어 있었지만, `docs/CODE_STRUCTURE.md` 첫 문장에는 저장소 폴더명 `Labelling_Application`이 제품명처럼 남아 있었습니다.
+  - `OpenVisionLab.LabelingStudio.csproj`의 `RootNamespace`가 `MvcVisionSystem`으로 남아 있는 이유가 프로젝트 파일 안에서는 설명되지 않아, 이후 작업자가 단순 rename으로 XAML partial class 연결을 깨뜨릴 여지가 있었습니다.
+- 수정 내용:
+  - `docs/CODE_STRUCTURE.md`의 코드베이스 명칭을 `OpenVisionLab Labeling Studio`로 바꿨습니다.
+  - 같은 문서에 공개 제품명, 빌드/실행 산출물명, 내부 `MvcVisionSystem` 네임스페이스가 별도 마이그레이션 대상이라는 설명을 추가했습니다.
+  - `OpenVisionLab.LabelingStudio.csproj`의 `RootNamespace` 위에 XAML partial-class migration 전까지 유지한다는 주석을 추가했습니다.
+  - `--priority-workflow-docs` 테스트에 `docs/CODE_STRUCTURE.md`가 공개 제품명을 쓰고, `` `Labelling_Application` ``을 제품명처럼 쓰지 않는지 확인하는 가드를 추가했습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과, 경고 0 / 오류 0.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` 통과.
+- 캡처:
+  - UI 배치 변경이 아니므로 새 캡처는 생성하지 않았습니다.
+- 다음 작업:
+  - 실제 사용자 흐름 기준으로 남은 셸 code-behind의 사용자-facing status/log 조합을 더 줄입니다. 특히 템플릿/배치 라벨링 상태 문구가 service 계약으로 보호되는지 확인합니다.
+
+## 2026-07-03 template auto-label presentation service split
+
+- 자체 평가:
+  - 템플릿 매칭 알고리즘과 배치 저장은 이미 Core service에 있었지만, 템플릿 등록/현재 이미지 적용/전체 이미지 자동 저장의 사용자-facing 상태 문구는 `WpfTemplateMatchingAutoLabelViewModel` 안에 직접 조합되어 있었습니다.
+  - 기능은 동작하지만 이후 UX 문구를 고칠 때 ViewModel workflow 코드와 문구가 섞여 수정 범위가 커지는 문제가 있었습니다.
+- 수정 내용:
+  - `WpfTemplateMatchingAutoLabelPresentationService`를 추가했습니다.
+  - 템플릿 등록 상태, 적용 실패/결과 상태, 배치 시작/진행/완료 상태, 템플릿 사용 순서 안내 문구 생성을 presentation service로 옮겼습니다.
+  - `WpfTemplateMatchingAutoLabelViewModel`은 template matching 실행, batch loop, host 호출을 유지하고 문구 생성만 service에 위임합니다.
+  - 템플릿 안내 테스트에 presentation service 직접 검증과 ViewModel inline batch status template 금지 검증을 추가했습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과, 경고 0 / 오류 0.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --template-guide-ux` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --template-batch-autolabel-storage` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-template-current-image-no-candidate` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` 통과.
+  - `git diff --check` 통과. 줄 끝 변환 경고만 있었고 공백 오류는 없었습니다.
+- 캡처:
+  - UI 배치 변경이 아니므로 새 캡처는 생성하지 않았습니다.
+- 다음 작업:
+  - Shell code-behind에 남은 status/log 직접 조합 중 실제 사용자 흐름에 드러나는 부분을 계속 줄입니다. 다음 후보는 학습/모델센터 쪽 command 상태와 상세 로그 조합입니다.
+
 ## 보류/제외
 
 - C# 앱 안에 YOLO 학습 로직을 직접 넣지 않습니다.

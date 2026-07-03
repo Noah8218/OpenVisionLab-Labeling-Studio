@@ -11083,6 +11083,19 @@ internal static class Program
         string root = FindRepositoryRoot();
         var viewModel = new WpfTemplateMatchingAutoLabelViewModel();
         using var activeImage = new Bitmap(40, 40);
+        var presentationService = new WpfTemplateMatchingAutoLabelPresentationService();
+        AssertTrue(
+            presentationService.BuildTemplateRegisteredStatus("Part", new Rectangle(1, 2, 30, 40)).Contains("Part 30x40", StringComparison.Ordinal),
+            "template presentation service should format the registered template size and class");
+        AssertTrue(
+            presentationService.BuildApplyResultStatus(2, 2).Contains("라벨 저장", StringComparison.Ordinal),
+            "template presentation service should direct the operator to save current-image draft labels");
+        AssertTrue(
+            presentationService.BuildBatchCompletionCommandStatus(false, 1, 2, 3, 4).Contains("저장 1장", StringComparison.Ordinal),
+            "template presentation service should summarize batch auto-save counts");
+        AssertTrue(
+            presentationService.BuildGuideBody("템플릿 안내").Contains("사용 순서", StringComparison.Ordinal),
+            "template presentation service should own the reusable guide step text");
 
         var noImageHost = new TemplateAutoLabelGuideHost
         {
@@ -11245,7 +11258,12 @@ internal static class Program
         string projectSource = File.ReadAllText(Path.Combine(root, "OpenVisionLab.LabelingStudio.csproj"));
         string solutionSource = File.ReadAllText(Path.Combine(root, "OpenVisionLab.LabelingStudio.sln"));
         string templateCommandsSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.TemplateMatchingCommands.cs"));
+        string templateViewModelSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "ViewModels", "WpfTemplateMatchingAutoLabelViewModel.cs"));
+        string templatePresentationPath = Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfTemplateMatchingAutoLabelPresentationService.cs");
         string dialogControlPath = Path.Combine(root, "OpenVisionLab", "Library", "OpenVisionLab.Wpf.MessageDialogs", "WpfMessageDialogControl.xaml");
+        AssertTrue(File.Exists(templatePresentationPath), "template auto-label wording should live in a WPF presentation service");
+        AssertTrue(templateViewModelSource.Contains("WpfTemplateMatchingAutoLabelPresentationService", StringComparison.Ordinal), "template auto-label ViewModel should use the presentation service for status text");
+        AssertTrue(!templateViewModelSource.Contains("전체 이미지 템플릿 자동 저장 시작:", StringComparison.Ordinal), "template auto-label ViewModel should not inline the batch start status template");
         AssertTrue(File.Exists(dialogControlPath), "template guide should use the reusable WPF message dialog UserControl project");
         AssertTrue(projectSource.Contains("OpenVisionLab.Wpf.MessageDialogs", StringComparison.Ordinal), "app project should reference the reusable WPF message dialog library");
         AssertTrue(solutionSource.Contains("OpenVisionLab.Wpf.MessageDialogs", StringComparison.Ordinal), "solution should include the reusable WPF message dialog library project");
@@ -19817,6 +19835,8 @@ internal static class Program
         AssertTrue(readme.Contains("YOLOV5_TRAINING_RESULT_WORKFLOW.md", StringComparison.Ordinal), "README should link the YOLOv5 workflow criteria");
         AssertTrue(readme.Contains("SEGMENTATION_UX_COMPLETION.md", StringComparison.Ordinal), "README should link the segmentation UX criteria");
         AssertTrue(readme.Contains("ANOMALY_DETECTION_FLOW.md", StringComparison.Ordinal), "README should link the anomaly detection criteria");
+        AssertTrue(codeStructure.Contains("OpenVisionLab Labeling Studio", StringComparison.Ordinal), "code structure should use the public product name");
+        AssertTrue(!codeStructure.Contains("`Labelling_Application`", StringComparison.Ordinal), "code structure should not present the repository folder name as the product identity");
         AssertTrue(codeStructure.Contains("docs/YOLOV5_TRAINING_RESULT_WORKFLOW.md", StringComparison.Ordinal), "code structure should route priority 3 to the YOLOv5 workflow criteria");
         AssertTrue(codeStructure.Contains("docs/SEGMENTATION_UX_COMPLETION.md", StringComparison.Ordinal), "code structure should route priority 4 to the segmentation UX criteria");
         AssertTrue(codeStructure.Contains("docs/ANOMALY_DETECTION_FLOW.md", StringComparison.Ordinal), "code structure should route priority 5 to the anomaly detection criteria");

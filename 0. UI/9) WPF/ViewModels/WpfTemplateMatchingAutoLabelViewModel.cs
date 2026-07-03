@@ -48,6 +48,7 @@ namespace MvcVisionSystem
         private static readonly Action NoOpCommand = () => { };
         private readonly TemplateMatchingAutoLabelService templateMatchingAutoLabelService;
         private readonly TemplateMatchingBatchAutoLabelService templateMatchingBatchAutoLabelService;
+        private readonly WpfTemplateMatchingAutoLabelPresentationService presentationService;
         private IWpfTemplateMatchingAutoLabelHost host;
         private Bitmap registeredTemplateImage;
         private string registeredTemplateClassName = string.Empty;
@@ -64,9 +65,21 @@ namespace MvcVisionSystem
         public WpfTemplateMatchingAutoLabelViewModel(
             TemplateMatchingAutoLabelService templateMatchingAutoLabelService,
             TemplateMatchingBatchAutoLabelService templateMatchingBatchAutoLabelService)
+            : this(
+                templateMatchingAutoLabelService,
+                templateMatchingBatchAutoLabelService,
+                new WpfTemplateMatchingAutoLabelPresentationService())
+        {
+        }
+
+        public WpfTemplateMatchingAutoLabelViewModel(
+            TemplateMatchingAutoLabelService templateMatchingAutoLabelService,
+            TemplateMatchingBatchAutoLabelService templateMatchingBatchAutoLabelService,
+            WpfTemplateMatchingAutoLabelPresentationService presentationService)
         {
             this.templateMatchingAutoLabelService = templateMatchingAutoLabelService ?? new TemplateMatchingAutoLabelService();
             this.templateMatchingBatchAutoLabelService = templateMatchingBatchAutoLabelService ?? new TemplateMatchingBatchAutoLabelService();
+            this.presentationService = presentationService ?? new WpfTemplateMatchingAutoLabelPresentationService();
             RunCurrentImageCommand = new RelayCommand(RunCurrentImage);
             RunBatchCommand = new RelayCommand(RunBatch);
         }
@@ -154,7 +167,7 @@ namespace MvcVisionSystem
             registeredTemplateSourceImagePath = currentHost.ActiveAutoLabelImagePath ?? string.Empty;
             registeredTemplateSourceBounds = templateBounds;
 
-            string status = $"템플릿 등록: {registeredTemplateClassName} {templateBounds.Width}x{templateBounds.Height} / 다음: 다른 이미지에서 라벨 초안 생성";
+            string status = presentationService.BuildTemplateRegisteredStatus(registeredTemplateClassName, templateBounds);
             currentHost.SetAutoLabelGlobalInferenceStatus(status, isBusy: false);
             currentHost.SetAutoLabelCommandStatus(status, isBusy: false);
             currentHost.SetAutoLabelPythonStatus("Auto label: template registered");
@@ -172,18 +185,14 @@ namespace MvcVisionSystem
             if (!result.Succeeded)
             {
                 currentHost.AppendAutoLabelLog($"Template matching failed: {result.Message}");
-                currentHost.SetAutoLabelGlobalInferenceStatus($"템플릿 적용 실패: {result.Message}", isBusy: false, isWarning: true);
+                currentHost.SetAutoLabelGlobalInferenceStatus(presentationService.BuildApplyFailureStatus(result.Message), isBusy: false, isWarning: true);
                 currentHost.SetAutoLabelPythonStatus("Auto label: template matching failed");
                 currentHost.ApplyAutoLabelCandidates(Array.Empty<YoloWorkerSmokeCandidate>(), succeeded: false);
                 return;
             }
 
             int addedCount = currentHost.ApplyAutoLabelCandidates(result.Candidates, succeeded: true);
-            string status = addedCount > 0
-                ? $"템플릿 라벨 초안 {addedCount}개 생성 - 위치 확인 후 라벨 저장"
-                : result.Candidates.Count > 0
-                    ? "템플릿 위치는 찾았지만 기존 라벨과 겹쳐 초안 추가 없음"
-                    : "템플릿 위치를 찾지 못했습니다";
+            string status = presentationService.BuildApplyResultStatus(addedCount, result.Candidates.Count);
             currentHost.SetAutoLabelGlobalInferenceStatus(status, isBusy: false, isWarning: addedCount == 0);
             currentHost.SetAutoLabelCommandStatus(status, isBusy: false);
             currentHost.SetAutoLabelPythonStatus($"Auto label: template labels {addedCount}");
@@ -283,8 +292,8 @@ namespace MvcVisionSystem
 
             const string scopeText = "template";
             CancellationToken token = currentHost.StartAutoLabelBatch(queue.Count, scopeText);
-            currentHost.SetAutoLabelCommandStatus($"전체 이미지 템플릿 자동 저장 시작: {queue.Count}장", isBusy: true);
-            currentHost.SetAutoLabelGlobalInferenceStatus($"전체 이미지 템플릿 자동 저장 중: 0/{queue.Count}", isBusy: true);
+            currentHost.SetAutoLabelCommandStatus(presentationService.BuildBatchStartCommandStatus(queue.Count), isBusy: true);
+            currentHost.SetAutoLabelGlobalInferenceStatus(presentationService.BuildBatchStartGlobalStatus(queue.Count), isBusy: true);
             currentHost.SetAutoLabelPythonStatus("Auto label: template batch running");
 
             var batchStopwatch = Stopwatch.StartNew();
@@ -307,7 +316,7 @@ namespace MvcVisionSystem
                     string fileName = Path.GetFileName(item.ImagePath);
                     currentHost.MarkAutoLabelBatchItemRequested(item);
                     currentHost.UpdateAutoLabelBatchProgress(scopeText, fileName, completedCount, queue.Count);
-                    currentHost.SetAutoLabelGlobalInferenceStatus($"전체 이미지 템플릿 자동 저장 {completedCount + 1}/{queue.Count}: {fileName}", isBusy: true);
+                    currentHost.SetAutoLabelGlobalInferenceStatus(presentationService.BuildBatchItemGlobalStatus(completedCount + 1, queue.Count, fileName), isBusy: true);
 
                     TemplateMatchingBatchAutoLabelItemResult result = await Task
                         .Run(() => templateMatchingBatchAutoLabelService.MatchAndSaveImage(
@@ -361,10 +370,15 @@ namespace MvcVisionSystem
                 currentHost.CompleteAutoLabelBatch(canceled, completedCount, queue.Count, scopeText);
                 currentHost.SetAutoLabelPythonStatus(canceled ? "Auto label: template batch canceled" : "Auto label: template batch complete");
                 currentHost.SetAutoLabelCommandStatus(
-                    $"전체 이미지 템플릿 자동 저장 {(canceled ? "취소" : "완료")}: 저장 {savedImageCount}장, 라벨 {savedObjectCount}개, 위치 없음 {noCandidateCount}장, 실패 {failedCount}장",
+                    presentationService.BuildBatchCompletionCommandStatus(
+                        canceled,
+                        savedImageCount,
+                        savedObjectCount,
+                        noCandidateCount,
+                        failedCount),
                     isBusy: false);
                 currentHost.SetAutoLabelGlobalInferenceStatus(
-                    $"전체 이미지 템플릿 자동 저장 {(canceled ? "취소" : "완료")}: {completedCount}/{queue.Count} / {batchStopwatch.Elapsed.TotalSeconds:0.0}s",
+                    presentationService.BuildBatchCompletionGlobalStatus(canceled, completedCount, queue.Count, batchStopwatch.Elapsed),
                     isBusy: false,
                     isWarning: failedCount > 0 || canceled);
                 currentHost.AppendAutoLabelLog($"Template batch {(canceled ? "canceled" : "complete")}: processed={completedCount}/{queue.Count}, saved images={savedImageCount}, objects={savedObjectCount}, no candidate={noCandidateCount}, failed={failedCount}, elapsed={batchStopwatch.Elapsed.TotalSeconds:0.0}s");
@@ -428,12 +442,12 @@ namespace MvcVisionSystem
             };
         }
 
-        private static void ShowTemplateGuide(
+        private void ShowTemplateGuide(
             IWpfTemplateMatchingAutoLabelHost currentHost,
             string title,
             string message)
         {
-            string guide = $"{message}{Environment.NewLine}{Environment.NewLine}사용 순서:{Environment.NewLine}1. 기준 이미지에서 찾고 싶은 모양을 라벨 박스로 저장합니다.{Environment.NewLine}2. 객체 검토 목록에서 그 라벨 박스 1개를 선택합니다.{Environment.NewLine}3. 도구 > 현재 이미지 라벨 초안 생성으로 기준 템플릿을 등록합니다.{Environment.NewLine}4. 다른 이미지를 열고 현재 이미지 라벨 초안 생성 또는 전체 이미지 자동 저장을 실행합니다.{Environment.NewLine}5. 현재 이미지에 생성된 라벨 초안은 위치를 확인한 뒤 라벨 저장을 누릅니다.{Environment.NewLine}6. 전체 이미지 자동 저장은 라벨 없는 이미지에 바로 저장됩니다.";
+            string guide = presentationService.BuildGuideBody(message);
             currentHost.SetAutoLabelGlobalInferenceStatus(title, isBusy: false, isWarning: true);
             currentHost.SetAutoLabelPythonStatus($"Template guide: {title}");
             currentHost.AppendAutoLabelLog($"Template guide: {title} / {message}");

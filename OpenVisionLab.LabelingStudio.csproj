@@ -7,6 +7,7 @@
     <UseWindowsForms>true</UseWindowsForms>
     <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
+    <!-- Legacy namespace retained until the XAML partial-class migration is split out from product naming. -->
     <RootNamespace>MvcVisionSystem</RootNamespace>
     <AssemblyName>OpenVisionLab.LabelingStudio</AssemblyName>
     <ApplicationIcon>lens.ico</ApplicationIcon>
