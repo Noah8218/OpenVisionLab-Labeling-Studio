@@ -8,7 +8,7 @@ namespace MvcVisionSystem
         {
             if (isYoloEnvironmentCommandRunning || isTrainingCommandRunning || isDetecting || isBatchDetectionRunning)
             {
-                AppendLog("\uBAA8\uB378 \uC2E4\uD589 \uBA85\uB839\uC774 \uC774\uBBF8 \uC2E4\uD589 \uC911\uC785\uB2C8\uB2E4.");
+                AppendLog(WpfYoloEnvironmentCommandPresentationService.BuildBusyCommandLog());
                 return false;
             }
 

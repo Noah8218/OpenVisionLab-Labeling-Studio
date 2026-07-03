@@ -13,7 +13,7 @@ namespace MvcVisionSystem
         // Runtime environment commands manage Python/worker state and should not mix with settings field browsing.
         private async void ExecuteCheckYoloCommand()
         {
-            if (!BeginYoloEnvironmentCommand("\uBAA8\uB378 \uC2E4\uD589 \uD658\uACBD \uC810\uAC80 \uC911..."))
+            if (!BeginYoloEnvironmentCommand(WpfYoloEnvironmentCommandPresentationService.BuildEnvironmentCheckStartingStatus()))
             {
                 return;
             }
@@ -32,13 +32,14 @@ namespace MvcVisionSystem
 
                 if (result.IsValid)
                 {
-                    SetYoloCommandStatus("\uBAA8\uB378 \uC2E4\uD589 \uD658\uACBD \uC900\uBE44 \uC644\uB8CC.", isBusy: false);
-                    AppendLog("\uBAA8\uB378 \uC2E4\uD589 \uD658\uACBD \uC900\uBE44 \uC644\uB8CC.");
+                    string readyStatus = WpfYoloEnvironmentCommandPresentationService.BuildEnvironmentReadyStatus();
+                    SetYoloCommandStatus(readyStatus, isBusy: false);
+                    AppendLog(readyStatus);
                     return;
                 }
 
-                SetYoloCommandStatus("\uBAA8\uB378 \uC2E4\uD589 \uD658\uACBD \uD655\uC778 \uD544\uC694.", isBusy: false);
-                AppendLog("\uBAA8\uB378 \uC2E4\uD589 \uD658\uACBD \uD655\uC778 \uD544\uC694:");
+                SetYoloCommandStatus(WpfYoloEnvironmentCommandPresentationService.BuildEnvironmentNeedsAttentionStatus(), isBusy: false);
+                AppendLog(WpfYoloEnvironmentCommandPresentationService.BuildEnvironmentNeedsAttentionLogHeader());
                 foreach (string line in result.Errors.Concat(result.Warnings))
                 {
                     AppendLog($"- {line}");
@@ -46,8 +47,9 @@ namespace MvcVisionSystem
             }
             catch (Exception ex)
             {
-                SetYoloCommandStatus($"\uBAA8\uB378 \uC2E4\uD589 \uD658\uACBD \uC810\uAC80 \uC2E4\uD328: {ex.Message}", isBusy: false);
-                AppendLog($"\uBAA8\uB378 \uC2E4\uD589 \uD658\uACBD \uC810\uAC80 \uC2E4\uD328: {ex.Message}");
+                string failureStatus = WpfYoloEnvironmentCommandPresentationService.BuildEnvironmentCheckFailureStatus(ex.Message);
+                SetYoloCommandStatus(failureStatus, isBusy: false);
+                AppendLog(failureStatus);
             }
             finally
             {
@@ -72,7 +74,7 @@ namespace MvcVisionSystem
 
         private async void ExecuteInstallRequirementsCommand()
         {
-            if (!BeginYoloEnvironmentCommand("\uCD94\uB860 \uC2E4\uD589 \uD658\uACBD \uC810\uAC80 \uC911..."))
+            if (!BeginYoloEnvironmentCommand(WpfYoloEnvironmentCommandPresentationService.BuildRequirementsCheckStartingStatus()))
             {
                 return;
             }
@@ -95,38 +97,34 @@ namespace MvcVisionSystem
 
                 if (check.Errors.Count > 0)
                 {
-                    SetYoloCommandStatus($"설치 건너뜀: {check.Summary}", isBusy: false);
+                    SetYoloCommandStatus(WpfYoloEnvironmentCommandPresentationService.BuildRequirementsSkippedStatus(check.Summary), isBusy: false);
                     await RefreshYoloSettingsPanelAsync().ConfigureAwait(true);
-                    AppendLog($"\uCD94\uB860 \uC2E4\uD589 \uD658\uACBD \uC124\uCE58 \uAC74\uB108\uB700: {check.Summary}");
+                    AppendLog(WpfYoloEnvironmentCommandPresentationService.BuildRequirementsSkippedLog(check.Summary));
                     return;
                 }
 
                 if (check.MissingPackages.Count == 0)
                 {
-                    SetYoloCommandStatus("\uCD94\uB860 \uC2E4\uD589 \uD658\uACBD \uC815\uC0C1.", isBusy: false);
+                    SetYoloCommandStatus(WpfYoloEnvironmentCommandPresentationService.BuildRequirementsReadyStatus(), isBusy: false);
                     await RefreshYoloSettingsPanelAsync().ConfigureAwait(true);
-                    AppendLog("\uCD94\uB860 \uC2E4\uD589 \uD658\uACBD \uC124\uCE58 \uAC74\uB108\uB700. \uB204\uB77D \uD328\uD0A4\uC9C0\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.");
+                    AppendLog(WpfYoloEnvironmentCommandPresentationService.BuildRequirementsNoMissingPackageLog());
                     return;
                 }
 
-                SetYoloCommandStatus($"\uB204\uB77D \uC2E4\uD589 \uD658\uACBD \uD328\uD0A4\uC9C0 {check.MissingPackages.Count}\uAC1C \uC124\uCE58 \uC911...", isBusy: true);
-                AppendLog($"\uCD94\uB860 \uC2E4\uD589 \uD658\uACBD \uD328\uD0A4\uC9C0 \uC124\uCE58 \uC911: {string.Join(", ", check.MissingPackages.Take(8))}");
+                SetYoloCommandStatus(WpfYoloEnvironmentCommandPresentationService.BuildRequirementsInstallingStatus(check.MissingPackages.Count), isBusy: true);
+                AppendLog(WpfYoloEnvironmentCommandPresentationService.BuildRequirementsInstallingLog(check.MissingPackages));
                 PythonPackageInstallResult install = await PythonEnvironmentService
                     .InstallRequirementsAsync(settings)
                     .ConfigureAwait(true);
 
                 await RefreshYoloSettingsPanelAsync().ConfigureAwait(true);
-                SetYoloCommandStatus(install.Succeeded
-                    ? "\uCD94\uB860 \uC2E4\uD589 \uD658\uACBD \uC124\uCE58 \uC644\uB8CC. \uB2E4\uC74C\uC740 \uD14C\uC2A4\uD2B8\uB97C \uC2E4\uD589\uD558\uC138\uC694."
-                    : $"설치 실패: {install.Summary}", isBusy: false);
-                AppendLog(install.Succeeded
-                    ? "\uCD94\uB860 \uC2E4\uD589 \uD658\uACBD \uC124\uCE58 \uC644\uB8CC."
-                    : $"\uCD94\uB860 \uC2E4\uD589 \uD658\uACBD \uC124\uCE58 \uC2E4\uD328: {install.Summary}");
+                SetYoloCommandStatus(WpfYoloEnvironmentCommandPresentationService.BuildRequirementsInstallResultStatus(install), isBusy: false);
+                AppendLog(WpfYoloEnvironmentCommandPresentationService.BuildRequirementsInstallResultLog(install));
             }
             catch (Exception ex)
             {
-                SetYoloCommandStatus($"설치 실패: {ex.Message}", isBusy: false);
-                AppendLog($"\uCD94\uB860 \uC2E4\uD589 \uD658\uACBD \uC124\uCE58 \uC2E4\uD328: {ex.Message}");
+                SetYoloCommandStatus(WpfYoloEnvironmentCommandPresentationService.BuildRequirementsInstallFailureStatus(ex.Message), isBusy: false);
+                AppendLog(WpfYoloEnvironmentCommandPresentationService.BuildRequirementsInstallFailureLog(ex.Message));
             }
             finally
             {

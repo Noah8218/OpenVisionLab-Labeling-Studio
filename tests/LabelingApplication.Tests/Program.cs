@@ -20836,6 +20836,19 @@ internal static class Program
         AssertTrue(!modelCandidateDecisionCommandSource.Contains("후보 결정: 저장 또는 거절 필요", StringComparison.Ordinal), "model candidate decision command should not inline pending decision wording");
         AssertTrue(!modelCandidateDecisionCommandSource.Contains("이미 거절된 후보입니다", StringComparison.Ordinal), "model candidate decision command should not inline rejected-candidate tooltips");
 
+        string yoloEnvironmentPresentationSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfYoloEnvironmentCommandPresentationService.cs"));
+        string yoloEnvironmentRuntimeCommandSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.YoloEnvironmentRuntimeCommands.cs"));
+        string yoloEnvironmentLifecycleSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.YoloEnvironmentCommandLifecycle.cs"));
+        AssertTrue(yoloEnvironmentPresentationSource.Contains("BuildEnvironmentCheckStartingStatus", StringComparison.Ordinal), "YOLO environment command presentation service should own check-start wording");
+        AssertTrue(yoloEnvironmentPresentationSource.Contains("BuildRequirementsInstallResultStatus", StringComparison.Ordinal), "YOLO environment command presentation service should own requirements install result wording");
+        AssertTrue(WpfYoloEnvironmentCommandPresentationService.BuildEnvironmentCheckStartingStatus().Contains("점검", StringComparison.Ordinal), "environment check start text should be operator-readable");
+        AssertTrue(WpfYoloEnvironmentCommandPresentationService.BuildRequirementsInstallingLog(new[] { "torch", "ultralytics" }).Contains("torch", StringComparison.Ordinal), "requirements install log should name missing packages");
+        AssertTrue(yoloEnvironmentRuntimeCommandSource.Contains("WpfYoloEnvironmentCommandPresentationService", StringComparison.Ordinal), "YOLO environment runtime commands should delegate status wording to a presentation service");
+        AssertTrue(yoloEnvironmentLifecycleSource.Contains("WpfYoloEnvironmentCommandPresentationService.BuildBusyCommandLog", StringComparison.Ordinal), "YOLO environment command lifecycle should delegate busy command text to a presentation service");
+        AssertTrue(!yoloEnvironmentRuntimeCommandSource.Contains("모델 실행 환경 준비 완료", StringComparison.Ordinal), "YOLO environment runtime command should not inline check-ready wording");
+        AssertTrue(!yoloEnvironmentRuntimeCommandSource.Contains("추론 실행 환경 정상", StringComparison.Ordinal), "YOLO environment runtime command should not inline requirements-ready wording");
+        AssertTrue(!yoloEnvironmentRuntimeCommandSource.Contains("누락 실행 환경 패키지", StringComparison.Ordinal), "YOLO environment runtime command should not inline missing-package install wording");
+
         if (System.Windows.Application.Current == null)
         {
             _ = new System.Windows.Application
@@ -21488,6 +21501,7 @@ internal static class Program
         string reviewStatusSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Yolo", "YoloImageReviewStatusService.cs"));
         string annotationHistorySource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "0. UI", "9) WPF", "Services", "WpfAnnotationHistoryService.cs"));
         string yoloEnvironmentRuntimeCommandsSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.YoloEnvironmentRuntimeCommands.cs"));
+        string yoloEnvironmentCommandPresentationSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "0. UI", "9) WPF", "Services", "WpfYoloEnvironmentCommandPresentationService.cs"));
         AssertTrue(shellSource.Contains("YoloModelSettingsViewModel.ApplyWorkflowCommandState", StringComparison.Ordinal), "WPF shell should push YOLO model settings command availability through the ViewModel");
         AssertTrue(shellSource.Contains("ExecuteRuntimeProfileActionCommand", StringComparison.Ordinal), "WPF shell should inject the runtime-profile action adapter into the YOLO model settings ViewModel");
         AssertTrue(shellSource.Contains("AdvancedSettingsExpander.IsExpanded = true", StringComparison.Ordinal), "runtime-profile action adapter should open advanced runtime settings instead of leaving the operator searching for fields");
@@ -21504,9 +21518,10 @@ internal static class Program
         AssertTrue(shellSource.Contains("BuildUltralyticsPackageOperationDetail", StringComparison.Ordinal), "WPF shell should build a visible package-result detail instead of relying only on the bottom log");
         AssertTrue(shellSource.Contains("PythonEnvironmentService.InstallPackageAsync", StringComparison.Ordinal), "WPF shell install adapter should delegate package installation to the core Python environment service");
         AssertTrue(shellSource.Contains("PythonEnvironmentService.UninstallPackageAsync", StringComparison.Ordinal), "WPF shell uninstall adapter should delegate package removal to the core Python environment service");
-        AssertTrue(yoloEnvironmentRuntimeCommandsSource.Contains("설치 건너뜀", StringComparison.Ordinal), "legacy requirements install status should use readable Korean skip wording");
-        AssertTrue(yoloEnvironmentRuntimeCommandsSource.Contains("설치 실패", StringComparison.Ordinal), "legacy requirements install status should use readable Korean failure wording");
+        AssertTrue(yoloEnvironmentCommandPresentationSource.Contains("설치 건너뜀", StringComparison.Ordinal), "legacy requirements install status should use readable Korean skip wording");
+        AssertTrue(yoloEnvironmentCommandPresentationSource.Contains("설치 실패", StringComparison.Ordinal), "legacy requirements install status should use readable Korean failure wording");
         AssertTrue(!ContainsVisibleMojibakeArtifact(yoloEnvironmentRuntimeCommandsSource), "YOLO environment runtime command source should not expose mojibake artifacts");
+        AssertTrue(!ContainsVisibleMojibakeArtifact(yoloEnvironmentCommandPresentationSource), "YOLO environment command presentation source should not expose mojibake artifacts");
         var packagePlan = new PythonModelRuntimeInstallPlan(
             PythonModelSettings.EngineYolo11,
             "title",
