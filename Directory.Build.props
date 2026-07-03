@@ -1,0 +1,12 @@
+<Project>
+  <PropertyGroup>
+    <Authors>최노아 (Noah-Choi)</Authors>
+    <Company>Noah-Choi</Company>
+    <Copyright>Copyright (c) 2026 최노아 (Noah-Choi)</Copyright>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageProjectUrl>https://github.com/Noah8218/Labelling_Application</PackageProjectUrl>
+    <RepositoryUrl>https://github.com/Noah8218/Labelling_Application</RepositoryUrl>
+    <RepositoryType>git</RepositoryType>
+    <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+  </PropertyGroup>
+</Project>

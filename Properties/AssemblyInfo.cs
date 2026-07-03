@@ -1,4 +1,7 @@
-﻿using System.Reflection;
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 최노아 (Noah-Choi)
+
+using System.Reflection;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 
@@ -8,9 +11,9 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("MvcVisionSystem")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyCompany("Noah-Choi")]
 [assembly: AssemblyProduct("MvcVisionSystem")]
-[assembly: AssemblyCopyright("Copyright ©  2020")]
+[assembly: AssemblyCopyright("Copyright (c) 2026 최노아 (Noah-Choi)")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

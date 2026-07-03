@@ -1,4 +1,7 @@
-﻿using System.Reflection;
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 최노아 (Noah-Choi)
+
+using System.Reflection;
 using System.Runtime.InteropServices;
 
 // 어셈블리에 대한 일반 정보는 다음 특성 집합을 통해 
@@ -7,9 +10,9 @@ using System.Runtime.InteropServices;
 [assembly: AssemblyTitle("OpenVisionLab.ImageCanvas")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("")]
+[assembly: AssemblyCompany("Noah-Choi")]
 [assembly: AssemblyProduct("OpenVisionLab.ImageCanvas")]
-[assembly: AssemblyCopyright("Copyright ©  2024")]
+[assembly: AssemblyCopyright("Copyright (c) 2026 최노아 (Noah-Choi)")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 

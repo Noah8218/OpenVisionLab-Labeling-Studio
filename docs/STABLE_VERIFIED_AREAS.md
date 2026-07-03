@@ -879,6 +879,8 @@ Model-center current-inspection reachability is covered by `--wpf-status-panels`
 
 2026-07-03 worker current-inspection presentation contract: `RunWorkerDetectionForImageAsync` should not inline operator-facing worker status templates for missing/loading images, preparation, connection failure, request state, timeout, success summary, elapsed log, or cancellation. Keep those strings in `WpfInferenceStatusPresentationService.BuildWorker*` methods while the shell passes image path, model source, elapsed text, and candidate count. Do not change worker startup, TCP routing, detection candidate application, candidate overlay rendering, or Viewer/OpenGL/ROI/brush/eraser paths for this presentation-boundary work. Covered by isolated test build, `--wpf-single-detection-path`, `--wpf-inference-status-presentation`, `--wpf-labeling-shell`, `--mvvm-infra`, `--priority-workflow-docs`, and `git diff --check`.
 
+2026-07-03 license attribution contract: MIT licensing should remain explicit in `LICENSE`, public README, `NOTICE`, package metadata, and core AssemblyInfo metadata. Commercial use is allowed, but copied or redistributed versions should retain the copyright notice, license text, NOTICE file, and project/package metadata attribution for `최노아 (Noah-Choi)`. Keep attribution metadata in `Directory.Build.props` and keep short SPDX headers in the core AssemblyInfo files when those files are touched. Covered by direct attribution search, Debug x64 build, and `git diff --check`.
+
 ## Refactor Rule
 
 When working near a protected path, prefer adding a small adapter or a new higher-level service instead of rewriting the verified hot path. If the hot path must change, document the reason in the final response and include the focused gate results.

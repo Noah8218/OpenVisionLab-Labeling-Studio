@@ -6814,6 +6814,23 @@ Last updated: 2026-07-03
 - 다음 작업:
   - README를 추가로 수정할 때는 먼저 렌더링된 첫 화면 기준으로 사용자용 문서인지 확인하고, 내부 협업 기준은 `CODEX_NEXT_PROMPT.md`, `docs\WORK_TRACKING.md`, `docs\STABLE_VERIFIED_AREAS.md`에만 남깁니다.
 
+## 2026-07-03 license attribution hardening
+
+- 점검 결과:
+  - MIT License는 상업적 사용을 허용하지만, 복사/배포 시 저작권 및 라이선스 고지를 유지해야 합니다.
+  - README에 라이선스 섹션은 있었지만, NOTICE와 패키지 메타데이터 쪽 고지 유지 장치가 부족했습니다.
+- 수정 내용:
+  - `NOTICE` 파일을 추가해 저작권자와 고지 유지 조건을 별도로 남겼습니다.
+  - `Directory.Build.props`를 추가해 공통 `Authors`, `Company`, `Copyright`, `PackageLicenseExpression`, repository metadata를 설정했습니다.
+  - README 라이선스 섹션을 `라이선스와 저작권 고지`로 바꾸고 `LICENSE`, `NOTICE`, 프로젝트/패키지 메타데이터 고지 제거 금지 문구를 추가했습니다.
+  - 주요 AssemblyInfo 3곳에 `SPDX-License-Identifier: MIT` 헤더와 `Noah-Choi`/저작권 메타데이터를 반영했습니다.
+- 검증:
+  - `NOTICE`, `Directory.Build.props`, README, AssemblyInfo 파일에서 `최노아 (Noah-Choi)`, `MIT`, `SPDX-License-Identifier: MIT`, `PackageLicenseExpression` 고지가 남는지 확인했습니다.
+  - `dotnet build .\MvcVisionSystem.sln -c Debug -p:Platform=x64 --no-restore`로 공통 props 추가가 빌드를 깨지 않는지 확인했습니다.
+  - `git diff --check`로 공백 오류가 없는지 확인했습니다.
+- 다음 작업:
+  - 이후 공개 배포용 패키지를 만들 때 NuGet/릴리스 산출물 안에 `LICENSE`와 `NOTICE`가 함께 포함되는지 별도 패키징 검증을 추가합니다.
+
 ## 보류/제외
 
 - C# 앱 안에 YOLO 학습 로직을 직접 넣지 않습니다.
