@@ -1,4 +1,4 @@
-﻿# Work Tracking
+# Work Tracking
 
 Last updated: 2026-07-03
 
@@ -970,7 +970,7 @@ Last updated: 2026-07-03
    - `ScreenCaptureService`는 WinForms `Screen` 대신 Win32 `GetSystemMetrics`로 primary screen 크기를 조회합니다.
    - `FormScreenPlacement.cs`를 삭제했습니다.
    - `CViewer`의 RJControls/FontAwesome 전용 드롭다운 메뉴를 기본 `ContextMenuStrip`/`ToolStripMenuItem`으로 바꿨습니다.
-   - `MvcVisionSystem.csproj`와 `MvcVisionSystem.sln`에서 `RJControls`, `OpenVisionLab.MessageBox`, `OpenVisionLab.Controls.Init`, `FontAwesome.Sharp` 참조를 제거했습니다.
+   - `MvcVisionSystem.csproj`와 `OpenVisionLab.LabelingStudio.sln`에서 `RJControls`, `OpenVisionLab.MessageBox`, `OpenVisionLab.Controls.Init`, `FontAwesome.Sharp` 참조를 제거했습니다.
    - 과거 `Library\RJControls`, `Library\MvcVisionSystem.Controls.Init`에 남아 있던 빌드 산출물 폴더를 삭제했습니다.
    - 회귀 방지를 위해 프로젝트/솔루션/공통 팝업/뷰어 메뉴에 레거시 보조 라이브러리 이름이 다시 들어오지 않는지 검사하는 테스트를 추가했습니다.
    - 빌드 로그는 `artifacts\logs\build-20260621-wpf-remove-legacy-winforms-libs-v1.log`입니다.
@@ -2608,7 +2608,7 @@ Last updated: 2026-07-03
 - Added a reusable WPF message dialog library project at `OpenVisionLab\Library\OpenVisionLab.Wpf.MessageDialogs`.
 - The library contains a WPF `UserControl`, host `Window`, result/buttons/kind options, and a static `WpfMessageDialog` service so other WPF projects can reuse the same dialog without depending on the legacy WinForms `OpenVisionLab.MessageBox`.
 - Updated template matching first-use guidance to use `WpfMessageDialog.ShowInfo` through the shell host adapter. The workflow text remains owned by `WpfTemplateMatchingAutoLabelViewModel`.
-- Added the new library project to `MvcVisionSystem.sln` and referenced it from `MvcVisionSystem.csproj`.
+- Added the new library project to `OpenVisionLab.LabelingStudio.sln` and referenced it from `MvcVisionSystem.csproj`.
 - Verified:
   - `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
   - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false` passed.
@@ -6826,10 +6826,33 @@ Last updated: 2026-07-03
   - 주요 AssemblyInfo 3곳에 `SPDX-License-Identifier: MIT` 헤더와 `Noah-Choi`/저작권 메타데이터를 반영했습니다.
 - 검증:
   - `NOTICE`, `Directory.Build.props`, README, AssemblyInfo 파일에서 `최노아 (Noah-Choi)`, `MIT`, `SPDX-License-Identifier: MIT`, `PackageLicenseExpression` 고지가 남는지 확인했습니다.
-  - `dotnet build .\MvcVisionSystem.sln -c Debug -p:Platform=x64 --no-restore`로 공통 props 추가가 빌드를 깨지 않는지 확인했습니다.
+  - `dotnet build .\OpenVisionLab.LabelingStudio.sln -c Debug -p:Platform=x64 --no-restore`로 공통 props 추가가 빌드를 깨지 않는지 확인했습니다.
   - `git diff --check`로 공백 오류가 없는지 확인했습니다.
 - 다음 작업:
   - 이후 공개 배포용 패키지를 만들 때 NuGet/릴리스 산출물 안에 `LICENSE`와 `NOTICE`가 함께 포함되는지 별도 패키징 검증을 추가합니다.
+
+## 2026-07-03 project/product naming alignment
+
+- 점검 결과:
+  - 공개 제품명은 `OpenVisionLab Labeling Studio`인데 프로젝트/실행 파일 일부가 `MvcVisionSystem`으로 남아 있어 GitHub와 로컬 산출물에서 오래된 임시 이름처럼 보였습니다.
+  - 코드 네임스페이스까지 한 번에 바꾸면 WPF XAML `x:Class`와 기존 타입 참조 영향이 크므로, 이번 변경은 프로젝트 파일명/솔루션 표시명/어셈블리명/실행 파일명/문서와 스크립트 참조에 한정했습니다.
+- 수정 내용:
+  - `MvcVisionSystem.csproj`를 `OpenVisionLab.LabelingStudio.csproj`로 rename했습니다.
+  - `MvcVisionSystem.sln`을 `OpenVisionLab.LabelingStudio.sln`으로 rename했습니다.
+  - 솔루션의 프로젝트 표시명을 `OpenVisionLab.LabelingStudio`로 바꿨습니다.
+  - 앱 어셈블리/실행 파일명을 `OpenVisionLab.LabelingStudio.exe`/`.dll`로 바꿨습니다.
+  - Assembly title/product와 공통 package metadata는 `OpenVisionLab Labeling Studio`를 사용합니다.
+  - `config\labeling-runtime.example.json`, publish/first-run scripts, README build command, code-structure docs, recovery prompt, test fixture 경로를 새 이름으로 맞췄습니다.
+  - 이전 빌드에서 남은 무시된 로컬 산출물 `artifacts\run\Debug\MvcVisionSystem.*`는 혼동 방지를 위해 삭제했습니다.
+- 검증:
+  - `dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\rename-check\` 통과.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet build .\OpenVisionLab.LabelingStudio.sln -c Debug -p:Platform=x64 --no-restore` 통과.
+  - Focused gates `--wpf-dataset-setup-ui`, `--wpf-dataset-setup-request`, `--wpf-single-detection-path`, `--wpf-inference-status-presentation`, `--wpf-labeling-shell`, `--priority-workflow-docs`, `--mvvm-infra` 통과.
+  - `artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe` 생성 확인.
+  - `git diff --check` 통과.
+- 다음 작업:
+  - 내부 네임스페이스 `MvcVisionSystem` rename은 XAML/partial class 영향이 크므로 별도 큰 작업으로 분리합니다.
 
 ## 보류/제외
 

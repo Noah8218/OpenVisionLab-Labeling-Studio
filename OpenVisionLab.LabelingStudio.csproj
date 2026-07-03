@@ -8,7 +8,7 @@
     <SupportedOSPlatformVersion>7.0</SupportedOSPlatformVersion>
     <NoWarn>$(NoWarn);CA1416</NoWarn>
     <RootNamespace>MvcVisionSystem</RootNamespace>
-    <AssemblyName>MvcVisionSystem</AssemblyName>
+    <AssemblyName>OpenVisionLab.LabelingStudio</AssemblyName>
     <ApplicationIcon>lens.ico</ApplicationIcon>
     <Platforms>AnyCPU;x86;x64</Platforms>
     <LibraryNoahSourceRoot Condition="'$(LibraryNoahSourceRoot)' == ''">$(MSBuildProjectDirectory)\..\Library-Noah</LibraryNoahSourceRoot>

@@ -881,6 +881,8 @@ Model-center current-inspection reachability is covered by `--wpf-status-panels`
 
 2026-07-03 license attribution contract: MIT licensing should remain explicit in `LICENSE`, public README, `NOTICE`, package metadata, and core AssemblyInfo metadata. Commercial use is allowed, but copied or redistributed versions should retain the copyright notice, license text, NOTICE file, and project/package metadata attribution for `최노아 (Noah-Choi)`. Keep attribution metadata in `Directory.Build.props` and keep short SPDX headers in the core AssemblyInfo files when those files are touched. Covered by direct attribution search, Debug x64 build, and `git diff --check`.
 
+2026-07-03 product naming contract: public/product-facing project identity should be `OpenVisionLab Labeling Studio`; build and runtime artifact identity should be `OpenVisionLab.LabelingStudio`. Keep the app project file named `OpenVisionLab.LabelingStudio.csproj`, solution project display name `OpenVisionLab.LabelingStudio`, output files `OpenVisionLab.LabelingStudio.exe/.dll`, and runtime config/script/test references aligned. Do not treat the remaining `MvcVisionSystem` namespace as public product identity; namespace rename is a separate high-blast-radius XAML/partial-class migration. Covered by app project build, test project build, solution build, focused WPF gates, generated output check, and `git diff --check`.
+
 ## Refactor Rule
 
 When working near a protected path, prefer adding a small adapter or a new higher-level service instead of rewriting the verified hot path. If the hot path must change, document the reason in the final response and include the focused gate results.

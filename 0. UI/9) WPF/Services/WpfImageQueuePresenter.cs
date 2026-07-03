@@ -16,6 +16,21 @@ namespace MvcVisionSystem
             return $"{label} {(count > 99 ? "99+" : Math.Max(0, count).ToString(CultureInfo.InvariantCulture))}";
         }
 
+        public static string BuildOpenSelectionFailureMessage(
+            string searchText,
+            int visibleCount,
+            int searchMatchCount,
+            string gridSelection,
+            string viewModelSelection)
+        {
+            return $"열 이미지를 선택하세요. 검색='{(searchText ?? string.Empty).Trim()}' 표시={FormatLimitedQueueCount(visibleCount)} 검색일치={FormatLimitedQueueCount(searchMatchCount)} 선택={FormatSelection(gridSelection)} VM={FormatSelection(viewModelSelection)}";
+        }
+
+        public static string FormatLimitedQueueCount(int count)
+        {
+            return count >= 3 ? "3+" : Math.Max(0, count).ToString(CultureInfo.InvariantCulture);
+        }
+
         public static string BuildReviewCountSummary(IEnumerable<WpfImageQueueItem> items)
         {
             var queueItems = (items ?? Array.Empty<WpfImageQueueItem>())
@@ -58,6 +73,11 @@ namespace MvcVisionSystem
             }
 
             return parts.Count == 0 ? string.Empty : " / " + string.Join(" / ", parts);
+        }
+
+        private static string FormatSelection(string selection)
+        {
+            return string.IsNullOrWhiteSpace(selection) ? "-" : selection.Trim();
         }
 
         public static string FormatLabelStatus(string labelText)

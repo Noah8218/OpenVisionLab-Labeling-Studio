@@ -11,7 +11,7 @@ $ErrorActionPreference = "Stop"
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptRoot
-$projectPath = Join-Path $repoRoot "MvcVisionSystem.csproj"
+$projectPath = Join-Path $repoRoot "OpenVisionLab.LabelingStudio.csproj"
 $publishDir = Join-Path $repoRoot "artifacts\publish\$Configuration\$Runtime"
 
 $resolvedRepoRoot = (Resolve-Path -LiteralPath $repoRoot).Path
@@ -78,8 +78,8 @@ foreach ($pattern in $forbiddenPatterns) {
 }
 
 $requiredFiles = @(
-    "MvcVisionSystem.exe",
-    "MvcVisionSystem.dll",
+    "OpenVisionLab.LabelingStudio.exe",
+    "OpenVisionLab.LabelingStudio.dll",
     "log4net.config",
     "OpenVisionLab.Logging.dll",
     "OpenVisionLab.ImageCanvas.dll",

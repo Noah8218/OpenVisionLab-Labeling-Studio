@@ -51,7 +51,7 @@
 | 경로 | 역할 |
 | --- | --- |
 | `Program.cs` | 앱 시작점. 기본적으로 WPF 라벨링 셸을 실행합니다. |
-| `MvcVisionSystem.csproj` | .NET 8 Windows 데스크톱 앱 프로젝트. WPF가 기본이며 일부 OpenGL 호환 경계 때문에 WinForms도 켜져 있습니다. |
+| `OpenVisionLab.LabelingStudio.csproj` | .NET 8 Windows 데스크톱 앱 프로젝트. WPF가 기본이며 일부 OpenGL 호환 경계 때문에 WinForms도 켜져 있습니다. |
 | `0. UI/9) WPF` | 현재 메인 WPF UI, ViewModel, UI 전용 service, shell partial 파일. |
 | `1. Core` | 전역 데이터, 레시피/프로젝트 설정, display layer 상태, 라벨링/검출 application service. |
 | `2. Common` | 공용 유틸리티, 로그/메시지 어댑터 등 앱 공통 기능. |

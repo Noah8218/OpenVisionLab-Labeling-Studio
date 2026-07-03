@@ -194,6 +194,7 @@
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
                                             <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
                                         </Grid.RowDefinitions>
                                         <TextBlock Text="{Binding DisplayName}"
                                                    Foreground="{DynamicResource PrimaryTextBrush}"
@@ -211,7 +212,7 @@
                                         <ui:Button x:Name="RuntimeProfileActionButton"
                                                    AutomationProperties.AutomationId="RuntimeProfileActionButton"
                                                    Grid.Column="2"
-                                                   Grid.RowSpan="3"
+                                                   Grid.RowSpan="4"
                                                    Style="{StaticResource YoloRuntimeProfileActionButtonStyle}"
                                                    Content="{Binding PrimaryActionText}"
                                                    Command="{Binding DataContext.RuntimeProfileActionCommand, RelativeSource={RelativeSource AncestorType=ItemsControl}}"
@@ -232,7 +233,18 @@
                                                    FontSize="10"
                                                    TextWrapping="Wrap"
                                                    Margin="0,3,0,0" />
-                                        <TextBlock Grid.Row="2"
+                                        <TextBlock x:Name="RuntimeProfileCapabilityText"
+                                                   AutomationProperties.AutomationId="RuntimeProfileCapabilityText"
+                                                   Grid.Row="2"
+                                                   Text="{Binding CapabilityText}"
+                                                   Grid.ColumnSpan="2"
+                                                   Foreground="{DynamicResource AccentBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="10"
+                                                   FontWeight="SemiBold"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,3,72,0" />
+                                        <TextBlock Grid.Row="3"
                                                    Grid.Column="1"
                                                    Text="{Binding NextActionText}"
                                                    Foreground="{DynamicResource DisabledTextBrush}"

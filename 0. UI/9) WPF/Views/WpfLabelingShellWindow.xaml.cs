@@ -58,6 +58,7 @@ namespace MvcVisionSystem
         private readonly YoloImageReviewStatusService imageReviewStatus = new YoloImageReviewStatusService();
         private int queuedActiveImageQueueStatusRefreshVersion;
         private readonly WpfImageQueueSelectionService imageQueueSelectionService = new WpfImageQueueSelectionService();
+        private readonly WpfDatasetImageRootResolver datasetImageRootResolver = new WpfDatasetImageRootResolver();
         private readonly WpfImageDecodeCacheService imageDecodeCacheService = new WpfImageDecodeCacheService();
         private readonly WpfImageDecodeService imageDecodeService = new WpfImageDecodeService();
         private readonly WpfImageDecodePreloadService imageDecodePreloadService = new WpfImageDecodePreloadService();
@@ -89,6 +90,9 @@ namespace MvcVisionSystem
         private readonly WpfImageLoadPresentationService imageLoadPresentationService = new WpfImageLoadPresentationService();
         private readonly WpfObjectReviewPresentationService objectReviewPresentationService = new WpfObjectReviewPresentationService();
         private readonly WpfFileDialogService fileDialogService = new WpfFileDialogService();
+        private readonly WpfDatasetSetupPathService datasetSetupPathService = new WpfDatasetSetupPathService();
+        private readonly WpfDatasetSetupDataService datasetSetupDataService = new WpfDatasetSetupDataService();
+        private readonly WpfDatasetSetupPresentationService datasetSetupPresentationService = new WpfDatasetSetupPresentationService();
         private readonly WpfTrainingWeightsService trainingWeightsService = new WpfTrainingWeightsService();
         private readonly WpfModelComparisonReviewService modelComparisonReviewService = new WpfModelComparisonReviewService();
         private readonly WpfModelComparisonRunService modelComparisonRunService = new WpfModelComparisonRunService();

@@ -12,7 +12,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\MvcVisionSystem.csproj" />
+    <ProjectReference Include="..\..\OpenVisionLab.LabelingStudio.csproj" />
     <Reference Include="OpenVisionLab.DrawObject" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\DrawObject\RectangleDrawObject.cs')">
       <HintPath>..\..\dll\OpenVisionLab.DrawObject.dll</HintPath>
       <Private>True</Private>

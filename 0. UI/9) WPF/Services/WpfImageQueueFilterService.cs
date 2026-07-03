@@ -30,6 +30,46 @@ namespace MvcVisionSystem
                 .Count(item => item != null && MatchesFilter(item, filter));
         }
 
+        public static WpfImageQueueItem FindSingleItem(IEnumerable<WpfImageQueueItem> items)
+        {
+            List<WpfImageQueueItem> matches = (items ?? Array.Empty<WpfImageQueueItem>())
+                .Where(item => item != null)
+                .Take(2)
+                .ToList();
+            return matches.Count == 1 ? matches[0] : null;
+        }
+
+        public static WpfImageQueueItem FindSingleSearchMatch(
+            IEnumerable<WpfImageQueueItem> items,
+            string searchText,
+            WpfImageQueueFilter filter)
+        {
+            if (string.IsNullOrWhiteSpace(searchText))
+            {
+                return null;
+            }
+
+            return FindSingleItem((items ?? Array.Empty<WpfImageQueueItem>())
+                .Where(item => ShouldShow(item, searchText, filter)));
+        }
+
+        public static int CountSearchMatches(
+            IEnumerable<WpfImageQueueItem> items,
+            string searchText,
+            WpfImageQueueFilter filter,
+            int limit)
+        {
+            if (string.IsNullOrWhiteSpace(searchText))
+            {
+                return 0;
+            }
+
+            return (items ?? Array.Empty<WpfImageQueueItem>())
+                .Where(item => ShouldShow(item, searchText, filter))
+                .Take(Math.Max(1, limit))
+                .Count();
+        }
+
         public static string BuildDatasetStatusText(
             IEnumerable<WpfImageQueueItem> items,
             int visibleCount,

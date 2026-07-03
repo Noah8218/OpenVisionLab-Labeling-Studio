@@ -3,7 +3,7 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 17
 VisualStudioVersion = 17.3.32811.315
 MinimumVisualStudioVersion = 10.0.40219.1
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MvcVisionSystem", "MvcVisionSystem.csproj", "{8A4C00DB-1734-4DD1-BF8C-C6C4DFFA571F}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "OpenVisionLab.LabelingStudio", "OpenVisionLab.LabelingStudio.csproj", "{8A4C00DB-1734-4DD1-BF8C-C6C4DFFA571F}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{F7CBBBD7-49BB-4BF3-9510-34E73594A945}"
 EndProject

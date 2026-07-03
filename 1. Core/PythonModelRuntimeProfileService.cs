@@ -10,6 +10,7 @@ namespace MvcVisionSystem._1._Core
             string displayName,
             string runtimeFamilyText,
             string statusText,
+            string capabilityText,
             string detailText,
             string nextActionText,
             string primaryActionText,
@@ -22,6 +23,7 @@ namespace MvcVisionSystem._1._Core
             DisplayName = displayName ?? string.Empty;
             RuntimeFamilyText = runtimeFamilyText ?? string.Empty;
             StatusText = statusText ?? string.Empty;
+            CapabilityText = capabilityText ?? string.Empty;
             DetailText = detailText ?? string.Empty;
             NextActionText = nextActionText ?? string.Empty;
             PrimaryActionText = primaryActionText ?? string.Empty;
@@ -35,6 +37,7 @@ namespace MvcVisionSystem._1._Core
         public string DisplayName { get; }
         public string RuntimeFamilyText { get; }
         public string StatusText { get; }
+        public string CapabilityText { get; }
         public string DetailText { get; }
         public string NextActionText { get; }
         public string PrimaryActionText { get; }
@@ -73,6 +76,7 @@ namespace MvcVisionSystem._1._Core
                     FormatDisplayName(engine),
                     FormatRuntimeFamily(engine),
                     FormatSelectedStatus(selectedState),
+                    FormatCurrentCapability(selectedState?.CanRunTraining == true, selectedState?.CanRunInference == true),
                     selectedState?.DetailText ?? string.Empty,
                     selectedState?.NextActionText ?? string.Empty,
                     FormatSelectedActionText(selectedState),
@@ -121,6 +125,7 @@ namespace MvcVisionSystem._1._Core
                 FormatDisplayName(engine),
                 FormatRuntimeFamily(engine),
                 statusText,
+                FormatProfileCapability(engine),
                 detailText,
                 nextActionText,
                 primaryActionText,
@@ -165,6 +170,35 @@ namespace MvcVisionSystem._1._Core
 
             return "\uC120\uD0DD\uB428 / \uC124\uC815 \uD655\uC778 \uD544\uC694";
         }
+
+        private static string FormatCurrentCapability(bool canTrain, bool canInspect)
+        {
+            if (canTrain && canInspect)
+            {
+                return "\uC9C0\uC6D0 \uBC94\uC704: \uD559\uC2B5 + \uD604\uC7AC \uAC80\uC0AC";
+            }
+
+            if (canInspect)
+            {
+                return "\uC9C0\uC6D0 \uBC94\uC704: \uD604\uC7AC \uAC80\uC0AC / \uD559\uC2B5 \uBBF8\uC9C0\uC6D0";
+            }
+
+            if (canTrain)
+            {
+                return "\uC9C0\uC6D0 \uBC94\uC704: \uD559\uC2B5 / \uAC80\uC0AC \uBAA8\uB378 \uD544\uC694";
+            }
+
+            return "\uC9C0\uC6D0 \uBC94\uC704: \uC5F0\uACB0 \uD6C4 \uD655\uC778";
+        }
+
+        private static string FormatProfileCapability(string engine)
+            => PythonModelSettings.NormalizeModelEngine(engine) switch
+            {
+                PythonModelSettings.EngineYoloV8 => "\uC9C0\uC6D0 \uBC94\uC704: \uD604\uC7AC \uAC80\uC0AC \uC6B0\uC120 / \uD559\uC2B5\uC740 worker \uC5F0\uACB0 \uD544\uC694",
+                PythonModelSettings.EngineYolo11 => "\uC9C0\uC6D0 \uBC94\uC704: \uD604\uC7AC \uAC80\uC0AC \uC6B0\uC120 / \uD559\uC2B5\uC740 worker \uC5F0\uACB0 \uD544\uC694",
+                PythonModelSettings.EngineOnnx => "\uC9C0\uC6D0 \uBC94\uC704: \uCD94\uB860 \uC804\uC6A9",
+                _ => "\uC9C0\uC6D0 \uBC94\uC704: \uD559\uC2B5 + \uD604\uC7AC \uAC80\uC0AC"
+            };
 
         private static string FormatDisplayName(string engine)
             => PythonModelSettings.NormalizeModelEngine(engine) switch

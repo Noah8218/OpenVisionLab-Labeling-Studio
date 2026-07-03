@@ -6,6 +6,15 @@ using MvcVisionSystem.Yolo;
 
 namespace MvcVisionSystem
 {
+    public sealed class WpfImageQueueOpenSelection
+    {
+        public WpfImageQueueItem Item { get; set; }
+
+        public string OpenImagePath { get; set; } = string.Empty;
+
+        public bool CanOpen => Item != null && !string.IsNullOrWhiteSpace(OpenImagePath);
+    }
+
     public sealed class WpfImageQueueSelectionService
     {
         private static readonly string[] ImageExtensions = { ".bmp", ".gif", ".jpg", ".jpeg", ".png", ".tif", ".tiff" };
@@ -74,6 +83,23 @@ namespace MvcVisionSystem
             }
 
             return false;
+        }
+
+        public WpfImageQueueOpenSelection ResolveOpenSelection(IEnumerable<WpfImageQueueItem> candidates, CData data)
+        {
+            foreach (WpfImageQueueItem candidate in candidates ?? Array.Empty<WpfImageQueueItem>())
+            {
+                if (TryResolveOpenImagePath(candidate, data, out string imagePath))
+                {
+                    return new WpfImageQueueOpenSelection
+                    {
+                        Item = candidate,
+                        OpenImagePath = imagePath
+                    };
+                }
+            }
+
+            return new WpfImageQueueOpenSelection();
         }
 
         private IEnumerable<string> EnumerateSavedDatasetImageCandidates(WpfImageQueueItem item, CData data)

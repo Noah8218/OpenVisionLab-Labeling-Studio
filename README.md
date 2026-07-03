@@ -117,7 +117,7 @@ HTML 파일 하나만 다른 PC에 복사해서 보려면 이미지가 포함된
 Debug 실행:
 
 ```powershell
-dotnet build .\MvcVisionSystem.sln -c Debug -p:Platform=x64
+dotnet build .\OpenVisionLab.LabelingStudio.sln -c Debug -p:Platform=x64
 .\scripts\start-labeling-workbench.ps1 -AppMode Debug
 ```
 

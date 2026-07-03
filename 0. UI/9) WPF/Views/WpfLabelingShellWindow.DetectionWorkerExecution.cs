@@ -33,9 +33,9 @@ namespace MvcVisionSystem
                 return new YoloWorkerSmokeTestResult
                 {
                     Succeeded = false,
-                    Summary = "검출 이미지를 찾지 못했습니다.",
+                    Summary = WpfInferenceStatusPresentationService.BuildWorkerImageMissingSummary(),
                     ImagePath = imagePath ?? string.Empty,
-                    Errors = new[] { $"검출 이미지를 찾지 못했습니다: {imagePath}" }
+                    Errors = new[] { WpfInferenceStatusPresentationService.BuildWorkerImageMissingError(imagePath) }
                 };
             }
 
@@ -49,9 +49,9 @@ namespace MvcVisionSystem
                 return new YoloWorkerSmokeTestResult
                 {
                     Succeeded = false,
-                    Summary = "검출 이미지를 로드하지 못했습니다.",
+                    Summary = WpfInferenceStatusPresentationService.BuildWorkerImageLoadFailureSummary(),
                     ImagePath = imagePath,
-                    Errors = new[] { $"검출 이미지를 로드하지 못했습니다: {imagePath}" }
+                    Errors = new[] { WpfInferenceStatusPresentationService.BuildWorkerImageLoadFailureError(imagePath) }
                 };
             }
 
@@ -73,21 +73,17 @@ namespace MvcVisionSystem
             int timeoutMilliseconds = connectTimeoutMilliseconds > 0
                 ? connectTimeoutMilliseconds
                 : GetWorkerConnectTimeoutMilliseconds();
-            SetGlobalInferenceStatus(
-                applyToCanvas
-                    ? "현재 이미지 추론 준비 중"
-                    : $"일괄 추론 준비: {Path.GetFileName(imagePath)}",
-                isBusy: true);
+            SetGlobalInferenceStatus(WpfInferenceStatusPresentationService.BuildWorkerPreparingInferenceStatus(applyToCanvas, imagePath), isBusy: true);
             SetPythonStatus("\uCD94\uB860: \uC5F0\uACB0 \uD655\uC778 \uC911");
-            SetYoloCommandStatus("\uCD94\uB860 \uC2E4\uD589\uAE30 \uC900\uBE44 \uC911...", isBusy: true);
+            SetYoloCommandStatus(WpfInferenceStatusPresentationService.BuildWorkerPreparingCommandStatus(), isBusy: true);
             bool ready = workerReadyAlreadyChecked
                 ? true
                 : await global.EnsurePythonModelClientReadyAsync(timeoutMilliseconds).ConfigureAwait(true);
             if (!ready)
             {
-                SetGlobalInferenceStatus("\uC2E4\uD328: \uCD94\uB860 \uC5F0\uACB0 \uC2E4\uD328", isBusy: false, isWarning: true);
+                SetGlobalInferenceStatus(WpfInferenceStatusPresentationService.BuildWorkerConnectionFailureInferenceStatus(), isBusy: false, isWarning: true);
                 SetPythonStatus("\uCD94\uB860: \uC5F0\uACB0 \uC2E4\uD328");
-                AppendLog($"\uCD94\uB860 \uC5F0\uACB0 \uC2E4\uD328: {FormatElapsed(stopwatch.Elapsed)}. \uBAA8\uB378 \uC124\uC815 \uB610\uB294 \uCD94\uB860 \uC2E4\uD589 \uC0C1\uD0DC\uB97C \uD655\uC778\uD558\uC138\uC694.");
+                AppendLog(WpfInferenceStatusPresentationService.BuildWorkerConnectionFailureLog(FormatElapsed(stopwatch.Elapsed)));
                 return new YoloWorkerSmokeTestResult
                 {
                     Succeeded = false,
@@ -104,14 +100,10 @@ namespace MvcVisionSystem
 
             try
             {
-                SetGlobalInferenceStatus(
-                    applyToCanvas
-                        ? "AI 추론 중"
-                        : $"일괄 추론 중: {Path.GetFileName(imagePath)}",
-                    isBusy: true);
+                SetGlobalInferenceStatus(WpfInferenceStatusPresentationService.BuildWorkerRunningInferenceStatus(applyToCanvas, imagePath), isBusy: true);
                 SetPythonStatus("\uCD94\uB860: \uC2E4\uD589 \uC911");
-                AppendLog($"\uCD94\uB860 \uC2DC\uC791: {Path.GetFileName(imagePath)} / \uBAA8\uB378 {modelSourceText}");
-                SetYoloCommandStatus("AI 추론 요청 중...", isBusy: true);
+                AppendLog(WpfInferenceStatusPresentationService.BuildWorkerStartLog(imagePath, modelSourceText));
+                SetYoloCommandStatus(WpfInferenceStatusPresentationService.BuildWorkerRequestCommandStatus(), isBusy: true);
                 bool started = applyToCanvas
                     ? global.DetectionWorkflow.TryStartCurrentImageDetection(
                         global.Data,
@@ -127,12 +119,12 @@ namespace MvcVisionSystem
                         () => true);
                 if (!started)
                 {
-                    SetGlobalInferenceStatus("\uC2E4\uD328: \uCD94\uB860 \uC694\uCCAD \uC2E4\uD328", isBusy: false, isWarning: true);
+                    SetGlobalInferenceStatus(WpfInferenceStatusPresentationService.BuildWorkerRequestFailureInferenceStatus(), isBusy: false, isWarning: true);
                     SetPythonStatus("\uCD94\uB860: \uC694\uCCAD \uC2E4\uD328");
                     return new YoloWorkerSmokeTestResult
                     {
                         Succeeded = false,
-                        Summary = FirstNonEmpty(global.GetPythonCommunicationStatusSnapshot().LastError, "\uCD94\uB860 \uAC80\uCD9C \uC694\uCCAD\uC744 \uBCF4\uB0B4\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4."),
+                        Summary = WpfInferenceStatusPresentationService.BuildWorkerRequestFailureSummary(global.GetPythonCommunicationStatusSnapshot().LastError),
                         ImagePath = imagePath
                     };
                 }
@@ -140,13 +132,14 @@ namespace MvcVisionSystem
                 DetectionCandidatesUpdatedEventArgs completed = await completionWaiter.Completion.ConfigureAwait(true);
                 if (completed.Reason == DetectionCandidateUpdateReason.RequestTimedOut)
                 {
-                    SetGlobalInferenceStatus("\uC2E4\uD328: \uCD94\uB860 \uC2DC\uAC04 \uCD08\uACFC", isBusy: false, isWarning: true);
+                    SetGlobalInferenceStatus(WpfInferenceStatusPresentationService.BuildWorkerTimedOutInferenceStatus(), isBusy: false, isWarning: true);
+                    string timeoutSummary = WpfInferenceStatusPresentationService.BuildWorkerTimedOutSummary();
                     return new YoloWorkerSmokeTestResult
                     {
                         Succeeded = false,
-                        Summary = "\uCD94\uB860 \uAC80\uCD9C \uC2DC\uAC04 \uCD08\uACFC.",
+                        Summary = timeoutSummary,
                         ImagePath = imagePath,
-                        Errors = new[] { "\uCD94\uB860 \uAC80\uCD9C \uC2DC\uAC04 \uCD08\uACFC." }
+                        Errors = new[] { timeoutSummary }
                     };
                 }
 
@@ -158,7 +151,7 @@ namespace MvcVisionSystem
                 var result = new YoloWorkerSmokeTestResult
                 {
                     Succeeded = true,
-                    Summary = $"\uCD94\uB860 \uC644\uB8CC. \uBAA8\uB378:{modelSourceText} / \uD6C4\uBCF4:{candidates.Count}",
+                    Summary = WpfInferenceStatusPresentationService.BuildWorkerSuccessSummary(modelSourceText, candidates.Count),
                     ImagePath = imagePath,
                     CandidateCount = candidates.Count,
                     FirstClassName = first?.ClassName ?? string.Empty,
@@ -169,21 +162,22 @@ namespace MvcVisionSystem
                 if (applyToCanvas)
                 {
                     ApplyDetectionCandidates(result.Candidates, result.Succeeded);
-                    SetPythonStatus($"\uCD94\uB860: \uC644\uB8CC  \uBAA8\uB378 {modelSourceText} / \uD6C4\uBCF4 {result.CandidateCount}");
+                    SetPythonStatus(WpfInferenceStatusPresentationService.BuildWorkerPythonCompletedStatus(modelSourceText, result.CandidateCount));
                 }
 
-                AppendLog($"\uCD94\uB860 \uC2DC\uAC04: {FormatElapsed(stopwatch.Elapsed)} / \uBAA8\uB378 {modelSourceText}");
+                AppendLog(WpfInferenceStatusPresentationService.BuildWorkerElapsedLog(FormatElapsed(stopwatch.Elapsed), modelSourceText));
                 return result;
             }
             catch (OperationCanceledException)
             {
-                SetGlobalInferenceStatus("추론 취소", isBusy: false, isWarning: true);
+                SetGlobalInferenceStatus(WpfInferenceStatusPresentationService.BuildWorkerCanceledInferenceStatus(), isBusy: false, isWarning: true);
+                string canceledSummary = WpfInferenceStatusPresentationService.BuildWorkerCanceledSummary();
                 return new YoloWorkerSmokeTestResult
                 {
                     Succeeded = false,
-                    Summary = "\uCD94\uB860 \uAC80\uCD9C \uCDE8\uC18C.",
+                    Summary = canceledSummary,
                     ImagePath = imagePath,
-                    Errors = new[] { "\uCD94\uB860 \uAC80\uCD9C \uCDE8\uC18C." }
+                    Errors = new[] { canceledSummary }
                 };
             }
         }

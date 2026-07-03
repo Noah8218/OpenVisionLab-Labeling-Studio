@@ -2424,7 +2424,7 @@ namespace MvcVisionSystem
                 switch (GetViewerMenuCommand(e.ClickedItem))
                 {
                     case ViewerMenuCommand.ImageLoad:
-                        string imagePath = CUtil.LoadImageFilePath();
+                        string imagePath = PromptLoadImageFilePath();
                         if (!string.IsNullOrEmpty(imagePath))
                         {
                             using (Bitmap image = AppImageLoader.LoadBitmap(imagePath))
@@ -2437,7 +2437,7 @@ namespace MvcVisionSystem
                     case ViewerMenuCommand.ImageSave:
                         if (_currentImage != null && _currentImage.Width != 10 && _currentImage.Height != 10)
                         {
-                            imagePath = CUtil.SaveImageFilePath();
+                            imagePath = PromptSaveImageFilePath();
                             if (!string.IsNullOrEmpty(imagePath)) { _currentImage.Save(imagePath); }
                         }
                         break;
@@ -2462,6 +2462,33 @@ namespace MvcVisionSystem
                 AppLog.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name} Exception ==> {ex.Message}");
             }
             _ExcuteCount++;
+        }
+
+        private static string PromptLoadImageFilePath()
+        {
+            using OpenFileDialog dialog = new OpenFileDialog
+            {
+                Title = "이미지 열기",
+                Filter = "Image files (*.bmp;*.jpg;*.jpeg;*.png;*.gif;*.tif;*.tiff)|*.bmp;*.jpg;*.jpeg;*.png;*.gif;*.tif;*.tiff|All files (*.*)|*.*",
+                CheckFileExists = true,
+                Multiselect = false
+            };
+
+            return dialog.ShowDialog() == DialogResult.OK ? dialog.FileName : string.Empty;
+        }
+
+        private static string PromptSaveImageFilePath()
+        {
+            using SaveFileDialog dialog = new SaveFileDialog
+            {
+                Title = "이미지 저장",
+                Filter = "PNG Image (*.png)|*.png|JPEG Image (*.jpg;*.jpeg)|*.jpg;*.jpeg|Bitmap Image (*.bmp)|*.bmp|TIFF Image (*.tif;*.tiff)|*.tif;*.tiff|All files (*.*)|*.*",
+                DefaultExt = "png",
+                AddExtension = true,
+                OverwritePrompt = true
+            };
+
+            return dialog.ShowDialog() == DialogResult.OK ? dialog.FileName : string.Empty;
         }
 
         private void ConfigureReadableWorkbenchContextMenu()

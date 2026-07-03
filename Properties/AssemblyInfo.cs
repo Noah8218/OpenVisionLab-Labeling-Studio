@@ -8,11 +8,11 @@ using System.Runtime.InteropServices;
 // 어셈블리에 대한 일반 정보는 다음 특성 집합을 통해 
 // 제어됩니다. 어셈블리와 관련된 정보를 수정하려면
 // 이러한 특성 값을 변경하세요.
-[assembly: AssemblyTitle("MvcVisionSystem")]
+[assembly: AssemblyTitle("OpenVisionLab Labeling Studio")]
 [assembly: AssemblyDescription("")]
 [assembly: AssemblyConfiguration("")]
 [assembly: AssemblyCompany("Noah-Choi")]
-[assembly: AssemblyProduct("MvcVisionSystem")]
+[assembly: AssemblyProduct("OpenVisionLab Labeling Studio")]
 [assembly: AssemblyCopyright("Copyright (c) 2026 최노아 (Noah-Choi)")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]

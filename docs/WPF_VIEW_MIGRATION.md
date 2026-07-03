@@ -13,7 +13,7 @@ The labeling tool should move from WinForms to WPF completely. The work can take
 ## Current Start
 
 - `WpfLabelingShellWindow` is now the default app shell.
-- Run `MvcVisionSystem.exe` normally to open the WPF shell.
+- Run `OpenVisionLab.LabelingStudio.exe` normally to open the WPF shell.
 - `FormMainFrame`, `FormTeachingVision`, `FormImageList`, `FormClassList`, `FormTrainingPanel`, `FormDetectionReviewPanel`, `FormLog`, `FormLayerDisplay`, `FormVision_Yolov5ParamSetting`, `FormVision_ClassMenu`, and `FormVision_NewPanel` have been removed.
 - `CDisplayManager` now stores `DisplayLayerDocument` state instead of owning WinForms document windows.
 - The WPF shell now resolves the configured YOLO sample image on startup, loads it into the WPF ROI canvas, fills the WPF image queue, and keeps `CGlobal` image state in sync.

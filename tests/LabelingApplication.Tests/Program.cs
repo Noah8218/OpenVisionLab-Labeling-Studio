@@ -330,6 +330,16 @@ internal static class Program
             return RunSingleSmoke("WPF image queue presents row status with icons", TestWpfImageQueueStatusPresentation);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--wpf-image-queue-selection-service", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF image queue selection service owns queue state decisions", TestWpfImageQueueSelectionService);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--wpf-image-queue-click-load-path", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF image queue click uses the lightweight load path", TestWpfImageQueueClickUsesLightweightLoadPath);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--yolo-image-review-status", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("YOLO image review status tracks labels, candidates, and next unlabeled image", TestYoloImageReviewStatusService);
@@ -1966,7 +1976,7 @@ internal static class Program
             string exePath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--exe",
-                Path.Combine(root, "artifacts", "run", "Debug", "MvcVisionSystem.exe")));
+                Path.Combine(root, "artifacts", "run", "Debug", "OpenVisionLab.LabelingStudio.exe")));
             string outputPath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--output",
@@ -2010,7 +2020,7 @@ internal static class Program
             string exePath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--exe",
-                Path.Combine(root, "artifacts", "run", "Debug", "MvcVisionSystem.exe")));
+                Path.Combine(root, "artifacts", "run", "Debug", "OpenVisionLab.LabelingStudio.exe")));
             string outputPath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--output",
@@ -2046,7 +2056,7 @@ internal static class Program
             string exePath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--exe",
-                Path.Combine(root, "artifacts", "run", "Debug", "MvcVisionSystem.exe")));
+                Path.Combine(root, "artifacts", "run", "Debug", "OpenVisionLab.LabelingStudio.exe")));
             string outputPath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--output",
@@ -2088,7 +2098,7 @@ internal static class Program
             string exePath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--exe",
-                Path.Combine(root, "artifacts", "run", "Debug", "MvcVisionSystem.exe")));
+                Path.Combine(root, "artifacts", "run", "Debug", "OpenVisionLab.LabelingStudio.exe")));
             string outputPath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--output",
@@ -2128,7 +2138,7 @@ internal static class Program
             string exePath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--exe",
-                Path.Combine(root, "artifacts", "run", "Debug", "MvcVisionSystem.exe")));
+                Path.Combine(root, "artifacts", "run", "Debug", "OpenVisionLab.LabelingStudio.exe")));
             string outputPath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--output",
@@ -2162,7 +2172,7 @@ internal static class Program
             string exePath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--exe",
-                Path.Combine(root, "artifacts", "run", "Debug", "MvcVisionSystem.exe")));
+                Path.Combine(root, "artifacts", "run", "Debug", "OpenVisionLab.LabelingStudio.exe")));
             string outputPath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--output",
@@ -2197,7 +2207,7 @@ internal static class Program
             string exePath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--exe",
-                Path.Combine(root, "artifacts", "run", "Debug", "MvcVisionSystem.exe")));
+                Path.Combine(root, "artifacts", "run", "Debug", "OpenVisionLab.LabelingStudio.exe")));
             string outputPath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--output",
@@ -2236,7 +2246,7 @@ internal static class Program
             string exePath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--exe",
-                Path.Combine(root, "artifacts", "run", "Debug", "MvcVisionSystem.exe")));
+                Path.Combine(root, "artifacts", "run", "Debug", "OpenVisionLab.LabelingStudio.exe")));
             string outputPath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--output",
@@ -2291,7 +2301,7 @@ internal static class Program
             string exePath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--exe",
-                Path.Combine(root, "artifacts", "run", "Debug", "MvcVisionSystem.exe")));
+                Path.Combine(root, "artifacts", "run", "Debug", "OpenVisionLab.LabelingStudio.exe")));
             string outputPath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--output",
@@ -2340,7 +2350,7 @@ internal static class Program
             string exePath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--exe",
-                Path.Combine(root, "artifacts", "run", "Debug", "MvcVisionSystem.exe")));
+                Path.Combine(root, "artifacts", "run", "Debug", "OpenVisionLab.LabelingStudio.exe")));
             string outputPath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--output",
@@ -11232,8 +11242,8 @@ internal static class Program
         AssertTrue(noCandidateHost.LastGlobalStatus.Contains("\uCC3E\uC9C0 \uBABB\uD588", StringComparison.Ordinal), "registered template no-match result should explain that no target position was found");
         AssertTrue(noCandidateHost.LastGlobalIsWarning, "registered template no-match result should use the warning status style");
 
-        string projectSource = File.ReadAllText(Path.Combine(root, "MvcVisionSystem.csproj"));
-        string solutionSource = File.ReadAllText(Path.Combine(root, "MvcVisionSystem.sln"));
+        string projectSource = File.ReadAllText(Path.Combine(root, "OpenVisionLab.LabelingStudio.csproj"));
+        string solutionSource = File.ReadAllText(Path.Combine(root, "OpenVisionLab.LabelingStudio.sln"));
         string templateCommandsSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.TemplateMatchingCommands.cs"));
         string dialogControlPath = Path.Combine(root, "OpenVisionLab", "Library", "OpenVisionLab.Wpf.MessageDialogs", "WpfMessageDialogControl.xaml");
         AssertTrue(File.Exists(dialogControlPath), "template guide should use the reusable WPF message dialog UserControl project");
@@ -13654,11 +13664,17 @@ internal static class Program
             AssertTrue(selectedYoloV5.IsRuntimeConnected, "selected YOLOv5 runtime profile should report a connected runtime when paths exist");
             AssertTrue(selectedYoloV5.CanTrain, "connected YOLOv5 runtime profile should allow training");
             AssertTrue(selectedYoloV5.CanInspect, "connected YOLOv5 runtime profile should allow current inspection when weights exist");
+            AssertTrue(selectedYoloV5.CapabilityText.Contains("\uD559\uC2B5", StringComparison.Ordinal)
+                && selectedYoloV5.CapabilityText.Contains("\uD604\uC7AC \uAC80\uC0AC", StringComparison.Ordinal),
+                "YOLOv5 runtime profile should show its training/current-inspection support scope");
             AssertTrue(!string.IsNullOrWhiteSpace(selectedYoloV5.PrimaryActionText), "selected YOLOv5 runtime profile should expose a primary action label");
 
             PythonModelRuntimeProfile yolo11 = profiles.First(item => item.Engine == PythonModelSettings.EngineYolo11);
             AssertTrue(!yolo11.IsSelected, "YOLO11 runtime profile should not be selected while YOLOv5 is active");
             AssertTrue(yolo11.RuntimeFamilyText.Contains("Ultralytics", StringComparison.Ordinal), "YOLO11 runtime profile should identify the Ultralytics runtime family");
+            AssertTrue(yolo11.CapabilityText.Contains("\uD604\uC7AC \uAC80\uC0AC", StringComparison.Ordinal)
+                && yolo11.CapabilityText.Contains("worker", StringComparison.Ordinal),
+                "YOLO11 runtime profile should explain inspection-first support and training worker requirements");
             AssertTrue(yolo11.NextActionText.Contains("Ultralytics", StringComparison.Ordinal), "YOLO11 runtime profile should direct the operator to install or connect Ultralytics");
             AssertTrue(yolo11.PrimaryActionText.Contains("\uC5F0\uACB0", StringComparison.Ordinal), "unselected Ultralytics runtime profiles should expose a connect action");
 
@@ -13668,6 +13684,7 @@ internal static class Program
             AssertTrue(selectedYolo11.IsSelected, "YOLO11 runtime profile should become selected when the settings engine changes");
             AssertTrue(!selectedYolo11.CanTrain, "YOLO11 profile should not claim training is executable until the Ultralytics worker adapter is connected");
             AssertTrue(!selectedYolo11.CanInspect, "YOLO11 profile should not claim inspection is executable until the Ultralytics worker adapter is connected");
+            AssertTrue(selectedYolo11.CapabilityText.Contains("\uC5F0\uACB0 \uD6C4 \uD655\uC778", StringComparison.Ordinal), "selected disconnected YOLO11 profile should not claim model execution support before connection");
             AssertTrue(selectedYolo11.NextActionText.Contains("YOLO11", StringComparison.Ordinal), "selected YOLO11 profile should explain the required execution connection");
         }
         finally
@@ -19167,11 +19184,44 @@ internal static class Program
 
         string wizardViewModelSource = File.ReadAllText(wizardViewModelPath);
         string shellSource = ReadWpfLabelingShellWindowSources();
+        string datasetSetupPathServiceSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfDatasetSetupPathService.cs"));
+        string datasetSetupDataServiceSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfDatasetSetupDataService.cs"));
+        string datasetSetupPresentationServiceSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfDatasetSetupPresentationService.cs"));
         AssertTrue(wizardViewModelSource.Contains("WpfDatasetSetupRequest", StringComparison.Ordinal), "dataset setup wizard should build a request DTO instead of writing files");
         AssertTrue(wizardViewModelSource.Contains("TryBuildRequest", StringComparison.Ordinal), "dataset setup wizard should validate before create");
         AssertTrue(wizardViewModelSource.Contains("ParseClassNames", StringComparison.Ordinal), "dataset setup wizard should parse comma/newline class names");
         AssertTrue(shellSource.Contains("WpfDatasetSetupWizardWindow", StringComparison.Ordinal), "dataset setup command should open the guided wizard");
         AssertTrue(shellSource.Contains("ApplyDatasetSetupRequest", StringComparison.Ordinal), "dataset setup persistence should be isolated behind a request application method");
+        AssertTrue(shellSource.Contains("WpfDatasetSetupPathService", StringComparison.Ordinal), "dataset setup shell should delegate recipe/output path decisions to a service");
+        AssertTrue(shellSource.Contains("WpfDatasetSetupDataService", StringComparison.Ordinal), "dataset setup shell should delegate CData materialization to a service");
+        AssertTrue(shellSource.Contains("WpfDatasetSetupPresentationService", StringComparison.Ordinal), "dataset setup shell should delegate operator-facing status text to a service");
+        AssertTrue(datasetSetupPathServiceSource.Contains("ResolveRecipeName", StringComparison.Ordinal), "dataset setup path service should own recipe-name selection");
+        AssertTrue(datasetSetupPathServiceSource.Contains("TryFindDatasetUsingOutputRoot", StringComparison.Ordinal), "dataset setup path service should own output-root collision detection");
+        AssertTrue(datasetSetupDataServiceSource.Contains("ApplyOutputRootAndClasses", StringComparison.Ordinal), "dataset setup data service should own output-root and class materialization");
+        AssertTrue(datasetSetupPresentationServiceSource.Contains("BuildDuplicateOutputRootMessage", StringComparison.Ordinal), "dataset setup presentation service should own duplicate-folder guidance");
+        AssertTrue(datasetSetupPresentationServiceSource.Contains("BuildReadyStatus", StringComparison.Ordinal), "dataset setup presentation service should own ready status wording");
+        AssertTrue(datasetSetupPresentationServiceSource.Contains("BuildMissingImageRootStatus", StringComparison.Ordinal), "dataset setup presentation service should own missing-image-folder status wording");
+        AssertTrue(datasetSetupPresentationServiceSource.Contains("BuildMissingOutputRootStatus", StringComparison.Ordinal), "dataset setup presentation service should own missing-storage-folder status wording");
+        AssertTrue(!shellSource.Contains("private bool CanUseRecipeNameForNewDataset", StringComparison.Ordinal), "dataset setup shell should not own recipe-name availability checks");
+        AssertTrue(!shellSource.Contains("private string BuildUniqueDatasetSetupRecipeName", StringComparison.Ordinal), "dataset setup shell should not own unique recipe-name generation");
+        AssertTrue(!shellSource.Contains("private bool TryFindDatasetUsingOutputRoot", StringComparison.Ordinal), "dataset setup shell should not scan recipe configs for output-root collisions");
+        string applyDatasetSetupSource = FindMethodSourceBlock(shellSource, "private bool ApplyDatasetSetupRequest(WpfDatasetSetupRequest request)");
+        AssertTrue(applyDatasetSetupSource.Contains("datasetSetupDataService.ApplyOutputRootAndClasses", StringComparison.Ordinal),
+            "dataset setup apply should materialize output root and classes through the data service");
+        AssertTrue(applyDatasetSetupSource.Contains("datasetSetupPresentationService.BuildDuplicateOutputRootMessage", StringComparison.Ordinal),
+            "dataset setup apply should build duplicate output-root guidance through the presentation service");
+        AssertTrue(applyDatasetSetupSource.Contains("datasetSetupPresentationService.BuildReadyStatus", StringComparison.Ordinal),
+            "dataset setup apply should build final ready status through the presentation service");
+        AssertTrue(!applyDatasetSetupSource.Contains("ClassNamedList.Clear", StringComparison.Ordinal),
+            "dataset setup apply should not mutate the class catalog inline");
+        string clearQueueAfterDatasetSwitchSource = FindMethodSourceBlock(shellSource, "private void ClearImageQueueAfterDatasetSwitch(string imageRootPath)");
+        AssertTrue(clearQueueAfterDatasetSwitchSource.Contains("datasetSetupPresentationService.BuildMissingImageRootStatus", StringComparison.Ordinal),
+            "dataset switch should build missing-image-folder status through the presentation service");
+        string openDatasetRootFolderSource = FindMethodSourceBlock(shellSource, "private void ExecuteOpenDatasetRootFolderCommand()");
+        AssertTrue(openDatasetRootFolderSource.Contains("datasetSetupPresentationService.BuildMissingOutputRootStatus", StringComparison.Ordinal),
+            "dataset folder open should build missing-storage-folder status through the presentation service");
+        AssertTrue(openDatasetRootFolderSource.Contains("datasetSetupPresentationService.BuildOpenDatasetFolderFailedStatus", StringComparison.Ordinal),
+            "dataset folder open should build failure status through the presentation service");
 
         AssertEqual("None", selectionXaml.Root?.Attribute("WindowStyle")?.Value);
         AssertTrue(
@@ -19241,6 +19291,93 @@ internal static class Program
         {
             DeleteTempRoot(emptySelectionRoot);
         }
+
+        string pathServiceRoot = CreateTempRoot();
+        try
+        {
+            var pathService = new WpfDatasetSetupPathService();
+            string recipeRoot = Path.Combine(pathServiceRoot, "recipes");
+            string outputRoot = Path.Combine(pathServiceRoot, "DATA");
+            Directory.CreateDirectory(recipeRoot);
+            Directory.CreateDirectory(outputRoot);
+            string availableRecipeName = pathService.ResolveRecipeName("NewRecipe", "CurrentRecipe", LabelingDatasetPurpose.ObjectDetection, recipeRoot);
+            AssertEqual("NewRecipe", availableRecipeName);
+
+            Directory.CreateDirectory(WpfProjectRecipeService.BuildConfigDirectory(recipeRoot, "TakenRecipe"));
+            string currentFallbackRecipeName = pathService.ResolveRecipeName("TakenRecipe", "CurrentRecipe", LabelingDatasetPurpose.ObjectDetection, recipeRoot);
+            AssertEqual("CurrentRecipe", currentFallbackRecipeName);
+
+            Directory.CreateDirectory(Path.Combine(outputRoot, "NewRecipe"));
+            Directory.CreateDirectory(Path.Combine(outputRoot, "NewRecipe_2"));
+            AssertEqual(Path.Combine(outputRoot, "NewRecipe_3"), pathService.ResolveOutputRoot("NewRecipe", outputRoot, recipeRoot));
+
+            string existingRecipeDirectory = WpfProjectRecipeService.BuildConfigDirectory(recipeRoot, "ExistingRecipe");
+            Directory.CreateDirectory(existingRecipeDirectory);
+            string sharedOutputRoot = Path.Combine(outputRoot, "SharedOutput");
+            File.WriteAllText(
+                Path.Combine(existingRecipeDirectory, "VISION.xml"),
+                $"<CData><ProjectSettings><YoloDataset><OutputRootPath>{System.Security.SecurityElement.Escape(sharedOutputRoot)}</OutputRootPath></YoloDataset></ProjectSettings></CData>");
+            AssertTrue(pathService.TryFindDatasetUsingOutputRoot(recipeRoot, sharedOutputRoot, "NewRecipe", out string existingRecipeName),
+                "dataset setup path service should detect another recipe using the same output root");
+            AssertEqual("ExistingRecipe", existingRecipeName);
+        }
+        finally
+        {
+            DeleteTempRoot(pathServiceRoot);
+        }
+
+        string dataServiceRoot = CreateTempRoot();
+        try
+        {
+            var dataService = new WpfDatasetSetupDataService();
+            var setupData = new CData();
+            string setupOutputRoot = Path.Combine(dataServiceRoot, "dataset-output");
+            string selectedClassName = dataService.ApplyOutputRootAndClasses(setupData, setupOutputRoot, new[] { " OK ", "ok", "", "NG" });
+            AssertEqual("OK", selectedClassName);
+            AssertEqual(Path.GetFullPath(setupOutputRoot), Path.GetFullPath(setupData.OutputRootPath));
+            AssertEqual(2, setupData.ClassNamedList.Count);
+            AssertTrue(setupData.ClassNamedList.Any(item => string.Equals(item.Text, "OK", StringComparison.Ordinal)), "dataset setup data service should normalize and keep OK class");
+            AssertTrue(setupData.ClassNamedList.Any(item => string.Equals(item.Text, "NG", StringComparison.Ordinal)), "dataset setup data service should normalize and keep NG class");
+            AssertTrue(Directory.Exists(setupData.TrainImagesPath), "dataset setup data service should create train image directory");
+
+            var fallbackData = new CData();
+            string fallbackClassName = dataService.ApplyOutputRootAndClasses(fallbackData, Path.Combine(dataServiceRoot, "fallback-output"), Array.Empty<string>());
+            AssertEqual("Defect", fallbackClassName);
+            AssertEqual(1, fallbackData.ClassNamedList.Count);
+            AssertEqual("Defect", fallbackData.ClassNamedList[0].Text);
+        }
+        finally
+        {
+            DeleteTempRoot(dataServiceRoot);
+        }
+
+        var presentationService = new WpfDatasetSetupPresentationService();
+        string duplicateMessage = presentationService.BuildDuplicateOutputRootMessage("Recipe A");
+        AssertTrue(duplicateMessage.Contains("Recipe A", StringComparison.Ordinal), "duplicate output-root guidance should name the existing dataset");
+        AssertTrue(duplicateMessage.Contains("\uB2E4\uB978 \uBE48 \uD3F4\uB354", StringComparison.Ordinal), "duplicate output-root guidance should tell the operator to choose a different empty folder");
+        AssertTrue(presentationService.BuildDuplicateOutputRootMessage(" ").Contains("\uAE30\uC874 \uB370\uC774\uD130\uC14B", StringComparison.Ordinal), "duplicate output-root guidance should have a readable fallback dataset name");
+        AssertTrue(presentationService.BuildInvalidRecipeNameMessage().Contains("Recipe", StringComparison.Ordinal), "invalid recipe guidance should name the recipe field");
+        AssertEqual("sample failed", presentationService.BuildSamplePresetFailureMessage(" sample failed "));
+        AssertTrue(presentationService.BuildSamplePresetFailureMessage(" ").Contains("\uC0D8\uD50C \uB370\uC774\uD130\uC14B", StringComparison.Ordinal), "sample failure guidance should have a fallback message");
+        var sampleResult = new WpfDatasetSamplePresetApplyResult
+        {
+            Applied = true,
+            ImageRootPath = @"C:\SampleImages",
+            SummaryText = "\uC0D8\uD50C 3\uC7A5"
+        };
+        string readyStatus = presentationService.BuildReadyStatus("Recipe A", LabelingDatasetPurpose.ObjectDetection, Path.Combine(root, "Recipe A", "dataset.json"), sampleResult);
+        AssertTrue(readyStatus.Contains("Recipe A", StringComparison.Ordinal), "ready status should name the prepared recipe");
+        AssertTrue(readyStatus.Contains(nameof(LabelingDatasetPurpose.ObjectDetection), StringComparison.Ordinal), "ready status should include the dataset purpose");
+        AssertTrue(readyStatus.Contains("dataset.json", StringComparison.Ordinal), "ready status should include the manifest file name");
+        AssertTrue(readyStatus.Contains("\uC0D8\uD50C 3\uC7A5", StringComparison.Ordinal), "ready status should append applied sample summary");
+        AssertTrue(presentationService.BuildDatasetReadyStatus(Path.Combine(root, "OutputDataset")).Contains("OutputDataset", StringComparison.Ordinal), "dataset-ready status should show the output folder name");
+        AssertTrue(presentationService.BuildCreationLog("Recipe A", LabelingDatasetPurpose.ObjectDetection, @"C:\DatasetOutput", @"C:\Manifest\dataset.json").Contains("manifest=", StringComparison.Ordinal), "creation log should keep manifest detail for troubleshooting");
+        AssertTrue(presentationService.BuildMissingImageRootStatus().Contains("\uC774\uBBF8\uC9C0 \uD3F4\uB354", StringComparison.Ordinal), "missing-image-folder status should name the image folder");
+        AssertTrue(presentationService.BuildMissingImageRootLog(@"C:\MissingImages").Contains(@"C:\MissingImages", StringComparison.Ordinal), "missing-image-folder log should keep the missing path for troubleshooting");
+        AssertTrue(presentationService.BuildMissingOutputRootStatus().Contains("\uC800\uC7A5 \uACBD\uB85C", StringComparison.Ordinal), "missing-output-root status should name the storage path");
+        AssertTrue(presentationService.BuildMissingOutputRootLog().Contains("\uB370\uC774\uD130\uC14B\uC744 \uB9CC\uB4E4", StringComparison.Ordinal), "missing-output-root log should tell the operator to create a dataset");
+        AssertTrue(presentationService.BuildOpenDatasetFolderFailedStatus().Contains("\uD3F4\uB354 \uC5F4\uAE30 \uC2E4\uD328", StringComparison.Ordinal), "open-folder failed status should be short and operator-facing");
+        AssertTrue(presentationService.BuildOpenDatasetFolderFailedLog("denied").Contains("denied", StringComparison.Ordinal), "open-folder failed log should keep the underlying error");
 
         WpfDatasetSetupWizardViewModel viewModel = new WpfDatasetSetupWizardViewModel();
         viewModel.LoadFrom(LabelingDatasetPurpose.Segmentation, "WizardRecipe", @"C:\Data\WizardRecipe", new[] { "Defect", "Scratch" });
@@ -19722,7 +19859,10 @@ internal static class Program
             "AppData",
             "Temp\\codex",
             "Codex",
+            "\uD3EC\uD2B8\uD3F4\uB9AC\uC624",
             "제가",
+            "\uB0B4\uAC00",
+            "\uC800\uB9CC",
             "당신",
             "소통",
             "이번 확인",
@@ -20089,6 +20229,7 @@ internal static class Program
         string shellSource = ReadWpfLabelingShellWindowSources();
         string shellXamlSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.xaml"));
         string imageQueueViewModelSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "ViewModels", "WpfImageQueuePanelViewModel.cs"));
+        string datasetContextPresentationSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfDatasetContextPresentationService.cs"));
         string workflowStagePresentationSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfWorkflowStagePresentationService.cs"));
         string inputCommandBehaviorSource = File.ReadAllText(Path.Combine(root, "OpenVisionLab", "Library", "OpenVisionLab.Mvvm", "Behaviors", "InputCommandBehaviors.cs"));
         string shellViewModelSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "ViewModels", "WpfLabelingShellViewModel.cs"));
@@ -20408,6 +20549,11 @@ internal static class Program
         AssertTrue(shellViewModelSource.Contains("SetDatasetContext", StringComparison.Ordinal), "shell ViewModel should expose the current dataset identity for the main header");
         AssertTrue(shellViewModelSource.Contains("WpfDatasetContextPresentationService", StringComparison.Ordinal), "shell ViewModel should delegate dataset context wording to a presentation service");
         AssertTrue(shellViewModelSource.Contains("CurrentDatasetSourceText", StringComparison.Ordinal), "shell ViewModel should expose class/label source context for the dataset header");
+        AssertTrue(datasetContextPresentationSource.Contains("BuildDatasetName", StringComparison.Ordinal), "dataset context presentation service should own dataset-name fallback");
+        AssertTrue(datasetContextPresentationSource.Contains("FormatPurposeName", StringComparison.Ordinal), "dataset context presentation service should own dataset-purpose display wording");
+        AssertTrue(!shellSource.Contains("FormatShellDatasetPurposeName", StringComparison.Ordinal), "shell code-behind should not own dataset-purpose display wording");
+        AssertTrue(shellSource.Contains("WpfDatasetContextPresentationService.BuildDatasetName", StringComparison.Ordinal), "shell dataset context refresh should delegate dataset-name fallback to the context presentation service");
+        AssertTrue(shellSource.Contains("WpfDatasetContextPresentationService.FormatPurposeName", StringComparison.Ordinal), "shell dataset context refresh should delegate dataset-purpose display wording to the context presentation service");
         AssertTrue(shellViewModelSource.Contains("ChangeDatasetCommand", StringComparison.Ordinal), "shell ViewModel should expose a main-header dataset change command");
         AssertTrue(shellViewModelSource.Contains("DatasetHomeCommand", StringComparison.Ordinal), "shell ViewModel should expose a dataset-home workflow stage command");
         AssertTrue(shellViewModelSource.Contains("LabelingWorkbenchCommand", StringComparison.Ordinal), "shell ViewModel should expose a labeling-workbench workflow stage command");
@@ -20606,14 +20752,15 @@ internal static class Program
         AssertTrue(shellSource.Contains("ExecuteOpenCurrentImageFolderCommand", StringComparison.Ordinal), "WPF shell should expose current image-folder open as an event-agnostic execute method");
         AssertTrue(shellSource.Contains("SelectSingleVisibleQueueSearchResult();", StringComparison.Ordinal), "queue search should auto-select an exact single result for stable reopen/review UX");
         AssertTrue(shellSource.Contains("UpdateSelectedQueueImageButton(item)", StringComparison.Ordinal), "single-result queue search should enable the visible open action without forcing an extra row click");
-        AssertTrue(shellSource.Contains("GetOpenSelectedQueueItem()", StringComparison.Ordinal), "queue open should resolve selection through a dedicated helper instead of trusting only the DataGrid control state");
+        AssertTrue(shellSource.Contains("GetOpenSelectedQueueSelection()", StringComparison.Ordinal), "queue open should resolve selection through a dedicated helper instead of trusting only the DataGrid control state");
         AssertTrue(shellSource.Contains("ImageQueueViewModel?.SelectedQueueItem", StringComparison.Ordinal), "queue open should fall back to the ViewModel-selected row for UIAutomation and keyboard flows");
-        string openQueueSelectionSource = FindMethodSourceBlock(shellSource, "private WpfImageQueueItem GetOpenSelectedQueueItem()");
+        string openQueueSelectionSource = FindMethodSourceBlock(shellSource, "private WpfImageQueueOpenSelection GetOpenSelectedQueueSelection()");
         AssertTrue(openQueueSelectionSource.Contains("FindSingleSearchMatchedQueueItem()", StringComparison.Ordinal), "queue open should use unique search text matches when selection state is stale");
         AssertTrue(openQueueSelectionSource.Contains("imageQueueView.Refresh();", StringComparison.Ordinal), "queue open should refresh the current text/filter view before falling back to a single visible row");
+        AssertTrue(openQueueSelectionSource.Contains("imageQueueSelectionService.ResolveOpenSelection", StringComparison.Ordinal), "queue open should resolve candidate priority and open path through the selection service");
         string searchMatchSource = FindMethodSourceBlock(shellSource, "private WpfImageQueueItem FindSingleSearchMatchedQueueItem()");
-        AssertTrue(searchMatchSource.Contains("WpfImageQueueFilterService.ShouldShow", StringComparison.Ordinal), "queue search fallback should respect the same search/filter rules as the visible queue");
-        AssertTrue(searchMatchSource.Contains("matches.Count == 1", StringComparison.Ordinal), "queue search fallback should open only an unambiguous single match");
+        AssertTrue(searchMatchSource.Contains("WpfImageQueueFilterService.FindSingleSearchMatch", StringComparison.Ordinal), "queue search fallback should delegate single-match resolution to the filter service");
+        AssertTrue(shellSource.Contains("WpfImageQueueFilterService.CountSearchMatches", StringComparison.Ordinal), "queue failure diagnostics should count search matches through the filter service");
         AssertTrue(shellSource.Contains("ExecuteDetectSelectedQueueCommand", StringComparison.Ordinal), "WPF shell should expose selected queue detection as an event-agnostic execute method");
         AssertTrue(shellSource.Contains("ExecuteQueueFilterCandidateCommand", StringComparison.Ordinal), "WPF shell should expose queue quick filters as event-agnostic execute methods");
         AssertTrue(shellSource.Contains("ExecuteQueueFilterUnfinishedCommand", StringComparison.Ordinal), "WPF shell should expose the work-needed queue quick filter as an event-agnostic execute method");
@@ -20982,8 +21129,8 @@ internal static class Program
     private static void TestWpfMigrationRemovesLegacyWinFormsSupportLibraries()
     {
         string root = FindRepositoryRoot();
-        string projectSource = File.ReadAllText(Path.Combine(root, "MvcVisionSystem.csproj"));
-        string solutionSource = File.ReadAllText(Path.Combine(root, "MvcVisionSystem.sln"));
+        string projectSource = File.ReadAllText(Path.Combine(root, "OpenVisionLab.LabelingStudio.csproj"));
+        string solutionSource = File.ReadAllText(Path.Combine(root, "OpenVisionLab.LabelingStudio.sln"));
         string programSource = File.ReadAllText(Path.Combine(root, "Program.cs"));
         string commonSource = File.ReadAllText(Path.Combine(root, "2. Common", "CCommon.cs"));
         string dataSource = File.ReadAllText(Path.Combine(root, "1. Core", "CData.cs"));
@@ -21102,6 +21249,7 @@ internal static class Program
         AssertNamedXamlBinding(xaml, xName, "RuntimeProfileActionButton", "Command", "DataContext.RuntimeProfileActionCommand");
         AssertNamedXamlBinding(xaml, xName, "RuntimeProfileActionButton", "CommandParameter", "Engine");
         AssertNamedXamlBinding(xaml, xName, "RuntimeProfileActionButton", "IsEnabled", "DataContext.IsRuntimeProfileActionEnabled");
+        AssertNamedXamlBinding(xaml, xName, "RuntimeProfileCapabilityText", "Text", "CapabilityText");
         AssertNamedXamlBinding(xaml, xName, "YoloRuntimeProfileActionStatusText", "Text", "RuntimeProfileActionStatusText");
         AssertNamedXamlElement(xaml, xName, "Border", "YoloRuntimeExecutionRoutePanel");
         AssertNamedXamlBinding(xaml, xName, "YoloRuntimeExecutionTitleText", "Text", "RuntimeExecutionTitleText");
@@ -21190,6 +21338,7 @@ internal static class Program
         AssertTrue(yoloSettingsViewModel.AdvancedSettingsHeaderText.Contains("\uBAA8\uB378 \uC2E4\uD589 \uD658\uACBD", StringComparison.Ordinal), "advanced model settings header should identify runtime environment details");
         AssertEqual(4, yoloSettingsViewModel.RuntimeProfileItems.Count);
         AssertTrue(yoloSettingsViewModel.RuntimeProfileItems.Any(item => item.Engine == PythonModelSettings.EngineYolo11 && item.RuntimeFamilyText.Contains("Ultralytics", StringComparison.Ordinal)), "YOLO model settings should show YOLO11 as an Ultralytics runtime profile");
+        AssertTrue(yoloSettingsViewModel.RuntimeProfileItems.Any(item => item.Engine == PythonModelSettings.EngineYolo11 && item.CapabilityText.Contains("worker", StringComparison.Ordinal)), "YOLO model settings should show runtime profile support scope in the profile list");
         AssertTrue(yoloSettingsViewModel.RuntimeSelfTestTitleText.Contains("\uC810\uAC80", StringComparison.Ordinal), "YOLO model settings should expose a selected-runtime self-test title");
         AssertTrue(yoloSettingsViewModel.RuntimeSelfTestItems.Count >= 5, "YOLO model settings should expose actionable runtime self-test rows");
         AssertTrue(yoloSettingsViewModel.RuntimeExecutionTitleText.Contains("\uC2E4\uD589 \uACBD\uB85C", StringComparison.Ordinal), "YOLO model settings should expose an actual execution route title");
@@ -21267,6 +21416,9 @@ internal static class Program
             PythonModelRuntimeProfile selectedYolo11Profile = yoloSettingsViewModel.RuntimeProfileItems.First(item => item.Engine == PythonModelSettings.EngineYolo11);
             AssertTrue(selectedYolo11Profile.StatusText.Contains("\uD604\uC7AC \uAC80\uC0AC \uAC00\uB2A5", StringComparison.Ordinal), "YOLO11 profile card should expose current inspection availability");
             AssertTrue(selectedYolo11Profile.StatusText.Contains("\uD559\uC2B5 \uBBF8\uC9C0\uC6D0", StringComparison.Ordinal), "YOLO11 profile card should expose training unsupported state");
+            AssertTrue(selectedYolo11Profile.CapabilityText.Contains("\uD604\uC7AC \uAC80\uC0AC", StringComparison.Ordinal)
+                && selectedYolo11Profile.CapabilityText.Contains("\uD559\uC2B5 \uBBF8\uC9C0\uC6D0", StringComparison.Ordinal),
+                "YOLO11 profile card should show detection-ready/training-unsupported scope in the profile list");
             AssertTrue(yoloSettingsViewModel.SettingsSummaryRuntimeStatusText.Contains("\uD604\uC7AC \uAC80\uC0AC \uAC00\uB2A5", StringComparison.Ordinal), "YOLO settings first summary card should expose current inspection availability for selected YOLO11");
             AssertTrue(yoloSettingsViewModel.SettingsSummaryRuntimeStatusText.Contains("\uD559\uC2B5 \uBBF8\uC9C0\uC6D0", StringComparison.Ordinal), "YOLO settings first summary card should expose that selected YOLO11 cannot train yet");
             AssertTrue(yoloSettingsViewModel.RuntimeExecutionSummaryText.Contains("\uD604\uC7AC \uAC80\uC0AC \uAC00\uB2A5", StringComparison.Ordinal), "YOLO model settings execution summary should show current inspection availability for detection-only Ultralytics");
@@ -22174,6 +22326,59 @@ internal static class Program
             settings.WeightsPath = Path.Combine(root, "yolo11n.pt");
             File.WriteAllText(settings.WeightsPath, "weights");
             AssertEqual("YOLO11 / yolo11n.pt", WpfInferenceStatusPresentationService.BuildRuntimeModelLabel(settings));
+
+            AssertEqual("\uCD94\uB860 \uC900\uBE44 \uC911...", WpfInferenceStatusPresentationService.BuildInteractivePreparingCommandStatus());
+            AssertEqual("\uD604\uC7AC \uC774\uBBF8\uC9C0 \uCD94\uB860 \uC900\uBE44 \uC911", WpfInferenceStatusPresentationService.BuildInteractivePreparingInferenceStatus());
+            var successResult = new YoloWorkerSmokeTestResult
+            {
+                Succeeded = true,
+                CandidateCount = 2
+            };
+            AssertEqual(
+                "\uCD94\uB860 \uC644\uB8CC: \uD6C4\uBCF4 2\uAC1C / 1.2s",
+                WpfInferenceStatusPresentationService.BuildInteractiveCompletionCommandStatus(successResult, "1.2s"));
+            AssertEqual(
+                "\uC644\uB8CC: \uD6C4\uBCF4 2\uAC1C / 1.2s",
+                WpfInferenceStatusPresentationService.BuildInteractiveCompletionInferenceStatus(successResult, "1.2s"));
+            AssertTrue(
+                WpfInferenceStatusPresentationService.BuildInteractiveCompletionLog(successResult, "1.2s", "\uCD94\uB860 \uC2E4\uD589\uAE30").Contains("\uACBD\uB85C \uCD94\uB860 \uC2E4\uD589\uAE30", StringComparison.Ordinal),
+                "single-image success log should include the execution path");
+
+            var failedResult = new YoloWorkerSmokeTestResult
+            {
+                Succeeded = false,
+                Summary = "\uBAA8\uB378 \uC5F0\uACB0 \uC2E4\uD328"
+            };
+            AssertEqual(
+                "\uCD94\uB860 \uC2E4\uD328: \uBAA8\uB378 \uC5F0\uACB0 \uC2E4\uD328 / 2.0s",
+                WpfInferenceStatusPresentationService.BuildInteractiveCompletionCommandStatus(failedResult, "2.0s"));
+            AssertEqual(
+                "\uC2E4\uD328: \uBAA8\uB378 \uC5F0\uACB0 \uC2E4\uD328",
+                WpfInferenceStatusPresentationService.BuildInteractiveCompletionInferenceStatus(failedResult, "2.0s"));
+            string clippedFailure = WpfInferenceStatusPresentationService.BuildInteractiveDetectionFailureSummary(
+                new YoloWorkerSmokeTestResult { Succeeded = false, Summary = new string('\uAC00', 100) });
+            AssertTrue(clippedFailure.Length <= 83 && clippedFailure.EndsWith("...", StringComparison.Ordinal), "single-image failure summary should be clipped for the status chip");
+
+            AssertEqual("\uAC80\uC0AC \uC774\uBBF8\uC9C0\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.", WpfInferenceStatusPresentationService.BuildWorkerImageMissingSummary());
+            AssertTrue(
+                WpfInferenceStatusPresentationService.BuildWorkerImageMissingError(Path.Combine(root, "missing.jpg")).Contains("missing.jpg", StringComparison.Ordinal),
+                "missing-image worker error should include the image name/path context");
+            AssertEqual(
+                "\uD604\uC7AC \uC774\uBBF8\uC9C0 \uCD94\uB860 \uC900\uBE44 \uC911",
+                WpfInferenceStatusPresentationService.BuildWorkerPreparingInferenceStatus(applyToCanvas: true, imagePath: string.Empty));
+            AssertTrue(
+                WpfInferenceStatusPresentationService.BuildWorkerPreparingInferenceStatus(applyToCanvas: false, imagePath: Path.Combine(root, "queue-a.jpg")).Contains("queue-a.jpg", StringComparison.Ordinal),
+                "batch worker preparation status should include the current file");
+            AssertEqual("\uCD94\uB860 \uC2E4\uD589\uAE30 \uC900\uBE44 \uC911...", WpfInferenceStatusPresentationService.BuildWorkerPreparingCommandStatus());
+            AssertTrue(
+                WpfInferenceStatusPresentationService.BuildWorkerConnectionFailureLog("2.0s").Contains("\uBAA8\uB378 \uC124\uC815", StringComparison.Ordinal),
+                "worker connection failure log should tell the operator what to check");
+            AssertEqual("AI \uCD94\uB860 \uC694\uCCAD \uC911...", WpfInferenceStatusPresentationService.BuildWorkerRequestCommandStatus());
+            AssertEqual("\uCD94\uB860 \uAC80\uCD9C \uC2DC\uAC04 \uCD08\uACFC.", WpfInferenceStatusPresentationService.BuildWorkerTimedOutSummary());
+            AssertEqual("\uCD94\uB860 \uAC80\uCD9C \uCDE8\uC18C.", WpfInferenceStatusPresentationService.BuildWorkerCanceledSummary());
+            AssertEqual(
+                "\uCD94\uB860 \uC644\uB8CC. \uBAA8\uB378:YOLO11 / yolo11n.pt / \uD6C4\uBCF4:3",
+                WpfInferenceStatusPresentationService.BuildWorkerSuccessSummary("YOLO11 / yolo11n.pt", 3));
         }
         finally
         {
@@ -22214,6 +22419,8 @@ internal static class Program
     private static void TestWpfSingleDetectionManualStartupPath()
     {
         string source = ReadWpfLabelingShellWindowSources();
+        string repositoryRoot = FindRepositoryRoot();
+        string inferencePresentationSource = File.ReadAllText(Path.Combine(repositoryRoot, "0. UI", "9) WPF", "Services", "WpfInferenceStatusPresentationService.cs"));
 
         AssertTrue(!source.Contains("WarmupPythonWorkerAsync", StringComparison.Ordinal), "WPF shell should not keep startup worker warm-up code");
         AssertTrue(!source.Contains("GetWorkerWarmupTimeoutMilliseconds", StringComparison.Ordinal), "WPF shell should not keep a separate startup warm-up timeout");
@@ -22231,11 +22438,20 @@ internal static class Program
         AssertTrue(source.Contains("result.CandidateCount", StringComparison.Ordinal), "single-image detection should show completion with candidate count");
         AssertTrue(source.Contains("BuildRuntimeModelLabel", StringComparison.Ordinal), "single-image detection should keep the runtime/model source in result summaries and logs");
         AssertTrue(source.Contains("modelSourceText", StringComparison.Ordinal), "single-image detection should reuse one runtime/model label instead of rebuilding display text in multiple places");
-        AssertTrue(source.Contains("\\uBAA8\\uB378:{modelSourceText}", StringComparison.Ordinal), "single-image detection summary should include the runtime/model source before the candidate count");
+        AssertTrue(source.Contains("BuildWorkerSuccessSummary(modelSourceText, candidates.Count)", StringComparison.Ordinal), "worker detection should build success summaries outside the shell");
+        AssertTrue(inferencePresentationSource.Contains("\\uBAA8\\uB378:{0} / \\uD6C4\\uBCF4:{1}", StringComparison.Ordinal), "single-image detection summary should include the runtime/model source before the candidate count");
+        AssertTrue(source.Contains("BuildWorkerPreparingInferenceStatus(applyToCanvas, imagePath)", StringComparison.Ordinal), "worker preparing status should be built outside the shell");
+        AssertTrue(source.Contains("BuildWorkerConnectionFailureLog(FormatElapsed(stopwatch.Elapsed))", StringComparison.Ordinal), "worker connection failure log should be built outside the shell");
+        AssertTrue(source.Contains("BuildWorkerRequestCommandStatus()", StringComparison.Ordinal), "worker request command status should be built outside the shell");
+        AssertTrue(source.Contains("BuildWorkerTimedOutSummary()", StringComparison.Ordinal), "worker timeout summary should be built outside the shell");
+        AssertTrue(source.Contains("BuildWorkerCanceledSummary()", StringComparison.Ordinal), "worker cancellation summary should be built outside the shell");
+        AssertTrue(!source.Contains("AI 추론 요청 중...", StringComparison.Ordinal), "WPF shell should not inline worker request status text");
+        AssertTrue(!source.Contains("추론 취소", StringComparison.Ordinal), "WPF shell should not inline worker cancellation status text");
         AssertTrue(source.Contains("BuildInteractiveDetectionFailureSummary(result)", StringComparison.Ordinal), "single-image detection should surface the failure reason in status text");
-        AssertTrue(source.Contains("추론 실패: {failureSummary}", StringComparison.Ordinal), "single-image command status should include the failure reason, not only elapsed time");
-        AssertTrue(source.Contains("실패: {failureSummary}", StringComparison.Ordinal), "top inference status should include the failure reason, not only elapsed time");
-        AssertTrue(!source.Contains("추론 실패: {elapsed}", StringComparison.Ordinal), "single-image detection should not collapse failure status to elapsed time only");
+        AssertTrue(source.Contains("BuildInteractiveCompletionCommandStatus(result, elapsed)", StringComparison.Ordinal), "single-image command status should be built outside the shell");
+        AssertTrue(source.Contains("BuildInteractiveCompletionInferenceStatus(result, elapsed)", StringComparison.Ordinal), "top inference status should be built outside the shell");
+        AssertTrue(source.Contains("BuildInteractiveCompletionLog(result, elapsed, inferencePathText)", StringComparison.Ordinal), "single-image completion log should be built outside the shell");
+        AssertTrue(!source.Contains("string failureSummary = BuildInteractiveDetectionFailureSummary(result)", StringComparison.Ordinal), "WPF shell should not own interactive failure-summary variables");
         AssertTrue(source.Contains("bool shouldLoadTargetImage = applyToCanvas", StringComparison.Ordinal), "worker detection should not reload the already-active image and erase manual labels");
         AssertTrue(source.Contains("!string.Equals(result.ImagePath, activeImagePath", StringComparison.Ordinal), "smoke detection should preserve manual labels when the result is for the active image");
         AssertTrue(source.Contains("isBatchDetectionRunning = false", StringComparison.Ordinal), "batch detection should clear busy command status on completion");
@@ -22302,7 +22518,7 @@ internal static class Program
             longFailedResult);
         AssertTrue(clippedFailureSummary.Length <= 83 && clippedFailureSummary.EndsWith("...", StringComparison.Ordinal), "single-image failure summary should be clipped for the top status chip");
 
-        string xamlPath = Path.Combine(FindRepositoryRoot(), "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.xaml");
+        string xamlPath = Path.Combine(repositoryRoot, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.xaml");
         string xaml = File.ReadAllText(xamlPath);
         AssertTrue(xaml.Contains("Text=\"&#xD604;&#xC7AC; &#xAC80;&#xC0AC;\"", StringComparison.Ordinal), "current-image detection command should read as an action, not a mode");
         AssertTrue(xaml.Contains("Kind=\"ImageSearch\"", StringComparison.Ordinal), "current-image detection command should use an inspection/search icon");
@@ -24260,6 +24476,12 @@ internal static class Program
         AssertTrue(!shellViewModel.IsModelCenterConfirmModelEnabled, "model-center confirm button should stay disabled when no recipe can be saved");
         AssertTrue(shellViewModel.ModelCenterConfirmModelButtonToolTip.Contains("recipe", StringComparison.Ordinal), "disabled model-center save button should explain missing recipe persistence");
         AssertTrue(shellViewModel.IsModelCenterReviewCandidateEnabled, "model-center candidate review button should stay enabled for review navigation when commands are idle");
+        AssertEqual("LineA_Defect", WpfDatasetContextPresentationService.BuildDatasetName("LineA_Defect", @"C:\Dataset\Other"));
+        AssertEqual("FallbackDataset", WpfDatasetContextPresentationService.BuildDatasetName(" ", @"C:\Dataset\FallbackDataset\"));
+        AssertEqual("\uB370\uC774\uD130\uC14B \uBBF8\uC120\uD0DD", WpfDatasetContextPresentationService.BuildDatasetName(" ", " "));
+        AssertEqual("\uAC1D\uCCB4 \uD0D0\uC9C0", WpfDatasetContextPresentationService.FormatPurposeName(LabelingDatasetPurpose.ObjectDetection));
+        AssertEqual("\uC138\uADF8\uBA58\uD14C\uC774\uC158", WpfDatasetContextPresentationService.FormatPurposeName(LabelingDatasetPurpose.Segmentation));
+        AssertEqual("\uC774\uC0C1 \uD0D0\uC9C0", WpfDatasetContextPresentationService.FormatPurposeName(LabelingDatasetPurpose.AnomalyDetection));
         shellViewModel.SetDatasetContext(
             "LineA_Defect",
             "\uAC1D\uCCB4 \uD0D0\uC9C0",
@@ -25340,6 +25562,27 @@ internal static class Program
             data.ConfigureOutputRoot(root);
             AssertTrue(service.TryResolveOpenImagePath(savedSplitItem, data, out string resolvedSplitImagePath), "queue open should recover saved split image copies when the staging source path no longer exists");
             AssertEqual(savedSplitImagePath, resolvedSplitImagePath);
+            WpfImageQueueItem missingCandidate = WpfImageQueueItem.CreateShell(Path.Combine(root, "missing", "not-openable.jpg"));
+            WpfImageQueueOpenSelection openSelection = service.ResolveOpenSelection(new[] { missingCandidate, savedSplitItem }, data);
+            AssertTrue(openSelection.CanOpen, "open selection should resolve the first openable candidate");
+            AssertTrue(ReferenceEquals(savedSplitItem, openSelection.Item), "open selection should preserve the queue item tied to the resolved split image");
+            AssertEqual(savedSplitImagePath, openSelection.OpenImagePath);
+
+            var resolver = new WpfDatasetImageRootResolver();
+            string explicitImageRoot = Path.Combine(root, "operator-images");
+            Directory.CreateDirectory(explicitImageRoot);
+            File.WriteAllText(Path.Combine(explicitImageRoot, "operator-a.jpg"), string.Empty);
+            string datasetOutputRoot = Path.Combine(root, "dataset-output");
+            var datasetData = new CData();
+            datasetData.ConfigureOutputRoot(datasetOutputRoot);
+            datasetData.EnsureYoloOutputDirectories();
+            File.WriteAllText(Path.Combine(datasetData.TrainImagesPath, "copied-a.jpg"), string.Empty);
+
+            string resolvedExplicitRoot = resolver.Resolve(datasetData, explicitImageRoot, path => service.EnumerateImageFiles(path).Count > 0);
+            AssertEqual(explicitImageRoot, resolvedExplicitRoot);
+
+            string resolvedDatasetRoot = resolver.Resolve(datasetData, Path.Combine(root, "missing-image-root"), path => service.EnumerateImageFiles(path).Count > 0);
+            AssertEqual(datasetData.TrainImagesPath, resolvedDatasetRoot);
         }
         finally
         {
@@ -25616,10 +25859,14 @@ internal static class Program
 
         string root = FindRepositoryRoot();
         string selectionServiceSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfImageQueueSelectionService.cs"));
+        string datasetImageRootResolverSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfDatasetImageRootResolver.cs"));
         string imageLoadPresentationSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfImageLoadPresentationService.cs"));
+        string queuePresenterSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfImageQueuePresenter.cs"));
         AssertTrue(source.Contains("WpfImageQueueSelectionService", StringComparison.Ordinal), "WPF shell should delegate queue selection decisions to a service");
+        AssertTrue(source.Contains("WpfDatasetImageRootResolver", StringComparison.Ordinal), "WPF shell should delegate dataset image-root resolution to a service");
         AssertTrue(source.Contains("ResolveSelectedItem", StringComparison.Ordinal), "WPF shell should keep transient queue selection handling behind the selection service");
         AssertTrue(source.Contains("TryResolveOpenImagePath(item, global.Data", StringComparison.Ordinal), "queue open should resolve saved split image copies before loading the canvas");
+        AssertTrue(source.Contains("WpfImageQueuePresenter.BuildOpenSelectionFailureMessage", StringComparison.Ordinal), "queue open failure wording should be delegated to the queue presenter");
         AssertTrue(source.Contains("WpfImageLoadPresentationService", StringComparison.Ordinal), "WPF shell should delegate image load status text to a service");
         AssertTrue(source.Contains("imageLoadPresentationService.BuildLoadedDatasetStatus", StringComparison.Ordinal), "WPF shell should not compose image-loaded dataset status text inline");
         AssertTrue(source.Contains("imageLoadPresentationService.BuildModelStatus", StringComparison.Ordinal), "WPF shell should not compose image-loaded model status text inline");
@@ -25633,7 +25880,13 @@ internal static class Program
         AssertTrue(!source.Contains("private static List<string> EnumerateImageFiles", StringComparison.Ordinal), "WPF shell should not own image queue file enumeration");
         AssertTrue(selectionServiceSource.Contains("EnumerateImageFiles", StringComparison.Ordinal), "image queue selection service should own supported-file enumeration");
         AssertTrue(selectionServiceSource.Contains("TryResolveOpenImagePath", StringComparison.Ordinal), "image queue selection service should own saved split image reopen fallback");
+        AssertTrue(selectionServiceSource.Contains("ResolveOpenSelection", StringComparison.Ordinal), "image queue selection service should own selected-open candidate priority and path resolution");
         AssertTrue(selectionServiceSource.Contains("Saving labels writes an image copy into one split", StringComparison.Ordinal), "saved split image reopen fallback should document why the queue path can differ from the openable image path");
+        AssertTrue(datasetImageRootResolverSource.Contains("Resolve(CData data", StringComparison.Ordinal), "dataset image-root resolver should own dataset switch root selection");
+        AssertTrue(queuePresenterSource.Contains("BuildOpenSelectionFailureMessage", StringComparison.Ordinal), "image queue presenter should own selected-open failure wording");
+        AssertTrue(!source.Contains("private IEnumerable<string> EnumerateActiveDatasetImageRoots", StringComparison.Ordinal), "WPF shell should not own dataset image-root enumeration");
+        AssertTrue(!source.Contains("private static bool IsImplicitDefaultImageRoot", StringComparison.Ordinal), "WPF shell should not own default image-root comparison");
+        AssertTrue(!source.Contains("private static string FormatLimitedQueueCount", StringComparison.Ordinal), "WPF shell should not own queue diagnostic count formatting");
         AssertTrue(source.Contains("TryOpenSelectedQueueImage(skipIfAlreadyActive: true)", StringComparison.Ordinal), "queue selection should load the clicked image");
         AssertTrue(source.Contains("populateQueue: false", StringComparison.Ordinal), "queue selection should not rebuild the image queue");
         AssertTrue(source.Contains("refreshQueueDetails: false", StringComparison.Ordinal), "queue selection should not restart queue detail loading");
@@ -26387,6 +26640,16 @@ internal static class Program
             AssertEqual(3, WpfImageQueueFilterService.CountByFilter(queueSummaryItems, WpfImageQueueFilter.Unlabeled));
             AssertTrue(WpfImageQueueFilterService.ShouldShow(queueSummaryItems[0], "candidate", WpfImageQueueFilter.Candidate), "WPF queue filter should match candidate file by state and search text");
             AssertTrue(!WpfImageQueueFilterService.ShouldShow(queueSummaryItems[2], "candidate", WpfImageQueueFilter.Candidate), "WPF queue filter should hide rows outside the selected review state");
+            AssertTrue(ReferenceEquals(queueSummaryItems[0], WpfImageQueueFilterService.FindSingleSearchMatch(queueSummaryItems, "candidate-a", WpfImageQueueFilter.Candidate)),
+                "WPF queue filter service should resolve one unique search/filter match");
+            AssertTrue(WpfImageQueueFilterService.FindSingleSearchMatch(queueSummaryItems, "candidate", WpfImageQueueFilter.Candidate) == null,
+                "WPF queue filter service should not resolve ambiguous search/filter matches");
+            AssertEqual(2, WpfImageQueueFilterService.CountSearchMatches(queueSummaryItems, "candidate", WpfImageQueueFilter.Candidate, 3));
+            AssertEqual("3+", WpfImageQueuePresenter.FormatLimitedQueueCount(5));
+            string openFailureMessage = WpfImageQueuePresenter.BuildOpenSelectionFailureMessage("candidate", 3, 2, "candidate-a.jpg", "-");
+            AssertTrue(openFailureMessage.Contains("열 이미지를 선택하세요.", StringComparison.Ordinal), "queue open failure should tell the operator to select an image");
+            AssertTrue(openFailureMessage.Contains("표시=3+", StringComparison.Ordinal), "queue open failure should include the limited visible-row count");
+            AssertTrue(openFailureMessage.Contains("검색일치=2", StringComparison.Ordinal), "queue open failure should include the search match count");
             AssertEqual(
                 "데이터셋: 2/6 이미지 / 완료 3 / AI 후보 2 / 실패 1 / 저장됨 1 / 숨김 1 / 객체없음 1 / 필터 AI 후보 / 로드 3/6",
                 WpfImageQueueFilterService.BuildDatasetStatusText(queueSummaryItems, 2, WpfImageQueueFilter.Candidate, 3, 6));
@@ -28694,7 +28957,7 @@ internal static class Program
         DirectoryInfo directory = new DirectoryInfo(AppContext.BaseDirectory);
         while (directory != null)
         {
-            if (File.Exists(Path.Combine(directory.FullName, "MvcVisionSystem.csproj")))
+            if (File.Exists(Path.Combine(directory.FullName, "OpenVisionLab.LabelingStudio.csproj")))
             {
                 return directory.FullName;
             }

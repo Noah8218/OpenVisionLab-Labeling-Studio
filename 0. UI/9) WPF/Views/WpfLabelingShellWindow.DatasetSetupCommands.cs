@@ -1,10 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
 using System.IO;
 using System.Linq;
-using System.Xml.Linq;
 using MvcVisionSystem.Yolo;
 
 namespace MvcVisionSystem
@@ -152,49 +150,7 @@ namespace MvcVisionSystem
             EnsureProjectSettings();
 
             string configuredRoot = global.Data?.ProjectSettings?.PythonModel?.ImageRootPath ?? string.Empty;
-            if (Directory.Exists(configuredRoot) && !IsImplicitDefaultImageRoot(configuredRoot))
-            {
-                return configuredRoot;
-            }
-
-            // Dataset-owned image copies are a fallback. The operator expects the
-            // folder they explicitly opened for this dataset to come back first.
-            foreach (string datasetImageRoot in EnumerateActiveDatasetImageRoots())
-            {
-                if (HasQueueImages(datasetImageRoot))
-                {
-                    return datasetImageRoot;
-                }
-            }
-
-            if (Directory.Exists(configuredRoot))
-            {
-                return configuredRoot;
-            }
-
-            return EnumerateActiveDatasetImageRoots().FirstOrDefault(Directory.Exists) ?? configuredRoot;
-        }
-
-        private IEnumerable<string> EnumerateActiveDatasetImageRoots()
-        {
-            if (global.Data == null)
-            {
-                yield break;
-            }
-
-            global.Data.NormalizeOutputPaths();
-            foreach (string imageRoot in new[]
-            {
-                global.Data.TrainImagesPath,
-                global.Data.ValidImagesPath,
-                global.Data.TestImagesPath
-            })
-            {
-                if (!string.IsNullOrWhiteSpace(imageRoot))
-                {
-                    yield return imageRoot;
-                }
-            }
+            return datasetImageRootResolver.Resolve(global.Data, configuredRoot, HasQueueImages);
         }
 
         private bool HasQueueImages(string imageRoot)
@@ -222,30 +178,9 @@ namespace MvcVisionSystem
             }
 
             UpdateImageQueueStatusText();
-            SetDatasetStatus("\uB370\uC774\uD130\uC14B: \uC774\uBBF8\uC9C0 \uD3F4\uB354 \uD655\uC778 \uD544\uC694");
-            AppendLog($"\uB370\uC774\uD130\uC14B \uC804\uD658: \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB97C \uCC3E\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. root={imageRootPath}");
+            SetDatasetStatus(datasetSetupPresentationService.BuildMissingImageRootStatus());
+            AppendLog(datasetSetupPresentationService.BuildMissingImageRootLog(imageRootPath));
             FocusDatasetOnboardingTab();
-        }
-
-        private static bool IsImplicitDefaultImageRoot(string imageRoot)
-        {
-            string defaultRoot = PythonModelSettings.GetDefaultImageRootPath();
-            if (string.IsNullOrWhiteSpace(imageRoot) || string.IsNullOrWhiteSpace(defaultRoot))
-            {
-                return false;
-            }
-
-            try
-            {
-                return string.Equals(
-                    Path.GetFullPath(imageRoot),
-                    Path.GetFullPath(defaultRoot),
-                    StringComparison.OrdinalIgnoreCase);
-            }
-            catch (Exception) when (imageRoot.IndexOfAny(Path.GetInvalidPathChars()) >= 0 || defaultRoot.IndexOfAny(Path.GetInvalidPathChars()) >= 0)
-            {
-                return false;
-            }
         }
 
         private void ExecuteOpenDatasetRootFolderCommand()
@@ -253,8 +188,8 @@ namespace MvcVisionSystem
             string outputRootPath = global.Data?.OutputRootPath ?? string.Empty;
             if (string.IsNullOrWhiteSpace(outputRootPath))
             {
-                SetDatasetStatus("\uB370\uC774\uD130\uC14B: \uC800\uC7A5 \uACBD\uB85C \uBBF8\uC124\uC815");
-                AppendLog("\uC5F4 \uB370\uC774\uD130\uC14B \uD3F4\uB354\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uBA3C\uC800 \uB370\uC774\uD130\uC14B\uC744 \uB9CC\uB4E4\uAC70\uB098 \uC800\uC7A5 \uACBD\uB85C\uB97C \uC120\uD0DD\uD558\uC138\uC694.");
+                SetDatasetStatus(datasetSetupPresentationService.BuildMissingOutputRootStatus());
+                AppendLog(datasetSetupPresentationService.BuildMissingOutputRootLog());
                 return;
             }
 
@@ -270,8 +205,8 @@ namespace MvcVisionSystem
             }
             catch (Exception ex)
             {
-                SetDatasetStatus($"\uB370\uC774\uD130\uC14B: \uD3F4\uB354 \uC5F4\uAE30 \uC2E4\uD328");
-                AppendLog($"\uB370\uC774\uD130\uC14B \uD3F4\uB354 \uC5F4\uAE30 \uC2E4\uD328: {ex.Message}");
+                SetDatasetStatus(datasetSetupPresentationService.BuildOpenDatasetFolderFailedStatus());
+                AppendLog(datasetSetupPresentationService.BuildOpenDatasetFolderFailedLog(ex.Message));
             }
         }
 
@@ -288,30 +223,17 @@ namespace MvcVisionSystem
             string imageRootPath = Directory.Exists(currentImageRoot)
                 ? currentImageRoot
                 : global.Data?.ProjectSettings?.PythonModel?.ImageRootPath ?? string.Empty;
-            string datasetName = FirstNonEmpty(
-                recipeName,
-                string.IsNullOrWhiteSpace(outputRootPath) ? string.Empty : Path.GetFileName(outputRootPath.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar)),
-                "\uB370\uC774\uD130\uC14B \uBBF8\uC120\uD0DD");
+            string datasetName = WpfDatasetContextPresentationService.BuildDatasetName(recipeName, outputRootPath);
             int classCount = global.Data?.ClassNamedList?
                 .Count(item => item != null && !string.IsNullOrWhiteSpace(item.Text)) ?? 0;
 
             ShellViewModel.SetDatasetContext(
                 datasetName,
-                FormatShellDatasetPurposeName(GetCurrentDatasetPurpose()),
+                WpfDatasetContextPresentationService.FormatPurposeName(GetCurrentDatasetPurpose()),
                 outputRootPath,
                 imageRootPath,
                 !string.IsNullOrWhiteSpace(outputRootPath),
                 classCount);
-        }
-
-        private static string FormatShellDatasetPurposeName(LabelingDatasetPurpose purpose)
-        {
-            return purpose switch
-            {
-                LabelingDatasetPurpose.Segmentation => "\uC138\uADF8\uBA58\uD14C\uC774\uC158",
-                LabelingDatasetPurpose.AnomalyDetection => "\uC774\uC0C1 \uD0D0\uC9C0",
-                _ => "\uAC1D\uCCB4 \uD0D0\uC9C0"
-            };
         }
 
         private WpfDatasetSetupWizardViewModel CreateDatasetSetupWizardViewModel(object selectedPurpose)
@@ -339,29 +261,22 @@ namespace MvcVisionSystem
             string recipeName = request.RecipeName?.Trim() ?? string.Empty;
             if (!WpfProjectRecipeService.IsValidRecipeName(recipeName))
             {
-                SetDatasetSetupStatus("Recipe \uC774\uB984\uC5D0 \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uB294 \uBB38\uC790\uAC00 \uC788\uC2B5\uB2C8\uB2E4.");
-                SetProjectConfigStatus("Recipe \uC774\uB984\uC5D0 \uC0AC\uC6A9\uD560 \uC218 \uC5C6\uB294 \uBB38\uC790\uAC00 \uC788\uC2B5\uB2C8\uB2E4.");
+                string message = datasetSetupPresentationService.BuildInvalidRecipeNameMessage();
+                SetDatasetSetupStatus(message);
+                SetProjectConfigStatus(message);
                 return false;
             }
 
             string outputRootPath = string.IsNullOrWhiteSpace(request.OutputRootPath)
                 ? ResolveDatasetSetupOutputRoot(recipeName)
                 : request.OutputRootPath.Trim();
-            if (TryFindDatasetUsingOutputRoot(outputRootPath, recipeName, out string existingRecipeName))
+            if (datasetSetupPathService.TryFindDatasetUsingOutputRoot(GetRecipeRootDirectory(), outputRootPath, recipeName, out string existingRecipeName))
             {
-                string message = $"\uB370\uC774\uD130\uC14B \uC800\uC7A5 \uACBD\uB85C\uAC00 \uC774\uBBF8 '{existingRecipeName}'\uC5D0\uC11C \uC0AC\uC6A9 \uC911\uC785\uB2C8\uB2E4. \uC0C8 \uB370\uC774\uD130\uC14B\uC740 \uB2E4\uB978 \uBE48 \uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
+                string message = datasetSetupPresentationService.BuildDuplicateOutputRootMessage(existingRecipeName);
                 SetDatasetSetupStatus(message);
                 SetProjectConfigStatus(message);
                 AppendLog(message);
                 return false;
-            }
-
-            IReadOnlyList<string> classNames = request.ClassNames == null
-                ? Array.Empty<string>()
-                : request.ClassNames.Where(name => !string.IsNullOrWhiteSpace(name)).ToList();
-            if (classNames.Count == 0)
-            {
-                classNames = new[] { "Defect" };
             }
 
             ProjectConfigViewModel.RecipeName = recipeName;
@@ -372,26 +287,16 @@ namespace MvcVisionSystem
             global.Recipe.Name = recipeName;
             ApplyDatasetPurposeToCurrentProject(request.Purpose);
 
-            global.Data.ConfigureOutputRoot(outputRootPath);
-            global.Data.ClassNamedList.Clear();
-            foreach (string className in classNames)
-            {
-                CClassItem classItem = EnsureClassItem(className);
-                // The manifest is generated from global.Data.ClassNamedList, so
-                // the setup request must be materialized there before SaveConfig.
-                if (classItem != null
-                    && !global.Data.ClassNamedList.Any(item => string.Equals(item?.Text, classItem.Text, StringComparison.OrdinalIgnoreCase)))
-                {
-                    global.Data.ClassNamedList.Add(classItem);
-                }
-            }
-
-            global.Data.EnsureYoloOutputDirectories();
+            string selectedClassName = datasetSetupDataService.ApplyOutputRootAndClasses(
+                global.Data,
+                outputRootPath,
+                request.ClassNames);
             if (!WpfDatasetSamplePresetService.TryApplySample(request, global.Data, out WpfDatasetSamplePresetApplyResult sampleResult, out string sampleError))
             {
-                SetDatasetSetupStatus(sampleError);
-                SetProjectConfigStatus(sampleError);
-                AppendLog(sampleError);
+                string message = datasetSetupPresentationService.BuildSamplePresetFailureMessage(sampleError);
+                SetDatasetSetupStatus(message);
+                SetProjectConfigStatus(message);
+                AppendLog(message);
                 return false;
             }
 
@@ -404,7 +309,6 @@ namespace MvcVisionSystem
             global.Data.SaveConfig(recipeName);
             RememberLastOpenedDatasetRecipe(recipeName);
 
-            string selectedClassName = classNames.FirstOrDefault() ?? "Defect";
             PopulateProjectConfigPanelFields();
             PopulateClassList(selectedClassName);
             PopulateYoloEditorFields();
@@ -418,12 +322,11 @@ namespace MvcVisionSystem
             }
 
             string manifestPath = LabelingDatasetManifestService.GetManifestPath(recipeName);
-            string sampleStatus = sampleResult?.Applied == true ? $" / {sampleResult.SummaryText}" : string.Empty;
-            string status = $"\uC900\uBE44 \uC644\uB8CC: {recipeName} / {request.Purpose} / {Path.GetFileName(manifestPath)}{sampleStatus}";
+            string status = datasetSetupPresentationService.BuildReadyStatus(recipeName, request.Purpose, manifestPath, sampleResult);
             SetDatasetSetupStatus(status);
             SetProjectConfigStatus(status);
-            SetDatasetStatus($"\uB370\uC774\uD130\uC14B: {Path.GetFileName(outputRootPath)} \uC900\uBE44 \uC644\uB8CC");
-            AppendLog($"\uB370\uC774\uD130\uC14B \uC0DD\uC131 \uC644\uB8CC: recipe={recipeName}, purpose={request.Purpose}, output={outputRootPath}, manifest={manifestPath}");
+            SetDatasetStatus(datasetSetupPresentationService.BuildDatasetReadyStatus(outputRootPath));
+            AppendLog(datasetSetupPresentationService.BuildCreationLog(recipeName, request.Purpose, outputRootPath, manifestPath));
             return true;
         }
 
@@ -463,19 +366,11 @@ namespace MvcVisionSystem
 
         private string ResolveDatasetSetupRecipeName(LabelingDatasetPurpose purpose)
         {
-            string recipeName = ProjectConfigViewModel?.RecipeName?.Trim();
-            if (CanUseRecipeNameForNewDataset(recipeName))
-            {
-                return recipeName;
-            }
-
-            recipeName = GetCurrentRecipeName();
-            if (CanUseRecipeNameForNewDataset(recipeName))
-            {
-                return recipeName;
-            }
-
-            return BuildUniqueDatasetSetupRecipeName(purpose);
+            return datasetSetupPathService.ResolveRecipeName(
+                ProjectConfigViewModel?.RecipeName?.Trim(),
+                GetCurrentRecipeName(),
+                purpose,
+                GetRecipeRootDirectory());
         }
 
         private LabelingDatasetPurpose ResolveRequestedDatasetPurpose(object selectedPurpose)
@@ -494,115 +389,12 @@ namespace MvcVisionSystem
         private string ResolveDatasetSetupOutputRoot(string recipeName)
         {
             string defaultOutputRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "DATA"));
-            string normalizedRecipeName = WpfProjectRecipeService.IsValidRecipeName(recipeName)
-                ? recipeName.Trim()
-                : BuildUniqueDatasetSetupRecipeName(LabelingDatasetPurpose.ObjectDetection);
-            string outputRootPath = Path.Combine(defaultOutputRoot, normalizedRecipeName);
-            if (!Directory.Exists(outputRootPath))
-            {
-                return outputRootPath;
-            }
-
-            int suffix = 2;
-            while (Directory.Exists($"{outputRootPath}_{suffix}"))
-            {
-                suffix++;
-            }
-
-            return $"{outputRootPath}_{suffix}";
-        }
-
-        private bool CanUseRecipeNameForNewDataset(string recipeName)
-        {
-            if (!WpfProjectRecipeService.IsValidRecipeName(recipeName))
-            {
-                return false;
-            }
-
-            string recipeDirectory = WpfProjectRecipeService.BuildConfigDirectory(GetRecipeRootDirectory(), recipeName.Trim());
-            return !Directory.Exists(recipeDirectory);
-        }
-
-        private string BuildUniqueDatasetSetupRecipeName(LabelingDatasetPurpose purpose)
-        {
-            string baseName = $"Dataset_{purpose}_{DateTime.Now.ToString("yyyyMMdd_HHmmss", CultureInfo.InvariantCulture)}";
-            string recipeName = baseName;
-            int suffix = 2;
-            while (!CanUseRecipeNameForNewDataset(recipeName))
-            {
-                recipeName = $"{baseName}_{suffix}";
-                suffix++;
-            }
-
-            return recipeName;
-        }
-
-        private bool TryFindDatasetUsingOutputRoot(string outputRootPath, string requestedRecipeName, out string existingRecipeName)
-        {
-            existingRecipeName = string.Empty;
-            if (string.IsNullOrWhiteSpace(outputRootPath))
-            {
-                return false;
-            }
-
-            string recipeRoot = GetRecipeRootDirectory();
-            foreach (string recipeName in WpfProjectRecipeService.ListRecipeNames(recipeRoot))
-            {
-                if (string.Equals(recipeName, requestedRecipeName, StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-
-                string configPath = WpfProjectRecipeService.BuildConfigPath(recipeRoot, recipeName);
-                string existingOutputRoot = TryReadRecipeOutputRoot(configPath);
-                if (PathsEqual(existingOutputRoot, outputRootPath))
-                {
-                    existingRecipeName = recipeName;
-                    return true;
-                }
-            }
-
-            return false;
-        }
-
-        private static string TryReadRecipeOutputRoot(string configPath)
-        {
-            if (string.IsNullOrWhiteSpace(configPath) || !File.Exists(configPath))
-            {
-                return string.Empty;
-            }
-
-            try
-            {
-                XDocument document = XDocument.Load(configPath);
-                return document.Descendants("OutputRootPath").FirstOrDefault()?.Value
-                    ?? document.Descendants("OutputDataImageAndTxtPath").FirstOrDefault()?.Value
-                    ?? string.Empty;
-            }
-            catch
-            {
-                return string.Empty;
-            }
+            return datasetSetupPathService.ResolveOutputRoot(recipeName, defaultOutputRoot, GetRecipeRootDirectory());
         }
 
         private static bool PathsEqual(string firstPath, string secondPath)
         {
-            if (string.IsNullOrWhiteSpace(firstPath) || string.IsNullOrWhiteSpace(secondPath))
-            {
-                return false;
-            }
-
-            try
-            {
-                return string.Equals(
-                    Path.GetFullPath(firstPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                    Path.GetFullPath(secondPath).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar),
-                    StringComparison.OrdinalIgnoreCase);
-            }
-            catch
-            {
-                return false;
-            }
+            return WpfDatasetSetupPathService.PathsEqual(firstPath, secondPath);
         }
 
         private void SetDatasetSetupStatus(string message)

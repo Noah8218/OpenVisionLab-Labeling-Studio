@@ -1,5 +1,6 @@
 using System.Globalization;
 using System.IO;
+using MvcVisionSystem.Yolo;
 
 namespace MvcVisionSystem
 {
@@ -40,6 +41,29 @@ namespace MvcVisionSystem
 
     public static class WpfDatasetContextPresentationService
     {
+        public static string BuildDatasetName(string recipeName, string outputRootPath)
+        {
+            if (!string.IsNullOrWhiteSpace(recipeName))
+            {
+                return recipeName.Trim();
+            }
+
+            string outputRootName = GetPathLeafName(outputRootPath);
+            return string.IsNullOrWhiteSpace(outputRootName)
+                ? "\uB370\uC774\uD130\uC14B \uBBF8\uC120\uD0DD"
+                : outputRootName;
+        }
+
+        public static string FormatPurposeName(LabelingDatasetPurpose purpose)
+        {
+            return purpose switch
+            {
+                LabelingDatasetPurpose.Segmentation => "\uC138\uADF8\uBA58\uD14C\uC774\uC158",
+                LabelingDatasetPurpose.AnomalyDetection => "\uC774\uC0C1 \uD0D0\uC9C0",
+                _ => "\uAC1D\uCCB4 \uD0D0\uC9C0"
+            };
+        }
+
         public static WpfDatasetContextPresentation Build(
             string datasetName,
             string purposeText,
@@ -103,6 +127,23 @@ namespace MvcVisionSystem
             return string.IsNullOrWhiteSpace(fileName)
                 ? path
                 : $"{root}...\\{fileName}";
+        }
+
+        private static string GetPathLeafName(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                return Path.GetFileName(path.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            }
+            catch
+            {
+                return string.Empty;
+            }
         }
     }
 }

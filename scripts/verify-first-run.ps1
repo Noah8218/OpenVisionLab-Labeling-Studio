@@ -227,7 +227,7 @@ try {
     if (-not $SkipBuild) {
         Write-Step "Build"
         if ($SkipTests) {
-            dotnet build ".\MvcVisionSystem.csproj" -c $Configuration -p:Platform=x64 -v:minimal -m
+            dotnet build ".\OpenVisionLab.LabelingStudio.csproj" -c $Configuration -p:Platform=x64 -v:minimal -m
         }
         else {
             dotnet build ".\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj" -c $Configuration -v:minimal -m
@@ -246,7 +246,7 @@ try {
 
     if ($RunWpfSmoke) {
         Write-Step "WPF smoke"
-        Invoke-WpfSmoke (Join-Path $repoRoot "artifacts\run\$Configuration\MvcVisionSystem.exe") "WPF shell"
+        Invoke-WpfSmoke (Join-Path $repoRoot "artifacts\run\$Configuration\OpenVisionLab.LabelingStudio.exe") "WPF shell"
     }
 
     if ($RunPublishWpfSmoke) {

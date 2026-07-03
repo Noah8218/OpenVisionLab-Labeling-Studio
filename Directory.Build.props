@@ -2,6 +2,8 @@
   <PropertyGroup>
     <Authors>최노아 (Noah-Choi)</Authors>
     <Company>Noah-Choi</Company>
+    <Product>OpenVisionLab Labeling Studio</Product>
+    <PackageId Condition="'$(MSBuildProjectName)' == 'OpenVisionLab.LabelingStudio'">OpenVisionLab.LabelingStudio</PackageId>
     <Copyright>Copyright (c) 2026 최노아 (Noah-Choi)</Copyright>
     <PackageLicenseExpression>MIT</PackageLicenseExpression>
     <PackageProjectUrl>https://github.com/Noah8218/Labelling_Application</PackageProjectUrl>

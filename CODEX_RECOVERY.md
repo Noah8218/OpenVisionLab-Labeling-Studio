@@ -114,7 +114,7 @@ YOLO 방향:
 
 구현 상태:
 
-- `MvcVisionSystem.csproj`
+- `OpenVisionLab.LabelingStudio.csproj`
   - `$(LibraryNoahSourceRoot)\Lib.OpenCV\Lib.OpenCV.csproj` ProjectReference 추가.
   - 조건부 참조이므로 해당 경로가 있을 때만 사용.
 - `1. Core/TemplateMatchingAutoLabelService.cs`
@@ -154,7 +154,7 @@ YOLO 방향:
 최근 최종 확인:
 
 ```powershell
-dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false
+dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false
 ```
 
 결과:
@@ -188,7 +188,7 @@ dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests
 
 Auto labeling / template matching:
 
-- `MvcVisionSystem.csproj`
+- `OpenVisionLab.LabelingStudio.csproj`
 - `1. Core/TemplateMatchingAutoLabelService.cs`
 - `1. Core/TemplateMatchingBatchAutoLabelService.cs`
 - `Yolo/YoloAnnotationService.cs`
@@ -291,9 +291,9 @@ C:\Git\Labelling_Application 작업을 이어서 진행해주세요.
 - 템플릿 매칭 업무 로직은 Core service와 WpfTemplateMatchingAutoLabelViewModel로 분리했고, WpfLabelingShellWindow.TemplateMatchingCommands.cs는 host adapter 역할만 남겼습니다.
 
 먼저 할 일:
-1. `dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false`로 현재 빌드를 확인하세요.
+1. `dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false`로 현재 빌드를 확인하세요.
 2. `--mvvm-infra`, `--yolo-annotation-storage`, `--wpf-visual-smoke --roi-only --width 1280 --height 820`를 실행해 최근 변경 회귀를 확인하세요.
-3. 가능하면 실제 `artifacts\run\Debug\MvcVisionSystem.exe`를 실행해서 템플릿 버튼과 이미지 큐의 템플릿 배치 버튼이 보이는지 확인하세요.
+3. 가능하면 실제 `artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe`를 실행해서 템플릿 버튼과 이미지 큐의 템플릿 배치 버튼이 보이는지 확인하세요.
 4. 실제 데이터셋에서 박스 하나를 그리고 템플릿 배치를 실행해, 라벨 없는 이미지에 YOLO txt가 생성되고 기존 라벨은 덮어쓰지 않는지 확인하세요.
 5. 문제가 있으면 원인을 분석한 뒤 작은 단위로 수정하고, 수정 후 다시 focused 검증을 실행하세요.
 
@@ -310,7 +310,7 @@ C:\Git\Labelling_Application 작업을 이어서 진행해주세요.
 
 ```powershell
 git status --short
-dotnet build .\MvcVisionSystem.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false
+dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug -m:1 -v:minimal /nodeReuse:false /p:UseSharedCompilation=false
 dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-build -- --mvvm-infra
 dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-build -- --yolo-annotation-storage
 dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-build -- --wpf-visual-smoke --roi-only --width 1280 --height 820

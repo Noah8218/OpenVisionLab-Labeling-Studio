@@ -207,19 +207,16 @@ namespace MvcVisionSystem
                 return;
             }
 
-            List<WpfImageQueueItem> visibleItems = imageQueueView
+            WpfImageQueueItem item = WpfImageQueueFilterService.FindSingleItem(imageQueueView
                 .Cast<object>()
-                .OfType<WpfImageQueueItem>()
-                .Take(2)
-                .ToList();
-            if (visibleItems.Count != 1)
+                .OfType<WpfImageQueueItem>());
+            if (item == null)
             {
                 return;
             }
 
             // Search narrows the queue for reopen/review work. If exactly one row remains,
             // select it so the visible Open action works without a fragile extra row click.
-            WpfImageQueueItem item = visibleItems[0];
             suppressImageQueueSelection = true;
             try
             {
@@ -282,72 +279,59 @@ namespace MvcVisionSystem
 
         private bool TryOpenSelectedQueueImage(bool skipIfAlreadyActive = false)
         {
-            return TryOpenSelectedQueueImage(GetOpenSelectedQueueItem(), skipIfAlreadyActive);
+            return TryOpenSelectedQueueImage(GetOpenSelectedQueueSelection(), skipIfAlreadyActive);
         }
 
-        private WpfImageQueueItem GetOpenSelectedQueueItem()
+        private WpfImageQueueOpenSelection GetOpenSelectedQueueSelection()
         {
-            WpfImageQueueItem selectedItem = ImageQueueGrid?.SelectedItem as WpfImageQueueItem;
-            if (CanOpenQueueItem(selectedItem))
+            var candidates = new List<WpfImageQueueItem>
             {
-                return selectedItem;
+                ImageQueueGrid?.SelectedItem as WpfImageQueueItem,
+                ImageQueueViewModel?.SelectedQueueItem,
+                FindSingleSearchMatchedQueueItem()
+            };
+
+            if (imageQueueView != null)
+            {
+                // UIAutomation and keyboard focus can leave DataGrid.SelectedItem unset while
+                // a filtered single row is plainly visible. In that case the visible row is
+                // the operator's intended target for the Open action.
+                imageQueueView.Refresh();
+                candidates.Add(WpfImageQueueFilterService.FindSingleItem(imageQueueView
+                    .Cast<object>()
+                    .OfType<WpfImageQueueItem>()));
             }
 
-            selectedItem = ImageQueueViewModel?.SelectedQueueItem;
-            if (CanOpenQueueItem(selectedItem))
-            {
-                return selectedItem;
-            }
-
-            selectedItem = FindSingleSearchMatchedQueueItem();
-            if (CanOpenQueueItem(selectedItem))
-            {
-                return selectedItem;
-            }
-
-            if (imageQueueView == null)
-            {
-                return null;
-            }
-
-            // UIAutomation and keyboard focus can leave DataGrid.SelectedItem unset while
-            // a filtered single row is plainly visible. In that case the visible row is
-            // the operator's intended target for the Open action.
-            imageQueueView.Refresh();
-            List<WpfImageQueueItem> visibleItems = imageQueueView
-                .Cast<object>()
-                .OfType<WpfImageQueueItem>()
-                .Take(2)
-                .ToList();
-            return visibleItems.Count == 1 ? visibleItems[0] : null;
+            return imageQueueSelectionService.ResolveOpenSelection(candidates, global.Data);
         }
 
         private WpfImageQueueItem FindSingleSearchMatchedQueueItem()
         {
-            string searchText = ImageQueueSearchBox?.Text;
-            if (string.IsNullOrWhiteSpace(searchText))
-            {
-                return null;
-            }
-
             // Open is a deliberate user command. When search text uniquely identifies
             // one filtered row, prefer that row even if DataGrid focus/selection is stale.
-            WpfImageQueueFilter filter = GetSelectedImageQueueFilter();
-            List<WpfImageQueueItem> matches = imageQueueItems
-                .Where(item => WpfImageQueueFilterService.ShouldShow(item, searchText, filter))
-                .Take(2)
-                .ToList();
-            return matches.Count == 1 ? matches[0] : null;
+            return WpfImageQueueFilterService.FindSingleSearchMatch(
+                imageQueueItems,
+                ImageQueueSearchBox?.Text,
+                GetSelectedImageQueueFilter());
         }
 
         private bool TryOpenSelectedQueueImage(WpfImageQueueItem item, bool skipIfAlreadyActive = false)
         {
-            if (!imageQueueSelectionService.TryResolveOpenImagePath(item, global.Data, out string openImagePath))
+            return TryOpenSelectedQueueImage(
+                imageQueueSelectionService.ResolveOpenSelection(new[] { item }, global.Data),
+                skipIfAlreadyActive);
+        }
+
+        private bool TryOpenSelectedQueueImage(WpfImageQueueOpenSelection selection, bool skipIfAlreadyActive = false)
+        {
+            if (selection?.CanOpen != true)
             {
                 AppendLog(BuildOpenQueueSelectionFailureMessage());
                 return false;
             }
 
+            WpfImageQueueItem item = selection.Item;
+            string openImagePath = selection.OpenImagePath;
             UpdateSelectedQueueImageButton(item);
 
             if (skipIfAlreadyActive
@@ -377,7 +361,12 @@ namespace MvcVisionSystem
             string viewModelSelection = ImageQueueViewModel?.SelectedQueueItem?.FileName ?? "-";
             int visibleCount = CountVisibleQueueItems(limit: 3);
             int searchMatchCount = CountSearchMatchedQueueItems(searchText, limit: 3);
-            return $"\uC5F4 \uC774\uBBF8\uC9C0\uB97C \uC120\uD0DD\uD558\uC138\uC694. \uAC80\uC0C9='{searchText}' \uD45C\uC2DC={FormatLimitedQueueCount(visibleCount)} \uAC80\uC0C9\uC77C\uCE58={FormatLimitedQueueCount(searchMatchCount)} \uC120\uD0DD={gridSelection} VM={viewModelSelection}";
+            return WpfImageQueuePresenter.BuildOpenSelectionFailureMessage(
+                searchText,
+                visibleCount,
+                searchMatchCount,
+                gridSelection,
+                viewModelSelection);
         }
 
         private int CountVisibleQueueItems(int limit)
@@ -402,16 +391,11 @@ namespace MvcVisionSystem
                 return 0;
             }
 
-            WpfImageQueueFilter filter = GetSelectedImageQueueFilter();
-            return imageQueueItems
-                .Where(item => WpfImageQueueFilterService.ShouldShow(item, searchText, filter))
-                .Take(Math.Max(1, limit))
-                .Count();
-        }
-
-        private static string FormatLimitedQueueCount(int count)
-        {
-            return count >= 3 ? "3+" : count.ToString(System.Globalization.CultureInfo.InvariantCulture);
+            return WpfImageQueueFilterService.CountSearchMatches(
+                imageQueueItems,
+                searchText,
+                GetSelectedImageQueueFilter(),
+                limit);
         }
 
         private void UpdateSelectedQueueImageButton(WpfImageQueueItem item)

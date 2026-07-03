@@ -1,7 +1,7 @@
 {
   "labelingApp": {
-    "debugExecutable": "artifacts/run/Debug/MvcVisionSystem.exe",
-    "publishExecutable": "artifacts/publish/Release/win-x64/MvcVisionSystem.exe"
+    "debugExecutable": "artifacts/run/Debug/OpenVisionLab.LabelingStudio.exe",
+    "publishExecutable": "artifacts/publish/Release/win-x64/OpenVisionLab.LabelingStudio.exe"
   },
   "python": {
     "pythonExecutable": "${repoParent}/yolov5/.venv/Scripts/python.exe",
