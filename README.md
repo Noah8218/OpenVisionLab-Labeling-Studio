@@ -146,3 +146,11 @@ Release publish 실행:
 | [YOLOv5 학습 결과 판단 기준](docs/YOLOV5_TRAINING_RESULT_WORKFLOW.md) | 학습 완료 후 모델 후보를 현재 검사 모델로 적용하기 전 확인할 기준 |
 | [세그멘테이션 UX 기준](docs/SEGMENTATION_UX_COMPLETION.md) | 세그멘테이션 라벨링 흐름과 완료 기준 |
 | [이상탐지 흐름](docs/ANOMALY_DETECTION_FLOW.md) | 이상탐지 데이터셋과 검토 흐름 |
+
+## 라이선스
+
+이 프로젝트는 [MIT License](LICENSE)로 배포합니다.
+
+상업적 사용, 수정, 배포가 가능합니다. 단, 소프트웨어를 복사하거나 배포할 때는 저작권 고지와 라이선스 고지를 함께 유지해야 합니다.
+
+Copyright (c) 2026 최노아 (Noah-Choi)
