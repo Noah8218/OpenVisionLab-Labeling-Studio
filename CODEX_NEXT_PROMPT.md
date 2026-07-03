@@ -6,6 +6,12 @@
 - A commit request means create a local commit only. Pushing requires a separate explicit user request.
 - If in doubt, stop after commit and report the commit hash.
 
+## Latest Completed Work
+
+- 2026-07-03: `WpfModelRuntimeUnavailablePresentationService` now owns model-runtime unavailable status, recovery, readiness, model lifecycle, registry summary, and top inspection/model status wording. `WpfLabelingShellWindow.YoloRuntimeStatus.cs` remains the runtime-state/UI adapter.
+- Verification used: isolated test build, `--wpf-labeling-shell`, `--wpf-training-status-summaries`, `--mvvm-infra`, `--priority-workflow-docs`, and `git diff --check`.
+- Next priority: continue removing remaining user-facing model/training/runtime text assembled directly in shell partials, starting with missing inspection-model and invalid-settings paths.
+
 아래 내용을 새 Codex 대화에 그대로 붙여 넣으세요.
 
 ```text

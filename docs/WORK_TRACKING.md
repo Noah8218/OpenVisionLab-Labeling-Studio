@@ -7042,6 +7042,28 @@ Last updated: 2026-07-03
 - Next:
   - Continue scanning shell code-behind for remaining user-facing model/training/runtime strings that can be moved into existing presentation services without changing execution paths.
 
+## 2026-07-03 model runtime unavailable presentation split
+
+- Self-evaluation:
+  - Runtime-unavailable states are shown in several high-visibility places: command status, recovery panel, training readiness, current/candidate model lifecycle, model-center registry summary, and top model status.
+  - The shell partial still owned part of this wording, so a future wording fix could easily drift across panels.
+- Changes:
+  - Added `WpfModelRuntimeUnavailablePresentationService` and `WpfModelRuntimeUnavailablePresentation`.
+  - Moved unavailable-runtime command status, log text, recovery guidance, training-readiness text, model lifecycle text, registry summary text, and top inspection/model status text into the service DTO.
+  - Kept `WpfLabelingShellWindow.YoloRuntimeStatus.cs` as an adapter that reads runtime state and applies the service DTO to existing ViewModels/UI status methods.
+  - Added `--wpf-labeling-shell` guards so unavailable-runtime strings are not reintroduced inline in the shell runtime-status partial.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-status-summaries` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed. It reported only LF-to-CRLF normalization warnings for touched C# files.
+- Capture:
+  - No screenshot was generated because this pass did not change UI layout or visuals.
+- Next:
+  - Continue scanning the remaining model/training/runtime shell partials for user-facing status strings that are still assembled in code-behind, starting with missing-inspection-model and invalid-settings paths.
+
 ## 2026-07-03 Ultralytics package operation presentation split
 
 - 자체 평가:

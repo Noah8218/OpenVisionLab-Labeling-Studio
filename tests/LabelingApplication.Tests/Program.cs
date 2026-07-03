@@ -20844,6 +20844,7 @@ internal static class Program
         string yoloEnvironmentPresentationSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfYoloEnvironmentCommandPresentationService.cs"));
         string yoloEnvironmentRuntimeCommandSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.YoloEnvironmentRuntimeCommands.cs"));
         string yoloEnvironmentLifecycleSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.YoloEnvironmentCommandLifecycle.cs"));
+        string modelRuntimeUnavailablePresentationSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfModelRuntimeUnavailablePresentationService.cs"));
         AssertTrue(yoloEnvironmentPresentationSource.Contains("BuildEnvironmentCheckStartingStatus", StringComparison.Ordinal), "YOLO environment command presentation service should own check-start wording");
         AssertTrue(yoloEnvironmentPresentationSource.Contains("BuildRequirementsInstallResultStatus", StringComparison.Ordinal), "YOLO environment command presentation service should own requirements install result wording");
         AssertTrue(WpfYoloEnvironmentCommandPresentationService.BuildEnvironmentCheckStartingStatus().Contains("점검", StringComparison.Ordinal), "environment check start text should be operator-readable");
@@ -20863,6 +20864,26 @@ internal static class Program
         AssertTrue(!yoloEnvironmentRuntimeCommandSource.Contains("모델 실행 환경 준비 완료", StringComparison.Ordinal), "YOLO environment runtime command should not inline check-ready wording");
         AssertTrue(!yoloEnvironmentRuntimeCommandSource.Contains("추론 실행 환경 정상", StringComparison.Ordinal), "YOLO environment runtime command should not inline requirements-ready wording");
         AssertTrue(!yoloEnvironmentRuntimeCommandSource.Contains("누락 실행 환경 패키지", StringComparison.Ordinal), "YOLO environment runtime command should not inline missing-package install wording");
+        var unavailablePresentation = WpfModelRuntimeUnavailablePresentationService.Build(
+            new PythonModelRuntimeState(
+                PythonModelRuntimeStateKind.NotInstalled,
+                canRunTraining: false,
+                canRunInference: false,
+                "summary",
+                "detail",
+                "next"),
+            "blocked");
+        AssertEqual("blocked", unavailablePresentation.CommandStatusText);
+        AssertTrue(unavailablePresentation.CurrentModelText.Contains("\uBBF8\uC124\uCE58", StringComparison.Ordinal), "model runtime unavailable presentation should show missing-runtime current-model text");
+        AssertTrue(unavailablePresentation.InspectionStatusText.Contains("\uBBF8\uC124\uCE58", StringComparison.Ordinal), "model runtime unavailable presentation should show missing-runtime inspection status text");
+        AssertTrue(unavailablePresentation.ModelStatusText.Contains("\uBBF8\uC124\uCE58", StringComparison.Ordinal), "model runtime unavailable presentation should show missing-runtime top model status text");
+        AssertTrue(unavailablePresentation.DecisionEvidenceText.Contains("\uB77C\uBCA8\uB9C1", StringComparison.Ordinal), "model runtime unavailable presentation should explain labeling remains possible");
+        AssertTrue(modelRuntimeUnavailablePresentationSource.Contains("WpfModelRuntimeUnavailablePresentation", StringComparison.Ordinal), "model runtime unavailable service should expose a presentation DTO");
+        AssertTrue(yoloRuntimeStatusSource.Contains("WpfModelRuntimeUnavailablePresentationService.Build", StringComparison.Ordinal), "YOLO runtime status should delegate unavailable presentation wording to the service");
+        AssertTrue(!yoloRuntimeStatusSource.Contains("\\uD604\\uC7AC \\uAC80\\uC0AC \\uBAA8\\uB378: \\uBAA8\\uB378 \\uC2E4\\uD589\\uAE30 \\uBBF8\\uC124\\uCE58", StringComparison.Ordinal), "YOLO runtime status should not inline unavailable current-model text");
+        AssertTrue(!yoloRuntimeStatusSource.Contains("\\uBAA8\\uB378 \\uAE30\\uB2A5: \\uBBF8\\uC124\\uCE58", StringComparison.Ordinal), "YOLO runtime status should not inline unavailable inspection status text");
+        AssertTrue(!yoloRuntimeStatusSource.Contains("\\uBAA8\\uB378: \\uBBF8\\uC124\\uCE58", StringComparison.Ordinal), "YOLO runtime status should not inline unavailable top model status text");
+        AssertTrue(!ContainsVisibleMojibakeArtifact(modelRuntimeUnavailablePresentationSource), "model runtime unavailable presentation service should not contain visible mojibake artifacts");
 
         if (System.Windows.Application.Current == null)
         {

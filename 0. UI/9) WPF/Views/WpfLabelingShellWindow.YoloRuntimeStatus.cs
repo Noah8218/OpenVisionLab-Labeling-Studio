@@ -21,14 +21,14 @@ namespace MvcVisionSystem
             PythonModelRuntimeState runtimeState = GetPythonModelRuntimeState();
             if (runtimeState.State == PythonModelRuntimeStateKind.NotInstalled)
             {
+                WpfModelRuntimeUnavailablePresentation presentation =
+                    WpfModelRuntimeUnavailablePresentationService.Build(runtimeState);
                 SetGlobalInferenceStatus(string.Empty, isBusy: false, isWarning: true);
                 SetPythonStatus(runtimeState.SummaryText);
-                SetInspectionModelStatus(
-                    "\uBAA8\uB378 \uAE30\uB2A5: \uBBF8\uC124\uCE58",
-                    runtimeState.DetailText);
-                SetModelStatus("\uBAA8\uB378: \uBBF8\uC124\uCE58");
-                SetYoloCommandStatus(runtimeState.DetailText, isBusy: false);
-                ApplyModelRuntimeUnavailablePresentation(runtimeState);
+                SetInspectionModelStatus(presentation.InspectionStatusText, presentation.InspectionStatusToolTip);
+                SetModelStatus(presentation.ModelStatusText);
+                SetYoloCommandStatus(presentation.CommandStatusText, isBusy: false);
+                ApplyModelRuntimeUnavailablePresentation(presentation);
                 return;
             }
 
@@ -95,81 +95,79 @@ namespace MvcVisionSystem
         private void ShowModelRuntimeUnavailable(string statusText, PythonModelRuntimeState runtimeState)
         {
             runtimeState ??= GetPythonModelRuntimeState();
-            string title = runtimeState.State == PythonModelRuntimeStateKind.NotInstalled
-                ? "\uBAA8\uB378 \uC2E4\uD589\uAE30 \uBBF8\uC124\uCE58"
-                : "\uBAA8\uB378 \uC124\uC815 \uD655\uC778 \uD544\uC694";
-            string action = runtimeState.State == PythonModelRuntimeStateKind.NotInstalled
-                ? "\uB2E4\uC74C: \uBAA8\uB378 \uC2E4\uD589\uAE30\uB97C \uC124\uCE58\uD558\uAC70\uB098 \uAE30\uC874 \uBAA8\uB378 \uACBD\uB85C\uB97C \uC5F0\uACB0\uD55C \uB4A4 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694."
-                : runtimeState.NextActionText;
+            WpfModelRuntimeUnavailablePresentation presentation =
+                WpfModelRuntimeUnavailablePresentationService.Build(runtimeState, statusText);
 
-            SetYoloCommandStatus(statusText, isBusy: false);
-            SetYoloRecoveryStatus(title, runtimeState.DetailText, action);
-            SetTrainingReadinessStatus(statusText);
+            SetYoloCommandStatus(presentation.CommandStatusText, isBusy: false);
+            SetYoloRecoveryStatus(presentation.RecoveryTitle, presentation.RecoveryDetail, presentation.RecoveryAction);
+            SetTrainingReadinessStatus(presentation.ReadinessText);
             SetPythonStatus(runtimeState.SummaryText);
-            ApplyModelRuntimeUnavailablePresentation(runtimeState, statusText);
-            AppendLog($"{statusText} / {runtimeState.DetailText}");
+            ApplyModelRuntimeUnavailablePresentation(presentation);
+            AppendLog(presentation.LogText);
         }
 
         private void ApplyModelRuntimeUnavailablePresentation(PythonModelRuntimeState runtimeState, string statusText = null)
         {
             runtimeState ??= GetPythonModelRuntimeState();
-            string nextAction = string.IsNullOrWhiteSpace(runtimeState.NextActionText)
-                ? "\uBAA8\uB378 \uC2E4\uD589\uAE30 \uC124\uCE58 \uB610\uB294 \uACBD\uB85C \uC5F0\uACB0 \uD544\uC694"
-                : runtimeState.NextActionText;
-            string readinessText = string.IsNullOrWhiteSpace(statusText)
-                ? $"{runtimeState.SummaryText} / {nextAction}"
-                : statusText;
-            string currentModelText = "\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378: \uBAA8\uB378 \uC2E4\uD589\uAE30 \uBBF8\uC124\uCE58";
-            string candidateModelText = "\uC0C8 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4: \uC5C6\uC74C";
-            string adoptionText = "\uBAA8\uB378 \uC801\uC6A9: \uBAA8\uB378 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uD544\uC694";
-            string nextActionText = $"\uB2E4\uC74C: {nextAction}";
-            string noCandidateText = "\uD6C4\uBCF4 \uC5C6\uC74C";
-            string decisionEvidence = "\uADFC\uAC70: \uB77C\uBCA8\uB9C1\uC740 \uACC4\uC18D\uD560 \uC218 \uC788\uC9C0\uB9CC \uD559\uC2B5/\uD604\uC7AC \uAC80\uC0AC\uB294 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uD6C4 \uC0AC\uC6A9\uD569\uB2C8\uB2E4.";
+            WpfModelRuntimeUnavailablePresentation presentation =
+                WpfModelRuntimeUnavailablePresentationService.Build(runtimeState, statusText);
+            ApplyModelRuntimeUnavailablePresentation(presentation);
+        }
 
-            SetTrainingReadinessStatus(readinessText);
-            SetTrainingProgressStatus("\uD559\uC2B5 \uB300\uAE30", string.Empty, 0D, isIndeterminate: false);
+        private void ApplyModelRuntimeUnavailablePresentation(WpfModelRuntimeUnavailablePresentation presentation)
+        {
+            if (presentation == null)
+            {
+                return;
+            }
+
+            SetTrainingReadinessStatus(presentation.ReadinessText);
+            SetTrainingProgressStatus(WpfTrainingProgressPresentationService.BuildIdleProgressText(), string.Empty, 0D, isIndeterminate: false);
             LearningWorkflowViewModel?.SetTrainingModelLifecycleState(
-                currentModelText,
-                candidateModelText,
-                adoptionText,
-                nextActionText);
+                presentation.CurrentModelText,
+                presentation.CandidateModelText,
+                presentation.AdoptionText,
+                presentation.NextActionText);
             ShellViewModel?.SetModelCenterModelState(
-                currentModelText,
-                candidateModelText,
-                adoptionText,
-                nextActionText,
-                noCandidateText,
-                nextAction,
+                presentation.CurrentModelText,
+                presentation.CandidateModelText,
+                presentation.AdoptionText,
+                presentation.NextActionText,
+                presentation.NoCandidateText,
+                presentation.CandidateReviewDetailText,
                 canConfirmModel: false,
-                "\uD310\uB2E8: \uBAA8\uB378 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uD544\uC694",
-                decisionEvidence,
-                nextActionText);
-            ShellViewModel?.SetModelCenterCandidateReviewState(noCandidateText, nextAction, canReviewCandidate: false);
+                presentation.DecisionTitleText,
+                presentation.DecisionEvidenceText,
+                presentation.NextActionText);
+            ShellViewModel?.SetModelCenterCandidateReviewState(
+                presentation.NoCandidateText,
+                presentation.CandidateReviewDetailText,
+                canReviewCandidate: false);
             ShellViewModel?.SetModelRegistryState(new WpfModelRegistryPresentation
             {
-                ProfileText = "\uBAA8\uB378 \uD504\uB85C\uD544: \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uD544\uC694",
-                TrainingRunText = "\uD559\uC2B5 \uC2E4\uD589: \uBAA8\uB378 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uC804",
-                CandidateModelText = candidateModelText,
-                InspectionModelText = currentModelText,
-                ActionText = nextActionText,
-                SummaryPrimaryText = "\uD604\uC7AC \uAC80\uC0AC: \uBAA8\uB378 \uC2E4\uD589\uAE30 \uBBF8\uC124\uCE58 / \uD559\uC2B5 \uD6C4\uBCF4: \uC5C6\uC74C",
-                SummarySecondaryText = $"\uB77C\uBCA8\uB9C1\uC740 \uAC00\uB2A5 / {nextAction}",
+                ProfileText = presentation.ProfileText,
+                TrainingRunText = presentation.TrainingRunText,
+                CandidateModelText = presentation.CandidateModelText,
+                InspectionModelText = presentation.CurrentModelText,
+                ActionText = presentation.NextActionText,
+                SummaryPrimaryText = presentation.SummaryPrimaryText,
+                SummarySecondaryText = presentation.SummarySecondaryText,
                 HistoryItems = new WpfModelRegistryHistoryItem[0]
             });
             ShellViewModel?.SetModelCenterRecoveryState(
-                "\uBAA8\uB378 \uC2E4\uD589\uAE30 \uBBF8\uC124\uCE58",
-                runtimeState.DetailText,
-                nextActionText);
+                presentation.RecoveryTitle,
+                presentation.RecoveryDetail,
+                presentation.NextActionText);
             TrainingSettingsViewModel?.SetPostTrainingModelActionState(
-                currentModelText,
-                candidateModelText,
-                adoptionText,
-                nextActionText,
-                noCandidateText,
-                nextAction,
+                presentation.CurrentModelText,
+                presentation.CandidateModelText,
+                presentation.AdoptionText,
+                presentation.NextActionText,
+                presentation.NoCandidateText,
+                presentation.CandidateReviewDetailText,
                 canReview: false,
-                noCandidateText,
-                nextAction,
+                presentation.NoCandidateText,
+                presentation.CandidateReviewDetailText,
                 canConfirm: false);
         }
 
