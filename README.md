@@ -8,9 +8,9 @@
 
 이 프로젝트는 그 흐름을 한 화면 안에서 끊기지 않게 이어가도록 만들고 있습니다.
 
-![OpenVisionLab Labeling Studio workflow](docs/tutorial/images/annotated/01-overview-1920-annotated.png)
+![OpenVisionLab Labeling Studio workflow](docs/tutorial/images/annotated/readme-current-workflow-20260703.png)
 
-데이터셋 만들기, 이미지 리스트 확인, 클래스 설정, 라벨링, 학습 결과 확인, 현재 검사 실행까지 이어지는 과정은 [docs/tutorial/README.md](docs/tutorial/README.md)에 정리했습니다.
+데이터셋 만들기, 이미지 큐 확인, 클래스 설정, 라벨링, 학습 결과 확인, 현재 검사 실행까지 이어지는 과정은 [docs/tutorial/README.md](docs/tutorial/README.md)에 정리했습니다.
 
 ## 처음 실행할 때 보는 순서
 
@@ -108,25 +108,11 @@ HTML 파일 하나만 다른 PC에 복사해서 보려면 이미지가 포함된
 - 저장 라벨과 AI 후보를 캔버스 표시 모드와 작업 패널에서 분리했습니다.
 - 학습 완료 모델을 바로 적용하지 않고, 후보 검증과 현재 검사 모델 적용 단계를 분리했습니다.
 - 자주 쓰는 라벨링 화면은 넓게 쓰고, 설정/도구/모델 관리는 필요한 단계에서만 보이도록 UI를 정리하고 있습니다.
-- WPF View code-behind에 모든 로직을 쌓지 않고, ViewModel/Service로 상태와 작업 흐름을 분리하는 방향으로 리팩터링하고 있습니다.
-
-## 구조
-
-큰 책임은 아래처럼 나눴습니다.
-
-| 영역 | 역할 |
-| --- | --- |
-| WPF View | 화면 구성과 불가피한 UI 어댑터 |
-| ViewModel | 버튼 상태, 작업 단계, 패널 표시 상태, 사용자 안내 문구 |
-| Service | 데이터셋, 라벨 저장, 후보 검토, 모델 이력, 학습/검증 흐름 |
-| Core/Yolo | 라벨 파일, 모델 결과 적용, 학습 데이터 구성 |
-| Python worker | YOLOv5 학습/추론 실행 |
-
-아직 모든 code-behind가 정리된 상태는 아닙니다. 다만 새 기능은 가능한 한 ViewModel/Service 쪽으로 옮기고, 검증된 Viewer/ROI/brush/eraser 성능 경로는 임의로 건드리지 않는 것을 원칙으로 두고 있습니다.
+- 화면 구조는 작업 흐름이 먼저 보이도록 정리하고, 자주 쓰지 않는 설정은 필요한 단계에서만 드러나게 하고 있습니다.
 
 ## 실행
 
-모델 런타임 경로는 각자 환경에 맞게 연결합니다. 개인 PC의 절대 경로는 Git에 올리지 않고 로컬 설정으로 분리합니다.
+모델 런타임 경로는 설치 환경에 맞게 연결합니다. 절대 경로가 필요한 설정은 로컬 설정 파일로 분리합니다.
 
 Debug 실행:
 
@@ -149,49 +135,14 @@ Release publish 실행:
 .\scripts\verify-first-run.ps1 -RunWpfSmoke
 ```
 
-개인 PC 경로가 다르면 `config\labeling-runtime.local.json`을 만들어 분리합니다. 이 파일은 Git에 올리지 않습니다.
+로컬 경로 설정이 필요하면 `config\labeling-runtime.local.json`을 사용합니다.
 
-## 주요 검증
-
-기본 빌드:
-
-```powershell
-dotnet build .\MvcVisionSystem.sln -c Debug
-```
-
-자주 쓰는 focused gate:
-
-```powershell
-dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --mvvm-infra
-dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-labeling-session-smoke
-dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-yolo-training-session-smoke
-dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug -- --wpf-responsive-layout --width 1920 --height 1080
-```
-
-Viewer/OpenGL/ROI/brush/eraser 성능 경로는 별도 focused gate로 보호합니다. 관련 재현 없이 임의 수정하지 않습니다.
-
-## 문서
+## 추가 가이드
 
 | 문서 | 내용 |
 | --- | --- |
-| [docs/tutorial/README.md](docs/tutorial/README.md) | 처음 작업자가 따라 하는 사용 가이드 |
-| [docs/tutorial/labeling-workbench-tutorial.html](docs/tutorial/labeling-workbench-tutorial.html) | 화면 캡처 중심 튜토리얼 |
-| [docs/CODE_STRUCTURE.md](docs/CODE_STRUCTURE.md) | 코드 구조와 변경 위치 |
-| [docs/LABELING_PROGRAM_DIRECTION.md](docs/LABELING_PROGRAM_DIRECTION.md) | 제품 방향과 UX 원칙 |
-| [docs/STABLE_VERIFIED_AREAS.md](docs/STABLE_VERIFIED_AREAS.md) | 이미 검증된 기능/성능 경로 |
-| [docs/WORK_TRACKING.md](docs/WORK_TRACKING.md) | 작업 이력과 검증 로그 |
-| [docs/YOLOV5_TRAINING_RESULT_WORKFLOW.md](docs/YOLOV5_TRAINING_RESULT_WORKFLOW.md) | YOLOv5 학습/결과 비교 기준 |
-| [docs/SEGMENTATION_UX_COMPLETION.md](docs/SEGMENTATION_UX_COMPLETION.md) | 세그멘테이션 UX 기준 |
-| [docs/ANOMALY_DETECTION_FLOW.md](docs/ANOMALY_DETECTION_FLOW.md) | 이상탐지 흐름과 완료 전제 |
-
-문서에 쓰는 화면 이미지는 현재 앱 UI 기준으로 유지합니다.
-화면이 바뀌면 캡처와 번호 표시도 함께 갱신해, 이미지만 봐도 어디를 눌러야 하는지 알 수 있게 합니다.
-HTML 파일 하나만 옮겨서 볼 때는 이미지가 포함된 standalone 튜토리얼을 사용합니다.
-
-## 커밋 전 기준
-
-- `git status --short`로 기존 변경과 이번 변경을 먼저 구분합니다.
-- 기존 사용자 변경사항을 임의로 되돌리지 않습니다.
-- UI 변경이 있으면 전/후 캡처를 남깁니다.
-- 검증한 항목은 `docs/WORK_TRACKING.md` 또는 `docs/STABLE_VERIFIED_AREAS.md`에 기록합니다.
-- 기능이 아직 검증되지 않았으면 README에서 완료 기능처럼 쓰지 않습니다.
+| [사용 가이드](docs/tutorial/README.md) | 데이터셋 준비부터 라벨링, 학습, 추론 검토까지 따라가는 작업 흐름 |
+| [화면 캡처 튜토리얼](docs/tutorial/labeling-workbench-tutorial.html) | 실제 화면을 보며 따라가는 튜토리얼 |
+| [YOLOv5 학습 결과 판단 기준](docs/YOLOV5_TRAINING_RESULT_WORKFLOW.md) | 학습 완료 후 모델 후보를 현재 검사 모델로 적용하기 전 확인할 기준 |
+| [세그멘테이션 UX 기준](docs/SEGMENTATION_UX_COMPLETION.md) | 세그멘테이션 라벨링 흐름과 완료 기준 |
+| [이상탐지 흐름](docs/ANOMALY_DETECTION_FLOW.md) | 이상탐지 데이터셋과 검토 흐름 |

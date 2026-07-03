@@ -6796,6 +6796,24 @@ Last updated: 2026-07-03
 - 다음 작업:
   - 다음 우선순위는 실제 사용자 흐름 기준으로 모델 비교/검사 결과 패널의 잔여 혼란 지점을 확인하거나, Shell code-behind에 남은 작은 runtime/status 문구 조합을 service 계약으로 줄이는 것입니다.
 
+## 2026-07-03 public README cleanup after rendered review
+
+- 점검 결과:
+  - README 렌더링 확인 중 예전 대표 이미지가 계속 보일 수 있는 파일명 재사용 문제가 남아 있었습니다.
+  - README 하단에는 `문서`, `커밋 전 기준`, `git status`, `WORK_TRACKING`, `STABLE_VERIFIED_AREAS`처럼 내부 협업/검증용 기준이 사용자용 문서처럼 노출되어 있었습니다.
+- 수정 내용:
+  - README 대표 이미지를 `docs\tutorial\images\annotated\readme-current-workflow-20260703.png` 새 파일명으로 분리해 stale image/cache 가능성을 줄였습니다.
+  - README 본문에서 `이미지 리스트` 표현을 현재 UI 용어인 `이미지 큐`로 바꿨습니다.
+  - README에서 내부 작업 기준 섹션과 내부 문서 링크 목록을 제거했습니다.
+  - README에는 제품 소개, 처음 실행 흐름, 주요 기능, 사용 흐름, 용어 구분, 실행 방법만 남겼습니다.
+- 검증:
+  - README 이미지 참조가 새 파일을 가리키고 파일이 존재함을 확인했습니다.
+  - `readme-current-workflow-20260703.png`를 직접 열어 현재 UI 구조인 `왼쪽 작업 패널 / 가운데 캔버스 / 오른쪽 이미지 큐`가 보이는지 확인했습니다.
+  - README에서 `커밋`, `git status`, `WORK_TRACKING`, `STABLE_VERIFIED`, `CODEX`, `내부`, `작업 이력`, `검증 로그`, `View code-behind`, `MVVM`, `focused`, `포트폴리오`, `제가`, `내가`, `저만`, `당신`, `소통` 검색 결과 없음.
+  - README에서 `D:\`, `C:\`, `Test01`, `TEST_`, `Debug\DATA`, `artifacts\run`, `LabelingData` 검색 결과 없음.
+- 다음 작업:
+  - README를 추가로 수정할 때는 먼저 렌더링된 첫 화면 기준으로 사용자용 문서인지 확인하고, 내부 협업 기준은 `CODEX_NEXT_PROMPT.md`, `docs\WORK_TRACKING.md`, `docs\STABLE_VERIFIED_AREAS.md`에만 남깁니다.
+
 ## 보류/제외
 
 - C# 앱 안에 YOLO 학습 로직을 직접 넣지 않습니다.
