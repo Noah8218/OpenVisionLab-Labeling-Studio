@@ -20804,6 +20804,20 @@ internal static class Program
         AssertTrue(!shellSource.Contains("RetryFailedQueueButton.IsEnabled", StringComparison.Ordinal), "WPF shell should not directly enable the retry queue detect button on the normal path");
         AssertTrue(!shellSource.Contains("StopBatchQueueButton.IsEnabled", StringComparison.Ordinal), "WPF shell should not directly enable the stop batch button on the normal path");
 
+        string trainingCommandPresentationSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfTrainingCommandPresentationService.cs"));
+        string startTrainingCommandSource = FindMethodSourceBlock(shellSource, "private async void ExecuteStartTrainingCommand()");
+        string stopTrainingCommandSource = FindMethodSourceBlock(shellSource, "private async void ExecuteStopTrainingCommand()");
+        AssertTrue(trainingCommandPresentationSource.Contains("BuildStartCommandResultStatus", StringComparison.Ordinal), "training command presentation service should own start command result wording");
+        AssertTrue(trainingCommandPresentationSource.Contains("BuildStopCommandResultStatus", StringComparison.Ordinal), "training command presentation service should own stop command result wording");
+        AssertTrue(WpfTrainingCommandPresentationService.BuildStartCommandResultStatus(true).Contains("에폭 로그", StringComparison.Ordinal), "training start accepted text should tell the operator what to wait for next");
+        AssertTrue(WpfTrainingCommandPresentationService.BuildStopFailureRecovery("실패").Action.Contains("재시작", StringComparison.Ordinal), "training stop failure recovery should give a concrete next action");
+        AssertTrue(startTrainingCommandSource.Contains("WpfTrainingCommandPresentationService", StringComparison.Ordinal), "start training command should delegate status wording to the presentation service");
+        AssertTrue(stopTrainingCommandSource.Contains("WpfTrainingCommandPresentationService", StringComparison.Ordinal), "stop training command should delegate status wording to the presentation service");
+        AssertEqual(1, startTrainingCommandSource.Split(new[] { "SetYoloRecoveryStatus(" }, StringSplitOptions.None).Length - 1);
+        AssertEqual(1, stopTrainingCommandSource.Split(new[] { "SetYoloRecoveryStatus(" }, StringSplitOptions.None).Length - 1);
+        AssertTrue(!startTrainingCommandSource.Contains("pendingRecoveryTitle", StringComparison.Ordinal), "start training command should keep recovery state in a single typed DTO instead of duplicate title/detail/action locals");
+        AssertTrue(!stopTrainingCommandSource.Contains("pendingRecoveryTitle", StringComparison.Ordinal), "stop training command should keep recovery state in a single typed DTO instead of duplicate title/detail/action locals");
+
         if (System.Windows.Application.Current == null)
         {
             _ = new System.Windows.Application

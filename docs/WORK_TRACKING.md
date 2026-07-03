@@ -6912,6 +6912,29 @@ Last updated: 2026-07-03
 - 다음 작업:
   - 새 저장소 URL 기준으로 README/tutorial 링크가 깨지지 않는지 최종 공개 문서 확인을 이어갑니다.
 
+## 2026-07-03 training command recovery presentation split
+
+- 자체 평가:
+  - `WpfLabelingShellWindow.YoloTrainingCommands.cs` 안에서 학습 시작/중지 실패 recovery title/detail/action 문구가 직접 조합되고, 일부 경로에서는 `SetYoloRecoveryStatus`가 같은 값으로 두 번 호출되고 있었습니다.
+  - 사용자가 학습 중인지, 실패했는지, 다음에 무엇을 해야 하는지 명확히 봐야 하는 영역이므로 중복 호출과 inline 문구를 줄이는 것이 우선순위가 높다고 판단했습니다.
+- 수정 내용:
+  - `WpfTrainingCommandPresentationService`와 `WpfTrainingRecoveryStatus`를 추가했습니다.
+  - 이미 학습 중, 데이터셋 준비 중, 학습 시작 성공/실패, 에폭 대기, 학습 중지 성공/실패, 시작/중지 예외 recovery 문구를 presentation service로 옮겼습니다.
+  - `ExecuteStartTrainingCommand`, `ExecuteStopTrainingCommand`는 학습 workflow 실행과 UI adapter 호출만 유지하고, recovery 상태는 `WpfTrainingRecoveryStatus` 하나로 들고 있다가 `finally`에서 한 번만 반영하게 정리했습니다.
+  - `--wpf-labeling-shell` 소스 검증에 presentation service 사용 여부와 start/stop command 안의 `SetYoloRecoveryStatus` 호출 횟수 1회 제한을 추가했습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과, 경고 0 / 오류 0.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --width 1366 --height 768 --output artifacts\ui\wpf-training-command-presentation-after-1366.png` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session-smoke --model-center --width 1920 --height 1080 --output artifacts\ui\wpf-training-command-presentation-after-1920.png` 통과.
+  - `git diff --check` 통과. 줄 끝 변환 경고만 있었고 공백 오류는 없었습니다.
+- 캡처:
+  - `artifacts\ui\wpf-training-command-presentation-after-1366.png`
+  - `artifacts\ui\wpf-training-command-presentation-after-1920.png`
+- 다음 작업:
+  - 모델 후보 저장/거절 결정 패널 쪽 status/detail/tooltip 문구가 shell code-behind에 직접 남아 있으므로, 다음 소형 작업은 Candidate Review model decision presentation service 분리입니다.
+
 ## 보류/제외
 
 - C# 앱 안에 YOLO 학습 로직을 직접 넣지 않습니다.
