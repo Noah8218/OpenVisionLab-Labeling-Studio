@@ -17,6 +17,15 @@ namespace MvcVisionSystem
         public string CancelButtonText { get; set; } = string.Empty;
     }
 
+    public sealed class WpfYoloEnvironmentRecoveryPresentation
+    {
+        public string Title { get; set; } = string.Empty;
+
+        public string Detail { get; set; } = string.Empty;
+
+        public string Action { get; set; } = string.Empty;
+    }
+
     public static class WpfYoloEnvironmentCommandPresentationService
     {
         public static string BuildBusyCommandLog()
@@ -225,6 +234,86 @@ namespace MvcVisionSystem
                     $"종료 코드: {exitText}",
                     string.IsNullOrWhiteSpace(logText) ? string.Empty : $"로그 요약: {logText}"
                 }.Where(line => !string.IsNullOrWhiteSpace(line)));
+        }
+
+        public static string BuildModelTestModeSwitchLog()
+        {
+            return "\uBAA8\uB378 \uD14C\uC2A4\uD2B8\uB97C \uC704\uD574 \uCD94\uB860 \uAC80\uD1A0 \uBAA8\uB4DC\uB85C \uC804\uD658\uD588\uC2B5\uB2C8\uB2E4.";
+        }
+
+        public static string BuildModelTestStartingStatus()
+        {
+            return "\uBAA8\uB378 \uD14C\uC2A4\uD2B8 \uCD94\uB860 \uC911...";
+        }
+
+        public static string BuildModelTestCompletedStatus()
+        {
+            return "\uBAA8\uB378 \uD14C\uC2A4\uD2B8 \uCD94\uB860 \uC644\uB8CC.";
+        }
+
+        public static string BuildModelTestFailureStatus(string message)
+        {
+            return $"\uBAA8\uB378 \uD14C\uC2A4\uD2B8 \uCD94\uB860 \uC2E4\uD328: {NormalizeMessage(message)}";
+        }
+
+        public static WpfYoloEnvironmentRecoveryPresentation BuildModelTestFailureRecovery(string detail)
+        {
+            return new WpfYoloEnvironmentRecoveryPresentation
+            {
+                Title = "\uBAA8\uB378 \uD14C\uC2A4\uD2B8 \uC2E4\uD328",
+                Detail = NormalizeMessage(detail),
+                Action = "\uB2E4\uC74C: \uC2E4\uD589 \uD30C\uC77C, \uD504\uB85C\uC81D\uD2B8, \uC2A4\uD06C\uB9BD\uD2B8, \uAC80\uC0AC \uBAA8\uB378 \uACBD\uB85C\uB97C \uD655\uC778\uD55C \uB4A4 \uD14C\uC2A4\uD2B8\uB97C \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694."
+            };
+        }
+
+        public static string BuildWorkerRestartStartingStatus()
+        {
+            return "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC7AC\uC2DC\uC791 \uC911...";
+        }
+
+        public static string BuildWorkerRestartConnectedStatus()
+        {
+            return "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC7AC\uC2DC\uC791 \uBC0F \uC5F0\uACB0 \uC644\uB8CC.";
+        }
+
+        public static WpfYoloEnvironmentRecoveryPresentation BuildWorkerRestartConnectionFailureRecovery(string detail)
+        {
+            return new WpfYoloEnvironmentRecoveryPresentation
+            {
+                Title = "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uC2E4\uD328",
+                Detail = NormalizeMessage(detail),
+                Action = "\uB2E4\uC74C: \uBAA8\uB378 \uD14C\uC2A4\uD2B8\uB85C \uD658\uACBD\uC744 \uD655\uC778\uD558\uAC70\uB098 \uC2E4\uD589 \uD30C\uC77C/\uC2A4\uD06C\uB9BD\uD2B8 \uACBD\uB85C\uB97C \uC218\uC815\uD55C \uB4A4 \uC7AC\uC2DC\uC791\uD558\uC138\uC694."
+            };
+        }
+
+        public static string BuildWorkerRestartFailureStatus(string message)
+        {
+            return $"\uCD94\uB860 \uC2E4\uD589\uAE30 \uC7AC\uC2DC\uC791 \uC2E4\uD328: {NormalizeMessage(message)}";
+        }
+
+        public static WpfYoloEnvironmentRecoveryPresentation BuildWorkerRestartFailureRecovery(string detail)
+        {
+            return new WpfYoloEnvironmentRecoveryPresentation
+            {
+                Title = "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC7AC\uC2DC\uC791 \uC2E4\uD328",
+                Detail = NormalizeMessage(detail),
+                Action = "\uB2E4\uC74C: \uC0C1\uC138 \uB85C\uADF8\uC5D0\uC11C \uC624\uB958\uB97C \uD655\uC778\uD558\uACE0 Python/\uBAA8\uB378 \uC2E4\uD589 \uC124\uC815 \uACBD\uB85C\uB97C \uC218\uC815\uD558\uC138\uC694."
+            };
+        }
+
+        public static string BuildWorkerStopStartingStatus()
+        {
+            return "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC911\uC9C0 \uC911...";
+        }
+
+        public static string BuildWorkerStopCompletedStatus()
+        {
+            return "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC911\uC9C0 \uC644\uB8CC.";
+        }
+
+        public static string BuildWorkerStopFailureStatus(string message)
+        {
+            return $"\uCD94\uB860 \uC2E4\uD589\uAE30 \uC911\uC9C0 \uC2E4\uD328: {NormalizeMessage(message)}";
         }
 
         private static string FirstPackageCommandLogLine(string text)

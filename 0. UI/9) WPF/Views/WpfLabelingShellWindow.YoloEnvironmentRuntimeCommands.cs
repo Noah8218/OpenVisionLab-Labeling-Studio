@@ -266,7 +266,7 @@ namespace MvcVisionSystem
             if (currentWorkflowMode != WorkflowMode.Inference)
             {
                 SetWorkflowMode(WorkflowMode.Inference);
-                AppendLog("\uBAA8\uB378 \uD14C\uC2A4\uD2B8\uB97C \uC704\uD574 \uCD94\uB860 \uAC80\uD1A0 \uBAA8\uB4DC\uB85C \uC804\uD658\uD588\uC2B5\uB2C8\uB2E4.");
+                AppendLog(WpfYoloEnvironmentCommandPresentationService.BuildModelTestModeSwitchLog());
             }
 
             if (!EnsureModelRuntimeForInference())
@@ -274,7 +274,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            if (!BeginYoloEnvironmentCommand("\uBAA8\uB378 \uD14C\uC2A4\uD2B8 \uCD94\uB860 \uC911..."))
+            if (!BeginYoloEnvironmentCommand(WpfYoloEnvironmentCommandPresentationService.BuildModelTestStartingStatus()))
             {
                 return;
             }
@@ -283,16 +283,14 @@ namespace MvcVisionSystem
             {
                 await RunInteractiveDetectionAsync(allowSmokeFallback: true).ConfigureAwait(true);
                 await RefreshYoloSettingsPanelAsync().ConfigureAwait(true);
-                SetYoloCommandStatus("\uBAA8\uB378 \uD14C\uC2A4\uD2B8 \uCD94\uB860 \uC644\uB8CC.", isBusy: false);
+                SetYoloCommandStatus(WpfYoloEnvironmentCommandPresentationService.BuildModelTestCompletedStatus(), isBusy: false);
             }
             catch (Exception ex)
             {
-                string errorText = $"\uBAA8\uB378 \uD14C\uC2A4\uD2B8 \uCD94\uB860 \uC2E4\uD328: {ex.Message}";
+                string errorText = WpfYoloEnvironmentCommandPresentationService.BuildModelTestFailureStatus(ex.Message);
+                WpfYoloEnvironmentRecoveryPresentation recovery = WpfYoloEnvironmentCommandPresentationService.BuildModelTestFailureRecovery(errorText);
                 SetYoloCommandStatus(errorText, isBusy: false);
-                SetYoloRecoveryStatus(
-                    "\uBAA8\uB378 \uD14C\uC2A4\uD2B8 \uC2E4\uD328",
-                    errorText,
-                    "\uB2E4\uC74C: \uC2E4\uD589 \uD30C\uC77C, \uD504\uB85C\uC81D\uD2B8, \uC2A4\uD06C\uB9BD\uD2B8, \uAC80\uC0AC \uBAA8\uB378 \uACBD\uB85C\uB97C \uD655\uC778\uD55C \uB4A4 \uD14C\uC2A4\uD2B8\uB97C \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.");
+                SetYoloRecoveryStatus(recovery.Title, recovery.Detail, recovery.Action);
                 AppendLog(errorText);
             }
             finally
@@ -303,7 +301,7 @@ namespace MvcVisionSystem
 
         private async void ExecuteRestartPythonWorkerCommand()
         {
-            if (!BeginYoloEnvironmentCommand("\uCD94\uB860 \uC2E4\uD589\uAE30 \uC7AC\uC2DC\uC791 \uC911..."))
+            if (!BeginYoloEnvironmentCommand(WpfYoloEnvironmentCommandPresentationService.BuildWorkerRestartStartingStatus()))
             {
                 return;
             }
@@ -330,27 +328,23 @@ namespace MvcVisionSystem
 
                 await RefreshYoloSettingsPanelAsync().ConfigureAwait(true);
                 string restartText = connected
-                    ? "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC7AC\uC2DC\uC791 \uBC0F \uC5F0\uACB0 \uC644\uB8CC."
+                    ? WpfYoloEnvironmentCommandPresentationService.BuildWorkerRestartConnectedStatus()
                     : BuildPythonWorkerFailureText();
                 SetYoloCommandStatus(restartText, isBusy: false);
                 if (!connected)
                 {
-                    SetYoloRecoveryStatus(
-                        "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uC2E4\uD328",
-                        restartText,
-                        "\uB2E4\uC74C: \uBAA8\uB378 \uD14C\uC2A4\uD2B8\uB85C \uD658\uACBD\uC744 \uD655\uC778\uD558\uAC70\uB098 \uC2E4\uD589 \uD30C\uC77C/\uC2A4\uD06C\uB9BD\uD2B8 \uACBD\uB85C\uB97C \uC218\uC815\uD55C \uB4A4 \uC7AC\uC2DC\uC791\uD558\uC138\uC694.");
+                    WpfYoloEnvironmentRecoveryPresentation recovery = WpfYoloEnvironmentCommandPresentationService.BuildWorkerRestartConnectionFailureRecovery(restartText);
+                    SetYoloRecoveryStatus(recovery.Title, recovery.Detail, recovery.Action);
                 }
 
                 AppendLog(restartText);
             }
             catch (Exception ex)
             {
-                string errorText = $"\uCD94\uB860 \uC2E4\uD589\uAE30 \uC7AC\uC2DC\uC791 \uC2E4\uD328: {ex.Message}";
+                string errorText = WpfYoloEnvironmentCommandPresentationService.BuildWorkerRestartFailureStatus(ex.Message);
+                WpfYoloEnvironmentRecoveryPresentation recovery = WpfYoloEnvironmentCommandPresentationService.BuildWorkerRestartFailureRecovery(errorText);
                 SetYoloCommandStatus(errorText, isBusy: false);
-                SetYoloRecoveryStatus(
-                    "\uCD94\uB860 \uC2E4\uD589\uAE30 \uC7AC\uC2DC\uC791 \uC2E4\uD328",
-                    errorText,
-                    "\uB2E4\uC74C: \uC0C1\uC138 \uB85C\uADF8\uC5D0\uC11C \uC624\uB958\uB97C \uD655\uC778\uD558\uACE0 Python/\uBAA8\uB378 \uC2E4\uD589 \uC124\uC815 \uACBD\uB85C\uB97C \uC218\uC815\uD558\uC138\uC694.");
+                SetYoloRecoveryStatus(recovery.Title, recovery.Detail, recovery.Action);
                 AppendLog(errorText);
             }
             finally
@@ -361,7 +355,7 @@ namespace MvcVisionSystem
 
         private async void ExecuteStopPythonWorkerCommand()
         {
-            if (!BeginYoloEnvironmentCommand("\uCD94\uB860 \uC2E4\uD589\uAE30 \uC911\uC9C0 \uC911..."))
+            if (!BeginYoloEnvironmentCommand(WpfYoloEnvironmentCommandPresentationService.BuildWorkerStopStartingStatus()))
             {
                 return;
             }
@@ -370,13 +364,15 @@ namespace MvcVisionSystem
             {
                 await global.StopPythonModelClientConnectionAsync().ConfigureAwait(true);
                 await RefreshYoloSettingsPanelAsync().ConfigureAwait(true);
-                SetYoloCommandStatus("\uCD94\uB860 \uC2E4\uD589\uAE30 \uC911\uC9C0 \uC644\uB8CC.", isBusy: false);
-                AppendLog("\uCD94\uB860 \uC2E4\uD589\uAE30 \uC911\uC9C0 \uC644\uB8CC.");
+                string stopText = WpfYoloEnvironmentCommandPresentationService.BuildWorkerStopCompletedStatus();
+                SetYoloCommandStatus(stopText, isBusy: false);
+                AppendLog(stopText);
             }
             catch (Exception ex)
             {
-                SetYoloCommandStatus($"\uCD94\uB860 \uC2E4\uD589\uAE30 \uC911\uC9C0 \uC2E4\uD328: {ex.Message}", isBusy: false);
-                AppendLog($"\uCD94\uB860 \uC2E4\uD589\uAE30 \uC911\uC9C0 \uC2E4\uD328: {ex.Message}");
+                string errorText = WpfYoloEnvironmentCommandPresentationService.BuildWorkerStopFailureStatus(ex.Message);
+                SetYoloCommandStatus(errorText, isBusy: false);
+                AppendLog(errorText);
             }
             finally
             {
