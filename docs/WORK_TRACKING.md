@@ -6984,6 +6984,31 @@ Last updated: 2026-07-03
 - 다음 작업:
   - Ultralytics 설치/제거 확인 팝업과 결과 상세(`ConfirmUltralyticsPackageOperation`, `BuildUltralyticsPackageOperationDetail`)는 아직 runtime command 파일에 남아 있으므로 다음 소형 패스로 분리합니다.
 
+## 2026-07-03 Ultralytics package operation presentation split
+
+- 자체 평가:
+  - YOLOv8/YOLO11 연결 흐름에서 Ultralytics 설치/제거는 사용자가 직접 실행 여부를 확인해야 하는 고위험 동작입니다.
+  - 확인 팝업 제목/본문/버튼 문구와 최근 실행 결과 상세(`결과`, `대상`, `명령`, `종료 코드`, `로그 요약`)가 `WpfLabelingShellWindow.YoloEnvironmentRuntimeCommands.cs`에 직접 남아 있어, 실행 workflow와 사용자-facing 문구가 섞여 있었습니다.
+- 수정 내용:
+  - `WpfYoloEnvironmentCommandPresentationService`에 `WpfUltralyticsPackageConfirmationPresentation` DTO와 Ultralytics 설치/제거 문구 생성 메서드를 추가했습니다.
+  - 설치/제거 가능 여부 안내, 취소 상태, 진행 상태, 시작 로그, 성공/실패 상태, 확인 팝업, 결과 상세 생성을 presentation service로 옮겼습니다.
+  - `ConfirmUltralyticsPackageOperation`은 service가 만든 DTO를 `WpfMessageDialog.Confirm`에 전달하는 UI adapter만 맡습니다.
+  - `WpfLabelingShellWindow.YoloEnvironmentRuntimeCommands.cs`의 `BuildUltralyticsPackageOperationDetail`과 log-first-line helper를 제거했습니다.
+  - `--wpf-yolo-model-settings-panel` 테스트가 service의 확인 팝업/결과 상세 생성과 shell inline 문구 금지를 검증하도록 갱신했습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과, 경고 0 / 오류 0.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --runtime-command-failure-messages` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-connection` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-self-test` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` 통과.
+- 캡처:
+  - UI 배치 변경이 아니므로 새 캡처는 생성하지 않았습니다.
+- 다음 작업:
+  - 남은 runtime command 직접 문구 중 모델 테스트 실패 recovery, 실행기 재시작/중지 결과 문구를 `WpfYoloEnvironmentCommandPresentationService` 또는 별도 runtime recovery service로 분리합니다.
+
 ## 보류/제외
 
 - C# 앱 안에 YOLO 학습 로직을 직접 넣지 않습니다.

@@ -21515,7 +21515,11 @@ internal static class Program
         AssertTrue(shellSource.Contains("WpfMessageDialogResult.Yes", StringComparison.Ordinal), "Ultralytics package confirmation should only continue after the explicit primary response");
         AssertTrue(!shellSource.Contains("MessageBox.Show", StringComparison.Ordinal), "WPF shell should not use stock MessageBox for model-runtime package changes");
         AssertTrue(shellSource.Contains("SetUltralyticsPackageOperationResult", StringComparison.Ordinal), "WPF shell should push recent Ultralytics package results into the settings ViewModel");
-        AssertTrue(shellSource.Contains("BuildUltralyticsPackageOperationDetail", StringComparison.Ordinal), "WPF shell should build a visible package-result detail instead of relying only on the bottom log");
+        AssertTrue(yoloEnvironmentCommandPresentationSource.Contains("BuildUltralyticsConfirmation", StringComparison.Ordinal), "YOLO environment command presentation service should own Ultralytics confirmation dialog text");
+        AssertTrue(yoloEnvironmentCommandPresentationSource.Contains("BuildUltralyticsPackageOperationDetail", StringComparison.Ordinal), "YOLO environment command presentation service should build visible package-result detail text");
+        AssertTrue(yoloEnvironmentRuntimeCommandsSource.Contains("WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsPackageOperationDetail", StringComparison.Ordinal), "WPF shell should delegate package-result detail text to the presentation service");
+        AssertTrue(!yoloEnvironmentRuntimeCommandsSource.Contains("테스트를 반복하기 위해", StringComparison.Ordinal), "WPF shell should not inline Ultralytics uninstall confirmation wording");
+        AssertTrue(!yoloEnvironmentRuntimeCommandsSource.Contains("결과:", StringComparison.Ordinal), "WPF shell should not inline Ultralytics package-result detail labels");
         AssertTrue(shellSource.Contains("PythonEnvironmentService.InstallPackageAsync", StringComparison.Ordinal), "WPF shell install adapter should delegate package installation to the core Python environment service");
         AssertTrue(shellSource.Contains("PythonEnvironmentService.UninstallPackageAsync", StringComparison.Ordinal), "WPF shell uninstall adapter should delegate package removal to the core Python environment service");
         AssertTrue(yoloEnvironmentCommandPresentationSource.Contains("설치 건너뜀", StringComparison.Ordinal), "legacy requirements install status should use readable Korean skip wording");
@@ -21544,9 +21548,11 @@ internal static class Program
             CommandLine = "python -m pip install ultralytics",
             Error = "package error"
         };
-        string packageResultDetail = InvokePrivateStaticResult<string>(
-            typeof(WpfLabelingShellWindow),
-            "BuildUltralyticsPackageOperationDetail",
+        WpfUltralyticsPackageConfirmationPresentation installConfirmation = WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsConfirmation(false, packagePlan);
+        WpfUltralyticsPackageConfirmationPresentation uninstallConfirmation = WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsConfirmation(true, packagePlan);
+        AssertTrue(installConfirmation.Title.Contains("설치 확인", StringComparison.Ordinal), "Ultralytics install confirmation should name the install action");
+        AssertTrue(uninstallConfirmation.Detail.Contains("패키지만 제거", StringComparison.Ordinal), "Ultralytics uninstall confirmation should explain only the package is removed");
+        string packageResultDetail = WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsPackageOperationDetail(
             packagePlan,
             false,
             packageResult,

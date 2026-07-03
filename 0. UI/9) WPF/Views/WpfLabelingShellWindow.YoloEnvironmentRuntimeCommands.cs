@@ -2,7 +2,6 @@
 using MvcVisionSystem._1._Core;
 using OpenVisionLab.Wpf.MessageDialogs;
 using System;
-using System.Globalization;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -144,41 +143,39 @@ namespace MvcVisionSystem
 
         private async Task ExecuteUltralyticsPackageCommandAsync(bool uninstall)
         {
-            string operationName = uninstall ? "Ultralytics \uC81C\uAC70" : "Ultralytics \uC124\uCE58";
+            string operationName = WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsOperationName(uninstall);
             PythonModelSettings settings = CreateYoloModelSettingsSnapshot();
             PythonModelRuntimeInstallPlan plan = PythonModelRuntimeInstallPlanService.BuildPlan(settings);
             bool canRun = uninstall ? plan.CanRunUninstall : plan.CanRunInstall;
             if (!plan.IsVisible || !canRun)
             {
-                string status = string.IsNullOrWhiteSpace(plan.DetailText)
-                    ? $"{operationName}\uC744 \uC2E4\uD589\uD560 Python/venv\uB97C \uBA3C\uC800 \uC5F0\uACB0\uD558\uC138\uC694."
-                    : plan.DetailText;
+                string status = WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsUnavailableStatus(operationName, plan);
                 SetYoloCommandStatus(status, isBusy: false);
                 YoloModelSettingsViewModel?.SetRuntimeProfileActionStatus(status);
-                AppendLog($"{operationName} \uAC74\uB108\uB700: {status}");
+                AppendLog(WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsSkippedLog(operationName, status));
                 return;
             }
 
             if (!ConfirmUltralyticsPackageOperation(uninstall, plan))
             {
-                string canceledText = $"{operationName} \uCDE8\uC18C. \uC2E4\uD589\uD658\uACBD\uC740 \uBCC0\uACBD\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.";
+                string canceledText = WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsCanceledStatus(operationName);
                 SetYoloCommandStatus(canceledText, isBusy: false);
                 YoloModelSettingsViewModel?.SetRuntimeProfileActionStatus(canceledText);
                 SetUltralyticsPackageOperationResult(
-                    $"{DateTime.Now.ToString("HH:mm:ss", CultureInfo.CurrentCulture)} {operationName} \uCDE8\uC18C",
-                    BuildUltralyticsPackageOperationDetail(plan, uninstall, null, canceledText));
+                    WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsOperationSummary(DateTime.Now, operationName, "\uCDE8\uC18C"),
+                    WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsPackageOperationDetail(plan, uninstall, null, canceledText));
                 AppendLog(canceledText);
                 return;
             }
 
-            if (!BeginYoloEnvironmentCommand($"{operationName} \uC911..."))
+            if (!BeginYoloEnvironmentCommand(WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsRunningStatus(operationName)))
             {
                 return;
             }
 
             try
             {
-                AppendLog($"{operationName} \uC2DC\uC791: {plan.TargetEnvironmentText}");
+                AppendLog(WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsStartLog(operationName, plan));
                 PythonPackageInstallResult result = uninstall
                     ? await PythonEnvironmentService.UninstallPackageAsync(settings, "ultralytics").ConfigureAwait(true)
                     : await PythonEnvironmentService.InstallPackageAsync(settings, "ultralytics").ConfigureAwait(true);
@@ -187,26 +184,22 @@ namespace MvcVisionSystem
                 YoloModelSettingsViewModel?.LoadFrom(settings);
                 RefreshYoloStatus();
 
-                string statusText = result.Succeeded
-                    ? uninstall
-                        ? "Ultralytics \uC81C\uAC70 \uC644\uB8CC. Self-test\uB97C \uB2E4\uC2DC \uD655\uC778\uD588\uC2B5\uB2C8\uB2E4. \uD14C\uC2A4\uD2B8\uB97C \uBC18\uBCF5\uD558\uB824\uBA74 \uC124\uCE58 \uC2E4\uD589\uC744 \uB2E4\uC2DC \uB204\uB974\uC138\uC694."
-                        : "Ultralytics \uC124\uCE58 \uC644\uB8CC. Self-test\uB97C \uB2E4\uC2DC \uD655\uC778\uD588\uC2B5\uB2C8\uB2E4. \uBAA8\uB378 \uD30C\uC77C\uC744 \uC120\uD0DD\uD558\uC138\uC694."
-                    : $"{operationName} \uC2E4\uD328: {result.Summary}";
+                string statusText = WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsResultStatus(uninstall, operationName, result);
                 SetYoloCommandStatus(statusText, isBusy: false);
                 YoloModelSettingsViewModel?.SetRuntimeProfileActionStatus(statusText);
                 SetUltralyticsPackageOperationResult(
-                    $"{DateTime.Now.ToString("HH:mm:ss", CultureInfo.CurrentCulture)} {operationName} {(result.Succeeded ? "\uC131\uACF5" : "\uC2E4\uD328")}",
-                    BuildUltralyticsPackageOperationDetail(plan, uninstall, result, statusText));
+                    WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsOperationSummary(DateTime.Now, operationName, result.Succeeded ? "\uC131\uACF5" : "\uC2E4\uD328"),
+                    WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsPackageOperationDetail(plan, uninstall, result, statusText));
                 AppendLog(statusText);
             }
             catch (Exception ex)
             {
-                string statusText = $"{operationName} \uC2E4\uD328: {ex.Message}";
+                string statusText = WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsFailureStatus(operationName, ex.Message);
                 SetYoloCommandStatus(statusText, isBusy: false);
                 YoloModelSettingsViewModel?.SetRuntimeProfileActionStatus(statusText);
                 SetUltralyticsPackageOperationResult(
-                    $"{DateTime.Now.ToString("HH:mm:ss", CultureInfo.CurrentCulture)} {operationName} \uC2E4\uD328",
-                    BuildUltralyticsPackageOperationDetail(plan, uninstall, null, statusText));
+                    WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsOperationSummary(DateTime.Now, operationName, "\uC2E4\uD328"),
+                    WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsPackageOperationDetail(plan, uninstall, null, statusText));
                 AppendLog(statusText);
             }
             finally
@@ -217,82 +210,20 @@ namespace MvcVisionSystem
 
         private bool ConfirmUltralyticsPackageOperation(bool uninstall, PythonModelRuntimeInstallPlan plan)
         {
-            string title = uninstall
-                ? "Ultralytics \uC81C\uAC70 \uD655\uC778"
-                : "Ultralytics \uC124\uCE58 \uD655\uC778";
-            string primaryButtonText = uninstall ? "\uC81C\uAC70" : "\uC124\uCE58 \uC2E4\uD589";
-            string commandText = uninstall ? plan?.UninstallCommandText : plan?.InstallCommandText;
-            string message = uninstall
-                ? "\uD14C\uC2A4\uD2B8\uB97C \uBC18\uBCF5\uD558\uAE30 \uC704\uD574 \uC120\uD0DD\uD55C venv\uC5D0\uC11C ultralytics \uD328\uD0A4\uC9C0\uB9CC \uC81C\uAC70\uD569\uB2C8\uB2E4."
-                : "\uC120\uD0DD\uD55C venv\uC5D0 Ultralytics \uD328\uD0A4\uC9C0\uB97C \uC124\uCE58\uD569\uB2C8\uB2E4.";
-            string detail = string.Join(
-                Environment.NewLine,
-                message,
-                string.Empty,
-                $"\uB300\uC0C1: {plan?.TargetEnvironmentText ?? string.Empty}",
-                $"\uBA85\uB839: {commandText ?? string.Empty}",
-                string.Empty,
-                "\uC2E4\uD589 \uD6C4 \uC774 \uD328\uB110\uC758 self-test\uC640 \uC124\uCE58 \uC0C1\uD0DC\uB97C \uB2E4\uC2DC \uD655\uC778\uD569\uB2C8\uB2E4.");
-
+            WpfUltralyticsPackageConfirmationPresentation presentation =
+                WpfYoloEnvironmentCommandPresentationService.BuildUltralyticsConfirmation(uninstall, plan);
             WpfMessageDialogResult result = WpfMessageDialog.Confirm(
                 this,
-                title,
-                detail,
-                primaryButtonText,
-                "\uCDE8\uC18C");
+                presentation.Title,
+                presentation.Detail,
+                presentation.PrimaryButtonText,
+                presentation.CancelButtonText);
             return result == WpfMessageDialogResult.Yes;
         }
 
         private void SetUltralyticsPackageOperationResult(string summaryText, string detailText)
         {
             YoloModelSettingsViewModel?.SetRuntimePackageOperationResult(summaryText, detailText);
-        }
-
-        private static string BuildUltralyticsPackageOperationDetail(
-            PythonModelRuntimeInstallPlan plan,
-            bool uninstall,
-            PythonPackageInstallResult result,
-            string statusText)
-        {
-            string commandText = result?.CommandLine;
-            if (string.IsNullOrWhiteSpace(commandText))
-            {
-                commandText = uninstall ? plan?.UninstallCommandText : plan?.InstallCommandText;
-            }
-
-            string logText = FirstPackageCommandLogLine(result?.Error);
-            if (string.IsNullOrWhiteSpace(logText))
-            {
-                logText = FirstPackageCommandLogLine(result?.Output);
-            }
-
-            string exitText = result == null
-                ? "\uC2E4\uD589 \uC548 \uD568"
-                : result.ExitCode.ToString(CultureInfo.InvariantCulture);
-
-            return string.Join(
-                Environment.NewLine,
-                new[]
-                {
-                    $"\uACB0\uACFC: {statusText ?? string.Empty}",
-                    $"\uB300\uC0C1: {plan?.TargetEnvironmentText ?? string.Empty}",
-                    $"\uBA85\uB839: {commandText ?? string.Empty}",
-                    $"\uC885\uB8CC \uCF54\uB4DC: {exitText}",
-                    string.IsNullOrWhiteSpace(logText) ? string.Empty : $"\uB85C\uADF8 \uC694\uC57D: {logText}"
-                }.Where(line => !string.IsNullOrWhiteSpace(line)));
-        }
-
-        private static string FirstPackageCommandLogLine(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text))
-            {
-                return string.Empty;
-            }
-
-            return text
-                .Split(new[] { "\r\n", "\n" }, StringSplitOptions.RemoveEmptyEntries)
-                .Select(line => line.Trim())
-                .FirstOrDefault(line => !string.IsNullOrWhiteSpace(line)) ?? string.Empty;
         }
 
         private void AppendPythonPackageOperationLog(string operationName, PythonPackageInstallResult result)
