@@ -328,7 +328,7 @@
         <span class="num">1</span>
         <div>
           <h2>처음에는 현재 작업 위치부터 봅니다</h2>
-          <p>왼쪽은 이미지 큐, 가운데는 캔버스, 오른쪽은 지금 단계에서 필요한 작업 패널입니다. 상단에는 데이터셋과 모델 상태가 계속 남아 있습니다.</p>
+          <p>왼쪽은 지금 단계의 작업 패널, 가운데는 캔버스, 오른쪽은 이미지 큐입니다. 상단에는 데이터셋과 모델 상태가 계속 남아 있습니다.</p>
         </div>
       </div>
       <div class="section-body">
@@ -342,8 +342,8 @@
             <ul>
               <li>상단 현재 데이터셋에서 이름과 목적을 봅니다.</li>
               <li>저장 폴더가 오늘 작업 폴더인지 확인합니다.</li>
-              <li>왼쪽 이미지 큐에서 저장 필요, 저장됨, AI 후보 수를 봅니다.</li>
-              <li>오른쪽 패널에서 지금 처리할 일을 확인합니다.</li>
+              <li>오른쪽 이미지 큐에서 저장 필요, 저장됨, AI 후보 수를 봅니다.</li>
+              <li>왼쪽 작업 패널에서 지금 처리할 일을 확인합니다.</li>
             </ul>
           </div>
           <div class="panel">
@@ -405,19 +405,19 @@
         <span class="num">3</span>
         <div>
           <h2>라벨링은 그리고, 확인하고, 저장하는 순서입니다</h2>
-          <p>저장 라벨 패널은 실제 학습 데이터로 들어갈 라벨을 보는 곳입니다. 모델 후보와 같은 의미로 보지 않습니다.</p>
+          <p>저장 라벨은 실제 학습 데이터로 들어갈 라벨입니다. 모델 후보와 같은 의미로 보지 않습니다.</p>
         </div>
       </div>
       <div class="section-body">
         <figure>
           <img src="images/annotated/03-labeling-workbench-1920-annotated.png" alt="번호와 화살표가 표시된 객체탐지 라벨링 워크벤치">
-          <figcaption>박스 도구로 대상 영역을 그리고, 오른쪽에서 클래스와 저장 상태를 확인합니다.</figcaption>
+          <figcaption>박스 도구로 대상 영역을 그리고, 작업 패널과 이미지 큐에서 클래스와 저장 상태를 확인합니다.</figcaption>
         </figure>
         <ol>
           <li>상단에서 <strong>2 라벨링</strong>을 선택합니다.</li>
           <li>툴바에서 <strong>박스</strong>를 선택합니다.</li>
           <li>대상 영역을 드래그합니다.</li>
-          <li>오른쪽 저장 라벨 패널에서 클래스와 크기를 확인합니다.</li>
+          <li>캔버스와 작업 패널에서 클래스와 크기를 확인합니다.</li>
           <li>필요하면 클래스를 바꾸고 <strong>적용</strong>을 누릅니다.</li>
           <li><strong>라벨 저장</strong>을 눌러 파일에 반영합니다.</li>
         </ol>
@@ -434,7 +434,7 @@
       </div>
       <div class="section-body">
         <figure>
-          <img src="images/annotated/04-saved-label-panel-1920-annotated.png" alt="번호와 화살표가 표시된 저장 라벨 패널">
+          <img src="images/annotated/04-saved-label-panel-1920-annotated.png" alt="번호와 화살표가 표시된 저장 라벨 확인 화면">
           <figcaption>저장 라벨만 볼 때는 학습 데이터로 들어갈 실제 라벨만 확인합니다.</figcaption>
         </figure>
         <figure>
@@ -481,7 +481,7 @@
       <div class="section-body">
         <figure>
           <img src="images/annotated/07-save-required-1920-annotated.png" alt="번호와 화살표가 표시된 저장 필요 상태">
-          <figcaption>수정 직후에는 상단, 왼쪽 큐, 오른쪽 패널에 저장 필요 상태가 같이 떠야 합니다.</figcaption>
+          <figcaption>수정 직후에는 상단, 오른쪽 이미지 큐, 작업 패널에 저장 필요 상태가 같이 떠야 합니다.</figcaption>
         </figure>
         <figure>
           <img src="images/annotated/08-save-done-1920-annotated.png" alt="번호와 화살표가 표시된 라벨 저장 완료 상태">
@@ -606,8 +606,8 @@
       </div>
       <div class="section-body">
         <figure>
-          <img src="images/annotated/12-inference-dock-1920-annotated.png" alt="번호와 화살표가 표시된 추론 검토 패널">
-          <figcaption>오른쪽 추론 검토 패널에서 후보를 보고 확정, 스킵, 저장 흐름을 진행합니다.</figcaption>
+          <img src="images/annotated/12-inference-dock-1920-annotated.png" alt="번호와 화살표가 표시된 추론 검토 작업 패널">
+          <figcaption>왼쪽 추론 검토 작업 패널에서 후보를 보고 확정, 스킵, 저장 흐름을 진행합니다.</figcaption>
         </figure>
         <ol>
           <li><strong>3 추론 검토</strong>로 이동합니다.</li>

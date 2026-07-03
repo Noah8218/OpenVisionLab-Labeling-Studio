@@ -6437,6 +6437,365 @@ Last updated: 2026-07-03
 - 다음 작업:
   - 다음 세션에서는 새 구조 변경을 시작하기 전에 이 두 캡처를 기준으로 실제 사용자가 오래 머무는 후보 검토/모델 센터의 문구 밀도와 버튼 우선순위를 다시 판단합니다.
 
+## 2026-07-03 public README wording rule
+
+- 점검 결과:
+  - 공개 README에 `포트폴리오`처럼 작성자 개인 목적을 드러내는 섹션명이 남아 있었습니다.
+  - 공개 GitHub 문서는 제품과 사용 흐름을 설명해야 하며, 작성자만 알면 되는 사정이나 이전 대화 맥락은 내부 작업 문서에만 남겨야 합니다.
+- 수정 내용:
+  - `README.md`의 `포트폴리오에서 보여주고 싶은 부분` 섹션명을 `프로젝트의 핵심 흐름`으로 바꿨습니다.
+  - `--priority-workflow-docs` 공개 문서 가드에 `포트폴리오`, `내가`, `저만` 금지 기준을 추가했습니다. `나만`은 `하나만` 같은 정상 안내 문구를 잘못 잡을 수 있어 제외했습니다.
+  - `CODEX_NEXT_PROMPT.md`에 공개 README/튜토리얼 작성 시 개인 대화 맥락, 저자만 아는 사정, 로컬 PC 경로를 쓰지 말라는 지침을 추가했습니다.
+- 구조:
+  - 공개 문서 문구와 문서 테스트만 수정했습니다.
+  - 앱 UI, ViewModel/Service, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` 통과.
+- 다음 작업:
+  - 공개 문서 수정 후에는 반드시 같은 가드를 돌려 README/튜토리얼에 개인 맥락이 다시 들어가지 않았는지 확인합니다.
+
+## 2026-07-03 dataset image-root resolver service split
+
+- 점검 결과:
+  - 데이터셋 전환 시 어느 이미지 폴더를 다시 열지 결정하는 순수 로직이 `WpfLabelingShellWindow.DatasetSetupCommands.cs` 안에 남아 있었습니다.
+  - 이 로직은 UI adapter보다 데이터셋/큐 상태 판단에 가까워 View code-behind에 계속 두면 이후 Test/Test2처럼 저장 경로와 원본 이미지 폴더가 갈리는 상황을 다시 수정하기 어렵습니다.
+- 수정 내용:
+  - `WpfDatasetImageRootResolver`를 추가해 명시 이미지 폴더 우선, 데이터셋 내부 train/valid/test 이미지 폴더 fallback, 기본 이미지 루트 판정을 서비스로 분리했습니다.
+  - Shell은 현재 `CData`, 설정된 이미지 루트, 큐 이미지 존재 여부 adapter만 넘기고 반환된 폴더를 로드하도록 축소했습니다.
+  - `--wpf-image-queue-selection-service` focused 옵션을 추가하고, 명시 폴더 우선 및 데이터셋 split fallback을 직접 검증했습니다.
+  - 기존 `나만` 공개 문서 금지 기준 기록은 `하나만` 같은 정상 문구를 잘못 잡는 false positive라 작업 문서에서 정정했습니다.
+- 구조:
+  - 데이터셋 이미지 루트 선택 판단은 서비스로 이동했습니다.
+  - 실제 이미지 로드, 라벨 저장/조회, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-selection-service` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+- 캡처:
+  - UI 배치 변경이 아니라 서비스 분리라 신규 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 다음 우선순위는 `ImageQueueCommands` 안의 필터/검색/선택 상태 조합 중 ViewModel 또는 서비스로 더 뺄 수 있는 작은 단위를 고르는 것입니다.
+
+## 2026-07-03 image queue search single-match service split
+
+- 점검 결과:
+  - 이미지 큐의 필터/검색 표시 여부는 이미 `WpfImageQueueFilterService`가 맡고 있었습니다.
+  - 하지만 `FindSingleSearchMatchedQueueItem`, 단일 visible row fallback, 검색 일치 개수 진단은 Shell code-behind에서 `Take(2)`/`ShouldShow` 조합을 직접 반복하고 있었습니다.
+  - 이 판단은 UI control adapter가 아니라 큐 필터 정책에 가까워 서비스로 모으는 편이 이후 검색/필터 UX 변경 시 안전합니다.
+- 수정 내용:
+  - `WpfImageQueueFilterService.FindSingleItem`, `FindSingleSearchMatch`, `CountSearchMatches`를 추가했습니다.
+  - Shell은 현재 view를 refresh하고, 서비스가 반환한 단일 row를 선택/스크롤/버튼 상태 갱신하는 역할만 남겼습니다.
+  - source guard 테스트가 Shell에 필터 검색 정책이 다시 중복되지 않도록 확인하게 바꿨습니다.
+- 구조:
+  - 큐 검색/필터 ambiguity 정책은 서비스로 이동했습니다.
+  - 실제 이미지 로드, 저장 라벨 조회, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-selection-service` 통과.
+- 캡처:
+  - UI 배치 변경이 아니라 서비스 분리라 신규 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 다음 우선순위는 `ImageQueueCommands` 안의 selected queue open 실패 메시지/가용성 갱신을 더 작은 presentation/service 단위로 뺄 수 있는지 점검하는 것입니다.
+
+## 2026-07-03 image queue open failure presentation split
+
+- 점검 결과:
+  - 선택 이미지 열기 실패 시 표시/검색일치/선택 row 정보를 포함한 안내 문구를 Shell code-behind가 직접 조립하고 있었습니다.
+  - 이 문구는 큐 표시/진단 정책이라 `WpfImageQueuePresenter` 쪽에 두는 편이 이후 메시지 UX를 바꿀 때 안전합니다.
+- 수정 내용:
+  - `WpfImageQueuePresenter.BuildOpenSelectionFailureMessage`와 `FormatLimitedQueueCount`를 추가했습니다.
+  - Shell은 검색 텍스트, visible count, 검색 일치 count, 선택 row 이름만 수집하고 문구 조립은 presenter에 맡기도록 바꿨습니다.
+  - source guard 테스트가 Shell에 큐 진단 count formatting이 다시 생기지 않도록 확인하게 했습니다.
+- 구조:
+  - 큐 실패 안내 문구는 presenter로 이동했습니다.
+  - 실제 이미지 로드, 저장 라벨 조회, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-selection-service` 통과.
+- 캡처:
+  - UI 배치 변경이 아니라 presenter 분리라 신규 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 다음 우선순위는 `ImageQueueCommands`의 선택 가능 여부 갱신과 open path resolution 호출을 더 줄일 수 있는지 점검하는 것입니다.
+
+## 2026-07-03 image queue open-selection resolution split
+
+- 점검 결과:
+  - `GetOpenSelectedQueueItem`은 DataGrid 선택, ViewModel 선택, 검색 단일 결과, visible 단일 row를 순서대로 확인하면서 각 후보마다 `TryResolveOpenImagePath`를 호출했습니다.
+  - 이후 실제 open 단계에서 같은 path resolution을 다시 호출했습니다.
+  - saved split image fallback까지 포함된 open 가능 여부 판단은 `WpfImageQueueSelectionService`가 한 번에 맡는 편이 더 명확합니다.
+- 수정 내용:
+  - `WpfImageQueueOpenSelection`과 `WpfImageQueueSelectionService.ResolveOpenSelection`을 추가했습니다.
+  - Shell은 UI 후보 목록을 순서대로 수집하고, 서비스가 첫 open 가능 후보와 실제 open path를 같이 반환하게 바꿨습니다.
+  - 기존 `TryOpenSelectedQueueImage(WpfImageQueueItem)` 호출 경로도 서비스 결과를 사용하도록 연결했습니다.
+- 구조:
+  - 선택 후보 우선순위와 open path resolution은 selection service로 이동했습니다.
+  - Shell은 DataGrid/ViewModel/search/visible row candidate를 수집하는 adapter 역할만 유지합니다.
+  - 실제 이미지 로드, 저장 라벨 조회, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-selection-service` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` 통과.
+- 캡처:
+  - UI 배치 변경이 아니라 service boundary 분리라 신규 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 다음 우선순위는 이미지 큐 command file에서 남은 작은 workflow/presentation 조합을 더 분리할지, 아니면 다음 code-behind 후보인 DatasetSetupCommands의 생성/적용 흐름으로 넘어갈지 판단하는 것입니다.
+
+## 2026-07-03 dataset setup path service split
+
+- 점검 결과:
+  - `DatasetSetupCommands` 안에 새 데이터셋 recipe 이름 선택, 출력 폴더 suffix, 다른 recipe의 동일 저장 경로 충돌 탐지, `VISION.xml` output root 읽기가 남아 있었습니다.
+  - 이 로직은 View adapter가 아니라 dataset setup 정책이므로 Shell code-behind에 둘수록 Test/Test2 같은 저장 경로 혼동 이슈를 다시 고치기 어렵습니다.
+- 수정 내용:
+  - `WpfDatasetSetupPathService`를 추가했습니다.
+  - `ResolveRecipeName`, `ResolveOutputRoot`, `CanUseRecipeNameForNewDataset`, `BuildUniqueRecipeName`, `TryFindDatasetUsingOutputRoot`, `TryReadRecipeOutputRoot`, `PathsEqual`을 서비스로 이동했습니다.
+  - Shell은 현재 panel recipe/current recipe/base output root를 서비스에 넘기고, request 적용과 UI 상태 갱신만 유지합니다.
+  - dataset setup focused 테스트가 output-root suffix와 기존 recipe 충돌 탐지를 서비스에서 직접 검증하게 했습니다.
+- 구조:
+  - 데이터셋 생성 경로/recipe 판단은 서비스로 이동했습니다.
+  - 데이터셋 생성 적용, 샘플 적용, image queue loading 연결은 기존 Shell orchestration을 유지했습니다.
+  - 실제 라벨 저장/조회, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-dataset-setup-ui` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-dataset-setup-request` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+- 캡처:
+  - UI 배치 변경이 아니라 service boundary 분리라 신규 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 다음 우선순위는 `DatasetSetupCommands`의 request 적용 중 실제 파일 생성/샘플 적용/패널 refresh orchestration을 더 작게 나눌지 점검하는 것입니다.
+
+## 2026-07-03 dataset setup data materialization service split
+
+- 점검 결과:
+  - `ApplyDatasetSetupRequest` 안에 output root 설정, class list clear/rebuild, YOLO output directory 생성이 직접 남아 있었습니다.
+  - 이 부분은 UI adapter가 아니라 accepted request를 `CData`에 materialize하는 정책입니다.
+- 수정 내용:
+  - `WpfDatasetSetupDataService`를 추가했습니다.
+  - `ApplyOutputRootAndClasses`가 class 이름 정규화, 중복 제거, 기본 `Defect` fallback, `CData.ConfigureOutputRoot`, `ClassNamedList` materialization, YOLO output directory 생성을 맡습니다.
+  - Shell은 active recipe/purpose 설정, 샘플 preset 적용, config/YAML 저장, panel refresh orchestration만 유지합니다.
+  - focused 테스트가 `OK`, `ok`, 빈 값, `NG` 입력이 `OK`/`NG` 두 클래스로 정규화되고 빈 class list는 `Defect`로 fallback되는지 확인합니다.
+- 구조:
+  - dataset setup accepted request의 CData materialization은 서비스로 이동했습니다.
+  - 샘플 적용/저장/화면 갱신 orchestration은 기존 Shell에 남겼습니다.
+  - 실제 라벨 저장/조회, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-dataset-setup-ui` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-dataset-setup-request` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+- 캡처:
+  - UI 배치 변경이 아니라 service boundary 분리라 신규 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 다음 우선순위는 dataset setup sample 적용 실패/성공 presentation을 더 분리할지, 아니면 model runtime/설치 UX 쪽 남은 항목으로 전환할지 판단하는 것입니다.
+
+## 2026-07-03 tutorial current UI screenshot refresh
+
+- 점검 결과:
+  - README와 튜토리얼 문서가 이전 배치인 `왼쪽 이미지 큐 / 오른쪽 작업 패널` 설명을 일부 유지하고 있었습니다.
+  - 실제 현재 UI는 왼쪽 작업 패널, 가운데 캔버스, 오른쪽 이미지 큐 구조입니다.
+  - 단독 HTML은 최신 주석 이미지가 포함되어야 복사해서 열어도 이미지가 빠지지 않습니다.
+- 수정 내용:
+  - `README.md`, `docs/tutorial/README.md`, `docs/tutorial/labeling-workbench-tutorial.html`의 UI 배치 설명을 현재 구조로 맞췄습니다.
+  - 튜토리얼 원본 캡처 14장과 주석 캡처 14장을 현재 UI 기준으로 갱신했습니다.
+  - `docs/tutorial/labeling-workbench-tutorial-standalone.html`을 일반 HTML 기준으로 다시 생성해 14개 주석 이미지를 모두 내장했습니다.
+- 검증:
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` 통과.
+  - `git diff --check` 통과.
+  - 일반 HTML의 `images/annotated` 참조 14개와 단독 HTML의 `data:image/png;base64` 내장 14개를 확인했습니다.
+  - 주요 주석 캡처 01/02/03/05/09/12/14를 시각 확인했습니다.
+- 캡처:
+  - `docs\tutorial\images\annotated\01-overview-1920-annotated.png`
+  - `docs\tutorial\images\annotated\03-labeling-workbench-1920-annotated.png`
+  - `docs\tutorial\images\annotated\09-model-center-1920-annotated.png`
+  - `docs\tutorial\images\annotated\12-inference-dock-1920-annotated.png`
+- 다음 작업:
+  - 다음 우선순위는 dataset setup presentation service split에 focused test를 추가하거나, 공개 README의 빠른 시작 흐름을 튜토리얼과 더 짧게 연결하는 것입니다.
+
+## 2026-07-03 dataset setup presentation service test guard
+
+- 점검 결과:
+  - `WpfDatasetSetupPresentationService`가 dataset setup 성공/실패 안내 문구를 담당하도록 분리됐지만 focused test가 아직 이 서비스 위임과 문구 결과를 직접 보호하지 않았습니다.
+  - 데이터셋 생성에서 저장 폴더 중복, sample preset 실패, 준비 완료 상태는 사용자가 바로 보는 안내이므로 shell code-behind에 다시 흩어지지 않게 보호할 필요가 있습니다.
+- 수정 내용:
+  - `--wpf-dataset-setup-ui` 검증에 `WpfDatasetSetupPresentationService` 존재, shell 위임, duplicate/ready status 메서드 소유 확인을 추가했습니다.
+  - duplicate output root 안내, invalid recipe 안내, sample preset fallback, ready status, dataset-ready status, creation log 문구 결과를 직접 검증했습니다.
+  - UI/Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-dataset-setup-ui` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-dataset-setup-request` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+  - `git diff --check` 통과.
+- 캡처:
+  - 테스트 보강만 진행했으므로 신규 UI 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 다음 우선순위는 공개 README 첫 화면에서 사용자가 바로 튜토리얼/단독 HTML로 이동할 수 있게 빠른 시작 링크와 현재 UI 기준 요약을 더 정리하는 것입니다.
+
+## 2026-07-03 README first-run entry update
+
+- 점검 결과:
+  - README 상단에 최신 튜토리얼 링크는 있었지만, 앱을 처음 실행한 사용자가 현재 UI에서 어느 영역부터 보면 되는지 짧게 잡아주는 안내가 부족했습니다.
+  - 현재 UI는 왼쪽 작업 패널, 가운데 캔버스, 오른쪽 이미지 큐 구조이므로 README 첫 화면도 이 기준을 따라야 합니다.
+- 수정 내용:
+  - `README.md` 상단 캡처 아래에 `처음 실행할 때 보는 순서`를 추가했습니다.
+  - `1 데이터셋`, 왼쪽 작업 패널, 오른쪽 이미지 큐, 가운데 캔버스, `4 학습/모델` 순서로 처음 보는 흐름을 정리했습니다.
+  - 화면 캡처 중심 튜토리얼과 이미지 포함 단독 튜토리얼 링크를 같은 위치에 다시 연결했습니다.
+- 검증:
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` 통과.
+  - 공개 README/tutorial 금칙어 검색 통과.
+  - `git diff --check` 통과.
+- 캡처:
+  - 문서 문구 변경만 진행했으므로 신규 UI 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 다음 우선순위는 남은 WPF shell code-behind 중 dataset setup orchestration의 작은 상태 갱신 단위를 추가로 서비스화할지 점검하는 것입니다.
+
+## 2026-07-03 dataset switch/open-folder presentation split
+
+- 점검 결과:
+  - `ClearImageQueueAfterDatasetSwitch`와 `ExecuteOpenDatasetRootFolderCommand` 안에 이미지 폴더 누락, 저장 경로 미설정, 데이터셋 폴더 열기 실패 안내 문구가 직접 남아 있었습니다.
+  - 해당 메서드들은 큐 초기화와 폴더 열기 같은 UI adapter 역할은 유지해야 하지만, 사용자 안내 문구 조합까지 Shell code-behind가 소유할 필요는 없습니다.
+- 수정 내용:
+  - `WpfDatasetSetupPresentationService`에 missing image root, missing output root, open-folder failure status/log builder를 추가했습니다.
+  - Shell은 dataset status와 log 대상으로 문구를 전달만 하고, 문구 조합은 presentation service에 위임하도록 바꿨습니다.
+  - focused test가 service 메서드 존재, Shell 위임, 사용자-facing 문구 결과를 직접 검증하도록 보강했습니다.
+  - 실제 dataset switching, image queue clearing, folder open, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-dataset-setup-ui` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-dataset-setup-request` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+  - `git diff --check` 통과.
+- 캡처:
+  - UI 배치 변경이 아니라 presentation boundary 분리라 신규 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 다음 우선순위는 `RefreshShellDatasetContext`의 dataset name/purpose/path presentation을 별도 service로 분리할 가치가 있는지 점검하는 것입니다.
+
+## 2026-07-03 dataset context name/purpose presentation split
+
+- 점검 결과:
+  - `RefreshShellDatasetContext`가 현재 데이터셋 이름 fallback과 데이터셋 목적 표시 문구를 직접 조합하고 있었습니다.
+  - 이미 `WpfDatasetContextPresentationService`가 데이터셋 헤더 문구를 담당하고 있었으므로 새 서비스를 만들지 않고 기존 서비스에 작은 책임만 추가하는 편이 맞았습니다.
+- 수정 내용:
+  - `WpfDatasetContextPresentationService`에 dataset name fallback과 purpose display formatter를 추가했습니다.
+  - `RefreshShellDatasetContext`는 recipe/output/image/class count를 모아 ViewModel에 전달하는 adapter 역할만 유지하고, 이름/목적 표시 문구는 service로 위임했습니다.
+  - `--wpf-labeling-shell`에 Shell code-behind가 `FormatShellDatasetPurposeName`을 다시 소유하지 않는지, dataset context service가 name/purpose 표시를 소유하는지 source guard를 추가했습니다.
+  - 실제 dataset loading, label persistence, image queue, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-dataset-setup-ui` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-dataset-setup-request` 통과.
+  - `git diff --check` 통과.
+- 캡처:
+  - UI 배치 변경이 아니라 presentation boundary 분리라 신규 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 다음 우선순위는 모델 런타임/모델 비교 UX에서 현재 검사 모델, 학습 후보 모델, 선택 이력 모델의 구분이 모든 화면에서 일관적인지 점검하는 것입니다.
+
+## 2026-07-03 runtime profile capability row
+
+- 점검 결과:
+  - 모델 실행기 연결 상태 카드에는 YOLOv5/YOLOv8/YOLO11/ONNX 프로필과 연결 상태가 보였지만, 각 프로필이 `학습+검사`, `현재 검사 우선`, `추론 전용` 중 어디에 해당하는지 행 안에서 바로 구분하기는 부족했습니다.
+  - 모델을 여러 런타임으로 비교하는 방향에서는 사용자가 설치/연결 전에도 각 프로필의 사용 범위를 먼저 알아야 합니다.
+- 수정 내용:
+  - `PythonModelRuntimeProfile`에 `CapabilityText`를 추가해 프로필별 지원 범위를 Core profile service가 제공합니다.
+  - WPF 모델 설정 패널의 런타임 프로필 행에 `지원 범위` 줄을 추가했습니다.
+  - YOLOv5는 `학습 + 현재 검사`, YOLOv8/YOLO11은 `현재 검사 우선 / 학습은 worker 연결 필요`, ONNX는 `추론 전용`으로 구분됩니다.
+  - 빌드 blocker였던 `CViewer` 컨텍스트 메뉴의 사라진 `CUtil.LoadImageFilePath/SaveImageFilePath` 호출을 WinForms 기본 파일 대화상자로 대체했습니다. Viewer의 ROI/마우스/렌더링/브러시/지우개 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-connection` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-self-test` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080` 통과.
+  - `git diff --check` 통과.
+- 캡처:
+  - `artifacts\ui\wpf-runtime-profile-capability-after-1920.png`
+- 다음 작업:
+  - 다음 우선순위는 runtime profile 선택 후 실제 `현재 검사` 실행 경로에서 실패/성공 결과 카드가 같은 `지원 범위` 용어와 충돌하지 않는지 점검하는 것입니다.
+
+## 2026-07-03 interactive detection presentation service split
+
+- 점검 결과:
+  - runtime profile 지원 범위 표시 이후, 실제 `현재 검사` 단일 실행 경로의 준비/완료/실패 상태와 로그 문구 일부가 `RunInteractiveDetectionAsync` 안에서 직접 조합되고 있었습니다.
+  - 이 상태로 두면 모델 런타임 표시와 검사 결과 표시가 다시 어긋나거나, 실패 사유 길이 제한 규칙이 Shell code-behind에 남게 됩니다.
+- 수정 내용:
+  - `WpfInferenceStatusPresentationService`에 단일 검사 준비 상태, 완료/실패 command status, top inference status, 완료/실패 로그, 실패 사유 clipping formatter를 추가했습니다.
+  - `RunInteractiveDetectionAsync`는 target image 결정, worker 실행, elapsed/path 전달만 유지하고 사용자-facing 문구 조합은 service로 위임했습니다.
+  - focused test가 Shell에 `failureSummary` 지역 변수가 다시 생기지 않고, 단일 검사 상태/로그가 service 메서드를 통해 만들어지는지 검증하게 했습니다.
+  - TCP 요청, worker 실행, candidate overlay, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-single-detection-path` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-inference-status-presentation` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` 통과.
+  - `git diff --check` 통과. 줄끝 변환 경고만 있었고 공백 오류는 없었습니다.
+- 캡처:
+  - UI 배치 변경이 아니라 presentation boundary 분리라 신규 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 다음 우선순위는 `RunWorkerDetectionForImageAsync` 내부의 worker 준비/요청/timeout/cancel 문구 중 아직 Shell에 남은 presentation 조합을 같은 방식으로 줄일지 점검하는 것입니다.
+
+## 2026-07-03 worker detection presentation service split
+
+- 점검 결과:
+  - `RunWorkerDetectionForImageAsync` 안에 이미지 누락/로드 실패, worker 준비, 연결 실패, 요청 중, 요청 실패, timeout, success summary, cancel summary 문구가 직접 남아 있었습니다.
+  - 이 메서드는 worker 실행 순서와 canvas 적용 경로를 조정하는 adapter 역할을 해야 하므로, 사용자-facing 문구와 길이/파일명 formatting은 presentation service 쪽이 더 적합합니다.
+- 수정 내용:
+  - `WpfInferenceStatusPresentationService`에 `BuildWorker*` 메서드를 추가해 worker 준비/요청/실패/완료/cancel 상태와 로그 문구를 담당하게 했습니다.
+  - `RunWorkerDetectionForImageAsync`는 image path, model source, elapsed, candidate count 같은 값만 service에 넘기도록 정리했습니다.
+  - focused test가 worker request/cancel/status/success summary 문구가 Shell에 inline으로 다시 들어오지 않는지, service 출력이 모델 소스와 파일명을 유지하는지 검증하게 했습니다.
+  - TCP 요청, worker 실행, candidate overlay, Viewer/OpenGL/ROI/brush/eraser 경로는 변경하지 않았습니다.
+- 검증:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` 통과. 오류 0개, 기존 외부 `C:\Git\Library-Noah\Lib.Common` unused 변수 경고 4개.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-single-detection-path` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-inference-status-presentation` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` 통과.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` 통과.
+  - `git diff --check` 통과. 줄끝 변환 경고만 있었고 공백 오류는 없었습니다.
+- 캡처:
+  - UI 배치 변경이 아니라 presentation boundary 분리라 신규 캡처는 만들지 않았습니다.
+- 다음 작업:
+  - 다음 우선순위는 `DetectionExecution`/`DetectionWorkerExecution` 밖에 남은 runtime command/status 문구 중 이미 service 계약으로 보호되지 않은 작은 조합이 있는지 점검하거나, 실제 사용자 흐름 기준으로 모델 비교/검사 결과 패널의 잔여 혼란 지점을 확인하는 것입니다.
+
+## 2026-07-03 README/tutorial current UI screenshot recheck
+
+- 점검 결과:
+  - 사용자가 README와 튜토리얼에 예전 UI가 남아 있다고 다시 지적했습니다.
+  - 공개 문서가 보여주는 화면은 현재 WPF 구조인 `왼쪽 작업 패널 / 가운데 캔버스 / 오른쪽 이미지 큐` 기준이어야 합니다.
+  - 공개 README에는 내부 문서 작성 규칙처럼 보이는 `공개 문서에는 개인 로컬 경로...` 문장이 남아 있어 소개 문서 문맥과 맞지 않았습니다.
+- 수정 내용:
+  - `docs\tutorial\images`의 원본 캡처 14장과 legacy 호환 이미지 6장을 최신 WPF 캡처 기준으로 교체했습니다.
+  - `docs\tutorial\images\annotated`의 주석 캡처 14장을 최신 WPF 캡처 기준으로 다시 만들었습니다.
+  - 데이터셋 생성 캡처의 저장 경로 입력칸은 특정 테스트 PC 경로가 보이지 않도록 일반 `새 데이터셋 저장 폴더` 문구로 마스킹했습니다.
+  - `docs\tutorial\labeling-workbench-tutorial-standalone.html`을 다시 생성해 최신 주석 이미지 14장을 모두 base64로 내장했습니다.
+  - `README.md`의 문서 섹션은 최신 UI 캡처 유지 원칙과 standalone 튜토리얼 안내만 남기고, 내부 작성 규칙처럼 보이는 문장은 제거했습니다.
+- 검증:
+  - UTF-8 읽기 확인: `README.md`, `docs/tutorial/README.md` 모두 정상 한국어이며 replacement character 없음.
+  - 공개 문서 금칙어 검색 통과: `D:\`, `C:\`, `Test01`, `TEST_`, `제가`, `내가`, `저만`, `당신`, `Codex`, `소통`, `포트폴리오`, `로컬 경로` 결과 없음.
+  - 이미지 참조 수 확인: README 1개, tutorial README 15개, tutorial HTML 14개 주석 이미지 참조.
+  - standalone 확인: 14개 `src="data:image/png;base64"` 포함, `src="images/` 참조 0개.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` 통과.
+  - `git diff --check -- README.md docs\tutorial\README.md docs\tutorial\labeling-workbench-tutorial.html docs\tutorial\labeling-workbench-tutorial-standalone.html docs\tutorial\images docs\WORK_TRACKING.md docs\STABLE_VERIFIED_AREAS.md CODEX_NEXT_PROMPT.md` 통과. 줄끝 변환 경고만 있었고 공백 오류는 없었습니다.
+- 캡처:
+  - `docs\tutorial\images\annotated\01-overview-1920-annotated.png`
+  - `docs\tutorial\images\annotated\03-labeling-workbench-1920-annotated.png`
+  - `docs\tutorial\images\annotated\09-model-center-1920-annotated.png`
+  - `docs\tutorial\images\annotated\12-inference-dock-1920-annotated.png`
+  - `docs\tutorial\images\annotated\14-model-inspect-1920-annotated.png`
+- 다음 작업:
+  - 다음 우선순위는 실제 사용자 흐름 기준으로 모델 비교/검사 결과 패널의 잔여 혼란 지점을 확인하거나, Shell code-behind에 남은 작은 runtime/status 문구 조합을 service 계약으로 줄이는 것입니다.
+
 ## 보류/제외
 
 - C# 앱 안에 YOLO 학습 로직을 직접 넣지 않습니다.
