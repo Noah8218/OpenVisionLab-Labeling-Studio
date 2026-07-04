@@ -16347,6 +16347,23 @@ internal static class Program
             AssertEqual((byte)0, maskSegment.MaskData[(12 * 40) + 13]);
             AssertTrue(window.MainCanvasViewModel.MaskOverlays.Count <= 1, "mask overlay refresh should not duplicate stale texture overlays");
             AssertTrue(!window.MainCanvasViewModel.IsBrushCursorPreviewVisible, "mask cursor preview should clear when the mask tool ends");
+
+            InvokePrivateResult<object>(window, "BeginMaskAnnotationMode", WpfAnnotationTool.Brush);
+            InvokePrivateResult<object>(window, "MainCanvasViewModel_ImagePointClicked", window.MainCanvasViewModel, new CanvasImagePointEventArgs(CanvasPointerButton.Left, 1, 0, 0, new Point(24, 24), PointF.Empty));
+            InvokePrivateResult<object>(window, "MainCanvasViewModel_ImagePointReleased", window.MainCanvasViewModel, new CanvasImagePointEventArgs(CanvasPointerButton.Left, 1, 0, 0, new Point(24, 24), PointF.Empty));
+            AssertTrue(window.MainCanvasViewModel.IsMaskStrokePreviewVisible, "brush preview should be visible before loading the next image");
+            AssertTrue(InvokePrivateResult<bool>(window, "HasPendingMaskStrokeCommitWork"), "brush preview should represent pending stroke work before image switch");
+
+            string nextImagePath = Path.Combine(root, "wpf-mask-shell-next.jpeg");
+            CreateVisualSmokeImage(nextImagePath);
+            AssertTrue(window.TryLoadImage(nextImagePath, populateQueue: false, refreshQueueDetails: false, refreshActiveStatus: false, appendLoadLog: false), "loading the next image after a brush stroke should succeed");
+            AssertEqual(nextImagePath, GetPrivateField<string>(window, "activeImagePath"));
+            AssertEqual(0, manualSegments.Count);
+            AssertEqual(0, window.MainCanvasViewModel.MaskOverlays.Count);
+            AssertTrue(!window.MainCanvasViewModel.IsMaskStrokePreviewVisible, "image load should clear the previous image brush preview");
+            AssertTrue(!InvokePrivateResult<bool>(window, "HasPendingMaskStrokeCommitWork"), "image load should discard pending brush work from the previous image");
+            System.Collections.ICollection pendingPreviewCommands = GetPrivateField<System.Collections.ICollection>(window.MainCanvasViewModel, "_pendingMaskStrokePreviewCommands");
+            AssertEqual(0, pendingPreviewCommands.Count);
         }
         finally
         {

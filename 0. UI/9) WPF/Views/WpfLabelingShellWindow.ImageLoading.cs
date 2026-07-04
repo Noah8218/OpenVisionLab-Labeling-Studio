@@ -75,6 +75,7 @@ namespace MvcVisionSystem
                     MainCanvasViewModel.SetDetectionOverlays(Array.Empty<RoiImageCanvasDetectionOverlay>());
                     MainCanvasViewModel.SetMaskOverlays(Array.Empty<RoiImageCanvasMaskOverlay>());
                     MainCanvasViewModel.SetPolygonOverlays(Array.Empty<RoiImageCanvasPolygonOverlay>());
+                    MainCanvasViewModel.ClearMaskStrokePreview(refresh: false, clearTexture: true);
                 }
                 canvasUploadMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
                 MainCanvasViewModel.ImageViewer.RefreshGL();
@@ -100,9 +101,13 @@ namespace MvcVisionSystem
                 manualSegments.Clear();
                 ClearQueuedMaskStrokeCommits();
                 polygonAnnotationService.Reset();
+                CancelMaskStrokePreviewCommitSwap();
                 lastMaskStrokePoint = null;
                 activeMaskStrokeInProgress = false;
                 activeMaskStrokeActionName = string.Empty;
+                activeMaskStrokeSegmentIndices.Clear();
+                ResetMaskStrokeCommitBuffer();
+                activeMaskStrokeNeedsFullObjectRefresh = false;
                 candidateReviewState.ClearAll();
                 ClearAnnotationHistory();
                 UpdateDetectionResultOverlay();

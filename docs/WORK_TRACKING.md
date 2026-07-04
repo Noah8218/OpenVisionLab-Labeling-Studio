@@ -9105,3 +9105,24 @@ Last updated: 2026-07-04
   - This improves the operator blocker message only. Production YOLOv8 segmentation training still needs enough real, non-duplicated train/valid SEG labels.
 - Next:
   - Continue with real SEG labeling volume, then rerun local YOLOv8 segmentation training on non-duplicated train/valid data and stage the resulting `best.pt`.
+
+## 2026-07-04 SEG brush preview image-switch reset
+
+- Self-evaluation:
+  - The reported symptom matched the GPU/FBO mask stroke preview path, not saved segmentation artifacts: `TryLoadImage` cleared manual segments and mask overlays but did not clear the separate `MaskStrokePreviewLayer`.
+  - The smallest fix is to reset pending brush stroke state and clear the preview texture during image load, without changing brush MouseMove/MouseUp performance behavior.
+- Changes:
+  - `WpfLabelingShellWindow.ImageLoading` now clears the mask stroke preview FBO, cancels the preview swap timer, and resets pending stroke buffer/segment-tracking state when a new image is loaded.
+  - The WPF brush/eraser focused test now draws a brush preview, loads another image, and asserts the old preview, pending stroke work, mask overlays, and manual segments are cleared.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 errors. Existing external `C:\Git\Library-Noah` unused-variable warnings were reported.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-mask-drag-performance` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes image-switch state cleanup only, not WPF layout or visual styling.
+- Remaining risk:
+  - This focused gate verifies the WPF load path and brush preview state. It does not add a new direct EXE UIAutomation image-switch smoke.
+- Next:
+  - If the operator still sees retained brush pixels after this, run a direct EXE smoke around queue selection with screenshot/pixel comparison and inspect whether the retained pixels are coming from saved segmentation artifacts rather than the preview layer.
