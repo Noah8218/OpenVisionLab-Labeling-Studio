@@ -9060,3 +9060,27 @@ Last updated: 2026-07-04
   - A separate EXE UIAutomation smoke attempt failed before product interaction because it waits for existing hidden quick-tool text; the WPF visual-smoke capture above is the UI evidence for this fix.
 - Next:
   - If operator feedback still says the mode is unclear, add a tiny purpose badge wording change such as `SEG / Segmentation` in the existing presentation path without changing layout.
+
+## 2026-07-04 YOLOv8 real app-saved SEG artifact training smoke
+
+- Self-evaluation:
+  - The current operator image folder `D:\LabelingData\Test01` still contains only source images, but the built EXE had a recent app output dataset under `artifacts\run\Debug\DATA\Segmentagtion_Dataset_ObjectDetection_20260704_065650`.
+  - That app output contained one saved SEG artifact: `Teaching_0.jpeg`, `segments\Teaching_0.json`, and `masks\Teaching_0.png`. The source dataset had only `valid`, so it is not a production-ready training split, but it is useful evidence that a real app-saved brush/polygon segment can enter the local YOLOv8 training path.
+- Changes:
+  - No product code changes.
+  - Created an ignored staging dataset under `artifacts\yolov8-real-app-segmentation-dataset` by copying the real app-saved SEG image/segment/mask into minimal train/valid splits and writing YOLOv8 segment label lines.
+- Verification:
+  - `C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile C:\Git\yolov8\labeling_tcp_client.py` passed.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --self-test` passed.
+  - A first TCP training attempt was blocked by the worker socket timeout/output pipe setup and produced no `best.pt`; it was terminated and rerun with extended socket timeout plus worker stdout/stderr redirected to files.
+  - The corrected TCP `StartTraining` smoke completed with `task=segment`, `epochs=1`, `imgSize=64`, `batchSize=1`, `workers=0`, and local `C:\Git\yolov8\yolov8n-seg.pt`, producing `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-real-app-segmentation-smoke\weights\best.pt` and `last.pt`.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --smoke-test --model yolov8 --weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-real-app-segmentation-smoke\weights\best.pt --image C:\Git\Labelling_Application\artifacts\yolov8-real-app-segmentation-dataset\data\valid\images\Teaching_0.jpeg --model-root C:\Git\yolov8 --image-root C:\Git\Labelling_Application\artifacts\yolov8-real-app-segmentation-dataset\data\valid\images --device cpu --img-size 64 --conf 0.01` passed and loaded the generated `best.pt`, with zero candidates at that confidence.
+  - The same smoke at `--conf 0.001` passed and returned polygon candidates with `segmentationType=polygon` and normalized polygon points.
+  - `C:\Git\yolov8` has no root `best.pt`; the new `runs\segment\openvisionlab-yolov8-real-app-segmentation-smoke\weights\best.pt` is newer than the previous app-fixture run, so the existing local folder connection policy will see it before older `runs\segment` weights.
+- Capture:
+  - No screenshot is needed for this pass because no WPF layout or visual styling changed.
+- Remaining risk:
+  - This is still a one-image staged smoke using a duplicated train/valid split. It proves local YOLOv8 training and model-load plumbing with a real app-saved SEG artifact, not production accuracy.
+  - The actual operator source folder still needs enough saved train and valid segmentation labels before a production model should be trained or promoted.
+- Next:
+  - Label/save more real SEG images into both train and valid splits, then run a non-duplicated local YOLOv8 segmentation training pass and stage its `runs\segment\<run>\weights\best.pt` as the inspection-model candidate.
