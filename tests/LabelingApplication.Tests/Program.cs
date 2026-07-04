@@ -27204,6 +27204,30 @@ internal static class Program
             "anomaly readiness should include train split class counts");
         AssertTrue(!anomalyTrainSplitText.Contains(AnomalyClassificationTrainingReadinessService.NeedsTrainNormalAndAbnormalError, StringComparison.Ordinal),
             "anomaly train split readiness should not expose raw readiness keys");
+
+        var segmentationSplitReport = new YoloDatasetReadinessReport(
+            new YoloDatasetValidationResult(Array.Empty<string>()),
+            new YoloDatasetValidationResult(new[] { "train image directory has no supported images." }),
+            new YoloDatasetStatistics(),
+            LabelingDatasetPurpose.Segmentation);
+        data.ProjectSettings.DatasetPurpose = LabelingDatasetPurpose.Segmentation;
+        string segmentationSplitText = WpfTrainingReadinessPresentationService.BuildStatusText(data, segmentationSplitReport);
+        AssertTrue(segmentationSplitText.Contains("\uC138\uADF8\uBA58\uD14C\uC774\uC158", StringComparison.Ordinal), "segmentation readiness should identify segmentation training");
+        AssertTrue(segmentationSplitText.Contains("train", StringComparison.Ordinal)
+            && segmentationSplitText.Contains("valid", StringComparison.Ordinal),
+            "segmentation readiness should explain that both train and valid splits need saved labels");
+        AssertTrue(segmentationSplitText.Contains("\uB9C8\uC2A4\uD06C", StringComparison.Ordinal), "segmentation readiness should mention saved mask labels");
+        AssertTrue(!segmentationSplitText.Contains("train image directory has no supported images", StringComparison.OrdinalIgnoreCase),
+            "segmentation readiness should not expose raw validator wording");
+
+        string segmentJsonFailureText = WpfTrainingReadinessPresentationService.BuildFriendlyIssueSummary(
+            "YOLOv8 segmentation training needs polygon segment JSON files that can be converted to labels/*.txt.");
+        AssertTrue(segmentJsonFailureText.Contains("polygon segment JSON", StringComparison.Ordinal), "YOLOv8 segment-label export failure should keep the required artifact type visible");
+        AssertTrue(segmentJsonFailureText.Contains("\uBE0C\uB7EC\uC2DC", StringComparison.Ordinal)
+            || segmentJsonFailureText.Contains("\uD3F4\uB9AC\uACE4", StringComparison.Ordinal),
+            "YOLOv8 segment-label export failure should guide the operator back to brush/polygon labels");
+        AssertTrue(!segmentJsonFailureText.Contains("needs polygon segment JSON files", StringComparison.OrdinalIgnoreCase),
+            "YOLOv8 segment-label export failure should not expose raw service wording");
     }
 
     private static void TestWpfInferenceStatusPresentationServiceReadable()

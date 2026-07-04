@@ -9084,3 +9084,24 @@ Last updated: 2026-07-04
   - The actual operator source folder still needs enough saved train and valid segmentation labels before a production model should be trained or promoted.
 - Next:
   - Label/save more real SEG images into both train and valid splits, then run a non-duplicated local YOLOv8 segmentation training pass and stage its `runs\segment\<run>\weights\best.pt` as the inspection-model candidate.
+
+## 2026-07-04 YOLOv8 SEG training readiness guidance
+
+- Self-evaluation:
+  - The latest real app-saved SEG smoke proved local YOLOv8 training/model-load plumbing, but the real operator data still blocks production training until train and valid splits both contain saved segmentation labels.
+  - The smallest product-side fix was to make the existing training-readiness presentation explain that exact SEG blocker instead of showing raw validator text such as `train image directory has no supported images`.
+- Changes:
+  - `WpfTrainingReadinessPresentationService` now gives segmentation-purpose readiness failures a SEG-specific message when train/valid splits are missing saved mask labels.
+  - The same service now translates the YOLOv8 segment-label export failure for missing polygon segment JSON into an operator action: save brush/polygon labels before starting again.
+  - Focused coverage was added to `--wpf-training-readiness-presentation`.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-readiness-presentation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-readiness-purpose` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes status text only, not WPF layout or visual styling.
+- Remaining risk:
+  - This improves the operator blocker message only. Production YOLOv8 segmentation training still needs enough real, non-duplicated train/valid SEG labels.
+- Next:
+  - Continue with real SEG labeling volume, then rerun local YOLOv8 segmentation training on non-duplicated train/valid data and stage the resulting `best.pt`.

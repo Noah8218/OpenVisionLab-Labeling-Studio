@@ -27,7 +27,7 @@ namespace MvcVisionSystem
                 return $"{readyText}: {countText}";
             }
 
-            string issueText = BuildFriendlyIssueText(report?.Errors ?? Array.Empty<string>());
+            string issueText = BuildFriendlyIssueText(data, report);
             return $"학습 데이터 확인 필요: {issueText} / {countText}";
         }
 
@@ -53,6 +53,22 @@ namespace MvcVisionSystem
             => BuildFriendlyIssueText((error ?? string.Empty)
                 .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries));
 
+        private static string BuildFriendlyIssueText(CData data, YoloDatasetReadinessReport report)
+        {
+            if (report != null
+                && (report.Purpose == LabelingDatasetPurpose.Segmentation
+                    || data?.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.Segmentation))
+            {
+                string segmentationIssueText = BuildSegmentationIssueText(report);
+                if (!string.IsNullOrWhiteSpace(segmentationIssueText))
+                {
+                    return segmentationIssueText;
+                }
+            }
+
+            return BuildFriendlyIssueText(report?.Errors ?? Array.Empty<string>());
+        }
+
         private static string BuildCountText(YoloDatasetStatistics statistics, int classCount)
         {
             statistics ??= new YoloDatasetStatistics();
@@ -72,6 +88,11 @@ namespace MvcVisionSystem
             if (normalized.Count == 0)
             {
                 return "데이터셋 점검 결과를 확인하세요.";
+            }
+
+            if (Contains(normalized, "YOLOv8 segmentation training needs polygon segment JSON"))
+            {
+                return "\uC138\uADF8\uBA58\uD14C\uC774\uC158 \uD559\uC2B5\uC740 polygon segment JSON\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. \uBE0C\uB7EC\uC2DC/\uD3F4\uB9AC\uACE4 \uB77C\uBCA8\uC744 \uC800\uC7A5\uD55C \uB4A4 \uB2E4\uC2DC \uC2DC\uC791\uD558\uC138\uC694.";
             }
 
             if (Contains(normalized, AnomalyClassificationTrainingReadinessService.NoSourceImagesError))
@@ -150,6 +171,30 @@ namespace MvcVisionSystem
         private static bool Contains(IEnumerable<string> values, string text)
         {
             return values.Any(value => value.Contains(text, StringComparison.OrdinalIgnoreCase));
+        }
+
+        private static string BuildSegmentationIssueText(YoloDatasetReadinessReport report)
+        {
+            IReadOnlyList<string> errors = report?.Errors ?? Array.Empty<string>();
+            YoloDatasetStatistics statistics = report?.Statistics ?? new YoloDatasetStatistics();
+            bool hasSplitError = Contains(errors, "train image directory")
+                || Contains(errors, "valid image directory");
+            bool hasSegmentationArtifact = statistics.TotalSegmentationArtifactFileCount > 0
+                || statistics.TotalSegmentationObjectCount > 0;
+            if (hasSplitError
+                || (hasSegmentationArtifact && (statistics.TrainImageCount == 0 || statistics.ValidImageCount == 0)))
+            {
+                return "\uC138\uADF8\uBA58\uD14C\uC774\uC158 \uD559\uC2B5\uC740 train\uACFC valid \uBD84\uD560\uC5D0 \uAC01\uAC01 \uC800\uC7A5\uB41C \uB9C8\uC2A4\uD06C \uB77C\uBCA8\uC774 \uD544\uC694\uD569\uB2C8\uB2E4. \uB354 \uB9CE\uC740 SEG \uC774\uBBF8\uC9C0\uB97C \uB77C\uBCA8 \uC800\uC7A5\uD558\uACE0 \uB2E4\uC2DC \uC810\uAC80\uD558\uC138\uC694.";
+            }
+
+            if (statistics.TotalSegmentationArtifactFileCount == 0
+                || Contains(errors, "Segmentation dataset has no segment JSON or mask PNG annotations")
+                || Contains(errors, "segmentation annotation is missing"))
+            {
+                return "\uC138\uADF8\uBA58\uD14C\uC774\uC158 \uBAA9\uC801\uC5D0\uC11C\uB294 \uBE0C\uB7EC\uC2DC\uB098 \uD3F4\uB9AC\uACE4\uC73C\uB85C \uB9C8\uC2A4\uD06C\uB97C \uC800\uC7A5\uD55C \uB4A4 \uB2E4\uC2DC \uB370\uC774\uD130\uC14B \uC810\uAC80\uC744 \uC2E4\uD589\uD558\uC138\uC694.";
+            }
+
+            return string.Empty;
         }
     }
 }
