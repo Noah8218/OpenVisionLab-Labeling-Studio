@@ -1,5 +1,7 @@
+using MvcVisionSystem._1._Core;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 
 namespace MvcVisionSystem
 {
@@ -20,6 +22,33 @@ namespace MvcVisionSystem
                     "AI \uD6C4\uBCF4 \uB85C\uB4DC: {0}\uAC1C / \uC800\uC7A5 \uC804 / \uAE30\uC900 {1:P0}",
                     candidateCount,
                     confidenceFilter);
+        }
+
+        public string BuildSmokeStatus(YoloWorkerSmokeTestResult result)
+        {
+            if (result?.Succeeded == true)
+            {
+                int polygonCandidateCount = CountPolygonCandidates(result);
+                string status = string.Format(
+                    CultureInfo.CurrentCulture,
+                    "\uCD94\uB860: \uC644\uB8CC  \uD6C4\uBCF4 {0}",
+                    result.CandidateCount);
+                return polygonCandidateCount > 0
+                    ? string.Format(
+                        CultureInfo.CurrentCulture,
+                        "{0} / \uB9C8\uC2A4\uD06C {1}",
+                        status,
+                        polygonCandidateCount)
+                    : status;
+            }
+
+            string reason = FirstNonEmpty(result?.Summary, result?.ErrorCode);
+            return string.IsNullOrWhiteSpace(reason)
+                ? "\uCD94\uB860: \uD14C\uC2A4\uD2B8 \uC2E4\uD328"
+                : string.Format(
+                    CultureInfo.CurrentCulture,
+                    "\uCD94\uB860: \uD14C\uC2A4\uD2B8 \uC2E4\uD328 - {0}",
+                    TrimStatusReason(reason));
         }
 
         public WpfDetectionOverlayPresentation BuildNoCandidateOverlay(string imagePath, double confidenceFilter)
@@ -57,5 +86,37 @@ namespace MvcVisionSystem
                 ? "-"
                 : Path.GetFileName(imagePath);
         }
+
+        private static string FirstNonEmpty(params string[] values)
+        {
+            if (values == null)
+            {
+                return string.Empty;
+            }
+
+            foreach (string value in values)
+            {
+                if (!string.IsNullOrWhiteSpace(value))
+                {
+                    return value.Trim();
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private static string TrimStatusReason(string reason)
+        {
+            const int MaxLength = 180;
+            string normalized = reason?.Trim() ?? string.Empty;
+            return normalized.Length <= MaxLength
+                ? normalized
+                : normalized.Substring(0, MaxLength - 3) + "...";
+        }
+
+        private static int CountPolygonCandidates(YoloWorkerSmokeTestResult result)
+            => result?.Candidates?.Count(candidate =>
+                string.Equals(candidate?.SegmentationType, "polygon", System.StringComparison.OrdinalIgnoreCase)
+                || (candidate?.PolygonPoints?.Count ?? 0) >= 3) ?? 0;
     }
 }

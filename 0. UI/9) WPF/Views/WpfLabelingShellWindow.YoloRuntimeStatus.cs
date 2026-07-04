@@ -34,15 +34,16 @@ namespace MvcVisionSystem
 
             PythonModelValidationResult result = PythonModelSettingsValidator.Validate(settings, requireWeights: true);
             SetGlobalInferenceStatus(string.Empty, isBusy: false, isWarning: !result.IsValid);
-            SetPythonStatus(result.IsValid ? "추론: 준비 완료" : runtimeState.SummaryText);
+            SetPythonStatus(WpfInferenceStatusPresentationService.BuildRuntimePythonStatus(result, runtimeState));
 
             string weightsPath = settings.WeightsPath;
             if (!File.Exists(weightsPath))
             {
+                string inspectionModelStatus = WpfInferenceStatusPresentationService.BuildInspectionModelStatusText(settings, hasPendingTrainingWeightsRecipeSave);
                 SetInspectionModelStatus(
-                    "\uAC80\uC0AC \uBAA8\uB378: \uC5C6\uC74C",
-                    "\uAC80\uC0AC\uC5D0 \uC0AC\uC6A9\uD560 \uBAA8\uB378 \uD30C\uC77C\uC744 YOLO \uC124\uC815\uC5D0\uC11C \uC120\uD0DD\uD558\uC138\uC694.");
-                SetModelStatus("검사 모델: 없음");
+                    inspectionModelStatus,
+                    WpfInferenceStatusPresentationService.BuildInspectionModelToolTip(settings, hasPendingTrainingWeightsRecipeSave));
+                SetModelStatus(inspectionModelStatus);
                 return;
             }
 
@@ -176,7 +177,8 @@ namespace MvcVisionSystem
             EnsureProjectSettings();
             PythonModelSettings settings = global.Data.ProjectSettings.PythonModel;
             YoloModelSettingsViewModel?.ApplyTo(settings);
-            YoloModelSettingsViewModel?.LoadFrom(settings);
+            YoloModelSettingsViewModel?.ApplyTo(global.Data.ProjectSettings.AnomalyClassification);
+            YoloModelSettingsViewModel?.LoadFrom(settings, global.Data.ProjectSettings.AnomalyClassification);
             CandidateConfidenceSlider.Value = System.Math.Clamp(settings.MinimumDetectionConfidence, 0F, 1F);
         }
 

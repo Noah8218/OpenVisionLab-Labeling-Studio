@@ -16,12 +16,7 @@ namespace MvcVisionSystem
             Stopwatch strokeStopwatch = Stopwatch.StartNew();
             bool strokeWasActive = activeMaskStrokeInProgress;
             bool commitQueued = strokeWasActive && EnqueueMaskAnnotationStrokeCommit();
-            if (commitQueued)
-            {
-                double strokeMilliseconds = strokeStopwatch.Elapsed.TotalMilliseconds;
-                SetModelStatus(FormattableString.Invariant($"\uB9C8\uC2A4\uD06C \uD3B8\uC9D1 \uC608\uC57D: \uB300\uAE30 {pendingMaskStrokeCommitCount}\uAC1C / MouseUp {strokeMilliseconds:F1}ms"));
-            }
-            else
+            if (!commitQueued)
             {
                 if (!HasPendingMaskStrokeCommitWork())
                 {
@@ -63,7 +58,7 @@ namespace MvcVisionSystem
                 ++queuedMaskStrokeCommitSequence,
                 activeImagePath,
                 activeImageSize,
-                activeMaskStrokeCommitSession.Centers.ToList(),
+                activeMaskStrokeCommitSession.DetachCenters(),
                 activeMaskStrokeCommitSession.Radius > 0 ? activeMaskStrokeCommitSession.Radius : GetMaskBrushRadius(),
                 tool,
                 className,
@@ -76,7 +71,8 @@ namespace MvcVisionSystem
             // The FBO preview is visible immediately, but the edit is already real
             // from the operator's point of view. Mark save state now instead of
             // waiting for deferred CPU MaskData/history materialization.
-            MarkAnnotationsDirty(activeMaskStrokeActionName);
+            MarkMaskStrokeAnnotationsDirty(activeMaskStrokeActionName);
+            RefreshAnnotationHistoryToolState();
             ScheduleMaskStrokeCommitQueue();
             return true;
         }
@@ -115,8 +111,8 @@ namespace MvcVisionSystem
             if (!CanProcessQueuedMaskStrokeCommitNow())
             {
                 // Keep queued CPU materialization out of the active painting loop.
-                // It will be flushed when the user leaves the mask tool, saves, or
-                // invokes undo/redo; until then the GPU/FBO preview is authoritative.
+                // MaskData, history, object-review rows, and overlay texture work
+                // wait for save/tool-end flush so MouseUp leaves the UI thread clear.
                 maskStrokeCommitQueueTimer.Stop();
                 isMaskStrokeCommitQueueScheduled = true;
                 return;
@@ -209,6 +205,7 @@ namespace MvcVisionSystem
             isMaskStrokeToolEndFlushScheduled = false;
             maskStrokeToolEndFlushRequestedTicks = 0;
             maskStrokeCommitQueueTimer.Stop();
+            RefreshAnnotationHistoryToolState();
         }
 
         private bool CanProcessQueuedMaskStrokeCommitNow()
@@ -301,6 +298,7 @@ namespace MvcVisionSystem
             finally
             {
                 pendingMaskStrokeCommitCount = Math.Max(0, pendingMaskStrokeCommitCount - 1);
+                RefreshAnnotationHistoryToolState();
             }
         }
 
@@ -359,6 +357,7 @@ namespace MvcVisionSystem
             SetModelStatus(FormattableString.Invariant($"\uB9C8\uC2A4\uD06C \uD3B8\uC9D1 \uBC18\uC601: \uBC30\uCE58 {changedCommitCount}\uAC1C / Queue {flushMilliseconds:F1}ms (view {viewMilliseconds:F1})"));
             StatusBarViewModel?.SetModelStatusAutomationText(FormattableString.Invariant(
                 $"mask batch commit changed=True count={changedCommitCount} waitMs={maxWaitMilliseconds:F1} toolEndWaitMs={toolEndWaitMilliseconds:F1} queueMs={flushMilliseconds:F1}"));
+            RefreshDeferredMaskStrokeDirtyPresentation();
             QueueMaskStrokePresentationRefresh(
                 changedSegmentIndices,
                 needsFullObjectRefresh,

@@ -1,7 +1,9 @@
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
 using System.IO;
+using System.Linq;
 using System.Windows;
 using System.Windows.Input;
 using OpenVisionLab.Mvvm;
@@ -21,6 +23,9 @@ namespace MvcVisionSystem
         private string maximumCandidatesText = string.Empty;
         private string inferenceImageSizeText = string.Empty;
         private string timeoutSecondsText = string.Empty;
+        private string anomalyNormalClassNamesText = string.Empty;
+        private string anomalyAbnormalClassNamesText = string.Empty;
+        private string anomalyMinimumConfidenceText = "0";
         private bool autoStartClient;
         private bool isBrowsePythonEnabled = true;
         private bool isBrowseProjectRootEnabled = true;
@@ -64,6 +69,9 @@ namespace MvcVisionSystem
         private bool isRuntimePackageActionAllowed = true;
         private bool isRuntimeInstallPackageEnabled;
         private bool isRuntimeUninstallPackageEnabled;
+        private string[] workerSupportedModels = Array.Empty<string>();
+        private string[] workerTrainingModels = Array.Empty<string>();
+        private string[] workerDetectionModels = Array.Empty<string>();
 
         public string ViewName => nameof(WpfYoloModelSettingsPanel);
 
@@ -321,6 +329,16 @@ namespace MvcVisionSystem
         public string SettingsSummaryActionText
             => "\uC774 \uD654\uBA74\uC740 \uAC80\uC0AC\uC5D0 \uC4F8 \uBAA8\uB378 \uD504\uB85C\uD544\uACFC \uBAA8\uB378 \uD30C\uC77C\uC744 \uC800\uC7A5\uD569\uB2C8\uB2E4. \uC5EC\uB7EC \uBAA8\uB378\uC744 \uBE44\uAD50\uD560 \uB54C\uB294 \uD559\uC2B5 \uACB0\uACFC \uD6C4\uBCF4\uB97C \uAC80\uC99D\uD55C \uB4A4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694.";
 
+        public string AnomalyMappingHeaderText => "\uC774\uC0C1 \uD0D0\uC9C0 \uD310\uC815 \uB9E4\uD551";
+
+        public string AnomalyMappingSummaryText
+            => string.Format(
+                CultureInfo.CurrentCulture,
+                "\uC815\uC0C1 {0}\uAC1C / \uC774\uC0C1 {1}\uAC1C / \uCD5C\uC18C \uC2E0\uB8B0\uB3C4 {2}",
+                CountClassNames(AnomalyNormalClassNamesText),
+                CountClassNames(AnomalyAbnormalClassNamesText),
+                FormatAnomalyConfidence(AnomalyMinimumConfidenceText));
+
         public string AdvancedSettingsHeaderText
             => "\uBAA8\uB378 \uC2E4\uD589 \uD658\uACBD \uC0C1\uC138";
 
@@ -440,6 +458,42 @@ namespace MvcVisionSystem
             set => SetProperty(ref autoStartClient, value);
         }
 
+        public string AnomalyNormalClassNamesText
+        {
+            get => anomalyNormalClassNamesText;
+            set
+            {
+                if (SetProperty(ref anomalyNormalClassNamesText, value ?? string.Empty))
+                {
+                    NotifyAnomalyMappingChanged();
+                }
+            }
+        }
+
+        public string AnomalyAbnormalClassNamesText
+        {
+            get => anomalyAbnormalClassNamesText;
+            set
+            {
+                if (SetProperty(ref anomalyAbnormalClassNamesText, value ?? string.Empty))
+                {
+                    NotifyAnomalyMappingChanged();
+                }
+            }
+        }
+
+        public string AnomalyMinimumConfidenceText
+        {
+            get => anomalyMinimumConfidenceText;
+            set
+            {
+                if (SetProperty(ref anomalyMinimumConfidenceText, value ?? string.Empty))
+                {
+                    NotifyAnomalyMappingChanged();
+                }
+            }
+        }
+
         public bool IsBrowsePythonEnabled
         {
             get => isBrowsePythonEnabled;
@@ -537,6 +591,21 @@ namespace MvcVisionSystem
             RefreshRuntimeProfiles();
         }
 
+        public void LoadFrom(PythonModelSettings settings, AnomalyClassificationSettings anomalySettings)
+        {
+            LoadFrom(settings);
+            LoadAnomalyClassificationFrom(anomalySettings);
+        }
+
+        public void LoadAnomalyClassificationFrom(AnomalyClassificationSettings settings)
+        {
+            settings ??= new AnomalyClassificationSettings();
+            settings.EnsureDefaults();
+            AnomalyNormalClassNamesText = FormatClassNames(settings.NormalClassNames);
+            AnomalyAbnormalClassNamesText = FormatClassNames(settings.AbnormalClassNames);
+            AnomalyMinimumConfidenceText = settings.MinimumConfidence.ToString("0.##", CultureInfo.InvariantCulture);
+        }
+
         public void ApplyTo(PythonModelSettings settings)
         {
             if (settings == null)
@@ -578,6 +647,24 @@ namespace MvcVisionSystem
             settings.EnsureDefaults();
         }
 
+        public void ApplyTo(AnomalyClassificationSettings settings)
+        {
+            if (settings == null)
+            {
+                throw new ArgumentNullException(nameof(settings));
+            }
+
+            if (!double.TryParse(AnomalyMinimumConfidenceText, NumberStyles.Float, CultureInfo.InvariantCulture, out double confidence))
+            {
+                throw new FormatException("\uC774\uC0C1 \uD0D0\uC9C0 \uC2E0\uB8B0\uB3C4\uB294 0\uACFC 1 \uC0AC\uC774 \uC22B\uC790\uC5EC\uC57C \uD569\uB2C8\uB2E4.");
+            }
+
+            settings.NormalClassNames = ParseClassNames(AnomalyNormalClassNamesText);
+            settings.AbnormalClassNames = ParseClassNames(AnomalyAbnormalClassNamesText);
+            settings.MinimumConfidence = Math.Clamp(confidence, 0D, 1D);
+            settings.EnsureDefaults();
+        }
+
         public void ApplyWorkflowCommandState(WpfWorkflowCommandState state)
         {
             bool canRunGeneralCommands = state?.CanRunGeneralCommands == true;
@@ -610,6 +697,17 @@ namespace MvcVisionSystem
             RuntimeProfileActionStatusText = string.IsNullOrWhiteSpace(result.DetailText)
                 ? result.SummaryText
                 : string.Format(CultureInfo.CurrentCulture, "{0}. {1}", result.SummaryText, result.DetailText);
+            RefreshRuntimeProfiles();
+        }
+
+        public void ApplyRuntimeCapabilities(
+            IEnumerable<string> supportedModels,
+            IEnumerable<string> trainingModels,
+            IEnumerable<string> detectionModels)
+        {
+            workerSupportedModels = NormalizeCapabilities(supportedModels);
+            workerTrainingModels = NormalizeCapabilities(trainingModels);
+            workerDetectionModels = NormalizeCapabilities(detectionModels);
             RefreshRuntimeProfiles();
         }
 
@@ -662,12 +760,21 @@ namespace MvcVisionSystem
             RefreshRuntimeProfiles();
         }
 
+        private void NotifyAnomalyMappingChanged()
+        {
+            OnPropertyChanged(nameof(AnomalyMappingSummaryText));
+        }
+
         private void RefreshRuntimeProfiles()
         {
             PythonModelSettings settings = CreateCurrentSettingsSnapshot();
 
             RuntimeProfileItems.Clear();
-            foreach (PythonModelRuntimeProfile profile in PythonModelRuntimeProfileService.BuildProfiles(settings))
+            foreach (PythonModelRuntimeProfile profile in PythonModelRuntimeProfileService.BuildProfiles(
+                settings,
+                workerSupportedModels,
+                workerTrainingModels,
+                workerDetectionModels))
             {
                 RuntimeProfileItems.Add(profile);
             }
@@ -694,13 +801,25 @@ namespace MvcVisionSystem
 
         private void RefreshRuntimeExecutionSummary(PythonModelSettings settings)
         {
-            PythonModelRuntimeExecutionSummary summary = PythonModelRuntimeExecutionSummaryService.Build(settings);
+            PythonModelRuntimeExecutionSummary summary = PythonModelRuntimeExecutionSummaryService.Build(
+                settings,
+                workerSupportedModels,
+                workerTrainingModels,
+                workerDetectionModels);
             RuntimeExecutionTitleText = summary.TitleText;
             RuntimeExecutionSummaryText = summary.SummaryText;
             RuntimeExecutionWorkerText = summary.WorkerText;
             RuntimeExecutionTrainingText = summary.TrainingText;
             RuntimeExecutionInspectionText = summary.InspectionText;
         }
+
+        private static string[] NormalizeCapabilities(IEnumerable<string> values)
+            => values?
+                .Where(value => !string.IsNullOrWhiteSpace(value))
+                .Select(value => value.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToArray()
+                ?? Array.Empty<string>();
 
         private void RefreshRuntimeInstallPlan(PythonModelSettings settings)
         {
@@ -744,6 +863,33 @@ namespace MvcVisionSystem
 
             string leaf = Path.GetFileName(trimmed);
             return string.IsNullOrWhiteSpace(leaf) ? trimmed : leaf;
+        }
+
+        private static string FormatClassNames(System.Collections.Generic.IEnumerable<string> classNames)
+        {
+            return string.Join(", ", classNames ?? Array.Empty<string>());
+        }
+
+        private static System.Collections.Generic.List<string> ParseClassNames(string text)
+        {
+            return (text ?? string.Empty)
+                .Split(new[] { ',', ';', '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .Select(item => item.Trim())
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static int CountClassNames(string text)
+        {
+            return ParseClassNames(text).Count;
+        }
+
+        private static string FormatAnomalyConfidence(string text)
+        {
+            return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out double confidence)
+                ? Math.Clamp(confidence, 0D, 1D).ToString("0.##", CultureInfo.InvariantCulture)
+                : "-";
         }
 
         private static string FormatModelProfileName(string engine)

@@ -28,7 +28,7 @@ namespace MvcVisionSystem
             string summary = WpfObjectReviewPresenter.BuildSummary(
                 manualRois.Count + manualSegments.Count + confirmedDetectionCandidates.Count);
             bool selectChangedMask = orderedSegmentIndices.Count == 1
-                && ShouldSelectCommittedMaskAfterStroke();
+                && !activeMaskStrokeInProgress;
             foreach (int segmentIndex in orderedSegmentIndices)
             {
                 if (!TryRefreshManualSegmentObjectReviewRow(segmentIndex, summary, selectChangedMask))
@@ -64,6 +64,18 @@ namespace MvcVisionSystem
             CClassItem existing = global.Data.ClassNamedList?
                 .FirstOrDefault(item => string.Equals(item?.Text, className, StringComparison.OrdinalIgnoreCase));
             return existing?.DrawColor ?? System.Drawing.Color.FromArgb(44, 210, 110);
+        }
+
+        private System.Drawing.Color GetMaskStrokePreviewColor(bool isEraser)
+        {
+            System.Drawing.Color color = GetMaskCursorPreviewColor(isEraser);
+            if (isEraser)
+            {
+                return color;
+            }
+
+            int alpha = (int)Math.Round(Math.Clamp(LearningWorkflowViewModel?.MaskOpacity ?? 0.66D, 0.1D, 1.0D) * 255D);
+            return System.Drawing.Color.FromArgb(alpha, color.R, color.G, color.B);
         }
     }
 }

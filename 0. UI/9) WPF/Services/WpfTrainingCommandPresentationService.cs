@@ -38,6 +38,16 @@ namespace MvcVisionSystem
                 : "학습 시작 명령을 보내지 못했습니다. 데이터셋 준비 상태와 추론 연결을 확인하세요.";
         }
 
+        public static string BuildStartCommandResultStatus(bool started, string failureDetail)
+        {
+            if (started || string.IsNullOrWhiteSpace(failureDetail))
+            {
+                return BuildStartCommandResultStatus(started);
+            }
+
+            return $"\uD559\uC2B5 \uC2DC\uC791 \uC2E4\uD328: {WpfTrainingReadinessPresentationService.BuildFriendlyIssueSummary(failureDetail)}";
+        }
+
         public static WpfTrainingRecoveryStatus BuildStartFailureRecovery(string detail)
         {
             return new WpfTrainingRecoveryStatus

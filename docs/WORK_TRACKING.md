@@ -1,6 +1,492 @@
 # Work Tracking
 
-Last updated: 2026-07-03
+Last updated: 2026-07-04
+
+## 2026-07-04 SEG brush label materialization, class recolor, and queue-click follow-up
+
+- Self-evaluation:
+  - The reported "brush was drawn but no label appeared" was a real contract mismatch from the earlier hitch fix: MouseMove/MouseUp correctly stayed fast, but CPU MaskData/history/Object Review materialization was deferred too far while the Brush/Eraser tool remained selected.
+  - The NG -> OK recolor issue came from applying only the segment class text; raster mask segments kept their old catalog class item/color and a stale brush preview texture could cover the refreshed overlay.
+  - Image queue item clicks still paid synchronous review/class/queue refresh work before the image was visibly committed.
+- Changes:
+  - Brush/Eraser strokes still do no CPU/object-list work during active drag, but after MouseUp quiet idle they materialize the mask label, undo history, Object Review row, and queue save state even if Brush/Eraser remains selected.
+  - The materialized raster mask row is selected after quiet idle so class edits are immediately available.
+  - Applying a class to a raster mask now passes the catalog `CClassItem`, updates the segment render version/dirty bounds, and clears stale mask-stroke preview texture before refreshing overlays.
+  - Lightweight image queue clicks now commit the image first and defer review/queue side refresh to a guarded background dispatcher pass.
+  - Saved segmentation annotations are restored with saved boxes when opening an image, so saved masks/segments participate in the current review state.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-mask-drag-performance` passed with `WPF_MASK_BRUSH_RELEASE_MS=5.080`, `WPF_MASK_BRUSH_EXISTING_RELEASE_MS=3.179`, `UNDO_AFTER=1`, `UNDO_AFTER_SECOND=2`, `SELECTED_AFTER=True`, `COLLECTION_CHANGED_AFTER=1`, and `QUEUE_CHANGED_AFTER=45`.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification` passed, including brush/eraser reviewable raster mask coverage.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-undo-redo-shortcuts` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-queue-click-perf --folder D:\LabelingData\Test01\Images --count 10 --settle-ms 60` passed with warm visible avg `94.0ms` and warm image-commit avg `41.6ms`.
+  - `dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\run\Debug\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-mask-tools-smoke --seed 260704 --brush-strokes 10 --eraser-strokes 5 --exe .\artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe --output .\artifacts\ui\exe-mask-tools-smoke-260704.png` passed with `brushCommitWaitMs=0.0`, `eraserImmediateWheelUiMs=71.6`, and `eraserInternalQueueMs=22.7`.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-undo-redo-smoke --exe .\artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe --output .\artifacts\ui\exe-undo-redo-materialized-smoke.png` passed with `brushRoute=True`, `randomBrushStrokes=4`, `undoButtonAfterDraw=True`, `ctrlZRemoved=True`, and `ctrlShiftZRestored=True`.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell`, `--wpf-object-review-panel`, and `--mvvm-infra` passed.
+- Capture:
+  - Direct EXE captures: `artifacts\ui\exe-mask-tools-smoke-260704.png`, `artifacts\ui\exe-undo-redo-materialized-smoke.png`.
+  - No README/tutorial screenshot update is required because this changes behavior/performance state flow, not layout or documented visual composition.
+- Remaining risk:
+  - Queue click first-frame time still includes WPF render/background drain outside image commit; the committed image path is now fast, but full side-panel settling remains a separate WPF scheduling cost.
+
+## 2026-07-04 SEG brush preview opacity consistency
+
+- Self-evaluation:
+  - The reported darker/latest brush area came from two preview-layer differences, not from segmentation data itself.
+  - Existing committed mask overlays used the UI `MaskOpacity` value, but live brush stamps used a fixed alpha. In addition, committed mask textures copied into the preview FBO were blended once there and blended again when the preview layer was drawn to screen, making older/materialized mask areas look more transparent than the newest stroke.
+- Changes:
+  - Brush stroke preview fill now uses the same `MaskOpacity` as committed raster mask overlays.
+  - The brush cursor color remains separate so the cursor ring does not inherit fill opacity.
+  - Preview FBO base refresh now copies committed mask overlay texels without blending; the composed preview layer is alpha-blended once when drawn to screen.
+  - `--wpf-mask-drag-performance` now includes a source-level guard for this opacity contract.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-mask-drag-performance` passed with `WPF_MASK_BRUSH_RELEASE_MS=4.597`, `WPF_MASK_BRUSH_EXISTING_RELEASE_MS=3.453`, `UNDO_BUTTON_IMMEDIATE=True`, `UNDO_BUTTON_AFTER=True`, `COLLECTION_CHANGED_AFTER=0`, and `QUEUE_CHANGED_AFTER=0`.
+  - `dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\run\Debug\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-undo-redo-smoke --exe .\artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe --output .\artifacts\ui\exe-undo-redo-opacity-smoke.png` passed with `brushRoute=True`, `randomBrushStrokes=4`, `undoButtonAfterDraw=True`, `ctrlZRemoved=True`, `ctrlShiftZRestored=True`, `createdDiff=6236`, `undoResidual=524`, `redoDiff=6236`, and `redoOverlap=6236`.
+- Capture:
+  - Direct EXE verification capture: `artifacts\ui\exe-undo-redo-opacity-smoke.brush-active.png`.
+  - No README/tutorial screenshot update is required because this changes render opacity consistency, not layout or documented UI composition.
+- Remaining risk:
+  - This preserves the optimized FBO preview path. If overlapping masks from different classes are intentionally drawn on the same pixels, preview base copy now follows the last overlay in the texture loop rather than blending multiple committed mask overlays inside the preview FBO.
+
+## 2026-07-04 SEG brush pending undo button and preview restore
+
+- Self-evaluation:
+  - The user-reported screenshot matched a real pending-stroke state bug: Brush MouseUp queued the mask edit and marked save-needed, but `RefreshAnnotationHistoryToolState` only looked at materialized `undoAnnotationHistory`, so the Undo button stayed disabled while Brush remained active.
+  - A direct EXE smoke then exposed the paired restore bug: Ctrl+Z could remove the logical mask/history state, but the pending FBO brush preview texture stayed visible unless the undo restore path explicitly cleared it.
+- Changes:
+  - Pending brush/eraser queue work now enables the Undo action immediately without forcing CPU MaskData/history materialization on MouseUp.
+  - Redo stays disabled while pending brush work exists because the new edit has not been materialized into normal history yet.
+  - Undo/redo snapshot restore now cancels pending preview swap and clears the mask-stroke preview texture before rebuilding current segmentation overlays.
+  - `--wpf-mask-drag-performance` asserts the new contract: `UNDO_AFTER=0` while `UNDO_BUTTON_IMMEDIATE=True` and `UNDO_BUTTON_AFTER=True`.
+  - `--exe-undo-redo-smoke` now draws 4 separated seeded-random brush strokes in the real EXE, verifies the Undo button while Brush remains active, then checks Ctrl+Z/Ctrl+Shift+Z against the last random stroke's pixels.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-undo-redo-shortcuts` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-mask-drag-performance` passed with `WPF_MASK_BRUSH_RELEASE_MS=4.861`, `WPF_MASK_BRUSH_EXISTING_RELEASE_MS=2.878`, `UNDO_AFTER=0`, `UNDO_BUTTON_IMMEDIATE=True`, `UNDO_BUTTON_AFTER=True`, `SECOND_UNDO_BUTTON_IMMEDIATE=True`, `SECOND_UNDO_BUTTON_AFTER=True`, and `UNDO_AFTER_TOOL_END=2`.
+  - `dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\run\Debug\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-undo-redo-smoke --exe .\artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe --output .\artifacts\ui\exe-undo-redo-button-smoke.png` passed with `brushRoute=True`, `randomBrushStrokes=4`, `undoButtonAfterDraw=True`, `ctrlZRemoved=True`, `ctrlShiftZRestored=True`, `createdDiff=6236`, `undoResidual=524`, `redoDiff=6236`, `redoOverlap=6236`, `createdRedoDelta=0`.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed; it only emitted existing LF-to-CRLF warnings.
+- Capture:
+  - Direct EXE verification captures: `artifacts\ui\exe-undo-redo-button-smoke.brush-active.png`, `artifacts\ui\exe-undo-redo-button-smoke.before.png`, `artifacts\ui\exe-undo-redo-button-smoke.created.png`, `artifacts\ui\exe-undo-redo-button-smoke.undo.png`, and `artifacts\ui\exe-undo-redo-button-smoke.png`.
+  - No README/tutorial screenshot update is required because this fixes state/restore behavior and test coverage, not WPF layout or visual styling.
+- Remaining risk:
+  - The EXE smoke used the current active segmentation dataset fallback rather than a new recipe dataset because the recipe route was not selectable in the current app state. It still verified the real built EXE, real Brush tool, real Undo button, and real keyboard undo/redo path.
+- Next:
+  - If a remaining undo issue appears, test repeated Ctrl+Z across all queued strokes one-by-one; this pass verified one-step undo/redo of the latest random brush stroke and WPF direct pending-stroke undo.
+
+## 2026-07-04 EXE undo/redo shortcut verification
+
+- Self-evaluation:
+  - The reported Ctrl+Shift+Z behavior matched the shell shortcut handler: it checked only Ctrl+Z and ignored Shift, so Ctrl+Shift+Z executed undo instead of redo.
+  - The existing WPF undo/redo test covered direct history methods, but not the shell PreviewKeyDown command or real EXE keyboard route.
+- Changes:
+  - `ExecuteShellPreviewKeyDownCommand` now routes Ctrl+Shift+Z to redo while keeping Ctrl+Z as undo and Ctrl+Y as redo.
+  - Added `--wpf-undo-redo-shortcuts` focused coverage for the shell preview-key command.
+  - Added `--exe-undo-redo-smoke` to start the built EXE, create an unsaved annotation target, send Ctrl+Z and Ctrl+Shift+Z, capture before/created/undo/redo screenshots, and verify the drawn probe region disappears/restores without saving user data.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-undo-redo-shortcuts` passed.
+  - `dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\run\Debug\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-undo-redo-smoke --exe .\artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe --output .\artifacts\ui\exe-undo-redo-pixel-smoke.png` passed with `ctrlZRemoved=True`, `ctrlShiftZRestored=True`, `createdDiff=4877`, `undoResidual=0`, `redoDiff=5823`, `redoOverlap=4877`.
+- Capture:
+  - Direct EXE verification captures: `artifacts\ui\exe-undo-redo-pixel-smoke.before.png`, `artifacts\ui\exe-undo-redo-pixel-smoke.created.png`, `artifacts\ui\exe-undo-redo-pixel-smoke.undo.png`, `artifacts\ui\exe-undo-redo-pixel-smoke.png`.
+  - No README/tutorial screenshot update is required because this changes shortcut routing and test coverage, not WPF layout or visual styling.
+- Remaining risk:
+  - The EXE smoke used the current active segmentation dataset fallback because the project-recipe automation path was not selectable in the current UI state. It still verified the real EXE keyboard path on the live canvas without saving labels.
+- Next:
+  - If Ctrl+Z still feels wrong while focus is inside a specific text editor or grid cell, inspect that focused child control separately; the shell-level canvas route is now covered.
+
+## 2026-07-04 SEG brush MouseUp hitch root-cause follow-up
+
+- Self-evaluation:
+  - The previous pending-row fix removed Object Review collection changes during Brush/Eraser painting, but the focused gate still allowed a one-frame-plus MouseUp in some runs and did not simulate the real 125-image queue from the operator screenshot.
+  - The remaining root cause was not brush rasterization itself. MouseUp still did avoidable WPF presentation work: full annotation-dirty presentation could touch Object Review, image queue row status/filter refresh, workflow progress, and status text, while the stroke session copied all accumulated centers into a new list.
+- Changes:
+  - `CompleteMaskAnnotationStroke` no longer writes visible model-status text for successful brush/eraser MouseUp queueing.
+  - Queued mask strokes detach the accumulated center buffer instead of copying it with `ToList()`.
+  - Brush/Eraser MouseUp now uses a lightweight save-needed status update; full dirty presentation, Object Review materialization, and image queue save-status refresh are deferred to save/tool-end flush.
+  - `--wpf-mask-drag-performance` now creates a 125-row image queue and asserts `QUEUE_CHANGED_AFTER=0` and `SECOND_QUEUE_CHANGED_AFTER=0` while Brush remains active.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-mask-drag-performance` passed with `WPF_MASK_BRUSH_RELEASE_MS=4.641`, `WPF_MASK_BRUSH_EXISTING_RELEASE_MS=3.954`, `COLLECTION_CHANGED_AFTER=0`, `SECOND_COLLECTION_CHANGED_AFTER=0`, `QUEUE_CHANGED_AFTER=0`, `SECOND_QUEUE_CHANGED_AFTER=0`, `QUEUE_CHANGED_AFTER_TOOL_END=45`, `UNDO_AFTER=0`, and `UNDO_AFTER_TOOL_END=2`.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification` passed, including brush/eraser raster-mask coverage.
+  - `dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\run\Debug\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-mask-tools-smoke --seed 260709 --brush-strokes 10 --eraser-strokes 5 --exe .\artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe --output .\artifacts\ui\exe-mask-tools-smoke-260709.png` passed with `brushCommitWaitMs=0.0`, `eraserImmediateWheelUiMs=17.7`, and capture `artifacts\ui\exe-mask-tools-smoke-260709.png`.
+- Capture:
+  - Direct EXE smoke capture: `artifacts\ui\exe-mask-tools-smoke-260709.png`.
+  - No README/tutorial screenshot update is required because this changes event timing/state refresh, not WPF layout or visual styling.
+- Remaining risk:
+  - Tool-end/save still intentionally materializes queued CPU MaskData/history/Object Review rows. The latest EXE smoke reports that deferred work separately as queue/materialization wait, not MouseUp paint hitch.
+- Next:
+  - If an operator still sees a hitch while staying in Brush/Eraser, inspect high-frequency status-bar MouseMove updates and GPU swap timing next; do not re-enable Object Review or image queue refresh on MouseUp.
+
+## 2026-07-04 SEG brush tool activation and pending label feedback
+
+- Self-evaluation:
+  - The user-reported behavior matched two narrow state bugs: SEG purpose could show Brush in the toolbar while the shell's active canvas tool still held the previous rectangle tool, and brush MouseUp kept the visible FBO preview without creating a committed mask row until leaving the paint tool.
+  - A first attempt moved CPU mask materialization into the MouseUp quiet window, but that reintroduced the user-visible brush hitch because MaskData/history/Object Review work still runs on the UI thread.
+  - A second attempt added a lightweight pending Object Review row after MouseUp. Focused metrics exposed the remaining side effect as `COLLECTION_CHANGED_AFTER=1`, so even that side-list mutation was removed from the active paint loop.
+  - The corrected narrow fix keeps CPU materialization and Object Review row changes deferred while Brush/Eraser remains active. During painting, only the GPU/FBO preview and dirty/save-needed state are updated.
+- Changes:
+  - Applied the selected annotation tool after dataset-purpose scope refresh so SEG restore enters actual Brush image-pixel input instead of stale ROI rectangle mode.
+  - Restored the protected queued mask commit policy: completed strokes do not create CPU MaskData/history rows while Brush/Eraser remains selected.
+  - Removed the pending mask Object Review row from the MouseUp path because any collection change can steal the WPF dispatcher between rapid strokes.
+  - Kept save/tool-end flush as the only point where pending strokes become real MaskData/history/Object Review mask rows.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors after the corrected pending-row patch.
+  - `dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\run\Debug\` passed and produced `artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe`.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-mask-drag-performance` passed with `WPF_MASK_BRUSH_DRAG_1000_MOVE_MS=9.272`, `WPF_MASK_BRUSH_RELEASE_MS=23.608`, `UNDO_AFTER=0`, `UNDO_AFTER_SECOND=0`, `UNDO_AFTER_TOOL_END=2`, `COLLECTION_CHANGED_AFTER=0`, `SECOND_COLLECTION_CHANGED_AFTER=0`, `RELEASE_ACTIONS=`, `SECOND_RELEASE_ACTIONS=`, and `TOOL_END_ACTIONS=Replace`.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-mask-tools-smoke --seed 260708 --brush-strokes 10 --eraser-strokes 5 --exe .\artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe --output .\artifacts\ui\exe-mask-tools-smoke-260708.png` passed with `brushMaxMs=304.1`, `brushCommitWaitMs=0.0`, `eraserMaxMs=176.0`, `eraserImmediateWheelUiMs=18.9`, and `selectExitMs=108.0`.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-annotation-purpose-scope` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+- Capture:
+  - No README/tutorial screenshot update is required because this changes state synchronization and commit timing, not WPF layout or visual styling.
+  - Direct EXE smoke capture: `artifacts\ui\exe-mask-tools-smoke-260708.png`.
+- Remaining risk:
+  - This was verified by focused WPF tests and a direct EXE automation smoke, but not by the user's already-open operator process after a restart.
+  - While Brush/Eraser remains active, the Object Review list intentionally does not show a pending row. The save-needed state and canvas preview are the active feedback; the real mask row appears when the operator saves, switches out of mask painting, or otherwise flushes queued mask strokes.
+- Next:
+  - Reopen the operator SEG workflow, draw one brush stroke without switching tools, and confirm the canvas stays smooth while the left review panel shows pending mask feedback instead of "no label".
+
+## 2026-07-04 YOLOv8 segmentation training label export
+
+- Self-evaluation:
+  - The app segmentation readiness path verified `segments/*.json` and `masks/*.png`, and packet coverage verified `task=segment`, but Ultralytics YOLOv8 segmentation training reads polygon labels from `labels/*.txt`.
+  - The smallest useful runtime-contract gap was to export YOLO segment label text from the existing app segment JSON artifacts immediately before training starts.
+- Changes:
+  - Added `YoloSegmentationTrainingLabelService` to convert saved segment JSON polygons into Ultralytics YOLO segmentation `labels/*.txt` lines.
+  - Called that conversion only from `YoloTrainingWorkflowService` when the dataset purpose is `Segmentation`, after existing readiness passes and before `StartTraining` is sent.
+  - Extended `--dataset-readiness-purpose` so the YOLO11/YOLOv8 segmentation training path verifies `purpose-train.txt` and `purpose-valid.txt` contain polygon label lines, not empty detection label files.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-readiness-purpose` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-training-workflow` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --learning-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes training-data preparation and focused tests only, not WPF layout or visual styling.
+- Remaining risk:
+  - This does not run a new real YOLOv8 training job. It fixes the app-generated dataset contract so the next real local YOLOv8 segmentation run can consume polygon labels.
+  - Mask-only artifacts without segment JSON still cannot become accurate YOLO polygon labels through this narrow conversion.
+- Next:
+  - Run a local YOLOv8 `task=segment` training/inference smoke against an app-generated segmentation dataset now that the app exports Ultralytics segment labels.
+
+## 2026-07-04 YOLOv8 app-generated segmentation training smoke
+
+- Self-evaluation:
+  - The previous local YOLOv8 training smoke used a hand-generated `C:\Git\yolov8\data\smoke-seg` dataset.
+  - After adding app segment JSON -> YOLO segment label export, the next useful proof was to generate a tiny dataset through the app services and run the local YOLOv8 worker against that dataset.
+- Changes:
+  - Added `--yolov8-segmentation-app-dataset-fixture`, which creates `artifacts/yolov8-app-segmentation-dataset` through `CData`, `YoloAnnotationService`, `YoloSegmentationAnnotationService`, and `YoloTrainingWorkflowService.TryPrepareTrainingDataset`.
+  - The fixture leaves ignored artifacts in place so they can be reused by the local YOLOv8 worker; generated train/valid labels contain Ultralytics polygon label lines.
+  - Ran the local `C:\Git\yolov8\labeling_tcp_client.py` worker object with `task=segment`, `epochs=1`, `imgSize=64`, `batchSize=1`, `workers=0`, and local `C:\Git\yolov8\yolov8n-seg.pt`.
+  - Verified the run produced `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-app-seg-fixture-smoke\weights\best.pt` and `last.pt`.
+  - Verified the generated `best.pt` loads through the same local adapter `--smoke-test` against the app-generated validation image.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --yolov8-segmentation-app-dataset-fixture` passed and printed the fixture `data.yaml`.
+  - Local adapter training completed with final `TrainingStatus.state=completed`, `trainingTask=segment`, and `trainingWeights=C:\Git\yolov8\yolov8n-seg.pt`.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --smoke-test --weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-app-seg-fixture-smoke\weights\best.pt --image C:\Git\Labelling_Application\artifacts\yolov8-app-segmentation-dataset\data\valid\images\purpose-valid.jpeg --model-root C:\Git\yolov8 --image-root C:\Git\Labelling_Application\artifacts\yolov8-app-segmentation-dataset\data\valid\images --device cpu --img-size 64` passed with `SmokeTestResult.ok=true`, `state=ready`, and class name `Defect`.
+- Capture:
+  - No screenshot is needed for this pass because it changes test/runtime artifacts and non-visual training preparation only, not WPF layout or visual styling.
+- Remaining risk:
+  - This is still a 1-image train / 1-image valid plumbing smoke. It proves app-generated labels can pass through local YOLOv8 training/inference, not production accuracy.
+  - The generated run is outside the repo under `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-app-seg-fixture-smoke`.
+- Next:
+  - Use a real operator dataset with more images, then confirm the generated `runs/segment/<run>/weights/best.pt` is staged as the candidate inspection model through the WPF training-session flow.
+
+## 2026-07-03 YOLOv8 segmentation training-session candidate apply
+
+- Self-evaluation:
+  - YOLOv8 segmentation training now writes corrected outputs under `runs/segment`, and service-level selection already finds those `best.pt` files.
+  - The next useful app-level guard is to make the WPF training-session completion path apply a `runs/segment/<run>/weights/best.pt` candidate, not only the older `runs/train/<run>/weights/best.pt` fixture.
+- Changes:
+  - Added a focused `--wpf-yolo-training-session` switch for the non-screenshot WPF training-session flow.
+  - Extended the WPF training-session helper so its synthetic completed training result can use `runs/segment/seg-exp/weights/best.pt` with YOLOv8 segmentation-style `results.csv`.
+  - Verified the completed-status flow applies the `runs/segment` candidate path into `PythonModelSettings.WeightsPath`.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-training-session` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-weights-service` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes a non-visual WPF flow fixture and focused test switch only, not WPF layout or visual styling.
+- Remaining risk:
+  - This is still a mocked WPF training-session completion gate. It does not run a real project dataset training job or judge model accuracy.
+- Next:
+  - Run the local YOLOv8 worker against a real app project segmentation dataset, then verify the generated `runs/segment/<run>/weights/best.pt` follows this same candidate-apply path.
+
+## 2026-07-03 YOLOv8 segmentation mask metric preference
+
+- Self-evaluation:
+  - The corrected local YOLOv8 segmentation smoke produced an Ultralytics `results.csv` with both box `(B)` and mask `(M)` metrics.
+  - The existing WPF metric parser could read detection-only `(B)` and segmentation-only `(M)` files, but when both were present it checked box aliases before mask aliases.
+- Changes:
+  - Reordered `WpfTrainingWeightsService` metric aliases so segmentation mask `(M)` precision, recall, mAP50, and mAP50-95 are preferred over box `(B)` metrics when both exist.
+  - Reordered loss aliases so YOLOv8 segmentation `val/seg_loss` is preferred over `val/box_loss` when both exist, and neutralized the displayed loss label from `box loss` to `loss`.
+  - Added a `--wpf-training-weights-service` fixture with mixed box/mask YOLO segmentation headers and distinct values, verifying the parser selects the mask metrics and segmentation loss.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-weights-service` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes metric parsing and focused test coverage only, not WPF layout or visual styling.
+- Remaining risk:
+  - This is post-training metric parsing only. It does not run a new real training job or judge model accuracy.
+- Next:
+  - Continue toward app-driven YOLOv8 segmentation training on a real project dataset and candidate inspection-model promotion.
+
+## 2026-07-03 YOLOv8 local folder runs/segment selection gate
+
+- Self-evaluation:
+  - The local worker now creates corrected segmentation outputs under `runs/segment`, but the C# local-folder connection fixture still only proved a trained `runs/train` `best.pt` beats the pretrained seed.
+  - The smallest useful guard is to add a competing fixture with an older historical `runs/train` smoke and a newer corrected `runs/segment` smoke.
+- Changes:
+  - Extended `--python-model-runtime-connection` so the generated local YOLOv8 folder contains:
+    - pretrained seed `yolov8n-seg.pt`
+    - historical `runs/train/openvisionlab-yolov8-seg-smoke/weights/best.pt`
+    - corrected `runs/segment/openvisionlab-yolov8-seg-runs-segment-smoke/weights/best.pt`
+  - Verified `PythonModelRuntimeConnectionService.BuildYoloV8FolderConnection` selects the corrected `runs/segment` `best.pt`, not the seed or older `runs/train` smoke.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-connection` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes focused C# test coverage only, not WPF layout or visual styling.
+- Remaining risk:
+  - This is still a service-level selection gate. Full app-driven training plus candidate model promotion on a real project dataset remains the next runtime slice.
+- Next:
+  - Run YOLOv8 segmentation training from the app against a real project dataset, then verify the generated `runs/segment/<run>/weights/best.pt` is staged as the candidate inspection model.
+
+## 2026-07-03 YOLOv8 local runs/segment training/inference smoke
+
+- Self-evaluation:
+  - The worker now routes `task=segment` training to `runs/segment`, but that correction had only fake/self-test coverage.
+  - The smallest useful proof is to reuse the existing tiny local smoke dataset and pretrained seed, run one real local YOLOv8 segmentation epoch, and verify the generated `best.pt` loads through the same local adapter.
+- Changes:
+  - Ran the local `C:\Git\yolov8\labeling_tcp_client.py` worker object against `C:\Git\yolov8\data\smoke-seg\data.yaml` with `task=segment`, `epochs=1`, `imgSize=64`, `batchSize=1`, `workers=0`, and local `yolov8n-seg.pt`.
+  - Verified Ultralytics used `project=C:\Git\yolov8\runs\segment` and `save_dir=C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-runs-segment-smoke`.
+  - Verified the run produced `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-runs-segment-smoke\weights\best.pt` and `last.pt`.
+  - Verified the generated `best.pt` loads through `C:\Git\yolov8\labeling_tcp_client.py --smoke-test`.
+- Verification:
+  - Local adapter `TrainYolo` smoke completed with final `TrainingStatus.state=completed`, `trainingTask=segment`, `trainingWeights=C:\Git\yolov8\yolov8n-seg.pt`, and `BEST_EXISTS True` for the `runs\segment` best.pt.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --smoke-test --weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-runs-segment-smoke\weights\best.pt --image C:\Git\yolov8\data\smoke-seg\images\val\part_val.png --model-root C:\Git\yolov8 --image-root C:\Git\yolov8\data\smoke-seg\images\val --device cpu --img-size 64` passed with `SmokeTestResult.ok=true`, `state=ready`, `weightsExists=true`, and class name `part`.
+- Capture:
+  - No screenshot is needed for this pass because it runs local Python training/inference smoke only, not WPF layout or visual styling.
+- Remaining risk:
+  - This remains a tiny 1-image-per-split plumbing smoke; it does not prove production dataset accuracy.
+  - The active-app promotion path still needs to be run with a real project dataset and then confirmed through WPF candidate-model selection.
+- Next:
+  - Run YOLOv8 segmentation training from the app against a real project dataset, then verify the generated `runs/segment/<run>/weights/best.pt` is staged as the candidate inspection model.
+
+## 2026-07-03 YOLOv8 segmentation best.pt current-dataset matching
+
+- Self-evaluation:
+  - The local YOLOv8 workflow can write trained weights under an operator-owned Ultralytics run folder rather than directly under the dataset output folder.
+  - If multiple YOLOv8 segmentation runs exist, selecting only the newest `best.pt` can pick a different dataset unless the run metadata is used.
+- Changes:
+  - Updated `WpfTrainingWeightsService` so training-result discovery includes Ultralytics `runs/segment/**/weights/best.pt` in addition to the existing `runs/train` locations.
+  - Updated training-run dataset matching to read both YOLOv5-style `opt.yaml` and Ultralytics YOLOv8 `args.yaml` `data:` entries.
+  - Added `--wpf-training-weights-service` as a focused test switch.
+  - Extended `TestWpfTrainingWeightsService` with competing YOLOv8 segmentation runs where the newer run points to a foreign `data.yaml` and the current-dataset run is still selected.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-weights-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes model-result path selection and test coverage only, not WPF layout or visual styling.
+- Remaining risk:
+  - This does not run a new real training job or judge model accuracy; it prevents the post-training selection path from preferring a foreign YOLOv8 segmentation run when metadata identifies the current dataset.
+- Next:
+  - Use the real project segmentation dataset with the local `C:\Git\yolov8` worker and confirm the generated current-dataset `best.pt` is staged as the candidate inspection model.
+
+## 2026-07-03 YOLOv8 trained best.pt connection preference
+
+- Self-evaluation:
+  - After the tiny local segmentation smoke, `C:\Git\yolov8` can contain both the pretrained seed `yolov8n-seg.pt` and a generated `runs/train/.../weights/best.pt`.
+  - The app's local YOLOv8 folder connection previously checked the pretrained seed before training-run outputs, so reconnecting the folder could select the seed instead of the trained candidate model.
+- Changes:
+  - Updated `PythonModelRuntimeConnectionService.EnumerateYoloV8WeightCandidates` so root `best.pt` remains first, latest training-run `best.pt` files under `runs/segment` and `runs/train` come next, and pretrained seeds such as `yolov8n-seg.pt` are fallback candidates.
+  - Extended `--python-model-runtime-connection` with a local YOLOv8 fixture that contains both `yolov8n-seg.pt` and a generated training-run `best.pt`, verifying the trained `best.pt` is selected.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-connection` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-self-test` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes runtime path selection only, not WPF layout or visual styling.
+- Remaining risk:
+  - This does not judge model quality; it only ensures the local folder connection promotes trained `best.pt` ahead of pretrained seed weights.
+- Next:
+  - Run a real project dataset YOLOv8 segmentation training pass and confirm the generated `best.pt` becomes the active inspection model after reconnect/save.
+
+## 2026-07-03 YOLOv8 local segmentation training/inference smoke
+
+- Self-evaluation:
+  - The user explicitly approved downloading weights, then clarified that the final model should be produced by our own training.
+  - The smallest useful slice was to treat `yolov8n-seg.pt` as a pretrained seed only, then prove the local YOLOv8 worker can train a segmentation dataset and load the resulting `best.pt` without switching away from the YOLOv5-like local source workflow.
+- Changes:
+  - Downloaded `yolov8n-seg.pt` into `C:\Git\yolov8` with explicit user approval.
+  - Added cooperative `StopTraining` / `StopTask` handling to `C:\Git\yolov8\labeling_tcp_client.py`; stop requests mark the local training job as `stopping` and prevent a stop-requested run from being reported as normal completion.
+  - Passed `workers` through to local Ultralytics `YOLO(...).train(...)`, defaulting to `0` for the Windows local worker smoke path.
+  - Extended the local worker self-test to verify `StopTraining` parsing and stop-state transition without running real training.
+  - Created a tiny local segmentation smoke dataset under `C:\Git\yolov8\data\smoke-seg` and trained `openvisionlab-yolov8-seg-smoke` for 1 epoch.
+  - Verified the local training run produced `C:\Git\yolov8\runs\train\openvisionlab-yolov8-seg-smoke\weights\best.pt` and `last.pt`, then loaded `best.pt` through the local inference smoke path.
+- Verification:
+  - `C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile C:\Git\yolov8\labeling_tcp_client.py` passed.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --self-test` passed.
+  - Local adapter `TrainYolo` smoke with `task=segment`, `epochs=1`, `imgSize=64`, `batchSize=1`, `workers=0`, and `weights=C:\Git\yolov8\yolov8n-seg.pt` completed with final `TrainingStatus.state=completed`.
+  - The training smoke produced `C:\Git\yolov8\runs\train\openvisionlab-yolov8-seg-smoke\weights\best.pt` and `last.pt`.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --smoke-test --weights C:\Git\yolov8\runs\train\openvisionlab-yolov8-seg-smoke\weights\best.pt --image C:\Git\yolov8\data\smoke-seg\images\val\part_val.png --model-root C:\Git\yolov8 --image-root C:\Git\yolov8\data\smoke-seg\images\val --device cpu --img-size 64` passed with `SmokeTestResult.ok=true` and loaded class name `part`.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --learning-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-status-summaries` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes local runtime training control and CLI/adapter smoke artifacts only, not WPF layout or visual styling.
+- Remaining risk:
+  - This is a tiny 1-image-per-split pipeline smoke, not a production accuracy or real dataset quality result.
+  - The smoke uses `yolov8n-seg.pt` as a pretrained seed. Full from-scratch YAML training remains a separate option if explicitly needed.
+  - `StopTraining` is cooperative through Ultralytics callbacks; it does not forcibly kill the Python process.
+- Next:
+  - Run the same local YOLOv8 segmentation training/inference flow against a real project dataset from the app, then promote the generated `best.pt` as the active inspection model if the result is acceptable.
+
+## 2026-07-03 YOLOv8 local Ultralytics source runtime
+
+- Self-evaluation:
+  - The user confirmed YOLOv8 should follow the existing YOLOv5 ownership shape: a local source checkout plus local venv, because training as well as inference must be operated locally.
+  - The smallest safe slice was to make `C:\Git\yolov8` use a local `ultralytics/ultralytics` checkout and editable venv, then align the app's local YOLOv8 folder connection/status logic without downloading model weights.
+- Changes:
+  - Cloned official `ultralytics/ultralytics` into `C:\Git\yolov8\ultralyticsMaster` and created `C:\Git\yolov8\.venv` with an editable install from that source tree.
+  - Updated `C:\Git\yolov8\requirements.txt` and `C:\Git\yolov8\README.md` so the local worker documents the YOLOv5-like source/venv workflow instead of a package-only setup.
+  - Updated `C:\Git\yolov8\labeling_tcp_client.py` to prefer the local `ultralyticsMaster` source before importing `ultralytics`, and to report the resolved `ultralyticsPath` plus local source-root diagnostics.
+  - Updated `PythonModelRuntimeAdapterSupportService` so a local YOLOv8 worker that implements `TrainYolo` can report both training and inspection readiness after the selected runtime has Ultralytics installed.
+  - Updated `PythonModelRuntimeConnectionService` YOLOv8 folder detail to call out the required local segmentation weight.
+  - Extended the generated local YOLOv8 worker fixture in `--python-model-runtime-connection` so the C# self-test path recognizes local `TrainYolo` support.
+- Verification:
+  - `C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile C:\Git\yolov8\labeling_tcp_client.py` passed.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --self-test` passed.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe -c "import ultralytics, pathlib; print(ultralytics.__version__); print(pathlib.Path(ultralytics.__file__).resolve())"` reported `8.4.86` from `C:\Git\yolov8\ultralyticsMaster\ultralytics\__init__.py`.
+  - `git -C C:\Git\yolov8\ultralyticsMaster status --short` was clean, with origin set to `https://github.com/ultralytics/ultralytics.git` at `2c073adc0`.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-connection` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-self-test` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes local runtime/source wiring and status detail only, not WPF layout or visual styling.
+- Remaining risk:
+  - A real YOLOv8 segmentation training/inference smoke has not run because `C:\Git\yolov8` still has no local `yolov8n-seg.pt` or other segmentation weight.
+  - No model download was run or approved in this slice.
+- Next:
+  - Point `C:\Git\yolov8` at a local YOLOv8 segmentation weight and run a tiny no-download `task=segment` training/inference smoke, or add a user-approved download/cache workflow before claiming execution readiness.
+
+## 2026-07-03 YOLOv8 local worker TrainYolo capability
+
+- Self-evaluation:
+  - The app now maps YOLOv8 to a local worker folder like YOLOv5, but the local `C:\Git\yolov8` worker still returned `TrainingNotImplemented` and did not advertise training capability.
+  - The smallest useful YOLOv8-first segmentation slice is to make the local worker report YOLOv8 capability from its selected Python runtime and route `TrainYolo` to local-only Ultralytics `YOLO.train(...)`, without adding downloads or changing WPF layout.
+- Changes:
+  - Updated `C:\Git\yolov8\labeling_tcp_client.py` to report `supportedModels`, `trainingModels`, `detectionModels`, `segmentationModels`, and `classificationModels` as `yolov8` when `ultralytics` imports successfully.
+  - Added `TrainYoloResult` / `TrainingStatus` handling for local YOLOv8 training requests, including `task`, `dataYaml`, `trainingWeights`, progress, epoch, and error fields that the existing C# status protocol already parses.
+  - Added a local-only weight guard: requested/default weights must resolve to an existing local file such as `yolov8n-seg.pt`; the worker does not hand a bare missing model name to Ultralytics and does not trigger implicit downloads.
+  - Wired the TCP read loop to pass the response writer into `handle_train_yolo`, so accepted training can stream status back to the app.
+  - Extended the worker self-test to cover capability payload shape and the `TrainYoloResult` contract without running real training.
+- Verification:
+  - `python -m py_compile C:\Git\yolov8\labeling_tcp_client.py` passed.
+  - `python C:\Git\yolov8\labeling_tcp_client.py --self-test` passed.
+  - Direct local capability probe reported `trainingModels`, `detectionModels`, `segmentationModels`, and `classificationModels` all containing `yolov8`; the same probe confirmed `yolov8n-seg.pt`, `yolov8n.pt`, and `best.pt` are not present in `C:\Git\yolov8`.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-connection` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-self-test` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes local worker runtime/protocol behavior and status payloads only, not WPF layout or visual styling.
+- Remaining risk:
+  - Superseded by the later local-source setup above: `C:\Git\yolov8` now has a local `.venv` and editable `ultralyticsMaster`, but still has no local `yolov8n-seg.pt`; accepted real training remains blocked until a local segmentation weight is present.
+  - Superseded by the later local segmentation smoke above: `StopTraining` now has cooperative stop-state handling, but still does not forcibly kill the Python process.
+- Next:
+  - Add or point the local YOLOv8 folder at a real local segmentation weight and minimal segmentation dataset, then run a tiny YOLOv8 `task=segment` training smoke without downloads.
+
+## 2026-07-03 WPF YOLO smoke failure status detail
+
+- Self-evaluation:
+  - The smoke service now distinguishes unsupported adapter/runtime failures such as YOLO11 missing `C3k2`, but the WPF current-image smoke status still reduced every failure to a generic test-failed label.
+  - The smallest MVVM-aligned slice is to move the current-image smoke status text into the existing detection-result presentation service and preserve the worker summary/error code there.
+- Changes:
+  - Added `WpfDetectionResultPresentationService.BuildSmokeStatus(...)`.
+  - Updated `RunDetectionForImageAsync` to set Python status through that presentation service instead of formatting success/failure text directly in the shell.
+  - Extended `--wpf-detection-result-presentation` so an `UnsupportedModel` / `C3k2` smoke failure remains visible in the status text.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-detection-result-presentation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --yolo-worker-smoke-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes status text generation only, not WPF layout or visual styling.
+- Remaining risk:
+  - This does not run a real YOLOv8/YOLO11 segmentation or anomaly smoke; it only keeps the unsupported-runtime reason visible when the smoke path fails.
+- Next:
+  - Continue with another non-download runtime/anomaly diagnostic, or obtain an explicit cache/download/runtime-upgrade decision before real model smokes.
+
+## 2026-07-03 YOLO smoke-test adapter runtime gate
+
+- Self-evaluation:
+  - The worker status already reports that the current Ultralytics runtime supports YOLOv8 but blocks YOLO11 because `C3k2` is missing.
+  - The remaining smoke-test gap was that `YoloWorkerSmokeTestService` did not pass the selected adapter into the bundled worker's `--smoke-test` CLI, so a YOLO11 smoke could fail later during model load instead of reporting the adapter/runtime capability blocker directly.
+- Changes:
+  - Added `--model` to the bundled Ultralytics worker smoke-test CLI.
+  - Updated smoke-test mode to return an `UnsupportedModel` JSON result before model load when the selected adapter is not reported by the runtime capability list.
+  - Updated `YoloWorkerSmokeTestService` to pass `settings.GetProtocolModelName()` into `--smoke-test`.
+  - Added `ErrorCode` preservation for worker smoke-result errors so focused tests and future UI paths can distinguish capability blockers from generic load failures.
+- Verification:
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - Direct CLI probe with `--smoke-test --model yolo11` returned `UnsupportedModel` with the installed Ultralytics `8.0.132` / missing `C3k2` blocker before model load.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --yolo-worker-smoke-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes CLI/runtime smoke diagnostics and focused tests only, not WPF layout or visual styling.
+- Remaining risk:
+  - This still does not run a real YOLOv8/YOLO11 segmentation or anomaly smoke. The current environment remains blocked for YOLO11 execution until the runtime supports YOLO11, and YOLOv8 task weights still require cache population or explicit download approval.
+- Next:
+  - Continue with another non-download runtime/anomaly diagnostic, or obtain an explicit cache/download/runtime-upgrade decision before real model smokes.
+
+## 2026-07-03 YOLO smoke segmentation polygon metadata
+
+- Self-evaluation:
+  - The worker and TCP detection protocol preserve YOLOv8/YOLO11 segmentation polygons, but the explicit YOLO smoke result parser still kept only bbox/classification metadata.
+  - The smallest useful non-download slice is to preserve the same polygon metadata in `YoloWorkerSmokeTestService` without changing worker execution or label confirmation paths.
+- Changes:
+  - Added `SegmentationType`, `PolygonPoints`, and `NormalizedPolygonPoints` to `YoloWorkerSmokeCandidate`.
+  - Updated smoke JSON parsing so `segmentationType`, `polygonPoints`, and `normalizedPolygonPoints` from `--smoke-test` candidates are preserved.
+  - Added a focused `--yolo-worker-smoke-service` gate covering smoke-service validation plus bbox/classification/polygon candidate metadata parsing.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --yolo-worker-smoke-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-detection-result-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes C# smoke-result parsing and focused tests only, not WPF layout or visual styling.
+- Remaining risk:
+  - This does not run a real segmentation smoke, populate weights, or change candidate confirmation behavior; it only prevents metadata loss when an explicit smoke result contains polygons.
+- Next:
+  - Continue non-download runtime/anomaly diagnostics, or define the model-cache/download/runtime-upgrade decision needed for real YOLOv8/YOLO11 smoke tests.
 
 이 문서는 반복 작업을 막기 위한 작업 현황판입니다.
 새 작업을 시작하기 전에는 이 문서를 먼저 보고, 작업을 마무리할 때 완료/진행 필요 항목을 갱신합니다.
@@ -7064,6 +7550,22 @@ Last updated: 2026-07-03
 - Next:
   - Continue scanning the remaining model/training/runtime shell partials for user-facing status strings that are still assembled in code-behind, starting with missing-inspection-model and invalid-settings paths.
 
+## 2026-07-03 next-thread handoff documentation
+
+- Context:
+  - The current chat became too long, so the user asked to stop active development and prepare a clean handoff for the next chat.
+  - A follow-up WIP for `WpfInferenceStatusPresentationService` / `WpfLabelingShellWindow.YoloRuntimeStatus.cs` / `tests/LabelingApplication.Tests/Program.cs` was interrupted before verification completed.
+- Changes:
+  - Added root `AGENTS.md` with repository working agreements: command-defined completion, no guessing, reasoning effort by task size, think-before-coding, simplicity-first, surgical changes, goal-driven execution, no push without explicit request, MVVM boundaries, and protected hot paths.
+  - Added `docs/NEXT_THREAD_HANDOFF.md` with the last completed local commit, current dirty WIP files, WIP intent, required verification commands, and next-chat guardrails.
+  - Rewrote `CODEX_NEXT_PROMPT.md` as a clean copy-paste prompt for the next chat and removed the previously mojibake-heavy body.
+- Verification:
+  - Documentation was written after the interrupted build. Full build/tests were not rerun because the user asked to stop development.
+  - The WIP is explicitly marked incomplete until the next chat runs the listed build/focused tests and `git diff --check`.
+- Next:
+  - Next chat should begin with `git status --short`, then read `AGENTS.md`, `docs/NEXT_THREAD_HANDOFF.md`, and `CODEX_NEXT_PROMPT.md`.
+  - Continue or clean up the interrupted WIP before claiming any new completion.
+
 ## 2026-07-03 Ultralytics package operation presentation split
 
 - 자체 평가:
@@ -7089,9 +7591,1456 @@ Last updated: 2026-07-03
 - 다음 작업:
   - 남은 runtime command 직접 문구 중 모델 테스트 실패 recovery, 실행기 재시작/중지 결과 문구를 `WpfYoloEnvironmentCommandPresentationService` 또는 별도 runtime recovery service로 분리합니다.
 
+## 2026-07-03 runtime-ready inference status presentation split
+
+- Self-evaluation:
+  - After the runtime-unavailable split, `RefreshYoloStatus` still assembled the runtime-ready Python status and missing inspection-model status text directly in `WpfLabelingShellWindow.YoloRuntimeStatus.cs`.
+  - Those strings are part of the same operator-facing inference/model status surface, so they should be service-owned and source-guarded.
+- Changes:
+  - Added `WpfInferenceStatusPresentationService.BuildRuntimePythonStatus`.
+  - Updated `WpfLabelingShellWindow.YoloRuntimeStatus.cs` so runtime-ready/fallback Python status and missing inspection-model status/tooltip are delegated to `WpfInferenceStatusPresentationService`.
+  - Extended `--wpf-labeling-shell` guards so the shell runtime-status partial delegates to the service and does not reintroduce inline `추론: 준비 완료` or `검사 모델: 없음` wording.
+  - Extended `--wpf-inference-status-presentation` coverage for ready runtime status and invalid-settings fallback status.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-inference-status-presentation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed. It reported only LF-to-CRLF normalization warnings for touched C# and documentation files.
+- Capture:
+  - No new screenshot was generated because this pass did not change UI layout or visual styling.
+- Next:
+  - Continue scanning the remaining model/training/runtime shell partials for status strings that can be moved into existing presentation services without changing execution paths.
+
+## 2026-07-03 YOLO settings status detail presentation split
+
+- Self-evaluation:
+  - `WpfLabelingShellWindow.YoloSettingsPanelStatus.cs` still assembled model-runtime settings detail lines directly in code-behind: Python executable, project/script/model/image paths, confidence/timeout, worker/model/training state, validation messages, and package check results.
+  - This panel is part of the model-runtime setup flow, so the shell should run checks and apply results while a presentation service owns the visible detail text.
+- Changes:
+  - Added `WpfYoloSettingsPanelStatusPresentationService`.
+  - Moved YOLO settings detail text, validation labels, package status, worker/model/training status summaries, worker-state translation, and package-missing labels into the service.
+  - Kept `WpfLabelingShellWindow.YoloSettingsPanelStatus.cs` as an adapter that loads settings, runs the existing package check, reads communication/process state, and applies service-built detail text to the settings ViewModel/UI.
+  - Extended `--wpf-yolo-model-settings-panel` guards so the shell delegates detail text and does not reintroduce inline `detail.AppendLine(...)` or `AppendPythonWorkerStatus`.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed. It reported only LF-to-CRLF normalization warnings for touched C# and documentation files.
+- Capture:
+  - No new screenshot was generated because this pass did not change UI layout or visual styling.
+- Next:
+  - Continue with the remaining runtime/model shell status strings, preferably choosing one command or status surface at a time and keeping execution paths unchanged.
+
+## 2026-07-03 product completeness audit
+
+- Self-evaluation:
+  - Added `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` to compare OpenVisionLab Labeling Studio against official CVAT, Label Studio, Roboflow, and Labelbox documentation.
+  - The current honest score is high for a local single-operator object-detection workstation, but not yet competitive with full labeling-suite or enterprise/cloud platforms.
+- Completed/protected:
+  - Object-detection MVP, image queue, save/reopen, empty-normal completion, candidate review, model center, verified viewer/ROI/brush/eraser performance paths, and current runtime/status presentation boundaries should not be revisited without a failing gate or explicit defect.
+- Development required:
+  - First market-parity gap: export/import interoperability, starting with a verified external detection export such as COCO JSON.
+  - First visible-mode completion gap: anomaly image-level normal/abnormal state persistence and gates.
+  - Later gaps: dataset QA/audit metrics, foundation-model assisted labeling, and collaboration/workforce features.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-inference-status-presentation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `git diff --check` passed. It reported only LF-to-CRLF normalization warnings for existing touched files.
+  - `docs\LABELING_STUDIO_COMPLETENESS_AUDIT.md` trailing-whitespace check passed.
+- Capture:
+  - No screenshot was generated because this pass changed documentation only and did not alter UI layout or visuals.
+
+## 2026-07-03 COCO detection export first slice
+
+- Self-evaluation:
+  - Competitor parity needs export/import interoperability, and the smallest low-risk slice is a non-UI service that exports the existing YOLO box dataset to COCO detection JSON.
+  - This does not change the labeling UI, save/reopen behavior, model runtime, candidate review, or Viewer/OpenGL/ROI/brush/eraser paths.
+- Changes:
+  - Added `CocoDetectionExportService` with deterministic COCO detection JSON output for selected dataset splits.
+  - The exporter reads existing `data/<split>/images` and YOLO `labels`, keeps empty-label images in the COCO image list, skips invalid label lines, maps YOLO class index `0` to COCO category id `1`, and writes relative image paths.
+  - Added `--coco-detection-export` focused test with a generated tiny dataset covering train image annotation, valid empty-label image inclusion, categories, bbox, area, and skipped invalid labels.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so export/import status reflects the completed COCO detection slice and points the next priority toward anomaly image-level state.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --coco-detection-export` passed.
+- Capture:
+  - No screenshot was generated because this pass added a non-UI export service and did not change UI layout or visuals.
+- Next:
+  - Continue with anomaly image-level normal/abnormal state persistence and a focused WPF/source gate, then return to export capability inventory and the next external format target.
+
+## 2026-07-03 anomaly image-level persistence first slice
+
+- Self-evaluation:
+  - The product already exposes anomaly detection as a dataset purpose, but `docs/ANOMALY_DETECTION_FLOW.md` still correctly marks it incomplete until image-level normal/abnormal state has gates.
+  - The narrowest useful slice is a non-UI review-status service and manifest summary so future WPF normal-completion commands have a durable data contract.
+- Changes:
+  - Added `AnomalyImageReviewStatusService` with persisted image-level `Normal`, `Abnormal`, and `Unreviewed` state in `anomaly-review-status.json`.
+  - Added next-unreviewed image selection for the normal-completion loop without touching Viewer/OpenGL/ROI/brush/eraser paths.
+  - Extended `LabelingDatasetManifestService` so anomaly manifests report `image-level-normal-abnormal` as the primary label kind plus reviewed/normal/abnormal/unreviewed counts.
+  - Added `--wpf-anomaly-purpose-flow` focused gate covering WPF purpose selection, state save/reopen, next-unreviewed selection, and manifest summary counts.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` to mark only the anomaly persistence slice complete and keep the visible WPF normal-completion workflow as the next gap.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-anomaly-purpose-flow` passed.
+- Capture:
+  - No screenshot was generated because this pass added a non-UI persistence service, manifest fields, and source tests only. It did not change UI layout or visual styling.
+- Next:
+  - Connect WPF anomaly normal-completion and next-image commands to `AnomalyImageReviewStatusService`, then add a visible workflow gate for that command path.
+
+## 2026-07-03 WPF anomaly normal-completion routing
+
+- Self-evaluation:
+  - After the anomaly state service existed, the visible completion command still used only the object-detection review status for next-image routing.
+  - The next narrow slice was to keep the existing empty-label compatibility save while marking anomaly normal images in the new image-level state and using that state for next-unreviewed navigation.
+- Changes:
+  - Added an `AnomalyImageReviewStatusService` instance to `WpfLabelingShellWindow`.
+  - Queue loading now restores anomaly review status beside the existing YOLO review status.
+  - `ExecuteCompleteNoObjectAndNextCommand` now marks the active anomaly image as `Normal` through the review-status service and then moves to the next unreviewed anomaly image.
+  - Saved-label confirmation now marks the active anomaly image as `Abnormal` through the same service, while candidate/skipped detection status updates do not change anomaly image-level state.
+  - Extended `--wpf-anomaly-purpose-flow` so it opens a WPF shell, completes a normal anomaly image, verifies the empty compatibility label file, verifies persisted `Normal` state, and verifies navigation to the next unreviewed image.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-anomaly-purpose-flow` passed.
+- Capture:
+  - No screenshot was generated because this pass only wired an existing command to persisted state. It did not change UI layout or visual styling.
+- Next:
+  - Add anomaly dashboard distribution for normal/abnormal/unreviewed counts, then return to export capability inventory and the next external format target.
+
+## 2026-07-03 anomaly dashboard distribution
+
+- Self-evaluation:
+  - After WPF normal-completion persisted image-level state, the guide/dashboard still did not show normal/abnormal/unreviewed distribution.
+  - A small presentation service can add this without changing layout, annotation tools, model runtime, or hot input paths.
+- Changes:
+  - Added `WpfAnomalyDashboardPresentationService` for the anomaly dashboard metric and next-action issue wording.
+  - `UpdateDatasetStatusDashboard` now loads `AnomalyImageReviewStatusService` summary when the dataset purpose is `AnomalyDetection`.
+  - The dataset dashboard now includes a `정상/이상` metric with `normal/abnormal/unreviewed` counts and points operators to remaining unreviewed anomaly images.
+  - Extended `--wpf-anomaly-purpose-flow` to verify the presentation service metric and the WPF dashboard metric/issue list.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so anomaly image-level workflow reflects persistence, normal-completion routing, and dashboard distribution while keeping runtime/model workflow incomplete.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-anomaly-purpose-flow` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab guide --anomaly-dashboard --width 1920 --height 1080 --output .\artifacts\ui\wpf-anomaly-dashboard-distribution-after-1920.png` passed.
+- Capture:
+  - Captured `artifacts\ui\wpf-anomaly-dashboard-distribution-after-1920.png` at 1920x1080 with the anomaly dashboard metric visible.
+- Next:
+  - Return to export/import interoperability: add an export capability inventory and choose the next external object-detection target.
+
+## 2026-07-03 export capability inventory
+
+- Self-evaluation:
+  - After COCO detection JSON export, the next interoperability target needed to be fixed in code so the roadmap is testable rather than only documented.
+  - Pascal VOC XML is the smallest next external object-detection format because it is one XML file per image and can reuse existing YOLO box artifacts.
+- Changes:
+  - Added `DatasetExportCapabilityService` with implemented targets (`YOLO detection directory`, `COCO detection JSON`) and planned targets (`Pascal VOC XML`, `Label Studio detection JSON`, `CVAT image task archive`, `COCO segmentation JSON`).
+  - Marked `pascal-voc-detection` as the single recommended next target.
+  - Added `--export-capability-inventory` focused gate to keep the current/next export list explicit.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so export/import status now points to Pascal VOC XML implementation next.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --export-capability-inventory` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --coco-detection-export` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI service/test/docs only.
+- Next:
+  - Implement Pascal VOC XML export from the existing YOLO detection dataset artifacts.
+
+## 2026-07-03 Pascal VOC detection export
+
+- Self-evaluation:
+  - COCO export improved interoperability, but common labeling tools still expect more than one exchange format.
+  - Pascal VOC XML is a narrow next step because it can reuse the existing YOLO box artifacts and does not require UI, runtime, or training changes.
+- Changes:
+  - Added `PascalVocDetectionExportService` as a non-UI exporter from existing `data/<split>/images` and YOLO `labels` artifacts.
+  - The exporter writes one XML file per image under the requested output directory, includes empty-label images with no `<object>` entries, skips invalid labels/classes, writes relative image paths, and emits 1-based inclusive Pascal VOC `bndbox` coordinates.
+  - Added `--pascal-voc-detection-export` focused gate with a generated tiny dataset covering class names, image size, bbox coordinates, empty-label XML, output path tracking, and skipped invalid labels.
+  - Updated `DatasetExportCapabilityService` so `pascal-voc-detection` is implemented and `label-studio-detection-json` is now the single recommended next export target.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so the export/import score and next priority reflect COCO plus Pascal VOC completion.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --pascal-voc-detection-export` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --export-capability-inventory` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --coco-detection-export` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI export service/test/docs only.
+- Next:
+  - Implement Label Studio detection JSON export from the existing YOLO detection dataset artifacts.
+
+## 2026-07-03 Label Studio detection JSON export
+
+- Self-evaluation:
+  - COCO and Pascal VOC cover common training/exchange formats, but Label Studio parity needs raw task JSON with RectangleLabels results.
+  - The narrowest useful slice is another non-UI exporter that reuses existing YOLO box artifacts and emits Label Studio percent-coordinate rectangles.
+- Source check:
+  - Official Label Studio export documentation states that JSON export uses raw task JSON, image rectangles use `RectangleLabels`, and `x`, `y`, `width`, and `height` are percentages of the original image dimensions.
+- Changes:
+  - Added `LabelStudioDetectionExportService` with deterministic raw task JSON output for selected dataset splits.
+  - The exporter writes `data.image` relative paths, one annotation per reviewed label file, `RectangleLabels` results with `bbox`/`image` tag names, original image size fields, percent-coordinate boxes, and empty `result` arrays for reviewed empty-label images.
+  - Invalid label lines/classes are skipped and counted.
+  - Added `--label-studio-detection-export` focused gate with a generated tiny dataset covering task paths, split metadata, percent bbox conversion, class labels, reviewed empty-label images, and skipped invalid labels.
+  - Updated `DatasetExportCapabilityService` so `label-studio-detection-json` is implemented and `cvat-images-archive` is now the single recommended next export target.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so the export/import score and next priority reflect COCO, Pascal VOC, and Label Studio JSON completion.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --label-studio-detection-export` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --export-capability-inventory` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI export service/test/docs only.
+- Next:
+  - Implement CVAT image task archive export from the existing YOLO detection dataset artifacts.
+
+## 2026-07-03 CVAT image task archive export
+
+- Self-evaluation:
+  - COCO, Pascal VOC, and Label Studio JSON cover common object-detection exchanges, but CVAT parity still benefits from the native `CVAT for images 1.1` archive structure.
+  - The narrow slice is a non-UI object-detection archive exporter that writes `annotations.xml` and copies image files without touching labeling, runtime, or viewer paths.
+- Source check:
+  - Official CVAT documentation states that `CVAT for images 1.1` exports a `.zip` archive containing `images/` and `annotations.xml`, and image tasks use `<image>` entries with `<box>` annotations.
+- Changes:
+  - Added `CvatImageTaskArchiveExportService` to write a CVAT image task archive from existing `data/<split>/images` and YOLO `labels` artifacts.
+  - The exporter writes root `annotations.xml`, image entries under `images/<split>/`, task metadata, bbox labels, per-image width/height, `<box>` coordinates, empty-label images with no boxes, and skipped invalid label counts.
+  - Added `--cvat-image-export` focused gate with a generated tiny dataset covering zip entries, `annotations.xml`, labels metadata, image metadata, bbox coordinates, empty-label images, and skipped invalid labels.
+  - Updated `DatasetExportCapabilityService` so `cvat-images-archive` is implemented and `coco-segmentation-json` is now the single recommended next export target.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so object-detection export coverage reflects COCO, Pascal VOC, Label Studio JSON, and CVAT archive completion.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --cvat-image-export` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --export-capability-inventory` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI export service/test/docs only.
+- Next:
+  - Begin dataset quality and review audit reporting unless the active goal explicitly stays on segmentation export breadth.
+
+## 2026-07-03 dataset quality audit report service
+
+- Self-evaluation:
+  - After object-detection export parity improved, the next competitor gap is QA/progress visibility.
+  - Existing readiness statistics count images, labels, and objects, but they did not expose missing labels, reviewed empty-normal labels, invalid labels, and class distribution together as a reusable report.
+- Changes:
+  - Added `YoloDatasetQualityAuditService` as a non-UI artifact report over existing YOLO output folders.
+  - The report returns split-level image counts, label-file counts, missing label counts, empty-label counts, invalid label line/class counts, object counts, and class distribution.
+  - Added `--dataset-quality-audit` focused gate with a generated dataset covering normal object labels, reviewed empty-normal labels, missing labels, invalid labels, and OK/NG class distribution.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so quality-control status reflects the completed report-service slice and points the next slice to WPF guide/dashboard surfacing.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-quality-audit` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI audit service/test/docs only.
+- Next:
+  - Surface the dataset quality audit report in the WPF guide/dashboard or export readiness view.
+
+## 2026-07-03 WPF dataset quality dashboard surfacing
+
+- Self-evaluation:
+  - The non-UI quality audit report existed, but operators still had to infer missing/invalid/empty-label quality from readiness errors and raw counts.
+  - A small dashboard metric and issue line gives the app closer QA/progress parity without changing annotation save/reopen, model runtime, or viewer paths.
+- Changes:
+  - Added `WpfDatasetQualityAuditPresentationService` for the guide/dashboard `품질` metric and next-action issue wording.
+  - `UpdateDatasetStatusDashboard` now loads `YoloDatasetQualityAuditService.Build(global.Data)` and passes it into the existing dashboard metric/issue builders.
+  - The dashboard summary now includes quality missing/invalid/empty counts.
+  - Added `--wpf-training-dashboard-quality` focused gate and extended WPF dashboard tests so normal datasets show a non-problem quality metric while missing test labels show a quality problem card and issue line.
+  - Added `--quality-dashboard` visual-smoke seed and captured the guide dashboard at 1920x1080.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so quality-control status reflects visible WPF dashboard surfacing.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-dashboard-quality` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-heldout` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-quality-audit` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab guide --quality-dashboard --width 1920 --height 1080 --output .\artifacts\ui\wpf-dataset-quality-dashboard-after-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed.
+- Capture:
+  - Captured `artifacts\ui\wpf-dataset-quality-dashboard-after-1920.png` at 1920x1080 with the guide/dashboard quality status visible.
+  - README/tutorial screenshots were not regenerated because no public tutorial layout, navigation, or documented screenshot sequence changed; `--priority-workflow-docs` remained the guard for stale public-doc references.
+- Next:
+  - Add reviewer-facing issue status or downloadable/exportable dataset audit output.
+
+## 2026-07-03 dataset quality audit Markdown export
+
+- Self-evaluation:
+  - The dashboard now surfaces quality audit counts, but a reviewer still needs a portable artifact to share outside the app.
+  - The minimal useful slice is a non-UI Markdown export service over the already-tested audit report, not a new WPF save workflow.
+- Changes:
+  - Added `YoloDatasetQualityAuditExportService` with `BuildMarkdown` and `ExportMarkdown`.
+  - The Markdown report includes total images, label files, missing labels, empty labels, invalid label lines, objects, a split table, and a class distribution table.
+  - Added `--dataset-quality-audit-export` focused gate covering file creation, totals, split rows, invalid/missing counts, and class distribution.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so quality-control status reflects the completed portable Markdown report slice.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-quality-audit-export` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-quality-audit` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI Markdown export service/test/docs only.
+- Next:
+  - Add a WPF save action for the existing Markdown audit export, or move to the next product gap if UI export is not required.
+
+## 2026-07-03 COCO segmentation export
+
+- Self-evaluation:
+  - Object-detection export breadth is now strong enough for local interoperability, but segmentation still needed one external interchange format before calling the segmentation export foundation usable.
+  - The existing app already writes polygon JSON artifacts under `data/<split>/segments`; the narrowest useful slice is a non-UI COCO segmentation exporter over those verified artifacts.
+- Changes:
+  - Added `CocoSegmentationExportService` with `BuildDataset` and `ExportDataset`.
+  - The exporter writes COCO-style `images`, `categories`, and polygon `annotations` with `segmentation`, `bbox`, `area`, and `iscrowd`.
+  - It includes empty-label images, writes relative image paths, maps class index `0` to category id `1`, and skips invalid segment records.
+  - Added `--coco-segmentation-export` focused gate with a generated segmentation dataset covering polygon export, empty images, categories, and invalid segment skip.
+  - Updated `DatasetExportCapabilityService` so `coco-segmentation-json` is implemented and `label-studio-segmentation-json` is now the single recommended next export target.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so export/import status reflects the completed COCO segmentation slice.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --coco-segmentation-export` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --export-capability-inventory` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI export service/test/docs only.
+- Next:
+  - Implement Label Studio segmentation JSON if export breadth remains the active priority.
+
+## 2026-07-03 Label Studio segmentation export
+
+- Self-evaluation:
+  - COCO segmentation gives a common training/interchange target, but Label Studio import/export parity still needed polygon task JSON.
+  - The narrowest useful slice is a non-UI exporter that converts existing `segments/*.json` polygon artifacts into Label Studio `PolygonLabels` results without touching annotation hot paths.
+- Changes:
+  - Added `LabelStudioSegmentationExportService` with `BuildTasks` and `ExportDataset`.
+  - The exporter writes raw Label Studio task JSON with `data.image`, split metadata, `PolygonLabels` results, original image dimensions, and percent-based polygon points.
+  - It includes images without segment files as tasks, adds reviewed annotations only for images with segment JSON, and skips invalid segment records.
+  - Added `--label-studio-segmentation-export` focused gate covering polygon export, empty image tasks, category count, and invalid segment skip.
+  - Updated `DatasetExportCapabilityService` so `label-studio-segmentation-json` is implemented and `cvat-segmentation-archive` is now the single recommended next export target.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so export/import status reflects the completed Label Studio segmentation slice.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --label-studio-segmentation-export` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --export-capability-inventory` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI export service/test/docs only.
+- Next:
+  - Implement CVAT segmentation archive if export breadth remains the active priority.
+
+## 2026-07-03 CVAT segmentation archive export
+
+- Self-evaluation:
+  - COCO and Label Studio segmentation exports cover common JSON task/training paths, but CVAT polygon archive parity was still missing.
+  - The smallest useful slice is a non-UI zip exporter that reuses saved `segments/*.json` artifacts and writes CVAT image-task polygon XML plus image files.
+- Changes:
+  - Added `CvatSegmentationArchiveExportService` with `ExportDataset`.
+  - The exporter writes a CVAT for images 1.1 zip with root `annotations.xml`, image files under `images/<split>/`, label metadata with `type` `polygon`, and per-image `<polygon>` entries.
+  - It includes images without segment files as image entries with no polygons and skips invalid segment records.
+  - Added `--cvat-segmentation-export` focused gate covering archive creation, XML metadata, image entries, polygon points, empty image entries, and invalid segment skip.
+  - Updated `DatasetExportCapabilityService` so `cvat-segmentation-archive` is implemented and `coco-detection-import` is now the single recommended next interoperability target.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so export/import status reflects the completed CVAT segmentation archive slice.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --cvat-segmentation-export` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --export-capability-inventory` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI export service/test/docs only.
+- Next:
+  - Start COCO detection import if interoperability remains the active priority.
+
+## 2026-07-03 COCO detection import
+
+- Self-evaluation:
+  - Export breadth is now strong for the local workstation MVP, so interoperability priority should move from export-only to import.
+  - The smallest useful import slice is COCO detection JSON plus source image folder into the existing YOLO dataset layout.
+- Changes:
+  - Added `CocoDetectionImportService` with `ImportDataset`.
+  - The importer reads COCO `images`, `categories`, and detection `annotations`, creates/extends the class catalog, copies source images into `data/<split>/images`, writes YOLO label files into `data/<split>/labels`, writes empty label files for images with no annotations, and saves `data.yaml`.
+  - Added `--coco-detection-import` focused gate covering image copy, class creation, bbox conversion, empty label file creation, invalid category skip, and data.yaml creation.
+  - Updated `DatasetExportCapabilityService` so `coco-detection-import` is implemented and `pascal-voc-detection-import` is now the single recommended next import target.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so import interoperability reflects the completed COCO detection import slice.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --coco-detection-import` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --export-capability-inventory` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI import service/test/docs only.
+- Next:
+  - Implement Pascal VOC detection import if interoperability remains the active priority.
+
+## 2026-07-03 Pascal VOC detection import
+
+- Self-evaluation:
+  - COCO import covers a common JSON dataset path, but Pascal VOC XML remains a frequent legacy/interchange format for object detection.
+  - The smallest useful slice is a non-UI importer that converts VOC XML annotations plus source images into the existing YOLO dataset layout.
+- Changes:
+  - Added `PascalVocDetectionImportService` with `ImportDirectory`.
+  - The importer reads Pascal VOC XML files, resolves source images, creates/appends class catalog entries, copies images into `data/<split>/images`, writes YOLO label files into `data/<split>/labels`, writes empty label files for XMLs with no objects, skips invalid objects, and saves `data.yaml`.
+  - Added `--pascal-voc-detection-import` focused gate covering image copy, existing class preservation, class append, VOC bbox conversion, empty label file creation, invalid object skip, and data.yaml creation.
+  - Updated `DatasetExportCapabilityService` so `pascal-voc-detection-import` is implemented and `label-studio-detection-import` is now the single recommended next import target.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so import interoperability reflects the completed Pascal VOC detection import slice.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --pascal-voc-detection-import` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --export-capability-inventory` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI import service/test/docs only.
+- Next:
+  - Implement Label Studio detection import if interoperability remains the active priority.
+
+## 2026-07-03 Label Studio detection import
+
+- Self-evaluation:
+  - COCO and Pascal VOC imports cover common external dataset files, but Label Studio task JSON still needed a direct import path for RectangleLabels output.
+  - The smallest useful slice is a non-UI importer that converts Label Studio task JSON plus source images into the existing YOLO dataset layout.
+- Changes:
+  - Added `LabelStudioDetectionImportService` with `ImportTasks`.
+  - The importer reads Label Studio task JSON, resolves `data.image`, creates/appends class catalog entries from `RectangleLabels`, copies images into `data/<split>/images`, converts percent-based rectangles into YOLO label files under `data/<split>/labels`, writes empty label files for tasks with no results, skips invalid results, and saves `data.yaml`.
+  - Added `--label-studio-detection-import` focused gate covering image copy, existing class preservation, class append, percent bbox conversion, empty label file creation, invalid result skip, and data.yaml creation.
+  - Updated `DatasetExportCapabilityService` so `label-studio-detection-import` is implemented and `cvat-detection-import` is now the single recommended next import target.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so import interoperability reflects the completed Label Studio detection import slice.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --label-studio-detection-import` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --export-capability-inventory` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI import service/test/docs only.
+- Next:
+  - Implement CVAT detection import if interoperability remains the active priority.
+
+## 2026-07-03 CVAT detection import
+
+- Self-evaluation:
+  - COCO, Pascal VOC, and Label Studio detection imports cover common JSON/XML/task imports, but CVAT archive import was the remaining object-detection interchange gap matching the existing CVAT export.
+  - The smallest useful slice is a non-UI archive importer that reads `annotations.xml` and bundled `images/...` entries into the existing YOLO dataset layout.
+- Changes:
+  - Added `CvatDetectionImportService` with `ImportArchive`.
+  - The importer reads CVAT image-task zip archives, extracts image entries into `data/<split>/images`, creates/appends class catalog entries from `<box label>`, converts `xtl/ytl/xbr/ybr` into YOLO label files under `data/<split>/labels`, writes empty label files for images with no boxes, skips invalid boxes/images, and saves `data.yaml`.
+  - Added `--cvat-detection-import` focused gate covering image extraction, existing class preservation, class append, box conversion, empty label file creation, invalid box skip, and data.yaml creation.
+  - Updated `DatasetExportCapabilityService` so `cvat-detection-import` is implemented and `coco-segmentation-import` is now the single recommended next import target.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so object-detection import interoperability reflects the completed CVAT detection import slice.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --cvat-detection-import` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --export-capability-inventory` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI import service/test/docs only.
+- Next:
+  - Implement COCO segmentation import if interoperability remains the active priority.
+
+## 2026-07-03 COCO segmentation import
+
+- Self-evaluation:
+  - Object-detection import/export parity is now strong enough for the local MVP, so the next interoperability gap is segmentation import.
+  - The smallest useful slice is COCO polygon segmentation JSON plus source images into the existing local segmentation artifacts.
+- Changes:
+  - Added `CocoSegmentationImportService` with `ImportDataset`.
+  - The importer reads COCO segmentation `images`, `categories`, and polygon `annotations`, creates/appends class catalog entries, copies source images into `data/<split>/images`, writes local `segments/*.json` and `masks/*.png` via the existing segmentation annotation service, skips invalid annotations, and saves `data.yaml`.
+  - Added `--coco-segmentation-import` focused gate covering image copy, class creation, polygon restoration, segment JSON creation, mask creation, empty image behavior, invalid category skip, and data.yaml creation.
+  - Updated `DatasetExportCapabilityService` so `coco-segmentation-import` is implemented and `label-studio-segmentation-import` is now the single recommended next import target.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so segmentation import interoperability reflects the completed COCO segmentation import slice.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --coco-segmentation-import` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --export-capability-inventory` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI import service/test/docs only.
+- Next:
+  - Implement Label Studio segmentation import if interoperability remains the active priority.
+
+## 2026-07-03 Label Studio segmentation import
+
+- Self-evaluation:
+  - COCO segmentation import covers common training/interchange JSON, but Label Studio PolygonLabels task JSON still needed a direct import path.
+  - The smallest useful slice is a non-UI importer that converts Label Studio segmentation tasks plus source images into existing local segment/mask artifacts.
+- Changes:
+  - Added `LabelStudioSegmentationImportService` with `ImportTasks`.
+  - The importer reads Label Studio task JSON, resolves `data.image`, creates/appends class catalog entries from `PolygonLabels`, copies images into `data/<split>/images`, converts percent polygon points into local `segments/*.json` and `masks/*.png` via the existing segmentation annotation service, skips invalid results, and saves `data.yaml`.
+  - Added `--label-studio-segmentation-import` focused gate covering image copy, class creation, polygon restoration, segment JSON creation, mask creation, empty image behavior, invalid result skip, and data.yaml creation.
+  - Updated `DatasetExportCapabilityService` so `label-studio-segmentation-import` is implemented and `cvat-segmentation-import` is now the single recommended next import target.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so segmentation import interoperability reflects the completed Label Studio segmentation import slice.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --label-studio-segmentation-import` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --export-capability-inventory` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI import service/test/docs only.
+- Next:
+  - Implement CVAT segmentation import if interoperability remains the active priority.
+
+## 2026-07-03 CVAT segmentation import
+
+- Self-evaluation:
+  - COCO and Label Studio segmentation imports cover JSON/task formats, but CVAT polygon archives were still export-only.
+  - The smallest useful slice is a non-UI archive importer that reads CVAT `annotations.xml` polygon entries and bundled images into existing local segment/mask artifacts.
+- Changes:
+  - Added `--cvat-segmentation-import` focused gate over the existing `CvatSegmentationImportService`.
+  - The importer reads CVAT image-task zip archives, extracts image entries into `data/<split>/images`, creates/appends class catalog entries from valid `<polygon label>` entries, converts polygon points into local `segments/*.json` and `masks/*.png` via the existing segmentation annotation service, skips invalid polygons without adding their classes, and saves `data.yaml`.
+  - Updated `DatasetExportCapabilityService` so `cvat-segmentation-import` is implemented and `labelbox-ndjson-detection-import` is now the single recommended next interoperability target.
+  - Updated `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` so segmentation import interoperability reflects the completed CVAT segmentation import slice.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --cvat-segmentation-import` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --export-capability-inventory` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI import service/test/docs only.
+- Next:
+  - Implement Labelbox NDJSON detection import if interoperability remains the active priority, or choose the WPF dataset-audit export action if reviewer handoff is higher priority.
+
+## 2026-07-03 YOLOv8/YOLO11 segmentation inference contract
+
+- Self-evaluation:
+  - The active user priority is now YOLOv8/YOLO11 segmentation and anomaly integration, not another dataset-interoperability slice.
+  - Ultralytics segmentation inference already returns boxes plus masks, so the smallest useful runtime slice is to preserve mask polygon output through the existing `DetectImageResult` contract before changing label-confirm behavior or viewer paths.
+- Changes:
+  - Updated the bundled Ultralytics worker to advertise `segmentationModels` for YOLOv8/YOLO11 when Ultralytics is installed.
+  - Updated the worker candidate builder to copy `result.masks.xy` into `polygonPoints`, `normalizedPolygonPoints`, and `segmentationType=polygon` while keeping existing bbox fields.
+  - Added a Python worker self-test fixture for mask polygon candidate output.
+  - Updated `PythonDetectionResultProtocol` so `DefectInfo` preserves segmentation polygon fields from `DetectImageResult`.
+  - Updated `PythonModelStatusProtocol` so health/model status messages preserve `segmentationModels`.
+  - Added `--python-detection-result-protocol` as a focused gate for detection-result protocol parsing.
+- Verification:
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-detection-result-protocol` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes runtime/protocol contracts only, not WPF layout or visual styling.
+- Next:
+  - Self-evaluate the next smallest YOLOv8/YOLO11 runtime slice: either confirm segmentation polygons as segmentation labels instead of rectangle masks, or add an explicit anomaly classification capability/result contract for YOLO11 classification models.
+
+## 2026-07-03 YOLOv8/YOLO11 segmentation polygon confirmation
+
+- Self-evaluation:
+  - The previous runtime slice preserved Ultralytics segmentation polygons through the TCP protocol, but candidate confirmation still needed to use those polygons instead of falling back to rectangle-derived masks.
+  - The smallest useful product slice is to keep the existing `createSegmentationFromBoxes` option and prefer model polygons only when they are present, preserving the old rectangle fallback for detection-only candidates.
+- Changes:
+  - Added a `DisplayLayerDocument.AddSegmentationPolygon` wrapper over the existing viewer polygon API.
+  - Updated `DetectionResultApplicationService.CommitLastDetectionToMainLabels` so segmentation confirmation uses `DefectInfo.PolygonPoints` when available and falls back to rectangle-derived segmentation when not.
+  - Added `--detection-result-segmentation-confirm` focused gate covering both the old box-to-mask fallback and the new model-polygon confirmation path.
+  - Added a triangle-polygon persistence check that verifies saved segment JSON and mask PNG are polygon-shaped, not bbox-shaped.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --detection-result-segmentation-confirm` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes service/protocol behavior only, not WPF layout or visual styling.
+- Next:
+  - Add the narrow YOLO11 anomaly/classification capability and result contract, then decide whether image-level anomaly classification should feed the existing `Normal`/`Abnormal` review state automatically or remain a candidate review step.
+
+## 2026-07-03 YOLOv8/YOLO11 classification/anomaly result contract
+
+- Self-evaluation:
+  - YOLO11 does not expose a separate anomaly task in the current runtime path; image-level anomaly integration needs a classification result contract first.
+  - The smallest safe slice is to preserve Ultralytics `result.probs` as an image-level classification candidate without automatically marking images `Normal` or `Abnormal` by class-name heuristic.
+- Changes:
+  - Updated the bundled Ultralytics worker to advertise `classificationModels` for YOLOv8/YOLO11 when Ultralytics is installed.
+  - Updated worker candidate construction so classification-only results emit `candidateType=imageClassification`, `predictionType=classification`, `imageLevel=true`, class id/name, and confidence with empty bbox fields.
+  - Updated `PythonDetectionResultProtocol.DefectInfo` and `YoloWorkerSmokeCandidate` to preserve image-level classification metadata.
+  - Updated `PythonModelStatusProtocol` so health/model status messages preserve `classificationModels`.
+  - Extended Python worker self-test and focused protocol tests for image-level classification candidates.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-detection-result-protocol` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes runtime/protocol contracts only, not WPF layout or visual styling.
+- Next:
+  - Add an explicit anomaly classification decision service that maps configured class names to `Normal`/`Abnormal`, then wire it to the existing anomaly review state only after that mapping is user-configurable and test-covered.
+
+## 2026-07-03 anomaly classification decision service
+
+- Self-evaluation:
+  - Image-level classification candidates are now preserved, but automatically guessing `Normal`/`Abnormal` from class names would be unsafe.
+  - The smallest safe slice is a pure service that maps only explicitly configured class names to anomaly review states.
+- Changes:
+  - Added `AnomalyClassificationDecisionService` with `AnomalyClassificationDecisionOptions`.
+  - The service maps image-level classification candidates to `Normal` or `Abnormal` only when the class name is configured, the confidence meets the configured threshold, and the class is not mapped to both states.
+  - It supports both worker smoke candidates and TCP `DefectInfo` candidates, while non-image-level detections remain unmapped.
+  - Added `--anomaly-classification-decision` focused gate.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-decision` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI service/test only.
+- Next:
+  - Add configuration storage for anomaly normal/abnormal class mapping, then wire mapped image-level classification results to `AnomalyImageReviewStatusService` with a focused WPF purpose-flow gate.
+
+## 2026-07-03 anomaly classification settings storage
+
+- Self-evaluation:
+  - The decision service required explicit class mappings, but those mappings needed to survive recipe save/reopen before any WPF auto-apply path could be safe.
+  - The smallest useful slice is storage plus decision-option creation; UI wiring and automatic review-state application remain separate.
+- Changes:
+  - Added `AnomalyClassificationSettings` to `LabelingProjectSettings`.
+  - The settings store normal class names, abnormal class names, and a confidence threshold, normalize null lists, clamp invalid thresholds, and build `AnomalyClassificationDecisionOptions`.
+  - Extended `--anomaly-classification-decision` to verify defaults, threshold clamping, recipe `VISION.xml` serialization, save/reopen, and loaded settings mapping.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-decision` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes core settings/test coverage only, not WPF layout or visual styling.
+- Next:
+  - Add WPF configuration wiring for anomaly class mappings, then apply mapped image-level classification results to `AnomalyImageReviewStatusService` under an anomaly purpose focused gate.
+
+## 2026-07-03 anomaly classification WPF configuration wiring
+
+- Self-evaluation:
+  - Project settings now persist anomaly class mappings, so the next smallest visible slice is to expose those settings in the existing YOLO model settings panel and save them through the existing recipe save command.
+  - Automatic review-state application remains separate because it changes workflow behavior after inference.
+- Changes:
+  - Added `AnomalyNormalClassNamesText`, `AnomalyAbnormalClassNamesText`, `AnomalyMinimumConfidenceText`, and summary text to `WpfYoloModelSettingsPanelViewModel`.
+  - Added `LoadFrom(PythonModelSettings, AnomalyClassificationSettings)` and `ApplyTo(AnomalyClassificationSettings)` so parsing and settings state stay in the ViewModel.
+  - Added a compact `YoloAnomalyMappingPanel` in `WpfYoloModelSettingsPanel.xaml` with normal class, abnormal class, and minimum confidence inputs.
+  - Updated shell load/save adapters to pass `ProjectSettings.AnomalyClassification` through the ViewModel without moving workflow logic into code-behind.
+  - Added a `yolo-model-anomaly` visual-smoke target that scrolls the model settings panel to the anomaly mapping area for 1920x1080 capture.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-settings-viewmodels` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-anomaly-purpose-flow` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-decision` passed.
+- Capture:
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab yolo-model-anomaly --right-workflow-expanded --missing-model-runtime --width 1920 --height 1080` passed and captured `artifacts\ui\wpf-detection-overlay-visual-check.png`.
+  - README/tutorial image references were checked. The public tutorial model-center image does not document this new anomaly mapping panel, so no README/tutorial image update is required for this slice.
+- Next:
+  - Apply mapped image-level classification results to `AnomalyImageReviewStatusService` after inference only when the dataset purpose is anomaly detection and the mapping returns a configured state.
+
+## 2026-07-03 anomaly classification review-state auto-apply
+
+- Self-evaluation:
+  - YOLOv8/YOLO11 classification candidates and explicit anomaly class mappings were already present, but inference still stopped at candidate display.
+  - The smallest safe workflow slice is to apply only mapped image-level classification candidates to the anomaly review manifest, leaving unknown, low-confidence, ambiguous, and non-image-level detections unmapped.
+- Changes:
+  - Extended `AnomalyClassificationDecisionService` with aggregate candidate mapping for worker smoke candidates and TCP `DefectInfo` candidates.
+  - Updated current-image inference application so mapped image-level classification candidates mark the active anomaly image `Normal` or `Abnormal`.
+  - Updated batch inference queue application so mapped image-level classification candidates update anomaly review state and save it with the existing batch review-status cadence.
+  - Extended `--anomaly-classification-decision` and `--wpf-anomaly-purpose-flow` to cover aggregate mapping, conflict handling, and WPF inference-to-review state persistence.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-decision` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-anomaly-purpose-flow` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes inference-to-review behavior only, not WPF layout or visual styling.
+- Next:
+  - Add YOLOv8/YOLO11 segmentation training only after a task-aware training contract is selected and covered by a focused gate.
+
+## 2026-07-03 YOLOv8/YOLO11 segmentation training request contract
+
+- Self-evaluation:
+  - Segmentation inference and polygon confirmation were complete, but the bundled Ultralytics worker still advertised training as unsupported.
+  - The smallest training slice is a task-aware `StartTraining` contract that sends segmentation datasets as Ultralytics `segment` training without changing annotation hot paths or requiring a long real-model training run in the focused gate.
+- Changes:
+  - Added a `task` field to the TCP `YoloTrainingRequest` and keep the default as `detect`.
+  - Updated `YoloTrainingWorkflowService` so segmentation datasets send `task=segment`; object detection and anomaly datasets keep the existing YOLO-label `detect` task until a separate anomaly classification dataset contract exists.
+  - Updated the Ultralytics worker to advertise YOLOv8/YOLO11 training capability, accept `TrainYolo`, choose task-appropriate pretrained defaults such as `yolo11n-seg.pt`, start `model.train(...)` on a background thread, and emit `TrainingStatus` updates for existing WPF progress parsing.
+  - Extended the worker self-test with a fake Ultralytics `YOLO.train` implementation that verifies the `segment` task, training kwargs, epoch callback, and completed `TrainingStatus` emission without downloading a model.
+  - Added a focused `--learning-protocol` gate and updated worker/runtime tests for the new training capability contract.
+- Verification:
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --learning-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-self-test` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-connection` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes worker/protocol/runtime capability behavior only, not WPF layout or visual styling.
+- Remaining risk:
+  - A long real Ultralytics training run was not executed in this focused gate; the contract is verified by protocol, fake-worker training callback self-test, compile, and runtime capability tests.
+- Next:
+  - Add a tiny/short YOLOv8 or YOLO11 segmentation training smoke only when a stable local fixture/model-cache strategy is selected, or continue with anomaly classification dataset/training support if anomaly training becomes the active priority.
+
+## 2026-07-03 anomaly classification dataset export
+
+- Self-evaluation:
+  - Anomaly review state and YOLOv8/YOLO11 classification inference mapping were present, but YOLO classification training needs a folder dataset (`train/normal`, `train/abnormal`) instead of YOLO box labels.
+  - The smallest safe slice is a non-UI exporter from reviewed anomaly image state to an Ultralytics classification folder layout, without changing the current training command yet.
+- Changes:
+  - Added `AnomalyClassificationDatasetExportService`.
+  - The exporter loads `AnomalyImageReviewStatusService`, copies reviewed `Normal` and `Abnormal` images into `classification/<split>/normal` and `classification/<split>/abnormal`, reuses `YoloDatasetSplitService`, and skips unreviewed or missing images.
+  - Added `--anomaly-classification-dataset-export` focused gate.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-dataset-export` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-anomaly-purpose-flow` passed.
+- Capture:
+  - No screenshot is needed for this pass because it adds a non-UI dataset export service/test only.
+- Next:
+  - Wire anomaly training to export this classification dataset and send `task=classify` only after readiness/error messaging for insufficient normal/abnormal examples is covered.
+
+## 2026-07-03 anomaly classification training workflow wiring
+
+- Self-evaluation:
+  - The classification dataset exporter existed, but the training workflow still had no route that used it.
+  - The smallest safe workflow slice is to prepare the classification folder from reviewed anomaly images and send `StartTraining` with `task=classify`, while leaving long real-model training smoke as a separate opt-in gate.
+- Changes:
+  - Updated `YoloTrainingWorkflowService` so anomaly datasets enumerate source images, export reviewed normal/abnormal examples to the classification dataset, require at least one normal and one abnormal image, and send the classification root as the training data path.
+  - Anomaly training now sends `task=classify`; segmentation still sends `task=segment`; object detection keeps `task=detect`.
+  - Added `--anomaly-classification-training-workflow` focused gate with a mock TCP worker that verifies the `StartTraining` packet and exported folder contents before the packet is sent.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-training-workflow` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-dataset-export` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --learning-protocol` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes non-UI training workflow/protocol behavior only, not WPF layout or visual styling.
+- Remaining risk:
+  - A real Ultralytics classification training run was not executed; the workflow is verified through dataset export and mock TCP packet inspection.
+- Next:
+  - Add operator-facing readiness detail for insufficient normal/abnormal anomaly examples, then consider a short real-model anomaly classification or segmentation training smoke if fixture/model cache conditions are stable.
+
+## 2026-07-03 YOLOv8/YOLO11 training capability status refresh
+
+- Self-evaluation:
+  - The worker now advertises YOLOv8/YOLO11 training capability, but the model settings execution summary still used static settings-only fallback text in some paths.
+  - The smallest useful slice is to let the existing runtime summary/profile services consume the already parsed worker capability lists, without changing layout or model execution.
+- Changes:
+  - Added capability-aware overloads for `PythonModelRuntimeExecutionSummaryService.Build` and `PythonModelRuntimeProfileService.BuildProfiles`.
+  - Updated `WpfYoloModelSettingsPanelViewModel` to keep the latest worker supported/training/detection model lists and refresh the runtime profile plus execution summary from those lists.
+  - Updated the WPF settings-panel status adapter to pass `PythonCommunicationStatus.WorkerSupportedModels`, `WorkerTrainingModels`, and `WorkerDetectionModels` into the ViewModel and runtime-state check.
+  - Extended focused runtime/setting tests so YOLO11 remains detection-only without live capability data, but switches to training+inspection available when the worker reports `trainingModels=["yolo11"]`.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-connection` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes status/profile text state only, not WPF layout or visual styling.
+- Remaining risk:
+  - A real Ultralytics segmentation or classification training run was not executed in this slice.
+- Next:
+  - Add operator-facing readiness detail for insufficient anomaly normal/abnormal examples, then evaluate whether a short real-model smoke is practical with the current model cache.
+
+## 2026-07-03 anomaly classification training readiness detail
+
+- Self-evaluation:
+  - Anomaly classification training was routed to `task=classify`, but insufficient reviewed normal/abnormal examples were only visible as a raw workflow failure/log.
+  - The smallest useful slice is a side-effect-free readiness report plus existing WPF readiness/start-failure presentation, without changing training execution or UI layout.
+- Changes:
+  - Added `AnomalyClassificationTrainingReadinessService` to count source, reviewed normal, reviewed abnormal, unreviewed, and train-split normal/abnormal anomaly images from the saved review status.
+  - Updated `YoloTrainingWorkflowService` to reuse that readiness report before exporting the classification dataset and to expose the last preparation failure reason.
+  - Updated `WpfTrainingReadinessPresentationService` so anomaly datasets show reviewed normal/abnormal requirements, train split requirements, and current counts.
+  - Updated start-training failure presentation so the same readiness reason is shown instead of only a generic start failure.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-training-workflow` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-readiness-presentation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-status-summaries` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-anomaly-purpose-flow` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes readiness/status text state only, not WPF layout or visual styling.
+- Remaining risk:
+  - A real Ultralytics classification or segmentation training run was not executed in this slice.
+- Next:
+  - Evaluate whether a short real-model segmentation or anomaly classification smoke is practical with the current model cache; otherwise continue with the next non-download runtime gap.
+
+## 2026-07-03 YOLO11 classify training worker self-test
+
+- Self-evaluation:
+  - Real anomaly classification training smoke still depends on a local `yolo11n-cls.pt` cache or download.
+  - The smallest non-download slice is to extend the fake Ultralytics worker self-test so `task=classify` reaches `YOLO.train(...)` with the expected YOLO11 classification default weights.
+- Changes:
+  - Extended `openvisionlab_ultralytics_worker.py --self-test` to verify `task=classify`, `yolo11n-cls.pt`, train kwargs, and completed `TrainingStatus` emission through the fake `YOLO` path.
+  - Kept the existing segment fake-train self-test for `yolo11n-seg.pt`.
+- Verification:
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes Python worker self-test coverage only, not WPF layout or visual styling.
+- Remaining risk:
+  - A real Ultralytics classification training run was not executed.
+- Next:
+  - Check whether a short real-model segmentation/classification smoke can run without downloading weights; if not, continue with the next non-download runtime contract.
+
+## 2026-07-03 YOLO11 task-specific training weight packet
+
+- Self-evaluation:
+  - The Python worker already corrected legacy YOLOv5 weight names for YOLO11 segment/classify training, but the C# `StartTraining` packet could still send `yolov5s.pt`.
+  - The smallest contract improvement is to make C# send the selected runtime/task default weight file explicitly.
+- Changes:
+  - Updated `YoloTrainingWorkflowService` so YOLO11 sends `yolo11n.pt`, `yolo11n-seg.pt`, or `yolo11n-cls.pt` depending on task.
+  - Added the equivalent YOLOv8 defaults for future `detect`, `segment`, and `classify` tasks.
+  - Extended the anomaly classification training workflow test to verify `weight=yolo11n-cls.pt` in the actual `StartTraining` packet.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-training-workflow` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --learning-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes training packet data only, not WPF layout or visual styling.
+- Remaining risk:
+  - A real Ultralytics training run was not executed.
+- Next:
+  - Check local model-cache feasibility for a short real segmentation/classification smoke; avoid triggering downloads unless the user approves or cache is present.
+
+## 2026-07-03 dynamic YOLO11 runtime capability guard
+
+- Self-evaluation:
+  - A real tiny YOLO11 classification smoke could not start because the selected Python environment has Ultralytics `8.0.132`, no cached `yolo11n-cls.pt`, and the cached `yolo11n.pt` fails to load with a missing `C3k2` module.
+  - The smallest safe slice is to stop advertising YOLO11 support from the worker unless the installed Ultralytics package actually exposes the YOLO11 architecture symbols.
+- Changes:
+  - Updated the bundled Ultralytics worker so capability payloads are runtime-derived: YOLOv8 is the baseline when Ultralytics is installed, and YOLO11 is advertised only when `yolo11_runtime_available()` finds `C3k2`.
+  - Updated detection/training request acceptance and default training model selection to use the same dynamic capability functions.
+  - Updated C# runtime adapter support so the static bundled-worker fallback is not used after a live worker capability list excludes the selected adapter, and the selected profile explains that the live worker did not report the requested adapter.
+  - Added `ultralyticsVersion`, `yolo11RuntimeAvailable`, and a YOLO11-disabled `runtimeWarnings` entry to the worker health/capability payload so the selected runtime mismatch is observable without starting a model download.
+  - Extended C# status parsing, communication snapshots, and the YOLO settings detail presentation so worker runtime warnings are preserved and shown in the settings status detail.
+  - Extended communication snapshots and settings detail output to retain and show worker `segmentationModels` and `classificationModels`, not only supported/training/detection models.
+  - Updated communication status capability refresh to replace old worker capability lists with the latest health/model-status payload, so an empty capability update cannot leave stale YOLO11 support visible.
+  - Updated unsupported YOLO11 detection/training errors so they include the installed Ultralytics version and missing `C3k2` runtime reason when applicable.
+  - Updated worker self-test and the C# bundled-worker focused test to verify dynamic capability behavior instead of a fixed YOLO11 advertisement; the worker self-test now exercises actual unsupported YOLO11 `DetectImage` and `TrainYolo` request paths when the runtime lacks YOLO11 support.
+- Verification:
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - Local capability probe returned `ultralyticsVersion=8.0.132`, `yolo11=false`, YOLOv8-only capability lists, and a YOLO11-disabled warning in this environment.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-connection` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes worker runtime capability reporting and tests only, not WPF layout or visual styling.
+- Remaining risk:
+  - A real YOLO11 segmentation or classification training smoke still has not run; this environment now correctly reports YOLO11 unavailable until the Ultralytics runtime and/or weight cache is updated.
+- Next:
+  - Choose a stable local fixture/model-cache strategy for a short real YOLOv8 or YOLO11 segmentation/anomaly smoke, or define the required Ultralytics version before re-enabling YOLO11 on this machine.
+
+## 2026-07-03 YOLO11 segmentation training packet focused gate
+
+- Self-evaluation:
+  - The task-specific training weight packet contract already existed, but the direct production-path packet check covered anomaly `classify` and did not separately assert segmentation `segment` sends `yolo11n-seg.pt`.
+  - The smallest non-download slice is to reuse the existing segmentation readiness fixture and mock TCP packet capture instead of adding a real Ultralytics training run.
+- Changes:
+  - Extended `--dataset-readiness-purpose` so a segmentation dataset with saved segment/mask artifacts starts training through `YoloTrainingWorkflowService`.
+  - The focused gate now verifies the actual `StartTraining` packet includes `task=segment`, the generated `data.yaml` path, `model=yolov8` with `weight=yolov8n-seg.pt`, and `model=yolo11` with `weight=yolo11n-seg.pt`.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-readiness-purpose` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes test coverage for a training packet contract only, not WPF layout or visual styling.
+- Remaining risk:
+  - A real YOLOv8/YOLO11 segmentation training run still has not run.
+- Next:
+  - Continue only with a cache-safe real smoke or another non-download runtime/anomaly contract; do not trigger weight downloads or package upgrades without approval.
+
+## 2026-07-03 YOLOv8 worker fake-training self-test coverage
+
+- Self-evaluation:
+  - YOLO11 `segment`/`classify` fake-training defaults were covered, and the C# packet gate now verifies YOLOv8/YOLO11 segmentation packet weights.
+  - The worker self-test still needed direct non-download coverage that YOLOv8 `segment` and `classify` jobs resolve to `yolov8n-seg.pt` and `yolov8n-cls.pt` on the same `YOLO.train(...)` path.
+- Changes:
+  - Extended `openvisionlab_ultralytics_worker.py --self-test` to run fake `YOLO.train(...)` cases for YOLO11 segment/classify and YOLOv8 segment/classify.
+  - Added a bundled-worker contract assertion that the Python worker source keeps YOLOv8/YOLO11 task-specific training defaults covered.
+- Verification:
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes worker self-test coverage only, not WPF layout or visual styling.
+- Remaining risk:
+  - A real YOLOv8/YOLO11 segmentation or anomaly classification training run still has not run.
+- Next:
+  - If time remains, run the required build/diff gates and reassess whether another non-download runtime contract is safer than a real smoke in the current Ultralytics `8.0.132` environment.
+
+## 2026-07-03 YOLOv8 anomaly classification training packet gate
+
+- Self-evaluation:
+  - Anomaly classification training already exported reviewed normal/abnormal images and verified the YOLO11 `classify` packet.
+  - The next smallest YOLOv8/YOLO11 parity slice is to verify the same production-path anomaly training packet for YOLOv8 without running a real training job.
+- Changes:
+  - Extended `--anomaly-classification-training-workflow` so the same reviewed anomaly dataset is sent through YOLOv8 after the YOLO11 packet check.
+  - The focused gate now verifies `model=yolov8`, `task=classify`, `weight=yolov8n-cls.pt`, and the exported classification dataset root before the packet is sent.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-training-workflow` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes non-UI training packet test coverage only, not WPF layout or visual styling.
+- Remaining risk:
+  - A real YOLOv8/YOLO11 anomaly classification training run still has not run.
+- Next:
+  - Use remaining time for final gates and handoff; do not start downloads or package upgrades for a real smoke without approval.
+
+## 2026-07-03 Ultralytics training weight cache preference
+
+- Self-evaluation:
+  - Packet/self-test coverage now sends task-specific YOLOv8/YOLO11 default weight names, but the worker still returned bare names even when the model root already contained the matching cached file.
+  - The smallest cache-safe improvement is to prefer `model_root/<default-weight>.pt` when it exists, while preserving the existing bare-name fallback when no cache is present.
+- Changes:
+  - Updated `openvisionlab_ultralytics_worker.py` training weight resolution so explicit/default YOLOv8/YOLO11 task weights use a matching file from the worker model root when present.
+  - Extended the worker self-test and bundled-worker contract check for cached task-specific training weights.
+- Verification:
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes Python worker weight resolution and test coverage only, not WPF layout or visual styling.
+- Remaining risk:
+  - Missing task-specific weights still fall back to the existing bare Ultralytics names; a real training smoke still needs a stable cache or explicit approval for downloads/package updates.
+- Next:
+  - Continue with final gates and handoff, or define the approved cache/runtime strategy for real segmentation/anomaly smokes.
+
+## 2026-07-03 Ultralytics resolved training weight status
+
+- Self-evaluation:
+  - The worker now preferred cached task weights internally, but the accepted/result/status path did not expose which resolved weight was actually passed to `YOLO(...)`.
+  - The smallest useful diagnostics slice is to report the resolved value as optional `trainingWeights`, preserve it in the C# status snapshot, and show it in the existing YOLO settings detail without changing layout.
+- Changes:
+  - Added `trainingWeights` to Ultralytics `TrainYoloResult` and `TrainingStatus` payloads.
+  - Reused the resolved value inside `_run_training_job` so fake and real training paths use the same cached/bare weight decision.
+  - Extended the worker self-test so a cached YOLOv8 classification weight is passed to fake `YOLO(...)` and appears in running/completed status messages.
+  - Extended C# status parsing, communication status snapshots, and YOLO settings detail to preserve and display the resolved training weight path.
+- Verification:
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes status/detail text and protocol payloads only, not WPF layout or visual styling.
+- Remaining risk:
+  - This still does not execute a real Ultralytics segmentation or anomaly classification training run.
+- Next:
+  - Continue toward a cache-safe real YOLOv8 segmentation/anomaly smoke, or define the approved Ultralytics/cache upgrade strategy for YOLO11.
+
+## 2026-07-03 Ultralytics task-weight cache inventory
+
+- Self-evaluation:
+  - The worker could now prefer cached task weights and report the resolved weight after training starts, but operators still had to inspect the filesystem to know whether a cache-safe real smoke was possible.
+  - The smallest next diagnostic slice is to include known YOLOv8/YOLO11 task-weight cache inventory in worker health/model status and existing settings detail.
+- Changes:
+  - Added `cachedTrainingWeights` and `missingTrainingWeights` capability/environment fields for known defaults: `yolov8n.pt`, `yolov8n-seg.pt`, `yolov8n-cls.pt`, `yolo11n.pt`, `yolo11n-seg.pt`, and `yolo11n-cls.pt`.
+  - Updated health/model/smoke/preload status payloads to compute cache inventory from the active worker `modelRoot`.
+  - Extended C# status parsing, communication snapshots, and YOLO settings detail to preserve and display the cache inventory.
+  - Confirmed the current local cache has only `yolo11n.pt`; `yolov8n*`, `yolo11n-seg.pt`, and `yolo11n-cls.pt` are missing.
+- Verification:
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - Cache probe returned `cachedTrainingWeights=["yolo11n.pt"]` and missing YOLOv8/YOLO11 segment/classify defaults.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes status/detail text and protocol payloads only, not WPF layout or visual styling.
+- Remaining risk:
+  - A real Ultralytics segmentation or anomaly classification training run still needs a stable cache or explicit approval for downloads/package updates.
+- Next:
+  - Continue with final docs/diff gates, then use the cache inventory to decide whether a no-download real smoke is possible.
+
+## 2026-07-03 Ultralytics runtime-ready weight inventory
+
+- Self-evaluation:
+  - The worker now reported cached and missing task weights, but a cached YOLO11 weight can still be unusable when the selected Ultralytics runtime lacks YOLO11 modules.
+  - The smallest next diagnostic slice is to split cached weights into runtime-ready and runtime-blocked lists so a no-download smoke decision does not rely on inference from multiple status lines.
+- Changes:
+  - Added `runtimeReadyTrainingWeights` and `runtimeBlockedTrainingWeights` to the Ultralytics worker cache inventory.
+  - Extended C# status parsing, communication snapshots, and YOLO settings detail to preserve and display those runtime-ready/runtime-blocked lists.
+  - Confirmed the current local cache has `yolo11n.pt` in `runtimeBlockedTrainingWeights` and no `runtimeReadyTrainingWeights`.
+- Verification:
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - Cache probe returned `runtimeReadyTrainingWeights=[]` and `runtimeBlockedTrainingWeights=["yolo11n.pt"]`.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes status/detail text and protocol payloads only, not WPF layout or visual styling.
+- Remaining risk:
+  - A real Ultralytics segmentation or anomaly classification training run is still blocked without a runtime-ready task weight cache or explicit approval for downloads/package updates.
+- Next:
+  - Continue with final docs/diff gates; if time remains, choose another non-download runtime/anomaly diagnostic or stop at handoff.
+
+## 2026-07-03 Ultralytics missing weight download/blocker inventory
+
+- Self-evaluation:
+  - The runtime-ready inventory explained cached files, but `missingTrainingWeights` still mixed weights that the current runtime could download with weights that are missing and also blocked by the selected runtime family.
+  - The smallest useful diagnostics slice is to split missing task weights into current-runtime download-required and runtime-blocked-missing lists without triggering downloads or changing training execution.
+- Changes:
+  - Added `downloadRequiredTrainingWeights` and `runtimeBlockedMissingTrainingWeights` to the Ultralytics worker task-weight cache payload.
+  - Extended C# status parsing, communication snapshots, and YOLO settings detail to preserve and display those two missing-weight categories.
+  - Confirmed the current local cache has `yolo11n.pt` cached but runtime-blocked; `yolov8n.pt`, `yolov8n-seg.pt`, and `yolov8n-cls.pt` are download-required under the current runtime; `yolo11n-seg.pt` and `yolo11n-cls.pt` are runtime-blocked missing weights.
+- Verification:
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - Cache probe returned `downloadRequiredTrainingWeights=["yolov8n.pt","yolov8n-seg.pt","yolov8n-cls.pt"]` and `runtimeBlockedMissingTrainingWeights=["yolo11n-seg.pt","yolo11n-cls.pt"]`.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes status/detail text and protocol payloads only, not WPF layout or visual styling.
+- Remaining risk:
+  - A real Ultralytics segmentation or anomaly classification training run still has not run; the current environment needs either approved downloads/cache population for YOLOv8 defaults or an approved Ultralytics/runtime update for YOLO11.
+- Next:
+  - If continuing before 21:00 KST, pick another non-download runtime/anomaly diagnostic, or stop and ask for an explicit cache/download/runtime-upgrade decision before real model smokes.
+
+## 2026-07-03 Ultralytics weight diagnostic readable detail
+
+- Self-evaluation:
+  - The worker and C# status snapshot now carried the right weight diagnostics, but the YOLO settings detail still showed the newest lines with raw English protocol-style labels such as `runtime-blocked-missing`.
+  - The smallest safe slice is to keep the same status fields and make only the presentation-service wording operator-readable.
+- Changes:
+  - Updated `WpfYoloSettingsPanelStatusPresentationService` detail lines for task-weight cache, runtime readiness, download/cache requirements, runtime-support requirements, and the resolved training weight.
+  - Extended the YOLO settings panel focused assertion so the detail keeps the same filenames while no longer exposing raw worker inventory keys in the visible detail.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes status/detail text only, not WPF layout or visual styling.
+- Remaining risk:
+  - This does not unblock real YOLOv8/YOLO11 training smoke; the same weight cache/runtime blockers remain.
+- Next:
+  - Continue with another non-download runtime/anomaly diagnostic or ask for an explicit YOLOv8 weight cache/download or YOLO11 runtime-upgrade decision before real model smokes.
+
+## 2026-07-03 Ultralytics implicit training download guard
+
+- Self-evaluation:
+  - The status/detail path now tells operators which task weights require download/cache population, but the worker training path could still hand a bare default such as `yolov8n-seg.pt` to Ultralytics, which may trigger an implicit model download.
+  - The smallest safe runtime slice is to block those uncached bare default weights unless the request explicitly carries download approval.
+- Changes:
+  - Added a worker-side `TrainingWeightDownloadRequired` start-failure guard for uncached bare YOLOv8/YOLO11 default training weights.
+  - Added explicit opt-in names `allowModelDownload`, `allowWeightDownload`, and `allowDownload`; current C# workflow does not send them, so no implicit download is enabled by this slice.
+  - Included the resolved `trainingWeights` in the failed `TrainYoloResult` and `TrainingStatus` so the existing C# parser/detail path can show which file caused the block.
+- Verification:
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed and covers the download guard.
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes Python worker runtime safety behavior and source-contract tests only, not WPF layout or visual styling.
+- Remaining risk:
+  - Real YOLOv8/YOLO11 segmentation/anomaly training smoke is still blocked until weights are cached or an explicit download/runtime-upgrade workflow is approved.
+- Next:
+  - Add a UI-level approval path for `allowModelDownload` only if the user approves downloads, or continue with another non-download runtime/anomaly diagnostic.
+
+## 2026-07-03 Training download guard parser coverage
+
+- Self-evaluation:
+  - The worker now returns `TrainingWeightDownloadRequired` with the resolved `trainingWeights`, but the C# focused protocol test only covered successful `TrainYoloResult` weight parsing.
+  - The smallest useful slice is to lock the failed-result parser and communication snapshot behavior so the blocked weight remains visible to the existing status detail path.
+- Changes:
+  - Extended `--python-model-status-protocol` with a failed `TrainYoloResult` fixture carrying `TrainingWeightDownloadRequired` and `trainingWeights`.
+  - Verified the parsed message stays `TrainingStatus`, has `state=failed`, is treated as an error, preserves the error code, and preserves `yolov8n-seg.pt`.
+  - Verified `CCommunicationLearning` handles that failed result and keeps `LastTrainingState`, `LastTrainingWeightsPath`, and `LastError` in `PythonCommunicationStatus`.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes protocol test coverage only, not WPF layout or visual styling.
+- Remaining risk:
+  - This does not run a real training smoke or enable downloads; it only verifies the failed download-guard status remains parseable.
+- Next:
+  - Continue with non-download runtime/anomaly diagnostics, or wait for an explicit cache/download/runtime-upgrade decision before real model smokes.
+
+## 2026-07-03 Training download guard presentation detail
+
+- Self-evaluation:
+  - The worker and C# communication snapshot preserve the raw `TrainingWeightDownloadRequired` code for diagnostics, but the YOLO settings detail still showed that raw code to the operator.
+  - The smallest safe slice is to translate only the presentation detail while leaving protocol/error preservation unchanged.
+- Changes:
+  - Updated `WpfYoloSettingsPanelStatusPresentationService` so `LastError` containing `TrainingWeightDownloadRequired` is shown as operator-readable Korean guidance to cache the training weight or explicitly approve download.
+  - Extended `--wpf-yolo-model-settings-panel` so visible settings detail contains the translated guidance and does not expose the raw download guard code.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes status/detail text only, not WPF layout or visual styling.
+- Remaining risk:
+  - This does not run a real training smoke, populate weights, enable downloads, or change the download approval workflow.
+- Next:
+  - Run docs/diff gates, then stop at handoff unless there is enough time for another narrow non-download runtime diagnostic.
+
+## 2026-07-03 Training download approval packet guard
+
+- Self-evaluation:
+  - The worker-side download guard exists, but the C# `StartTraining` packet tests did not explicitly fail if a future change silently adds `allowModelDownload`, `allowWeightDownload`, or `allowDownload`.
+  - The smallest safe slice is test-only packet coverage that keeps download approval absent until a real UI approval path is designed and approved.
+- Changes:
+  - Added a shared focused-test assertion that `StartTraining` packets do not include `allowModelDownload`, `allowWeightDownload`, or `allowDownload`.
+  - Applied the assertion to the base `LearningProtocol` serialization, YOLOv8/YOLO11 segmentation training packet capture, and YOLOv8/YOLO11 anomaly classification packet capture.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --learning-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-readiness-purpose` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-training-workflow` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes packet test coverage only, not WPF layout or visual styling.
+- Remaining risk:
+  - This does not add a download approval UX, populate weights, or run a real YOLOv8/YOLO11 training smoke.
+- Next:
+  - Run docs/diff gates, then continue with another non-download runtime diagnostic or wait for an explicit cache/download/runtime-upgrade decision before real model smokes.
+
+## 2026-07-03 Training download opt-in worker self-test
+
+- Self-evaluation:
+  - The worker blocks uncached bare task weights by default and C# packet tests verify the app does not send download approval flags, but the worker's explicit opt-in branch still needed a non-download self-test.
+  - The smallest safe slice is to use the existing fake Ultralytics self-test to prove each accepted opt-in alias bypasses only the guard and reaches fake `YOLO.train(...)`.
+- Changes:
+  - Extended `openvisionlab_ultralytics_worker.py --self-test` with YOLOv8 segmentation `TrainYolo` requests for `allowModelDownload=true`, `allowWeightDownload=true`, and `allowDownload=true`.
+  - Verified each alias returns `ok=true`, preserves `trainingWeights=yolov8n-seg.pt`, starts the fake training thread, passes `task=segment` to fake `YOLO.train(...)`, and emits a completed training status.
+- Verification:
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes Python worker self-test coverage only, not WPF layout or visual styling.
+- Remaining risk:
+  - This does not make C# send approval flags, add a UI approval path, download weights, or run a real training smoke.
+- Next:
+  - Continue with another non-download runtime diagnostic or wait for an explicit cache/download/runtime-upgrade decision before real model smokes.
+
+## 2026-07-03 Training download guard progress status
+
+- Self-evaluation:
+  - The worker and protocol preserve `TrainingWeightDownloadRequired` in `LastError`, and YOLO settings detail translates it, but the live training progress/recovery card still used only the generic training message.
+  - The smallest safe slice is to let the training progress presentation service use the full training status for failed/error states, translate the download guard, and show the blocked task-weight filename.
+- Changes:
+  - Updated `WpfTrainingProgressPresentationService` so failed training summaries/recovery details prefer `LastError` when the training state is failed/error.
+  - Translated `TrainingWeightDownloadRequired` into operator-facing training-weight preparation guidance and appended the blocked weight filename such as `yolov8n-seg.pt`.
+  - Kept the raw worker error code preserved in protocol/communication status for diagnostics; only WPF progress/recovery presentation text is translated.
+  - Updated `WpfLabelingShellWindow.TrainingProgressStatus.cs` to pass the full status snapshot into the presentation service instead of passing only `LastTrainingMessage`.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-status-summaries` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes status/recovery text only, not WPF layout or visual styling.
+- Remaining risk:
+  - This does not run a real training smoke, populate weights, enable downloads, or change the download approval workflow.
+- Next:
+  - Run docs/diff gates, then choose the next non-download YOLOv8/YOLO11 segmentation/anomaly runtime diagnostic unless explicit cache/download/runtime-upgrade approval is given.
+
+## 2026-07-03 YOLOv8 segmentation download guard training history
+
+- Self-evaluation:
+  - The YOLOv8 segmentation priority currently blocks on missing `yolov8n-seg.pt`; the worker/progress surfaces now show the download guard, but the training-guide history still stored only the generic worker message.
+  - The smallest useful slice is to preserve the failed-status `LastError` through the existing history message field and append the blocked segmentation weight filename without adding new settings schema.
+- Changes:
+  - Updated `WpfTrainingGuideHistoryService.UpdateTrainingHistory` so failed/error training history prefers `PythonCommunicationStatus.LastError`.
+  - Reused `WpfTrainingProgressPresentationService.FormatTrainingMessage` so `TrainingWeightDownloadRequired` is stored as operator-facing guidance rather than a raw worker code.
+  - Preserved the blocked YOLOv8 segmentation weight filename, e.g. `yolov8n-seg.pt`, in `LastTrainingMessage`, run-history records, and the compact training history summary.
+  - Added a focused `--wpf-training-guide-history` test switch.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-guide-history` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-status-summaries` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes history/status text only, not WPF layout or visual styling.
+- Remaining risk:
+  - This does not cache/download `yolov8n-seg.pt`, run a real YOLOv8 segmentation training smoke, or add a download approval workflow.
+- Next:
+  - Run docs/diff gates, then continue with another YOLOv8 segmentation-focused non-download diagnostic or wait for explicit cache/download approval.
+
+## 2026-07-03 YOLOv8 local worker folder connection
+
+- Self-evaluation:
+  - The user confirmed YOLOv8 should follow the existing YOLOv5 shape: a local runtime folder such as `C:\Git\yolov8`, not an app-owned hidden weight cache or implicit download path.
+  - The smallest safe slice is to add local YOLOv8 folder mapping in the same core connection service pattern used by YOLOv5, while keeping real training blocked until the local worker implements/reports `TrainYolo`.
+- Changes:
+  - Added `PythonModelRuntimeConnectionService.BuildYoloV8FolderConnection`, which maps a selected local YOLOv8 folder to `labelling_tcp_client.py`/`labeling_tcp_client.py`, local `.venv` Python when present, YOLOv8 segmentation weights such as `yolov8n-seg.pt`, and `data/train/images`.
+  - Changed the WPF runtime profile action for YOLOv8 to pick a local folder and delegate mapping to the core service. YOLO11 still uses the existing Ultralytics Python connection path.
+  - Updated runtime adapter support so a local YOLOv8 worker with an installed `ultralytics` package can enable current inspection, but training remains blocked until worker `TrainYolo` capability is reported.
+  - Updated runtime profile copy to describe YOLOv8 as a local worker folder connection instead of only a bundled Ultralytics Python path.
+  - Extended focused runtime-connection coverage with a generated local YOLOv8 worker folder fixture.
+- Verification:
+  - `python C:\Git\yolov8\labeling_tcp_client.py --self-test` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-connection` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-self-test` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes runtime connection workflow/state text only, not WPF layout or visual styling.
+- Remaining risk:
+  - Superseded by the later `YOLOv8 local worker TrainYolo capability` entry above: the local worker now has a start/status `TrainYolo` path, but real YOLOv8 segmentation training execution is still not claimed.
+  - The local `C:\Git\yolov8` folder currently has no `.venv` and no `yolov8n-seg.pt`; real YOLOv8 segmentation smoke still needs those local runtime assets.
+- Next:
+  - Run a tiny segmentation training/inference smoke from `C:\Git\yolov8` once `.venv` and segmentation weights are present.
+
+## 2026-07-03 YOLOv8 task-aware training run folders
+
+- Self-evaluation:
+  - Local YOLOv8 segmentation training had real smoke evidence, and WPF best.pt discovery already included `runs/segment`, but the Python workers still wrote every task into the detection-style `runs/train` project folder.
+  - The smallest corrective slice is to route only the Ultralytics `project` folder by task while leaving training packets, worker protocol, and WPF layout unchanged.
+- Changes:
+  - Updated the bundled Ultralytics worker so `segment` training writes under `runs/segment`, `classify` writes under `runs/classify`, and detection/default training keeps `runs/train`.
+  - Applied the same task-aware run-folder mapping to the local `C:\Git\yolov8\labeling_tcp_client.py` adapter.
+  - Documented the local YOLOv8 output folders in `C:\Git\yolov8\README.md`.
+- Verification:
+  - `python -m py_compile .\Runtime\Python\openvisionlab_ultralytics_worker.py` passed.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile C:\Git\yolov8\labeling_tcp_client.py` passed.
+  - `python .\Runtime\Python\openvisionlab_ultralytics_worker.py --self-test` passed.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --self-test` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-ultralytics-worker` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-connection` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-weights-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes Python worker training output routing and documentation only, not WPF layout or visual styling.
+- Remaining risk:
+  - The earlier tiny smoke artifact still exists under `C:\Git\yolov8\runs\train\openvisionlab-yolov8-seg-smoke` because it was produced before this routing correction.
+  - This slice did not run a new real training job; it verifies the task-aware project path through worker self-tests.
+- Next:
+  - Run the next real YOLOv8 segmentation training against a real project dataset and verify the generated `runs/segment/<run>/weights/best.pt` is selected as the candidate inspection model.
+
+## 2026-07-04 YOLOv8 app segmentation best.pt staging
+
+- Self-evaluation:
+  - The app-generated YOLOv8 segmentation fixture could train and load a local `best.pt`, and WPF already selected synthetic `runs/segment` candidates from `args.yaml`.
+  - The missing narrow gate was to combine those shapes: an app-prepared segmentation dataset plus a YOLOv8 `runs/segment` training run whose `args.yaml data:` points at that app `data.yaml`.
+- Changes:
+  - Extended `--wpf-training-weights-service` with an app-generated segmentation dataset fixture produced through `YoloTrainingWorkflowService.TryPrepareTrainingDataset`.
+  - Added a synthetic local YOLOv8 `runs/segment/app-segmentation-fixture/weights/best.pt` with `args.yaml` pointing to the generated app `data.yaml` and segmentation-style `results.csv`.
+  - Verified WPF training-weight selection treats that `best.pt` as the current-dataset completed segmentation training candidate and parses its mask metrics.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-weights-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --yolov8-segmentation-app-dataset-fixture` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes test coverage only, not WPF layout or visual styling.
+- Remaining risk:
+  - This is still a fixture/staging gate; it does not train on a real operator dataset or judge model accuracy.
+- Next:
+  - Use a real operator segmentation dataset, run local YOLOv8 `task=segment`, and then apply the generated `runs/segment/<run>/weights/best.pt` as the inspection-model candidate only after operator review.
+
+## 2026-07-04 YOLOv8 local app-fixture best.pt preference
+
+- Self-evaluation:
+  - After the app-generated YOLOv8 segmentation smoke, the local `C:\Git\yolov8` folder can contain multiple trained `best.pt` files plus the pretrained `yolov8n-seg.pt` seed.
+  - The smallest useful gate is to make the local folder connection fixture include the app-generated `runs/segment/openvisionlab-yolov8-app-seg-fixture-smoke/weights/best.pt` shape and prove it wins when it is newest.
+- Changes:
+  - Extended `--python-model-runtime-connection` so the generated local YOLOv8 folder fixture includes historical `runs/train`, corrected `runs/segment`, app-generated `runs/segment`, and seed-weight candidates.
+  - Verified `BuildYoloV8FolderConnection` selects the newest app-generated `runs/segment` trained `best.pt` for inspection instead of the pretrained seed or older smoke outputs.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-connection` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes test coverage only, not WPF layout or visual styling.
+- Remaining risk:
+  - This is path-selection evidence only; it does not apply the model to a production dataset or judge accuracy.
+- Next:
+  - Continue toward real operator segmentation data, then use the same local folder and WPF staging paths to promote a reviewed `runs/segment/<run>/weights/best.pt`.
+
+## 2026-07-04 YOLOv8 local adapter segmentation polygons
+
+- Self-evaluation:
+  - The bundled Ultralytics worker already preserves segmentation `masks.xy` polygons, but the local YOLOv8 adapter at `C:\Git\yolov8\labeling_tcp_client.py` still emitted bbox-only candidates.
+  - Because the user chose a YOLOv5-like local-source workflow, the local adapter must preserve the same segmentation candidate metadata before real operator segmentation inference can be trusted.
+- Changes:
+  - Updated `C:\Git\yolov8\labeling_tcp_client.py` so `DetectImage` attaches `segmentationType=polygon`, `polygonPoints`, and `normalizedPolygonPoints` when Ultralytics returns `result.masks.xy`.
+  - Added a local worker self-test fake-mask assertion for polygon point and normalized point output.
+- Verification:
+  - `C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile C:\Git\yolov8\labeling_tcp_client.py` passed.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --self-test` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-detection-result-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --yolo-worker-smoke-service` passed.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --smoke-test --weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-app-seg-fixture-smoke\weights\best.pt --image C:\Git\Labelling_Application\artifacts\yolov8-app-segmentation-dataset\data\valid\images\purpose-valid.jpeg --model-root C:\Git\yolov8 --image-root C:\Git\Labelling_Application\artifacts\yolov8-app-segmentation-dataset\data\valid\images --device cpu --img-size 64` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes a local Python worker contract only, not WPF layout or visual styling.
+- Remaining risk:
+  - The default-confidence app-fixture smoke produced zero candidates, so that CLI smoke proved model load/execution only; the follow-up low-confidence app-fixture smoke below verifies non-empty polygon output.
+  - `C:\Git\yolov8` is not a git repository, so this local adapter change is not tracked by `git status` in either workspace.
+- Next:
+  - Use a real operator segmentation image/model that produces non-empty masks to verify end-to-end local YOLOv8 polygon candidates and saved segmentation labels.
+
+## 2026-07-04 YOLOv8 app-fixture non-empty polygon smoke
+
+- Self-evaluation:
+  - The previous app-generated segmentation smoke proved model load/execution, but default confidence returned zero candidates.
+  - The smallest useful follow-up was to keep the same trained `best.pt` and app-generated fixture, lower only the smoke confidence, and verify whether the local adapter emits real mask polygons without additional training or downloads.
+- Changes:
+  - No code changes.
+  - Updated documentation to replace the stale zero-candidate limitation with the verified low-confidence app-fixture result.
+- Verification:
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --smoke-test --weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-app-seg-fixture-smoke\weights\best.pt --image C:\Git\Labelling_Application\artifacts\yolov8-app-segmentation-dataset\data\train\images\purpose-train.jpeg --model-root C:\Git\yolov8 --image-root C:\Git\Labelling_Application\artifacts\yolov8-app-segmentation-dataset\data\train\images --device cpu --img-size 64 --conf 0.01` passed and returned one `Defect` candidate with `segmentationType=polygon`, four `polygonPoints`, and four `normalizedPolygonPoints`.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --smoke-test --weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-app-seg-fixture-smoke\weights\best.pt --image C:\Git\Labelling_Application\artifacts\yolov8-app-segmentation-dataset\data\valid\images\purpose-valid.jpeg --model-root C:\Git\yolov8 --image-root C:\Git\Labelling_Application\artifacts\yolov8-app-segmentation-dataset\data\valid\images --device cpu --img-size 64 --conf 0.01` passed and returned one `Defect` candidate with `segmentationType=polygon`, four `polygonPoints`, and four `normalizedPolygonPoints`.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --smoke-test --model yolov8 --weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-app-seg-fixture-smoke\weights\best.pt --image C:\Git\Labelling_Application\artifacts\yolov8-app-segmentation-dataset\data\valid\images\purpose-valid.jpeg --model-root C:\Git\yolov8 --image-root C:\Git\Labelling_Application\artifacts\yolov8-app-segmentation-dataset\data\valid\images --device cpu --img-size 64 --conf 0.01` also passed, matching the C# smoke service's adapter argument shape.
+- Capture:
+  - No screenshot is needed for this pass because it changes no WPF layout or visual styling.
+- Remaining risk:
+  - This is still a tiny app-fixture/low-confidence smoke, not production accuracy or a real operator dataset gate.
+  - Real operator data should still be used before promoting a trained segmentation model as production-ready.
+- Next:
+  - Run the same local YOLOv8 segmentation path on a real operator segmentation dataset when available, then use the generated `runs\segment\<run>\weights\best.pt` through the existing candidate model staging path.
+
+## 2026-07-04 YOLOv8 smoke service argument lock
+
+- Self-evaluation:
+  - Direct local adapter smokes proved `--model yolov8 --conf 0.01 --img-size 64` works with the app-generated segmentation fixture.
+  - The smallest useful C# follow-up was to lock that smoke-service process argument shape without adding new runtime behavior.
+- Changes:
+  - Extended `TestYoloWorkerSmokeTestServiceValidation` so the private smoke-process builder is checked for `--model yolov8`, `--conf 0.01`, and `--img-size 64`.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --yolo-worker-smoke-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes test coverage only, not WPF layout or visual styling.
+- Remaining risk:
+  - This is process-argument coverage only; it does not train on an operator dataset or judge segmentation accuracy.
+- Next:
+  - Continue with a real operator segmentation dataset gate when available.
+
+## 2026-07-04 YOLOv8 smoke status mask count
+
+- Self-evaluation:
+  - YOLOv8 local smokes now return real polygon candidates, but the WPF current-image smoke status still showed only the total candidate count.
+  - The smallest useful operator diagnostic is to keep status text in `WpfDetectionResultPresentationService` and append a mask count when smoke candidates include polygon segmentation metadata.
+- Changes:
+  - Updated `WpfDetectionResultPresentationService.BuildSmokeStatus` to append `마스크 <count>` when successful smoke candidates include `segmentationType=polygon` or at least three polygon points.
+  - Extended `--wpf-detection-result-presentation` coverage so completed smoke status includes the segmentation mask count.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-detection-result-presentation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --yolo-worker-smoke-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - No screenshot is needed for this pass because it changes status text only, not WPF layout or visual styling.
+- Remaining risk:
+  - This is operator diagnostics for smoke results only; it does not train on operator data or judge segmentation accuracy.
+- Next:
+  - Continue with the real operator segmentation dataset gate when data is available.
+
+## 2026-07-04 YOLOv8 real TCP segmentation smoke gate
+
+- Self-evaluation:
+  - Direct local adapter smokes proved non-empty polygon output, and focused synthetic gates proved polygon confirmation can save segmentation artifacts.
+  - The missing narrow gate was the actual TCP workflow: local YOLOv8 worker -> C# `ResultDefect` parse -> overlay -> confirm -> saved label/segment artifacts.
+- Changes:
+  - Extended the existing `--real-yolo-smoke` harness with an opt-in `LABELING_SMOKE_EXPECT_SEGMENTATION=true` mode.
+  - The default YOLOv5-style smoke remains unchanged; the segmentation expectation only asserts polygon candidates and enables segment/mask confirmation when explicitly requested.
+  - The smoke summary now records `expectSegmentation`, `polygonCandidateCount`, and whether segment JSON/mask PNG artifacts were saved.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - YOLOv8 local-source `--real-yolo-smoke` with `LABELING_SMOKE_EXPECT_SEGMENTATION=true`, `LABELING_SMOKE_CONFIDENCE=0.01`, `LABELING_SMOKE_IMAGE_SIZE=64`, `C:\Git\yolov8\labeling_tcp_client.py`, and `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-app-seg-fixture-smoke\weights\best.pt` passed.
+  - Artifact `artifacts\real-yolo-smoke\20260704-010540\summary.txt` recorded `polygonCandidateCount=1`, `segmentExists=True`, and `maskExists=True`; the focused smoke also asserted the saved segment JSON has polygons/points and the saved mask is non-empty.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --detection-result-segmentation-confirm` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-detection-result-protocol` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --yolo-worker-smoke-service` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes a test harness and runtime artifacts only, not WPF layout or visual styling.
+- Remaining risk:
+  - This is still the tiny app-generated fixture at low confidence. It proves the real TCP segmentation plumbing and artifact save path, not production accuracy.
+  - A real operator segmentation dataset/model remains the production gate before broad readiness claims.
+- Next:
+  - Use the same local YOLOv8 source workflow on a real operator segmentation dataset when available, then stage the generated `runs\segment\<run>\weights\best.pt` through the existing model-candidate path.
+
+## 2026-07-04 WPF confirmed AI polygon segmentation save gate
+
+- Self-evaluation:
+  - The real TCP smoke proved the local YOLOv8 worker can return a polygon candidate and the core detection-result service can confirm it as segmentation artifacts.
+  - The remaining narrow app gap was the WPF Candidate Review save path: confirmed AI candidates were already saved as box ROIs, but `BuildAnnotationSegments()` did not include confirmed candidates that carry polygon points.
+- Changes:
+  - `WpfLabelingShellWindow.AnnotationPersistence.cs` now converts confirmed AI candidates with at least three `PolygonPoints` into `LabelingSegmentationObject` entries during segmentation-purpose saves.
+  - Extended the existing WPF brush/eraser shell test so the save path writes segment JSON and mask PNG artifacts from both a manual raster mask and a confirmed AI polygon segment.
+  - Added a Candidate Review command-flow assertion that applies a polygon AI candidate, executes the confirm command, verifies segment JSON/mask PNG artifacts, runs `YoloTrainingWorkflowService.TryPrepareTrainingDataset` so the confirmed polygon becomes an Ultralytics YOLO segment `labels/*.txt` line, and sends a mocked YOLOv8 `StartTraining` packet.
+  - Added focused `--wpf-candidate-polygon-training-flow` so this regression can be rerun without the full segmentation-object gate.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-polygon-training-flow` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification` passed, including the Candidate Review confirm command, confirmed AI polygon segment JSON restoration, non-empty mask PNG assertions, train label export line `0 0.1 0.1 0.5 0.1 0.5 0.45 0.1 0.45`, and a YOLOv8 training packet with `task=segment`, `weight=yolov8n-seg.pt`, and the fixture `data.yaml`.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --detection-result-segmentation-confirm` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes WPF save-model conversion and focused tests only, not layout or visual styling.
+- Remaining risk:
+  - This is a focused WPF artifact, training-label preparation, and training-packet gate. It does not replace the real operator segmentation dataset/model accuracy gate.
+- Next:
+  - Continue toward a real operator YOLOv8 segmentation dataset run, then promote a reviewed `runs\segment\<run>\weights\best.pt` through the model-candidate path.
+
+## 2026-07-04 YOLOv8 local adapter final sanity recheck
+
+- Self-evaluation:
+  - The WPF Candidate Review path now reaches the expected YOLOv8 segmentation training packet.
+  - Before stopping the 02:00 KST loop, the useful non-invasive check was to verify that the local `C:\Git\yolov8` source adapter still compiles, imports editable Ultralytics, passes self-test, and returns a segmentation polygon from the existing app-fixture `best.pt`.
+- Changes:
+  - No code changes.
+- Verification:
+  - `C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile C:\Git\yolov8\labeling_tcp_client.py` passed.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe -c "import ultralytics, pathlib; print(ultralytics.__version__); print(pathlib.Path(ultralytics.__file__).resolve())"` printed Ultralytics `8.4.86` from `C:\Git\yolov8\ultralyticsMaster\ultralytics\__init__.py`.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --self-test` passed.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --smoke-test --model yolov8 --weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-app-seg-fixture-smoke\weights\best.pt --image C:\Git\Labelling_Application\artifacts\yolov8-app-segmentation-dataset\data\valid\images\purpose-valid.jpeg --model-root C:\Git\yolov8 --image-root C:\Git\Labelling_Application\artifacts\yolov8-app-segmentation-dataset\data\valid\images --device cpu --img-size 64 --conf 0.01` passed and returned one `Defect` `segmentationType=polygon` candidate.
+- Capture:
+  - No screenshot is needed for this pass because it changes no UI layout or visual styling.
+- Remaining risk:
+  - This rechecks the tiny app-fixture adapter path only. It is not a real operator dataset or production accuracy gate.
+- Next:
+  - Run the same local-source YOLOv8 path on a real operator segmentation dataset when available.
+
 ## 보류/제외
 
 - C# 앱 안에 YOLO 학습 로직을 직접 넣지 않습니다.
 - Python 모델 코드를 C#으로 재작성하지 않습니다.
 - 전체 Material 테마 적용은 WPF 전환이 더 끝난 뒤 다시 판단합니다.
 - WinForms/WPF hybrid 상태를 최종 제품 방향으로 보지 않습니다.
+
+## 2026-07-04 SEG purpose brush-first toolbar sync
+
+- Self-evaluation:
+  - The reported issue was not segmentation persistence or brush raster rendering. The visible failure was that a segmentation-purpose dataset could still present object-detection-oriented tool scope/status, and the compact guide/canvas tool order hid brush/eraser behind box/select.
+- Changes:
+  - `WpfLearningWorkflowPanelViewModel` now exposes segmentation tools in brush-first order: `Brush`, `Eraser`, `Polygon`, `Select`, `PanZoom`.
+  - Switching/opening a segmentation purpose from the default select state now selects `Brush`.
+  - Dataset-purpose application now refreshes canvas tool scope, workflow context, annotation visibility, readiness, and YOLO training-step completion so the shell no longer keeps stale object-detection UI state.
+  - The focused WPF tests now lock both segmentation and object-detection tool scopes.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --annotation-tool brush --review-tab guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-seg-purpose-brush-1920.png` passed.
+- Capture:
+  - `artifacts\ui\wpf-seg-purpose-brush-1920.png` shows the segmentation purpose badge, brush status, and brush/eraser-first guide and canvas toolbars at 1920x1080.
+  - Public README/tutorial references were checked; they describe segmentation textually and do not pin this SEG brush-toolbar state as a tutorial screenshot, so no README/tutorial image update was needed.
+- Remaining risk:
+  - A separate EXE UIAutomation smoke attempt failed before product interaction because it waits for existing hidden quick-tool text; the WPF visual-smoke capture above is the UI evidence for this fix.
+- Next:
+  - If operator feedback still says the mode is unclear, add a tiny purpose badge wording change such as `SEG / Segmentation` in the existing presentation path without changing layout.

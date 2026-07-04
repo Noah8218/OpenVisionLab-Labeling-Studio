@@ -193,6 +193,16 @@ namespace MvcVisionSystem._1._Core
             return disposed ? 0 : viewer.AddSegmentationRectangles(rectangles, classItem, reset);
         }
 
+        public bool AddSegmentationPolygon(
+            IEnumerable<Point> polygon,
+            Yolo.CClassItem classItem = null,
+            bool refresh = true,
+            bool select = true,
+            bool recordUndo = true)
+        {
+            return !disposed && viewer.AddSegmentationPolygon(polygon, classItem, refresh, select, recordUndo);
+        }
+
         public IReadOnlyList<LabelingRoiListItem> GetRoiListItems()
         {
             return disposed ? Array.Empty<LabelingRoiListItem>() : viewer.GetRoiListItems();

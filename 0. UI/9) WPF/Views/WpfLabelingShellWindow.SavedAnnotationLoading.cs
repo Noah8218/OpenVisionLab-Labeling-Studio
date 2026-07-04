@@ -54,5 +54,55 @@ namespace MvcVisionSystem
 
             return loadedCount;
         }
+
+        private int LoadSavedSegmentationAnnotationsForActiveImage(string imagePath)
+        {
+            if (activeImageSize.IsEmpty || !IsSegmentationDatasetPurposeActive())
+            {
+                return 0;
+            }
+
+            IReadOnlyDictionary<string, List<LabelingSegmentationObject>> savedSegments =
+                YoloSegmentationAnnotationService.LoadSegmentationObjectsForImage(
+                    imagePath,
+                    global.Data.ClassNamedList,
+                    global.Data,
+                    activeImageSize);
+            if (savedSegments == null || savedSegments.Count == 0)
+            {
+                return 0;
+            }
+
+            int loadedCount = 0;
+            foreach (KeyValuePair<string, List<LabelingSegmentationObject>> classSegments in savedSegments)
+            {
+                CClassItem classItem = EnsureClassItem(classSegments.Key);
+                foreach (LabelingSegmentationObject segment in classSegments.Value ?? Enumerable.Empty<LabelingSegmentationObject>())
+                {
+                    if (segment == null)
+                    {
+                        continue;
+                    }
+
+                    segment.ClassName = classItem?.Text ?? "Defect";
+                    segment.ClassItem = classItem;
+                    if (segment.IsRasterMask && segment.RenderVersion <= 0)
+                    {
+                        segment.RenderVersion = 1;
+                        segment.RenderDirtyBounds = segment.Bounds;
+                    }
+
+                    manualSegments.Add(segment);
+                    loadedCount++;
+                }
+            }
+
+            if (loadedCount > 0)
+            {
+                RefreshPolygonOverlays();
+            }
+
+            return loadedCount;
+        }
     }
 }

@@ -55,7 +55,9 @@ namespace MvcVisionSystem
                 }
 
                 bool started = global.TrainingWorkflow.TryStartTraining(global.Data, global.DeepLearning);
-                string startText = WpfTrainingCommandPresentationService.BuildStartCommandResultStatus(started);
+                string startText = WpfTrainingCommandPresentationService.BuildStartCommandResultStatus(
+                    started,
+                    global.TrainingWorkflow.LastPreparationFailureMessage);
                 SetTrainingReadinessStatus(startText);
                 if (!started)
                 {

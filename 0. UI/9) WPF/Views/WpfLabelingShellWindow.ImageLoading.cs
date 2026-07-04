@@ -107,6 +107,8 @@ namespace MvcVisionSystem
                 ClearAnnotationHistory();
                 UpdateDetectionResultOverlay();
                 int loadedSavedBoxCount = LoadSavedBoxAnnotationsForActiveImage(imagePath);
+                int loadedSavedSegmentCount = LoadSavedSegmentationAnnotationsForActiveImage(imagePath);
+                int loadedSavedAnnotationCount = loadedSavedBoxCount + loadedSavedSegmentCount;
                 annotationResetMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
                 if (populateQueue)
                 {
@@ -116,16 +118,18 @@ namespace MvcVisionSystem
                 SetDatasetStatus(imageLoadPresentationService.BuildLoadedDatasetStatus(imagePath, activeImageSize));
                 SetModelStatus(imageLoadPresentationService.BuildModelStatus(global.Data.ProjectSettings?.PythonModel?.WeightsPath));
                 MarkAnnotationsSaved(imageLoadPresentationService.BuildAnnotationLoadedStatus());
-                RefreshCandidateList();
-                RefreshObjectList();
-                PopulateClassList();
-                if (refreshActiveStatus)
+                bool deferReviewRefresh = ShouldDeferImageLoadReviewRefresh(
+                    populateQueue,
+                    refreshQueueDetails,
+                    refreshActiveStatus,
+                    appendLoadLog);
+                if (deferReviewRefresh)
                 {
-                    RefreshActiveImageQueueStatus(hasActiveCandidates: false);
+                    ScheduleImageLoadReviewRefresh(imagePath, refreshActiveStatus, refreshClassCatalog: false);
                 }
                 else
                 {
-                    UpdateImageQueueStatusText();
+                    RefreshImageLoadReviewState(refreshActiveStatus, refreshClassCatalog: true);
                 }
                 reviewRefreshMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
                 if (!appendLoadLog)
@@ -146,8 +150,8 @@ namespace MvcVisionSystem
                         preloadScheduleMilliseconds);
                     return true;
                 }
-                AppendLog(loadedSavedBoxCount > 0
-                    ? $"{imageLoadPresentationService.BuildLoadLog(imagePath)} / saved boxes: {loadedSavedBoxCount}"
+                AppendLog(loadedSavedAnnotationCount > 0
+                    ? $"{imageLoadPresentationService.BuildLoadLog(imagePath)} / saved labels: {loadedSavedAnnotationCount}"
                     : imageLoadPresentationService.BuildLoadLog(imagePath));
                 PreloadAdjacentQueueImages(imagePath);
                 preloadScheduleMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
@@ -175,6 +179,50 @@ namespace MvcVisionSystem
             finally
             {
                 imageMat?.Dispose();
+            }
+        }
+
+        private static bool ShouldDeferImageLoadReviewRefresh(
+            bool populateQueue,
+            bool refreshQueueDetails,
+            bool refreshActiveStatus,
+            bool appendLoadLog)
+            => !populateQueue
+                && !refreshQueueDetails
+                && !refreshActiveStatus
+                && !appendLoadLog;
+
+        private void ScheduleImageLoadReviewRefresh(string imagePath, bool refreshActiveStatus, bool refreshClassCatalog)
+        {
+            Dispatcher.BeginInvoke(
+                new Action(() =>
+                {
+                    if (!string.Equals(activeImagePath, imagePath, StringComparison.OrdinalIgnoreCase))
+                    {
+                        return;
+                    }
+
+                    RefreshImageLoadReviewState(refreshActiveStatus, refreshClassCatalog);
+                }),
+                System.Windows.Threading.DispatcherPriority.Background);
+        }
+
+        private void RefreshImageLoadReviewState(bool refreshActiveStatus, bool refreshClassCatalog)
+        {
+            RefreshCandidateList();
+            RefreshObjectList();
+            if (refreshClassCatalog)
+            {
+                PopulateClassList();
+            }
+
+            if (refreshActiveStatus)
+            {
+                RefreshActiveImageQueueStatus(hasActiveCandidates: false);
+            }
+            else
+            {
+                UpdateImageQueueStatusText();
             }
         }
 

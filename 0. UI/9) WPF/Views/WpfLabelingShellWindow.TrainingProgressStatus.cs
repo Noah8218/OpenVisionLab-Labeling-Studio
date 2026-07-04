@@ -178,7 +178,7 @@ namespace MvcVisionSystem
 
         private static string BuildTrainingRecoveryDetail(PythonCommunicationStatus status)
         {
-            return WpfTrainingProgressPresentationService.BuildFailureDetail(status?.LastTrainingMessage);
+            return WpfTrainingProgressPresentationService.BuildFailureDetail(status);
         }
 
         private MediaBrush ResolveTrainingStateBrush(PythonCommunicationStatus status)

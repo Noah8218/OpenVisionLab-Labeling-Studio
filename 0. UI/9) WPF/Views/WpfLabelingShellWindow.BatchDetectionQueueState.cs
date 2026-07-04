@@ -33,6 +33,7 @@ namespace MvcVisionSystem
                     : imageReviewStatus.SetDetectionNoCandidates(item.ImagePath, imageName)
                 : imageReviewStatus.SetDetectionFailed(item.ImagePath, imageName, result.Summary);
             ApplyReviewStatusToItem(item, status);
+            ApplyAnomalyClassificationToImage(item.ImagePath, imageName, result.Candidates, saveReviewStatus);
             if (saveReviewStatus)
             {
                 imageReviewStatus.SaveReviewStatus(global.Data);

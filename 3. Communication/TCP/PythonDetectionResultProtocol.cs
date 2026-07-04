@@ -7,6 +7,15 @@ using System.Linq;
 
 namespace MvcVisionSystem._3._Communication.TCP
 {
+    public sealed class DetectionPolygonPoint
+    {
+        [JsonProperty("x")]
+        public float X { get; set; } = 0;
+
+        [JsonProperty("y")]
+        public float Y { get; set; } = 0;
+    }
+
     public sealed class DefectInfo
     {
         public string ClassName { get; set; } = "";
@@ -15,6 +24,23 @@ namespace MvcVisionSystem._3._Communication.TCP
         public float Y { get; set; } = 0;
         public float Width { get; set; } = 0;
         public float Height { get; set; } = 0;
+        [JsonProperty("candidateType")]
+        public string CandidateType { get; set; } = "";
+
+        [JsonProperty("predictionType")]
+        public string PredictionType { get; set; } = "";
+
+        [JsonProperty("imageLevel")]
+        public bool ImageLevel { get; set; }
+
+        [JsonProperty("segmentationType")]
+        public string SegmentationType { get; set; } = "";
+
+        [JsonProperty("polygonPoints")]
+        public List<DetectionPolygonPoint> PolygonPoints { get; set; } = new List<DetectionPolygonPoint>();
+
+        [JsonProperty("normalizedPolygonPoints")]
+        public List<DetectionPolygonPoint> NormalizedPolygonPoints { get; set; } = new List<DetectionPolygonPoint>();
     }
 
     public enum DetectionResultParseStatus

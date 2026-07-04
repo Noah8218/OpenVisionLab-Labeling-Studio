@@ -60,7 +60,8 @@ namespace MvcVisionSystem
 
             if (e.Key == Key.Z)
             {
-                e.Handled = UndoWpfAnnotationHistory();
+                bool isRedoShortcut = (e.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
+                e.Handled = isRedoShortcut ? RedoWpfAnnotationHistory() : UndoWpfAnnotationHistory();
                 return;
             }
 

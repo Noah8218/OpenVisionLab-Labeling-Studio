@@ -50,7 +50,7 @@ namespace MvcVisionSystem
             history.LastTrainingUpdateUtc = DateTime.UtcNow.ToString("o", CultureInfo.InvariantCulture);
             history.LastTrainingState = status.LastTrainingState ?? string.Empty;
             history.LastTrainingProgressPercent = status.LastTrainingProgressPercent ?? -1;
-            history.LastTrainingMessage = status.LastTrainingMessage ?? string.Empty;
+            history.LastTrainingMessage = BuildTrainingHistoryMessage(status);
 
             bool isTerminal = isTerminalTrainingState?.Invoke(history.LastTrainingState) == true;
             if (!isTerminal)
@@ -115,6 +115,12 @@ namespace MvcVisionSystem
                     ? $" {Math.Clamp(history.LastTrainingProgressPercent, 0, 100)}%"
                     : string.Empty;
                 parts.Add($"학습 {FormatTrainingState(formatTrainingState, history.LastTrainingState)}{progress}");
+            }
+
+            if (IsFailedTrainingState(history.LastTrainingState)
+                && !string.IsNullOrWhiteSpace(history.LastTrainingMessage))
+            {
+                parts.Add(history.LastTrainingMessage.Trim());
             }
 
             if (!string.IsNullOrWhiteSpace(history.AppliedWeightsPath))
@@ -205,6 +211,43 @@ namespace MvcVisionSystem
         private static string FormatTrainingState(Func<string, string> formatTrainingState, string state)
         {
             return formatTrainingState?.Invoke(state) ?? state ?? string.Empty;
+        }
+
+        private static string BuildTrainingHistoryMessage(PythonCommunicationStatus status)
+        {
+            if (status == null)
+            {
+                return string.Empty;
+            }
+
+            string state = status.LastTrainingState?.Trim() ?? string.Empty;
+            string message = IsFailedTrainingState(state) && !string.IsNullOrWhiteSpace(status.LastError)
+                ? status.LastError
+                : status.LastTrainingMessage ?? string.Empty;
+            string displayMessage = WpfTrainingProgressPresentationService.FormatTrainingMessage(message);
+            if (string.IsNullOrWhiteSpace(displayMessage))
+            {
+                return string.Empty;
+            }
+
+            if (message.Contains("TrainingWeightDownloadRequired", StringComparison.OrdinalIgnoreCase)
+                && !string.IsNullOrWhiteSpace(status.LastTrainingWeightsPath))
+            {
+                string weightName = Path.GetFileName(status.LastTrainingWeightsPath.Trim());
+                if (!string.IsNullOrWhiteSpace(weightName))
+                {
+                    return $"{displayMessage} ({weightName})";
+                }
+            }
+
+            return displayMessage;
+        }
+
+        private static bool IsFailedTrainingState(string state)
+        {
+            string normalized = state?.Trim() ?? string.Empty;
+            return string.Equals(normalized, "failed", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "error", StringComparison.OrdinalIgnoreCase);
         }
 
         private static string FormatHistoryProgress(int progressPercent)

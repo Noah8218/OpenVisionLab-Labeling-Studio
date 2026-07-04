@@ -15,6 +15,8 @@ namespace MvcVisionSystem
             ApplyAnnotationToolSelection(LearningWorkflowViewModel?.SelectedTool);
             RefreshCanvasWorkflowContext();
             RefreshAnnotationVisibilityForDatasetPurpose(notifyOperator: true);
+            RefreshTrainingReadinessPanel(refreshYaml: false);
+            RefreshYoloTrainingStepCompletion();
         }
 
         private void LearningWorkflowModeListBox_SelectionChanged(object sender, object selectedItem)

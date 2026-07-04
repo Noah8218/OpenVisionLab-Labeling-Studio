@@ -627,6 +627,81 @@
                 </Grid>
             </Border>
 
+            <Border x:Name="YoloAnomalyMappingPanel"
+                    AutomationProperties.AutomationId="YoloAnomalyMappingPanel"
+                    Background="{DynamicResource CanvasBrush}"
+                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    BorderThickness="1"
+                    CornerRadius="4"
+                    Padding="7"
+                    Margin="0,0,0,8">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="82" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock x:Name="YoloAnomalyMappingHeaderText"
+                               AutomationProperties.AutomationId="YoloAnomalyMappingHeaderText"
+                               Grid.ColumnSpan="2"
+                               Text="{Binding AnomalyMappingHeaderText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="YoloAnomalyMappingSummaryText"
+                               AutomationProperties.AutomationId="YoloAnomalyMappingSummaryText"
+                               Grid.Row="1"
+                               Grid.ColumnSpan="2"
+                               Text="{Binding AnomalyMappingSummaryText}"
+                               Foreground="{DynamicResource AccentBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               TextWrapping="Wrap"
+                               Margin="0,3,0,0" />
+
+                    <TextBlock Grid.Row="2"
+                               Text="&#xC815;&#xC0C1; &#xD074;&#xB798;&#xC2A4;"
+                               Style="{StaticResource YoloModelLabelStyle}" />
+                    <TextBox x:Name="YoloAnomalyNormalClassesBox"
+                             Grid.Row="2"
+                             Grid.Column="1"
+                             Style="{StaticResource YoloModelTextBoxStyle}"
+                             Text="{Binding AnomalyNormalClassNamesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Normal, OK" />
+
+                    <TextBlock Grid.Row="3"
+                               Text="&#xC774;&#xC0C1; &#xD074;&#xB798;&#xC2A4;"
+                               Style="{StaticResource YoloModelLabelStyle}" />
+                    <TextBox x:Name="YoloAnomalyAbnormalClassesBox"
+                             Grid.Row="3"
+                             Grid.Column="1"
+                             Style="{StaticResource YoloModelTextBoxStyle}"
+                             Text="{Binding AnomalyAbnormalClassNamesText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="Abnormal, NG" />
+
+                    <TextBlock Grid.Row="4"
+                               Text="&#xCD5C;&#xC18C; &#xC2E0;&#xB8B0;&#xB3C4;"
+                               Style="{StaticResource YoloModelLabelStyle}" />
+                    <TextBox x:Name="YoloAnomalyMinimumConfidenceBox"
+                             Grid.Row="4"
+                             Grid.Column="1"
+                             Style="{StaticResource YoloModelTextBoxStyle}"
+                             Text="{Binding AnomalyMinimumConfidenceText, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                             ToolTip="0~1 &#xC0AC;&#xC774; &#xC2E0;&#xB8B0;&#xB3C4; &#xAC12;"
+                             mvvm:InputCommandBehaviors.TextInputFilter="Decimal" />
+                </Grid>
+            </Border>
+
             <WrapPanel Margin="0,0,0,8">
                 <ui:Button x:Name="SaveYoloSettingsButton"
                            Style="{StaticResource YoloModelCommandButtonStyle}"

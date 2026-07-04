@@ -70,27 +70,27 @@ namespace MvcVisionSystem
         private static readonly string[] PrecisionMetricAliases =
         {
             "metrics/precision",
-            "metrics/precision(b)",
             "metrics/precision(m)",
+            "metrics/precision(b)",
             "precision",
-            "precision(b)",
             "precision(m)",
+            "precision(b)",
             "p",
-            "p(b)",
-            "p(m)"
+            "p(m)",
+            "p(b)"
         };
 
         private static readonly string[] RecallMetricAliases =
         {
             "metrics/recall",
-            "metrics/recall(b)",
             "metrics/recall(m)",
+            "metrics/recall(b)",
             "recall",
-            "recall(b)",
             "recall(m)",
+            "recall(b)",
             "r",
-            "r(b)",
-            "r(m)"
+            "r(m)",
+            "r(b)"
         };
 
         private static readonly string[] Map50MetricAliases =
@@ -99,18 +99,18 @@ namespace MvcVisionSystem
             "metrics/mAP_0.5",
             "metrics/map50",
             "metrics/mAP50",
-            "metrics/map50(b)",
-            "metrics/mAP50(B)",
             "metrics/map50(m)",
             "metrics/mAP50(M)",
+            "metrics/map50(b)",
+            "metrics/mAP50(B)",
             "map_0.5",
             "mAP_0.5",
             "map50",
             "mAP50",
-            "map50(b)",
-            "mAP50(B)",
             "map50(m)",
             "mAP50(M)",
+            "map50(b)",
+            "mAP50(B)",
             "map@50",
             "mAP@0.5"
         };
@@ -121,33 +121,36 @@ namespace MvcVisionSystem
             "metrics/mAP_0.5:0.95",
             "metrics/map50-95",
             "metrics/mAP50-95",
-            "metrics/map50-95(b)",
-            "metrics/mAP50-95(B)",
             "metrics/map50-95(m)",
             "metrics/mAP50-95(M)",
+            "metrics/map50-95(b)",
+            "metrics/mAP50-95(B)",
             "map_0.5:0.95",
             "mAP_0.5:0.95",
             "map50-95",
             "mAP50-95",
-            "map50-95(b)",
-            "mAP50-95(B)",
             "map50-95(m)",
             "mAP50-95(M)",
+            "map50-95(b)",
+            "mAP50-95(B)",
             "map@50-95",
             "mAP@0.5:0.95"
         };
 
-        private static readonly string[] BoxLossMetricAliases =
+        private static readonly string[] LossMetricAliases =
         {
+            "val/seg_loss",
             "val/box_loss",
-            "val/box_loss(b)",
             "val/box_loss(m)",
+            "val/box_loss(b)",
+            "train/seg_loss",
             "train/box_loss",
-            "train/box_loss(b)",
             "train/box_loss(m)",
+            "train/box_loss(b)",
+            "seg_loss",
             "box_loss",
-            "box_loss(b)",
-            "box_loss(m)"
+            "box_loss(m)",
+            "box_loss(b)"
         };
 
         public bool TryFindLatestTrainingWeights(string projectRootPath, string outputRootPath, out string latestWeightsPath)
@@ -169,16 +172,13 @@ namespace MvcVisionSystem
             {
                 candidates.Add(Path.Combine(candidateRootPath, "best.pt"));
 
-                string trainRunsRoot = Path.Combine(candidateRootPath, "runs", "train");
-                if (!Directory.Exists(trainRunsRoot))
+                foreach (string runsRoot in EnumerateTrainingRunRoots(candidateRootPath))
                 {
-                    continue;
-                }
-
-                candidates.Add(Path.Combine(trainRunsRoot, "weights", "best.pt"));
-                foreach (string runDirectory in Directory.EnumerateDirectories(trainRunsRoot))
-                {
-                    candidates.Add(Path.Combine(runDirectory, "weights", "best.pt"));
+                    candidates.Add(Path.Combine(runsRoot, "weights", "best.pt"));
+                    foreach (string runDirectory in Directory.EnumerateDirectories(runsRoot))
+                    {
+                        candidates.Add(Path.Combine(runDirectory, "weights", "best.pt"));
+                    }
                 }
             }
 
@@ -315,7 +315,7 @@ namespace MvcVisionSystem
                 Recall = ReadMetric(headers, values, RecallMetricAliases),
                 Map50 = ReadMetric(headers, values, Map50MetricAliases),
                 Map5095 = ReadMetric(headers, values, Map5095MetricAliases),
-                BoxLoss = ReadMetric(headers, values, BoxLossMetricAliases)
+                BoxLoss = ReadMetric(headers, values, LossMetricAliases)
             };
 
             return metrics.HasScore || metrics.BoxLoss.HasValue;
@@ -434,6 +434,18 @@ namespace MvcVisionSystem
             return roots;
         }
 
+        private static IEnumerable<string> EnumerateTrainingRunRoots(string candidateRootPath)
+        {
+            foreach (string runKind in new[] { "train", "segment" })
+            {
+                string runsRoot = Path.Combine(candidateRootPath ?? string.Empty, "runs", runKind);
+                if (Directory.Exists(runsRoot))
+                {
+                    yield return runsRoot;
+                }
+            }
+        }
+
         private static bool IsTrainingWeightsForOutputRoot(string weightsPath, string outputRootPath)
         {
             string expectedDataYamlPath = ResolveOutputDataYamlPath(outputRootPath);
@@ -500,33 +512,47 @@ namespace MvcVisionSystem
         private static bool TryReadTrainingOptDataPath(string runDirectoryPath, out string dataPath)
         {
             dataPath = string.Empty;
-            string optYamlPath = Path.Combine(runDirectoryPath ?? string.Empty, "opt.yaml");
-            if (!File.Exists(optYamlPath))
+            foreach (string metadataPath in EnumerateTrainingMetadataPaths(runDirectoryPath))
             {
-                return false;
-            }
-
-            foreach (string line in File.ReadLines(optYamlPath))
-            {
-                string trimmed = line?.Trim() ?? string.Empty;
-                if (!trimmed.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                foreach (string line in File.ReadLines(metadataPath))
                 {
-                    continue;
-                }
+                    string trimmed = line?.Trim() ?? string.Empty;
+                    if (!trimmed.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+                    {
+                        continue;
+                    }
 
-                string value = trimmed.Substring("data:".Length).Trim().Trim('"', '\'');
-                if (string.IsNullOrWhiteSpace(value))
-                {
-                    return false;
-                }
+                    string value = trimmed.Substring("data:".Length).Trim().Trim('"', '\'');
+                    if (string.IsNullOrWhiteSpace(value))
+                    {
+                        return false;
+                    }
 
-                dataPath = Path.IsPathRooted(value)
-                    ? value
-                    : Path.GetFullPath(Path.Combine(runDirectoryPath, value));
-                return true;
+                    dataPath = Path.IsPathRooted(value)
+                        ? value
+                        : Path.GetFullPath(Path.Combine(runDirectoryPath, value));
+                    return true;
+                }
             }
 
             return false;
+        }
+
+        private static IEnumerable<string> EnumerateTrainingMetadataPaths(string runDirectoryPath)
+        {
+            if (string.IsNullOrWhiteSpace(runDirectoryPath))
+            {
+                yield break;
+            }
+
+            foreach (string fileName in new[] { "opt.yaml", "args.yaml" })
+            {
+                string path = Path.Combine(runDirectoryPath, fileName);
+                if (File.Exists(path))
+                {
+                    yield return path;
+                }
+            }
         }
 
         private static bool IsPathUnderDirectory(string path, string directoryPath)
@@ -611,7 +637,7 @@ namespace MvcVisionSystem
             AddPercentComparison(parts, "mAP50", latestMetrics.Map50, currentMetrics.Map50);
             AddPercentComparison(parts, "precision", latestMetrics.Precision, currentMetrics.Precision);
             AddPercentComparison(parts, "recall", latestMetrics.Recall, currentMetrics.Recall);
-            AddLossComparison(parts, "box loss", latestMetrics.BoxLoss, currentMetrics.BoxLoss);
+            AddLossComparison(parts, "loss", latestMetrics.BoxLoss, currentMetrics.BoxLoss);
 
             return parts.Count == 0
                 ? $"새 후보 지표: {FormatMetricSnapshot(latestMetrics)}"
@@ -666,7 +692,7 @@ namespace MvcVisionSystem
             AddPercentSnapshot(parts, "recall", metrics?.Recall);
             if (metrics?.BoxLoss != null)
             {
-                parts.Add($"box loss {metrics.BoxLoss.Value:0.###}");
+                parts.Add($"loss {metrics.BoxLoss.Value:0.###}");
             }
 
             return parts.Count == 0 ? "지표 없음" : string.Join(", ", parts);

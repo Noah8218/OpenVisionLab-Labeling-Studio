@@ -53,6 +53,30 @@ namespace MvcVisionSystem._1._Core
             return new PythonModelRuntimeConnectionResult(settings, report, summary, detail);
         }
 
+        public static PythonModelRuntimeConnectionResult BuildYoloV8FolderConnection(
+            PythonModelSettings currentSettings,
+            string selectedFolderPath)
+        {
+            string projectRootPath = selectedFolderPath?.Trim() ?? string.Empty;
+            PythonModelSettings settings = Clone(currentSettings);
+            settings.ModelEngine = PythonModelSettings.EngineYoloV8;
+            settings.ProjectRootPath = projectRootPath;
+            settings.ClientScriptPath = ResolveClientScriptPath(string.Empty, projectRootPath);
+            settings.PythonExecutablePath = ResolveLocalPythonExecutablePath(projectRootPath);
+            settings.WeightsPath = ResolveYoloV8WeightsPath(projectRootPath);
+            settings.ImageRootPath = ResolveImageRootPath(string.Empty, projectRootPath);
+
+            PythonModelRuntimeSelfTestReport report = PythonModelRuntimeSelfTestService.BuildReport(settings);
+            string summary = report.CanInspect
+                ? "YOLOv8 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uD655\uC778"
+                : "YOLOv8 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uD655\uC778 \uD544\uC694";
+            string detail = report.CanInspect
+                ? "\uB85C\uCEEC Ultralytics \uC18C\uC2A4 worker\uAC00 \uC5F0\uACB0\uB410\uC2B5\uB2C8\uB2E4. \uD559\uC2B5\uACFC \uD604\uC7AC \uAC80\uC0AC\uC5D0 \uC0AC\uC6A9\uD560 segmentation weight(.pt)\uB97C \uD655\uC778\uD558\uACE0 \uC800\uC7A5\uD558\uC138\uC694."
+                : "\uC810\uAC80 \uBAA9\uB85D\uC758 Python, \uB85C\uCEEC Ultralytics \uC18C\uC2A4, \uC2E4\uD589 \uC2A4\uD06C\uB9BD\uD2B8, segmentation \uAC00\uC911\uCE58\uB97C \uD655\uC778\uD558\uC138\uC694.";
+
+            return new PythonModelRuntimeConnectionResult(settings, report, summary, detail);
+        }
+
         public static PythonModelRuntimeConnectionResult BuildUltralyticsPythonConnection(
             PythonModelSettings currentSettings,
             string engine,
@@ -122,12 +146,16 @@ namespace MvcVisionSystem._1._Core
 
         private static string ResolveClientScriptPath(string currentPath, string projectRootPath)
         {
-            string preferred = Path.Combine(projectRootPath ?? string.Empty, "labelling_tcp_client.py");
-            if (File.Exists(preferred))
+            foreach (string fileName in new[] { "labelling_tcp_client.py", "labeling_tcp_client.py" })
             {
-                return preferred;
+                string candidate = Path.Combine(projectRootPath ?? string.Empty, fileName);
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
             }
 
+            string preferred = Path.Combine(projectRootPath ?? string.Empty, "labelling_tcp_client.py");
             return string.IsNullOrWhiteSpace(currentPath) ? preferred : currentPath.Trim();
         }
 
@@ -140,6 +168,27 @@ namespace MvcVisionSystem._1._Core
             }
 
             return currentPath?.Trim() ?? string.Empty;
+        }
+
+        private static string ResolveLocalPythonExecutablePath(string projectRootPath)
+        {
+            foreach (string candidate in EnumerateLocalPythonCandidates(projectRootPath))
+            {
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return string.Empty;
+        }
+
+        private static IEnumerable<string> EnumerateLocalPythonCandidates(string projectRootPath)
+        {
+            foreach (string environmentDirectory in new[] { ".venv", "venv", "env" })
+            {
+                yield return Path.Combine(projectRootPath ?? string.Empty, environmentDirectory, "Scripts", "python.exe");
+            }
         }
 
         private static string ResolvePythonOrVenvPath(string selectedPath)
@@ -176,6 +225,46 @@ namespace MvcVisionSystem._1._Core
 
             string preferred = Path.Combine(projectRootPath ?? string.Empty, "best.pt");
             return string.IsNullOrWhiteSpace(currentPath) ? preferred : currentPath.Trim();
+        }
+
+        private static string ResolveYoloV8WeightsPath(string projectRootPath)
+        {
+            foreach (string candidate in EnumerateYoloV8WeightCandidates(projectRootPath))
+            {
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+
+            return Path.Combine(projectRootPath ?? string.Empty, "yolov8n-seg.pt");
+        }
+
+        private static IEnumerable<string> EnumerateYoloV8WeightCandidates(string projectRootPath)
+        {
+            yield return Path.Combine(projectRootPath ?? string.Empty, "best.pt");
+
+            foreach (string runsDirectory in new[]
+            {
+                Path.Combine(projectRootPath ?? string.Empty, "runs", "segment"),
+                Path.Combine(projectRootPath ?? string.Empty, "runs", "train")
+            })
+            {
+                if (!Directory.Exists(runsDirectory))
+                {
+                    continue;
+                }
+
+                foreach (string candidate in Directory.EnumerateFiles(runsDirectory, "best.pt", SearchOption.AllDirectories)
+                    .OrderByDescending(path => File.GetLastWriteTimeUtc(path)))
+                {
+                    yield return candidate;
+                }
+            }
+
+            yield return Path.Combine(projectRootPath ?? string.Empty, "yolov8n-seg.pt");
+            yield return Path.Combine(projectRootPath ?? string.Empty, "yolov8s-seg.pt");
+            yield return Path.Combine(projectRootPath ?? string.Empty, "yolov8m-seg.pt");
         }
 
         private static IEnumerable<string> EnumerateWeightCandidates(string projectRootPath)

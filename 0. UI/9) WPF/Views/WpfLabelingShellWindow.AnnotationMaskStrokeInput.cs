@@ -61,7 +61,7 @@ namespace MvcVisionSystem
                     FirstNonEmpty(GetSelectedClassName(), "Defect"));
                 MainCanvasViewModel?.BeginMaskStrokePreview(
                     activeImageSize,
-                    GetMaskCursorPreviewColor(activeAnnotationTool == WpfAnnotationTool.Eraser),
+                    GetMaskStrokePreviewColor(activeAnnotationTool == WpfAnnotationTool.Eraser),
                     activeAnnotationTool == WpfAnnotationTool.Eraser);
             }
 
@@ -74,7 +74,7 @@ namespace MvcVisionSystem
             MainCanvasViewModel?.AddMaskStrokePreview(
                 previewCenters,
                 radius,
-                GetMaskCursorPreviewColor(activeAnnotationTool == WpfAnnotationTool.Eraser),
+                GetMaskStrokePreviewColor(activeAnnotationTool == WpfAnnotationTool.Eraser),
                 activeAnnotationTool == WpfAnnotationTool.Eraser);
             TryUpdateMaskStrokePreviewStatus(force: false);
         }

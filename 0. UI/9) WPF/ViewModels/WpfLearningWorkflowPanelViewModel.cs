@@ -680,30 +680,32 @@ namespace MvcVisionSystem
             // Dataset purpose owns which drawing tools are visible. Keep the full
             // AnnotationTools catalog for commands/tests, but only expose tools that
             // match the labeling task so operators do not see irrelevant controls.
-            HashSet<WpfAnnotationTool> visibleSelectableTools = new HashSet<WpfAnnotationTool>(ResolveSelectableToolsForMode(mode));
+            List<WpfAnnotationTool> visibleSelectableTools = ResolveSelectableToolsForMode(mode).ToList();
             SelectableAnnotationTools.Clear();
             AnnotationCommandTools.Clear();
             VisibleAnnotationTools.Clear();
 
-            foreach (WpfAnnotationToolItem tool in AnnotationTools)
+            foreach (WpfAnnotationTool toolKind in visibleSelectableTools)
             {
-                if (IsOneShotCommandTool(tool.Tool))
-                {
-                    AnnotationCommandTools.Add(tool);
-                    VisibleAnnotationTools.Add(tool);
-                    continue;
-                }
-
-                if (visibleSelectableTools.Contains(tool.Tool))
+                WpfAnnotationToolItem tool = AnnotationTools.FirstOrDefault(candidate => candidate.Tool == toolKind);
+                if (tool != null)
                 {
                     SelectableAnnotationTools.Add(tool);
                     VisibleAnnotationTools.Add(tool);
                 }
             }
 
-            if (SelectedTool == null || !SelectableAnnotationTools.Contains(SelectedTool))
+            foreach (WpfAnnotationToolItem tool in AnnotationTools.Where(tool => IsOneShotCommandTool(tool.Tool)))
             {
-                SelectedTool = SelectableAnnotationTools.FirstOrDefault();
+                AnnotationCommandTools.Add(tool);
+                VisibleAnnotationTools.Add(tool);
+            }
+
+            if (SelectedTool == null
+                || !SelectableAnnotationTools.Contains(SelectedTool)
+                || ShouldPreferModeDefaultTool(mode, SelectedTool.Tool))
+            {
+                SelectedTool = ResolvePreferredSelectableToolForMode(mode) ?? SelectableAnnotationTools.FirstOrDefault();
             }
         }
 
@@ -714,10 +716,10 @@ namespace MvcVisionSystem
                 case WpfLearningMode.Segmentation:
                     return new[]
                     {
-                        WpfAnnotationTool.Select,
-                        WpfAnnotationTool.Polygon,
                         WpfAnnotationTool.Brush,
                         WpfAnnotationTool.Eraser,
+                        WpfAnnotationTool.Polygon,
+                        WpfAnnotationTool.Select,
                         WpfAnnotationTool.PanZoom
                     };
 
@@ -754,6 +756,17 @@ namespace MvcVisionSystem
                     };
             }
         }
+
+        private WpfAnnotationToolItem ResolvePreferredSelectableToolForMode(WpfLearningMode mode)
+        {
+            WpfAnnotationTool preferredTool = mode == WpfLearningMode.Segmentation
+                ? WpfAnnotationTool.Brush
+                : WpfAnnotationTool.Select;
+            return SelectableAnnotationTools.FirstOrDefault(item => item.Tool == preferredTool);
+        }
+
+        private static bool ShouldPreferModeDefaultTool(WpfLearningMode mode, WpfAnnotationTool currentTool)
+            => mode == WpfLearningMode.Segmentation && currentTool == WpfAnnotationTool.Select;
 
         public void ApplyDatasetPurpose(LabelingDatasetPurpose purpose)
         {

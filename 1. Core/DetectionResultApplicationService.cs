@@ -484,7 +484,11 @@ namespace MvcVisionSystem._1._Core
 
             var confirmableItems = indexedDefects
                 .Select(item => TryBuildConfirmableRectangle(item.Defect, imageBounds, minimumConfidence, out Rectangle rectangle)
-                    ? new ConfirmableDetectionItem(item.Index, item.Defect, rectangle)
+                    ? new ConfirmableDetectionItem(
+                        item.Index,
+                        item.Defect,
+                        rectangle,
+                        TryBuildConfirmableSegmentationPolygon(item.Defect, currentImage.Size, out List<Point> polygon) ? polygon : new List<Point>())
                     : null)
                 .Where(item => item != null)
                 .ToList();
@@ -517,7 +521,23 @@ namespace MvcVisionSystem._1._Core
                 mainDisplay.SetRoiRectangles(rectangles, classItem, reset: false);
                 if (createSegmentationFromBoxes)
                 {
-                    confirmedSegmentCount += mainDisplay.AddSegmentationRectangles(rectangles, classItem, reset: false);
+                    List<List<Point>> polygonSegments = group
+                        .Where(item => item.SegmentationPolygon.Count >= 3)
+                        .Select(item => item.SegmentationPolygon)
+                        .ToList();
+                    foreach (List<Point> polygon in polygonSegments)
+                    {
+                        if (mainDisplay.AddSegmentationPolygon(polygon, classItem, refresh: true, select: false, recordUndo: true))
+                        {
+                            confirmedSegmentCount++;
+                        }
+                    }
+
+                    List<Rectangle> rectangleSegments = group
+                        .Where(item => item.SegmentationPolygon.Count < 3)
+                        .Select(item => item.Rectangle)
+                        .ToList();
+                    confirmedSegmentCount += mainDisplay.AddSegmentationRectangles(rectangleSegments, classItem, reset: false);
                 }
 
                 confirmedCount += rectangles.Count;
@@ -842,6 +862,29 @@ namespace MvcVisionSystem._1._Core
             return rectangle.Width > 0 && rectangle.Height > 0;
         }
 
+        private static bool TryBuildConfirmableSegmentationPolygon(DefectInfo defect, Size imageSize, out List<Point> polygon)
+        {
+            polygon = new List<Point>();
+            if (defect?.PolygonPoints == null || defect.PolygonPoints.Count < 3 || imageSize.Width <= 0 || imageSize.Height <= 0)
+            {
+                return false;
+            }
+
+            foreach (DetectionPolygonPoint point in defect.PolygonPoints)
+            {
+                int x = Math.Max(0, Math.Min(imageSize.Width - 1, (int)Math.Round(point.X)));
+                int y = Math.Max(0, Math.Min(imageSize.Height - 1, (int)Math.Round(point.Y)));
+                polygon.Add(new Point(x, y));
+            }
+
+            polygon = MvcVisionSystem.SegmentationGeometry.NormalizePolygon(
+                polygon,
+                imageSize,
+                minimumDistance: 1,
+                simplificationTolerance: 0D);
+            return polygon.Count >= 3;
+        }
+
         private void RaiseDetectionCandidatesUpdated(
             DetectionImageContext context,
             int candidateCount,
@@ -1010,11 +1053,12 @@ namespace MvcVisionSystem._1._Core
 
         private sealed class ConfirmableDetectionItem
         {
-            public ConfirmableDetectionItem(int candidateIndex, DefectInfo defect, Rectangle rectangle)
+            public ConfirmableDetectionItem(int candidateIndex, DefectInfo defect, Rectangle rectangle, List<Point> segmentationPolygon)
             {
                 CandidateIndex = candidateIndex;
                 Defect = defect;
                 Rectangle = rectangle;
+                SegmentationPolygon = segmentationPolygon ?? new List<Point>();
             }
 
             public int CandidateIndex { get; }
@@ -1022,6 +1066,8 @@ namespace MvcVisionSystem._1._Core
             public DefectInfo Defect { get; }
 
             public Rectangle Rectangle { get; }
+
+            public List<Point> SegmentationPolygon { get; }
         }
 
         private sealed class IndexedDetectionItem

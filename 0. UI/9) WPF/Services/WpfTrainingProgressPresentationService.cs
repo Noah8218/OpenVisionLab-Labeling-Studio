@@ -1,11 +1,14 @@
 using MvcVisionSystem._3._Communication.TCP;
 using System;
 using System.Collections.Generic;
+using System.IO;
 
 namespace MvcVisionSystem
 {
     public static class WpfTrainingProgressPresentationService
     {
+        private const string TrainingWeightDownloadRequiredCode = "TrainingWeightDownloadRequired";
+
         public static string BuildAcceptedWorkerWaitProgressText()
         {
             return "\uD559\uC2B5 \uBA85\uB839 \uC218\uB77D\uB428 / \uC6CC\uCEE4 \uC0C1\uD0DC \uB300\uAE30";
@@ -57,6 +60,11 @@ namespace MvcVisionSystem
             return "\uC6D0\uC778: " + formattedMessage;
         }
 
+        public static string BuildFailureDetail(PythonCommunicationStatus status)
+        {
+            return BuildFailureDetail(ResolveTrainingMessage(status));
+        }
+
         public static string BuildProgressSummary(PythonCommunicationStatus status)
         {
             if (!HasTrainingStatus(status))
@@ -73,9 +81,16 @@ namespace MvcVisionSystem
                 parts.Add($"{Math.Clamp(status.LastTrainingProgressPercent.Value, 0, 100)}%");
             }
 
-            if (!string.IsNullOrWhiteSpace(status.LastTrainingMessage))
+            string message = ResolveTrainingMessage(status);
+            if (!string.IsNullOrWhiteSpace(message))
             {
-                parts.Add(FormatTrainingMessage(status.LastTrainingMessage));
+                parts.Add(FormatTrainingMessage(message));
+            }
+
+            string trainingWeight = FormatTrainingWeight(status.LastTrainingWeightsPath);
+            if (!string.IsNullOrWhiteSpace(trainingWeight))
+            {
+                parts.Add($"\uD559\uC2B5 weight {trainingWeight}");
             }
 
             return string.Join(" / ", parts);
@@ -122,6 +137,11 @@ namespace MvcVisionSystem
         public static string FormatTrainingMessage(string message)
         {
             string normalized = message?.Trim() ?? string.Empty;
+            if (normalized.Contains(TrainingWeightDownloadRequiredCode, StringComparison.OrdinalIgnoreCase))
+            {
+                return "\uD559\uC2B5 weight \uC900\uBE44 \uD544\uC694: \uBAA8\uB378 weight \uD30C\uC77C\uC744 \uCE90\uC2DC\uC5D0 \uCD94\uAC00\uD558\uAC70\uB098 \uBA85\uC2DC\uC801\uC73C\uB85C \uB2E4\uC6B4\uB85C\uB4DC\uB97C \uC2B9\uC778\uD558\uC138\uC694.";
+            }
+
             if (normalized.StartsWith("Training failed: process exited at the first training batch", StringComparison.OrdinalIgnoreCase)
                 || normalized.StartsWith("Training failed: process exited near the first training batch", StringComparison.OrdinalIgnoreCase))
             {
@@ -139,6 +159,43 @@ namespace MvcVisionSystem
                 "yolov5 training stopped." => "\uD559\uC2B5 \uC911\uC9C0\uB428",
                 _ => normalized
             };
+        }
+
+        private static string ResolveTrainingMessage(PythonCommunicationStatus status)
+        {
+            if (status == null)
+            {
+                return string.Empty;
+            }
+
+            string state = status.LastTrainingState?.Trim() ?? string.Empty;
+            bool failed = string.Equals(state, "failed", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(state, "error", StringComparison.OrdinalIgnoreCase);
+            if (failed && !string.IsNullOrWhiteSpace(status.LastError))
+            {
+                return status.LastError;
+            }
+
+            return status.LastTrainingMessage ?? string.Empty;
+        }
+
+        private static string FormatTrainingWeight(string path)
+        {
+            string normalized = path?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(normalized))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                string fileName = Path.GetFileName(normalized);
+                return string.IsNullOrWhiteSpace(fileName) ? normalized : fileName;
+            }
+            catch (ArgumentException)
+            {
+                return normalized;
+            }
         }
 
         private static bool HasTrainingStatus(PythonCommunicationStatus status)

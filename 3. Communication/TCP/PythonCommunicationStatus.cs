@@ -24,6 +24,15 @@ namespace MvcVisionSystem._3._Communication.TCP
         public List<string> WorkerSupportedModels { get; set; } = new List<string>();
         public List<string> WorkerTrainingModels { get; set; } = new List<string>();
         public List<string> WorkerDetectionModels { get; set; } = new List<string>();
+        public List<string> WorkerSegmentationModels { get; set; } = new List<string>();
+        public List<string> WorkerClassificationModels { get; set; } = new List<string>();
+        public List<string> WorkerRuntimeWarnings { get; set; } = new List<string>();
+        public List<string> WorkerCachedTrainingWeights { get; set; } = new List<string>();
+        public List<string> WorkerMissingTrainingWeights { get; set; } = new List<string>();
+        public List<string> WorkerRuntimeReadyTrainingWeights { get; set; } = new List<string>();
+        public List<string> WorkerRuntimeBlockedTrainingWeights { get; set; } = new List<string>();
+        public List<string> WorkerDownloadRequiredTrainingWeights { get; set; } = new List<string>();
+        public List<string> WorkerRuntimeBlockedMissingTrainingWeights { get; set; } = new List<string>();
         public string LastModelState { get; set; } = "";
         public string LastModelMessage { get; set; } = "";
         public bool LastModelLoaded { get; set; }
@@ -36,6 +45,7 @@ namespace MvcVisionSystem._3._Communication.TCP
         public int? LastTrainingProgressPercent { get; set; }
         public int? LastTrainingEpoch { get; set; }
         public int? LastTrainingTotalEpochs { get; set; }
+        public string LastTrainingWeightsPath { get; set; } = "";
         public DateTime? LastTrainingStatusAtUtc { get; set; }
 
         public PythonCommunicationStatus Clone()
@@ -60,6 +70,15 @@ namespace MvcVisionSystem._3._Communication.TCP
                 WorkerSupportedModels = WorkerSupportedModels?.ToList() ?? new List<string>(),
                 WorkerTrainingModels = WorkerTrainingModels?.ToList() ?? new List<string>(),
                 WorkerDetectionModels = WorkerDetectionModels?.ToList() ?? new List<string>(),
+                WorkerSegmentationModels = WorkerSegmentationModels?.ToList() ?? new List<string>(),
+                WorkerClassificationModels = WorkerClassificationModels?.ToList() ?? new List<string>(),
+                WorkerRuntimeWarnings = WorkerRuntimeWarnings?.ToList() ?? new List<string>(),
+                WorkerCachedTrainingWeights = WorkerCachedTrainingWeights?.ToList() ?? new List<string>(),
+                WorkerMissingTrainingWeights = WorkerMissingTrainingWeights?.ToList() ?? new List<string>(),
+                WorkerRuntimeReadyTrainingWeights = WorkerRuntimeReadyTrainingWeights?.ToList() ?? new List<string>(),
+                WorkerRuntimeBlockedTrainingWeights = WorkerRuntimeBlockedTrainingWeights?.ToList() ?? new List<string>(),
+                WorkerDownloadRequiredTrainingWeights = WorkerDownloadRequiredTrainingWeights?.ToList() ?? new List<string>(),
+                WorkerRuntimeBlockedMissingTrainingWeights = WorkerRuntimeBlockedMissingTrainingWeights?.ToList() ?? new List<string>(),
                 LastModelState = LastModelState,
                 LastModelMessage = LastModelMessage,
                 LastModelLoaded = LastModelLoaded,
@@ -72,6 +91,7 @@ namespace MvcVisionSystem._3._Communication.TCP
                 LastTrainingProgressPercent = LastTrainingProgressPercent,
                 LastTrainingEpoch = LastTrainingEpoch,
                 LastTrainingTotalEpochs = LastTrainingTotalEpochs,
+                LastTrainingWeightsPath = LastTrainingWeightsPath,
                 LastTrainingStatusAtUtc = LastTrainingStatusAtUtc
             };
         }

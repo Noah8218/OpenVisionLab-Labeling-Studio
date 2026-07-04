@@ -28,6 +28,7 @@ namespace MvcVisionSystem
             RefreshObjectList();
             RedrawReviewRois();
             SetActiveImageDetectionStatus(loadedCount, succeeded);
+            ApplyActiveAnomalyClassification(candidates);
             AddCandidateReviewHistory(detectionResultPresentationService.BuildCandidateLoadHistory(loadedCount, succeeded, GetCandidateConfidenceFilter()));
             ShowCandidateReviewWorkflowView();
 

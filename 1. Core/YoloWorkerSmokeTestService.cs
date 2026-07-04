@@ -1,4 +1,5 @@
 using Newtonsoft.Json.Linq;
+using MvcVisionSystem._3._Communication.TCP;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -20,6 +21,12 @@ namespace MvcVisionSystem._1._Core
         public double Y { get; set; }
         public double Width { get; set; }
         public double Height { get; set; }
+        public string CandidateType { get; set; } = string.Empty;
+        public string PredictionType { get; set; } = string.Empty;
+        public bool ImageLevel { get; set; }
+        public string SegmentationType { get; set; } = string.Empty;
+        public IReadOnlyList<DetectionPolygonPoint> PolygonPoints { get; set; } = Array.Empty<DetectionPolygonPoint>();
+        public IReadOnlyList<DetectionPolygonPoint> NormalizedPolygonPoints { get; set; } = Array.Empty<DetectionPolygonPoint>();
 
         public System.Drawing.Rectangle ToRectangle()
         {
@@ -51,6 +58,7 @@ namespace MvcVisionSystem._1._Core
         public int? ElapsedMilliseconds { get; set; }
         public string Output { get; set; } = string.Empty;
         public string Error { get; set; } = string.Empty;
+        public string ErrorCode { get; set; } = string.Empty;
         public IReadOnlyList<string> Errors { get; set; } = Array.Empty<string>();
     }
 
@@ -78,6 +86,7 @@ namespace MvcVisionSystem._1._Core
             string clientScriptPath = settings.ClientScriptPath?.Trim() ?? string.Empty;
             string modelRootPath = settings.GetModelRootPath();
             string weightsPath = settings.WeightsPath?.Trim() ?? string.Empty;
+            string modelName = settings.GetProtocolModelName();
             string imagePath = !string.IsNullOrWhiteSpace(imagePathOverride)
                 ? imagePathOverride.Trim()
                 : ResolveSmokeImagePath(settings);
@@ -97,7 +106,8 @@ namespace MvcVisionSystem._1._Core
                 weightsPath,
                 imagePath,
                 settings.InferenceImageSize,
-                settings.MinimumDetectionConfidence);
+                settings.MinimumDetectionConfidence,
+                modelName);
 
             try
             {
@@ -214,7 +224,8 @@ namespace MvcVisionSystem._1._Core
             string weightsPath,
             string imagePath,
             int imageSize,
-            float confidence)
+            float confidence,
+            string modelName)
         {
             var process = new Process
             {
@@ -233,6 +244,12 @@ namespace MvcVisionSystem._1._Core
             process.StartInfo.ArgumentList.Add("--smoke-test");
             process.StartInfo.ArgumentList.Add("--weights");
             process.StartInfo.ArgumentList.Add(weightsPath);
+            if (!string.IsNullOrWhiteSpace(modelName))
+            {
+                process.StartInfo.ArgumentList.Add("--model");
+                process.StartInfo.ArgumentList.Add(modelName.Trim());
+            }
+
             process.StartInfo.ArgumentList.Add("--model-root");
             process.StartInfo.ArgumentList.Add(modelRootPath);
             process.StartInfo.ArgumentList.Add("--image");
@@ -268,10 +285,17 @@ namespace MvcVisionSystem._1._Core
             JArray candidates = envelope["candidates"] as JArray ?? new JArray();
             IReadOnlyList<YoloWorkerSmokeCandidate> parsedCandidates = ParseCandidates(candidates);
             YoloWorkerSmokeCandidate firstCandidate = parsedCandidates.FirstOrDefault();
+            string errorCode = envelope["error"]?["code"]?.Value<string>() ?? string.Empty;
             string errorMessage = envelope["error"]?["message"]?.Value<string>() ?? envelope["error"]?.Value<string>() ?? string.Empty;
             string summary = ok
                 ? $"YOLO smoke test OK. Candidates:{parsedCandidates.Count}"
-                : FirstNonEmpty(errorMessage, error, "YOLO smoke test failed.");
+                : FirstNonEmpty(
+                    !string.IsNullOrWhiteSpace(errorCode) && !string.IsNullOrWhiteSpace(errorMessage)
+                        ? $"{errorCode}: {errorMessage}"
+                        : string.Empty,
+                    errorMessage,
+                    error,
+                    "YOLO smoke test failed.");
 
             return new YoloWorkerSmokeTestResult
             {
@@ -291,6 +315,7 @@ namespace MvcVisionSystem._1._Core
                 ElapsedMilliseconds = envelope["elapsedMs"]?.Value<int?>(),
                 Output = output ?? string.Empty,
                 Error = error ?? string.Empty,
+                ErrorCode = errorCode,
                 Errors = ok ? Array.Empty<string>() : new[] { summary }
             };
         }
@@ -332,12 +357,35 @@ namespace MvcVisionSystem._1._Core
                         ?? 0D,
                     Height = candidate["height"]?.Value<double?>()
                         ?? candidate["h"]?.Value<double?>()
-                        ?? 0D
+                        ?? 0D,
+                    CandidateType = candidate["candidateType"]?.Value<string>() ?? string.Empty,
+                    PredictionType = candidate["predictionType"]?.Value<string>() ?? string.Empty,
+                    ImageLevel = candidate["imageLevel"]?.Value<bool?>() ?? false,
+                    SegmentationType = candidate["segmentationType"]?.Value<string>() ?? string.Empty,
+                    PolygonPoints = ParsePolygonPoints(candidate["polygonPoints"]),
+                    NormalizedPolygonPoints = ParsePolygonPoints(candidate["normalizedPolygonPoints"])
                 });
                 fallbackIndex++;
             }
 
             return result;
+        }
+
+        private static IReadOnlyList<DetectionPolygonPoint> ParsePolygonPoints(JToken token)
+        {
+            if (!(token is JArray array))
+            {
+                return Array.Empty<DetectionPolygonPoint>();
+            }
+
+            return array
+                .OfType<JObject>()
+                .Select(point => new DetectionPolygonPoint
+                {
+                    X = point["x"]?.Value<float?>() ?? 0F,
+                    Y = point["y"]?.Value<float?>() ?? 0F
+                })
+                .ToList();
         }
 
         private static JObject TryFindLastJsonObject(string output)

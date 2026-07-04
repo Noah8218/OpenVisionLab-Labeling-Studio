@@ -52,7 +52,7 @@ namespace MvcVisionSystem
                 }
 
                 ApplyDetectionCandidates(result.Candidates, result.Succeeded);
-                SetPythonStatus(result.Succeeded ? $"\uCD94\uB860: \uC644\uB8CC  \uD6C4\uBCF4 {result.CandidateCount}" : "\uCD94\uB860: \uD14C\uC2A4\uD2B8 \uC2E4\uD328");
+                SetPythonStatus(detectionResultPresentationService.BuildSmokeStatus(result));
                 foreach (string error in result.Errors)
                 {
                     AppendLog($"- {error}");

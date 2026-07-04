@@ -106,7 +106,7 @@ namespace MvcVisionSystem
             switch (normalizedEngine)
             {
                 case PythonModelSettings.EngineYoloV8:
-                    ExecuteConnectUltralyticsRuntime(normalizedEngine);
+                    ExecuteConnectYoloV8RuntimeFolder();
                     break;
                 case PythonModelSettings.EngineYolo11:
                     ExecuteConnectUltralyticsRuntime(normalizedEngine);
@@ -148,6 +148,26 @@ namespace MvcVisionSystem
             YoloPythonPathBox?.Focus();
             SetYoloCommandStatus($"{result.SummaryText}: {result.DetailText}", isBusy: false);
             AppendLog($"{displayName} Ultralytics Python \uC5F0\uACB0: {selectedPath} / {result.SummaryText}");
+        }
+
+        private void ExecuteConnectYoloV8RuntimeFolder()
+        {
+            string initialPath = YoloModelSettingsViewModel?.ProjectRootPath ?? YoloProjectRootBox.Text;
+            if (!TryPickFolder("YOLOv8 \uD3F4\uB354 \uC5F0\uACB0", initialPath, out string selectedPath))
+            {
+                YoloProjectRootBox?.Focus();
+                SetYoloCommandStatus("YOLOv8 \uD3F4\uB354 \uC5F0\uACB0\uC744 \uCDE8\uC18C\uD588\uC2B5\uB2C8\uB2E4. \uAE30\uC874 \uACBD\uB85C\uB97C \uD655\uC778\uD558\uAC70\uB098 \uB2E4\uC2DC \uC5F0\uACB0\uD558\uC138\uC694.", isBusy: false);
+                AppendLog("YOLOv8 local worker \uD3F4\uB354 \uC5F0\uACB0 \uCDE8\uC18C.");
+                return;
+            }
+
+            PythonModelRuntimeConnectionResult result = PythonModelRuntimeConnectionService.BuildYoloV8FolderConnection(
+                CreateYoloModelSettingsSnapshot(),
+                selectedPath);
+            YoloModelSettingsViewModel?.ApplyRuntimeConnectionResult(result);
+            YoloProjectRootBox?.Focus();
+            SetYoloCommandStatus($"{result.SummaryText}: {result.DetailText}", isBusy: false);
+            AppendLog($"YOLOv8 \uD3F4\uB354 \uC5F0\uACB0: {selectedPath} / {result.SummaryText}");
         }
 
         private void ExecuteConnectYoloV5RuntimeFolder()

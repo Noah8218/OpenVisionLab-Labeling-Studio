@@ -50,10 +50,21 @@ namespace MvcVisionSystem._1._Core
     public static class PythonModelRuntimeProfileService
     {
         public static IReadOnlyList<PythonModelRuntimeProfile> BuildProfiles(PythonModelSettings settings)
+            => BuildProfiles(settings, null, null, null);
+
+        public static IReadOnlyList<PythonModelRuntimeProfile> BuildProfiles(
+            PythonModelSettings settings,
+            IEnumerable<string> supportedModels,
+            IEnumerable<string> trainingModels,
+            IEnumerable<string> detectionModels)
         {
             settings ??= new PythonModelSettings();
             string selectedEngine = PythonModelSettings.NormalizeModelEngine(settings.ModelEngine);
-            PythonModelRuntimeState selectedState = PythonModelSettingsValidator.GetRuntimeState(settings);
+            PythonModelRuntimeState selectedState = PythonModelSettingsValidator.GetRuntimeState(
+                settings,
+                supportedModels,
+                trainingModels,
+                detectionModels);
             return new[]
             {
                 BuildProfile(PythonModelSettings.EngineYoloV5, selectedEngine, selectedState),
@@ -91,8 +102,8 @@ namespace MvcVisionSystem._1._Core
                 PythonModelSettings.EngineYoloV8 => BuildDisconnectedProfile(
                     engine,
                     "\uC124\uCE58/\uC5F0\uACB0 \uB300\uAE30",
-                    "Ultralytics \uD328\uD0A4\uC9C0\uB97C \uC0AC\uC6A9\uD558\uB294 YOLOv8 \uC2E4\uD589 \uD504\uB85C\uD544\uC785\uB2C8\uB2E4.",
-                    "Ultralytics \uC2E4\uD589\uAE30 \uC124\uCE58 \uB610\uB294 \uACBD\uB85C \uC5F0\uACB0",
+                    "YOLOv5\uCC98\uB7FC local YOLOv8 worker \uD3F4\uB354\uB97C \uC5F0\uACB0\uD558\uB294 \uC2E4\uD589 \uD504\uB85C\uD544\uC785\uB2C8\uB2E4.",
+                    "YOLOv8 local worker \uD3F4\uB354 \uC5F0\uACB0",
                     "\uC5F0\uACB0"),
                 PythonModelSettings.EngineYolo11 => BuildDisconnectedProfile(
                     engine,
@@ -194,7 +205,7 @@ namespace MvcVisionSystem._1._Core
         private static string FormatProfileCapability(string engine)
             => PythonModelSettings.NormalizeModelEngine(engine) switch
             {
-                PythonModelSettings.EngineYoloV8 => "\uC9C0\uC6D0 \uBC94\uC704: \uD604\uC7AC \uAC80\uC0AC \uC6B0\uC120 / \uD559\uC2B5\uC740 worker \uC5F0\uACB0 \uD544\uC694",
+                PythonModelSettings.EngineYoloV8 => "\uC9C0\uC6D0 \uBC94\uC704: local worker \uD604\uC7AC \uAC80\uC0AC / \uD559\uC2B5\uC740 TrainYolo \uC9C0\uC6D0 \uD544\uC694",
                 PythonModelSettings.EngineYolo11 => "\uC9C0\uC6D0 \uBC94\uC704: \uD604\uC7AC \uAC80\uC0AC \uC6B0\uC120 / \uD559\uC2B5\uC740 worker \uC5F0\uACB0 \uD544\uC694",
                 PythonModelSettings.EngineOnnx => "\uC9C0\uC6D0 \uBC94\uC704: \uCD94\uB860 \uC804\uC6A9",
                 _ => "\uC9C0\uC6D0 \uBC94\uC704: \uD559\uC2B5 + \uD604\uC7AC \uAC80\uC0AC"

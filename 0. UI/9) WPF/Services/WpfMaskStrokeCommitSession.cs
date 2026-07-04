@@ -5,7 +5,7 @@ namespace MvcVisionSystem
 {
     internal sealed class WpfMaskStrokeCommitSession
     {
-        private readonly List<Point> centers = new List<Point>();
+        private List<Point> centers = new List<Point>();
         private readonly HashSet<int> centerKeys = new HashSet<int>();
 
         public IReadOnlyList<Point> Centers => centers;
@@ -52,6 +52,14 @@ namespace MvcVisionSystem
             }
 
             return addedCenters;
+        }
+
+        public IReadOnlyList<Point> DetachCenters()
+        {
+            List<Point> detached = centers;
+            centers = new List<Point>();
+            centerKeys.Clear();
+            return detached;
         }
 
         public void Reset()

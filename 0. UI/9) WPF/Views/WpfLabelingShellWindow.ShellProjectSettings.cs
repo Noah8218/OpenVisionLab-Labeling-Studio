@@ -66,8 +66,11 @@ namespace MvcVisionSystem
             EnsureProjectSettings();
             LearningWorkflowViewModel?.ApplyDatasetPurpose(global.Data.ProjectSettings.DatasetPurpose);
             RefreshCanvasAnnotationToolScope();
+            ApplyAnnotationToolSelection(LearningWorkflowViewModel?.SelectedTool);
             RefreshCanvasWorkflowContext();
             RefreshAnnotationVisibilityForDatasetPurpose();
+            RefreshTrainingReadinessPanel(refreshYaml: false);
+            RefreshYoloTrainingStepCompletion();
         }
 
         private void ApplyWorkflowDatasetPurposeToProjectSettings()
@@ -82,6 +85,10 @@ namespace MvcVisionSystem
             EnsureProjectSettings();
             LearningWorkflowViewModel?.ApplyDatasetPurpose(purpose);
             global.Data.ProjectSettings.DatasetPurpose = purpose;
+            RefreshCanvasAnnotationToolScope();
+            ApplyAnnotationToolSelection(LearningWorkflowViewModel?.SelectedTool);
+            RefreshCanvasWorkflowContext();
+            RefreshAnnotationVisibilityForDatasetPurpose();
         }
     }
 }

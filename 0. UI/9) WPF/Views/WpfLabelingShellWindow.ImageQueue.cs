@@ -35,6 +35,8 @@ namespace MvcVisionSystem
             List<string> imagePaths = imageQueueSelectionService.EnumerateImageFiles(imageRoot);
             imageReviewStatus.SetImages(imagePaths);
             imageReviewStatus.LoadReviewStatus(global.Data, imagePaths);
+            anomalyImageReviewStatus.SetImages(imagePaths);
+            anomalyImageReviewStatus.LoadReviewStatus(global.Data, imagePaths);
 
             suppressImageQueueSelection = true;
             try

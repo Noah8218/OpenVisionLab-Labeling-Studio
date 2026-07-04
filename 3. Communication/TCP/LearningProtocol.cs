@@ -11,7 +11,16 @@ namespace MvcVisionSystem._3._Communication.TCP
     {
         public const string PacketSeparator = "\n\n";
 
-        public static byte[] BuildTrainingPacket(string command, string imgSize, string batch, string epoch, string cfg, string weight, string dataYaml, string model = "yolov5")
+        public static byte[] BuildTrainingPacket(
+            string command,
+            string imgSize,
+            string batch,
+            string epoch,
+            string cfg,
+            string weight,
+            string dataYaml,
+            string model = "yolov5",
+            string task = "detect")
         {
             var request = new YoloTrainingRequest
             {
@@ -21,7 +30,8 @@ namespace MvcVisionSystem._3._Communication.TCP
                 cfg = NormalizeProtocolPath(cfg),
                 weight = NormalizeProtocolPath(weight),
                 dataYaml = NormalizeProtocolPath(dataYaml),
-                model = string.IsNullOrWhiteSpace(model) ? "yolov5" : model
+                model = string.IsNullOrWhiteSpace(model) ? "yolov5" : model,
+                task = string.IsNullOrWhiteSpace(task) ? "detect" : task
             };
 
             string json = JsonConvert.SerializeObject(request);
@@ -170,6 +180,7 @@ namespace MvcVisionSystem._3._Communication.TCP
         public string weight { get; set; } = "";
         public string dataYaml { get; set; } = "";
         public string model { get; set; } = "yolov5";
+        public string task { get; set; } = "detect";
     }
 
     public class PythonWorkerRequest

@@ -107,6 +107,18 @@ namespace MvcVisionSystem
         private bool TryOpenNextIncompleteQueueImage()
         {
             IReadOnlyList<string> orderedPaths = imageQueueItems.Select(item => item.ImagePath).ToList();
+            if (IsAnomalyDatasetPurpose())
+            {
+                if (anomalyImageReviewStatus.TryFindNextUnreviewed(orderedPaths, activeImagePath, out string nextAnomalyImagePath))
+                {
+                    SelectImageQueueItem(nextAnomalyImagePath);
+                    TryLoadImage(nextAnomalyImagePath);
+                    return true;
+                }
+
+                return false;
+            }
+
             if (imageReviewStatus.TryFindNextUnlabeled(orderedPaths, activeImagePath, out string nextImagePath))
             {
                 SelectImageQueueItem(nextImagePath);

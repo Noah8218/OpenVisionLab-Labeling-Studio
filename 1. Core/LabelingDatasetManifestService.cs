@@ -74,6 +74,18 @@ namespace MvcVisionSystem
         [JsonProperty("imageCount")]
         public int ImageCount { get; set; }
 
+        [JsonProperty("anomalyReviewedImageCount")]
+        public int AnomalyReviewedImageCount { get; set; }
+
+        [JsonProperty("anomalyNormalImageCount")]
+        public int AnomalyNormalImageCount { get; set; }
+
+        [JsonProperty("anomalyAbnormalImageCount")]
+        public int AnomalyAbnormalImageCount { get; set; }
+
+        [JsonProperty("anomalyUnreviewedImageCount")]
+        public int AnomalyUnreviewedImageCount { get; set; }
+
         [JsonProperty("boxObjectCount")]
         public int BoxObjectCount { get; set; }
 
@@ -117,7 +129,10 @@ namespace MvcVisionSystem
             LabelingProjectSettings settings = data.ProjectSettings ?? new LabelingProjectSettings();
             settings.EnsureDefaults();
             YoloDatasetStatistics statistics = YoloDatasetValidator.BuildStatistics(data);
-            LabelingDatasetManifestArtifactSummary artifactSummary = BuildArtifactSummary(settings.DatasetPurpose, statistics);
+            AnomalyImageReviewSummary anomalySummary = settings.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection
+                ? AnomalyImageReviewStatusService.LoadPersistedSummary(data, statistics.TotalImageCount)
+                : new AnomalyImageReviewSummary();
+            LabelingDatasetManifestArtifactSummary artifactSummary = BuildArtifactSummary(settings.DatasetPurpose, statistics, anomalySummary);
 
             var manifest = new LabelingDatasetManifest
             {
@@ -168,19 +183,23 @@ namespace MvcVisionSystem
 
         private static LabelingDatasetManifestArtifactSummary BuildArtifactSummary(
             LabelingDatasetPurpose purpose,
-            YoloDatasetStatistics statistics)
+            YoloDatasetStatistics statistics,
+            AnomalyImageReviewSummary anomalySummary)
         {
             statistics ??= new YoloDatasetStatistics();
+            anomalySummary ??= new AnomalyImageReviewSummary();
             string primaryLabelKind = purpose switch
             {
                 LabelingDatasetPurpose.Segmentation => statistics.TotalSegmentationObjectCount > 0
                     ? "segments"
                     : "masks",
-                LabelingDatasetPurpose.AnomalyDetection => "defect-boxes",
+                LabelingDatasetPurpose.AnomalyDetection => "image-level-normal-abnormal",
                 _ => "boxes"
             };
 
-            int primaryLabelCount = primaryLabelKind == "segments"
+            int primaryLabelCount = purpose == LabelingDatasetPurpose.AnomalyDetection
+                ? anomalySummary.ReviewedImageCount
+                : primaryLabelKind == "segments"
                 ? statistics.TotalSegmentationObjectCount
                 : primaryLabelKind == "masks"
                     ? statistics.TotalMaskFileCount
@@ -191,6 +210,10 @@ namespace MvcVisionSystem
                 PrimaryLabelKind = primaryLabelKind,
                 PrimaryLabelCount = primaryLabelCount,
                 ImageCount = statistics.TotalImageCount,
+                AnomalyReviewedImageCount = anomalySummary.ReviewedImageCount,
+                AnomalyNormalImageCount = anomalySummary.NormalImageCount,
+                AnomalyAbnormalImageCount = anomalySummary.AbnormalImageCount,
+                AnomalyUnreviewedImageCount = anomalySummary.UnreviewedImageCount,
                 BoxObjectCount = statistics.TotalObjectCount,
                 BoxLabelFileCount = statistics.TotalLabelFileCount,
                 SegmentObjectCount = statistics.TotalSegmentationObjectCount,
@@ -213,6 +236,10 @@ namespace MvcVisionSystem
                 manifest.ArtifactSummary?.PrimaryLabelKind,
                 manifest.ArtifactSummary?.PrimaryLabelCount ?? 0,
                 manifest.ArtifactSummary?.ImageCount ?? 0,
+                manifest.ArtifactSummary?.AnomalyReviewedImageCount ?? 0,
+                manifest.ArtifactSummary?.AnomalyNormalImageCount ?? 0,
+                manifest.ArtifactSummary?.AnomalyAbnormalImageCount ?? 0,
+                manifest.ArtifactSummary?.AnomalyUnreviewedImageCount ?? 0,
                 manifest.ArtifactSummary?.BoxObjectCount ?? 0,
                 manifest.ArtifactSummary?.SegmentObjectCount ?? 0,
                 manifest.ArtifactSummary?.MaskFileCount ?? 0);

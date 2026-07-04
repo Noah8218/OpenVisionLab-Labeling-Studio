@@ -165,6 +165,38 @@ namespace MvcVisionSystem
             UpdateImageQueueStatusText();
         }
 
+        private bool ApplyActiveAnomalyClassification(IReadOnlyList<YoloWorkerSmokeCandidate> candidates)
+        {
+            return ApplyAnomalyClassificationToImage(
+                activeImagePath,
+                Path.GetFileNameWithoutExtension(activeImagePath),
+                candidates,
+                saveReviewStatus: true);
+        }
+
+        private bool ApplyAnomalyClassificationToImage(
+            string imagePath,
+            string imageName,
+            IReadOnlyList<YoloWorkerSmokeCandidate> candidates,
+            bool saveReviewStatus)
+        {
+            if (!IsAnomalyDatasetPurpose() || string.IsNullOrWhiteSpace(imagePath))
+            {
+                return false;
+            }
+
+            AnomalyClassificationDecision decision = AnomalyClassificationDecisionService.Build(
+                candidates,
+                global.Data.ProjectSettings.AnomalyClassification.ToDecisionOptions());
+            if (!decision.IsMapped)
+            {
+                return false;
+            }
+
+            MarkAnomalyImageReviewState(imagePath, imageName, decision.ReviewState, saveReviewStatus);
+            return true;
+        }
+
         private void MarkActiveImageConfirmed()
         {
             if (string.IsNullOrWhiteSpace(activeImagePath))
@@ -180,6 +212,7 @@ namespace MvcVisionSystem
 
             ApplyReviewStatusToItem(FindImageQueueItem(activeImagePath), status);
             imageReviewStatus.SaveReviewStatus(global.Data);
+            MarkActiveAnomalyImageAbnormal();
             imageQueueView?.Refresh();
             UpdateImageQueueStatusText();
         }
@@ -200,6 +233,7 @@ namespace MvcVisionSystem
 
             ApplyReviewStatusToItem(FindImageQueueItem(activeImagePath), status);
             imageReviewStatus.SaveReviewStatus(global.Data);
+            MarkActiveAnomalyImageNormal();
             imageQueueView?.Refresh();
             UpdateImageQueueStatusText();
         }
@@ -219,6 +253,69 @@ namespace MvcVisionSystem
             imageReviewStatus.SaveReviewStatus(global.Data);
             imageQueueView?.Refresh();
             UpdateImageQueueStatusText();
+        }
+
+        private bool IsAnomalyDatasetPurpose()
+        {
+            EnsureProjectSettings();
+            return global.Data?.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection;
+        }
+
+        private void MarkActiveAnomalyImageNormal()
+        {
+            MarkActiveAnomalyImageReviewState(AnomalyImageReviewState.Normal);
+        }
+
+        private void MarkActiveAnomalyImageAbnormal()
+        {
+            MarkActiveAnomalyImageReviewState(AnomalyImageReviewState.Abnormal);
+        }
+
+        private void MarkActiveAnomalyImageReviewState(AnomalyImageReviewState state)
+        {
+            if (!IsAnomalyDatasetPurpose() || string.IsNullOrWhiteSpace(activeImagePath))
+            {
+                return;
+            }
+
+            string imageName = Path.GetFileNameWithoutExtension(activeImagePath);
+            MarkAnomalyImageReviewState(activeImagePath, imageName, state, saveReviewStatus: true);
+        }
+
+        private void MarkAnomalyImageReviewState(string imagePath, string imageName, AnomalyImageReviewState state, bool saveReviewStatus)
+        {
+            if (!IsAnomalyDatasetPurpose() || string.IsNullOrWhiteSpace(imagePath))
+            {
+                return;
+            }
+
+            if (state == AnomalyImageReviewState.Normal)
+            {
+                anomalyImageReviewStatus.MarkNormal(imagePath, imageName);
+            }
+            else if (state == AnomalyImageReviewState.Abnormal)
+            {
+                anomalyImageReviewStatus.MarkAbnormal(imagePath, imageName);
+            }
+            else
+            {
+                anomalyImageReviewStatus.ClearReviewState(imagePath, imageName);
+            }
+
+            if (saveReviewStatus)
+            {
+                SaveAnomalyImageReviewStatus();
+            }
+        }
+
+        private void SaveAnomalyImageReviewStatus()
+        {
+            anomalyImageReviewStatus.SaveReviewStatus(global.Data);
+            string recipeName = GetCurrentRecipeName();
+            if (!string.IsNullOrWhiteSpace(recipeName))
+            {
+                LabelingDatasetManifestService.Save(global.Data, recipeName);
+            }
         }
     }
 }

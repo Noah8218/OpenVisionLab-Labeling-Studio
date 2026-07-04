@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MvcVisionSystem._1._Core;
 using MvcVisionSystem.Yolo;
 
 namespace MvcVisionSystem
@@ -9,6 +10,12 @@ namespace MvcVisionSystem
     {
         public static string BuildStatusText(CData data, YoloDatasetReadinessReport report)
         {
+            if (data?.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection)
+            {
+                return BuildAnomalyClassificationStatusText(
+                    AnomalyClassificationTrainingReadinessService.Build(data));
+            }
+
             YoloDatasetStatistics statistics = report?.Statistics ?? new YoloDatasetStatistics();
             int classCount = data?.ClassNamedList?.Count ?? 0;
             string countText = BuildCountText(statistics, classCount);
@@ -23,6 +30,28 @@ namespace MvcVisionSystem
             string issueText = BuildFriendlyIssueText(report?.Errors ?? Array.Empty<string>());
             return $"학습 데이터 확인 필요: {issueText} / {countText}";
         }
+
+        public static string BuildAnomalyClassificationStatusText(AnomalyClassificationTrainingReadinessReport report)
+        {
+            report ??= new AnomalyClassificationTrainingReadinessReport(
+                Array.Empty<string>(),
+                normalImageCount: 0,
+                abnormalImageCount: 0,
+                unreviewedImageCount: 0,
+                Array.Empty<string>());
+            string countText = $"train normal {report.TrainNormalImageCount} / train abnormal {report.TrainAbnormalImageCount} / normal {report.NormalImageCount} / abnormal {report.AbnormalImageCount} / unreviewed {report.UnreviewedImageCount} / source {report.SourceImageCount}";
+            if (report.IsReady)
+            {
+                return $"\uD559\uC2B5 \uC900\uBE44 \uC644\uB8CC: \uC774\uC0C1 \uD0D0\uC9C0 \uBD84\uB958 \uB370\uC774\uD130 / {countText}";
+            }
+
+            string issueText = BuildFriendlyIssueText(report.Errors);
+            return $"\uD559\uC2B5 \uB370\uC774\uD130 \uD655\uC778 \uD544\uC694: {issueText} / {countText}";
+        }
+
+        public static string BuildFriendlyIssueSummary(string error)
+            => BuildFriendlyIssueText((error ?? string.Empty)
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries));
 
         private static string BuildCountText(YoloDatasetStatistics statistics, int classCount)
         {
@@ -43,6 +72,21 @@ namespace MvcVisionSystem
             if (normalized.Count == 0)
             {
                 return "데이터셋 점검 결과를 확인하세요.";
+            }
+
+            if (Contains(normalized, AnomalyClassificationTrainingReadinessService.NoSourceImagesError))
+            {
+                return "\uC774\uC0C1 \uD0D0\uC9C0 \uD559\uC2B5\uC5D0 \uC0AC\uC6A9\uD560 \uC774\uBBF8\uC9C0\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uC774\uBBF8\uC9C0 \uD3F4\uB354\uB098 \uD559\uC2B5/\uAC80\uC99D \uD3F4\uB354\uB97C \uBA3C\uC800 \uC5F0\uACB0\uD558\uC138\uC694.";
+            }
+
+            if (Contains(normalized, AnomalyClassificationTrainingReadinessService.NeedsReviewedNormalAndAbnormalError))
+            {
+                return "\uC774\uC0C1 \uD0D0\uC9C0 \uD559\uC2B5\uC740 \uAC80\uD1A0\uB41C \uC815\uC0C1 \uC774\uBBF8\uC9C0\uC640 \uAC80\uD1A0\uB41C \uC774\uC0C1 \uC774\uBBF8\uC9C0\uAC00 \uAC01\uAC01 1\uAC1C \uC774\uC0C1 \uD544\uC694\uD569\uB2C8\uB2E4. \uC774\uBBF8\uC9C0 \uD050\uC5D0\uC11C \uC815\uC0C1/\uC774\uC0C1 \uAC80\uD1A0 \uC0C1\uD0DC\uB97C \uBA3C\uC800 \uC800\uC7A5\uD558\uC138\uC694.";
+            }
+
+            if (Contains(normalized, AnomalyClassificationTrainingReadinessService.NeedsTrainNormalAndAbnormalError))
+            {
+                return "\uC774\uC0C1 \uD0D0\uC9C0 \uD559\uC2B5\uC740 train \uBD84\uD560\uC5D0 \uC815\uC0C1/\uC774\uC0C1 \uC774\uBBF8\uC9C0\uAC00 \uAC01\uAC01 1\uAC1C \uC774\uC0C1 \uD544\uC694\uD569\uB2C8\uB2E4. \uAC80\uC99D/테스트 \uBE44\uC728\uC744 \uC904\uC774\uAC70\uB098 \uB354 \uB9CE\uC740 \uAC80\uD1A0 \uC774\uBBF8\uC9C0\uB97C \uCD94\uAC00\uD558\uC138\uC694.";
             }
 
             if (Contains(normalized, "data.yaml")

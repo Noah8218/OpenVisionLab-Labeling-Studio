@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 
 namespace MvcVisionSystem._1._Core
@@ -33,6 +34,13 @@ namespace MvcVisionSystem._1._Core
     public static class PythonModelRuntimeExecutionSummaryService
     {
         public static PythonModelRuntimeExecutionSummary Build(PythonModelSettings settings)
+            => Build(settings, null, null, null);
+
+        public static PythonModelRuntimeExecutionSummary Build(
+            PythonModelSettings settings,
+            IEnumerable<string> supportedModels,
+            IEnumerable<string> trainingModels,
+            IEnumerable<string> detectionModels)
         {
             settings ??= new PythonModelSettings();
             string engine = PythonModelSettings.NormalizeModelEngine(settings.ModelEngine);
@@ -44,8 +52,16 @@ namespace MvcVisionSystem._1._Core
             string modelRootPath = settings.GetModelRootPath();
             string weightsPath = settings.WeightsPath?.Trim() ?? string.Empty;
             string imageRootPath = settings.ImageRootPath?.Trim() ?? string.Empty;
-            PythonModelRuntimeState runtimeState = PythonModelSettingsValidator.GetRuntimeState(settings);
-            PythonModelRuntimeAdapterSupport adapterSupport = PythonModelRuntimeAdapterSupportService.Build(settings);
+            PythonModelRuntimeState runtimeState = PythonModelSettingsValidator.GetRuntimeState(
+                settings,
+                supportedModels,
+                trainingModels,
+                detectionModels);
+            PythonModelRuntimeAdapterSupport adapterSupport = PythonModelRuntimeAdapterSupportService.Build(
+                settings,
+                supportedModels,
+                trainingModels,
+                detectionModels);
 
             return new PythonModelRuntimeExecutionSummary(
                 "\uC2E4\uC81C \uD559\uC2B5/\uAC80\uC0AC \uC2E4\uD589 \uACBD\uB85C",

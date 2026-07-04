@@ -56,6 +56,7 @@ namespace MvcVisionSystem
         private readonly CGlobal global = CGlobal.Inst;
         private readonly ObservableCollection<WpfImageQueueItem> imageQueueItems = new ObservableCollection<WpfImageQueueItem>();
         private readonly YoloImageReviewStatusService imageReviewStatus = new YoloImageReviewStatusService();
+        private readonly AnomalyImageReviewStatusService anomalyImageReviewStatus = new AnomalyImageReviewStatusService();
         private int queuedActiveImageQueueStatusRefreshVersion;
         private readonly WpfImageQueueSelectionService imageQueueSelectionService = new WpfImageQueueSelectionService();
         private readonly WpfDatasetImageRootResolver datasetImageRootResolver = new WpfDatasetImageRootResolver();

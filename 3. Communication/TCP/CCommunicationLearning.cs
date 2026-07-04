@@ -91,11 +91,20 @@ namespace MvcVisionSystem._3._Communication.TCP
         }
 
 
-        public bool SendTrainingData(string command, string imgSize, string batch, string epoch, string cfg, string weight, string dataYaml = "", string model = "yolov5")
+        public bool SendTrainingData(
+            string command,
+            string imgSize,
+            string batch,
+            string epoch,
+            string cfg,
+            string weight,
+            string dataYaml = "",
+            string model = "yolov5",
+            string task = "detect")
         {
             try
             {
-                return SendPacket(command, LearningProtocol.BuildTrainingPacket(command, imgSize, batch, epoch, cfg, weight, dataYaml, model));
+                return SendPacket(command, LearningProtocol.BuildTrainingPacket(command, imgSize, batch, epoch, cfg, weight, dataYaml, model, task));
             }
             catch (Exception Desc)
             {
@@ -378,6 +387,7 @@ namespace MvcVisionSystem._3._Communication.TCP
                     item.LastTrainingProgressPercent = statusMessage.ProgressPercent;
                     item.LastTrainingEpoch = statusMessage.Epoch;
                     item.LastTrainingTotalEpochs = statusMessage.TotalEpochs;
+                    item.LastTrainingWeightsPath = statusMessage.TrainingWeights ?? "";
                 }
 
                 item.LastError = statusMessage.IsError
@@ -395,20 +405,18 @@ namespace MvcVisionSystem._3._Communication.TCP
                 return;
             }
 
-            if (statusMessage.SupportedModels?.Count > 0)
-            {
-                item.WorkerSupportedModels = statusMessage.SupportedModels;
-            }
-
-            if (statusMessage.TrainingModels?.Count > 0)
-            {
-                item.WorkerTrainingModels = statusMessage.TrainingModels;
-            }
-
-            if (statusMessage.DetectionModels?.Count > 0)
-            {
-                item.WorkerDetectionModels = statusMessage.DetectionModels;
-            }
+            item.WorkerSupportedModels = new List<string>(statusMessage.SupportedModels ?? new List<string>());
+            item.WorkerTrainingModels = new List<string>(statusMessage.TrainingModels ?? new List<string>());
+            item.WorkerDetectionModels = new List<string>(statusMessage.DetectionModels ?? new List<string>());
+            item.WorkerSegmentationModels = new List<string>(statusMessage.SegmentationModels ?? new List<string>());
+            item.WorkerClassificationModels = new List<string>(statusMessage.ClassificationModels ?? new List<string>());
+            item.WorkerRuntimeWarnings = new List<string>(statusMessage.RuntimeWarnings ?? new List<string>());
+            item.WorkerCachedTrainingWeights = new List<string>(statusMessage.CachedTrainingWeights ?? new List<string>());
+            item.WorkerMissingTrainingWeights = new List<string>(statusMessage.MissingTrainingWeights ?? new List<string>());
+            item.WorkerRuntimeReadyTrainingWeights = new List<string>(statusMessage.RuntimeReadyTrainingWeights ?? new List<string>());
+            item.WorkerRuntimeBlockedTrainingWeights = new List<string>(statusMessage.RuntimeBlockedTrainingWeights ?? new List<string>());
+            item.WorkerDownloadRequiredTrainingWeights = new List<string>(statusMessage.DownloadRequiredTrainingWeights ?? new List<string>());
+            item.WorkerRuntimeBlockedMissingTrainingWeights = new List<string>(statusMessage.RuntimeBlockedMissingTrainingWeights ?? new List<string>());
         }
 
         private static string BuildModelStatusSummary(PythonModelStatusMessage statusMessage)

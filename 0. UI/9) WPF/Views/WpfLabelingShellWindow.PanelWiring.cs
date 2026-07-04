@@ -232,7 +232,7 @@ namespace MvcVisionSystem
         private void PopulateYoloEditorFields()
         {
             EnsureProjectSettings();
-            YoloModelSettingsViewModel?.LoadFrom(global.Data.ProjectSettings.PythonModel);
+            YoloModelSettingsViewModel?.LoadFrom(global.Data.ProjectSettings.PythonModel, global.Data.ProjectSettings.AnomalyClassification);
         }
 
         private void PopulateTrainingEditorFields()

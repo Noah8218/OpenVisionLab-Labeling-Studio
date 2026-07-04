@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace MvcVisionSystem._1._Core
@@ -57,6 +58,9 @@ namespace MvcVisionSystem._1._Core
                 string displayName = string.Equals(engine, PythonModelSettings.EngineYoloV8, StringComparison.Ordinal)
                     ? "YOLOv8"
                     : "YOLO11";
+                bool hasAnyWorkerCapabilities = HasAnyCapability(supportedModels)
+                    || HasAnyCapability(trainingModels)
+                    || HasAnyCapability(detectionModels);
                 bool hasOperationSpecificCapabilities = HasAnyCapability(trainingModels) || HasAnyCapability(detectionModels);
                 bool canTrain = SupportsModel(adapterKey, trainingModels)
                     || (!hasOperationSpecificCapabilities && SupportsModel(adapterKey, supportedModels));
@@ -75,9 +79,47 @@ namespace MvcVisionSystem._1._Core
                             : $"{displayName} worker capability\uC5D0\uC11C \uBD80\uBD84 \uC9C0\uC6D0\uB9CC \uD655\uC778\uB428");
                 }
 
+                if (hasAnyWorkerCapabilities)
+                {
+                    return new PythonModelRuntimeAdapterSupport(
+                        isExecutionSupported: false,
+                        canTrain: false,
+                        canInspect: false,
+                        $"{displayName} worker capability mismatch",
+                        $"Connected Ultralytics worker did not report adapter capability for {adapterKey}. Training and inspection stay blocked until the worker reports {adapterKey}.",
+                        $"Update/select a runtime that reports {adapterKey}, or switch to a reported adapter.");
+                }
+
                 PythonModelRuntimeInstallPlan installPlan = PythonModelRuntimeInstallPlanService.BuildPlan(settings);
+                bool hasLocalYoloV8Worker = string.Equals(engine, PythonModelSettings.EngineYoloV8, StringComparison.Ordinal)
+                    && IsLocalYoloV8Worker(settings);
+                if (hasLocalYoloV8Worker && installPlan.IsAlreadyInstalled)
+                {
+                    bool localWorkerCanTrain = LocalYoloV8WorkerSupportsTraining(settings);
+                    return new PythonModelRuntimeAdapterSupport(
+                        isExecutionSupported: true,
+                        canTrain: localWorkerCanTrain,
+                        canInspect: true,
+                        localWorkerCanTrain ? "YOLOv8 local worker \uD559\uC2B5/\uAC80\uC0AC \uC900\uBE44" : "YOLOv8 local worker \uAC80\uC0AC \uC900\uBE44",
+                        localWorkerCanTrain
+                            ? "YOLOv8 local TCP worker\uB85C \uD559\uC2B5\uACFC \uD604\uC7AC \uAC80\uC0AC\uB97C \uC2E4\uD589\uD569\uB2C8\uB2E4. \uB85C\uCEEC segmentation weight\uB97C \uD655\uC778\uD558\uC138\uC694."
+                            : "YOLOv8 local TCP worker\uB85C \uD604\uC7AC \uAC80\uC0AC\uB97C \uC2E4\uD589\uD569\uB2C8\uB2E4. \uD559\uC2B5\uC740 worker\uAC00 TrainYolo \uCC98\uB9AC\uB97C \uC9C0\uC6D0\uD560 \uB54C\uAE4C\uC9C0 \uCC28\uB2E8\uD569\uB2C8\uB2E4.",
+                        localWorkerCanTrain ? "YOLOv8 \uD559\uC2B5/\uD604\uC7AC \uAC80\uC0AC \uAC00\uB2A5" : "YOLOv8 \uD604\uC7AC \uAC80\uC0AC \uAC00\uB2A5 / \uD559\uC2B5\uC740 local worker TrainYolo \uC9C0\uC6D0 \uD544\uC694");
+                }
+
+                if (hasLocalYoloV8Worker)
+                {
+                    return new PythonModelRuntimeAdapterSupport(
+                        isExecutionSupported: false,
+                        canTrain: false,
+                        canInspect: false,
+                        "YOLOv8 local worker \uC5F0\uACB0 / Ultralytics \uC124\uCE58 \uD544\uC694",
+                        "YOLOv8 local TCP worker\uB294 \uD655\uC778\uB410\uC9C0\uB9CC, \uC120\uD0DD\uD55C venv\uC5D0 ultralytics \uD328\uD0A4\uC9C0\uAC00 \uD655\uC778\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.",
+                        "YOLOv8 venv\uC5D0 ultralytics\uB97C \uC124\uCE58\uD558\uACE0 segmentation \uAC00\uC911\uCE58\uB97C \uC5F0\uACB0\uD558\uC138\uC694.");
+                }
+
                 bool hasBundledWorker = PythonModelRuntimeBundledWorkerService.IsUltralyticsWorkerScriptPath(settings?.ClientScriptPath);
-                if (hasBundledWorker && installPlan.IsAlreadyInstalled)
+                if (hasBundledWorker && installPlan.IsAlreadyInstalled && !hasAnyWorkerCapabilities)
                 {
                     return new PythonModelRuntimeAdapterSupport(
                         isExecutionSupported: true,
@@ -149,5 +191,63 @@ namespace MvcVisionSystem._1._Core
 
         private static string FormatAllowed(bool value)
             => value ? "\uAC00\uB2A5" : "\uC5F0\uACB0 \uD544\uC694";
+
+        private static bool IsLocalYoloV8Worker(PythonModelSettings settings)
+        {
+            if (!TryReadLocalWorkerSource(settings, out string source))
+            {
+                return false;
+            }
+
+            return source.IndexOf("YOLOv8", StringComparison.OrdinalIgnoreCase) >= 0
+                && source.IndexOf("DetectImage", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool LocalYoloV8WorkerSupportsTraining(PythonModelSettings settings)
+        {
+            if (!TryReadLocalWorkerSource(settings, out string source))
+            {
+                return false;
+            }
+
+            return source.IndexOf("handle_train_yolo", StringComparison.OrdinalIgnoreCase) >= 0
+                && source.IndexOf("TrainYoloResult", StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static bool TryReadLocalWorkerSource(PythonModelSettings settings, out string source)
+        {
+            source = string.Empty;
+            string clientScriptPath = settings?.ClientScriptPath?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(clientScriptPath)
+                || !File.Exists(clientScriptPath)
+                || PythonModelRuntimeBundledWorkerService.IsUltralyticsWorkerScriptPath(clientScriptPath))
+            {
+                return false;
+            }
+
+            string fileName = Path.GetFileName(clientScriptPath);
+            if (!string.Equals(fileName, "labelling_tcp_client.py", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(fileName, "labeling_tcp_client.py", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            try
+            {
+                source = File.ReadAllText(clientScriptPath);
+                string siblingScriptPath = Path.Combine(Path.GetDirectoryName(clientScriptPath) ?? string.Empty, "labeling_tcp_client.py");
+                if (File.Exists(siblingScriptPath)
+                    && !string.Equals(Path.GetFullPath(siblingScriptPath), Path.GetFullPath(clientScriptPath), StringComparison.OrdinalIgnoreCase))
+                {
+                    source += Environment.NewLine + File.ReadAllText(siblingScriptPath);
+                }
+
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
     }
 }

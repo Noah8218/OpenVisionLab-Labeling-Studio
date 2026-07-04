@@ -45,6 +45,10 @@ namespace MvcVisionSystem
             IReadOnlyList<string> warnings = report.IsReady
                 ? YoloDatasetDiagnosticsService.BuildQualityWarnings(global.Data, statistics)
                 : Array.Empty<string>();
+            AnomalyImageReviewSummary anomalySummary = report.Purpose == LabelingDatasetPurpose.AnomalyDetection
+                ? AnomalyImageReviewStatusService.LoadPersistedSummary(global.Data, statistics.TotalImageCount)
+                : null;
+            YoloDatasetQualityAuditReport qualityAudit = YoloDatasetQualityAuditService.Build(global.Data);
             string statusText = report.IsReady
                 ? warnings.Count > 0
                     ? "\uB370\uC774\uD130\uC14B \uC0C1\uD0DC: \uC8FC\uC758 \uD6C4 \uD559\uC2B5 \uAC00\uB2A5"
@@ -52,6 +56,12 @@ namespace MvcVisionSystem
                 : "\uB370\uC774\uD130\uC14B \uC0C1\uD0DC: \uD559\uC2B5 \uBD88\uAC00";
             string summaryText =
                 $"purpose {report.Purpose}, images {statistics.TotalImageCount}, train {statistics.TrainImageCount}, valid {statistics.ValidImageCount}, test {statistics.TestImageCount}, classes {classCount}";
+            if (anomalySummary != null)
+            {
+                summaryText += $", anomaly normal {anomalySummary.NormalImageCount}, abnormal {anomalySummary.AbnormalImageCount}, unreviewed {anomalySummary.UnreviewedImageCount}";
+            }
+            summaryText += $", quality missing {qualityAudit.TotalMissingLabelCount}, invalid {qualityAudit.TotalInvalidLabelLineCount}, empty {qualityAudit.TotalEmptyLabelCount}";
+
             LearningWorkflowViewModel.SetModelReplacementReadiness(
                 BuildModelReplacementStatusText(report, statistics),
                 BuildModelReplacementDetailText(report, statistics));
@@ -59,14 +69,16 @@ namespace MvcVisionSystem
                 statusText,
                 summaryText,
                 presentation?.ActionText ?? string.Empty,
-                BuildDatasetDashboardMetrics(report, statistics, classCount),
-                BuildDatasetDashboardIssues(report, warnings, classCount));
+                BuildDatasetDashboardMetrics(report, statistics, classCount, anomalySummary, qualityAudit),
+                BuildDatasetDashboardIssues(report, warnings, classCount, anomalySummary, qualityAudit));
         }
 
         private static IReadOnlyList<WpfDatasetDashboardMetricItem> BuildDatasetDashboardMetrics(
             YoloDatasetReadinessReport report,
             YoloDatasetStatistics statistics,
-            int classCount)
+            int classCount,
+            AnomalyImageReviewSummary anomalySummary = null,
+            YoloDatasetQualityAuditReport qualityAudit = null)
         {
             statistics ??= new YoloDatasetStatistics();
             LabelingDatasetPurpose purpose = report?.Purpose ?? LabelingDatasetPurpose.ObjectDetection;
@@ -101,7 +113,7 @@ namespace MvcVisionSystem
             bool isLabelingComplete = hasImages && completedImageLabelCount >= statistics.TotalImageCount;
             bool hasAnyCompletedImageLabel = completedImageLabelCount > 0;
 
-            return new[]
+            var metrics = new List<WpfDatasetDashboardMetricItem>
             {
                 new WpfDatasetDashboardMetricItem(
                     "\uC774\uBBF8\uC9C0",
@@ -190,6 +202,18 @@ namespace MvcVisionSystem
                     isWarning: false,
                     actionKind: WpfDatasetDashboardActionKind.OpenDatasetSettings)
             };
+
+            if (purpose == LabelingDatasetPurpose.AnomalyDetection)
+            {
+                metrics.Insert(Math.Min(2, metrics.Count), WpfAnomalyDashboardPresentationService.BuildReviewStateMetric(anomalySummary));
+            }
+
+            if (qualityAudit != null)
+            {
+                metrics.Insert(Math.Min(purpose == LabelingDatasetPurpose.AnomalyDetection ? 3 : 2, metrics.Count), WpfDatasetQualityAuditPresentationService.BuildQualityMetric(qualityAudit));
+            }
+
+            return metrics;
         }
 
         private static string BuildModelReplacementStatusText(YoloDatasetReadinessReport report, YoloDatasetStatistics statistics)
@@ -241,13 +265,30 @@ namespace MvcVisionSystem
         private static IReadOnlyList<string> BuildDatasetDashboardIssues(
             YoloDatasetReadinessReport report,
             IReadOnlyList<string> warnings,
-            int classCount)
+            int classCount,
+            AnomalyImageReviewSummary anomalySummary = null,
+            YoloDatasetQualityAuditReport qualityAudit = null)
         {
             var issues = new List<string>();
             string nextAction = BuildObjectDetectionNextActionIssue(report, classCount);
             if (!string.IsNullOrWhiteSpace(nextAction))
             {
                 issues.Add(nextAction);
+            }
+
+            string qualityIssue = WpfDatasetQualityAuditPresentationService.BuildQualityIssue(qualityAudit);
+            if (!string.IsNullOrWhiteSpace(qualityIssue))
+            {
+                issues.Add(qualityIssue);
+            }
+
+            if (report?.Purpose == LabelingDatasetPurpose.AnomalyDetection)
+            {
+                string anomalyIssue = WpfAnomalyDashboardPresentationService.BuildReviewStateIssue(anomalySummary);
+                if (!string.IsNullOrWhiteSpace(anomalyIssue))
+                {
+                    issues.Add(anomalyIssue);
+                }
             }
 
             if (report?.IsReady == true)

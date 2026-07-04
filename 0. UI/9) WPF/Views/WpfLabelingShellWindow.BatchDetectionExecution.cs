@@ -108,6 +108,11 @@ namespace MvcVisionSystem
                     if (pendingReviewStatusSaves >= BatchReviewStatusSaveInterval)
                     {
                         imageReviewStatus.SaveReviewStatus(global.Data);
+                        if (IsAnomalyDatasetPurpose())
+                        {
+                            SaveAnomalyImageReviewStatus();
+                        }
+
                         pendingReviewStatusSaves = 0;
                     }
 
@@ -127,6 +132,10 @@ namespace MvcVisionSystem
                 if (pendingReviewStatusSaves > 0 || batchDetectionCompletedCount > 0)
                 {
                     imageReviewStatus.SaveReviewStatus(global.Data);
+                    if (IsAnomalyDatasetPurpose())
+                    {
+                        SaveAnomalyImageReviewStatus();
+                    }
                 }
 
                 imageQueueView?.Refresh();

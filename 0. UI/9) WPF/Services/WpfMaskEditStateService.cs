@@ -8,11 +8,10 @@ namespace MvcVisionSystem
         public bool IsMaskPaintTool(WpfAnnotationTool tool)
             => tool == WpfAnnotationTool.Brush || tool == WpfAnnotationTool.Eraser;
 
-        // The FBO preview is the visible source while brush/eraser remains selected.
-        // Committing CPU MaskData/history during a short pause makes labels pop in and
-        // steals the UI thread from the next stroke, which is the stutter users feel.
+        // The FBO preview owns the active drag. CPU MaskData/history and object-review
+        // rows may catch up after the stroke is quiet, but never while the mouse is down.
         public bool CanProcessQueuedStrokeCommit(bool isStrokeActive, WpfAnnotationTool activeTool)
-            => !isStrokeActive && !IsMaskPaintTool(activeTool);
+            => !isStrokeActive;
 
         // Brush/eraser switches are common during segmentation. Keep the GPU preview
         // as the visible source while mask tools are active; the old Viewer2D flow

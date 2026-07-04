@@ -41,7 +41,8 @@ namespace MvcVisionSystem
             IList<LabelingSegmentationObject> manualSegments,
             IList<YoloWorkerSmokeCandidate> confirmedCandidates,
             string className,
-            out string normalizedClassName)
+            out string normalizedClassName,
+            CClassItem classItem = null)
         {
             normalizedClassName = NormalizeClassName(className);
             if (item == null)
@@ -71,13 +72,25 @@ namespace MvcVisionSystem
                         return false;
                     }
 
-                    manualSegments[item.Index].ClassName = normalizedClassName;
-                    if (manualSegments[item.Index].ClassItem == null)
+                    LabelingSegmentationObject segment = manualSegments[item.Index];
+                    segment.ClassName = normalizedClassName;
+                    if (classItem != null)
                     {
-                        manualSegments[item.Index].ClassItem = new CClassItem();
+                        segment.ClassItem = classItem;
                     }
 
-                    manualSegments[item.Index].ClassItem.Text = normalizedClassName;
+                    if (segment.ClassItem == null)
+                    {
+                        segment.ClassItem = new CClassItem();
+                    }
+
+                    segment.ClassItem.Text = normalizedClassName;
+                    if (segment.IsRasterMask)
+                    {
+                        segment.RenderVersion++;
+                        segment.RenderDirtyBounds = segment.Bounds;
+                    }
+
                     return true;
 
                 case WpfObjectReviewSource.ConfirmedAi:

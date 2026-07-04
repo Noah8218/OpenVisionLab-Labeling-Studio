@@ -74,18 +74,31 @@ namespace MvcVisionSystem
 
         private void RefreshAnnotationHistoryToolState()
         {
-            string undoActionName = undoAnnotationHistory.Count > 0
-                ? NormalizeHistoryActionName(undoAnnotationHistory[undoAnnotationHistory.Count - 1].ActionName)
-                : string.Empty;
-            string redoActionName = redoAnnotationHistory.Count > 0
+            bool hasPendingMaskStrokeUndo = HasPendingMaskStrokeUndoWork();
+            bool canUndo = hasPendingMaskStrokeUndo || undoAnnotationHistory.Count > 0;
+            bool canRedo = !hasPendingMaskStrokeUndo && redoAnnotationHistory.Count > 0;
+            string undoActionName = hasPendingMaskStrokeUndo
+                ? GetPendingMaskStrokeUndoActionName()
+                : undoAnnotationHistory.Count > 0
+                    ? NormalizeHistoryActionName(undoAnnotationHistory[undoAnnotationHistory.Count - 1].ActionName)
+                    : string.Empty;
+            string redoActionName = canRedo
                 ? NormalizeHistoryActionName(redoAnnotationHistory[redoAnnotationHistory.Count - 1].ActionName)
                 : string.Empty;
             LearningWorkflowViewModel?.SetAnnotationHistoryState(
-                undoAnnotationHistory.Count > 0,
-                redoAnnotationHistory.Count > 0,
+                canUndo,
+                canRedo,
                 undoActionName,
                 redoActionName);
         }
+
+        private bool HasPendingMaskStrokeUndoWork()
+            => pendingMaskStrokeCommitCount > 0 || queuedMaskStrokeCommits.Count > 0;
+
+        private string GetPendingMaskStrokeUndoActionName()
+            => queuedMaskStrokeCommits.Count > 0
+                ? NormalizeHistoryActionName(queuedMaskStrokeCommits.Peek().ActionName)
+                : string.Empty;
 
         private static string NormalizeHistoryActionName(string actionName)
         {
@@ -188,6 +201,8 @@ namespace MvcVisionSystem
                 lastMaskStrokePoint = null;
                 activeMaskStrokeInProgress = false;
                 activeMaskStrokeActionName = string.Empty;
+                CancelMaskStrokePreviewCommitSwap();
+                MainCanvasViewModel?.ClearMaskStrokePreview(refresh: false);
                 EnsureManualRoiMetadataCount();
                 RefreshPolygonOverlays();
                 RefreshObjectList();

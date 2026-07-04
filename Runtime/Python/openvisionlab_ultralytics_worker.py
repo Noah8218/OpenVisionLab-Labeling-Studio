@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 """Ultralytics TCP worker for OpenVisionLab Labeling Studio.
 
-This worker is intentionally limited to inference. It exposes the same JSON
-protocol shape as the existing YOLOv5 worker so the WPF app can switch model
-adapters without silently falling back to YOLOv5.
+This worker exposes Ultralytics YOLOv8/YOLO11 inference and training through
+the same JSON protocol shape as the existing YOLOv5 worker so the WPF app can
+switch model adapters without silently falling back to YOLOv5.
 """
 
 from __future__ import annotations
@@ -12,8 +12,11 @@ import argparse
 import importlib.util
 import json
 import os
+import shutil
 import socket
 import sys
+import tempfile
+import threading
 import time
 import traceback
 from dataclasses import dataclass, field
@@ -23,9 +26,18 @@ from typing import Any, Iterable
 
 
 PACKET_SEPARATOR = b"\n\n"
-SUPPORTED_MODELS = ("yolov8", "yolo11")
-TRAINING_MODELS: tuple[str, ...] = ()
-DETECTION_MODELS = SUPPORTED_MODELS
+BASE_SUPPORTED_MODELS = ("yolov8",)
+YOLO11_MODEL = "yolo11"
+_YOLO11_RUNTIME_AVAILABLE: bool | None = None
+_ULTRALYTICS_VERSION: str | None = None
+TRAINING_WEIGHT_DEFAULTS = (
+    "yolov8n.pt",
+    "yolov8n-seg.pt",
+    "yolov8n-cls.pt",
+    "yolo11n.pt",
+    "yolo11n-seg.pt",
+    "yolo11n-cls.pt",
+)
 LEGACY_TYPE_MAP = {
     "StartDefect": "DetectImage",
     "StartTraining": "TrainYolo",
@@ -93,22 +105,149 @@ def normalize_model(value: Any) -> str:
 
 
 def ultralytics_available() -> bool:
-    return importlib.util.find_spec("ultralytics") is not None
+    try:
+        return importlib.util.find_spec("ultralytics") is not None
+    except (ImportError, ValueError):
+        return "ultralytics" in sys.modules
 
 
-def capability_payload() -> dict[str, list[str]]:
+def yolo11_runtime_available() -> bool:
+    global _YOLO11_RUNTIME_AVAILABLE
+    if _YOLO11_RUNTIME_AVAILABLE is not None:
+        return _YOLO11_RUNTIME_AVAILABLE
+
     if not ultralytics_available():
-        return {
-            "supportedModels": [],
-            "trainingModels": [],
-            "detectionModels": [],
-        }
+        _YOLO11_RUNTIME_AVAILABLE = False
+        return False
+    try:
+        from ultralytics.nn.modules import block
 
+        _YOLO11_RUNTIME_AVAILABLE = hasattr(block, "C3k2")
+    except Exception:
+        _YOLO11_RUNTIME_AVAILABLE = False
+
+    return _YOLO11_RUNTIME_AVAILABLE
+
+
+def ultralytics_version() -> str:
+    global _ULTRALYTICS_VERSION
+    if _ULTRALYTICS_VERSION is not None:
+        return _ULTRALYTICS_VERSION
+
+    try:
+        from importlib.metadata import version
+
+        _ULTRALYTICS_VERSION = version("ultralytics")
+    except Exception:
+        _ULTRALYTICS_VERSION = ""
+
+    return _ULTRALYTICS_VERSION
+
+
+def runtime_supported_models() -> tuple[str, ...]:
+    if not ultralytics_available():
+        return ()
+
+    models = list(BASE_SUPPORTED_MODELS)
+    if yolo11_runtime_available():
+        models.append(YOLO11_MODEL)
+    return tuple(models)
+
+
+def runtime_training_models() -> tuple[str, ...]:
+    return runtime_supported_models()
+
+
+def runtime_detection_models() -> tuple[str, ...]:
+    return runtime_supported_models()
+
+
+def runtime_segmentation_models() -> tuple[str, ...]:
+    return runtime_supported_models()
+
+
+def runtime_classification_models() -> tuple[str, ...]:
+    return runtime_supported_models()
+
+
+def default_runtime_model() -> str:
+    models = runtime_supported_models()
+    return YOLO11_MODEL if YOLO11_MODEL in models else "yolov8"
+
+
+def unsupported_model_message(operation: str, model: str) -> str:
+    detail = f"this worker does not support {operation} model: {model}"
+    if model == YOLO11_MODEL and ultralytics_available() and not yolo11_runtime_available():
+        version = ultralytics_version() or "unknown"
+        detail += f"; installed ultralytics {version} does not expose C3k2."
+    return detail
+
+
+def training_weight_cache_payload(model_root: Path | None) -> dict[str, list[str]]:
+    if model_root is None:
+        return {}
+
+    cached = [
+        name
+        for name in TRAINING_WEIGHT_DEFAULTS
+        if (model_root / name).exists()
+    ]
+    missing = [name for name in TRAINING_WEIGHT_DEFAULTS if name not in cached]
+    runtime_models = set(runtime_supported_models())
+    runtime_ready = [
+        name
+        for name in cached
+        if training_weight_model_name(name) in runtime_models
+    ]
+    runtime_blocked = [
+        name
+        for name in cached
+        if training_weight_model_name(name) not in runtime_models
+    ]
+    download_required = [
+        name
+        for name in missing
+        if training_weight_model_name(name) in runtime_models
+    ]
+    runtime_blocked_missing = [
+        name
+        for name in missing
+        if training_weight_model_name(name) not in runtime_models
+    ]
     return {
-        "supportedModels": list(SUPPORTED_MODELS),
-        "trainingModels": list(TRAINING_MODELS),
-        "detectionModels": list(DETECTION_MODELS),
+        "cachedTrainingWeights": cached,
+        "missingTrainingWeights": missing,
+        "runtimeReadyTrainingWeights": runtime_ready,
+        "runtimeBlockedTrainingWeights": runtime_blocked,
+        "downloadRequiredTrainingWeights": download_required,
+        "runtimeBlockedMissingTrainingWeights": runtime_blocked_missing,
     }
+
+
+def training_weight_model_name(file_name: str) -> str:
+    name = (file_name or "").lower()
+    if name.startswith("yolo11"):
+        return "yolo11"
+    if name.startswith("yolov8"):
+        return "yolov8"
+    return ""
+
+
+def capability_payload(model_root: Path | None = None) -> dict[str, list[str]]:
+    runtime_warnings: list[str] = []
+    if ultralytics_available() and not yolo11_runtime_available():
+        runtime_warnings.append("YOLO11 disabled: installed ultralytics runtime does not expose C3k2.")
+
+    payload = {
+        "supportedModels": list(runtime_supported_models()),
+        "trainingModels": list(runtime_training_models()),
+        "detectionModels": list(runtime_detection_models()),
+        "segmentationModels": list(runtime_segmentation_models()),
+        "classificationModels": list(runtime_classification_models()),
+        "runtimeWarnings": runtime_warnings,
+    }
+    payload.update(training_weight_cache_payload(model_root))
+    return payload
 
 
 def collect_environment(weights: Path, image_root: Path, model_root: Path) -> dict[str, Any]:
@@ -121,19 +260,24 @@ def collect_environment(weights: Path, image_root: Path, model_root: Path) -> di
         "modelRootExists": model_root.exists(),
         "weightsPath": str(weights),
         "weightsExists": weights.exists(),
+        **training_weight_cache_payload(model_root),
         "imageRoot": str(image_root),
         "imageRootExists": image_root.exists(),
         "ultralyticsInstalled": ultralytics_available(),
+        "ultralyticsVersion": ultralytics_version(),
+        "yolo11RuntimeAvailable": yolo11_runtime_available(),
     }
 
 
 class JsonResponseWriter:
     def __init__(self, sock: socket.socket):
         self.sock = sock
+        self._lock = threading.Lock()
 
     def send(self, envelope: dict[str, Any]) -> None:
         envelope.setdefault("version", 1)
-        self.sock.sendall(compact_json(envelope) + b"\n")
+        with self._lock:
+            self.sock.sendall(compact_json(envelope) + b"\n")
 
 
 class UltralyticsDetector:
@@ -263,9 +407,10 @@ class UltralyticsDetector:
     def _build_candidates(self, result: Any, image_width: int, image_height: int) -> list[dict[str, Any]]:
         boxes = getattr(result, "boxes", None)
         if boxes is None:
-            return []
+            return self._build_classification_candidates(result)
 
         names = getattr(result, "names", getattr(self.model, "names", {}))
+        masks = getattr(result, "masks", None)
         candidates: list[dict[str, Any]] = []
         for index, box in enumerate(boxes):
             xyxy_values = getattr(box, "xyxy", None)
@@ -283,27 +428,101 @@ class UltralyticsDetector:
             confidence = float(getattr(box, "conf")[0].item()) if getattr(box, "conf", None) is not None else 0.0
             class_name = self._class_name(names, class_id)
 
-            candidates.append(
-                {
-                    "candidateId": f"det-{index}",
-                    "classId": class_id,
-                    "className": class_name,
-                    "confidence": confidence,
-                    "x": x1,
-                    "y": y1,
-                    "width": width,
-                    "height": height,
-                    "bbox": {"x": x1, "y": y1, "width": width, "height": height},
-                    "normalizedBbox": {
-                        "x": x1 / image_width if image_width else 0,
-                        "y": y1 / image_height if image_height else 0,
-                        "width": width / image_width if image_width else 0,
-                        "height": height / image_height if image_height else 0,
-                    },
-                }
-            )
+            candidate = {
+                "candidateId": f"det-{index}",
+                "classId": class_id,
+                "className": class_name,
+                "confidence": confidence,
+                "x": x1,
+                "y": y1,
+                "width": width,
+                "height": height,
+                "bbox": {"x": x1, "y": y1, "width": width, "height": height},
+                "normalizedBbox": {
+                    "x": x1 / image_width if image_width else 0,
+                    "y": y1 / image_height if image_height else 0,
+                    "width": width / image_width if image_width else 0,
+                    "height": height / image_height if image_height else 0,
+                },
+            }
 
-        return candidates
+            polygon_points = self._read_mask_polygon(masks, index)
+            if len(polygon_points) >= 3:
+                candidate["segmentationType"] = "polygon"
+                candidate["polygonPoints"] = polygon_points
+                candidate["normalizedPolygonPoints"] = [
+                    {
+                        "x": point["x"] / image_width if image_width else 0,
+                        "y": point["y"] / image_height if image_height else 0,
+                    }
+                    for point in polygon_points
+                ]
+
+            candidates.append(candidate)
+
+        return candidates if candidates else self._build_classification_candidates(result)
+
+    def _build_classification_candidates(self, result: Any) -> list[dict[str, Any]]:
+        probs = getattr(result, "probs", None)
+        if probs is None:
+            return []
+
+        class_id = self._read_scalar(getattr(probs, "top1", None), default=-1)
+        if class_id is None or int(class_id) < 0:
+            return []
+
+        confidence = self._read_scalar(getattr(probs, "top1conf", None), default=0.0)
+        names = getattr(result, "names", getattr(self.model, "names", {}))
+        class_id_int = int(class_id)
+        confidence_value = float(confidence or 0.0)
+        return [
+            {
+                "candidateId": "cls-0",
+                "candidateType": "imageClassification",
+                "predictionType": "classification",
+                "imageLevel": True,
+                "classId": class_id_int,
+                "className": self._class_name(names, class_id_int),
+                "confidence": confidence_value,
+                "x": 0,
+                "y": 0,
+                "width": 0,
+                "height": 0,
+            }
+        ]
+
+    @staticmethod
+    def _read_scalar(value: Any, default: Any = None) -> Any:
+        if value is None:
+            return default
+        if hasattr(value, "item"):
+            return value.item()
+        if isinstance(value, (list, tuple)):
+            return value[0] if value else default
+        return value
+
+    @staticmethod
+    def _read_mask_polygon(masks: Any, index: int) -> list[dict[str, float]]:
+        if masks is None:
+            return []
+
+        polygons = getattr(masks, "xy", None)
+        if polygons is None or index < 0 or index >= len(polygons):
+            return []
+
+        raw_points = polygons[index]
+        if hasattr(raw_points, "tolist"):
+            raw_points = raw_points.tolist()
+
+        points: list[dict[str, float]] = []
+        for raw_point in raw_points:
+            if hasattr(raw_point, "tolist"):
+                raw_point = raw_point.tolist()
+            if not isinstance(raw_point, (list, tuple)) or len(raw_point) < 2:
+                continue
+            points.append({"x": float(raw_point[0]), "y": float(raw_point[1])})
+
+        return points
 
 
 class LabelingUltralyticsWorker:
@@ -311,8 +530,15 @@ class LabelingUltralyticsWorker:
         self.detector = detector
         self.debug = debug
         self.started_at_utc = utc_now()
+        self.training_lock = threading.Lock()
+        self.training_thread: threading.Thread | None = None
+        self.training_status: dict[str, Any] = {
+            "type": "TrainingStatus",
+            "state": "idle",
+            "message": "training is idle",
+        }
 
-    def handle(self, message: IncomingMessage) -> dict[str, Any]:
+    def handle(self, message: IncomingMessage, writer: JsonResponseWriter | None = None) -> dict[str, Any]:
         try:
             if message.message_type == "HealthCheck":
                 return self.handle_health_check(message)
@@ -321,7 +547,7 @@ class LabelingUltralyticsWorker:
             if message.message_type == "DetectImage":
                 return self.handle_detect_image(message)
             if message.message_type == "TrainYolo":
-                return self.handle_train_yolo(message)
+                return self.handle_train_yolo(message, writer)
             if message.message_type == "StopTask":
                 return self.handle_stop_task(message)
             return {
@@ -341,7 +567,7 @@ class LabelingUltralyticsWorker:
             }
 
     def handle_health_check(self, message: IncomingMessage) -> dict[str, Any]:
-        capabilities = capability_payload()
+        capabilities = capability_payload(self.detector.model_root)
         has_package = ultralytics_available()
         envelope = {
             "type": "HealthCheckResult",
@@ -371,7 +597,7 @@ class LabelingUltralyticsWorker:
                 pass
 
         status = self.detector.status()
-        capabilities = capability_payload()
+        capabilities = capability_payload(self.detector.model_root)
         return {
             "type": "ModelStatusResult",
             "requestId": message.request_id,
@@ -379,12 +605,13 @@ class LabelingUltralyticsWorker:
             "state": status["state"],
             "capabilities": capabilities,
             "model": status,
+            "training": dict(self.training_status),
             "error": status["lastError"],
         }
 
     def handle_detect_image(self, message: IncomingMessage) -> dict[str, Any]:
         requested_model = normalize_model(get_first(message.payload, ["model", "adapter"], ""))
-        if requested_model and requested_model not in DETECTION_MODELS:
+        if requested_model and ultralytics_available() and requested_model not in runtime_detection_models():
             return {
                 "type": "DetectImageResult",
                 "requestId": message.request_id,
@@ -392,7 +619,7 @@ class LabelingUltralyticsWorker:
                 "ok": False,
                 "candidates": [],
                 "model": self.detector.status(),
-                "error": make_error("UnsupportedModel", f"this worker does not support detection model: {requested_model}"),
+                "error": make_error("UnsupportedModel", unsupported_model_message("detection", requested_model)),
             }
 
         image_id = message.image_id or str(get_first(message.payload, ["imageId"], ""))
@@ -432,14 +659,311 @@ class LabelingUltralyticsWorker:
                 "error": make_error("DetectImageFailed", exc, include_trace=self.debug),
             }
 
-    def handle_train_yolo(self, message: IncomingMessage) -> dict[str, Any]:
+    def handle_train_yolo(self, message: IncomingMessage, writer: JsonResponseWriter | None) -> dict[str, Any]:
+        requested_model = normalize_model(get_first(message.payload, ["model", "adapter"], ""))
+        if requested_model and ultralytics_available() and requested_model not in runtime_training_models():
+            return self._training_start_failure(
+                message,
+                "UnsupportedTrainingModel",
+                unsupported_model_message("training", requested_model),
+            )
+
+        model_name = requested_model or default_runtime_model()
+        task = self._resolve_training_task(message.payload)
+        if task not in {"detect", "segment", "classify"}:
+            return self._training_start_failure(
+                message,
+                "UnsupportedTrainingTask",
+                f"unsupported Ultralytics training task: {task}",
+            )
+
+        data_yaml = self._resolve_training_data_path(message.payload)
+        if not data_yaml:
+            return self._training_start_failure(
+                message,
+                "MissingTrainingData",
+                "TrainYolo requires dataYaml/data path.",
+            )
+
+        if not data_yaml.exists():
+            return self._training_start_failure(
+                message,
+                "TrainingDataNotFound",
+                f"training data file was not found: {data_yaml}",
+            )
+
+        if writer is None:
+            return self._training_start_failure(
+                message,
+                "TrainingWriterUnavailable",
+                "TrainYolo requires a TCP response writer for asynchronous status updates.",
+            )
+
+        if not ultralytics_available():
+            return self._training_start_failure(
+                message,
+                "UltralyticsMissing",
+                "ultralytics package is not installed in the selected Python environment.",
+            )
+
+        with self.training_lock:
+            if self.training_thread is not None and self.training_thread.is_alive():
+                return self._training_start_failure(
+                    message,
+                    "TrainingAlreadyRunning",
+                    "an Ultralytics training job is already running.",
+                    state="running",
+                )
+
+            training_weights = self._resolve_training_weights(message.payload, model_name, task)
+            if self._training_weight_requires_download(training_weights) and not self._allows_model_download(message.payload):
+                return self._training_start_failure(
+                    message,
+                    "TrainingWeightDownloadRequired",
+                    (
+                        f"training weight '{training_weights}' is not cached under {self.detector.model_root} "
+                        "and would require a model download; cache the file or send allowModelDownload=true after user approval."
+                    ),
+                    training_weights=training_weights,
+                )
+
+            payload = dict(message.payload)
+            payload["model"] = model_name
+            payload["task"] = task
+            payload["dataYaml"] = str(data_yaml)
+            payload["trainingWeights"] = training_weights
+            self.training_status = self._build_training_status(
+                message.request_id,
+                state="started",
+                message=f"Ultralytics {model_name} {task} training accepted.",
+                task=task,
+                model=model_name,
+                progress=0,
+                training_weights=training_weights,
+            )
+            self.training_thread = threading.Thread(
+                target=self._run_training_job,
+                args=(message.request_id, payload, writer),
+                daemon=True,
+                name="openvisionlab-ultralytics-training",
+            )
+            self.training_thread.start()
+
         return {
             "type": "TrainYoloResult",
             "requestId": message.request_id,
-            "ok": False,
-            "state": "failed",
-            "error": make_error("TrainingNotSupported", "Ultralytics training is not wired in this worker yet. Use YOLOv5 for training or connect a training-capable adapter."),
+            "ok": True,
+            "state": "started",
+            "taskType": "TrainYolo",
+            "trainingTask": task,
+            "model": model_name,
+            "trainingWeights": training_weights,
+            "progressPercent": 0,
         }
+
+    def _run_training_job(self, request_id: str, payload: dict[str, Any], writer: JsonResponseWriter) -> None:
+        model_name = normalize_model(payload.get("model")) or default_runtime_model()
+        task = self._resolve_training_task(payload)
+        data_yaml = self._resolve_training_data_path(payload)
+        epochs = self._resolve_positive_int(payload, ["epoch", "epochs"], 50)
+        image_size = self._resolve_positive_int(payload, ["imgSize", "imageSize", "imgsz"], self.detector.img_size)
+        batch = self._resolve_positive_int(payload, ["batch", "batchSize"], 16)
+        training_weights = str(payload.get("trainingWeights") or self._resolve_training_weights(payload, model_name, task))
+        run_name = self._resolve_training_run_name(payload, model_name, task)
+        project_path = self._resolve_training_project_path(task)
+
+        def send_status(state: str, message: str, progress: int | None = None, epoch: int | None = None, error: dict[str, Any] | None = None) -> None:
+            status = self._build_training_status(
+                request_id,
+                state=state,
+                message=message,
+                task=task,
+                model=model_name,
+                progress=progress,
+                epoch=epoch,
+                total_epochs=epochs,
+                error=error,
+                training_weights=training_weights,
+            )
+            self.training_status = status
+            try:
+                writer.send(status)
+            except OSError:
+                pass
+
+        try:
+            from ultralytics import YOLO
+
+            send_status("running", f"Ultralytics {model_name} {task} training started.", progress=0, epoch=0)
+            model = YOLO(training_weights)
+
+            def on_train_epoch_end(trainer: Any) -> None:
+                current_epoch = int(getattr(trainer, "epoch", 0)) + 1
+                total_epochs = int(getattr(trainer, "epochs", epochs) or epochs)
+                progress = int(max(0, min(100, round((current_epoch / max(total_epochs, 1)) * 100))))
+                send_status("running", f"Epoch {current_epoch}/{total_epochs}", progress=progress, epoch=current_epoch)
+
+            if hasattr(model, "add_callback"):
+                model.add_callback("on_train_epoch_end", on_train_epoch_end)
+
+            result = model.train(
+                data=str(data_yaml),
+                task=task,
+                epochs=epochs,
+                imgsz=image_size,
+                batch=batch,
+                project=str(project_path),
+                name=run_name,
+                exist_ok=True,
+                device=self.detector.device or None,
+            )
+            save_dir = str(getattr(result, "save_dir", "") or "")
+            send_status("completed", f"Ultralytics {model_name} {task} training completed. {save_dir}".strip(), progress=100, epoch=epochs)
+        except Exception as exc:
+            send_status("failed", "Ultralytics training failed.", error=make_error("TrainingFailed", exc, include_trace=self.debug))
+
+    def _training_start_failure(
+        self,
+        message: IncomingMessage,
+        code: str,
+        detail: str,
+        state: str = "failed",
+        training_weights: str = "",
+    ) -> dict[str, Any]:
+        error = make_error(code, detail)
+        self.training_status = self._build_training_status(
+            message.request_id,
+            state=state,
+            message=detail,
+            task=self._resolve_training_task(message.payload),
+            model=normalize_model(get_first(message.payload, ["model", "adapter"], "")) or default_runtime_model(),
+            error=error,
+            training_weights=training_weights,
+        )
+        result = {
+            "type": "TrainYoloResult",
+            "requestId": message.request_id,
+            "ok": False,
+            "state": state,
+            "taskType": "TrainYolo",
+            "error": error,
+        }
+        if training_weights:
+            result["trainingWeights"] = training_weights
+        return result
+
+    @staticmethod
+    def _build_training_status(
+        request_id: str,
+        state: str,
+        message: str,
+        task: str,
+        model: str,
+        progress: int | None = None,
+        epoch: int | None = None,
+        total_epochs: int | None = None,
+        error: dict[str, Any] | None = None,
+        training_weights: str = "",
+    ) -> dict[str, Any]:
+        status: dict[str, Any] = {
+            "type": "TrainingStatus",
+            "requestId": request_id,
+            "taskType": "TrainYolo",
+            "state": state,
+            "message": message,
+            "trainingTask": task,
+            "model": model,
+            "updatedAtUtc": utc_now(),
+        }
+        if training_weights:
+            status["trainingWeights"] = training_weights
+        if progress is not None:
+            status["progressPercent"] = max(0, min(100, int(progress)))
+        if epoch is not None:
+            status["epoch"] = max(0, int(epoch))
+        if total_epochs is not None:
+            status["totalEpochs"] = max(0, int(total_epochs))
+        if error is not None:
+            status["error"] = error
+        return status
+
+    def _resolve_training_data_path(self, payload: dict[str, Any]) -> Path | None:
+        value = get_first(payload, ["dataYaml", "dataYamlPath", "data"], "")
+        if not value:
+            return None
+
+        path = Path(str(value)).expanduser()
+        if path.is_absolute():
+            return path.resolve()
+        if path.exists():
+            return path.resolve()
+        return (self.detector.image_root / path).resolve()
+
+    @staticmethod
+    def _resolve_training_task(payload: dict[str, Any]) -> str:
+        raw = str(get_first(payload, ["task", "trainingTask", "datasetPurpose"], "detect") or "detect").strip().lower()
+        if raw in {"seg", "segment", "segmentation"}:
+            return "segment"
+        if raw in {"cls", "classify", "classification"}:
+            return "classify"
+        return "detect"
+
+    @staticmethod
+    def _resolve_positive_int(payload: dict[str, Any], names: Iterable[str], default: int) -> int:
+        try:
+            return max(1, int(float(get_first(payload, names, default))))
+        except (TypeError, ValueError):
+            return max(1, int(default))
+
+    def _resolve_training_weights(self, payload: dict[str, Any], model_name: str, task: str) -> str:
+        value = str(get_first(payload, ["weight", "weights", "weightsPath", "pretrained"], "") or "").strip()
+        if value:
+            path = Path(value).expanduser()
+            if path.is_absolute() and path.exists():
+                return str(path.resolve())
+            if path.exists():
+                return str(path.resolve())
+            normalized = value.lower().replace("\\", "/").split("/")[-1]
+            if normalized.startswith(("yolov8", "yolo11")):
+                return self._resolve_cached_training_weight(normalized) or value
+
+        base = "yolo11n" if model_name == "yolo11" else "yolov8n"
+        suffix = "-seg" if task == "segment" else "-cls" if task == "classify" else ""
+        default_name = f"{base}{suffix}.pt"
+        return self._resolve_cached_training_weight(default_name) or default_name
+
+    def _resolve_training_project_path(self, task: str) -> Path:
+        run_kind = "segment" if task == "segment" else "classify" if task == "classify" else "train"
+        return self.detector.model_root / "runs" / run_kind
+
+    def _resolve_cached_training_weight(self, file_name: str) -> str:
+        if not file_name:
+            return ""
+        candidate = (self.detector.model_root / Path(file_name).name).resolve()
+        return str(candidate) if candidate.exists() else ""
+
+    @staticmethod
+    def _allows_model_download(payload: dict[str, Any]) -> bool:
+        return as_bool(get_first(payload, ["allowModelDownload", "allowWeightDownload", "allowDownload"], False))
+
+    @staticmethod
+    def _training_weight_requires_download(training_weights: str) -> bool:
+        value = str(training_weights or "").strip()
+        if not value:
+            return False
+
+        path = Path(value).expanduser()
+        if path.exists() or path.is_absolute() or len(path.parts) > 1:
+            return False
+
+        return Path(value).name in TRAINING_WEIGHT_DEFAULTS
+
+    @staticmethod
+    def _resolve_training_run_name(payload: dict[str, Any], model_name: str, task: str) -> str:
+        value = str(get_first(payload, ["name", "runName"], "") or "").strip()
+        if value:
+            return value
+        return f"openvisionlab-{model_name}-{task}"
 
     def handle_stop_task(self, message: IncomingMessage) -> dict[str, Any]:
         return {
@@ -609,7 +1133,7 @@ def run_client(args: argparse.Namespace) -> int:
     if args.preload:
         try:
             detector.load()
-            print(compact_json({"type": "ModelStatusResult", "ok": True, "model": detector.status(), "capabilities": capability_payload()}).decode("utf-8"), flush=True)
+            print(compact_json({"type": "ModelStatusResult", "ok": True, "model": detector.status(), "capabilities": capability_payload(detector.model_root)}).decode("utf-8"), flush=True)
         except Exception as exc:
             print(compact_json({"type": "ModelStatusResult", "ok": False, "model": detector.status(), "error": make_error("ModelLoadFailed", exc)}).decode("utf-8"), flush=True)
 
@@ -644,7 +1168,7 @@ def read_loop(sock: socket.socket, args: argparse.Namespace, worker: LabelingUlt
         buffer.extend(chunk)
         for message in parse_messages(buffer):
             handled += 1
-            writer.send(worker.handle(message))
+            writer.send(worker.handle(message, writer))
             if args.once and handled >= 1:
                 return 0
 
@@ -657,6 +1181,21 @@ def run_smoke_test(args: argparse.Namespace) -> int:
         return 2
 
     image_path = resolve_image_path_for_cli(image_path_value, Path(args.image_root).resolve())
+    requested_model = normalize_model(getattr(args, "model", ""))
+    if requested_model and ultralytics_available() and requested_model not in runtime_detection_models():
+        print(compact_json({
+            "type": "SmokeTestResult",
+            "requestId": "smoke-test",
+            "imageId": image_path.stem,
+            "ok": False,
+            "weightsPath": str(Path(args.weights).resolve()),
+            "image": {"path": str(image_path)},
+            "model": detector.status(),
+            "capabilities": capability_payload(detector.model_root),
+            "error": make_error("UnsupportedModel", unsupported_model_message("detection", requested_model)),
+        }).decode("utf-8"), flush=True)
+        return 1
+
     started = time.perf_counter()
     try:
         detections, image_info = detector.detect_path(image_path)
@@ -669,7 +1208,7 @@ def run_smoke_test(args: argparse.Namespace) -> int:
             "weightsPath": str(Path(args.weights).resolve()),
             "image": image_info,
             "model": detector.status(),
-            "capabilities": capability_payload(),
+            "capabilities": capability_payload(detector.model_root),
             "candidates": detections,
         }
         print(compact_json(result).decode("utf-8"), flush=True)
@@ -683,7 +1222,7 @@ def run_smoke_test(args: argparse.Namespace) -> int:
             "weightsPath": str(Path(args.weights).resolve()),
             "image": {"path": str(image_path)},
             "model": detector.status(),
-            "capabilities": capability_payload(),
+            "capabilities": capability_payload(detector.model_root),
             "error": make_error("SmokeTestFailed", exc, include_trace=args.debug),
         }
         print(compact_json(result).decode("utf-8"), flush=True)
@@ -695,7 +1234,7 @@ def run_self_test() -> int:
         b'{"type":"HealthCheck","requestId":"req-health"}\n'
         b'{"type":"ModelStatus","requestId":"req-model","ensureLoaded":false}\n'
         b'{"type":"DetectImage","requestId":"req-detect","imageId":"img-1","imagePath":"sample.bmp","model":"yolo11"}\n'
-        b'StartTraining\n\n{"requestId":"req-train","model":"yolo11"}'
+        b'StartTraining\n\n{"requestId":"req-train","model":"yolo11","task":"segment","dataYaml":"data.yaml"}'
     )
     messages = list(parse_messages(buffer))
     assert len(messages) == 4, f"expected 4 messages, got {len(messages)}"
@@ -705,11 +1244,286 @@ def run_self_test() -> int:
     assert messages[2].payload["model"] == "yolo11"
     assert messages[3].message_type == "TrainYolo"
     assert not buffer
+    smoke_args = parse_args(["--smoke-test", "--image", "sample.bmp", "--model", "yolo11"])
+    assert smoke_args.model == "yolo11"
 
     capabilities = capability_payload()
     assert "supportedModels" in capabilities
-    assert "yolo11" in capabilities["detectionModels"]
-    assert capabilities["trainingModels"] == []
+    if ultralytics_available():
+        assert "yolov8" in capabilities["detectionModels"]
+        assert "yolov8" in capabilities["segmentationModels"]
+        assert "yolov8" in capabilities["classificationModels"]
+        assert "yolov8" in capabilities["trainingModels"]
+    if yolo11_runtime_available():
+        assert "yolo11" in capabilities["detectionModels"]
+        assert "yolo11" in capabilities["segmentationModels"]
+        assert "yolo11" in capabilities["classificationModels"]
+        assert "yolo11" in capabilities["trainingModels"]
+    else:
+        assert "yolo11" not in capabilities["supportedModels"]
+        if ultralytics_available():
+            assert capabilities["runtimeWarnings"]
+            assert "C3k2" in capabilities["runtimeWarnings"][0]
+            assert ultralytics_version()
+            unsupported_message = unsupported_model_message("training", "yolo11")
+            assert ultralytics_version() in unsupported_message
+            assert "C3k2" in unsupported_message
+
+    class FakeTensor:
+        def __init__(self, value: Any):
+            self.value = value
+
+        def __getitem__(self, index: int) -> "FakeTensor":
+            return FakeTensor(self.value[index])
+
+        def tolist(self) -> Any:
+            return self.value
+
+        def item(self) -> Any:
+            return self.value
+
+    class FakeBox:
+        xyxy = FakeTensor([[10, 20, 30, 40]])
+        cls = FakeTensor([1])
+        conf = FakeTensor([0.9])
+
+    class FakeMasks:
+        xy = [FakeTensor([[10, 20], [30, 20], [30, 40], [10, 40]])]
+
+    class FakeResult:
+        boxes = [FakeBox()]
+        masks = FakeMasks()
+        names = {1: "Defect"}
+
+    detector = UltralyticsDetector(
+        weights=Path("missing.pt"),
+        model_root=Path(".").resolve(),
+        image_root=Path(".").resolve(),
+        device="",
+        img_size=64,
+        conf=0.25,
+        iou=0.45,
+    )
+    candidates = detector._build_candidates(FakeResult(), 100, 80)
+    assert candidates[0]["className"] == "Defect"
+    assert candidates[0]["segmentationType"] == "polygon"
+    assert candidates[0]["polygonPoints"][2]["x"] == 30.0
+    assert candidates[0]["normalizedPolygonPoints"][2]["y"] == 0.5
+
+    class FakeProbs:
+        top1 = FakeTensor(0)
+        top1conf = FakeTensor(0.88)
+
+    class FakeClassificationResult:
+        boxes = None
+        probs = FakeProbs()
+        names = {0: "Normal", 1: "Abnormal"}
+
+    classification_candidates = detector._build_candidates(FakeClassificationResult(), 100, 80)
+    assert classification_candidates[0]["candidateType"] == "imageClassification"
+    assert classification_candidates[0]["imageLevel"] is True
+    assert classification_candidates[0]["className"] == "Normal"
+    assert classification_candidates[0]["confidence"] == 0.88
+    assert LabelingUltralyticsWorker._resolve_training_task({"task": "segmentation"}) == "segment"
+    assert LabelingUltralyticsWorker._resolve_training_task({"task": "classification"}) == "classify"
+    worker = LabelingUltralyticsWorker(detector)
+    if ultralytics_available() and not yolo11_runtime_available():
+        unsupported_detect = worker.handle_detect_image(parse_json_line_message(
+            b'{"type":"DetectImage","requestId":"req-unsupported-detect","imagePath":"missing.bmp","model":"yolo11"}'
+        ))
+        assert unsupported_detect["ok"] is False
+        assert "C3k2" in unsupported_detect["error"]["message"]
+        unsupported_train = worker.handle_train_yolo(parse_json_line_message(
+            b'{"type":"TrainYolo","requestId":"req-unsupported-train","model":"yolo11","task":"classify"}'
+        ), None)
+        assert unsupported_train["ok"] is False
+        assert "C3k2" in unsupported_train["error"]["message"]
+    assert worker._resolve_training_weights({"weight": "yolov5x.pt"}, "yolo11", "segment") == "yolo11n-seg.pt"
+    assert worker._resolve_training_weights({"weight": "yolov5x.pt"}, "yolo11", "classify") == "yolo11n-cls.pt"
+    assert worker._resolve_training_weights({"weight": "yolov5x.pt"}, "yolov8", "segment") == "yolov8n-seg.pt"
+    assert worker._resolve_training_weights({"weight": "yolov5x.pt"}, "yolov8", "classify") == "yolov8n-cls.pt"
+    cached_weight_root = Path(tempfile.mkdtemp(prefix="ovl-ultralytics-cache-"))
+    try:
+        detector.model_root = cached_weight_root
+        cached_seg = cached_weight_root / "yolov8n-seg.pt"
+        cached_cls = cached_weight_root / "yolov8n-cls.pt"
+        cached_seg.write_text("weights", encoding="utf-8")
+        cached_cls.write_text("weights", encoding="utf-8")
+        cache_payload = training_weight_cache_payload(cached_weight_root)
+        assert "yolov8n-seg.pt" in cache_payload["cachedTrainingWeights"]
+        assert "yolov8n-cls.pt" in cache_payload["cachedTrainingWeights"]
+        if "yolov8" in runtime_supported_models():
+            assert "yolov8n-seg.pt" in cache_payload["runtimeReadyTrainingWeights"]
+            assert "yolov8n-cls.pt" in cache_payload["runtimeReadyTrainingWeights"]
+            assert "yolov8n.pt" in cache_payload["downloadRequiredTrainingWeights"]
+        assert "yolo11n-seg.pt" in cache_payload["missingTrainingWeights"]
+        if "yolo11" not in runtime_supported_models():
+            assert "yolo11n-seg.pt" in cache_payload["runtimeBlockedMissingTrainingWeights"]
+        assert training_weight_model_name("yolo11n-cls.pt") == "yolo11"
+        assert worker._resolve_training_weights({"weight": "yolov8n-seg.pt"}, "yolov8", "segment") == str(cached_seg.resolve())
+        assert worker._resolve_training_weights({"weight": "yolov5x.pt"}, "yolov8", "classify") == str(cached_cls.resolve())
+    finally:
+        shutil.rmtree(cached_weight_root, ignore_errors=True)
+    status = worker._build_training_status(
+        "req-train",
+        "running",
+        "Epoch 1/2",
+        "segment",
+        "yolo11",
+        progress=50,
+        epoch=1,
+        total_epochs=2,
+        training_weights="yolo11n-seg.pt",
+    )
+    assert status["type"] == "TrainingStatus"
+    assert status["progressPercent"] == 50
+    assert status["trainingTask"] == "segment"
+    assert status["trainingWeights"] == "yolo11n-seg.pt"
+    detector.model_root = Path(".").resolve()
+    detector.img_size = 64
+    detector.device = ""
+    sent_statuses: list[dict[str, Any]] = []
+    captured_train_kwargs: dict[str, Any] = {}
+    captured_model_weights: list[str] = []
+    callbacks: dict[str, Any] = {}
+
+    class FakeWriter:
+        def send(self, envelope: dict[str, Any]) -> None:
+            sent_statuses.append(envelope)
+
+    class FakeYolo:
+        def __init__(self, weights: str):
+            self.weights = weights
+            captured_model_weights.append(weights)
+
+        def add_callback(self, name: str, callback: Any) -> None:
+            callbacks[name] = callback
+
+        def train(self, **kwargs: Any) -> Any:
+            captured_train_kwargs.update(kwargs)
+
+            class FakeTrainer:
+                epoch = 0
+                epochs = 1
+
+            callbacks["on_train_epoch_end"](FakeTrainer())
+
+            class FakeResult:
+                save_dir = "fake-run"
+
+            return FakeResult()
+
+    fake_ultralytics = type(sys)("ultralytics")
+    fake_ultralytics.YOLO = FakeYolo
+    previous_ultralytics = sys.modules.get("ultralytics")
+    download_guard_root = Path(tempfile.mkdtemp(prefix="ovl-ultralytics-download-guard-"))
+    try:
+        detector.model_root = download_guard_root
+        sys.modules["ultralytics"] = fake_ultralytics
+        download_guard = worker.handle_train_yolo(
+            IncomingMessage(
+                "TrainYolo",
+                request_id="req-download-guard",
+                payload={
+                    "model": "yolov8",
+                    "task": "segment",
+                    "dataYaml": str(Path(__file__).resolve()),
+                },
+            ),
+            FakeWriter(),
+        )
+        assert download_guard["ok"] is False
+        assert download_guard["error"]["code"] == "TrainingWeightDownloadRequired"
+        assert download_guard["trainingWeights"] == "yolov8n-seg.pt"
+        assert worker.training_status["trainingWeights"] == "yolov8n-seg.pt"
+
+        for flag_name in ("allowModelDownload", "allowWeightDownload", "allowDownload"):
+            sent_statuses.clear()
+            captured_train_kwargs.clear()
+            callbacks.clear()
+            download_allowed = worker.handle_train_yolo(
+                IncomingMessage(
+                    "TrainYolo",
+                    request_id=f"req-download-allowed-{flag_name}",
+                    payload={
+                        "model": "yolov8",
+                        "task": "segment",
+                        "dataYaml": str(Path(__file__).resolve()),
+                        flag_name: True,
+                        "epoch": "1",
+                        "imgSize": "64",
+                        "batch": "1",
+                    },
+                ),
+                FakeWriter(),
+            )
+            assert download_allowed["ok"] is True
+            assert download_allowed["trainingWeights"] == "yolov8n-seg.pt"
+            assert worker.training_thread is not None
+            worker.training_thread.join(timeout=5)
+            assert not worker.training_thread.is_alive()
+            assert captured_model_weights[-1] == "yolov8n-seg.pt"
+            assert captured_train_kwargs["task"] == "segment"
+            assert any(item["state"] == "completed" for item in sent_statuses)
+    finally:
+        if previous_ultralytics is None:
+            sys.modules.pop("ultralytics", None)
+        else:
+            sys.modules["ultralytics"] = previous_ultralytics
+        shutil.rmtree(download_guard_root, ignore_errors=True)
+
+    fake_weight_root = Path(tempfile.mkdtemp(prefix="ovl-ultralytics-fake-train-cache-"))
+    try:
+        detector.model_root = fake_weight_root
+        cached_fake_cls = fake_weight_root / "yolov8n-cls.pt"
+        cached_fake_cls.write_text("weights", encoding="utf-8")
+        for request_id, model_name, task_name, data_path, expected_weight in (
+            ("req-train-yolo11-seg", "yolo11", "segment", str(Path(__file__).resolve()), "yolo11n-seg.pt"),
+            ("req-train-yolo11-cls", "yolo11", "classify", str(Path(__file__).resolve().parent), "yolo11n-cls.pt"),
+            ("req-train-yolov8-seg", "yolov8", "segment", str(Path(__file__).resolve()), "yolov8n-seg.pt"),
+            ("req-train-yolov8-cls", "yolov8", "classify", str(Path(__file__).resolve().parent), str(cached_fake_cls.resolve())),
+        ):
+            sent_statuses.clear()
+            captured_train_kwargs.clear()
+            callbacks.clear()
+            sys.modules["ultralytics"] = fake_ultralytics
+            try:
+                worker._run_training_job(
+                    request_id,
+                    {
+                        "model": model_name,
+                        "task": task_name,
+                        "dataYaml": data_path,
+                        "epoch": "1",
+                        "imgSize": "64",
+                        "batch": "1",
+                    },
+                    FakeWriter(),
+                )
+            finally:
+                if previous_ultralytics is None:
+                    del sys.modules["ultralytics"]
+                else:
+                    sys.modules["ultralytics"] = previous_ultralytics
+
+            assert captured_train_kwargs["task"] == task_name
+            assert captured_train_kwargs["epochs"] == 1
+            assert captured_train_kwargs["imgsz"] == 64
+            expected_run_kind = "segment" if task_name == "segment" else "classify" if task_name == "classify" else "train"
+            assert Path(captured_train_kwargs["project"]).name == expected_run_kind
+            assert captured_model_weights[-1] == expected_weight
+            assert sent_statuses[0]["state"] == "running"
+            assert sent_statuses[0]["trainingWeights"] == expected_weight
+            assert any(
+                item["state"] == "completed"
+                and item["trainingTask"] == task_name
+                and item["progressPercent"] == 100
+                and item["trainingWeights"] == expected_weight
+                for item in sent_statuses
+            )
+    finally:
+        detector.model_root = Path(".").resolve()
+        shutil.rmtree(fake_weight_root, ignore_errors=True)
     print("self-test passed", flush=True)
     return 0
 
@@ -729,6 +1543,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--port", type=int, default=5000)
     parser.add_argument("--timeout", type=float, default=30)
     parser.add_argument("--weights", default="")
+    parser.add_argument("--model", default="")
     parser.add_argument("--model-root", default=str(Path(__file__).resolve().parent))
     parser.add_argument("--image-root", default=str(Path.cwd()))
     parser.add_argument("--data-yaml", default="")

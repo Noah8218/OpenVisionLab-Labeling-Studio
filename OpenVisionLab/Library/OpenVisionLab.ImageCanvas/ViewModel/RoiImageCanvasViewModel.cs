@@ -1500,8 +1500,9 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 			gl.Enable(OpenGL.GL_TEXTURE_2D);
 			gl.Disable(OpenGL.GL_DEPTH_TEST);
-			gl.Enable(OpenGL.GL_BLEND);
-			gl.BlendFunc(OpenGL.GL_SRC_ALPHA, OpenGL.GL_ONE_MINUS_SRC_ALPHA);
+			// Copy committed mask texels into the preview FBO without blending.
+			// The whole preview layer is alpha-blended once when drawn to screen.
+			gl.Disable(OpenGL.GL_BLEND);
 			gl.Color(1F, 1F, 1F, 1F);
 			foreach (RoiImageCanvasMaskOverlay overlay in _maskOverlays)
 			{
@@ -3869,7 +3870,12 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				? System.Drawing.Color.FromArgb(245, 158, 11)
 				: System.Drawing.Color.FromArgb(44, 210, 110);
 			System.Drawing.Color baseColor = color.IsEmpty ? fallback : color;
-			return System.Drawing.Color.FromArgb(isEraser ? 135 : 150, baseColor.R, baseColor.G, baseColor.B);
+			int alpha = isEraser
+				? 135
+				: color.IsEmpty
+					? 150
+					: Math.Max(1, Math.Min(255, (int)baseColor.A));
+			return System.Drawing.Color.FromArgb(alpha, baseColor.R, baseColor.G, baseColor.B);
 		}
 		public void SetBrushCursorPreview(System.Drawing.Point imagePoint, int radius, System.Drawing.Color color, bool isEraser)
 		{

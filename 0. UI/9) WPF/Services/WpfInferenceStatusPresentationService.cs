@@ -38,6 +38,15 @@ namespace MvcVisionSystem
             return $"{statusLine}\n{modelText}\n{runtimeText}\n{modelPathText}";
         }
 
+        public static string BuildRuntimePythonStatus(
+            PythonModelValidationResult validationResult,
+            PythonModelRuntimeState runtimeState)
+        {
+            return validationResult?.IsValid == true
+                ? "\uCD94\uB860: \uC900\uBE44 \uC644\uB8CC"
+                : runtimeState?.SummaryText ?? string.Empty;
+        }
+
         public static string BuildInspectionModelStatusText(
             PythonModelSettings settings,
             bool hasPendingModelCandidate)

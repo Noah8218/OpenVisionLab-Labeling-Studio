@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows.Input;
+using MvcVisionSystem.Yolo;
 using OpenVisionLab.Mvvm;
 
 namespace MvcVisionSystem
@@ -41,7 +42,7 @@ namespace MvcVisionSystem
             }
 
             string className = WpfObjectReviewEditService.NormalizeClassName(ObjectReviewViewModel?.SelectedClassName);
-            EnsureClassItem(className);
+            CClassItem classItem = EnsureClassItem(className);
             WpfAnnotationHistorySnapshot beforeChange = CaptureAnnotationHistory("Change object class");
             if (!WpfObjectReviewEditService.TryApplyClass(
                 item,
@@ -50,7 +51,8 @@ namespace MvcVisionSystem
                 manualSegments,
                 candidateReviewState.MutableConfirmedCandidates,
                 className,
-                out string appliedClassName))
+                out string appliedClassName,
+                classItem))
             {
                 return;
             }
@@ -66,6 +68,7 @@ namespace MvcVisionSystem
             }
             else
             {
+                MainCanvasViewModel?.ClearMaskStrokePreview(refresh: false, clearTexture: true);
                 RefreshPolygonOverlays();
             }
 

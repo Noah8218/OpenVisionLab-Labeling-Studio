@@ -22,6 +22,7 @@ namespace MvcVisionSystem._3._Communication.TCP
         public int? ProgressPercent { get; set; }
         public int? Epoch { get; set; }
         public int? TotalEpochs { get; set; }
+        public string TrainingWeights { get; set; } = "";
         public string Error { get; set; } = "";
         public string FailureReason { get; set; } = "";
         public int? ExitCode { get; set; }
@@ -29,6 +30,15 @@ namespace MvcVisionSystem._3._Communication.TCP
         public List<string> SupportedModels { get; set; } = new List<string>();
         public List<string> TrainingModels { get; set; } = new List<string>();
         public List<string> DetectionModels { get; set; } = new List<string>();
+        public List<string> SegmentationModels { get; set; } = new List<string>();
+        public List<string> ClassificationModels { get; set; } = new List<string>();
+        public List<string> RuntimeWarnings { get; set; } = new List<string>();
+        public List<string> CachedTrainingWeights { get; set; } = new List<string>();
+        public List<string> MissingTrainingWeights { get; set; } = new List<string>();
+        public List<string> RuntimeReadyTrainingWeights { get; set; } = new List<string>();
+        public List<string> RuntimeBlockedTrainingWeights { get; set; } = new List<string>();
+        public List<string> DownloadRequiredTrainingWeights { get; set; } = new List<string>();
+        public List<string> RuntimeBlockedMissingTrainingWeights { get; set; } = new List<string>();
         public bool? Ok { get; set; }
         public bool? Loaded { get; set; }
 
@@ -127,7 +137,16 @@ namespace MvcVisionSystem._3._Communication.TCP
                 Ok = ok,
                 SupportedModels = ExtractCapabilityList(root, "supportedModels", "models", "adapters"),
                 TrainingModels = ExtractCapabilityList(root, "trainingModels", "trainModels", "training", "train"),
-                DetectionModels = ExtractCapabilityList(root, "detectionModels", "detectModels", "inspectionModels", "detect", "inspection")
+                DetectionModels = ExtractCapabilityList(root, "detectionModels", "detectModels", "inspectionModels", "detect", "inspection"),
+                SegmentationModels = ExtractCapabilityList(root, "segmentationModels", "segmentModels", "segModels", "segment", "segmentation"),
+                ClassificationModels = ExtractCapabilityList(root, "classificationModels", "classifyModels", "clsModels", "classify", "classification"),
+                RuntimeWarnings = ExtractRuntimeWarnings(root),
+                CachedTrainingWeights = ExtractStatusStringList(root, "cachedTrainingWeights"),
+                MissingTrainingWeights = ExtractStatusStringList(root, "missingTrainingWeights"),
+                RuntimeReadyTrainingWeights = ExtractStatusStringList(root, "runtimeReadyTrainingWeights"),
+                RuntimeBlockedTrainingWeights = ExtractStatusStringList(root, "runtimeBlockedTrainingWeights"),
+                DownloadRequiredTrainingWeights = ExtractStatusStringList(root, "downloadRequiredTrainingWeights"),
+                RuntimeBlockedMissingTrainingWeights = ExtractStatusStringList(root, "runtimeBlockedMissingTrainingWeights")
             };
         }
 
@@ -153,6 +172,7 @@ namespace MvcVisionSystem._3._Communication.TCP
                 ProgressPercent = root["progressPercent"]?.Value<int?>(),
                 Epoch = root["epoch"]?.Value<int?>(),
                 TotalEpochs = root["totalEpochs"]?.Value<int?>(),
+                TrainingWeights = ExtractTrainingWeights(root),
                 Error = FormatError(root["error"]),
                 FailureReason = failureReason,
                 ExitCode = root["exitCode"]?.Value<int?>(),
@@ -175,8 +195,23 @@ namespace MvcVisionSystem._3._Communication.TCP
                 Version = root["version"]?.Value<int?>() ?? 1,
                 State = state,
                 Message = ok ? "YOLO training accepted by worker." : "YOLO training could not start.",
+                ProgressPercent = root["progressPercent"]?.Value<int?>(),
+                TrainingWeights = ExtractTrainingWeights(root),
                 Error = FormatError(root["error"])
             };
+        }
+
+        private static string ExtractTrainingWeights(JObject root)
+        {
+            if (root == null)
+            {
+                return string.Empty;
+            }
+
+            return root["trainingWeights"]?.Value<string>()
+                ?? root["weightsPath"]?.Value<string>()
+                ?? root["weight"]?.Value<string>()
+                ?? string.Empty;
         }
 
         private static PythonModelStatusMessage ParseModelStatusResult(JObject root)
@@ -197,8 +232,136 @@ namespace MvcVisionSystem._3._Communication.TCP
                 Loaded = loaded,
                 SupportedModels = ExtractCapabilityList(root, "supportedModels", "models", "adapters"),
                 TrainingModels = ExtractCapabilityList(root, "trainingModels", "trainModels", "training", "train"),
-                DetectionModels = ExtractCapabilityList(root, "detectionModels", "detectModels", "inspectionModels", "detect", "inspection")
+                DetectionModels = ExtractCapabilityList(root, "detectionModels", "detectModels", "inspectionModels", "detect", "inspection"),
+                SegmentationModels = ExtractCapabilityList(root, "segmentationModels", "segmentModels", "segModels", "segment", "segmentation"),
+                ClassificationModels = ExtractCapabilityList(root, "classificationModels", "classifyModels", "clsModels", "classify", "classification"),
+                RuntimeWarnings = ExtractRuntimeWarnings(root),
+                CachedTrainingWeights = ExtractStatusStringList(root, "cachedTrainingWeights"),
+                MissingTrainingWeights = ExtractStatusStringList(root, "missingTrainingWeights"),
+                RuntimeReadyTrainingWeights = ExtractStatusStringList(root, "runtimeReadyTrainingWeights"),
+                RuntimeBlockedTrainingWeights = ExtractStatusStringList(root, "runtimeBlockedTrainingWeights"),
+                DownloadRequiredTrainingWeights = ExtractStatusStringList(root, "downloadRequiredTrainingWeights"),
+                RuntimeBlockedMissingTrainingWeights = ExtractStatusStringList(root, "runtimeBlockedMissingTrainingWeights")
             };
+        }
+
+        private static List<string> ExtractStatusStringList(JObject root, string name)
+        {
+            var values = new List<string>();
+            if (root == null || string.IsNullOrWhiteSpace(name))
+            {
+                return values;
+            }
+
+            AppendStatusStringValues(root[name], values);
+            if (root["capabilities"] is JObject capabilities)
+            {
+                AppendStatusStringValues(capabilities[name], values);
+            }
+
+            if (root["environment"] is JObject environment)
+            {
+                AppendStatusStringValues(environment[name], values);
+            }
+
+            if (root["worker"] is JObject worker)
+            {
+                if (worker["capabilities"] is JObject workerCapabilities)
+                {
+                    AppendStatusStringValues(workerCapabilities[name], values);
+                }
+
+                if (worker["environment"] is JObject workerEnvironment)
+                {
+                    AppendStatusStringValues(workerEnvironment[name], values);
+                }
+            }
+
+            return values
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Select(item => item.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static void AppendStatusStringValues(JToken token, List<string> values)
+        {
+            if (token == null || values == null)
+            {
+                return;
+            }
+
+            if (token.Type == JTokenType.Array)
+            {
+                foreach (JToken item in token)
+                {
+                    AppendStatusStringValues(item, values);
+                }
+
+                return;
+            }
+
+            if (token.Type == JTokenType.String)
+            {
+                string text = token.Value<string>() ?? string.Empty;
+                foreach (string part in text.Split(new[] { ',', ';' }, StringSplitOptions.RemoveEmptyEntries))
+                {
+                    values.Add(part);
+                }
+            }
+        }
+
+        private static List<string> ExtractRuntimeWarnings(JObject root)
+        {
+            var values = new List<string>();
+            if (root == null)
+            {
+                return values;
+            }
+
+            AppendRuntimeWarningValues(root["runtimeWarnings"], values);
+            if (root["capabilities"] is JObject capabilities)
+            {
+                AppendRuntimeWarningValues(capabilities["runtimeWarnings"], values);
+            }
+
+            if (root["worker"] is JObject worker && worker["capabilities"] is JObject workerCapabilities)
+            {
+                AppendRuntimeWarningValues(workerCapabilities["runtimeWarnings"], values);
+            }
+
+            return values
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Select(item => item.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private static void AppendRuntimeWarningValues(JToken token, List<string> values)
+        {
+            if (token == null || values == null)
+            {
+                return;
+            }
+
+            if (token.Type == JTokenType.Array)
+            {
+                foreach (JToken item in token)
+                {
+                    AppendRuntimeWarningValues(item, values);
+                }
+
+                return;
+            }
+
+            if (token.Type == JTokenType.String)
+            {
+                string text = token.Value<string>() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(text))
+                {
+                    values.Add(text);
+                }
+            }
         }
 
         private static List<string> ExtractCapabilityList(JObject root, params string[] names)
