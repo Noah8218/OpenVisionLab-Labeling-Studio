@@ -2,6 +2,30 @@
 
 Last updated: 2026-07-04
 
+## 2026-07-04 direct EXE YOLOv8 segmentation train/inference workflow
+
+- Self-evaluation:
+  - The EXE workflow previously reached YOLOv8 segmentation training artifacts, but the WPF training UI could remain in the accepted/waiting state if the async `TrainingStatus completed` message was missed.
+  - The narrow product fix is to poll `ModelStatus` while training is active and consume the worker's embedded `training` status from `ModelStatusResult`.
+  - The verification harness also needed to avoid tooltip roots and keyboard `SendKeys` hangs during real EXE automation.
+- Changes:
+  - `ModelStatusResult.training` is parsed and copied into `PythonCommunicationStatus` when it reports a non-idle training state.
+  - The WPF training status timer requests worker model/training status while the workflow is running.
+  - Added `--exe-circular-segmentation-workflow`, which starts the real EXE and drives recipe creation, YOLOv8 runtime setup, image folder loading, brush segmentation labeling, YOLOv8 segmentation training, trained model application, and inference review capture.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-circular-segmentation-workflow --exe .\artifacts\isolated-out\OpenVisionLab.LabelingStudio.exe --image-root D:\circular_defect_labeling_dataset_v1\images\NG --yolov8-root C:\Git\yolov8 --label-count 8` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol` passed.
+  - `git diff --check` passed.
+- Evidence:
+  - Artifact root: `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260704_210650`.
+  - Screenshots: `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260704_210650\screenshots`.
+  - Output: 6 train segment JSON/mask PNG files and 2 valid segment JSON/mask PNG files.
+  - Trained weights: `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt`.
+- Remaining risk:
+  - The current image folder picker loads `D:\circular_defect_labeling_dataset_v1\images\NG` directly for this verified segmentation workflow. Loading the parent `images` folder recursively across `OK`/`NG` subfolders remains a separate workflow improvement.
+
 ## 2026-07-04 direct EXE mask class recolor verification
 
 - Self-evaluation:

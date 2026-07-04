@@ -131,6 +131,7 @@
     </UserControl.Resources>
 
     <Expander x:Name="TrainingSettingsExpander"
+              AutomationProperties.AutomationId="TrainingSettingsExpander"
               Header="&#xD559;&#xC2B5; &#xC694;&#xC57D; / &#xC124;&#xC815;"
               Foreground="{DynamicResource PrimaryTextBrush}"
               Margin="0,12,0,0">

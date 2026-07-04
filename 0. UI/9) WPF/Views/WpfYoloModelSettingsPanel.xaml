@@ -87,6 +87,7 @@
     </UserControl.Resources>
 
     <Expander x:Name="YoloModelSettingsExpander"
+              AutomationProperties.AutomationId="YoloModelSettingsExpander"
               Header="&#xAC80;&#xC0AC;&#xC6A9; &#xBAA8;&#xB378; &#xC694;&#xC57D; / &#xC124;&#xC815;"
               Foreground="{DynamicResource PrimaryTextBrush}"
               Margin="0,12,0,0">

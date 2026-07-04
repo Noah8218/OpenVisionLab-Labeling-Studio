@@ -68,6 +68,7 @@ namespace MvcVisionSystem
         private void StartTrainingStatusPolling()
         {
             trainingStatusPollStartedUtc = DateTime.UtcNow;
+            RequestTrainingStatusSnapshotFromWorker();
             if (!trainingStatusPollTimer.IsEnabled)
             {
                 trainingStatusPollTimer.Start();
@@ -119,6 +120,7 @@ namespace MvcVisionSystem
 
         private void TrainingStatusPollTimer_Tick(object sender, EventArgs e)
         {
+            RequestTrainingStatusSnapshotFromWorker();
             PythonCommunicationStatus status = global.GetPythonCommunicationStatusSnapshot();
             UpdateTrainingProgressFromWorker();
             bool hasCurrentStatus = HasTrainingStatus(status) && IsTrainingStatusCurrent(status);
@@ -149,6 +151,16 @@ namespace MvcVisionSystem
                     : MediaBrushes.DarkOrange;
             MediaBrush stateBrush = ResolveTrainingStateBrush(status);
             SetTrainingStatusBrushes(readinessBrush, stateBrush);
+        }
+
+        private void RequestTrainingStatusSnapshotFromWorker()
+        {
+            if (!isTrainingWorkflowRunning)
+            {
+                return;
+            }
+
+            global.DeepLearning?.SendModelStatus(CreateRequestId(), ensureLoaded: false);
         }
 
         private void UpdateYoloTrainingRecoveryStatus(PythonCommunicationStatus status)

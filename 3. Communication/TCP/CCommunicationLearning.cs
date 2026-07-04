@@ -378,6 +378,16 @@ namespace MvcVisionSystem._3._Communication.TCP
                     item.LastModelMessage = statusMessage.Message ?? "";
                     item.LastModelLoaded = statusMessage.Loaded == true;
                     UpdateWorkerCapabilities(item, statusMessage);
+                    if (statusMessage.HasEmbeddedTrainingStatus)
+                    {
+                        item.LastTrainingStatusAtUtc = DateTime.UtcNow;
+                        item.LastTrainingState = statusMessage.EmbeddedTrainingState ?? "";
+                        item.LastTrainingMessage = statusMessage.EmbeddedTrainingMessage ?? "";
+                        item.LastTrainingProgressPercent = statusMessage.EmbeddedTrainingProgressPercent;
+                        item.LastTrainingEpoch = statusMessage.EmbeddedTrainingEpoch;
+                        item.LastTrainingTotalEpochs = statusMessage.EmbeddedTrainingTotalEpochs;
+                        item.LastTrainingWeightsPath = statusMessage.TrainingWeights ?? "";
+                    }
                 }
                 else
                 {

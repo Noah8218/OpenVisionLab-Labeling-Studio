@@ -23,6 +23,11 @@ namespace MvcVisionSystem._3._Communication.TCP
         public int? Epoch { get; set; }
         public int? TotalEpochs { get; set; }
         public string TrainingWeights { get; set; } = "";
+        public string EmbeddedTrainingState { get; set; } = "";
+        public string EmbeddedTrainingMessage { get; set; } = "";
+        public int? EmbeddedTrainingProgressPercent { get; set; }
+        public int? EmbeddedTrainingEpoch { get; set; }
+        public int? EmbeddedTrainingTotalEpochs { get; set; }
         public string Error { get; set; } = "";
         public string FailureReason { get; set; } = "";
         public int? ExitCode { get; set; }
@@ -41,6 +46,21 @@ namespace MvcVisionSystem._3._Communication.TCP
         public List<string> RuntimeBlockedMissingTrainingWeights { get; set; } = new List<string>();
         public bool? Ok { get; set; }
         public bool? Loaded { get; set; }
+
+        public bool HasEmbeddedTrainingStatus
+        {
+            get
+            {
+                string state = EmbeddedTrainingState?.Trim() ?? string.Empty;
+                if (string.IsNullOrWhiteSpace(state)
+                    || string.Equals(state, "idle", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                return true;
+            }
+        }
 
         public bool IsError => string.Equals(State, "failed", StringComparison.OrdinalIgnoreCase)
             || !string.IsNullOrWhiteSpace(Error);
@@ -217,6 +237,7 @@ namespace MvcVisionSystem._3._Communication.TCP
         private static PythonModelStatusMessage ParseModelStatusResult(JObject root)
         {
             JObject model = root["model"] as JObject;
+            JObject training = root["training"] as JObject;
             bool ok = root["ok"]?.Value<bool?>() ?? false;
             bool loaded = model?["loaded"]?.Value<bool?>() ?? false;
             string state = model?["state"]?.Value<string>();
@@ -230,6 +251,12 @@ namespace MvcVisionSystem._3._Communication.TCP
                 Error = FormatError(root["error"] ?? model?["lastError"]),
                 Ok = ok,
                 Loaded = loaded,
+                EmbeddedTrainingState = training?["state"]?.Value<string>() ?? string.Empty,
+                EmbeddedTrainingMessage = training?["message"]?.Value<string>() ?? string.Empty,
+                EmbeddedTrainingProgressPercent = training?["progressPercent"]?.Value<int?>(),
+                EmbeddedTrainingEpoch = training?["epoch"]?.Value<int?>(),
+                EmbeddedTrainingTotalEpochs = training?["totalEpochs"]?.Value<int?>(),
+                TrainingWeights = ExtractTrainingWeights(training),
                 SupportedModels = ExtractCapabilityList(root, "supportedModels", "models", "adapters"),
                 TrainingModels = ExtractCapabilityList(root, "trainingModels", "trainModels", "training", "train"),
                 DetectionModels = ExtractCapabilityList(root, "detectionModels", "detectModels", "inspectionModels", "detect", "inspection"),

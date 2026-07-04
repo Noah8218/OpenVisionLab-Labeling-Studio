@@ -30,7 +30,7 @@ using CvScalar = OpenCvSharp.Scalar;
 
 namespace LabelingApplication.Tests;
 
-internal static class Program
+internal static partial class Program
 {
     private const int WmClose = 0x0010;
     private const uint SwpNoSize = 0x0001;
@@ -210,6 +210,11 @@ internal static class Program
         if (args.Any(arg => string.Equals(arg, "--exe-template-batch-autolabel-smoke", StringComparison.OrdinalIgnoreCase)))
         {
             return RunExeTemplateBatchAutoLabelSmoke(args);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--exe-circular-segmentation-workflow", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunExeCircularSegmentationWorkflow(args);
         }
 
         if (args.Any(arg => string.Equals(arg, "--wpf-yolo-training-session-smoke", StringComparison.OrdinalIgnoreCase)))
@@ -19100,6 +19105,18 @@ internal static class Program
         AssertTrue(model.Message.RuntimeBlockedTrainingWeights.Contains("yolo11n.pt"), "model status should parse runtime-blocked cached weights");
         AssertTrue(model.Message.DownloadRequiredTrainingWeights.Contains("yolov8n-seg.pt"), "model status should parse download-required missing weights");
         AssertTrue(model.Message.RuntimeBlockedMissingTrainingWeights.Contains("yolo11n-cls.pt"), "model status should parse runtime-blocked missing weights");
+
+        string modelTrainingJson = "{\"type\":\"ModelStatusResult\",\"version\":1,\"requestId\":\"req-model-training\",\"ok\":true,\"model\":{\"state\":\"ready\",\"loaded\":true,\"weightsPath\":\"C:/Git/yolov8/yolov8n-seg.pt\"},\"training\":{\"type\":\"TrainingStatus\",\"state\":\"completed\",\"message\":\"YOLOv8 segment training completed.\",\"progressPercent\":100,\"epoch\":1,\"totalEpochs\":1,\"trainingWeights\":\"C:/Git/yolov8/yolov8n-seg.pt\"}}";
+        PythonModelStatusParseResult modelTraining = PythonModelStatusProtocol.Parse(modelTrainingJson);
+        AssertEqual(PythonModelStatusParseStatus.Parsed, modelTraining.Status);
+        AssertEqual(PythonModelStatusProtocol.ModelStatusResultType, modelTraining.Message.Type);
+        AssertTrue(modelTraining.Message.HasEmbeddedTrainingStatus, "model status should expose embedded training status for polling recovery");
+        AssertEqual("completed", modelTraining.Message.EmbeddedTrainingState);
+        AssertEqual("YOLOv8 segment training completed.", modelTraining.Message.EmbeddedTrainingMessage);
+        AssertEqual(100, modelTraining.Message.EmbeddedTrainingProgressPercent);
+        AssertEqual(1, modelTraining.Message.EmbeddedTrainingEpoch);
+        AssertEqual(1, modelTraining.Message.EmbeddedTrainingTotalEpochs);
+        AssertEqual("C:/Git/yolov8/yolov8n-seg.pt", modelTraining.Message.TrainingWeights);
 
         string communicationSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "3. Communication", "TCP", "CCommunicationLearning.cs"));
         AssertTrue(communicationSource.Contains("WorkerSupportedModels = new List<string>(statusMessage.SupportedModels", StringComparison.Ordinal), "worker capability status should replace stale supported-model lists when the worker reports an empty list");

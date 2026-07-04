@@ -2,6 +2,34 @@
 
 This document records code paths that have already been performance- or UX-verified and should not be casually refactored. Treat these areas as protected product behavior: change them only when the user reports a new issue in that exact path, or when a focused verification gate proves the change is necessary.
 
+## YOLOv8 Segmentation EXE Workflow
+
+Status: stable after direct EXE recipe, labeling, training, model-apply, and inference-review verification.
+
+Protected behavior:
+
+- A local `C:\Git\yolov8` Ultralytics checkout with `labeling_tcp_client.py` can train YOLOv8 segmentation from the EXE-generated segmentation dataset.
+- WPF training progress must recover from `ModelStatusResult.training` polling if an async `TrainingStatus` frame is missed.
+- The real EXE can create a segmentation recipe, load the NG image folder, save brush masks/segment JSON, train YOLOv8 segmentation, apply the trained `best.pt`, and show inference review evidence.
+
+Required gates before reporting a change complete:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-status-protocol
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-circular-segmentation-workflow --exe .\artifacts\isolated-out\OpenVisionLab.LabelingStudio.exe --image-root D:\circular_defect_labeling_dataset_v1\images\NG --yolov8-root C:\Git\yolov8 --label-count 8
+git diff --check
+```
+
+Latest evidence:
+
+```text
+EXE_CIRCULAR_SEGMENTATION_WORKFLOW recipe=circular_seg_exe_20260704_210650
+EXE_CIRCULAR_SEGMENTATION_WORKFLOW trainedWeights=C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt
+EXE_CIRCULAR_SEGMENTATION_WORKFLOW trainSegments=6 validSegments=2
+Screenshots: artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260704_210650\screenshots
+```
+
 ## Annotation Undo/Redo Shortcuts
 
 Status: stable after focused WPF command and direct EXE verification.
