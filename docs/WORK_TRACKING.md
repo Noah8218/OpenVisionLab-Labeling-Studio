@@ -2,6 +2,22 @@
 
 Last updated: 2026-07-04
 
+## 2026-07-04 direct EXE mask class recolor verification
+
+- Self-evaluation:
+  - The previous WPF-focused class-change gate proved the service path, but it did not directly click the real EXE Object Review class selector that the operator uses.
+  - A small EXE-only smoke is the narrowest useful follow-up; no product code changed in this slice.
+- Changes:
+  - Added `--exe-mask-class-recolor-smoke`.
+  - The smoke starts the real EXE, creates a Brush raster mask, waits for materialization, opens the Object Review panel, selects a different class from the real `ObjectClassBox`, clicks `ApplyObjectClassButton`, verifies the row updates to the target mask class, and checks the canvas mask overlay pixels changed.
+  - The smoke uses the initially captured main-window handle so WPF tooltip/popup windows cannot replace the automation root during testing.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-mask-class-recolor-smoke --seed 260705 --brush-strokes 5 --exe .\artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe --output .\artifacts\ui\exe-mask-class-recolor-smoke-260705.png` passed with `targetClass=OK`, `canvasDiff=35018`, `rowUpdated=True`, and `applyEnabled=True`.
+- Capture:
+  - Direct EXE capture: `artifacts\ui\exe-mask-class-recolor-smoke-260705.png`.
+  - No README/tutorial screenshot update is required because this adds verification coverage only and does not change layout or documented UI composition.
+
 ## 2026-07-04 SEG brush label materialization, class recolor, and queue-click follow-up
 
 - Self-evaluation:

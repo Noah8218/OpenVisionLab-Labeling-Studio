@@ -172,6 +172,11 @@ internal static class Program
             return RunExeMaskToolsSmoke(args);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--exe-mask-class-recolor-smoke", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunExeMaskClassRecolorSmoke(args);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--exe-purpose-scope-smoke", StringComparison.OrdinalIgnoreCase)))
         {
             return RunExePurposeScopeSmoke(args);
@@ -2477,6 +2482,48 @@ internal static class Program
         }
     }
 
+    private static int RunExeMaskClassRecolorSmoke(string[] args)
+    {
+        try
+        {
+            string root = FindRepositoryRoot();
+            string exePath = Path.GetFullPath(GetArgumentValue(
+                args,
+                "--exe",
+                Path.Combine(root, "artifacts", "run", "Debug", "OpenVisionLab.LabelingStudio.exe")));
+            string outputPath = Path.GetFullPath(GetArgumentValue(
+                args,
+                "--output",
+                Path.Combine(root, "artifacts", "ui", "exe-mask-class-recolor-smoke.png")));
+            int seed = TryParseInt(GetArgumentValue(args, "--seed", "260705"), 260705);
+            int brushStrokeCount = Math.Max(3, TryParseInt(GetArgumentValue(args, "--brush-strokes", "5"), 5));
+
+            if (!File.Exists(exePath))
+            {
+                throw new FileNotFoundException("EXE mask-class recolor smoke target was not found. Build the app first.", exePath);
+            }
+
+            ExeMaskClassRecolorSmokeResult result = ExecuteExeMaskClassRecolorSmoke(
+                exePath,
+                outputPath,
+                seed,
+                brushStrokeCount);
+            Console.WriteLine(
+                FormattableString.Invariant(
+                    $"EXE_MASK_CLASS_RECOLOR_SMOKE seed={result.Seed} brushStrokes={result.BrushStrokeCount} sourceClass={result.SourceClass} targetClass={result.TargetClass} canvasDiff={result.CanvasDiffPixels} rowUpdated={result.RowUpdated} applyEnabled={result.ApplyButtonEnabled}"));
+            AssertTrue(result.RowUpdated, "real EXE mask class change should update the selected object-review row");
+            AssertTrue(result.CanvasDiffPixels >= 25, "real EXE mask class change should visibly recolor the canvas mask overlay");
+            Console.WriteLine($"EXE mask class recolor smoke captured: {outputPath}");
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"FAIL EXE mask class recolor smoke: {ex.Message}");
+            Console.Error.WriteLine(ex.ToString());
+            return 1;
+        }
+    }
+
     private static int RunExePurposeScopeSmoke(string[] args)
     {
         try
@@ -4205,7 +4252,7 @@ internal static class Program
                 AssertTrue(imageLoaded, "EXE undo/redo smoke could not find a loaded current image for fallback verification");
             }
 
-            root = RefreshAutomationRoot(process);
+            root = RefreshAutomationRoot(process, handle);
             int baselineLabelCount = GetExeCanvasLabelCount(root);
             using Bitmap beforeBitmap = CaptureAutomationRootBitmap(root);
             bool quickBoxCreated =
@@ -4229,7 +4276,7 @@ internal static class Program
                 {
                     brushRoute = true;
                     undoButtonWasCheckedInBrushMode = true;
-                    root = RefreshAutomationRoot(process, bringToFront: false);
+                    root = RefreshAutomationRoot(process, handle, bringToFront: false);
                 }
                 else
                 {
@@ -4283,7 +4330,7 @@ internal static class Program
             }
 
             AssertTrue(roiCreated, "EXE undo/redo smoke did not create an annotation target");
-            root = RefreshAutomationRoot(process);
+            root = RefreshAutomationRoot(process, handle);
             if (!undoButtonWasCheckedInBrushMode && !undoButtonEnabledAfterDraw)
             {
                 undoButtonEnabledAfterDraw = IsAutomationButtonEnabledByAutomationId(root, "CanvasUndoAnnotationButton");
@@ -4855,6 +4902,164 @@ internal static class Program
         }
     }
 
+    private static ExeMaskClassRecolorSmokeResult ExecuteExeMaskClassRecolorSmoke(
+        string exePath,
+        string outputPath,
+        int seed,
+        int brushStrokeCount)
+    {
+        Process process = null;
+        try
+        {
+            process = Process.Start(new ProcessStartInfo
+            {
+                FileName = exePath,
+                WorkingDirectory = Path.GetDirectoryName(exePath),
+                UseShellExecute = true
+            });
+            AssertTrue(process != null, "failed to start EXE mask-class recolor smoke process");
+
+            IntPtr handle = WaitForMainWindowHandle(process, TimeSpan.FromSeconds(25));
+            AssertTrue(handle != IntPtr.Zero, "EXE mask-class recolor smoke window did not appear");
+            BringNativeWindowToFront(handle);
+            var root = System.Windows.Automation.AutomationElement.FromHandle(handle);
+            AssertTrue(root != null, "EXE mask-class recolor smoke automation root was not available");
+            WaitForAutomationText(root, "\uCE94\uBC84\uC2A4", TimeSpan.FromSeconds(10));
+
+            _ = TryInvokeAutomationButtonByAutomationId(root, "LoadSampleButton")
+                || TryInvokeAutomationButton(root, "\uC0D8\uD50C");
+            Thread.Sleep(800);
+            root = RefreshAutomationRoot(process);
+            System.Windows.Automation.AutomationElement canvas = null;
+            bool canvasFound = WaitUntil(
+                () =>
+                {
+                    root = RefreshAutomationRoot(process, handle, bringToFront: false);
+                    canvas = FindAutomationElementByClass(root, "RoiImageCanvasView");
+                    return canvas != null;
+                },
+                TimeSpan.FromSeconds(5));
+            if (!canvasFound)
+            {
+                TryCaptureExeSmokeFailure(root, outputPath, "canvas-missing");
+                Console.WriteLine("EXE_MASK_CLASS_RECOLOR_CANVAS_MISSING " + BuildAutomationTextSample(root, 160));
+            }
+
+            AssertTrue(canvas != null, "EXE mask-class recolor smoke canvas was not found");
+            System.Windows.Rect canvasRect = canvas.Current.BoundingRectangle;
+            AssertTrue(canvasRect.Width > 100 && canvasRect.Height > 100, "EXE mask-class recolor smoke canvas bounds were not usable");
+
+            var random = new Random(seed);
+            string smokeImagePath = ResolveVisualSmokeImagePath();
+            bool hasSmokeImageBounds = !string.IsNullOrWhiteSpace(smokeImagePath) && File.Exists(smokeImagePath);
+            System.Windows.Rect annotationRegion = hasSmokeImageBounds
+                ? BuildExeSmokeFittedImageRegion(canvasRect, smokeImagePath)
+                : BuildExeSmokeAnnotationRegion(canvasRect);
+            if (!ClickDatasetPurposeByText(root, "\uC138\uADF8\uBA58\uD14C\uC774\uC158"))
+            {
+                AssertTrue(
+                    SelectAutomationTabByAutomationId(root, "LearningReviewTab") || SelectTabItemByName(root, "\uAC00\uC774\uB4DC/\uB3C4\uAD6C"),
+                    "guide/tools tab was not selectable before mask-class recolor smoke");
+                root = RefreshAutomationRoot(process, handle);
+                AssertTrue(ClickDatasetPurposeByText(root, "\uC138\uADF8\uBA58\uD14C\uC774\uC158"), "native click did not find the segmentation dataset purpose");
+            }
+
+            root = RefreshAutomationRoot(process, handle);
+            System.Windows.Automation.AutomationElement brushToolItem = FindAnnotationToolItem(root, "\uBE0C\uB7EC\uC2DC");
+            System.Windows.Automation.AutomationElement selectToolItem = FindAnnotationToolItem(root, "\uC120\uD0DD");
+            AssertTrue(brushToolItem != null, "native click did not find the brush tool");
+            AssertTrue(selectToolItem != null, "native click did not find the select tool before mask class change");
+            NativeClick(GetAutomationCenter(brushToolItem));
+            AssertTrue(
+                WaitUntil(() => IsAutomationSelectionItemSelected(brushToolItem), TimeSpan.FromSeconds(2)),
+                "real native click did not select the brush tool");
+
+            IReadOnlyList<ExeSmokeDragPath> brushDrags = BuildExeSmokeStrokeDrags(random, annotationRegion, brushStrokeCount);
+            _ = ExecuteExeSmokeDragBatch(brushDrags, moveDelayMilliseconds: 1, postMouseUpMilliseconds: 8);
+
+            root = RefreshAutomationRoot(process, handle, bringToFront: false);
+            System.Windows.Automation.AutomationElement materializeStatusElement = FindAutomationElementByAutomationId(root, "ModelStatusText");
+            string previousCommitSignal = GetAutomationHelpText(materializeStatusElement);
+            NativeClick(GetAutomationCenter(selectToolItem));
+            bool materialized =
+                IsChangedExeMaskCommitSignal(previousCommitSignal)
+                || WaitForExeMaskCommitSignal(process, materializeStatusElement, previousCommitSignal, TimeSpan.FromSeconds(3));
+            AssertTrue(materialized, "real EXE mask strokes did not materialize before class recolor");
+
+            root = RefreshAutomationRoot(process, handle, bringToFront: false);
+            AssertTrue(
+                SelectAutomationTabByAutomationId(root, "ObjectsReviewTab") || SelectTabItemByName(root, "\uAC1D\uCCB4"),
+                "object tab was not selectable after mask materialization");
+            bool maskRowVisible = WaitUntil(
+                () => ContainsAutomationText(RefreshAutomationRoot(process, handle, bringToFront: false), " / \uB9C8\uC2A4\uD06C"),
+                TimeSpan.FromSeconds(4));
+            AssertTrue(maskRowVisible, "real EXE mask class smoke did not create a selected object-review mask row");
+
+            root = RefreshAutomationRoot(process, handle, bringToFront: false);
+            canvas = FindAutomationElementByClass(root, "RoiImageCanvasView");
+            AssertTrue(canvas != null, "EXE mask-class recolor smoke canvas was not found before class apply");
+            string sourceClass = GetAutomationValueByAutomationId(root, "ObjectClassBox");
+            if (string.IsNullOrWhiteSpace(sourceClass))
+            {
+                sourceClass = "(unknown)";
+            }
+
+            using Bitmap beforeClassBitmap = CaptureAutomationRootBitmap(root);
+            SaveBitmap(beforeClassBitmap, BuildSiblingOutputPath(outputPath, "before"));
+            System.Windows.Rect rootBounds = root.Current.BoundingRectangle;
+            System.Windows.Rect canvasProbe = canvas.Current.BoundingRectangle;
+
+            string[] preferredClasses = string.Equals(sourceClass, "OK", StringComparison.OrdinalIgnoreCase)
+                ? new[] { "NG", "Defect", "OK" }
+                : new[] { "OK", "NG", "Defect" };
+            bool classSelected = TrySelectComboBoxItemByAutomationId(process, handle, "ObjectClassBox", preferredClasses, sourceClass, out string targetClass);
+            if (!classSelected)
+            {
+                root = RefreshAutomationRoot(process, handle, bringToFront: false);
+                TryCaptureExeSmokeFailure(root, outputPath, "class-combo-target-missing");
+                Console.WriteLine($"EXE_MASK_CLASS_RECOLOR_CLASS_COMBO_MISSING sourceClass=\"{sourceClass}\" sample=\"{BuildAutomationTextSample(root, 180)}\"");
+            }
+
+            AssertTrue(classSelected, "real EXE object class combo did not expose a selectable target class");
+            root = RefreshAutomationRoot(process, handle, bringToFront: false);
+            bool applyEnabled = IsAutomationButtonEnabledByAutomationId(root, "ApplyObjectClassButton");
+            AssertTrue(applyEnabled, "real EXE apply class button was not enabled after selecting a different class");
+            AssertTrue(
+                TryInvokeAutomationButtonByAutomationId(root, "ApplyObjectClassButton"),
+                "real EXE apply class button was not invokable");
+
+            bool rowUpdated = WaitUntil(
+                () => ContainsAutomationText(RefreshAutomationRoot(process, handle, bringToFront: false), targetClass + " / \uB9C8\uC2A4\uD06C"),
+                TimeSpan.FromSeconds(3));
+            if (!rowUpdated)
+            {
+                root = RefreshAutomationRoot(process, handle, bringToFront: false);
+                TryCaptureExeSmokeFailure(root, outputPath, "row-not-updated");
+                Console.WriteLine("EXE_MASK_CLASS_RECOLOR_ROW_MISSING " + BuildAutomationTextSample(root, 160));
+            }
+
+            AssertTrue(rowUpdated, "real EXE object-review mask row did not update to the target class");
+            root = RefreshAutomationRoot(process, handle, bringToFront: false);
+            Thread.Sleep(160);
+            using Bitmap afterClassBitmap = CaptureAutomationRootBitmap(root);
+            Rectangle probe = BuildBitmapProbeRectangle(rootBounds, canvasProbe, beforeClassBitmap.Size);
+            int canvasDiffPixels = CountChangedPixels(beforeClassBitmap, afterClassBitmap, probe);
+            CaptureAutomationRoot(root, outputPath);
+            return new ExeMaskClassRecolorSmokeResult(
+                seed,
+                brushDrags.Count,
+                sourceClass,
+                targetClass,
+                canvasDiffPixels,
+                rowUpdated,
+                applyEnabled);
+        }
+        finally
+        {
+            CloseExeSmokeProcess(process);
+        }
+    }
+
     private static ExePurposeScopeSmokeResult ExecuteExePurposeScopeSmoke(
         string exePath,
         string outputPath,
@@ -5370,6 +5575,20 @@ internal static class Program
 
         var root = System.Windows.Automation.AutomationElement.FromHandle(process.MainWindowHandle);
         AssertTrue(root != null, "EXE smoke automation root was not available after refresh");
+        return root;
+    }
+
+    private static System.Windows.Automation.AutomationElement RefreshAutomationRoot(Process process, IntPtr stableHandle, bool bringToFront = true)
+    {
+        AssertTrue(process != null && !process.HasExited, "EXE smoke process exited unexpectedly");
+        AssertTrue(stableHandle != IntPtr.Zero, "EXE smoke stable window handle was not available");
+        if (bringToFront)
+        {
+            BringNativeWindowToFront(stableHandle);
+        }
+
+        var root = System.Windows.Automation.AutomationElement.FromHandle(stableHandle);
+        AssertTrue(root != null, "EXE smoke automation root was not available after stable refresh");
         return root;
     }
 
@@ -6881,6 +7100,127 @@ internal static class Program
         }
     }
 
+    private static bool TrySelectComboBoxItemByAutomationId(
+        Process process,
+        IntPtr stableHandle,
+        string automationId,
+        IReadOnlyList<string> preferredItems,
+        string currentValue,
+        out string selectedItem)
+    {
+        selectedItem = string.Empty;
+        string[] candidates = (preferredItems ?? Array.Empty<string>())
+            .Where(item => !string.IsNullOrWhiteSpace(item))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(item => string.Equals(item, currentValue, StringComparison.OrdinalIgnoreCase) ? 1 : 0)
+            .ToArray();
+        if (candidates.Length == 0)
+        {
+            return false;
+        }
+
+        System.Windows.Automation.AutomationElement root = RefreshAutomationRoot(process, stableHandle, bringToFront: false);
+        System.Windows.Automation.AutomationElement comboBox = FindAutomationElementByAutomationId(root, automationId);
+        if (comboBox == null || !comboBox.Current.IsEnabled)
+        {
+            return false;
+        }
+
+        if (!TryExpandAutomationElementByAutomationId(root, automationId))
+        {
+            NativeClick(GetAutomationCenter(comboBox));
+            Thread.Sleep(250);
+        }
+
+        System.Windows.Rect comboBounds = comboBox.Current.BoundingRectangle;
+        foreach (string candidate in candidates)
+        {
+            System.Windows.Automation.AutomationElement item = FindProcessAutomationElementByName(process, candidate, comboBounds);
+            if (item == null)
+            {
+                continue;
+            }
+
+            if (item.TryGetCurrentPattern(System.Windows.Automation.SelectionItemPattern.Pattern, out object pattern)
+                && pattern is System.Windows.Automation.SelectionItemPattern selectionPattern)
+            {
+                selectionPattern.Select();
+            }
+            else
+            {
+                NativeClick(GetAutomationCenter(item));
+            }
+
+            selectedItem = candidate;
+            if (WaitUntil(
+                () =>
+                {
+                    var latestRoot = RefreshAutomationRoot(process, stableHandle, bringToFront: false);
+                    string value = GetAutomationValueByAutomationId(latestRoot, automationId);
+                    return string.Equals(value, candidate, StringComparison.OrdinalIgnoreCase)
+                        || value.Contains(candidate, StringComparison.OrdinalIgnoreCase)
+                        || IsAutomationButtonEnabledByAutomationId(latestRoot, "ApplyObjectClassButton");
+                },
+                TimeSpan.FromSeconds(2)))
+            {
+                return true;
+            }
+
+            root = RefreshAutomationRoot(process, stableHandle, bringToFront: false);
+            _ = TryExpandAutomationElementByAutomationId(root, automationId);
+        }
+
+        selectedItem = string.Empty;
+        return false;
+    }
+
+    private static System.Windows.Automation.AutomationElement FindProcessAutomationElementByName(
+        Process process,
+        string name,
+        System.Windows.Rect preferredOwnerBounds = default)
+    {
+        if (process == null || process.HasExited || string.IsNullOrWhiteSpace(name))
+        {
+            return null;
+        }
+
+        var condition = new System.Windows.Automation.AndCondition(
+            new System.Windows.Automation.PropertyCondition(
+                System.Windows.Automation.AutomationElement.ProcessIdProperty,
+                process.Id),
+            new System.Windows.Automation.PropertyCondition(
+                System.Windows.Automation.AutomationElement.NameProperty,
+                name));
+        System.Windows.Automation.AutomationElementCollection matches =
+            System.Windows.Automation.AutomationElement.RootElement.FindAll(
+                System.Windows.Automation.TreeScope.Descendants,
+                condition);
+        foreach (System.Windows.Automation.AutomationElement element in matches)
+        {
+            try
+            {
+                System.Windows.Rect bounds = element.Current.BoundingRectangle;
+                bool nearPreferredOwner = preferredOwnerBounds == default
+                    || (bounds.Left >= preferredOwnerBounds.Left - 8
+                        && bounds.Right <= preferredOwnerBounds.Right + 32
+                        && bounds.Top >= preferredOwnerBounds.Top - 8
+                        && bounds.Top <= preferredOwnerBounds.Bottom + 180);
+                if (element.Current.IsEnabled
+                    && bounds.Width > 0
+                    && bounds.Height > 0
+                    && nearPreferredOwner)
+                {
+                    return element;
+                }
+            }
+            catch (System.Windows.Automation.ElementNotAvailableException)
+            {
+            }
+        }
+
+        return null;
+    }
+
     private static bool TryInvokeAutomationButtonByNameInRightPane(
         System.Windows.Automation.AutomationElement root,
         string name)
@@ -8012,6 +8352,15 @@ internal static class Program
         double EraserImmediateWheelUiMilliseconds,
         bool BrushSelectedByNativeClick,
         bool EraserSelectedByNativeClick);
+
+    private readonly record struct ExeMaskClassRecolorSmokeResult(
+        int Seed,
+        int BrushStrokeCount,
+        string SourceClass,
+        string TargetClass,
+        int CanvasDiffPixels,
+        bool RowUpdated,
+        bool ApplyButtonEnabled);
 
     private readonly record struct ExePurposeScopeSmokeResult(
         int Seed,
