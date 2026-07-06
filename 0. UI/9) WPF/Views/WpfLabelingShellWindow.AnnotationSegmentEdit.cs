@@ -115,13 +115,12 @@ namespace MvcVisionSystem
             lastSegmentDragPoint = e.ImagePoint;
             activeSegmentDragChanged = true;
             RefreshPolygonOverlays();
-            RefreshObjectList();
-            RefreshActiveImageQueueStatus(hasActiveCandidates: pendingDetectionCandidates.Count > 0);
             return true;
         }
 
         private void CompleteSelectedSegmentEdit()
         {
+            bool changed = activeSegmentDragChanged;
             if (activeSegmentDragSnapshot != null && activeSegmentDragChanged)
             {
                 PushAnnotationHistorySnapshot(activeSegmentDragSnapshot);
@@ -136,6 +135,11 @@ namespace MvcVisionSystem
             activeSegmentDragSnapshot = null;
             activeSegmentDragChanged = false;
             RefreshPolygonOverlays();
+            if (changed)
+            {
+                RefreshObjectList();
+                RefreshActiveImageQueueStatus(hasActiveCandidates: pendingDetectionCandidates.Count > 0);
+            }
         }
 
         private static bool IsMaskPixelHit(LabelingSegmentationObject segment, System.Drawing.Point imagePoint)

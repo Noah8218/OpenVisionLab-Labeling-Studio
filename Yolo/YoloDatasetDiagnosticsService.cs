@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -6,7 +7,9 @@ namespace MvcVisionSystem.Yolo
     public static class YoloDatasetDiagnosticsService
     {
         private const int RecommendedMinimumObjectsPerClass = 5;
+        private const int RecommendedMinimumSegmentationPositiveImagesPerSplit = 5;
         private const double ClassBalanceWarningRatio = 5D;
+        private const double SegmentationBackgroundWarningRatio = 3D;
 
         public static IReadOnlyList<string> BuildOperatorReport(CData data, bool refreshYaml)
         {
@@ -95,6 +98,11 @@ namespace MvcVisionSystem.Yolo
                 return lines;
             }
 
+            if (purpose == LabelingDatasetPurpose.Segmentation)
+            {
+                AppendSegmentationCoverageWarnings(lines, statistics);
+            }
+
             foreach (KeyValuePair<string, int> item in classCounts.Where(item => item.Value < RecommendedMinimumObjectsPerClass))
             {
                 lines.Add($"YOLO dataset warning: class '{item.Key}' has only {item.Value} object(s). Add more labeled examples before trusting training.");
@@ -118,6 +126,45 @@ namespace MvcVisionSystem.Yolo
             }
 
             return lines;
+        }
+
+        private static void AppendSegmentationCoverageWarnings(List<string> lines, YoloDatasetStatistics statistics)
+        {
+            AppendSegmentationSplitWarnings(lines, "train", Math.Max(statistics.TrainSegmentFileCount, statistics.TrainMaskFileCount), statistics.TrainEmptyLabelFileCount);
+            AppendSegmentationSplitWarnings(lines, "valid", Math.Max(statistics.ValidSegmentFileCount, statistics.ValidMaskFileCount), statistics.ValidEmptyLabelFileCount);
+            AppendSegmentationTestSplitWarnings(lines, Math.Max(statistics.TestSegmentFileCount, statistics.TestMaskFileCount), statistics.TestEmptyLabelFileCount, statistics.TestImageCount);
+        }
+
+        private static void AppendSegmentationSplitWarnings(List<string> lines, string split, int positiveImageCount, int emptyBackgroundCount)
+        {
+            if (positiveImageCount > 0 && positiveImageCount < RecommendedMinimumSegmentationPositiveImagesPerSplit)
+            {
+                lines.Add($"YOLO dataset warning: segmentation {split} split has only {positiveImageCount} positive mask image(s). Add more NG mask examples before trusting YOLOv8 SEG training.");
+            }
+
+            if (positiveImageCount > 0 && emptyBackgroundCount >= positiveImageCount * SegmentationBackgroundWarningRatio)
+            {
+                lines.Add($"YOLO dataset warning: segmentation {split} split has {emptyBackgroundCount} OK/background image(s) but only {positiveImageCount} positive mask image(s). Check OK/NG balance before training.");
+            }
+        }
+
+        private static void AppendSegmentationTestSplitWarnings(List<string> lines, int positiveImageCount, int emptyBackgroundCount, int imageCount)
+        {
+            if (imageCount <= 0)
+            {
+                return;
+            }
+
+            if (positiveImageCount == 0 && emptyBackgroundCount > 0)
+            {
+                lines.Add("YOLO dataset warning: segmentation test split has OK/background image(s) but no positive mask image. Add held-out NG mask examples before final YOLOv8 SEG model comparison.");
+                return;
+            }
+
+            if (positiveImageCount > 0 && positiveImageCount < RecommendedMinimumSegmentationPositiveImagesPerSplit)
+            {
+                lines.Add($"YOLO dataset warning: segmentation test split has only {positiveImageCount} positive mask image(s). Add more held-out NG mask examples before final YOLOv8 SEG model comparison.");
+            }
         }
 
         private static string BuildClassBalanceLine(CData data, YoloDatasetStatistics statistics)

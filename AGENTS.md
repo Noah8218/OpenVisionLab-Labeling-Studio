@@ -42,6 +42,7 @@ This file defines how Codex should work in this repository.
 - Convert broad requests into concrete completion goals.
 - Prefer goals like "focused tests pass and wording is service-owned" over vague goals like "improve UX".
 - Keep a clear next step in the final response.
+- When completing priority-driven work, explicitly state any remaining next-priority work in the final response instead of leaving the next step implicit.
 
 ## Reasoning Effort
 

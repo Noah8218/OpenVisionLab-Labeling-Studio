@@ -113,19 +113,21 @@ namespace MvcVisionSystem
         {
             DeepLearning.Start();
 
-            PythonCommunicationStatus currentStatus = GetPythonCommunicationStatusSnapshot();
-            if (currentStatus.IsClientConnected)
-            {
-                return true;
-            }
-
-            if (!EnsurePythonModelClientStarted())
+            bool autoStartClient = Data?.ProjectSettings?.PythonModel?.AutoStartClient != false;
+            if (autoStartClient && !EnsurePythonModelClientStarted())
             {
                 return false;
             }
 
-            bool autoStartClient = Data?.ProjectSettings?.PythonModel?.AutoStartClient != false;
+            PythonCommunicationStatus currentStatus = GetPythonCommunicationStatusSnapshot();
             DateTime? requiredConnectionUtc = autoStartClient ? PythonClientProcess.LastStartedAtUtc : null;
+            bool currentConnectedAfterClientStart = !requiredConnectionUtc.HasValue
+                || (currentStatus.LastConnectedAtUtc.HasValue && currentStatus.LastConnectedAtUtc.Value >= requiredConnectionUtc.Value);
+            if (currentStatus.IsClientConnected && currentConnectedAfterClientStart)
+            {
+                return true;
+            }
+
             int safeTimeoutMilliseconds = Math.Max(0, timeoutMilliseconds);
             DateTime deadline = DateTime.UtcNow.AddMilliseconds(safeTimeoutMilliseconds);
             while (DateTime.UtcNow <= deadline)

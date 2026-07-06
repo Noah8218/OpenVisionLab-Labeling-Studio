@@ -22,6 +22,7 @@ namespace MvcVisionSystem
                 return false;
             }
 
+            SaveTrainingEditorFields();
             Dictionary<string, List<CRectangleObject>> roisByClass = BuildAnnotationRois();
             Dictionary<string, List<LabelingSegmentationObject>> segmentsByClass = BuildAnnotationSegments();
             savedCount = CountAnnotationRois(roisByClass) + CountAnnotationSegments(segmentsByClass);
@@ -50,6 +51,7 @@ namespace MvcVisionSystem
                 return false;
             }
 
+            SaveTrainingEditorFields();
             // Object-detection datasets still need an empty label file for reviewed normal images.
             bool saved = LabelingAnnotationPersistence.SaveCurrent(
                 activeImageBitmap,

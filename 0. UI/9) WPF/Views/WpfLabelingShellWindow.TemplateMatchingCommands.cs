@@ -9,6 +9,7 @@ using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 using DrawingBitmap = System.Drawing.Bitmap;
+using DrawingPoint = System.Drawing.Point;
 using DrawingRectangle = System.Drawing.Rectangle;
 
 namespace MvcVisionSystem
@@ -49,6 +50,12 @@ namespace MvcVisionSystem
                 return !templateBounds.IsEmpty;
             }
 
+            if (selected?.Source == WpfObjectReviewSource.ManualSegment
+                && TryResolveManualSegmentTemplateSource(selected.Index, out templateBounds, out className))
+            {
+                return true;
+            }
+
             if (manualRois.Count == 1)
             {
                 templateBounds = manualRois[0];
@@ -56,7 +63,144 @@ namespace MvcVisionSystem
                 return !templateBounds.IsEmpty;
             }
 
+            if (manualRois.Count == 0
+                && manualSegments.Count == 1
+                && TryResolveManualSegmentTemplateSource(0, out templateBounds, out className))
+            {
+                return true;
+            }
+
             return false;
+        }
+
+        bool IWpfTemplateMatchingAutoLabelHost.TryResolveTemplateMatchingSourceSegment(
+            out IReadOnlyList<DrawingPoint> points,
+            out IReadOnlyList<IReadOnlyList<DrawingPoint>> cutouts)
+        {
+            points = Array.Empty<DrawingPoint>();
+            cutouts = Array.Empty<IReadOnlyList<DrawingPoint>>();
+
+            if (TryGetSelectedObjectReviewItem(out WpfObjectReviewItemRef selected)
+                && selected?.Source == WpfObjectReviewSource.ManualSegment
+                && TryResolveManualSegmentTemplateShape(selected.Index, out points, out cutouts))
+            {
+                return true;
+            }
+
+            return manualRois.Count == 0
+                && manualSegments.Count == 1
+                && TryResolveManualSegmentTemplateShape(0, out points, out cutouts);
+        }
+
+        bool IWpfTemplateMatchingAutoLabelHost.TryResolveTemplateMatchingSourceMask(
+            out byte[] maskData,
+            out System.Drawing.Size maskSize,
+            out DrawingRectangle maskBounds)
+        {
+            maskData = Array.Empty<byte>();
+            maskSize = System.Drawing.Size.Empty;
+            maskBounds = DrawingRectangle.Empty;
+
+            if (TryGetSelectedObjectReviewItem(out WpfObjectReviewItemRef selected)
+                && selected?.Source == WpfObjectReviewSource.ManualSegment
+                && TryResolveManualSegmentTemplateMask(selected.Index, out maskData, out maskSize, out maskBounds))
+            {
+                return true;
+            }
+
+            return manualRois.Count == 0
+                && manualSegments.Count == 1
+                && TryResolveManualSegmentTemplateMask(0, out maskData, out maskSize, out maskBounds);
+        }
+
+        private bool TryResolveManualSegmentTemplateSource(int index, out DrawingRectangle templateBounds, out string className)
+        {
+            templateBounds = DrawingRectangle.Empty;
+            className = string.Empty;
+
+            if (index < 0 || index >= manualSegments.Count)
+            {
+                return false;
+            }
+
+            LabelingSegmentationObject segment = manualSegments[index];
+            if (segment == null || segment.Bounds.IsEmpty)
+            {
+                return false;
+            }
+
+            templateBounds = segment.Bounds;
+            className = GetManualSegmentClassName(segment);
+            return true;
+        }
+
+        private bool TryResolveManualSegmentTemplateShape(
+            int index,
+            out IReadOnlyList<DrawingPoint> points,
+            out IReadOnlyList<IReadOnlyList<DrawingPoint>> cutouts)
+        {
+            points = Array.Empty<DrawingPoint>();
+            cutouts = Array.Empty<IReadOnlyList<DrawingPoint>>();
+
+            if (index < 0 || index >= manualSegments.Count)
+            {
+                return false;
+            }
+
+            LabelingSegmentationObject segment = manualSegments[index];
+            if (segment?.Points == null || segment.Points.Count < 3)
+            {
+                return false;
+            }
+
+            points = segment.Points.Select(point => point).ToList();
+            cutouts = (segment.CutoutPolygons ?? new List<List<DrawingPoint>>())
+                .Where(cutout => cutout?.Count >= 3)
+                .Select(cutout => (IReadOnlyList<DrawingPoint>)cutout.Select(point => point).ToList())
+                .ToList();
+            return true;
+        }
+
+        private bool TryResolveManualSegmentTemplateMask(
+            int index,
+            out byte[] maskData,
+            out System.Drawing.Size maskSize,
+            out DrawingRectangle maskBounds)
+        {
+            maskData = Array.Empty<byte>();
+            maskSize = System.Drawing.Size.Empty;
+            maskBounds = DrawingRectangle.Empty;
+
+            if (index < 0 || index >= manualSegments.Count)
+            {
+                return false;
+            }
+
+            LabelingSegmentationObject segment = manualSegments[index];
+            if (segment?.IsRasterMask != true || segment.MaskData == null || segment.MaskSize.IsEmpty)
+            {
+                return false;
+            }
+
+            maskData = segment.MaskData.ToArray();
+            maskSize = segment.MaskSize;
+            maskBounds = segment.Bounds;
+            return !maskBounds.IsEmpty;
+        }
+
+        private static string GetManualSegmentClassName(LabelingSegmentationObject segment)
+        {
+            if (!string.IsNullOrWhiteSpace(segment?.ClassName))
+            {
+                return segment.ClassName;
+            }
+
+            if (!string.IsNullOrWhiteSpace(segment?.ClassItem?.Text))
+            {
+                return segment.ClassItem.Text;
+            }
+
+            return "Defect";
         }
 
         CClassItem IWpfTemplateMatchingAutoLabelHost.EnsureAutoLabelClassItem(string className)

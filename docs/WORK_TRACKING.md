@@ -1,6 +1,399 @@
 # Work Tracking
 
-Last updated: 2026-07-04
+Last updated: 2026-07-06
+
+## 2026-07-06 YOLOv8 SEG template-batch fixture local training smoke
+
+- Self-evaluation:
+  - The previous fixture proved that template-batch generated SEG artifacts export/readiness correctly, but it did not prove that local Ultralytics training accepts the generated `data.yaml`.
+  - The narrow useful gate was a one-epoch CPU `segment train` smoke against the existing app-generated fixture, using the local `C:\Git\yolov8` venv and cached `yolov8n-seg.pt`.
+- Evidence:
+  - Runtime check reported Python `C:\Git\yolov8\.venv\Scripts\python.exe`, Ultralytics `8.4.86`, Torch `2.12.1+cpu`, and CUDA `False`.
+  - `C:\Git\yolov8\.venv\Scripts\yolo.exe segment train model=C:\Git\yolov8\yolov8n-seg.pt data=artifacts\yolov8-app-segmentation-dataset\data.yaml epochs=1 imgsz=64 batch=1 workers=0 device=cpu project=artifacts\yolov8-seg-training-smoke name=template-batch-fixture val=False plots=False` completed with exit code `0`.
+  - The run wrote `artifacts\yolov8-seg-training-smoke\template-batch-fixture\weights\best.pt`, `weights\last.pt`, `args.yaml`, and `results.csv`.
+  - `args.yaml` records `task: segment`, `mode: train`, `epochs: 1`, `imgsz: 64`, `batch: 1`, `device: cpu`, and the app-generated fixture `data.yaml`.
+- Verification:
+  - `Test-Path`/`Get-Item` confirmed `best.pt` and `last.pt` at 6,719,028 bytes each, plus `args.yaml` and `results.csv`.
+  - `results.csv` contains the one training epoch row with segmentation loss columns.
+- Capture:
+  - No screenshot is required because this is local training/runtime evidence only, not WPF layout, visible text, or visual styling.
+- Remaining risk:
+  - This proves local training compatibility for the generated fixture; it is not production accuracy evidence. Next priority should remain real held-out model-quality evidence or anomaly runtime smoke, depending on the active product goal.
+
+## 2026-07-06 YOLOv8 SEG template-batch export/readiness fixture
+
+- Self-evaluation:
+  - After polygon and raster-mask template batch shape transfer passed, the next risk was downstream: generated `segments/*.json`/`masks/*.png` might exist but fail to export into YOLOv8 `labels/*.txt` or readiness.
+  - The smallest useful check was to extend the existing app-generated YOLOv8 segmentation dataset fixture instead of adding another parallel fixture.
+- Changes:
+  - Extended the YOLOv8 app segmentation dataset fixture with template-batch generated train/valid targets:
+    - polygon source transfer target in train split
+    - raster-mask source transfer target in valid split
+  - The fixture now verifies generated template-batch segment artifacts export to normalized YOLOv8 segmentation label lines, remain in-range, preserve non-rectangular mask detail, and keep dataset readiness passing.
+  - The fixture image pair uses distinct image content so duplicate-image readiness checks still exercise the real training preparation guard.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-restore /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --yolov8-segmentation-app-dataset-fixture` passed and generated `artifacts\yolov8-app-segmentation-dataset\data.yaml`.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --template-batch-autolabel-storage` passed.
+- Capture:
+  - No screenshot is required because this changes test/export coverage only, not WPF layout, visible text, or visual styling.
+- Remaining risk:
+  - This verifies local fixture export/readiness, not a full Ultralytics training run. A later step should run the local YOLOv8 segmentation training smoke when runtime availability and operator timing allow it.
+
+## 2026-07-06 SEG raster-mask template batch shape transfer
+
+- Self-evaluation:
+  - The previous source-polygon transfer still left brush/raster-mask source templates on the rectangle fallback path. That preserved trainability but could lose the operator's actual mask shape.
+  - The safe narrow path was to leave brush MouseMove/OpenGL/FBO hot paths untouched and only snapshot existing `MaskData` when a raster mask is selected as the template source.
+- Changes:
+  - `TemplateMatchingBatchAutoLabelService` now accepts optional source mask data and resamples that mask into each matched target rectangle for segmentation-purpose template batch saves.
+  - The transferred mask is converted into segmentation polygon regions before save, so the saved SEG artifact is a non-rectangular outline rather than only a bounding rectangle fallback.
+  - `WpfTemplateMatchingAutoLabelViewModel` stores the selected raster-mask source snapshot when registering a template and passes it into registered whole-image template batch auto-save.
+  - The WPF template host exposes selected manual raster-mask SEG objects as mask source data without mutating the original mask buffer.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-restore /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --template-batch-autolabel-storage` passed, including the new raster-mask source shape transfer fixture.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --template-guide-ux` passed, including registered raster-mask template batch transfer.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-template-current-image-no-candidate` passed, including selected manual raster-mask source exposure.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification` passed, keeping the existing brush/eraser and raster-mask move performance assertions.
+- Capture:
+  - No screenshot is required because this changes persistence/geometry behavior only, not WPF layout, visible text, or visual styling.
+- Remaining risk:
+  - The transfer is nearest-neighbor mask resampling plus existing polygon-region extraction. If production masks need subpixel-quality warping, that should be a separate geometric transform pass.
+
+## 2026-07-06 SEG template batch source-polygon transfer
+
+- Self-evaluation:
+  - After fixing SEG template batch artifact creation, the next quality gap was that batch auto-save converted each matched template result into a rectangle polygon. That made SEG labels trainable but less precise than the operator's selected source polygon.
+  - The narrow path was to keep template matching as a rectangle locator, then transfer the selected source polygon points into each matched target rectangle by relative position.
+- Changes:
+  - `TemplateMatchingBatchAutoLabelService.MatchAndSaveImage` now accepts optional source SEG polygon/cutout geometry and saves transformed polygons for segmentation-purpose datasets.
+  - `WpfTemplateMatchingAutoLabelViewModel` preserves selected source polygon geometry when registering a template and passes it into whole-image template batch auto-save.
+  - The WPF template host exposes selected manual SEG polygon points for template batch shape transfer. Raster-mask-only sources still use the existing rectangle fallback because persisted SEG JSON currently represents raster masks as a managed bounding polygon fallback.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-restore /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --template-batch-autolabel-storage` passed, including the source-polygon transfer assertion.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --template-guide-ux` passed, including registered template batch SEG artifact shape transfer.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-template-current-image-no-candidate` passed, including selected manual SEG polygon source-point exposure.
+- Capture:
+  - No screenshot is required because this changes persistence/geometry behavior only, not WPF layout, visible text, or visual styling.
+- Remaining risk:
+  - Brush/raster-mask source templates still fall back to rectangle JSON shape transfer. A precise raster-mask transfer needs a separate mask-resampling/storage pass.
+
+## 2026-07-06 SEG template batch auto-save artifacts and queue status
+
+- Self-evaluation:
+  - The operator symptom was not a wrong click sequence. Template batch reported saved images, but the batch service saved YOLO box `labels/*.txt` even in a segmentation-purpose dataset.
+  - The WPF SEG image load path intentionally ignores saved box labels, so the queue could say saved while the canvas had no SEG label to review or train from.
+- Changes:
+  - SEG-purpose template batch auto-save now writes dataset image copies plus `segments/*.json` and `masks/*.png` artifacts from matched template boxes.
+  - SEG-purpose batch skip checks now use existing segment JSON files, so stale box-only txt files do not block rerunning template auto-save to create real SEG artifacts.
+  - SEG-purpose queue label status now counts saved segment JSON objects first; bbox-only txt lines without segments are treated as invalid/stale, while empty txt files can still represent reviewed background images.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-restore /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --template-batch-autolabel-storage` passed, including the new SEG artifact fixture.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --yolo-label-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-template-current-image-no-candidate` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification` passed.
+- Capture:
+  - No screenshot is required because this changes persistence/status behavior only, not WPF layout, visible text, or visual styling.
+- Remaining risk:
+  - Existing datasets that already contain bbox-only template txt files should rerun template batch after this fix to create SEG artifacts. The old bbox txt files alone are intentionally no longer treated as saved SEG objects.
+
+## 2026-07-06 SEG polygon template source and drag responsiveness
+
+- Self-evaluation:
+  - The reported template blocker matched the current template source resolver: it accepted selected manual boxes but did not accept selected manual segmentation objects.
+  - The reported slow polygon-point move path had a visible hot spot: every selected SEG MouseMove rebuilt the object-review list and refreshed queue status.
+- Changes:
+  - Selected manual SEG polygon/raster-mask objects now resolve as template-matching sources by using their current bounds and class name.
+  - A single manual SEG object can also be used as the template source when no manual box exists.
+  - Selected SEG polygon/mask drags now update the canvas overlay during MouseMove and defer object-review and queue-status refresh to MouseUp after an actual changed drag.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-restore /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 errors and 4 existing external `C:\Git\Library-Noah` warnings.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-template-current-image-no-candidate` passed, including the selected manual SEG template-source fixture.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification` passed, including the MouseMove no-object-list-reset assertion.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --template-guide-ux` passed.
+- Capture:
+  - No screenshot is required because this changes interaction/state behavior only, not WPF layout, visible text, or visual styling.
+- Remaining risk:
+  - This was verified through focused WPF shell tests, not a direct EXE UIAutomation run. If point movement still feels slow on a large operator image, the next narrow target is profiling `RefreshPolygonOverlays`/`SetSegmentationOverlays` itself.
+
+## 2026-07-06 YOLOv8 SEG true-test comparisons and 30ep candidate
+
+- Self-evaluation:
+  - The latest EXE workflow `circular_seg_exe_20260706_183245` finally produced a real `test` split with positive `NG` segmentation labels, so the next useful gate was held-out `test` comparison instead of another validation-only check.
+  - A short 5-epoch local YOLOv8 SEG candidate proved the stronger-candidate comparison path but still scored 0.0 mAP; a 30-epoch `imgsz=128` candidate was the next narrow quality experiment.
+- Changes:
+  - No product code changed.
+  - Trained `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-testgate-5ep-20260706\weights\best.pt` from local `C:\Git\yolov8\yolov8n-seg.pt` against the EXE-generated dataset at `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260706_183245\dataset\data.yaml`.
+  - Trained `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-testgate-30ep-img128-20260706\weights\best.pt` with `epochs=30`, `imgsz=128`, `batch=1`, `workers=0`, `device=cpu`, and no model download.
+  - Ran true held-out `Task=test`, `ModelTask=segment` comparisons against the existing `openvisionlab-yolov8-segment` baseline.
+- Evidence:
+  - Existing 1ep candidate test comparison: `artifacts\yolo-model-comparison\yolov8-seg-ng-test-baseline-vs-candidate-20260706\20260706-184559\comparison-summary.json`.
+  - 5ep candidate comparison: `artifacts\yolo-model-comparison\yolov8-seg-ng-test-baseline-vs-5ep-20260706\20260706-184719\comparison-summary.json`; candidate still scored precision/recall/mAP `0`.
+  - 30ep candidate weights: `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-testgate-30ep-img128-20260706\weights\best.pt`.
+  - 30ep test comparison summary: `artifacts\yolo-model-comparison\yolov8-seg-ng-test-baseline-vs-30ep-img128-20260706\20260706-185303\comparison-summary.json`.
+  - 30ep test comparison report: `artifacts\yolo-model-comparison\yolov8-seg-ng-test-baseline-vs-30ep-img128-20260706\20260706-185303\comparison-report.md`.
+  - 30ep baseline test metrics at `imgsz=128`: precision `0`, recall `0`, mAP50 `0`, mAP50-95 `0`, UI candidates `79/420`, max confidence `0.013`.
+  - 30ep candidate test metrics: precision `0.016`, recall `1.0`, mAP50 `0.105`, mAP50-95 `0.044`, UI candidates `197/673`, max confidence `0.121`.
+- Verification:
+  - Local YOLOv8 5-epoch CPU segmentation training completed and produced `best.pt`/`last.pt`.
+  - Local YOLOv8 30-epoch CPU segmentation training completed and produced `best.pt`/`last.pt`; final validation reported mask mAP50 `0.445` and mask mAP50-95 `0.208` on the validation split.
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\compare-yolo-models.ps1 ... -Task test -ModelTask segment ...` passed for the existing 1ep candidate.
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\compare-yolo-models.ps1 ... -Task test -ModelTask segment ...` passed for the new 5ep candidate.
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\compare-yolo-models.ps1 ... -Task test -ModelTask segment -ImageSize 128 ...` passed for the new 30ep candidate.
+- Capture:
+  - No screenshot is required because this changes/runs local training and held-out evaluation evidence only, not WPF layout or visual styling.
+- Remaining risk:
+  - The 30ep candidate is better than the baseline on this tiny held-out `test` split, but precision is only `0.016` and the UI-threshold candidate count is high. This is not production-accuracy-ready.
+  - Next model-quality work needs more real labeled SEG samples and a tuned promotion threshold before replacing the active inspection model.
+
+## 2026-07-06 YOLOv8 SEG trained-model worker reload
+
+- Self-evaluation:
+  - The EXE workflow exposed a real runtime bug: after applying the trained YOLOv8 SEG `best.pt`, the UI pointed at `best.pt` but the connected Python worker could still be the previous `yolov8n-seg.pt` seed process.
+  - The narrow fix is to validate the Python worker start signature before accepting an existing TCP connection, then let current-image inspection wait long enough for a restarted worker to load.
+- Changes:
+  - `CGlobal.EnsurePythonModelClientReady` now checks the current auto-start process settings before returning an existing connected client.
+  - Current-image interactive detection no longer uses the 1500 ms connected-client fast timeout, because a connected client may be restarted when weights/conf/img-size changed.
+  - The EXE circular segmentation smoke now waits for actual inference completion and rejects stale COCO seed classes after applying trained weights.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-restore /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-settings-validator` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-single-detection-path` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-circular-segmentation-workflow --exe .\artifacts\isolated-out\OpenVisionLab.LabelingStudio.exe --image-root D:\circular_defect_labeling_dataset_v1\images --yolov8-root C:\Git\yolov8 --label-count 12` passed.
+- Evidence:
+  - EXE recipe: `circular_seg_exe_20260706_183245`.
+  - Summary: `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260706_183245\summary.txt`.
+  - Screenshots: `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260706_183245\screenshots`.
+  - Final inference status: `후보: NG 1.3% ... / 추론: 완료  모델 YOLOv8 / openvisionlab-yolov8-segment\best.pt / 후보 1`.
+- Capture:
+  - UI capture required because EXE workflow evidence changed: `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260706_183245\screenshots\12_trained_model_inference.png`.
+- Remaining risk:
+  - The model is still a tiny one-epoch smoke model with low confidence. This proves correct runtime/worker/model wiring, not production accuracy.
+
+## 2026-07-06 YOLOv8 SEG same-class val comparison evidence
+
+- Self-evaluation:
+  - After adding class-name guarding, the next useful gate was to prove that two distinct `NG` YOLOv8 segmentation weights can pass the same-class guard and produce a comparison summary.
+  - The available real EXE dataset has positive labels in `val`, but no `test` images, so this is validation-split workflow evidence rather than final production promotion evidence.
+- Changes:
+  - Trained a distinct local YOLOv8 SEG comparison candidate from `circular_seg_exe_20260706_105323` with `seed=1`, `epochs=1`, `imgsz=64`, `batch=1`, and no model download.
+  - Ran `scripts\compare-yolo-models.ps1` with baseline `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt` and candidate `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment-comparison-candidate-20260706\weights\best.pt`.
+  - The comparison used the same `NG` class list and the real app-generated `val` split.
+- Evidence:
+  - Candidate weights: `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment-comparison-candidate-20260706\weights\best.pt`.
+  - Comparison summary: `artifacts\yolo-model-comparison\yolov8-seg-ng-baseline-vs-candidate-20260706\20260706-174515\comparison-summary.json`.
+  - Comparison report: `artifacts\yolo-model-comparison\yolov8-seg-ng-baseline-vs-candidate-20260706\20260706-174515\comparison-report.md`.
+  - Baseline metrics: precision `0`, recall `0`, mAP50 `0`, mAP50-95 `0`, UI candidates `0/172`, max confidence `0.013`.
+  - Candidate metrics: precision `0`, recall `0`, mAP50 `0`, mAP50-95 `0`, UI candidates `0/168`, max confidence `0.012`.
+- Verification:
+  - Local YOLOv8 candidate training completed and produced `weights\best.pt`.
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\compare-yolo-models.ps1 ... -Task val -ModelTask segment ...` passed and wrote summary/report files.
+- Capture:
+  - No screenshot is required because this changes/runs training and validation evidence only, not WPF layout or visual styling.
+- Remaining risk:
+  - Both models scored 0.0 mAP and no UI-threshold candidates, so neither is production-accuracy-ready.
+  - A true promotion gate still needs a labeled `test` split with positive NG masks and a stronger training run, not another 1-epoch smoke.
+
+## 2026-07-06 YOLOv8 SEG same-class model comparison guard
+
+- Self-evaluation:
+  - The previous comparison guard checked dataset/model class counts, but the local YOLOv8 runs showed a real risk: one-class weights can still represent different labels such as `NG`, `Defect`, or `part`.
+  - The narrow useful fix is to block mismatched class names before Ultralytics validation starts, not to treat same-count models as comparable.
+- Changes:
+  - `scripts\compare-yolo-models.ps1` now reads `data.yaml` class names and both `best.pt` label lists before validation.
+  - Baseline and candidate models must match the dataset class count and class names in order; same-count but different-name models are rejected with a clear dataset/baseline/candidate label summary.
+  - The WPF model-comparison run-service focused test now locks the script contract for data.yaml names, weights names, and same-count/different-name rejection.
+- Verification:
+  - PowerShell script parse passed for `scripts\compare-yolo-models.ps1`.
+  - Real local mismatch smoke was intentionally rejected before validation: dataset labels `1 [NG]`, baseline labels `1 [Defect]`, candidate labels `1 [NG]`.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-restore /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-run-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-heldout` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-weights-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+- Capture:
+  - No screenshot is required because this changes validation/script behavior, not WPF layout or visual styling.
+- Remaining risk:
+  - The current local YOLOv8 folder still has no previous `NG` same-class baseline distinct from the latest `openvisionlab-yolov8-segment` candidate. A real promotion comparison remains blocked until a previous `NG` baseline and labeled held-out split are available.
+
+## 2026-07-06 EXE top subnavigation click-through
+
+- Self-evaluation:
+  - The previous UI pass proved the top subnavigation through WPF construction/layout tests and visual smoke captures, but not through a real EXE click path.
+  - The narrow useful follow-up is a dedicated EXE smoke that opens the built app, clicks each top workflow stage, verifies the stage-specific `하위 작업` buttons, and clicks the enabled shortcuts.
+- Changes:
+  - Added `--exe-top-subnavigation-smoke` to the test harness only.
+  - The smoke verifies all four workflow stage buttons in the real EXE, checks that only the expected stage-specific shortcut buttons are visible, and clicks enabled shortcuts without changing product UI code.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-restore /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-top-subnavigation-smoke --exe .\artifacts\isolated-out\OpenVisionLab.LabelingStudio.exe --output .\artifacts\ui\exe-top-subnavigation-smoke.png` passed with `stages=4`, `visibleShortcuts=10`, and `clickedShortcuts=7`.
+- Capture:
+  - Direct EXE capture: `artifacts\ui\exe-top-subnavigation-smoke.png`.
+  - README/tutorial screenshots were not regenerated in this slice because no product UI layout or visual asset changed after the previous public tutorial refresh; this capture is verification evidence only.
+- Remaining risk:
+  - Disabled shortcuts such as current inspection may remain intentionally unclicked when the EXE has no ready inspection model. The smoke verifies they are visible in the correct stage; model execution remains covered by runtime/model tests.
+  - Next product priority remains YOLOv8 SEG held-out model comparison evidence with a same-class baseline and labeled held-out split.
+
+## 2026-07-06 YOLOv8 SEG held-out comparison guard
+
+- Self-evaluation:
+  - After split cleanup, the next model-promotion risk was starting a YOLOv8 SEG comparison from a held-out split that has images and empty OK/background labels but no positive polygon labels.
+  - The narrow useful fix is to block model comparison before launching Ultralytics, not to run another model or change training.
+- Changes:
+  - `WpfModelComparisonRunService` now keeps the existing held-out image/label-file checks and adds a segmentation-only guard requiring at least one YOLO segment label line in the selected `val` or `test` split.
+  - Empty OK/background labels, bbox-only 5-token labels, and malformed unpaired-coordinate segment lines no longer satisfy YOLOv8 SEG comparison readiness.
+  - Held-out label checks now require labels that match the selected split images, so stale extra files in the labels folder do not satisfy comparison readiness.
+  - `YoloDatasetDiagnosticsService` now warns earlier when the segmentation test split contains OK/background images but no positive NG mask image.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-restore /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-readiness-presentation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-run-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-heldout` passed.
+- Capture:
+  - No screenshot is required because this changes model-comparison validation behavior, not WPF layout or visual styling.
+- Remaining risk:
+  - This prevents invalid SEG comparison launches but does not create a same-class baseline or run a real held-out accuracy comparison. That remains the next model-promotion gate after EXE runs are allowed again.
+
+## 2026-07-06 YOLOv8 SEG OK background split cleanup
+
+- Self-evaluation:
+  - After the EXE workflow exposed split/save timing issues, the next non-EXE-safe risk was stale OK/background samples remaining in old YOLO split folders after validation/test percentages change.
+  - The narrow fix is to clean only generated empty OK background files, not operator annotations or segmentation artifacts.
+- Changes:
+  - `YoloSegmentationTrainingLabelService` now removes stale OK background image copies and empty label files from non-selected split folders when the split assignment for that OK image changes.
+  - Cleanup is skipped when a matching segment JSON or mask PNG exists, so real segmentation annotations are not removed by the background importer.
+  - The existing YOLOv8 SEG readiness/training test now verifies train/valid OK backgrounds move to test and old empty files are removed.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-restore /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-readiness-presentation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --yolov8-segmentation-app-dataset-fixture` passed.
+- Capture:
+  - No screenshot is required because this changes training-data preparation behavior, not WPF layout or visual styling.
+- Remaining risk:
+  - Direct EXE rerun was intentionally deferred because the operator asked not to run the EXE until 18:00 KST. The next priority after that window is rerunning the circular SEG EXE workflow to prove train/valid/test split artifacts end to end.
+
+## 2026-07-06 YOLOv8 SEG model comparison validation path
+
+- Self-evaluation:
+  - After YOLOv8 SEG EXE training and readiness warnings, the next promotion risk was applying a new `best.pt` without repeatable baseline-vs-candidate evidence.
+  - The narrow useful slice is not another training smoke; it is making the existing model-comparison runner understand a local Ultralytics checkout and segmentation validation.
+- Changes:
+  - `WpfModelComparisonRunService` now resolves `ultralyticsMaster`/`ultralytics` source roots in addition to YOLOv5 `val.py`.
+  - Segmentation projects now pass `ModelTask=segment` to the comparison script while keeping the existing `Task=val|test` held-out split selection.
+  - `scripts/compare-yolo-models.ps1` now preserves the YOLOv5 `val.py` path and adds an Ultralytics API validation path that emits parseable metrics for comparison reports.
+  - Prediction-confidence parsing now uses the last token so YOLO segmentation `save-conf` labels are counted correctly.
+- Verification:
+  - PowerShell AST parse for `scripts\compare-yolo-models.ps1` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-run-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-heldout` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-weights-service` passed.
+  - Real comparison attempt against `circular_seg_exe_20260706_105323` `val` split was blocked by the class-count guard: dataset labels 1, baseline `yolov8n-seg.pt` labels 80, candidate labels 1.
+  - Candidate-only Ultralytics `val` on the same split completed and reported `box_map50=0.0`, `box_map5095=0.0`, `seg_map50=0.0`, `seg_map5095=0.0` under `artifacts\yolo-model-comparison\yolov8-seg-candidate-val-20260706`.
+- Capture:
+  - No screenshot is required because this changes model-comparison service/script behavior and tests, not WPF layout or visual styling.
+- Remaining risk:
+  - This wires the repeatable evaluation path and proves the current tiny candidate is not accuracy-ready. It does not produce a valid baseline-vs-candidate promotion comparison because the available baseline uses a different class schema. The next priority is to create or preserve a same-class previous baseline plus a labeled held-out SEG test split before applying a new YOLOv8 SEG model.
+
+## 2026-07-06 YOLOv8 SEG readiness coverage warnings
+
+- Self-evaluation:
+  - After the direct EXE OK/NG workflow, the next local industrial risk was not another runtime feature; it was starting YOLOv8 SEG training from a technically valid but weak dataset.
+  - The narrow useful gate is warning the operator when SEG train/valid positives are too few or when OK/background empty labels dominate NG positive mask labels.
+- Changes:
+  - `YoloDatasetStatistics` now records split-level empty label file counts.
+  - `YoloDatasetDiagnosticsService.BuildQualityWarnings` now adds segmentation-specific warnings for train/valid positive-mask sample count and OK/background dominance.
+  - Existing WPF readiness/dashboard paths consume these warnings through the current diagnostics service, so ready-but-risky SEG datasets show as warning state without blocking training.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-readiness-purpose` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-readiness-presentation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-dashboard-quality` passed.
+- Capture:
+  - No screenshot is required because this changes readiness diagnostics and test coverage only, not WPF layout or visual styling.
+- Remaining risk:
+  - This does not judge model accuracy or run a new real training job. The next priority is repeatable model-evaluation evidence before promoting a YOLOv8 SEG trained model.
+
+## 2026-07-06 workflow stage top subnavigation completion
+
+- Self-evaluation:
+  - The operator-facing UI priority after the left-panel guide review was to make the stage-specific secondary actions visible in the same top workflow area instead of depending on the crowded left guide panel.
+  - Dataset and labeling already had the first pass; the remaining narrow slice was to complete the same pattern for `3 추론 검토` and `4 학습/모델`.
+- Changes:
+  - The top workflow subnavigation rail is now visible for all four workflow stages.
+  - Stage 3 exposes `AI 후보` and `현재 검사` shortcuts.
+  - Stage 4 exposes `학습/모델`, `후보 검토`, and `현재 검사` shortcuts.
+  - Stage-specific shortcut visibility and commands are locked by WPF shell assertions so unrelated stage actions stay hidden.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-restore /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\top-subnav-current\01-dataset-guide.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab objects --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\top-subnav-current\02-labeling-objects.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab candidates --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\top-subnav-current\03-inference-candidates.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --review-tab training --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\top-subnav-current\04-training-model.png` passed.
+  - Public tutorial standalone HTML was regenerated and verified to contain 14 embedded `data:image/png;base64` screenshots and 0 remaining `src="images/` references.
+  - `git diff --check` passed with existing LF-to-CRLF warnings only.
+- Capture:
+  - Current dataset stage: `artifacts\ui\top-subnav-current\01-dataset-guide.png`.
+  - Current labeling stage: `artifacts\ui\top-subnav-current\02-labeling-objects.png`.
+  - Current inference stage: `artifacts\ui\top-subnav-current\03-inference-candidates.png`.
+  - Current training/model stage: `artifacts\ui\top-subnav-current\04-training-model.png`.
+  - Public tutorial/README representative images refreshed from the current captures: `docs\tutorial\images\annotated\01-overview-1920-annotated.png`, `docs\tutorial\images\annotated\03-labeling-workbench-1920-annotated.png`, `docs\tutorial\images\annotated\09-model-center-1920-annotated.png`, `docs\tutorial\images\annotated\12-inference-dock-1920-annotated.png`, and `docs\tutorial\images\annotated\readme-current-workflow-20260703.png`.
+  - A true before screenshot for the final verification pass was not captured because this UI WIP was already present in the dirty worktree before the pass; the older reference pair remains under `artifacts\ui\top-subnav-stage34`.
+- Remaining risk:
+  - This is automated WPF construction/layout evidence, not a manual EXE click-through. The next product priority remains YOLOv8 SEG dataset quality/readiness hardening for local industrial data unless more workflow navigation polish is requested.
+
+## 2026-07-06 direct EXE parent OK/NG YOLOv8 segmentation workflow
+
+- Self-evaluation:
+  - The highest-priority local industrial gate was no longer another format import/export slice; it was proving the real operator folder shape end to end from the EXE.
+  - The required workflow was parent `images` selection with `OK`/`NG` child folders, NG brush segmentation labels, OK background/negative samples, YOLOv8 segmentation training, trained `best.pt` application, and inference review.
+  - This run is workflow evidence, not production accuracy evidence. The model was trained for a tiny one-epoch smoke to prove integration.
+- Changes:
+  - `--exe-circular-segmentation-workflow` now defaults to the parent `D:\circular_defect_labeling_dataset_v1\images` folder.
+  - The EXE workflow harness labels only images under the `NG` child folder while verifying `OK` child-folder images become empty-label background samples in the generated YOLO dataset.
+  - The workflow summary now records the OK background label count and writes UTF-8 with BOM so Korean status text remains readable in Windows PowerShell.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-circular-segmentation-workflow --exe .\artifacts\isolated-out\OpenVisionLab.LabelingStudio.exe --image-root D:\circular_defect_labeling_dataset_v1\images --yolov8-root C:\Git\yolov8 --label-count 8` passed.
+- Evidence:
+  - Artifact root: `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260706_105323`.
+  - Screenshots: `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260706_105323\screenshots`.
+  - Output: 6 train segment JSON/mask PNG files, 2 valid segment JSON/mask PNG files, and 20 OK background empty label files.
+  - Trained weights: `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt`.
+  - Final status: trained model applied and EXE reached inference review.
+- Capture:
+  - EXE screenshots were captured for startup, segmentation recipe creation, YOLOv8 settings, parent folder image queue load, brush labels, saved segmentation artifacts, training settings, training started/completed, trained model apply, and trained model inference.
+  - README/tutorial screenshots were not updated because this slice proves workflow behavior and does not change documented layout or visual composition.
+- Remaining risk:
+  - Production accuracy is still unclaimed. The next priority is SEG dataset quality/readiness hardening for local industrial data: clearer OK/NG split diagnostics, mask coverage/empty-label checks, train/valid balance warnings, and repeatable model-evaluation evidence before promoting a trained model.
+
+## 2026-07-06 local OK/NG YOLOv8 segmentation background support
+
+- Self-evaluation:
+  - The next industrial-local priority was not collaboration or another external format; it was the remaining YOLOv8 SEG blocker from the real operator folder shape: a selected parent `images` folder with `OK` and `NG` children.
+  - The previous direct EXE workflow used `images\NG` directly, so OK background/negative images were not proven in the training dataset path.
+  - The narrow product fix is to keep the existing queue behavior for direct image folders, recurse only when the selected parent has no direct images, and treat images under an `OK` child folder as segmentation background samples by copying them into the split output and writing empty YOLO label files.
+- Changes:
+  - `WpfImageQueueSelectionService` now includes child-folder images when a selected image parent has no direct image files, covering `images\OK` and `images\NG`.
+  - `YoloSegmentationTrainingLabelService` imports `OK` child-folder images into the YOLO output split as background samples with empty label files before readiness validation.
+  - Segmentation readiness accepts images without segment/mask artifacts only when an empty background label exists; unlabeled non-background images still fail readiness.
+  - YOLOv8 SEG preparation now requires at least one train polygon label and one valid polygon label while allowing additional OK background labels.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-readiness-purpose` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --yolov8-segmentation-app-dataset-fixture` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-readiness-presentation` passed.
+- Capture:
+  - No screenshot is required for this slice because it changes queue enumeration and training-data preparation behavior, not WPF layout or visual styling.
+- Remaining risk:
+  - This is focused service/test coverage. A full direct EXE run that selects the parent `D:\circular_defect_labeling_dataset_v1\images` folder, labels NG masks, includes OK background images, trains, and reviews inference remains the next production workflow gate.
 
 ## 2026-07-04 direct EXE YOLOv8 segmentation train/inference workflow
 

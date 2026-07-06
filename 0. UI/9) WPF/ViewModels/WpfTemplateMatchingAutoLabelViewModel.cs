@@ -23,6 +23,8 @@ namespace MvcVisionSystem
         int MaximumTemplateMatchingCandidateCount { get; }
 
         bool TryResolveTemplateMatchingSource(out Rectangle templateBounds, out string className);
+        bool TryResolveTemplateMatchingSourceSegment(out IReadOnlyList<Point> points, out IReadOnlyList<IReadOnlyList<Point>> cutouts);
+        bool TryResolveTemplateMatchingSourceMask(out byte[] maskData, out Size maskSize, out Rectangle maskBounds);
         CClassItem EnsureAutoLabelClassItem(string className);
         IReadOnlyList<WpfImageQueueItem> GetVisibleAutoLabelQueueItems();
         IReadOnlyList<WpfImageQueueItem> GetAllAutoLabelQueueItems();
@@ -54,6 +56,11 @@ namespace MvcVisionSystem
         private string registeredTemplateClassName = string.Empty;
         private string registeredTemplateSourceImagePath = string.Empty;
         private Rectangle registeredTemplateSourceBounds = Rectangle.Empty;
+        private IReadOnlyList<Point> registeredTemplateSourceSegmentPoints = Array.Empty<Point>();
+        private IReadOnlyList<IReadOnlyList<Point>> registeredTemplateSourceSegmentCutouts = Array.Empty<IReadOnlyList<Point>>();
+        private byte[] registeredTemplateSourceMaskData = Array.Empty<byte>();
+        private Size registeredTemplateSourceMaskSize = Size.Empty;
+        private Rectangle registeredTemplateSourceMaskBounds = Rectangle.Empty;
         private ICommand runCurrentImageCommand = new RelayCommand(NoOpCommand);
         private ICommand runBatchCommand = new RelayCommand(NoOpCommand);
 
@@ -166,6 +173,7 @@ namespace MvcVisionSystem
             registeredTemplateClassName = string.IsNullOrWhiteSpace(className) ? "Defect" : className.Trim();
             registeredTemplateSourceImagePath = currentHost.ActiveAutoLabelImagePath ?? string.Empty;
             registeredTemplateSourceBounds = templateBounds;
+            StoreTemplateSourceSegment(currentHost);
 
             string status = presentationService.BuildTemplateRegisteredStatus(registeredTemplateClassName, templateBounds);
             currentHost.SetAutoLabelGlobalInferenceStatus(status, isBusy: false);
@@ -253,7 +261,25 @@ namespace MvcVisionSystem
             CClassItem classItem = currentHost.EnsureAutoLabelClassItem(className);
             string normalizedClassName = classItem?.Text ?? className;
             IReadOnlyList<WpfImageQueueItem> queue = BuildBatchQueue(currentHost);
-            await RunBatchAsync(currentHost, queue, templateImage, classItem, normalizedClassName).ConfigureAwait(true);
+            currentHost.TryResolveTemplateMatchingSourceSegment(
+                out IReadOnlyList<Point> sourceSegmentPoints,
+                out IReadOnlyList<IReadOnlyList<Point>> sourceSegmentCutouts);
+            currentHost.TryResolveTemplateMatchingSourceMask(
+                out byte[] sourceMaskData,
+                out Size sourceMaskSize,
+                out Rectangle sourceMaskBounds);
+            await RunBatchAsync(
+                currentHost,
+                queue,
+                templateImage,
+                classItem,
+                normalizedClassName,
+                templateBounds,
+                sourceSegmentPoints,
+                sourceSegmentCutouts,
+                sourceMaskData,
+                sourceMaskSize,
+                sourceMaskBounds).ConfigureAwait(true);
         }
 
         private async Task RunRegisteredTemplateBatchAsync(IWpfTemplateMatchingAutoLabelHost currentHost)
@@ -271,7 +297,18 @@ namespace MvcVisionSystem
             CClassItem classItem = currentHost.EnsureAutoLabelClassItem(registeredTemplateClassName);
             string normalizedClassName = classItem?.Text ?? registeredTemplateClassName;
             IReadOnlyList<WpfImageQueueItem> queue = BuildRegisteredTemplateBatchQueue(currentHost);
-            await RunBatchAsync(currentHost, queue, templateImage, classItem, normalizedClassName).ConfigureAwait(true);
+            await RunBatchAsync(
+                currentHost,
+                queue,
+                templateImage,
+                classItem,
+                normalizedClassName,
+                registeredTemplateSourceBounds,
+                registeredTemplateSourceSegmentPoints,
+                registeredTemplateSourceSegmentCutouts,
+                registeredTemplateSourceMaskData,
+                registeredTemplateSourceMaskSize,
+                registeredTemplateSourceMaskBounds).ConfigureAwait(true);
         }
 
         private async Task RunBatchAsync(
@@ -279,7 +316,13 @@ namespace MvcVisionSystem
             IReadOnlyList<WpfImageQueueItem> queue,
             Bitmap templateImage,
             CClassItem classItem,
-            string className)
+            string className,
+            Rectangle sourceBounds,
+            IReadOnlyList<Point> sourceSegmentPoints,
+            IReadOnlyList<IReadOnlyList<Point>> sourceSegmentCutouts,
+            byte[] sourceMaskData,
+            Size sourceMaskSize,
+            Rectangle sourceMaskBounds)
         {
             if (queue == null || queue.Count == 0)
             {
@@ -326,7 +369,13 @@ namespace MvcVisionSystem
                             className,
                             currentHost.AutoLabelData,
                             BuildBatchOptions(currentHost),
-                            token))
+                            token,
+                            sourceBounds,
+                            sourceSegmentPoints,
+                            sourceSegmentCutouts,
+                            sourceMaskData,
+                            sourceMaskSize,
+                            sourceMaskBounds))
                         .ConfigureAwait(true);
 
                     currentHost.ApplyAutoLabelBatchResult(item, result, saveReviewStatus: false);
@@ -383,6 +432,42 @@ namespace MvcVisionSystem
                     isWarning: failedCount > 0 || canceled);
                 currentHost.AppendAutoLabelLog($"Template batch {(canceled ? "canceled" : "complete")}: processed={completedCount}/{queue.Count}, saved images={savedImageCount}, objects={savedObjectCount}, no candidate={noCandidateCount}, failed={failedCount}, elapsed={batchStopwatch.Elapsed.TotalSeconds:0.0}s");
                 currentHost.NotifyAutoLabelDataChanged();
+            }
+        }
+
+        private void StoreTemplateSourceSegment(IWpfTemplateMatchingAutoLabelHost currentHost)
+        {
+            registeredTemplateSourceSegmentPoints = Array.Empty<Point>();
+            registeredTemplateSourceSegmentCutouts = Array.Empty<IReadOnlyList<Point>>();
+            registeredTemplateSourceMaskData = Array.Empty<byte>();
+            registeredTemplateSourceMaskSize = Size.Empty;
+            registeredTemplateSourceMaskBounds = Rectangle.Empty;
+
+            if (currentHost.TryResolveTemplateMatchingSourceSegment(
+                    out IReadOnlyList<Point> points,
+                    out IReadOnlyList<IReadOnlyList<Point>> cutouts)
+                && points?.Count >= 3)
+            {
+                registeredTemplateSourceSegmentPoints = points.Select(point => point).ToList();
+                registeredTemplateSourceSegmentCutouts = (cutouts ?? Array.Empty<IReadOnlyList<Point>>())
+                    .Select(cutout => (IReadOnlyList<Point>)(cutout?.Select(point => point).ToList() ?? new List<Point>()))
+                    .ToList();
+                return;
+            }
+
+            if (currentHost.TryResolveTemplateMatchingSourceMask(
+                    out byte[] maskData,
+                    out Size maskSize,
+                    out Rectangle maskBounds)
+                && maskData != null
+                && maskSize.Width > 0
+                && maskSize.Height > 0
+                && maskData.Length == maskSize.Width * maskSize.Height
+                && !maskBounds.IsEmpty)
+            {
+                registeredTemplateSourceMaskData = maskData.ToArray();
+                registeredTemplateSourceMaskSize = maskSize;
+                registeredTemplateSourceMaskBounds = maskBounds;
             }
         }
 

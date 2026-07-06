@@ -26,8 +26,18 @@ namespace MvcVisionSystem
                 return new List<string>();
             }
 
+            List<string> directImages = EnumerateImageFiles(imageRoot, SearchOption.TopDirectoryOnly);
+            return (directImages.Count > 0
+                    ? directImages
+                    : EnumerateImageFiles(imageRoot, SearchOption.AllDirectories))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+        }
+
+        private List<string> EnumerateImageFiles(string imageRoot, SearchOption searchOption)
+        {
             return Directory
-                .EnumerateFiles(imageRoot)
+                .EnumerateFiles(imageRoot, "*", searchOption)
                 .Where(HasSupportedExtension)
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
                 .ToList();

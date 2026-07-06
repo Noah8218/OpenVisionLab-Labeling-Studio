@@ -79,6 +79,7 @@ namespace MvcVisionSystem
         {
             ShellViewModel?.SetWorkflowStage(stage);
             ShellViewModel?.SetRightWorkflowShortcut(stage == WpfShellWorkflowStage.Labeling
+                || stage == WpfShellWorkflowStage.Dataset
                 ? WpfRightWorkflowShortcut.LabelingGuide
                 : WpfRightWorkflowShortcut.None);
             ShellViewModel?.SetRightWorkflowDockExpanded(true);
@@ -89,6 +90,7 @@ namespace MvcVisionSystem
         {
             ShellViewModel?.SetWorkflowStage(stage);
             ShellViewModel?.SetRightWorkflowShortcut(stage == WpfShellWorkflowStage.Labeling
+                || stage == WpfShellWorkflowStage.Dataset
                 ? WpfRightWorkflowShortcut.ClassCatalog
                 : WpfRightWorkflowShortcut.None);
             ShellViewModel?.SetRightWorkflowDockExpanded(true);
@@ -162,6 +164,17 @@ namespace MvcVisionSystem
             ShowGuideToolsWorkflowView(WpfShellWorkflowStage.Labeling);
             UpdateLayout();
             LearningWorkflowPanelControl?.ShowAnnotationToolPalette();
+        }
+
+        private void FocusCurrentStageGuideToolsTab()
+        {
+            if (ShellViewModel?.IsDatasetStageActive == true)
+            {
+                FocusDatasetOnboardingTab();
+                return;
+            }
+
+            FocusAnnotationToolsTab();
         }
 
         private void FocusDatasetOnboardingTab()
@@ -265,7 +278,7 @@ namespace MvcVisionSystem
                 ExecuteTrainingModelCenterCommand,
                 ExecuteReviewCandidateModelCommand,
                 ShowSavedLabelsWorkflowView,
-                FocusAnnotationToolsTab,
+                FocusCurrentStageGuideToolsTab,
                 FocusClassCatalogTab,
                 ExecutePromoteSelectedModelHistoryCommand);
             RefreshAttachedCommandBindings(

@@ -45,8 +45,8 @@ namespace MvcVisionSystem
         private bool isGuideToolsViewVisible = true;
         private bool isClassCatalogViewVisible = true;
         private bool isYoloModelCenterViewVisible;
-        private bool isRightWorkflowSubNavigationVisible = true;
-        private bool isRightWorkflowShortcutBarVisible;
+        private bool isRightWorkflowSubNavigationVisible;
+        private bool isRightWorkflowShortcutBarVisible = true;
         private bool isRightWorkflowDockExpanded = true;
         private bool isRightWorkflowDockRailVisible;
         private GridLength rightWorkflowPaneGridLength = RightWorkflowExpandedPaneGridLengthValue;
@@ -56,7 +56,7 @@ namespace MvcVisionSystem
         private string rightWorkflowViewDetailText = "\uB370\uC774\uD130\uC14B \uC900\uBE44\uC640 \uC774\uBBF8\uC9C0/\uD074\uB798\uC2A4 \uC0C1\uD0DC\uB97C \uD655\uC778\uD569\uB2C8\uB2E4.";
         private string rightWorkflowRailCurrentViewText = "\uD648";
         private bool isSavedLabelsShortcutActive;
-        private bool isLabelingGuideShortcutActive;
+        private bool isLabelingGuideShortcutActive = true;
         private bool isClassCatalogShortcutActive;
         private string workflowStageProgressText = WpfWorkflowStagePresentationService.Build(WpfShellWorkflowStage.Dataset).ProgressText;
         private string workflowStageTitleText = WpfWorkflowStagePresentationService.Build(WpfShellWorkflowStage.Dataset).TitleText;
@@ -978,6 +978,17 @@ namespace MvcVisionSystem
 
         public void SetRightWorkflowShortcut(WpfRightWorkflowShortcut shortcut)
         {
+            if (currentWorkflowStage == WpfShellWorkflowStage.Dataset && shortcut == WpfRightWorkflowShortcut.SavedLabels)
+            {
+                shortcut = WpfRightWorkflowShortcut.LabelingGuide;
+            }
+
+            if (currentWorkflowStage != WpfShellWorkflowStage.Dataset
+                && currentWorkflowStage != WpfShellWorkflowStage.Labeling)
+            {
+                shortcut = WpfRightWorkflowShortcut.None;
+            }
+
             IsSavedLabelsShortcutActive = shortcut == WpfRightWorkflowShortcut.SavedLabels;
             IsLabelingGuideShortcutActive = shortcut == WpfRightWorkflowShortcut.LabelingGuide;
             IsClassCatalogShortcutActive = shortcut == WpfRightWorkflowShortcut.ClassCatalog;
@@ -1005,6 +1016,13 @@ namespace MvcVisionSystem
 
         private static string BuildRightWorkflowViewTitle(WpfShellWorkflowStage stage, WpfRightWorkflowShortcut shortcut)
         {
+            if (stage == WpfShellWorkflowStage.Dataset)
+            {
+                return shortcut == WpfRightWorkflowShortcut.ClassCatalog
+                    ? "\uD074\uB798\uC2A4"
+                    : "\uB370\uC774\uD130\uC14B \uD648";
+            }
+
             if (stage == WpfShellWorkflowStage.Labeling)
             {
                 return shortcut switch
@@ -1025,6 +1043,13 @@ namespace MvcVisionSystem
 
         private static string BuildRightWorkflowViewDetail(WpfShellWorkflowStage stage, WpfRightWorkflowShortcut shortcut)
         {
+            if (stage == WpfShellWorkflowStage.Dataset)
+            {
+                return shortcut == WpfRightWorkflowShortcut.ClassCatalog
+                    ? "\uB370\uC774\uD130\uC14B \uD559\uC2B5 \uBAA9\uC801\uC5D0 \uB9DE\uB294 \uD074\uB798\uC2A4 \uC774\uB984\uACFC \uC0C9\uC0C1\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4."
+                    : "\uB370\uC774\uD130\uC14B \uC900\uBE44\uC640 \uC774\uBBF8\uC9C0/\uD074\uB798\uC2A4 \uC0C1\uD0DC\uB97C \uD655\uC778\uD569\uB2C8\uB2E4.";
+            }
+
             if (stage == WpfShellWorkflowStage.Labeling)
             {
                 return shortcut switch
@@ -1045,6 +1070,13 @@ namespace MvcVisionSystem
 
         private static string BuildRightWorkflowRailCurrentViewText(WpfShellWorkflowStage stage, WpfRightWorkflowShortcut shortcut)
         {
+            if (stage == WpfShellWorkflowStage.Dataset)
+            {
+                return shortcut == WpfRightWorkflowShortcut.ClassCatalog
+                    ? "\uD074\uB798\uC2A4"
+                    : "\uD648";
+            }
+
             if (stage == WpfShellWorkflowStage.Labeling)
             {
                 return shortcut switch
@@ -1065,6 +1097,14 @@ namespace MvcVisionSystem
 
         private void ApplyWorkflowStageShortcutState(WpfShellWorkflowStage stage)
         {
+            if (stage == WpfShellWorkflowStage.Dataset)
+            {
+                SetRightWorkflowShortcut(IsClassCatalogShortcutActive
+                    ? WpfRightWorkflowShortcut.ClassCatalog
+                    : WpfRightWorkflowShortcut.LabelingGuide);
+                return;
+            }
+
             if (stage != WpfShellWorkflowStage.Labeling)
             {
                 SetRightWorkflowShortcut(WpfRightWorkflowShortcut.None);
@@ -1072,7 +1112,6 @@ namespace MvcVisionSystem
             }
 
             if (!IsSavedLabelsShortcutActive
-                && !IsLabelingGuideShortcutActive
                 && !IsClassCatalogShortcutActive)
             {
                 SetRightWorkflowShortcut(WpfRightWorkflowShortcut.SavedLabels);
@@ -1094,7 +1133,7 @@ namespace MvcVisionSystem
             visibleViewCount += IsGuideToolsViewVisible ? 1 : 0;
             visibleViewCount += IsClassCatalogViewVisible ? 1 : 0;
             visibleViewCount += IsYoloModelCenterViewVisible ? 1 : 0;
-            IsRightWorkflowShortcutBarVisible = stage == WpfShellWorkflowStage.Labeling;
+            IsRightWorkflowShortcutBarVisible = true;
             IsRightWorkflowSubNavigationVisible = visibleViewCount > 1 && !IsRightWorkflowShortcutBarVisible;
         }
 

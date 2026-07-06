@@ -16,6 +16,16 @@ namespace MvcVisionSystem.Yolo
 
         public int PolygonCount { get; set; }
 
+        public int TrainPolygonCount { get; set; }
+
+        public int ValidPolygonCount { get; set; }
+
+        public int TestPolygonCount { get; set; }
+
+        public int BackgroundImageCount { get; set; }
+
+        public int EmptyLabelFileCount { get; set; }
+
         public List<string> Errors { get; } = new List<string>();
 
         public bool IsReady => Errors.Count == 0 && LabelFileCount > 0 && PolygonCount > 0;
@@ -43,6 +53,7 @@ namespace MvcVisionSystem.Yolo
 
             data.NormalizeOutputPaths();
             data.EnsureYoloOutputDirectories();
+            ImportOkBackgroundImages(data, result);
 
             foreach (string mode in DatasetModes)
             {
@@ -52,6 +63,14 @@ namespace MvcVisionSystem.Yolo
             if (result.PolygonCount == 0)
             {
                 result.Errors.Add("YOLOv8 segmentation training needs polygon segment JSON files that can be converted to labels/*.txt.");
+            }
+            if (result.TrainPolygonCount == 0)
+            {
+                result.Errors.Add("YOLOv8 segmentation training needs at least one train split polygon segment label.");
+            }
+            if (result.ValidPolygonCount == 0)
+            {
+                result.Errors.Add("YOLOv8 segmentation training needs at least one valid split polygon segment label.");
             }
 
             return result;
@@ -78,18 +97,151 @@ namespace MvcVisionSystem.Yolo
                 List<string> lines = BuildLabelLines(segmentPath, data.ClassNamedList, imagePath, mode, result);
                 if (lines.Count == 0)
                 {
-                    if (File.Exists(labelPath))
+                    if (!IsEmptyLabelFile(labelPath))
                     {
-                        File.Delete(labelPath);
+                        if (File.Exists(labelPath))
+                        {
+                            File.Delete(labelPath);
+                        }
+
+                        continue;
                     }
 
+                    File.WriteAllLines(labelPath, Array.Empty<string>());
+                    result.LabelFileCount++;
+                    result.EmptyLabelFileCount++;
                     continue;
                 }
 
                 File.WriteAllLines(labelPath, lines);
                 result.LabelFileCount++;
                 result.PolygonCount += lines.Count;
+                if (string.Equals(mode, YoloDatasetSplitService.TrainMode, StringComparison.OrdinalIgnoreCase))
+                {
+                    result.TrainPolygonCount += lines.Count;
+                }
+                else if (string.Equals(mode, YoloDatasetSplitService.ValidMode, StringComparison.OrdinalIgnoreCase))
+                {
+                    result.ValidPolygonCount += lines.Count;
+                }
+                else if (string.Equals(mode, YoloDatasetSplitService.TestMode, StringComparison.OrdinalIgnoreCase))
+                {
+                    result.TestPolygonCount += lines.Count;
+                }
             }
+        }
+
+        private static void ImportOkBackgroundImages(CData data, YoloSegmentationTrainingLabelExportResult result)
+        {
+            string sourceRoot = data?.ProjectSettings?.PythonModel?.ImageRootPath;
+            if (string.IsNullOrWhiteSpace(sourceRoot) || !Directory.Exists(sourceRoot))
+            {
+                return;
+            }
+
+            foreach (string sourceImagePath in Directory.EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories)
+                .Where(IsSupportedImageFile)
+                .Where(path => IsUnderNamedFolder(sourceRoot, path, "OK")))
+            {
+                string fileStem = Path.GetFileNameWithoutExtension(sourceImagePath);
+                string extension = Path.GetExtension(sourceImagePath);
+                if (string.IsNullOrWhiteSpace(fileStem) || string.IsNullOrWhiteSpace(extension))
+                {
+                    continue;
+                }
+
+                IReadOnlyList<string> selectedModes = YoloDatasetSplitService.SelectModesForImage(fileStem, data.ProjectSettings?.YoloDataset);
+                RemoveStaleOkBackgroundCopies(data, fileStem, selectedModes);
+
+                foreach (string mode in selectedModes)
+                {
+                    string imageDirectory = Path.Combine(data.OutputRootPath, "data", mode, "images");
+                    string labelDirectory = Path.Combine(data.OutputRootPath, "data", mode, "labels");
+                    string targetImagePath = Path.Combine(imageDirectory, $"{fileStem}{extension}");
+                    string labelPath = Path.Combine(labelDirectory, $"{fileStem}.txt");
+                    if (HasSegmentationArtifact(data, mode, fileStem))
+                    {
+                        continue;
+                    }
+
+                    Directory.CreateDirectory(imageDirectory);
+                    Directory.CreateDirectory(labelDirectory);
+                    if (!File.Exists(targetImagePath))
+                    {
+                        File.Copy(sourceImagePath, targetImagePath);
+                    }
+
+                    File.WriteAllLines(labelPath, Array.Empty<string>());
+                    result.BackgroundImageCount++;
+                }
+            }
+        }
+
+        private static void RemoveStaleOkBackgroundCopies(CData data, string fileStem, IReadOnlyList<string> selectedModes)
+        {
+            foreach (string mode in DatasetModes)
+            {
+                if (selectedModes.Contains(mode, StringComparer.OrdinalIgnoreCase)
+                    || HasSegmentationArtifact(data, mode, fileStem))
+                {
+                    continue;
+                }
+
+                string modeRoot = Path.Combine(data.OutputRootPath, "data", mode);
+                string labelPath = Path.Combine(modeRoot, "labels", $"{fileStem}.txt");
+                if (!IsEmptyLabelFile(labelPath))
+                {
+                    continue;
+                }
+
+                File.Delete(labelPath);
+                string imageDirectory = Path.Combine(modeRoot, "images");
+                if (!Directory.Exists(imageDirectory))
+                {
+                    continue;
+                }
+
+                foreach (string imagePath in Directory.EnumerateFiles(imageDirectory, $"{fileStem}.*").Where(IsSupportedImageFile))
+                {
+                    File.Delete(imagePath);
+                }
+            }
+        }
+
+        private static bool HasSegmentationArtifact(CData data, string mode, string fileStem)
+        {
+            string modeRoot = Path.Combine(data.OutputRootPath, "data", mode);
+            return File.Exists(Path.Combine(modeRoot, "segments", $"{fileStem}.json"))
+                || File.Exists(Path.Combine(modeRoot, "masks", $"{fileStem}.png"));
+        }
+
+        private static bool IsEmptyLabelFile(string labelPath)
+        {
+            return File.Exists(labelPath)
+                && File.ReadAllText(labelPath).Trim().Length == 0;
+        }
+
+        private static bool IsUnderNamedFolder(string root, string path, string folderName)
+        {
+            string rootFullPath = Path.GetFullPath(root)
+                .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            DirectoryInfo directory = new FileInfo(path).Directory;
+            while (directory != null)
+            {
+                if (string.Equals(directory.FullName.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), rootFullPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                if (string.Equals(directory.Name, folderName, StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                directory = directory.Parent;
+            }
+
+            return false;
         }
 
         private static List<string> BuildLabelLines(

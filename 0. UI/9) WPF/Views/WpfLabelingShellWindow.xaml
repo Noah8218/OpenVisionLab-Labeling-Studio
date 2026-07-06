@@ -617,36 +617,40 @@
     <DockPanel LastChildFill="True">
         <ui:TitleBar x:Name="ShellTitleBar"
                      DockPanel.Dock="Top"
-                     Height="36"
+                     Height="28"
                      Title="OpenVisionLab Labeling Studio"
                      Background="{DynamicResource FrameBrush}"
                      Foreground="{DynamicResource PrimaryTextBrush}"
                      ButtonsForeground="{DynamicResource PrimaryTextBrush}"
                      ButtonsBackground="{DynamicResource ToolbarButtonHoverBrush}" />
 
-        <Border DockPanel.Dock="Top"
-                Height="54"
+        <Border x:Name="ShellHeaderBar"
+                DockPanel.Dock="Top"
+                Height="44"
                 Background="{DynamicResource FrameBrush}"
                 BorderBrush="{DynamicResource AccentBrush}"
                 BorderThickness="0,0,0,1">
             <Grid Margin="16,0">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="160" />
+                    <ColumnDefinition Width="250" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="360" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel VerticalAlignment="Center">
+                <StackPanel Orientation="Horizontal"
+                            VerticalAlignment="Center">
                     <TextBlock Text="&#xB77C;&#xBCA8;&#xB9C1; &#xC6CC;&#xD06C;&#xBCA4;&#xCE58;"
                                Foreground="{DynamicResource PrimaryTextBrush}"
                                FontFamily="Segoe UI"
-                               FontSize="16"
+                               FontSize="14"
                                FontWeight="SemiBold"
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="&#xD050; / &#xCE94;&#xBC84;&#xC2A4; / &#xBAA8;&#xB378;"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                FontFamily="Segoe UI"
                                FontSize="11"
+                               Margin="8,1,0,0"
+                               VerticalAlignment="Center"
                                TextTrimming="CharacterEllipsis" />
                 </StackPanel>
 
@@ -1121,6 +1125,162 @@
             </Grid>
         </Border>
 
+        <Border x:Name="WorkflowStageSubNavigationRail"
+                DockPanel.Dock="Top"
+                Height="36"
+                Background="#11151A"
+                BorderBrush="{DynamicResource BorderBrushDark}"
+                BorderThickness="0,0,0,1"
+                Visibility="{Binding ShellViewModel.IsRightWorkflowShortcutBarVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
+            <Grid Margin="16,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="78" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="WorkflowStageSubNavigationTitleText"
+                           Text="&#xD558;&#xC704; &#xC791;&#xC5C5;"
+                           Foreground="{DynamicResource SecondaryTextBrush}"
+                           FontFamily="Segoe UI"
+                           FontSize="11"
+                           FontWeight="SemiBold"
+                           VerticalAlignment="Center"
+                           Margin="0,0,12,0"
+                           TextTrimming="CharacterEllipsis" />
+                <WrapPanel x:Name="RightWorkflowShortcutBar"
+                           Grid.Column="1"
+                           VerticalAlignment="Center"
+                           Visibility="{Binding ShellViewModel.IsRightWorkflowShortcutBarVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Button x:Name="RightWorkflowDatasetHomeButton"
+                            Width="96"
+                            AutomationProperties.AutomationId="RightWorkflowDatasetHomeButton"
+                            AutomationProperties.Name="&#xB370;&#xC774;&#xD130;&#xC14B; &#xD648; &#xBCF4;&#xAE30;"
+                            ToolTip="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC900;&#xBE44;, &#xC774;&#xBBF8;&#xC9C0;, &#xC791;&#xC5C5; &#xC21C;&#xC11C;&#xB97C; &#xBCF4;&#xC5EC;&#xC90D;&#xB2C8;&#xB2E4;."
+                            Command="{Binding ShellViewModel.DatasetHomeCommand, ElementName=ShellWindow}"
+                            Tag="{Binding ShellViewModel.IsLabelingGuideShortcutActive, ElementName=ShellWindow}"
+                            Visibility="{Binding ShellViewModel.IsDatasetStageActive, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            Style="{StaticResource RightWorkflowShortcutButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="DatabaseOutline" Width="12" Height="12" Margin="0,0,4,0" />
+                            <TextBlock Text="&#xB370;&#xC774;&#xD130;&#xC14B;" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="RightWorkflowSavedLabelsButton"
+                            Width="96"
+                            AutomationProperties.AutomationId="RightWorkflowSavedLabelsButton"
+                            AutomationProperties.Name="&#xC800;&#xC7A5; &#xB77C;&#xBCA8; &#xBCF4;&#xAE30;"
+                            ToolTip="&#xC800;&#xC7A5;&#xB41C; &#xB77C;&#xBCA8;&#xC744; &#xBCF4;&#xACE0; &#xC218;&#xC815;&#xD569;&#xB2C8;&#xB2E4;."
+                            Command="{Binding ShellViewModel.ShowSavedLabelsViewCommand, ElementName=ShellWindow}"
+                            Tag="{Binding ShellViewModel.IsSavedLabelsShortcutActive, ElementName=ShellWindow}"
+                            Visibility="{Binding ShellViewModel.IsLabelingStageActive, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            Style="{StaticResource RightWorkflowShortcutButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="PlaylistCheck" Width="12" Height="12" Margin="0,0,4,0" />
+                            <TextBlock Text="&#xB77C;&#xBCA8;" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="RightWorkflowGuideToolsButton"
+                            Width="96"
+                            AutomationProperties.AutomationId="RightWorkflowGuideToolsButton"
+                            AutomationProperties.Name="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C; &#xBCF4;&#xAE30;"
+                            ToolTip="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C;&#xC640; &#xAC00;&#xC774;&#xB4DC;&#xB97C; &#xBCF4;&#xC5EC;&#xC90D;&#xB2C8;&#xB2E4;."
+                            Command="{Binding ShellViewModel.ShowLabelingGuideViewCommand, ElementName=ShellWindow}"
+                            Tag="{Binding ShellViewModel.IsLabelingGuideShortcutActive, ElementName=ShellWindow}"
+                            Visibility="{Binding ShellViewModel.IsLabelingStageActive, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            Style="{StaticResource RightWorkflowShortcutButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="ShapeSquareRoundedPlus" Width="12" Height="12" Margin="0,0,4,0" />
+                            <TextBlock Text="&#xB3C4;&#xAD6C;" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="RightWorkflowClassCatalogButton"
+                            Width="96"
+                            AutomationProperties.AutomationId="RightWorkflowClassCatalogButton"
+                            AutomationProperties.Name="&#xD074;&#xB798;&#xC2A4; &#xAD00;&#xB9AC; &#xBCF4;&#xAE30;"
+                            ToolTip="&#xB77C;&#xBCA8; &#xD074;&#xB798;&#xC2A4;&#xB97C; &#xCD94;&#xAC00;&#xD558;&#xAC70;&#xB098; &#xC218;&#xC815;&#xD569;&#xB2C8;&#xB2E4;."
+                            Command="{Binding ShellViewModel.ShowClassCatalogViewCommand, ElementName=ShellWindow}"
+                            Tag="{Binding ShellViewModel.IsClassCatalogShortcutActive, ElementName=ShellWindow}"
+                            Visibility="{Binding ShellViewModel.IsClassCatalogViewVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            Style="{StaticResource RightWorkflowShortcutButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="TagMultipleOutline" Width="12" Height="12" Margin="0,0,4,0" />
+                            <TextBlock Text="&#xD074;&#xB798;&#xC2A4;" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="RightWorkflowInferenceCandidatesButton"
+                            Width="96"
+                            AutomationProperties.AutomationId="RightWorkflowInferenceCandidatesButton"
+                            AutomationProperties.Name="AI &#xD6C4;&#xBCF4; &#xBCF4;&#xAE30;"
+                            ToolTip="AI &#xD6C4;&#xBCF4; &#xAC80;&#xD1A0; &#xD328;&#xB110;&#xB85C; &#xC774;&#xB3D9;&#xD569;&#xB2C8;&#xB2E4;."
+                            Command="{Binding ShellViewModel.InferenceReviewCommand, ElementName=ShellWindow}"
+                            Tag="{Binding ShellViewModel.IsInferenceStageActive, ElementName=ShellWindow}"
+                            Visibility="{Binding ShellViewModel.IsInferenceStageActive, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            Style="{StaticResource RightWorkflowShortcutButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="RobotIndustrial" Width="12" Height="12" Margin="0,0,4,0" />
+                            <TextBlock Text="AI &#xD6C4;&#xBCF4;" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="RightWorkflowInferenceInspectButton"
+                            Width="96"
+                            AutomationProperties.AutomationId="RightWorkflowInferenceInspectButton"
+                            AutomationProperties.Name="&#xD604;&#xC7AC; &#xAC80;&#xC0AC;"
+                            ToolTip="&#xD604;&#xC7AC; &#xC774;&#xBBF8;&#xC9C0;&#xB85C; &#xBAA8;&#xB378; &#xAC80;&#xC0AC;&#xB97C; &#xC2E4;&#xD589;&#xD569;&#xB2C8;&#xB2E4;."
+                            Command="{Binding ShellViewModel.DetectCurrentImageCommand, ElementName=ShellWindow}"
+                            IsEnabled="{Binding ShellViewModel.IsCurrentImageDetectionEnabled, ElementName=ShellWindow}"
+                            Visibility="{Binding ShellViewModel.IsInferenceStageActive, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            Style="{StaticResource RightWorkflowShortcutButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="ImageSearch" Width="12" Height="12" Margin="0,0,4,0" />
+                            <TextBlock Text="&#xD604;&#xC7AC; &#xAC80;&#xC0AC;" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="RightWorkflowTrainingModelButton"
+                            Width="96"
+                            AutomationProperties.AutomationId="RightWorkflowTrainingModelButton"
+                            AutomationProperties.Name="&#xD559;&#xC2B5;/&#xBAA8;&#xB378; &#xBCF4;&#xAE30;"
+                            ToolTip="&#xD559;&#xC2B5;, &#xB370;&#xC774;&#xD130;&#xC14B; &#xC810;&#xAC80;, &#xBAA8;&#xB378; &#xD788;&#xC2A4;&#xD1A0;&#xB9AC;&#xB97C; &#xD655;&#xC778;&#xD569;&#xB2C8;&#xB2E4;."
+                            Command="{Binding ShellViewModel.TrainingModelCenterCommand, ElementName=ShellWindow}"
+                            Tag="{Binding ShellViewModel.IsTrainingModelStageActive, ElementName=ShellWindow}"
+                            Visibility="{Binding ShellViewModel.IsTrainingModelStageActive, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            Style="{StaticResource RightWorkflowShortcutButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="Tune" Width="12" Height="12" Margin="0,0,4,0" />
+                            <TextBlock Text="&#xD559;&#xC2B5;/&#xBAA8;&#xB378;" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="RightWorkflowTrainingReviewCandidateButton"
+                            Width="96"
+                            AutomationProperties.AutomationId="RightWorkflowTrainingReviewCandidateButton"
+                            AutomationProperties.Name="{Binding ShellViewModel.ModelCenterReviewCandidateButtonText, ElementName=ShellWindow}"
+                            ToolTip="{Binding ShellViewModel.ModelCenterReviewCandidateButtonToolTip, ElementName=ShellWindow}"
+                            Command="{Binding ShellViewModel.ReviewCandidateModelCommand, ElementName=ShellWindow}"
+                            IsEnabled="{Binding ShellViewModel.IsModelCenterReviewCandidateEnabled, ElementName=ShellWindow}"
+                            Visibility="{Binding ShellViewModel.IsTrainingModelStageActive, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            Style="{StaticResource RightWorkflowShortcutButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="CheckAll" Width="12" Height="12" Margin="0,0,4,0" />
+                            <TextBlock Text="&#xD6C4;&#xBCF4; &#xAC80;&#xD1A0;" />
+                        </StackPanel>
+                    </Button>
+                    <Button x:Name="RightWorkflowTrainingInspectButton"
+                            Width="96"
+                            AutomationProperties.AutomationId="RightWorkflowTrainingInspectButton"
+                            AutomationProperties.Name="{Binding ShellViewModel.ModelCenterInspectCurrentImageButtonText, ElementName=ShellWindow}"
+                            ToolTip="{Binding ShellViewModel.ModelCenterInspectCurrentImageButtonToolTip, ElementName=ShellWindow}"
+                            Command="{Binding ShellViewModel.DetectCurrentImageCommand, ElementName=ShellWindow}"
+                            IsEnabled="{Binding ShellViewModel.IsModelCenterInspectCurrentImageEnabled, ElementName=ShellWindow}"
+                            Visibility="{Binding ShellViewModel.IsTrainingModelStageActive, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
+                            Style="{StaticResource RightWorkflowShortcutButtonStyle}">
+                        <StackPanel Orientation="Horizontal">
+                            <iconPacks:PackIconMaterial Kind="ImageSearch" Width="12" Height="12" Margin="0,0,4,0" />
+                            <TextBlock Text="&#xD604;&#xC7AC; &#xAC80;&#xC0AC;" />
+                        </StackPanel>
+                    </Button>
+                </WrapPanel>
+            </Grid>
+        </Border>
+
         <Border x:Name="CurrentDatasetContextBar"
                 DockPanel.Dock="Top"
                 Height="48"
@@ -1353,7 +1513,6 @@
                         Visibility="{Binding ShellViewModel.IsRightWorkflowDockExpanded, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
                         <Grid.RowDefinitions>
                             <RowDefinition Height="48" />
-                            <RowDefinition Height="Auto" />
                             <RowDefinition Height="*" />
                         </Grid.RowDefinitions>
                         <Border Background="{DynamicResource PanelHeaderBrush}"
@@ -1396,79 +1555,10 @@
                             </StackPanel>
                         </Grid>
                     </Border>
-                    <Border x:Name="RightWorkflowLocalTaskSwitcherPanel"
-                            Grid.Row="1"
-                            AutomationProperties.AutomationId="RightWorkflowLocalTaskSwitcherPanel"
-                            AutomationProperties.Name="&#xB77C;&#xBCA8;&#xB9C1; &#xC791;&#xC5C5; &#xD328;&#xB110; &#xC804;&#xD658;"
-                            Background="{DynamicResource CanvasBrush}"
-                            BorderBrush="{DynamicResource BorderBrushDark}"
-                            BorderThickness="1"
-                            CornerRadius="5"
-                            Padding="8,7"
-                            Margin="8,8,8,6"
-                            Visibility="{Binding ShellViewModel.IsRightWorkflowShortcutBarVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
-                        <StackPanel>
-                            <TextBlock x:Name="RightWorkflowLocalTaskTitleText"
-                                       Text="&#xB77C;&#xBCA8;&#xB9C1; &#xC791;&#xC5C5; &#xD328;&#xB110;"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="12"
-                                       FontWeight="SemiBold"
-                                       TextTrimming="CharacterEllipsis" />
-                            <TextBlock x:Name="RightWorkflowLocalTaskDetailText"
-                                       Text="&#xC800;&#xC7A5; &#xB77C;&#xBCA8;, &#xBC18;&#xBCF5; &#xB3C4;&#xAD6C;, &#xD074;&#xB798;&#xC2A4; &#xC124;&#xC815;&#xC744; &#xC5EC;&#xAE30;&#xC11C; &#xC804;&#xD658;&#xD569;&#xB2C8;&#xB2E4;."
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10.5"
-                                       TextWrapping="Wrap"
-                                       Margin="0,2,0,0" />
-                            <UniformGrid x:Name="RightWorkflowShortcutBar"
-                                         Columns="3"
-                                         Margin="0,8,0,0"
-                                         Visibility="{Binding ShellViewModel.IsRightWorkflowShortcutBarVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}">
-                                <Button x:Name="RightWorkflowSavedLabelsButton"
-                                        AutomationProperties.AutomationId="RightWorkflowSavedLabelsButton"
-                                        AutomationProperties.Name="&#xC800;&#xC7A5; &#xB77C;&#xBCA8; &#xBCF4;&#xAE30;"
-                                        ToolTip="&#xC800;&#xC7A5;&#xB41C; &#xB77C;&#xBCA8;&#xC744; &#xBCF4;&#xACE0; &#xC218;&#xC815;&#xD569;&#xB2C8;&#xB2E4;."
-                                        Command="{Binding ShellViewModel.ShowSavedLabelsViewCommand, ElementName=ShellWindow}"
-                                        Tag="{Binding ShellViewModel.IsSavedLabelsShortcutActive, ElementName=ShellWindow}"
-                                        Style="{StaticResource RightWorkflowShortcutButtonStyle}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconMaterial Kind="PlaylistCheck" Width="12" Height="12" Margin="0,0,4,0" />
-                                        <TextBlock Text="&#xB77C;&#xBCA8;" />
-                                    </StackPanel>
-                                </Button>
-                                <Button x:Name="RightWorkflowGuideToolsButton"
-                                        AutomationProperties.AutomationId="RightWorkflowGuideToolsButton"
-                                        AutomationProperties.Name="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C; &#xBCF4;&#xAE30;"
-                                        ToolTip="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C;&#xC640; &#xAC00;&#xC774;&#xB4DC;&#xB97C; &#xBCF4;&#xC5EC;&#xC90D;&#xB2C8;&#xB2E4;."
-                                        Command="{Binding ShellViewModel.ShowLabelingGuideViewCommand, ElementName=ShellWindow}"
-                                        Tag="{Binding ShellViewModel.IsLabelingGuideShortcutActive, ElementName=ShellWindow}"
-                                        Style="{StaticResource RightWorkflowShortcutButtonStyle}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconMaterial Kind="ShapeSquareRoundedPlus" Width="12" Height="12" Margin="0,0,4,0" />
-                                        <TextBlock Text="&#xB3C4;&#xAD6C;" />
-                                    </StackPanel>
-                                </Button>
-                                <Button x:Name="RightWorkflowClassCatalogButton"
-                                        AutomationProperties.AutomationId="RightWorkflowClassCatalogButton"
-                                        AutomationProperties.Name="&#xD074;&#xB798;&#xC2A4; &#xAD00;&#xB9AC; &#xBCF4;&#xAE30;"
-                                        ToolTip="&#xB77C;&#xBCA8; &#xD074;&#xB798;&#xC2A4;&#xB97C; &#xCD94;&#xAC00;&#xD558;&#xAC70;&#xB098; &#xC218;&#xC815;&#xD569;&#xB2C8;&#xB2E4;."
-                                        Command="{Binding ShellViewModel.ShowClassCatalogViewCommand, ElementName=ShellWindow}"
-                                        Tag="{Binding ShellViewModel.IsClassCatalogShortcutActive, ElementName=ShellWindow}"
-                                        Style="{StaticResource RightWorkflowShortcutButtonStyle}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconMaterial Kind="TagMultipleOutline" Width="12" Height="12" Margin="0,0,4,0" />
-                                        <TextBlock Text="&#xD074;&#xB798;&#xC2A4;" />
-                                    </StackPanel>
-                                </Button>
-                            </UniformGrid>
-                        </StackPanel>
-                    </Border>
                     <TabControl x:Name="ReviewTabControl"
                                 AutomationProperties.AutomationId="RightWorkflowViewHost"
                                 AutomationProperties.Name="&#xC791;&#xC5C5; &#xB2E8;&#xACC4; &#xD654;&#xBA74;"
-                                Grid.Row="2"
+                                Grid.Row="1"
                                 TabStripPlacement="Top"
                                 Background="Transparent"
                                 BorderThickness="0"

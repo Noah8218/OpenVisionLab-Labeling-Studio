@@ -78,6 +78,7 @@ Latest verified training/inference contract work:
 - Real TCP workflow coverage now has an explicit YOLOv8 segmentation gate: `--real-yolo-smoke` with `LABELING_SMOKE_EXPECT_SEGMENTATION=true`, local `C:\Git\yolov8\labeling_tcp_client.py`, the app-fixture `runs\segment\openvisionlab-yolov8-app-seg-fixture-smoke\weights\best.pt`, `LABELING_SMOKE_CONFIDENCE=0.01`, and `LABELING_SMOKE_IMAGE_SIZE=64` passed. Artifact `artifacts\real-yolo-smoke\20260704-010540\summary.txt` recorded `polygonCandidateCount=1`, `segmentExists=True`, and `maskExists=True`; the focused smoke also asserted segment polygons/points and non-empty mask pixels.
 - WPF Candidate Review confirmed AI polygon candidates now flow into segmentation persistence through `WpfLabelingShellWindow.AnnotationPersistence.cs`; `--wpf-segmentation-object-verification` covers the actual Candidate Review confirm command, segment JSON restoration, non-empty mask PNG output, `TryPrepareTrainingDataset` export into an Ultralytics YOLO segment label line, and a mocked YOLOv8 `StartTraining` packet with `task=segment` and `yolov8n-seg.pt`.
 - `--wpf-candidate-polygon-training-flow` is the focused single-test switch for the same Candidate Review polygon -> artifact -> YOLOv8 segment training packet path.
+- `circular_seg_exe_20260706_183245` now provides a positive `test` split, and `scripts\compare-yolo-models.ps1 -Task test -ModelTask segment` passed for the active `openvisionlab-yolov8-segment` baseline against the existing 1ep candidate, a local 5ep candidate, and a local 30ep/img128 candidate. The 30ep candidate improved to recall `1.0`, mAP50 `0.105`, and mAP50-95 `0.044`, but precision is only `0.016`, so this is held-out comparison evidence only, not production promotion evidence.
 - Final local adapter sanity recheck passed: `labeling_tcp_client.py` compiles, imports editable Ultralytics `8.4.86` from `C:\Git\yolov8\ultralyticsMaster`, passes `--self-test`, and the app-fixture `best.pt` smoke returns one `Defect` polygon candidate with `--model yolov8 --conf 0.01 --img-size 64`.
 - Worker self-test fake-training coverage verifies YOLOv8/YOLO11 `segment` and `classify` task defaults without downloading models.
 - Worker training weight resolution now prefers a matching cached task weight from the worker model root when present, then falls back to the existing bare Ultralytics model name.
@@ -113,7 +114,7 @@ Known WIP:
 Recommended next work:
 
 1. Re-run `git status --short` and inspect the diff.
-2. If staying on YOLOv8/YOLO11 priority, run YOLOv8 segmentation training/inference against a real operator segmentation dataset and promote the generated `runs/segment/<run>/weights/best.pt` as the active inspection model only after focused evidence.
+2. If staying on YOLOv8/YOLO11 priority, improve real YOLOv8 segmentation model quality with more labeled SEG samples and a longer/tuned local training run before promoting any generated `runs/segment/<run>/weights/best.pt`.
 3. Do not run more downloads or package upgrades without explicit approval.
 4. Verify narrow changes with build, focused tests, and `git diff --check`.
 5. Record only passed work in tracking/stable/audit docs.

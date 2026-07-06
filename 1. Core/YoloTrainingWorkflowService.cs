@@ -81,6 +81,22 @@ namespace MvcVisionSystem._1._Core
                 return TryPrepareAnomalyClassificationTrainingDataset(data, out trainingRequest);
             }
 
+            YoloSegmentationTrainingLabelExportResult segmentationExportResult = null;
+            if (data?.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.Segmentation)
+            {
+                segmentationExportResult = YoloSegmentationTrainingLabelService.Export(data);
+                foreach (string error in segmentationExportResult.Errors)
+                {
+                    AppLog.ABNORMAL($"YOLO segmentation label export failed: {error}");
+                }
+
+                if (!segmentationExportResult.IsReady)
+                {
+                    LastPreparationFailureMessage = string.Join(Environment.NewLine, segmentationExportResult.Errors);
+                    return false;
+                }
+            }
+
             YoloDatasetReadinessReport report = YoloDatasetReadinessService.Build(data, refreshYaml: true);
             foreach (string error in report.Errors)
             {
@@ -100,19 +116,7 @@ namespace MvcVisionSystem._1._Core
 
             if (data?.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.Segmentation)
             {
-                YoloSegmentationTrainingLabelExportResult exportResult = YoloSegmentationTrainingLabelService.Export(data);
-                foreach (string error in exportResult.Errors)
-                {
-                    AppLog.ABNORMAL($"YOLO segmentation label export failed: {error}");
-                }
-
-                if (!exportResult.IsReady)
-                {
-                    LastPreparationFailureMessage = string.Join(Environment.NewLine, exportResult.Errors);
-                    return false;
-                }
-
-                AppLog.NORMAL($"YOLO segmentation labels ready. Images:{exportResult.ImageCount}, LabelFiles:{exportResult.LabelFileCount}, Polygons:{exportResult.PolygonCount}");
+                AppLog.NORMAL($"YOLO segmentation labels ready. Images:{segmentationExportResult.ImageCount}, LabelFiles:{segmentationExportResult.LabelFileCount}, Polygons:{segmentationExportResult.PolygonCount}, Backgrounds:{segmentationExportResult.BackgroundImageCount}");
             }
 
             return true;

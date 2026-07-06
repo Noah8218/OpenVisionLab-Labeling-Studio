@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Globalization;
 using System.IO;
+using System.Text;
 using System.Threading;
 using System.Windows.Forms;
 
@@ -10,7 +11,7 @@ namespace LabelingApplication.Tests;
 
 internal static partial class Program
 {
-    private const string CircularSegmentationDefaultImageRoot = @"D:\circular_defect_labeling_dataset_v1\images\NG";
+    private const string CircularSegmentationDefaultImageRoot = @"D:\circular_defect_labeling_dataset_v1\images";
     private const string CircularSegmentationDefaultYoloRoot = @"C:\Git\yolov8";
 
     private static int RunExeCircularSegmentationWorkflow(string[] args)
@@ -96,15 +97,17 @@ internal static partial class Program
                 "trainedWeights=" + result.TrainedWeightsPath,
                 "trainSegments=" + result.TrainSegmentCount.ToString(CultureInfo.InvariantCulture),
                 "validSegments=" + result.ValidSegmentCount.ToString(CultureInfo.InvariantCulture),
+                "testSegments=" + result.TestSegmentCount.ToString(CultureInfo.InvariantCulture),
+                "backgroundLabels=" + result.BackgroundLabelCount.ToString(CultureInfo.InvariantCulture),
                 "screenshots=" + screenshotDirectory,
                 "inferenceStatus=" + result.InferenceStatus
-            });
+            }, new UTF8Encoding(encoderShouldEmitUTF8Identifier: true));
 
             Console.WriteLine($"EXE_CIRCULAR_SEGMENTATION_WORKFLOW recipe={recipeName}");
             Console.WriteLine($"EXE_CIRCULAR_SEGMENTATION_WORKFLOW screenshots={screenshotDirectory}");
             Console.WriteLine($"EXE_CIRCULAR_SEGMENTATION_WORKFLOW summary={summaryPath}");
             Console.WriteLine($"EXE_CIRCULAR_SEGMENTATION_WORKFLOW trainedWeights={result.TrainedWeightsPath}");
-            Console.WriteLine($"EXE_CIRCULAR_SEGMENTATION_WORKFLOW trainSegments={result.TrainSegmentCount} validSegments={result.ValidSegmentCount}");
+            Console.WriteLine($"EXE_CIRCULAR_SEGMENTATION_WORKFLOW trainSegments={result.TrainSegmentCount} validSegments={result.ValidSegmentCount} testSegments={result.TestSegmentCount} backgroundLabels={result.BackgroundLabelCount}");
             Console.WriteLine($"EXE_CIRCULAR_SEGMENTATION_WORKFLOW inferenceStatus={result.InferenceStatus}");
             return 0;
         }
@@ -169,28 +172,54 @@ internal static partial class Program
             CaptureWorkflowStep(root, screenshotDirectory, "05_image_queue_loaded");
 
             IReadOnlyList<string> selectedImages = SelectCircularSegmentationLabelImages(imageRoot, labelCount);
-            LabelCircularSegmentationImagesThroughExe(process, selectedImages, outputRoot, screenshotDirectory);
+            IReadOnlyList<string> postSplitImages = selectedImages
+                .Where(path =>
+                {
+                    string stem = Path.GetFileNameWithoutExtension(path);
+                    return IsCircularSegmentationTestSplit(stem) || IsCircularSegmentationValidSplit(stem);
+                })
+                .ToList();
+            IReadOnlyList<string> initialImages = selectedImages
+                .Where(path =>
+                {
+                    string stem = Path.GetFileNameWithoutExtension(path);
+                    return !IsCircularSegmentationTestSplit(stem) && !IsCircularSegmentationValidSplit(stem);
+                })
+                .ToList();
+            AssertTrue(initialImages.Count > 0, "EXE workflow did not select any train segmentation images");
+            AssertTrue(postSplitImages.Any(path => IsCircularSegmentationValidSplit(Path.GetFileNameWithoutExtension(path))), "EXE workflow did not select any validation segmentation images");
+            AssertTrue(postSplitImages.Any(path => IsCircularSegmentationTestSplit(Path.GetFileNameWithoutExtension(path))), "EXE workflow did not select any held-out test segmentation images");
+            LabelCircularSegmentationImagesThroughExe(process, initialImages, outputRoot, screenshotDirectory);
 
             int trainSegmentCount = CountFiles(Path.Combine(outputRoot, "data", "train", "segments"), "*.json");
-            int validSegmentCount = CountFiles(Path.Combine(outputRoot, "data", "valid", "segments"), "*.json");
             int trainMaskCount = CountFiles(Path.Combine(outputRoot, "data", "train", "masks"), "*.png");
-            int validMaskCount = CountFiles(Path.Combine(outputRoot, "data", "valid", "masks"), "*.png");
             AssertTrue(trainSegmentCount > 0, "EXE workflow did not save any train segment JSON files");
-            AssertTrue(validSegmentCount > 0, "EXE workflow did not save any valid segment JSON files");
             AssertTrue(trainMaskCount > 0, "EXE workflow did not save any train mask PNG files");
-            AssertTrue(validMaskCount > 0, "EXE workflow did not save any valid mask PNG files");
             AssertTrue(File.Exists(Path.Combine(outputRoot, "data.yaml")), "EXE workflow did not create data.yaml after segmentation labels were saved");
 
             root = RefreshAutomationRoot(process);
             CaptureWorkflowStep(root, screenshotDirectory, "07_saved_segmentation_artifacts");
 
-            string trainedWeightsPath = TrainYoloV8SegmentationThroughExe(process, yoloRoot, outputRoot, screenshotDirectory);
+            string trainedWeightsPath = TrainYoloV8SegmentationThroughExe(process, yoloRoot, outputRoot, postSplitImages, screenshotDirectory);
+            trainSegmentCount = CountFiles(Path.Combine(outputRoot, "data", "train", "segments"), "*.json");
+            int validSegmentCount = CountFiles(Path.Combine(outputRoot, "data", "valid", "segments"), "*.json");
+            int testSegmentCount = CountFiles(Path.Combine(outputRoot, "data", "test", "segments"), "*.json");
+            int validMaskCount = CountFiles(Path.Combine(outputRoot, "data", "valid", "masks"), "*.png");
+            int testMaskCount = CountFiles(Path.Combine(outputRoot, "data", "test", "masks"), "*.png");
+            AssertTrue(validSegmentCount > 0, "EXE workflow did not save any valid segment JSON files");
+            AssertTrue(testSegmentCount > 0, "EXE workflow did not save any test segment JSON files");
+            AssertTrue(validMaskCount > 0, "EXE workflow did not save any valid mask PNG files");
+            AssertTrue(testMaskCount > 0, "EXE workflow did not save any test mask PNG files");
+            int backgroundLabelCount = CountCircularOkBackgroundLabels(imageRoot, outputRoot);
+            AssertTrue(backgroundLabelCount > 0, "EXE workflow did not include any OK folder background label files for YOLOv8 SEG training");
             ApplyTrainedModelAndRunInferenceThroughExe(process, trainedWeightsPath, screenshotDirectory, out string inferenceStatus);
 
             return new ExeCircularSegmentationWorkflowResult(
                 trainedWeightsPath,
                 trainSegmentCount,
                 validSegmentCount,
+                testSegmentCount,
+                backgroundLabelCount,
                 inferenceStatus);
         }
         catch
@@ -464,33 +493,86 @@ internal static partial class Program
 
     private static IReadOnlyList<string> SelectCircularSegmentationLabelImages(string imageRoot, int labelCount)
     {
-        IReadOnlyList<string> imagePaths = Directory.EnumerateFiles(imageRoot)
+        IReadOnlyList<string> imagePaths = Directory.EnumerateFiles(imageRoot, "*", SearchOption.AllDirectories)
             .Where(path => ExeSmokeImageArtifactExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+            .Where(path => IsUnderCircularSegmentationClassFolder(imageRoot, path, "NG"))
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToList();
-        AssertTrue(imagePaths.Count > 0, "circular segmentation image root did not contain supported image files");
+        AssertTrue(imagePaths.Count > 0, "circular segmentation image root did not contain supported NG image files");
 
         int validTarget = Math.Max(2, labelCount / 4);
-        int trainTarget = Math.Max(4, labelCount - validTarget);
+        int testTarget = Math.Max(2, labelCount / 4);
+        int trainTarget = Math.Max(4, labelCount - validTarget - testTarget);
         List<string> train = imagePaths
-            .Where(path => !IsCircularSegmentationValidSplit(Path.GetFileNameWithoutExtension(path)))
+            .Where(path =>
+            {
+                string stem = Path.GetFileNameWithoutExtension(path);
+                return !IsCircularSegmentationTestSplit(stem) && !IsCircularSegmentationValidSplit(stem);
+            })
             .Take(trainTarget)
             .ToList();
         List<string> valid = imagePaths
             .Where(path => IsCircularSegmentationValidSplit(Path.GetFileNameWithoutExtension(path)))
             .Take(validTarget)
             .ToList();
+        List<string> test = imagePaths
+            .Where(path => IsCircularSegmentationTestSplit(Path.GetFileNameWithoutExtension(path)))
+            .Take(testTarget)
+            .ToList();
         AssertTrue(train.Count > 0, "could not find train-split image candidates for circular segmentation workflow");
         AssertTrue(valid.Count > 0, "could not find valid-split image candidates for circular segmentation workflow");
+        AssertTrue(test.Count > 0, "could not find test-split image candidates for circular segmentation workflow");
 
-        return train.Concat(valid)
-            .Take(labelCount)
+        return train.Concat(valid).Concat(test)
             .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
             .ToList();
     }
 
-    private static bool IsCircularSegmentationValidSplit(string fileStem)
+    private static bool IsCircularSegmentationTestSplit(string fileStem)
         => StableCircularSegmentationBucket(fileStem, 17) < 20;
+
+    private static bool IsCircularSegmentationValidSplit(string fileStem)
+    {
+        uint bucket = StableCircularSegmentationBucket(fileStem, 17);
+        return bucket >= 20 && bucket < 40;
+    }
+
+    private static int CountCircularOkBackgroundLabels(string imageRoot, string outputRoot)
+    {
+        return Directory.EnumerateFiles(imageRoot, "*", SearchOption.AllDirectories)
+            .Where(path => ExeSmokeImageArtifactExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+            .Where(path => IsUnderCircularSegmentationClassFolder(imageRoot, path, "OK"))
+            .Select(path => Path.GetFileNameWithoutExtension(path))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .Count(stem => CircularSegmentationDatasetModes.Any(mode =>
+            {
+                string labelPath = Path.Combine(outputRoot, "data", mode, "labels", $"{stem}.txt");
+                return File.Exists(labelPath) && File.ReadAllText(labelPath).Trim().Length == 0;
+            }));
+    }
+
+    private static bool IsUnderCircularSegmentationClassFolder(string root, string path, string folderName)
+    {
+        string rootFullPath = Path.GetFullPath(root)
+            .TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+        DirectoryInfo directory = new FileInfo(path).Directory;
+        while (directory != null)
+        {
+            if (string.Equals(directory.FullName.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar), rootFullPath, StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            if (string.Equals(directory.Name, folderName, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            directory = directory.Parent;
+        }
+
+        return false;
+    }
 
     private static uint StableCircularSegmentationBucket(string value, int seed)
     {
@@ -510,24 +592,38 @@ internal static partial class Program
         }
     }
 
+    private static readonly string[] CircularSegmentationDatasetModes =
+    {
+        "train",
+        "valid",
+        "test"
+    };
+
     private static void LabelCircularSegmentationImagesThroughExe(
         Process process,
         IReadOnlyList<string> selectedImages,
         string outputRoot,
-        string screenshotDirectory)
+        string screenshotDirectory,
+        string screenshotPrefix = "06")
     {
         var random = new Random(260704);
+        string firstBrushScreenshot = screenshotPrefix == "06" ? "06_first_brush_strokes" : screenshotPrefix + "_first_brush_strokes";
+        string firstSavedScreenshot = screenshotPrefix == "06" ? "06a_first_label_saved" : screenshotPrefix + "_first_label_saved";
+        string lastSavedScreenshot = screenshotPrefix == "06" ? "06b_last_label_saved" : screenshotPrefix + "_last_label_saved";
         int index = 0;
         foreach (string imagePath in selectedImages)
         {
             index++;
             string stem = Path.GetFileNameWithoutExtension(imagePath);
             AssertTrue(SelectCircularImageQueueItemThroughExe(process, stem, TimeSpan.FromSeconds(8)), "EXE image queue could not open " + stem);
+            Thread.Sleep(350);
             var root = RefreshAutomationRoot(process);
             AssertTrue(OpenLabelingWorkbenchThroughExe(process), "labeling workbench stage was not selectable before brush labeling");
             root = RefreshAutomationRoot(process);
             _ = SelectAutomationTabByAutomationId(root, "LearningReviewTab") || SelectTabItemByName(root, "\uAC00\uC774\uB4DC/\uB3C4\uAD6C");
             root = RefreshAutomationRoot(process);
+            System.Windows.Automation.AutomationElement statusElement = FindAutomationElementByAutomationId(root, "ModelStatusText");
+            string previousCommitSignal = GetAutomationHelpText(statusElement);
             System.Windows.Automation.AutomationElement brushToolItem = FindAnnotationToolItem(root, "\uBE0C\uB7EC\uC2DC");
             AssertTrue(brushToolItem != null, "brush tool was not visible for circular segmentation labeling");
             NativeClick(GetAutomationCenter(brushToolItem));
@@ -542,37 +638,78 @@ internal static partial class Program
             AssertTrue(canvas != null, "circular segmentation canvas was not found");
             System.Windows.Rect fittedImageRegion = BuildExeSmokeFittedImageRegion(canvas.Current.BoundingRectangle, imagePath);
             IReadOnlyList<ExeSmokeDragPath> drags = BuildCircularSegmentationBrushDrags(random, fittedImageRegion);
-            _ = ExecuteExeSmokeDragBatch(drags, moveDelayMilliseconds: 1, postMouseUpMilliseconds: 20);
+            _ = ExecuteExeSmokeDragBatch(drags, moveDelayMilliseconds: 1, postMouseUpMilliseconds: 50);
 
             if (index == 1)
             {
-                CaptureWorkflowStep(RefreshAutomationRoot(process), screenshotDirectory, "06_first_brush_strokes");
+                CaptureWorkflowStep(RefreshAutomationRoot(process), screenshotDirectory, firstBrushScreenshot);
             }
 
             _ = ClickAnnotationToolByText(RefreshAutomationRoot(process), "\uC120\uD0DD");
-            AssertTrue(WaitForExeMaskCommitSignal(process, TimeSpan.FromSeconds(4)), "mask strokes did not materialize before save for " + stem);
+            bool materialized = WaitForExeMaskCommitSignal(process, statusElement, previousCommitSignal, TimeSpan.FromSeconds(6))
+                || IsAutomationButtonEnabledByAutomationId(RefreshAutomationRoot(process, bringToFront: false), "CanvasSaveAnnotationButton");
+            if (!materialized)
+            {
+                root = RefreshAutomationRoot(process);
+                statusElement = FindAutomationElementByAutomationId(root, "ModelStatusText");
+                previousCommitSignal = GetAutomationHelpText(statusElement);
+                brushToolItem = FindAnnotationToolItem(root, "\uBE0C\uB7EC\uC2DC");
+                AssertTrue(brushToolItem != null, "brush tool was not visible for circular segmentation labeling retry");
+                NativeClick(GetAutomationCenter(brushToolItem));
+                AssertTrue(
+                    WaitUntil(
+                        () => string.Equals(GetSelectedAnnotationToolText(RefreshAutomationRoot(process, bringToFront: false)), "\uBE0C\uB7EC\uC2DC", StringComparison.Ordinal),
+                        TimeSpan.FromSeconds(2)),
+                    "brush tool was not selected for circular segmentation labeling retry");
+                canvas = FindAutomationElementByClass(RefreshAutomationRoot(process), "RoiImageCanvasView");
+                AssertTrue(canvas != null, "circular segmentation canvas was not found for retry");
+                fittedImageRegion = BuildExeSmokeFittedImageRegion(canvas.Current.BoundingRectangle, imagePath);
+                drags = BuildCircularSegmentationBrushDrags(random, fittedImageRegion);
+                _ = ExecuteExeSmokeDragBatch(drags, moveDelayMilliseconds: 1, postMouseUpMilliseconds: 80);
+                _ = ClickAnnotationToolByText(RefreshAutomationRoot(process), "\uC120\uD0DD");
+                materialized = WaitForExeMaskCommitSignal(process, statusElement, previousCommitSignal, TimeSpan.FromSeconds(8))
+                    || IsAutomationButtonEnabledByAutomationId(RefreshAutomationRoot(process, bringToFront: false), "CanvasSaveAnnotationButton");
+            }
+
+            AssertTrue(materialized, "mask strokes did not materialize before save for " + stem);
+            _ = WaitUntil(
+                () => IsAutomationButtonEnabledByAutomationId(RefreshAutomationRoot(process, bringToFront: false), "CanvasSaveAnnotationButton"),
+                TimeSpan.FromSeconds(3));
 
             root = RefreshAutomationRoot(process);
             AssertTrue(ClickCanvasSaveAnnotation(root), "label save button was not clickable for " + stem);
-            AssertTrue(
-                WaitUntil(
-                    () =>
-                    {
-                        IReadOnlyList<string> artifacts = EnumerateExeSmokeSaveArtifactPaths(outputRoot, stem).Where(File.Exists).ToList();
-                        return artifacts.Any(path => path.Contains($"{Path.DirectorySeparatorChar}segments{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
-                            && artifacts.Any(path => path.Contains($"{Path.DirectorySeparatorChar}masks{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
-                    },
-                    TimeSpan.FromSeconds(6)),
-                "EXE save did not create segment/mask artifacts for " + stem);
+            bool saved = WaitForCircularSegmentationArtifacts(outputRoot, stem, TimeSpan.FromSeconds(8));
+            if (!saved)
+            {
+                root = RefreshAutomationRoot(process);
+                if (IsAutomationButtonEnabledByAutomationId(root, "CanvasSaveAnnotationButton") && ClickCanvasSaveAnnotation(root))
+                {
+                    saved = WaitForCircularSegmentationArtifacts(outputRoot, stem, TimeSpan.FromSeconds(8));
+                }
+            }
+
+            AssertTrue(saved, "EXE save did not create segment/mask artifacts for " + stem);
 
             IReadOnlyList<string> savedArtifacts = EnumerateExeSmokeSaveArtifactPaths(outputRoot, stem).Where(File.Exists).ToList();
             _ = ValidateExeSmokeSavedArtifactContents(savedArtifacts);
 
             if (index == 1 || index == selectedImages.Count)
             {
-                CaptureWorkflowStep(RefreshAutomationRoot(process), screenshotDirectory, index == 1 ? "06a_first_label_saved" : "06b_last_label_saved");
+                CaptureWorkflowStep(RefreshAutomationRoot(process), screenshotDirectory, index == 1 ? firstSavedScreenshot : lastSavedScreenshot);
             }
         }
+    }
+
+    private static bool WaitForCircularSegmentationArtifacts(string outputRoot, string stem, TimeSpan timeout)
+    {
+        return WaitUntil(
+            () =>
+            {
+                IReadOnlyList<string> artifacts = EnumerateExeSmokeSaveArtifactPaths(outputRoot, stem).Where(File.Exists).ToList();
+                return artifacts.Any(path => path.Contains($"{Path.DirectorySeparatorChar}segments{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase))
+                    && artifacts.Any(path => path.Contains($"{Path.DirectorySeparatorChar}masks{Path.DirectorySeparatorChar}", StringComparison.OrdinalIgnoreCase));
+            },
+            timeout);
     }
 
     private static bool SelectCircularImageQueueItemThroughExe(Process process, string imageId, TimeSpan timeout)
@@ -696,6 +833,7 @@ internal static partial class Program
         Process process,
         string yoloRoot,
         string outputRoot,
+        IReadOnlyList<string> validationAndTestImages,
         string screenshotDirectory)
     {
         string trainedWeightsPath = Path.Combine(yoloRoot, "runs", "segment", "openvisionlab-yolov8-segment", "weights", "best.pt");
@@ -720,8 +858,31 @@ internal static partial class Program
         AssertTrue(TryPasteYoloSettingsValueThroughExe(process, IntPtr.Zero, "TrainingBatchBox", "1"), "training batch was not editable");
         AssertTrue(TryPasteYoloSettingsValueThroughExe(process, IntPtr.Zero, "TrainingEpochBox", "1"), "training epoch was not editable");
         AssertTrue(TryPasteYoloSettingsValueThroughExe(process, IntPtr.Zero, "TrainingValidationPercentBox", "20"), "training validation percent was not editable");
-        AssertTrue(TryPasteYoloSettingsValueThroughExe(process, IntPtr.Zero, "TrainingTestPercentBox", "0"), "training test percent was not editable");
+        AssertTrue(TryPasteYoloSettingsValueThroughExe(process, IntPtr.Zero, "TrainingTestPercentBox", "20"), "training test percent was not editable");
         CaptureWorkflowStep(RefreshAutomationRoot(process), screenshotDirectory, "08_training_settings_ready");
+
+        root = RefreshAutomationRoot(process);
+        AssertTrue(
+            TryInvokeAutomationButtonByAutomationId(root, "RefreshTrainingReadinessButton")
+                || TryInvokeAutomationButtonByAutomationId(root, "YoloDatasetQuickRefreshButton"),
+            "training split settings refresh button was not invokable before validation/test labeling");
+        Thread.Sleep(1200);
+        CaptureWorkflowStep(RefreshAutomationRoot(process), screenshotDirectory, "08a_training_split_settings_saved");
+
+        if (validationAndTestImages.Count > 0)
+        {
+            LabelCircularSegmentationImagesThroughExe(process, validationAndTestImages, outputRoot, screenshotDirectory, "08b_split");
+            AssertTrue(CountFiles(Path.Combine(outputRoot, "data", "valid", "segments"), "*.json") > 0, "EXE workflow did not save validation segment JSON files after split setup");
+            AssertTrue(CountFiles(Path.Combine(outputRoot, "data", "test", "segments"), "*.json") > 0, "EXE workflow did not save held-out test segment JSON files");
+            AssertTrue(CountFiles(Path.Combine(outputRoot, "data", "valid", "masks"), "*.png") > 0, "EXE workflow did not save validation mask PNG files after split setup");
+            AssertTrue(CountFiles(Path.Combine(outputRoot, "data", "test", "masks"), "*.png") > 0, "EXE workflow did not save held-out test mask PNG files");
+            AssertTrue(
+                OpenYoloModelCenterThroughExe(process, IntPtr.Zero),
+                "model settings tab was not selectable after held-out test labeling");
+            AssertTrue(
+                TryExpandYoloSettingsSection(process, IntPtr.Zero, "TrainingSettingsExpander", "TrainingSettingsSummaryPanel"),
+                "training settings section was not expandable after held-out test labeling");
+        }
 
         root = RefreshAutomationRoot(process);
         AssertTrue(
@@ -729,7 +890,7 @@ internal static partial class Program
                 || TryInvokeAutomationButtonByAutomationId(root, "YoloDatasetQuickRefreshButton"),
             "training readiness refresh button was not invokable");
         Thread.Sleep(1200);
-        CaptureWorkflowStep(RefreshAutomationRoot(process), screenshotDirectory, "08a_training_readiness_refreshed");
+        CaptureWorkflowStep(RefreshAutomationRoot(process), screenshotDirectory, "08c_training_readiness_refreshed");
 
         root = RefreshAutomationRoot(process);
         AssertTrue(
@@ -830,16 +991,14 @@ internal static partial class Program
                     () =>
                     {
                         var latestRoot = RefreshAutomationRoot(process, bringToFront: false);
-                        string modelStatus = GetAutomationValueByAutomationId(latestRoot, "ModelStatusText");
-                        string pythonStatus = GetAutomationValueByAutomationId(latestRoot, "PythonStatusText");
-                        observedInferenceStatus = FirstNonEmpty(modelStatus, pythonStatus);
-                        return observedInferenceStatus.Contains("YOLOv8", StringComparison.OrdinalIgnoreCase)
-                            || observedInferenceStatus.Contains("\uD6C4\uBCF4", StringComparison.Ordinal)
-                            || observedInferenceStatus.Contains("\uAC80\uC0AC", StringComparison.Ordinal)
-                            || ContainsAutomationText(latestRoot, "AI");
+                        observedInferenceStatus = ReadExeInferenceStatusSnapshot(latestRoot);
+                        return IsExeTrainedInferenceFinished(latestRoot, observedInferenceStatus);
                     },
-                    TimeSpan.FromSeconds(45)),
+                    TimeSpan.FromMinutes(6)),
                 "trained YOLOv8 inference did not report completion/status in the EXE");
+            AssertTrue(
+                !IsExeTrainedInferenceFailure(observedInferenceStatus),
+                "trained YOLOv8 inference failed in the EXE; status=" + observedInferenceStatus);
         }
         else
         {
@@ -850,11 +1009,52 @@ internal static partial class Program
         }
 
         root = RefreshAutomationRoot(process);
-        inferenceStatus = FirstNonEmpty(
-            GetAutomationValueByAutomationId(root, "ModelStatusText"),
-            GetAutomationValueByAutomationId(root, "PythonStatusText"),
-            "inference status text not exposed");
+        inferenceStatus = FirstNonEmpty(ReadExeInferenceStatusSnapshot(root), "inference status text not exposed");
+        bool hasCandidateStatus = inferenceStatus.Contains("\uD6C4\uBCF4:", StringComparison.Ordinal)
+            || inferenceStatus.Contains("candidate", StringComparison.OrdinalIgnoreCase);
+        if (hasCandidateStatus)
+        {
+            AssertTrue(
+                inferenceStatus.Contains("NG", StringComparison.OrdinalIgnoreCase),
+                "trained YOLOv8 segmentation inference should use the dataset class after applying best.pt; status=" + inferenceStatus);
+        }
+
+        AssertTrue(
+            !inferenceStatus.Contains("toilet", StringComparison.OrdinalIgnoreCase),
+            "trained YOLOv8 segmentation inference used stale COCO seed weights after applying best.pt; status=" + inferenceStatus);
         CaptureWorkflowStep(root, screenshotDirectory, "12_trained_model_inference");
+    }
+
+    private static string ReadExeInferenceStatusSnapshot(System.Windows.Automation.AutomationElement root)
+    {
+        return string.Join(
+            " / ",
+            new[]
+            {
+                GetAutomationValueByAutomationId(root, "YoloCommandStatusText"),
+                GetAutomationValueByAutomationId(root, "ModelStatusText"),
+                GetAutomationValueByAutomationId(root, "PythonStatusText")
+            }.Where(value => !string.IsNullOrWhiteSpace(value)));
+    }
+
+    private static bool IsExeTrainedInferenceFinished(System.Windows.Automation.AutomationElement root, string status)
+    {
+        if (IsExeTrainedInferenceFailure(status))
+        {
+            return true;
+        }
+
+        return status.Contains("\uCD94\uB860 \uC644\uB8CC", StringComparison.Ordinal)
+            || status.Contains("\uC644\uB8CC: \uD6C4\uBCF4", StringComparison.Ordinal)
+            || status.Contains("\uCD94\uB860: \uC644\uB8CC", StringComparison.Ordinal);
+    }
+
+    private static bool IsExeTrainedInferenceFailure(string status)
+    {
+        return status.Contains("\uCD94\uB860 \uC2E4\uD328", StringComparison.Ordinal)
+            || status.Contains("\uC2E4\uD328:", StringComparison.Ordinal)
+            || status.Contains("did not connect", StringComparison.OrdinalIgnoreCase)
+            || status.Contains("connection failure", StringComparison.OrdinalIgnoreCase);
     }
 
     private static bool IsTrainedModelInferenceEvidenceVisible(System.Windows.Automation.AutomationElement root)
@@ -1425,5 +1625,7 @@ internal static partial class Program
         string TrainedWeightsPath,
         int TrainSegmentCount,
         int ValidSegmentCount,
+        int TestSegmentCount,
+        int BackgroundLabelCount,
         string InferenceStatus);
 }

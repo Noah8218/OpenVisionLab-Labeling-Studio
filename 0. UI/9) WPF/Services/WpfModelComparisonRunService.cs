@@ -49,6 +49,7 @@ namespace MvcVisionSystem
                 ImageSize = Math.Max(1, training.ImageSize),
                 BatchSize = Math.Max(1, training.Batch),
                 Task = string.Equals(task, "val", StringComparison.OrdinalIgnoreCase) ? "val" : "test",
+                ModelTask = ResolveModelTask(data),
                 UiConfidence = settings.MinimumDetectionConfidence,
                 OutputDirectory = Path.Combine(repositoryRoot, "artifacts", "yolo-model-comparison")
             };
@@ -66,7 +67,7 @@ namespace MvcVisionSystem
             ValidateFile(request.ScriptPath, "\uBAA8\uB378 \uBE44\uAD50 \uC2E4\uD589 \uC2A4\uD06C\uB9BD\uD2B8", errors);
             ValidateFile(request.PythonExecutablePath, "\uCD94\uB860 \uC2E4\uD589 \uD30C\uC77C", errors);
             ValidateDirectory(request.YoloSourceRootPath, "\uBAA8\uB378 \uD504\uB85C\uC81D\uD2B8 \uD3F4\uB354", errors);
-            ValidateFile(Path.Combine(request.YoloSourceRootPath ?? string.Empty, "val.py"), "\uBAA8\uB378 \uAC80\uC99D \uC2A4\uD06C\uB9BD\uD2B8", errors);
+            ValidateYoloValidationRuntime(request.YoloSourceRootPath, errors);
             ValidateFile(request.DataYamlPath, "\uD559\uC2B5 \uC124\uC815 \uD30C\uC77C", errors);
             ValidateFile(request.BaselineWeightsPath, "\uAE30\uC874 \uBAA8\uB378 \uD30C\uC77C", errors);
             ValidateFile(request.CandidateWeightsPath, "\uC0C8 \uBAA8\uB378 \uD30C\uC77C", errors);
@@ -176,6 +177,8 @@ namespace MvcVisionSystem
                 request.BatchSize.ToString(CultureInfo.InvariantCulture),
                 "-Task",
                 request.Task,
+                "-ModelTask",
+                request.ModelTask,
                 "-UiConfidence",
                 request.UiConfidence.ToString(CultureInfo.InvariantCulture),
                 "-OutputDirectory",
@@ -216,8 +219,48 @@ namespace MvcVisionSystem
                 return projectRoot;
             }
 
-            string nested = Path.Combine(projectRoot, "yolov5Master");
-            return nested;
+            string nestedYoloV5 = Path.Combine(projectRoot, "yolov5Master");
+            if (File.Exists(Path.Combine(nestedYoloV5, "val.py")))
+            {
+                return nestedYoloV5;
+            }
+
+            string nestedUltralytics = Path.Combine(projectRoot, "ultralyticsMaster");
+            if (Directory.Exists(Path.Combine(nestedUltralytics, "ultralytics")))
+            {
+                return nestedUltralytics;
+            }
+
+            if (Directory.Exists(Path.Combine(projectRoot, "ultralytics")))
+            {
+                return projectRoot;
+            }
+
+            return nestedYoloV5;
+        }
+
+        private static string ResolveModelTask(CData data)
+        {
+            return data?.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.Segmentation
+                ? "segment"
+                : "detect";
+        }
+
+        private static void ValidateYoloValidationRuntime(string sourceRootPath, List<string> errors)
+        {
+            if (string.IsNullOrWhiteSpace(sourceRootPath))
+            {
+                errors.Add("Model validation runtime not found: ");
+                return;
+            }
+
+            if (File.Exists(Path.Combine(sourceRootPath, "val.py"))
+                || Directory.Exists(Path.Combine(sourceRootPath, "ultralytics")))
+            {
+                return;
+            }
+
+            errors.Add($"Model validation runtime not found: {sourceRootPath}");
         }
 
         private static void ValidateFile(string path, string name, List<string> errors)
@@ -280,6 +323,13 @@ namespace MvcVisionSystem
             if (labelCount <= 0)
             {
                 errors.Add($"\uD559\uC2B5 \uC124\uC815\uC758 {task} \uBD84\uD560\uC5D0 \uC815\uB2F5 \uB77C\uBCA8 \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4: {resolved}");
+                return;
+            }
+
+            if (string.Equals(request.ModelTask, "segment", StringComparison.OrdinalIgnoreCase)
+                && CountDataYamlSegmentationLabelLines(resolved) <= 0)
+            {
+                errors.Add($"Model comparison needs at least one positive segmentation label line in the {task} split before YOLOv8 SEG validation: {resolved}");
             }
         }
 
@@ -320,10 +370,11 @@ namespace MvcVisionSystem
 
             if (Directory.Exists(resolvedPath))
             {
-                string labelsDirectory = ResolveLabelsDirectoryFromImagesPath(resolvedPath);
-                return Directory.Exists(labelsDirectory)
-                    ? Directory.EnumerateFiles(labelsDirectory, "*.txt", SearchOption.TopDirectoryOnly).Count()
-                    : 0;
+                return Directory
+                    .EnumerateFiles(resolvedPath, "*.*", SearchOption.TopDirectoryOnly)
+                    .Where(IsSupportedImagePath)
+                    .Select(ResolveLabelPathFromImagePath)
+                    .Count(File.Exists);
             }
 
             if (File.Exists(resolvedPath))
@@ -339,6 +390,64 @@ namespace MvcVisionSystem
             }
 
             return 0;
+        }
+
+        private static int CountDataYamlSegmentationLabelLines(string resolvedPath)
+        {
+            return EnumerateDataYamlLabelPaths(resolvedPath)
+                .Where(File.Exists)
+                .SelectMany(File.ReadLines)
+                .Select(line => RemoveYamlInlineComment(line).Trim())
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .Count(IsSegmentationLabelLine);
+        }
+
+        private static IEnumerable<string> EnumerateDataYamlLabelPaths(string resolvedPath)
+        {
+            if (string.IsNullOrWhiteSpace(resolvedPath))
+            {
+                yield break;
+            }
+
+            if (Directory.Exists(resolvedPath))
+            {
+                foreach (string labelPath in Directory
+                    .EnumerateFiles(resolvedPath, "*.*", SearchOption.TopDirectoryOnly)
+                    .Where(IsSupportedImagePath)
+                    .Select(ResolveLabelPathFromImagePath))
+                {
+                    yield return labelPath;
+                }
+
+                yield break;
+            }
+
+            if (!File.Exists(resolvedPath))
+            {
+                yield break;
+            }
+
+            string directory = Path.GetDirectoryName(resolvedPath) ?? Directory.GetCurrentDirectory();
+            foreach (string labelPath in File
+                .ReadLines(resolvedPath)
+                .Select(line => RemoveYamlInlineComment(line).Trim())
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .Select(line => ResolveLabelPathFromImagePath(ResolveListImagePath(directory, line))))
+            {
+                yield return labelPath;
+            }
+        }
+
+        private static bool IsSegmentationLabelLine(string line)
+        {
+            string[] tokens = (line ?? string.Empty)
+                .Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length < 7 || tokens.Length % 2 == 0)
+            {
+                return false;
+            }
+
+            return tokens.All(token => double.TryParse(token, NumberStyles.Float, CultureInfo.InvariantCulture, out _));
         }
 
         private static string ResolveLabelsDirectoryFromImagesPath(string imagesPath)
@@ -515,6 +624,8 @@ namespace MvcVisionSystem
         public int BatchSize { get; set; } = 16;
 
         public string Task { get; set; } = "test";
+
+        public string ModelTask { get; set; } = "detect";
 
         public double UiConfidence { get; set; } = 0.25D;
 

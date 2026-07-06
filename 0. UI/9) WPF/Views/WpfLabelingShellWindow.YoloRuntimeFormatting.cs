@@ -30,12 +30,6 @@ namespace MvcVisionSystem
 
         private int GetInteractiveWorkerConnectTimeoutMilliseconds()
         {
-            PythonCommunicationStatus status = global.GetPythonCommunicationStatusSnapshot();
-            if (status.IsClientConnected)
-            {
-                return 1500;
-            }
-
             return GetWorkerConnectTimeoutMilliseconds();
         }
 

@@ -33,6 +33,9 @@ namespace MvcVisionSystem.Yolo
         public int TrainLabelCount { get; internal set; }
         public int ValidLabelCount { get; internal set; }
         public int TestLabelCount { get; internal set; }
+        public int TrainEmptyLabelFileCount { get; internal set; }
+        public int ValidEmptyLabelFileCount { get; internal set; }
+        public int TestEmptyLabelFileCount { get; internal set; }
         public int TrainSegmentFileCount { get; internal set; }
         public int ValidSegmentFileCount { get; internal set; }
         public int TestSegmentFileCount { get; internal set; }
@@ -46,6 +49,7 @@ namespace MvcVisionSystem.Yolo
         public string SplitImageOverlapExample { get; internal set; } = "";
         public int TotalImageCount => TrainImageCount + ValidImageCount + TestImageCount;
         public int TotalLabelFileCount => TrainLabelCount + ValidLabelCount + TestLabelCount;
+        public int TotalEmptyLabelFileCount => TrainEmptyLabelFileCount + ValidEmptyLabelFileCount + TestEmptyLabelFileCount;
         public int TotalSegmentFileCount => TrainSegmentFileCount + ValidSegmentFileCount + TestSegmentFileCount;
         public int TotalMaskFileCount => TrainMaskFileCount + ValidMaskFileCount + TestMaskFileCount;
         public int TotalSegmentationArtifactFileCount => TotalSegmentFileCount + TotalMaskFileCount;
@@ -120,6 +124,7 @@ namespace MvcVisionSystem.Yolo
                     data.TrainImagesPath,
                     Path.Combine(data.OutputRootPath, "data", "train", "segments"),
                     Path.Combine(data.OutputRootPath, "data", "train", "masks"),
+                    Path.Combine(data.OutputRootPath, "data", "train", "labels"),
                     data.ClassNamedList,
                     errors);
                 ValidateSegmentationImageAndAnnotationSet(
@@ -127,6 +132,7 @@ namespace MvcVisionSystem.Yolo
                     data.ValidImagesPath,
                     Path.Combine(data.OutputRootPath, "data", "valid", "segments"),
                     Path.Combine(data.OutputRootPath, "data", "valid", "masks"),
+                    Path.Combine(data.OutputRootPath, "data", "valid", "labels"),
                     data.ClassNamedList,
                     errors);
                 ValidateOptionalSegmentationImageAndAnnotationSet(
@@ -134,6 +140,7 @@ namespace MvcVisionSystem.Yolo
                     data.TestImagesPath,
                     Path.Combine(data.OutputRootPath, "data", "test", "segments"),
                     Path.Combine(data.OutputRootPath, "data", "test", "masks"),
+                    Path.Combine(data.OutputRootPath, "data", "test", "labels"),
                     data.ClassNamedList,
                     errors);
             }
@@ -215,6 +222,9 @@ namespace MvcVisionSystem.Yolo
             statistics.TrainLabelCount = CountFiles(trainLabelsPath, "*.txt");
             statistics.ValidLabelCount = CountFiles(validLabelsPath, "*.txt");
             statistics.TestLabelCount = CountFiles(testLabelsPath, "*.txt");
+            statistics.TrainEmptyLabelFileCount = CountEmptyLabelFiles(trainLabelsPath);
+            statistics.ValidEmptyLabelFileCount = CountEmptyLabelFiles(validLabelsPath);
+            statistics.TestEmptyLabelFileCount = CountEmptyLabelFiles(testLabelsPath);
             statistics.TrainSegmentFileCount = CountFiles(trainSegmentsPath, "*.json");
             statistics.ValidSegmentFileCount = CountFiles(validSegmentsPath, "*.json");
             statistics.TestSegmentFileCount = CountFiles(testSegmentsPath, "*.json");
@@ -526,6 +536,7 @@ namespace MvcVisionSystem.Yolo
             string imageDirectory,
             string segmentDirectory,
             string maskDirectory,
+            string labelDirectory,
             IReadOnlyList<CClassItem> classes,
             List<string> errors)
         {
@@ -551,11 +562,16 @@ namespace MvcVisionSystem.Yolo
                 string fileStem = Path.GetFileNameWithoutExtension(imagePath);
                 string segmentPath = Path.Combine(segmentDirectory, $"{fileStem}.json");
                 string maskPath = Path.Combine(maskDirectory, $"{fileStem}.png");
+                string labelPath = Path.Combine(labelDirectory, $"{fileStem}.txt");
                 bool hasSegment = File.Exists(segmentPath);
                 bool hasMask = File.Exists(maskPath);
                 if (!hasSegment && !hasMask)
                 {
-                    errors.Add($"{mode} segmentation annotation is missing for image: {Path.GetFileName(imagePath)}");
+                    if (!IsEmptyLabelFile(labelPath))
+                    {
+                        errors.Add($"{mode} segmentation annotation or empty background label is missing for image: {Path.GetFileName(imagePath)}");
+                    }
+
                     continue;
                 }
 
@@ -571,18 +587,20 @@ namespace MvcVisionSystem.Yolo
             string imageDirectory,
             string segmentDirectory,
             string maskDirectory,
+            string labelDirectory,
             IReadOnlyList<CClassItem> classes,
             List<string> errors)
         {
             bool hasImages = EnumerateSupportedImages(imageDirectory).Any();
             bool hasSegments = Directory.Exists(segmentDirectory) && Directory.EnumerateFiles(segmentDirectory, "*.json").Any();
             bool hasMasks = Directory.Exists(maskDirectory) && Directory.EnumerateFiles(maskDirectory, "*.png").Any();
-            if (!hasImages && !hasSegments && !hasMasks)
+            bool hasLabels = Directory.Exists(labelDirectory) && Directory.EnumerateFiles(labelDirectory, "*.txt").Any();
+            if (!hasImages && !hasSegments && !hasMasks && !hasLabels)
             {
                 return;
             }
 
-            ValidateSegmentationImageAndAnnotationSet(mode, imageDirectory, segmentDirectory, maskDirectory, classes, errors);
+            ValidateSegmentationImageAndAnnotationSet(mode, imageDirectory, segmentDirectory, maskDirectory, labelDirectory, classes, errors);
         }
 
         private static void ValidateSegmentFile(string mode, string segmentPath, IReadOnlyList<CClassItem> classes, List<string> errors)
@@ -701,6 +719,12 @@ namespace MvcVisionSystem.Yolo
             return ImageExtensions.Any(item => string.Equals(item, extension, StringComparison.OrdinalIgnoreCase));
         }
 
+        private static bool IsEmptyLabelFile(string labelPath)
+        {
+            return File.Exists(labelPath)
+                && File.ReadAllText(labelPath).Trim().Length == 0;
+        }
+
         private static IEnumerable<string> EnumerateSupportedImages(string directory)
         {
             if (!Directory.Exists(directory))
@@ -724,6 +748,17 @@ namespace MvcVisionSystem.Yolo
             }
 
             return Directory.EnumerateFiles(directory, searchPattern).Count();
+        }
+
+        private static int CountEmptyLabelFiles(string directory)
+        {
+            if (!Directory.Exists(directory))
+            {
+                return 0;
+            }
+
+            return Directory.EnumerateFiles(directory, "*.txt")
+                .Count(path => File.ReadAllText(path).Trim().Length == 0);
         }
 
         private static void CountObjects(string labelDirectory, IReadOnlyList<CClassItem> classes, YoloDatasetStatistics statistics)
