@@ -12,11 +12,18 @@ namespace MvcVisionSystem
 
         private void ExecuteLabelingWorkbenchCommand()
         {
-            ShellViewModel?.SetWorkflowStage(WpfShellWorkflowStage.Labeling);
-            ExecuteLabelingModeCommand();
-            FocusAnnotationToolsTab();
+            EnterLabelingWorkbenchStartView();
             SetModelStatus("\uC791\uC5C5 \uB2E8\uACC4: \uB77C\uBCA8\uB9C1 \uC6CC\uD06C\uBCA4\uCE58");
             AppendLog("\uC791\uC5C5 \uB2E8\uACC4 \uC774\uB3D9: \uB77C\uBCA8\uB9C1 \uC6CC\uD06C\uBCA4\uCE58");
+        }
+
+        private void EnterLabelingWorkbenchStartView()
+        {
+            LearningWorkflowViewModel?.ShowLabelingTask();
+            EnterLabelingMode(openGuidePanel: false);
+            ShellViewModel?.SetRightWorkflowShortcut(WpfRightWorkflowShortcut.SavedLabels);
+            ShellViewModel?.SetRightWorkflowDockExpanded(false);
+            SelectRightWorkflowView(ObjectsReviewTab);
         }
 
         private void ExecuteInferenceReviewCommand()

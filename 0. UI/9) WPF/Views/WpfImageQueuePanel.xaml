@@ -349,7 +349,7 @@
                            MinHeight="36"
                            Margin="0,0,0,3"
                            VerticalAlignment="Center">
-                    <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC124;&#xC815;&#xB41C; &#xC774;&#xBBF8;&#xC9C0; &#xD3F4;&#xB354; &#xBD88;&#xB7EC;&#xC624;&#xAE30;" AutomationProperties.Name="&#xC124;&#xC815; &#xD3F4;&#xB354;" Command="{Binding LoadImageRootCommand}">
+                    <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC124;&#xC815;&#xB41C; &#xC774;&#xBBF8;&#xC9C0; &#xD3F4;&#xB354; &#xBD88;&#xB7EC;&#xC624;&#xAE30;" AutomationProperties.AutomationId="LoadConfiguredImageRootButton" AutomationProperties.Name="&#xC124;&#xC815; &#xD3F4;&#xB354;" Command="{Binding LoadImageRootCommand}">
                         <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="FolderImage" />
                     </ui:Button>
                     <ui:Button Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC774;&#xBBF8;&#xC9C0; &#xD3F4;&#xB354; &#xC120;&#xD0DD;" AutomationProperties.Name="&#xD3F4;&#xB354;" Command="{Binding BrowseImageFolderCommand}">

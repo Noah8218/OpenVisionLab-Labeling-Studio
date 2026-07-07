@@ -1182,15 +1182,15 @@
                     <Button x:Name="RightWorkflowGuideToolsButton"
                             Width="96"
                             AutomationProperties.AutomationId="RightWorkflowGuideToolsButton"
-                            AutomationProperties.Name="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C; &#xBCF4;&#xAE30;"
-                            ToolTip="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C;&#xC640; &#xAC00;&#xC774;&#xB4DC;&#xB97C; &#xBCF4;&#xC5EC;&#xC90D;&#xB2C8;&#xB2E4;."
+                            AutomationProperties.Name="&#xD604;&#xC7AC; &#xC791;&#xC5C5; &#xBCF4;&#xAE30;"
+                            ToolTip="&#xD604;&#xC7AC; &#xC774;&#xBBF8;&#xC9C0;&#xC5D0;&#xC11C; &#xB2E4;&#xC74C;&#xC73C;&#xB85C; &#xD560; &#xB77C;&#xBCA8;&#xB9C1; &#xC791;&#xC5C5;&#xC744; &#xBCF4;&#xC5EC;&#xC90D;&#xB2C8;&#xB2E4;."
                             Command="{Binding ShellViewModel.ShowLabelingGuideViewCommand, ElementName=ShellWindow}"
                             Tag="{Binding ShellViewModel.IsLabelingGuideShortcutActive, ElementName=ShellWindow}"
                             Visibility="{Binding ShellViewModel.IsLabelingStageActive, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
                             Style="{StaticResource RightWorkflowShortcutButtonStyle}">
                         <StackPanel Orientation="Horizontal">
-                            <iconPacks:PackIconMaterial Kind="ShapeSquareRoundedPlus" Width="12" Height="12" Margin="0,0,4,0" />
-                            <TextBlock Text="&#xB3C4;&#xAD6C;" />
+                            <iconPacks:PackIconMaterial Kind="ClipboardTextOutline" Width="12" Height="12" Margin="0,0,4,0" />
+                            <TextBlock Text="&#xC791;&#xC5C5;" />
                         </StackPanel>
                     </Button>
                     <Button x:Name="RightWorkflowClassCatalogButton"
@@ -2219,13 +2219,87 @@
                                                                         Margin="0,2,0,0"
                                                                         TextWrapping="Wrap" />
                                                          </StackPanel>
-                                                     </Expander>
-                                                 </StackPanel>
-                                             </Border>
-                                             <Border x:Name="YoloModelLifecycleDetailPanel"
-                                                     AutomationProperties.AutomationId="YoloModelLifecycleDetailPanel"
-                                                     Visibility="Collapsed"
-                                                     BorderBrush="{DynamicResource BorderBrushDark}"
+                                                      </Expander>
+                                                  </StackPanel>
+                                              </Border>
+                                              <Border x:Name="YoloAnomalyEvaluationPanel"
+                                                      AutomationProperties.AutomationId="YoloAnomalyEvaluationPanel"
+                                                      Background="{DynamicResource ModelCenterDecisionPanelBrush}"
+                                                      BorderBrush="{DynamicResource ModelCenterDecisionBrush}"
+                                                      BorderThickness="1"
+                                                      CornerRadius="4"
+                                                      Padding="7"
+                                                      Margin="0,0,0,7"
+                                                      Visibility="{Binding ShellViewModel.IsModelCenterAnomalyEvaluationVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                                                  <StackPanel>
+                                                      <Grid>
+                                                          <Grid.ColumnDefinitions>
+                                                              <ColumnDefinition Width="*" />
+                                                              <ColumnDefinition Width="Auto" />
+                                                          </Grid.ColumnDefinitions>
+                                                          <TextBlock x:Name="YoloAnomalyEvaluationTitleText"
+                                                                     AutomationProperties.AutomationId="YoloAnomalyEvaluationTitleText"
+                                                                     Text="{Binding ShellViewModel.ModelCenterAnomalyEvaluationTitleText}"
+                                                                     Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                     FontFamily="Segoe UI"
+                                                                     FontSize="11"
+                                                                     FontWeight="SemiBold"
+                                                                     TextWrapping="Wrap" />
+                                                          <TextBlock x:Name="YoloAnomalyEvaluationRecommendationText"
+                                                                     AutomationProperties.AutomationId="YoloAnomalyEvaluationRecommendationText"
+                                                                     Grid.Column="1"
+                                                                     Text="{Binding ShellViewModel.ModelCenterAnomalyEvaluationRecommendationText}"
+                                                                     ToolTip="{Binding ShellViewModel.ModelCenterAnomalyEvaluationRecommendationText}"
+                                                                     Foreground="{DynamicResource ModelCenterDecisionBrush}"
+                                                                     FontFamily="Segoe UI"
+                                                                     FontSize="9.5"
+                                                                     FontWeight="SemiBold"
+                                                                     Margin="8,0,0,0"
+                                                                     TextTrimming="CharacterEllipsis"
+                                                                     MaxWidth="150" />
+                                                      </Grid>
+                                                      <TextBlock x:Name="YoloAnomalyEvaluationMetricsText"
+                                                                 AutomationProperties.AutomationId="YoloAnomalyEvaluationMetricsText"
+                                                                 Text="{Binding ShellViewModel.ModelCenterAnomalyEvaluationMetricsText}"
+                                                                 Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                 FontFamily="Segoe UI"
+                                                                 FontSize="9.5"
+                                                                 FontWeight="SemiBold"
+                                                                 Margin="0,4,0,0"
+                                                                 TextWrapping="Wrap" />
+                                                      <Expander x:Name="YoloAnomalyEvaluationDetailExpander"
+                                                                AutomationProperties.AutomationId="YoloAnomalyEvaluationDetailExpander"
+                                                                Header="&#xADFC;&#xAC70;/&#xB2E4;&#xC74C;"
+                                                                IsExpanded="False"
+                                                                Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                FontFamily="Segoe UI"
+                                                                FontSize="9"
+                                                                Margin="0,3,0,0">
+                                                          <StackPanel Margin="0,3,0,0">
+                                                              <TextBlock x:Name="YoloAnomalyEvaluationDetailText"
+                                                                         AutomationProperties.AutomationId="YoloAnomalyEvaluationDetailText"
+                                                                         Text="{Binding ShellViewModel.ModelCenterAnomalyEvaluationDetailText}"
+                                                                         Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                         FontFamily="Segoe UI"
+                                                                         FontSize="9"
+                                                                         TextWrapping="Wrap" />
+                                                              <TextBlock x:Name="YoloAnomalyEvaluationActionText"
+                                                                         AutomationProperties.AutomationId="YoloAnomalyEvaluationActionText"
+                                                                         Text="{Binding ShellViewModel.ModelCenterAnomalyEvaluationActionText}"
+                                                                         Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                         FontFamily="Segoe UI"
+                                                                         FontSize="9"
+                                                                         FontWeight="SemiBold"
+                                                                         Margin="0,2,0,0"
+                                                                         TextWrapping="Wrap" />
+                                                          </StackPanel>
+                                                      </Expander>
+                                                  </StackPanel>
+                                              </Border>
+                                              <Border x:Name="YoloModelLifecycleDetailPanel"
+                                                      AutomationProperties.AutomationId="YoloModelLifecycleDetailPanel"
+                                                      Visibility="Collapsed"
+                                                      BorderBrush="{DynamicResource BorderBrushDark}"
                                                      BorderThickness="0,1,0,0"
                                                      Padding="0,7,0,0">
                                                 <Grid>
@@ -2525,18 +2599,18 @@
                             </Button>
                             <Button x:Name="RightWorkflowRailGuideToolsButton"
                                     AutomationProperties.AutomationId="RightWorkflowRailGuideToolsButton"
-                                    AutomationProperties.Name="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C; &#xD328;&#xB110; &#xC5F4;&#xAE30;"
-                                    ToolTip="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C;&#xC640; &#xAC00;&#xC774;&#xB4DC;&#xB97C; &#xC5FD;&#xB2C8;&#xB2E4;."
+                                    AutomationProperties.Name="&#xD604;&#xC7AC; &#xC791;&#xC5C5; &#xD328;&#xB110; &#xC5F4;&#xAE30;"
+                                    ToolTip="&#xD604;&#xC7AC; &#xC774;&#xBBF8;&#xC9C0;&#xC5D0;&#xC11C; &#xB2E4;&#xC74C;&#xC73C;&#xB85C; &#xD560; &#xB77C;&#xBCA8;&#xB9C1; &#xC791;&#xC5C5;&#xC744; &#xC5FD;&#xB2C8;&#xB2E4;."
                                     Command="{Binding ShellViewModel.ShowLabelingGuideViewCommand, ElementName=ShellWindow}"
                                     Tag="{Binding ShellViewModel.IsLabelingGuideShortcutActive, ElementName=ShellWindow}"
                                     Style="{StaticResource RightWorkflowRailButtonStyle}">
                                 <StackPanel HorizontalAlignment="Center">
-                                    <iconPacks:PackIconMaterial Kind="ShapeSquareRoundedPlus"
+                                    <iconPacks:PackIconMaterial Kind="ClipboardTextOutline"
                                                                 Width="15"
                                                                 Height="15"
                                                                 HorizontalAlignment="Center" />
                                     <TextBlock x:Name="RightWorkflowRailGuideToolsText"
-                                               Text="&#xB3C4;&#xAD6C;"
+                                               Text="&#xC791;&#xC5C5;"
                                                Margin="0,2,0,0"
                                                TextAlignment="Center" />
                                 </StackPanel>

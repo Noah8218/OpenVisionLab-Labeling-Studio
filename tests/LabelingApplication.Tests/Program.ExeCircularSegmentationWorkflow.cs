@@ -155,19 +155,23 @@ internal static partial class Program
             root = RefreshAutomationRoot(process, handle);
             CaptureWorkflowStep(root, screenshotDirectory, "03_dataset_created");
 
-            ConfigureYoloV8SegmentationRuntimeThroughExe(
-                process,
-                handle,
-                imageRoot,
-                yoloRoot,
-                pythonPath,
-                clientScriptPath,
-                seedWeightsPath,
-                screenshotDirectory);
-            root = RefreshAutomationRoot(process, handle);
-            CaptureWorkflowStep(root, screenshotDirectory, "04_yolov8_settings_saved");
+            if (!RecipeHasYoloV8SegmentationRuntime(recipeDirectory, imageRoot, yoloRoot, pythonPath, clientScriptPath, seedWeightsPath))
+            {
+                ConfigureYoloV8SegmentationRuntimeThroughExe(
+                    process,
+                    handle,
+                    imageRoot,
+                    yoloRoot,
+                    pythonPath,
+                    clientScriptPath,
+                    seedWeightsPath,
+                    screenshotDirectory);
+            }
 
-            LoadImageRootThroughFolderDialogExe(process, handle, imageRoot, screenshotDirectory);
+            root = RefreshAutomationRoot(process, handle);
+            CaptureWorkflowStep(root, screenshotDirectory, "04_yolov8_settings_ready");
+
+            LoadConfiguredImageRootThroughExe(process, imageRoot, screenshotDirectory);
             root = RefreshAutomationRoot(process);
             CaptureWorkflowStep(root, screenshotDirectory, "05_image_queue_loaded");
 
@@ -260,7 +264,7 @@ internal static partial class Program
 
         System.Windows.Automation.AutomationElement createButton = FindAutomationElementByAutomationId(wizardRoot, "WizardCreateButton");
         AssertTrue(createButton != null && createButton.Current.IsEnabled, "segmentation wizard create button was not clickable");
-        NativeClick(GetAutomationCenter(createButton));
+        AssertTrue(TryInvokeAutomationButtonByAutomationId(wizardRoot, "WizardCreateButton"), "segmentation wizard create button was not invokable");
 
         string manifestPath = Path.Combine(recipeDirectory, LabelingDatasetManifestService.FileName);
         LabelingDatasetManifest manifest = null;
@@ -283,9 +287,33 @@ internal static partial class Program
         AssertTrue(File.Exists(manifestPath), "EXE segmentation wizard should create dataset.manifest.json");
     }
 
+    private static bool RecipeHasYoloV8SegmentationRuntime(
+        string recipeDirectory,
+        string imageRoot,
+        string yoloRoot,
+        string pythonPath,
+        string clientScriptPath,
+        string weightsPath)
+    {
+        string visionPath = Path.Combine(recipeDirectory, "VISION.xml");
+        if (!File.Exists(visionPath))
+        {
+            return false;
+        }
+
+        string source = File.ReadAllText(visionPath);
+        return source.Contains("<DatasetPurpose>Segmentation</DatasetPurpose>", StringComparison.Ordinal)
+            && source.Contains("<ModelEngine>YOLOv8</ModelEngine>", StringComparison.Ordinal)
+            && source.Contains($"<PythonExecutablePath>{pythonPath}</PythonExecutablePath>", StringComparison.OrdinalIgnoreCase)
+            && source.Contains($"<ProjectRootPath>{yoloRoot}</ProjectRootPath>", StringComparison.OrdinalIgnoreCase)
+            && source.Contains($"<ClientScriptPath>{clientScriptPath}</ClientScriptPath>", StringComparison.OrdinalIgnoreCase)
+            && source.Contains($"<WeightsPath>{weightsPath}</WeightsPath>", StringComparison.OrdinalIgnoreCase)
+            && source.Contains($"<ImageRootPath>{imageRoot}</ImageRootPath>", StringComparison.OrdinalIgnoreCase);
+    }
+
     private static System.Windows.Automation.AutomationElement OpenDatasetSetupWizardThroughExe(Process process, IntPtr stableHandle)
     {
-        for (int attempt = 0; attempt < 8; attempt++)
+        for (int attempt = 0; attempt < 12; attempt++)
         {
             System.Windows.Automation.AutomationElement wizard = FindProcessWindowByName(process, "\uB370\uC774\uD130\uC14B \uC0DD\uC131");
             if (wizard != null)
@@ -434,7 +462,8 @@ internal static partial class Program
     {
         var root = RefreshAutomationRoot(process, stableHandle);
         AssertTrue(
-            OpenYoloModelCenterThroughExe(process, stableHandle),
+            OpenYoloModelCenterThroughExe(process, stableHandle)
+                || OpenYoloModelCenterThroughExe(process, IntPtr.Zero),
             "model settings tab was not selectable");
         AssertTrue(
             TryExpandYoloSettingsSection(process, stableHandle, "YoloModelSettingsExpander", "YoloInspectionModelQuickPanel"),
@@ -495,21 +524,26 @@ internal static partial class Program
     private static void LoadConfiguredImageRootThroughExe(Process process, string imageRoot, string screenshotDirectory)
     {
         var root = RefreshAutomationRoot(process);
+        string expectedImageMarker = FindImageQueueMarker(imageRoot);
+        System.Windows.Automation.AutomationElement loadButton = FindAutomationElementByAutomationId(root, "LoadConfiguredImageRootButton");
+        bool invoked = false;
+        if (loadButton != null)
+        {
+            NativeClick(GetAutomationCenter(loadButton));
+            invoked = true;
+        }
+
         AssertTrue(
-            TryInvokeAutomationButton(root, "\uC124\uC815 \uD3F4\uB354"),
+            invoked || TryInvokeAutomationButton(root, "\uC124\uC815 \uD3F4\uB354"),
             "configured image-root load button was not invokable");
         AssertTrue(
             WaitUntil(
                 () =>
                 {
                     var latestRoot = RefreshAutomationRoot(process, bringToFront: false);
-                    string currentFolder = GetAutomationValueByAutomationId(latestRoot, "CurrentImageFolderPathText");
-                    string datasetStatus = GetAutomationValueByAutomationId(latestRoot, "DatasetStatusText");
-                    return currentFolder.IndexOf(Path.GetFileName(imageRoot), StringComparison.OrdinalIgnoreCase) >= 0
-                        || datasetStatus.IndexOf(Path.GetFileName(imageRoot), StringComparison.OrdinalIgnoreCase) >= 0
-                        || ContainsAutomationText(latestRoot, "80");
+                    return ImageRootAppearsLoaded(latestRoot, imageRoot, expectedImageMarker);
                 },
-                TimeSpan.FromSeconds(8)),
+                TimeSpan.FromSeconds(12)),
             "configured image root did not load into the EXE image queue");
         CaptureWorkflowStep(RefreshAutomationRoot(process), screenshotDirectory, "05a_configured_image_root_loaded");
     }
@@ -517,6 +551,7 @@ internal static partial class Program
     private static void LoadImageRootThroughFolderDialogExe(Process process, IntPtr stableHandle, string imageRoot, string screenshotDirectory)
     {
         var root = RefreshAutomationRoot(process, stableHandle);
+        string expectedImageMarker = FindImageQueueMarker(imageRoot);
         AssertTrue(
             TryInvokeAutomationButton(root, "\uD3F4\uB354"),
             "image-folder browse button was not invokable");
@@ -552,15 +587,32 @@ internal static partial class Program
                 () =>
                 {
                     var latestRoot = RefreshAutomationRoot(process, stableHandle, bringToFront: false);
-                    string currentFolder = GetAutomationValueByAutomationId(latestRoot, "CurrentImageFolderPathText");
-                    string datasetStatus = GetAutomationValueByAutomationId(latestRoot, "DatasetStatusText");
-                    return currentFolder.IndexOf(Path.GetFileName(imageRoot), StringComparison.OrdinalIgnoreCase) >= 0
-                        || datasetStatus.IndexOf(Path.GetFileName(imageRoot), StringComparison.OrdinalIgnoreCase) >= 0
-                        || ContainsAutomationText(latestRoot, "80");
+                    return ImageRootAppearsLoaded(latestRoot, imageRoot, expectedImageMarker);
                 },
                 TimeSpan.FromSeconds(12)),
             "selected image root did not load into the EXE image queue");
         CaptureWorkflowStep(RefreshAutomationRoot(process, stableHandle), screenshotDirectory, "05a_folder_dialog_image_root_loaded");
+    }
+
+    private static string FindImageQueueMarker(string imageRoot)
+    {
+        return Directory.EnumerateFiles(imageRoot, "*", SearchOption.AllDirectories)
+            .Where(path => ExeSmokeImageArtifactExtensions.Contains(Path.GetExtension(path), StringComparer.OrdinalIgnoreCase))
+            .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+            .Select(Path.GetFileNameWithoutExtension)
+            .FirstOrDefault() ?? Path.GetFileName(imageRoot);
+    }
+
+    private static bool ImageRootAppearsLoaded(System.Windows.Automation.AutomationElement root, string imageRoot, string expectedImageMarker)
+    {
+        string currentFolder = GetAutomationValueByAutomationId(root, "CurrentImageFolderPathText");
+        string datasetStatus = GetAutomationValueByAutomationId(root, "DatasetStatusText");
+        string imageRootLeaf = Path.GetFileName(imageRoot);
+        return currentFolder.IndexOf(imageRoot, StringComparison.OrdinalIgnoreCase) >= 0
+            || datasetStatus.IndexOf(imageRoot, StringComparison.OrdinalIgnoreCase) >= 0
+            || currentFolder.IndexOf(imageRootLeaf, StringComparison.OrdinalIgnoreCase) >= 0
+            || datasetStatus.IndexOf(imageRootLeaf, StringComparison.OrdinalIgnoreCase) >= 0
+            || ContainsAutomationText(root, expectedImageMarker);
     }
 
     private static IReadOnlyList<string> SelectCircularSegmentationLabelImages(string imageRoot, int labelCount)
@@ -1219,13 +1271,25 @@ internal static partial class Program
                 return true;
             }
 
-            if (!TryNativeClickAutomationElementByAutomationId(root, "TrainingModelStageButton"))
+            if (!TryNativeClickAutomationElementByAutomationId(root, "TrainingModelStageButton")
+                && !TryInvokeAutomationButtonByAutomationId(root, "TrainingModelStageButton")
+                && !TryNativeClickAutomationElementByName(root, "4 학습/모델")
+                && !TryInvokeAutomationButton(root, "4 학습/모델"))
             {
-                _ = TryInvokeAutomationButtonByAutomationId(root, "TrainingModelStageButton");
+                _ = TryNativeClickAutomationElementByName(root, "학습/모델")
+                    || TryInvokeAutomationButton(root, "학습/모델");
+            }
+
+            root = stableHandle == IntPtr.Zero
+                ? RefreshAutomationRoot(process, bringToFront: false)
+                : RefreshAutomationRoot(process, stableHandle, bringToFront: false);
+            if (IsAutomationButtonEnabledByAutomationId(root, "RightWorkflowTrainingModelButton"))
+            {
+                _ = TryInvokeAutomationButtonByAutomationId(root, "RightWorkflowTrainingModelButton");
             }
 
             _ = SelectAutomationTabByAutomationId(root, "YoloSettingsReviewTab") || SelectTabItemByName(root, "\uBAA8\uB378");
-            Thread.Sleep(350);
+            Thread.Sleep(500);
         }
 
         return false;
@@ -1682,13 +1746,35 @@ internal static partial class Program
     {
         if (scrollViewer != null)
         {
-            System.Windows.Rect scrollBounds = scrollViewer.Current.BoundingRectangle;
-            return new Point(
-                (int)Math.Round(scrollBounds.Left + (scrollBounds.Width * 0.5D)),
-                (int)Math.Round(scrollBounds.Top + (scrollBounds.Height * 0.5D)));
+            try
+            {
+                System.Windows.Rect scrollBounds = scrollViewer.Current.BoundingRectangle;
+                return new Point(
+                    (int)Math.Round(scrollBounds.Left + (scrollBounds.Width * 0.5D)),
+                    (int)Math.Round(scrollBounds.Top + (scrollBounds.Height * 0.5D)));
+            }
+            catch (System.Windows.Automation.ElementNotAvailableException)
+            {
+            }
+            catch (System.Runtime.InteropServices.COMException)
+            {
+            }
         }
 
-        System.Windows.Rect bounds = root.Current.BoundingRectangle;
+        System.Windows.Rect bounds;
+        try
+        {
+            bounds = root?.Current.BoundingRectangle ?? new System.Windows.Rect(0D, 0D, VisualSmokeDefaultWindowWidth, VisualSmokeDefaultWindowHeight);
+        }
+        catch (System.Windows.Automation.ElementNotAvailableException)
+        {
+            bounds = new System.Windows.Rect(0D, 0D, VisualSmokeDefaultWindowWidth, VisualSmokeDefaultWindowHeight);
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            bounds = new System.Windows.Rect(0D, 0D, VisualSmokeDefaultWindowWidth, VisualSmokeDefaultWindowHeight);
+        }
+
         return new Point(
             (int)Math.Round(bounds.X + (bounds.Width * 0.16D)),
             (int)Math.Round(bounds.Y + (bounds.Height * 0.56D)));

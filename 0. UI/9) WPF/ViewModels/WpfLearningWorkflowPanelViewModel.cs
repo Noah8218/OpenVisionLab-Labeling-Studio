@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Windows;
 using System.Windows.Input;
 
 namespace MvcVisionSystem
@@ -27,6 +28,15 @@ namespace MvcVisionSystem
         private string datasetSetupActionText = "\uB370\uC774\uD130\uC14B \uC2DC\uC791";
         private string currentWorkflowActionText = string.Empty;
         private string datasetSetupStatusText = "\uB370\uC774\uD130\uC14B \uC2DC\uC791 \uC804";
+        private string currentLabelingTaskStepText = "\uC0D8\uD50C";
+        private string currentLabelingTaskToolText = "\uB3C4\uAD6C: \uC120\uD0DD";
+        private string currentLabelingTaskActionText = "\uC774\uBBF8\uC9C0 \uD050\uC5D0\uC11C \uC791\uC5C5\uD560 \uC774\uBBF8\uC9C0\uB97C \uC5F4\uACE0 \uCCAB \uB77C\uBCA8\uC744 \uC2DC\uC791\uD558\uC138\uC694.";
+        private string currentLabelingTaskChecklistFirstText = "1  \uC774\uBBF8\uC9C0";
+        private string currentLabelingTaskChecklistSecondText = "2  \uC5F4\uAE30";
+        private string currentLabelingTaskChecklistThirdText = "3  \uB77C\uBCA8";
+        private string currentLabelingTaskChecklistSummaryText = "\uD750\uB984: \uC774\uBBF8\uC9C0 > \uC5F4\uAE30 > \uB77C\uBCA8";
+        private Visibility datasetOnboardingVisibility = Visibility.Visible;
+        private Visibility labelingTaskVisibility = Visibility.Collapsed;
         private string modeDetailText = string.Empty;
         private string stepDetailText = string.Empty;
         private string toolDetailText = string.Empty;
@@ -185,7 +195,7 @@ namespace MvcVisionSystem
                 2,
                 "\uC774\uBBF8\uC9C0",
                 "\uC6D0\uBCF8 \uC774\uBBF8\uC9C0 \uD3F4\uB354 \uD655\uC778",
-                "\uC88C\uCE21 \uC774\uBBF8\uC9C0 \uD050\uC5D0 \uD30C\uC77C\uC774 \uBCF4\uC774\uBA74 \uB2E4\uC74C \uB2E8\uACC4\uC785\uB2C8\uB2E4.",
+                "\uC774\uBBF8\uC9C0 \uD050\uC5D0 \uD30C\uC77C\uC774 \uBCF4\uC774\uBA74 \uB2E4\uC74C \uB2E8\uACC4\uC785\uB2C8\uB2E4.",
                 PackIconMaterialKind.FolderImage));
             FirstRunChecklistItems.Add(new WpfFirstRunChecklistItem(
                 3,
@@ -229,8 +239,8 @@ namespace MvcVisionSystem
             YoloTrainingWorkflowSteps.Add(new WpfYoloTrainingWorkflowStepItem(
                 2,
                 "\uC774\uBBF8\uC9C0 \uBD88\uB7EC\uC624\uAE30",
-                "\uD559\uC2B5\uD560 N\uAC1C \uC774\uBBF8\uC9C0\uB97C \uC88C\uCE21 \uC774\uBBF8\uC9C0 \uD050\uC5D0 \uC62C\uB9BD\uB2C8\uB2E4.",
-                "\uC88C\uCE21 \uC774\uBBF8\uC9C0 \uD050\uC5D0 \uD3F4\uB354 \uACBD\uB85C\uC640 \uD30C\uC77C \uC218\uAC00 \uBCF4\uC774\uBA74 \uB2E4\uC74C \uB2E8\uACC4\uC785\uB2C8\uB2E4.",
+                "\uD559\uC2B5\uD560 N\uAC1C \uC774\uBBF8\uC9C0\uB97C \uC774\uBBF8\uC9C0 \uD050\uC5D0 \uC62C\uB9BD\uB2C8\uB2E4.",
+                "\uC774\uBBF8\uC9C0 \uD050\uC5D0 \uD3F4\uB354 \uACBD\uB85C\uC640 \uD30C\uC77C \uC218\uAC00 \uBCF4\uC774\uBA74 \uB2E4\uC74C \uB2E8\uACC4\uC785\uB2C8\uB2E4.",
                 PackIconMaterialKind.ImageMultipleOutline));
             YoloTrainingWorkflowSteps.Add(new WpfYoloTrainingWorkflowStepItem(
                 3,
@@ -1094,6 +1104,182 @@ namespace MvcVisionSystem
         {
             get => datasetSetupStatusText;
             set => SetProperty(ref datasetSetupStatusText, value ?? string.Empty);
+        }
+
+        public string CurrentLabelingTaskStepText
+        {
+            get => currentLabelingTaskStepText;
+            private set => SetProperty(ref currentLabelingTaskStepText, value ?? string.Empty);
+        }
+
+        public string CurrentLabelingTaskToolText
+        {
+            get => currentLabelingTaskToolText;
+            private set => SetProperty(ref currentLabelingTaskToolText, value ?? string.Empty);
+        }
+
+        public string CurrentLabelingTaskActionText
+        {
+            get => currentLabelingTaskActionText;
+            private set => SetProperty(ref currentLabelingTaskActionText, value ?? string.Empty);
+        }
+
+        public string CurrentLabelingTaskChecklistFirstText
+        {
+            get => currentLabelingTaskChecklistFirstText;
+            private set => SetProperty(ref currentLabelingTaskChecklistFirstText, value ?? string.Empty);
+        }
+
+        public string CurrentLabelingTaskChecklistSecondText
+        {
+            get => currentLabelingTaskChecklistSecondText;
+            private set => SetProperty(ref currentLabelingTaskChecklistSecondText, value ?? string.Empty);
+        }
+
+        public string CurrentLabelingTaskChecklistThirdText
+        {
+            get => currentLabelingTaskChecklistThirdText;
+            private set => SetProperty(ref currentLabelingTaskChecklistThirdText, value ?? string.Empty);
+        }
+
+        public string CurrentLabelingTaskChecklistSummaryText
+        {
+            get => currentLabelingTaskChecklistSummaryText;
+            private set => SetProperty(ref currentLabelingTaskChecklistSummaryText, value ?? string.Empty);
+        }
+
+        public Visibility DatasetOnboardingVisibility
+        {
+            get => datasetOnboardingVisibility;
+            private set => SetProperty(ref datasetOnboardingVisibility, value);
+        }
+
+        public Visibility LabelingTaskVisibility
+        {
+            get => labelingTaskVisibility;
+            private set => SetProperty(ref labelingTaskVisibility, value);
+        }
+
+        public void ShowDatasetOnboarding()
+        {
+            DatasetOnboardingVisibility = Visibility.Visible;
+            LabelingTaskVisibility = Visibility.Collapsed;
+        }
+
+        public void ShowLabelingTask()
+        {
+            DatasetOnboardingVisibility = Visibility.Collapsed;
+            LabelingTaskVisibility = Visibility.Visible;
+        }
+
+        public void SetLiveLabelingTask(string stepText, string toolText, string actionText)
+        {
+            CurrentLabelingTaskStepText = string.IsNullOrWhiteSpace(stepText)
+                ? "\uB77C\uBCA8"
+                : stepText.Trim();
+            CurrentLabelingTaskToolText = string.IsNullOrWhiteSpace(toolText)
+                ? "\uB3C4\uAD6C: \uC120\uD0DD"
+                : FormatLiveLabelingTaskToolText(toolText);
+            CurrentLabelingTaskActionText = string.IsNullOrWhiteSpace(actionText)
+                ? "\uB77C\uBCA8\uC744 \uADF8\uB9AC\uACE0 \uACB0\uACFC\uB97C \uD655\uC778\uD55C \uB4A4 \uB77C\uBCA8 \uC800\uC7A5\uC744 \uB204\uB974\uC138\uC694."
+                : actionText.Trim();
+            UpdateLiveLabelingTaskChecklist(
+                CurrentLabelingTaskStepText,
+                CurrentLabelingTaskToolText,
+                CurrentLabelingTaskActionText);
+        }
+
+        private static string FormatLiveLabelingTaskToolText(string toolText)
+        {
+            string value = toolText?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return "\uB3C4\uAD6C: \uC120\uD0DD";
+            }
+
+            if (value.IndexOf("\uAC80\uC0AC", StringComparison.Ordinal) >= 0
+                || value.IndexOf("AI", StringComparison.OrdinalIgnoreCase) >= 0
+                || value.IndexOf("\uD050", StringComparison.Ordinal) >= 0)
+            {
+                return $"\uBAA8\uB4DC: {value}";
+            }
+
+            return $"\uB3C4\uAD6C: {value}";
+        }
+
+        private void UpdateLiveLabelingTaskChecklist(string stepText, string toolText, string actionText)
+        {
+            string normalizedStep = stepText?.Trim() ?? string.Empty;
+            if (normalizedStep.IndexOf("\uAC80\uD1A0", StringComparison.Ordinal) >= 0)
+            {
+                SetCurrentLabelingTaskChecklist("\uD655\uC778", "\uD655\uC815", "\uC2A4\uD0B5");
+                return;
+            }
+
+            if (normalizedStep.IndexOf("\uCD94\uB860", StringComparison.Ordinal) >= 0)
+            {
+                SetCurrentLabelingTaskChecklist("\uAC80\uC0AC", "\uD655\uC778", "\uAC80\uD1A0");
+                return;
+            }
+
+            if (normalizedStep.IndexOf("\uC800\uC7A5", StringComparison.Ordinal) >= 0)
+            {
+                SetCurrentLabelingTaskChecklist("\uD655\uC778", "\uC800\uC7A5", "\uB2E4\uC74C");
+                return;
+            }
+
+            if (normalizedStep.IndexOf("\uC0D8\uD50C", StringComparison.Ordinal) >= 0)
+            {
+                SetCurrentLabelingTaskChecklist("\uC774\uBBF8\uC9C0", "\uC5F4\uAE30", "\uB77C\uBCA8");
+                return;
+            }
+
+            if (normalizedStep.IndexOf("\uB77C\uBCA8", StringComparison.Ordinal) >= 0)
+            {
+                SetCurrentLabelingTaskChecklist("\uADF8\uB9AC\uAE30", "\uC800\uC7A5", "\uB2E4\uC74C");
+                return;
+            }
+
+            string combined = string.Join(
+                " ",
+                new[] { stepText, toolText, actionText }.Where(value => !string.IsNullOrWhiteSpace(value)));
+            if (combined.IndexOf("AI", StringComparison.OrdinalIgnoreCase) >= 0
+                || combined.IndexOf("\uD6C4\uBCF4", StringComparison.Ordinal) >= 0
+                || combined.IndexOf("\uAC80\uD1A0", StringComparison.Ordinal) >= 0)
+            {
+                SetCurrentLabelingTaskChecklist("\uD655\uC778", "\uD655\uC815", "\uC2A4\uD0B5");
+                return;
+            }
+
+            if (combined.IndexOf("\uCD94\uB860", StringComparison.Ordinal) >= 0
+                || combined.IndexOf("\uAC80\uC0AC", StringComparison.Ordinal) >= 0)
+            {
+                SetCurrentLabelingTaskChecklist("\uAC80\uC0AC", "\uD655\uC778", "\uAC80\uD1A0");
+                return;
+            }
+
+            if (combined.IndexOf("\uC800\uC7A5", StringComparison.Ordinal) >= 0)
+            {
+                SetCurrentLabelingTaskChecklist("\uD655\uC778", "\uC800\uC7A5", "\uB2E4\uC74C");
+                return;
+            }
+
+            if (combined.IndexOf("\uC774\uBBF8\uC9C0 \uD050", StringComparison.Ordinal) >= 0
+                || combined.IndexOf("\uC0D8\uD50C", StringComparison.Ordinal) >= 0)
+            {
+                SetCurrentLabelingTaskChecklist("\uC774\uBBF8\uC9C0", "\uC5F4\uAE30", "\uB77C\uBCA8");
+                return;
+            }
+
+            SetCurrentLabelingTaskChecklist("\uADF8\uB9AC\uAE30", "\uC800\uC7A5", "\uB2E4\uC74C");
+        }
+
+        private void SetCurrentLabelingTaskChecklist(string first, string second, string third)
+        {
+            CurrentLabelingTaskChecklistFirstText = $"1  {first}";
+            CurrentLabelingTaskChecklistSecondText = $"2  {second}";
+            CurrentLabelingTaskChecklistThirdText = $"3  {third}";
+            CurrentLabelingTaskChecklistSummaryText = $"\uD750\uB984: {first} > {second} > {third}";
         }
 
         public string ModeDetailText

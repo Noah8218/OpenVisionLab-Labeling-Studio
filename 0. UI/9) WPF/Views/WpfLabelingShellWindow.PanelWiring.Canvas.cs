@@ -69,17 +69,23 @@ namespace MvcVisionSystem
             WpfAnnotationToolItem selectedTool = CanvasPanelViewModel?.SelectedAnnotationTool
                 ?? LearningWorkflowViewModel?.SelectedTool;
             WpfLearningStep effectiveStep = ResolveEffectiveCanvasWorkflowStep(selectedStep, selectedTool);
+            string stepText = BuildCanvasWorkflowStepText(effectiveStep, selectedStep);
+            string toolText = BuildCanvasWorkflowToolText(effectiveStep, selectedTool);
+            string actionText = BuildCanvasWorkflowActionText(effectiveStep, selectedTool);
             CanvasPanelViewModel?.SetWorkflowContext(
-                BuildCanvasWorkflowStepText(effectiveStep, selectedStep),
-                selectedTool?.Text,
-                BuildCanvasWorkflowActionText(effectiveStep, selectedTool));
+                stepText,
+                toolText,
+                actionText);
+            LearningWorkflowViewModel?.SetLiveLabelingTask(stepText, toolText, actionText);
         }
 
         private WpfLearningStep ResolveEffectiveCanvasWorkflowStep(WpfLearningStepItem selectedStep, WpfAnnotationToolItem selectedTool)
         {
             if (currentWorkflowMode == WorkflowMode.Inference)
             {
-                return WpfLearningStep.Infer;
+                return pendingDetectionCandidates.Count > 0
+                    ? WpfLearningStep.Review
+                    : WpfLearningStep.Infer;
             }
 
             if (activeImageSize.IsEmpty)
@@ -120,11 +126,22 @@ namespace MvcVisionSystem
             };
         }
 
+        private static string BuildCanvasWorkflowToolText(WpfLearningStep effectiveStep, WpfAnnotationToolItem selectedTool)
+        {
+            return effectiveStep switch
+            {
+                WpfLearningStep.Sample => "\uC774\uBBF8\uC9C0 \uD050",
+                WpfLearningStep.Infer => "\uD604\uC7AC \uAC80\uC0AC",
+                WpfLearningStep.Review => "AI \uD6C4\uBCF4 \uAC80\uD1A0",
+                _ => selectedTool?.Text
+            };
+        }
+
         private string BuildCanvasWorkflowActionText(WpfLearningStep effectiveStep, WpfAnnotationToolItem selectedTool)
         {
             if (activeImageSize.IsEmpty)
             {
-                return "왼쪽 이미지 큐에서 작업할 이미지를 열고 첫 라벨을 시작하세요.";
+                return "이미지 큐에서 작업할 이미지를 열고 첫 라벨을 시작하세요.";
             }
 
             if (effectiveStep == WpfLearningStep.Label)
@@ -138,18 +155,18 @@ namespace MvcVisionSystem
                     WpfAnnotationTool.Eraser => "마스크 편집: 마스크 위를 드래그해 지울 영역을 정리하세요.",
                     WpfAnnotationTool.PanZoom => "화면 이동: 이미지를 끌어 위치를 맞춘 뒤 라벨 도구로 돌아가세요.",
                     _ when !string.IsNullOrWhiteSpace(annotationDirtyReason) => "저장 필요: 라벨 저장 버튼을 눌러 현재 이미지의 라벨을 저장하세요.",
-                    _ when HasCanvasLabelObjects() => "객체 검토: 박스 위치와 클래스를 확인한 뒤 라벨 저장을 누르세요.",
+                    _ when HasCanvasLabelObjects() => "객체 검토: 라벨 위치와 클래스를 확인한 뒤 라벨 저장을 누르세요.",
                     _ => "라벨링 시작: 빠른 도구에서 박스나 브러시를 선택하고 캔버스에 그리세요."
                 };
             }
 
             return effectiveStep switch
             {
-                WpfLearningStep.Sample => "이미지 선택: 왼쪽 이미지 큐에서 작업할 이미지를 여세요.",
+                WpfLearningStep.Sample => "이미지 선택: 이미지 큐에서 작업할 이미지를 여세요.",
                 WpfLearningStep.Infer => "추론 실행: 현재 검사로 AI 후보를 만들고 검토 탭에서 확인하세요.",
                 WpfLearningStep.Review => "AI 후보 검토: 확정, 전체 확정, 또는 스킵하세요.",
                 WpfLearningStep.Save when !string.IsNullOrWhiteSpace(annotationDirtyReason) => "저장 필요: 라벨 저장 버튼으로 현재 라벨을 파일에 반영하세요.",
-                WpfLearningStep.Save => "저장 완료: 왼쪽 큐의 다음 버튼으로 이어서 작업하세요.",
+                WpfLearningStep.Save => "저장 완료: 이미지 큐의 다음 버튼으로 이어서 작업하세요.",
                 _ => "다음 작업을 선택하세요."
             };
         }

@@ -49,7 +49,7 @@ namespace MvcVisionSystem
         private string detectionOverlayStatusKey = WpfDetectionOverlayStatus.Confirmable.ToString();
         private string currentWorkflowStepText = "샘플";
         private string currentWorkflowToolText = "선택";
-        private string currentWorkflowActionText = "왼쪽 이미지 큐에서 작업할 이미지를 열고 첫 라벨을 시작하세요.";
+        private string currentWorkflowActionText = "이미지 큐에서 작업할 이미지를 열고 첫 라벨을 시작하세요.";
         private string canvasLayerModeTitleText = "\uC791\uC5C5: \uC800\uC7A5 \uB77C\uBCA8 \uD3B8\uC9D1";
         private string canvasLayerModeDetailText = "AI \uD6C4\uBCF4\uB294 \uC228\uAE40. \uC800\uC7A5\uB41C \uB77C\uBCA8\uB9CC \uC120\uD0DD/\uC218\uC815/\uC800\uC7A5\uD569\uB2C8\uB2E4.";
         private string canvasLayerModeToolTip = "\uD604\uC7AC \uCEA0\uBC84\uC2A4\uAC00 \uC800\uC7A5 \uB77C\uBCA8 \uD3B8\uC9D1\uC778\uC9C0 AI \uD6C4\uBCF4 \uAC80\uD1A0\uC778\uC9C0 \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
@@ -779,7 +779,7 @@ namespace MvcVisionSystem
             }
 
             IsNoObjectCompletionEnabled = true;
-            NoObjectCompletionToolTip = "\uBC15\uC2A4\uB97C \uADF8\uB9AC\uC9C0 \uC54A\uACE0 \uBE48 YOLO \uB77C\uBCA8 \uD30C\uC77C\uC744 \uC800\uC7A5\uD55C \uB4A4 \uB2E4\uC74C \uBBF8\uC644\uB8CC \uC774\uBBF8\uC9C0\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4.";
+            NoObjectCompletionToolTip = "\uB77C\uBCA8\uC744 \uB9CC\uB4E4\uC9C0 \uC54A\uACE0 \uBE48 YOLO \uB77C\uBCA8 \uD30C\uC77C\uC744 \uC800\uC7A5\uD55C \uB4A4 \uB2E4\uC74C \uBBF8\uC644\uB8CC \uC774\uBBF8\uC9C0\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4.";
         }
 
         public void SetAnnotationSaveState(bool isDirty, string actionText, string toolTip)

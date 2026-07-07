@@ -30,6 +30,8 @@ namespace MvcVisionSystem
 
         public TextBlock GuideToolsHelperTask => GuideToolsHelperTaskText;
 
+        public Border CurrentWorkflowStepPanelControl => CurrentWorkflowStepPanel;
+
         public Border FirstRunSamplePathPanelControl => FirstRunSamplePathPanel;
 
         public TextBlock FirstRunSamplePathTitle => FirstRunSamplePathTitleText;
@@ -142,16 +144,9 @@ namespace MvcVisionSystem
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
-                // Labeling tools are the operator's primary controls, so keep them
-                // reachable without expanding the secondary learning concepts section.
+                ViewModel?.ShowLabelingTask();
                 LearningWorkflowScrollViewer.ScrollToTop();
-                AnnotationToolListBox.UpdateLayout();
-                if (AnnotationToolListBox.SelectedItem != null)
-                {
-                    AnnotationToolListBox.ScrollIntoView(AnnotationToolListBox.SelectedItem);
-                }
-
-                AnnotationToolHeaderText.BringIntoView();
+                CurrentWorkflowStepPanel.BringIntoView();
             }), DispatcherPriority.Background);
         }
 
@@ -159,6 +154,7 @@ namespace MvcVisionSystem
         {
             Dispatcher.BeginInvoke(new Action(() =>
             {
+                ViewModel?.ShowDatasetOnboarding();
                 LearningWorkflowScrollViewer.ScrollToTop();
                 DatasetSetupActionPanel.BringIntoView();
                 DatasetSetupStartButton.Focus();

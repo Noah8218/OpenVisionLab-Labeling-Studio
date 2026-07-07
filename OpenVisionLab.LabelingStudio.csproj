@@ -85,11 +85,31 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="OpenCvSharp">
-      <HintPath>$(OpenVisionLabSourceRoot)\dll\OpenCVSharp\OpenCvSharp.dll</HintPath>
+      <HintPath>packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="OpenCvSharp.Extensions">
-      <HintPath>$(OpenVisionLabSourceRoot)\dll\OpenCVSharp\OpenCvSharp.Extensions.dll</HintPath>
+      <HintPath>packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.Extensions.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Buffers">
+      <HintPath>packages\System.Buffers.4.5.1\lib\netstandard2.0\System.Buffers.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Memory">
+      <HintPath>packages\System.Memory.4.5.5\lib\netstandard2.0\System.Memory.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Numerics.Vectors">
+      <HintPath>packages\System.Numerics.Vectors.4.5.0\lib\netstandard2.0\System.Numerics.Vectors.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Runtime.CompilerServices.Unsafe">
+      <HintPath>packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="System.Threading.Tasks.Extensions">
+      <HintPath>packages\System.Threading.Tasks.Extensions.4.5.4\lib\netstandard2.0\System.Threading.Tasks.Extensions.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="SharpGL" Condition="Exists('$(OpenVisionLabSourceRoot)\dll\SharpGL\SharpGL.dll')">
@@ -166,23 +186,46 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
-    <Content Include="$(OpenVisionLabSourceRoot)\dll\OpenCVSharp\OpenCvSharp.dll">
-      <Link>OpenCvSharp.dll</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="$(OpenVisionLabSourceRoot)\dll\OpenCVSharp\OpenCvSharp.Extensions.dll">
-      <Link>OpenCvSharp.Extensions.dll</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="$(OpenVisionLabSourceRoot)\dll\OpenCVSharp\OpenCvSharpExtern.dll">
-      <Link>OpenCvSharpExtern.dll</Link>
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
   </ItemGroup>
 
   <Target Name="CopyApplicationLogConfigToOutput" AfterTargets="CopyFilesToOutputDirectory">
     <Copy SourceFiles="$(MSBuildProjectDirectory)\log4net.config"
           DestinationFiles="$(OutDir)log4net.config"
+          SkipUnchangedFiles="false" />
+  </Target>
+
+  <Target Name="CopyCheckedInNoahLibrariesToOutput" AfterTargets="CopyFilesToOutputDirectory">
+    <ItemGroup>
+      <CheckedInNoahLibrary Include="$(MSBuildProjectDirectory)\dll\Lib.Common.dll" />
+      <CheckedInNoahLibrary Include="$(MSBuildProjectDirectory)\dll\Lib.OpenCV.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(CheckedInNoahLibrary)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="false" />
+  </Target>
+
+  <Target Name="CopyRepoLocalOpenCvSharpLibrariesToOutput" AfterTargets="CopyFilesToOutputDirectory">
+    <ItemGroup>
+      <RepoLocalOpenCvSharpLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.dll" />
+      <RepoLocalOpenCvSharpLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.Extensions.dll" />
+      <RepoLocalOpenCvSharpLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.4.5.5.20211231\runtimes\win-x64\native\OpenCvSharpExtern.dll" />
+      <RepoLocalOpenCvSharpLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.4.5.5.20211231\runtimes\win-x64\native\opencv_videoio_ffmpeg455_64.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(RepoLocalOpenCvSharpLibrary)"
+          DestinationFolder="$(OutDir)"
+          SkipUnchangedFiles="false" />
+  </Target>
+
+  <Target Name="CopyLegacyOpenCvRuntimeDependenciesToOutput" AfterTargets="CopyFilesToOutputDirectory">
+    <ItemGroup>
+      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Memory.4.5.5\lib\netstandard2.0\System.Memory.dll" />
+      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Buffers.4.5.1\lib\netstandard2.0\System.Buffers.dll" />
+      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Numerics.Vectors.4.5.0\lib\netstandard2.0\System.Numerics.Vectors.dll" />
+      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll" />
+      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Threading.Tasks.Extensions.4.5.4\lib\netstandard2.0\System.Threading.Tasks.Extensions.dll" />
+    </ItemGroup>
+    <Copy SourceFiles="@(LegacyOpenCvRuntimeDependency)"
+          DestinationFolder="$(OutDir)"
           SkipUnchangedFiles="false" />
   </Target>
 

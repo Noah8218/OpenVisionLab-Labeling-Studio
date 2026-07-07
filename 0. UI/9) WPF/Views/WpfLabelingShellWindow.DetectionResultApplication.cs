@@ -31,6 +31,7 @@ namespace MvcVisionSystem
             ApplyActiveAnomalyClassification(candidates);
             AddCandidateReviewHistory(detectionResultPresentationService.BuildCandidateLoadHistory(loadedCount, succeeded, GetCandidateConfidenceFilter()));
             ShowCandidateReviewWorkflowView();
+            RefreshCanvasWorkflowContext();
 
             if (!candidateReviewState.HasPendingCandidates)
             {

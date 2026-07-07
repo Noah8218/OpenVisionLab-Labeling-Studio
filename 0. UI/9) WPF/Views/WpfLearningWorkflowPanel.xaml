@@ -758,6 +758,7 @@
             <TextBlock x:Name="DatasetPurposeHeaderText"
                        Text="&#xB370;&#xC774;&#xD130;&#xC14B; &#xBAA9;&#xC801;"
                        Style="{StaticResource LearningWorkflowCaptionStyle}"
+                       Visibility="{Binding DatasetOnboardingVisibility}"
                        Margin="0,0,0,4" />
             <ListBox x:Name="DatasetPurposeListBox"
                      Style="{StaticResource LearningWorkflowListBoxStyle}"
@@ -766,6 +767,7 @@
                      ItemsSource="{Binding DatasetPurposeModes}"
                      SelectedItem="{Binding SelectedDatasetPurposeMode, Mode=TwoWay}"
                      mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding DatasetPurposeSelectionChangedCommand}"
+                     Visibility="{Binding DatasetOnboardingVisibility}"
                      Margin="0,0,0,6">
                 <ListBox.ItemsPanel>
                     <ItemsPanelTemplate>
@@ -779,6 +781,7 @@
                        FontFamily="Segoe UI"
                        FontSize="11"
                        TextWrapping="Wrap"
+                       Visibility="{Binding DatasetOnboardingVisibility}"
                        Margin="0,-3,0,3" />
             <TextBlock x:Name="DatasetPurposeToolSummaryText"
                        Text="{Binding DatasetPurposeToolSummaryText}"
@@ -795,6 +798,7 @@
                     BorderThickness="1"
                     CornerRadius="4"
                     Padding="7"
+                    Visibility="{Binding DatasetOnboardingVisibility}"
                     Margin="0,0,0,8">
                 <StackPanel>
                     <TextBlock x:Name="GuideToolsRoleTitleText"
@@ -827,12 +831,82 @@
                                Margin="0,2,0,0" />
                 </StackPanel>
             </Border>
+            <Border x:Name="CurrentWorkflowStepPanel"
+                    AutomationProperties.AutomationId="CurrentWorkflowStepPanel"
+                    Background="{DynamicResource CanvasBrush}"
+                    BorderBrush="{DynamicResource BorderBrushDark}"
+                    BorderThickness="1"
+                    CornerRadius="5"
+                    Padding="9"
+                    Visibility="{Binding LabelingTaskVisibility}"
+                    Margin="0,0,0,8">
+                <StackPanel>
+                    <DockPanel Margin="0,0,0,6">
+                        <Border DockPanel.Dock="Right"
+                                Background="{DynamicResource AccentBrush}"
+                                CornerRadius="4"
+                                Padding="7,4"
+                                MinWidth="46"
+                                Margin="7,0,0,0">
+                            <TextBlock x:Name="CurrentStepNameText"
+                                       AutomationProperties.AutomationId="CurrentStepNameText"
+                                       Text="{Binding CurrentLabelingTaskStepText}"
+                                       Foreground="White"
+                                       FontFamily="Segoe UI"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       HorizontalAlignment="Center"
+                                       TextWrapping="NoWrap"
+                                       TextTrimming="CharacterEllipsis" />
+                        </Border>
+                        <StackPanel>
+                            <TextBlock x:Name="CurrentLabelingTaskTitleText"
+                                       AutomationProperties.AutomationId="CurrentLabelingTaskTitleText"
+                                       Text="&#xD604;&#xC7AC; &#xC774;&#xBBF8;&#xC9C0;"
+                                       Style="{StaticResource LearningWorkflowCaptionStyle}"
+                                       Margin="0,0,0,2" />
+                            <TextBlock x:Name="CurrentToolHintText"
+                                       AutomationProperties.AutomationId="CurrentToolHintText"
+                                       Text="{Binding CurrentLabelingTaskToolText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="12"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </DockPanel>
+                    <TextBlock x:Name="CurrentStepDetailText"
+                               AutomationProperties.AutomationId="CurrentStepDetailText"
+                               Text="{Binding StepDetailText}"
+                               Visibility="Collapsed" />
+                    <TextBlock x:Name="CurrentWorkflowActionText"
+                               AutomationProperties.AutomationId="CurrentWorkflowActionText"
+                               Text="{Binding CurrentLabelingTaskActionText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="11"
+                               FontWeight="SemiBold"
+                               LineHeight="14"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,7" />
+                    <TextBlock x:Name="CurrentLabelingTaskChecklistPanel"
+                               AutomationProperties.AutomationId="CurrentLabelingTaskChecklistPanel"
+                               Text="{Binding CurrentLabelingTaskChecklistSummaryText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10.5"
+                               LineHeight="13"
+                               TextWrapping="Wrap"
+                               TextTrimming="CharacterEllipsis" />
+                </StackPanel>
+            </Border>
             <Border x:Name="DatasetSetupActionPanel"
                     Background="{DynamicResource CanvasBrush}"
                     BorderBrush="{DynamicResource AccentBrush}"
                     BorderThickness="1"
                     CornerRadius="5"
                     Padding="9"
+                    Visibility="{Binding DatasetOnboardingVisibility}"
                     Margin="0,0,0,10">
                 <StackPanel>
                     <Grid>
@@ -949,6 +1023,7 @@
                     BorderThickness="1"
                     CornerRadius="5"
                     Padding="9"
+                    Visibility="{Binding DatasetOnboardingVisibility}"
                     Margin="0,0,0,10">
                 <StackPanel>
                     <DockPanel Margin="0,0,0,4">
@@ -1028,6 +1103,7 @@
                     BorderThickness="1"
                     CornerRadius="4"
                     Padding="6"
+                    Visibility="{Binding DatasetOnboardingVisibility}"
                     Margin="0,0,0,8">
                 <StackPanel>
                     <DockPanel LastChildFill="True">
@@ -1073,64 +1149,19 @@
                        LineHeight="13"
                        MaxHeight="28"
                        TextTrimming="CharacterEllipsis"
+                       Visibility="{Binding DatasetOnboardingVisibility}"
                        Margin="0,-2,0,8" />
-            <Border x:Name="CurrentWorkflowStepPanel"
-                    Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource AccentBrush}"
-                    BorderThickness="1"
-                    CornerRadius="5"
-                    Padding="9"
-                    Margin="0,0,0,10">
-                <Grid>
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <Border Background="{DynamicResource AccentBrush}"
-                            CornerRadius="4"
-                            Padding="7,5"
-                            MinWidth="46"
-                            Margin="0,0,8,0"
-                            VerticalAlignment="Top">
-                        <TextBlock x:Name="CurrentStepNameText"
-                                   Text="{Binding SelectedStep.Text}"
-                                   Foreground="White"
-                                   FontFamily="Segoe UI"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"
-                                   HorizontalAlignment="Center" />
-                    </Border>
-                    <StackPanel Grid.Column="1">
-                        <TextBlock Text="현재 단계"
-                                   Style="{StaticResource LearningWorkflowCaptionStyle}"
-                                   Margin="0,0,0,2" />
-                        <TextBlock x:Name="CurrentStepDetailText"
-                                   Text="{Binding StepDetailText}"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"
-                                   TextWrapping="Wrap" />
-                        <TextBlock x:Name="CurrentWorkflowActionText"
-                                   Text="{Binding CurrentWorkflowActionText}"
-                                   Foreground="{DynamicResource AccentBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="10"
-                                   FontWeight="SemiBold"
-                                   Margin="0,4,0,0"
-                                   TextWrapping="Wrap" />
-                        <TextBlock x:Name="CurrentToolHintText"
-                                   Text="{Binding ToolDetailText}"
-                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="10"
-                                   Margin="0,4,0,0"
-                                   TextWrapping="Wrap" />
-                    </StackPanel>
-                </Grid>
-            </Border>
-
-            <!-- Keep the next training step near the top so a new operator sees what to do before the longer tutorial content. -->
+            <Expander x:Name="LabelingGuideDetailsExpander"
+                      AutomationProperties.AutomationId="LabelingGuideDetailsExpander"
+                      Header="&#xD544;&#xC694;&#xD560; &#xB54C;&#xB9CC;: &#xD559;&#xC2B5;&#x00B7;&#xAC80;&#xC0AC; &#xC138;&#xBD80;"
+                      IsExpanded="False"
+                      Foreground="{DynamicResource SecondaryTextBrush}"
+                      Background="Transparent"
+                      BorderBrush="{DynamicResource BorderBrushDark}"
+                      Visibility="{Binding LabelingTaskVisibility}"
+                      Margin="0,0,0,8">
+                <StackPanel Margin="0,6,0,0">
+            <!-- Keep the next training step available without making it the default labeling guide. -->
             <Border x:Name="YoloCurrentTrainingActionPanel"
                     Background="{DynamicResource CanvasBrush}"
                     BorderBrush="{DynamicResource BorderBrushDark}"
@@ -2073,6 +2104,8 @@
                                    VerticalAlignment="Center"
                                    Margin="0,8,0,0" />
                     </Grid>
+                </StackPanel>
+            </Expander>
                 </StackPanel>
             </Expander>
         </StackPanel>

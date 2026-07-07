@@ -605,7 +605,7 @@ namespace MvcVisionSystem
                     else
                     {
                         CurrentImageTaskTitleText = "\uB77C\uBCA8 \uC791\uC5C5 \uD544\uC694";
-                        CurrentImageTaskDetailText = "\uBC15\uC2A4\uB97C \uADF8\uB9B0 \uB4A4 \uB77C\uBCA8 \uC800\uC7A5, \uB610\uB294 \uAC1D\uCCB4 \uC5C6\uC74C\uC744 \uC120\uD0DD\uD558\uC138\uC694.";
+                        CurrentImageTaskDetailText = "\uB77C\uBCA8\uC744 \uB9CC\uB4E0 \uB4A4 \uB77C\uBCA8 \uC800\uC7A5, \uB610\uB294 \uAC1D\uCCB4 \uC5C6\uC74C\uC744 \uC120\uD0DD\uD558\uC138\uC694.";
                         CurrentImageTaskBadgeText = "\uC791\uC5C5";
                         CurrentImageTaskKey = "NeedsLabel";
                     }

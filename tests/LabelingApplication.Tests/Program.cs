@@ -227,6 +227,11 @@ internal static partial class Program
             return RunWpfYoloTrainingSessionSmoke(args);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--wpf-model-center-real-candidate-save", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunWpfModelCenterRealCandidateSaveSmoke(args);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--wpf-yolo-training-session", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("WPF YOLO training session applies runs/segment best.pt", TestWpfYoloTrainingSessionFlow);
@@ -486,6 +491,11 @@ internal static partial class Program
             return RunSingleSmoke("WPF anomaly purpose flow persists image-level review state", TestWpfAnomalyPurposeFlow);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--wpf-yolov8-anomaly-classification-runtime-smoke", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF YOLOv8 anomaly classification runtime smoke maps image-level candidates", TestWpfYoloV8AnomalyClassificationRuntimeSmoke);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--anomaly-classification-decision", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("Anomaly classification decision maps configured image-level classes", TestAnomalyClassificationDecisionService);
@@ -499,6 +509,11 @@ internal static partial class Program
         if (args.Any(arg => string.Equals(arg, "--anomaly-classification-training-workflow", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("Anomaly classification training workflow sends classify dataset", TestAnomalyClassificationTrainingWorkflow);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--anomaly-classification-evaluation", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("Anomaly classification evaluation blocks weak adoption evidence", TestAnomalyClassificationEvaluationService);
         }
 
         if (args.Any(arg => string.Equals(arg, "--wpf-candidate-review-panel", StringComparison.OrdinalIgnoreCase)))
@@ -1272,6 +1287,8 @@ internal static partial class Program
             GetArgumentValue(args, "--height", VisualSmokeDefaultWindowHeight.ToString(CultureInfo.InvariantCulture)),
             VisualSmokeDefaultWindowHeight);
         string reviewTab = GetArgumentValue(args, "--review-tab", string.Empty);
+        string modelComparisonSummaryPath = GetArgumentValue(args, "--model-comparison-summary", string.Empty);
+        string anomalyClassificationEvaluationSummaryPath = GetArgumentValue(args, "--anomaly-classification-evaluation-summary", string.Empty);
         string theme = GetArgumentValue(args, "--theme", "dark");
         string annotationTool = GetArgumentValue(args, "--annotation-tool", string.Empty);
         string datasetPurpose = GetArgumentValue(args, "--dataset-purpose", string.Empty);
@@ -1523,6 +1540,18 @@ internal static partial class Program
                     if (showCandidateDisclosure)
                     {
                         ApplyVisualSmokeCandidateDisclosure(window);
+                        PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(modelComparisonSummaryPath))
+                    {
+                        ApplyVisualSmokeModelComparisonSummary(window, modelComparisonSummaryPath);
+                        PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
+                    }
+
+                    if (!string.IsNullOrWhiteSpace(anomalyClassificationEvaluationSummaryPath))
+                    {
+                        ApplyVisualSmokeAnomalyClassificationEvaluationSummary(window, anomalyClassificationEvaluationSummaryPath);
                         PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
                     }
 
@@ -2008,6 +2037,180 @@ internal static partial class Program
         window.CandidateReviewViewModel.IsModelComparisonExamplesExpanded = false;
         window.CandidateReviewViewModel.IsReviewHistoryExpanded = false;
         window.UpdateLayout();
+    }
+
+    private static void ApplyVisualSmokeModelComparisonSummary(WpfLabelingShellWindow window, string summaryPath)
+    {
+        if (window == null || string.IsNullOrWhiteSpace(summaryPath))
+        {
+            return;
+        }
+
+        string fullSummaryPath = Path.GetFullPath(summaryPath);
+        var service = new WpfModelComparisonReviewService();
+        WpfModelComparisonReviewReport report = service.BuildFromSummaryFile(
+            fullSummaryPath,
+            ReadVisualSmokeModelComparisonClassNames(fullSummaryPath),
+            confidenceThreshold: null,
+            maxExamples: 5);
+        AssertTrue(report.HasComparison, "visual smoke model comparison summary did not produce a report");
+        AssertTrue(report.Examples.Count > 0, "visual smoke model comparison summary did not produce review examples");
+        Console.WriteLine("WPF visual smoke model comparison: " + report.SummaryText + " / " + report.DetailText);
+
+        SelectVisualSmokeReviewTab(window, "candidates");
+        window.CandidateReviewViewModel.SetModelComparisonReview(report);
+        window.CandidateReviewViewModel.SetModelComparisonSourceText("comparison-summary.json: " + fullSummaryPath);
+        window.CandidateReviewViewModel.IsModelComparisonExamplesExpanded = true;
+        window.UpdateLayout();
+    }
+
+    private static IReadOnlyList<string> ReadVisualSmokeModelComparisonClassNames(string summaryPath)
+    {
+        IReadOnlyList<string> fallback = CGlobal.Inst.Data?.ClassNamedList == null
+            ? Array.Empty<string>()
+            : CGlobal.Inst.Data.ClassNamedList
+                .Select(item => item?.Text ?? string.Empty)
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .ToArray();
+
+        try
+        {
+            var summary = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(summaryPath));
+            string dataYamlPath = summary.SelectToken("dataYaml")?.ToString() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(dataYamlPath))
+            {
+                return fallback;
+            }
+
+            if (!Path.IsPathRooted(dataYamlPath))
+            {
+                dataYamlPath = Path.GetFullPath(Path.Combine(Path.GetDirectoryName(summaryPath) ?? string.Empty, dataYamlPath));
+            }
+
+            if (!File.Exists(dataYamlPath))
+            {
+                return fallback;
+            }
+
+            foreach (string line in File.ReadLines(dataYamlPath))
+            {
+                string trimmed = line.Trim();
+                if (!trimmed.StartsWith("names:", StringComparison.OrdinalIgnoreCase))
+                {
+                    continue;
+                }
+
+                string value = trimmed.Substring("names:".Length).Trim();
+                if (value.StartsWith("[", StringComparison.Ordinal) && value.EndsWith("]", StringComparison.Ordinal))
+                {
+                    string[] names = value
+                        .Trim('[', ']')
+                        .Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                        .Select(item => item.Trim().Trim('\'', '"'))
+                        .Where(item => !string.IsNullOrWhiteSpace(item))
+                        .ToArray();
+                    if (names.Length > 0)
+                    {
+                        return names;
+                    }
+                }
+            }
+        }
+        catch
+        {
+            return fallback;
+        }
+
+        return fallback;
+    }
+
+    private static void ApplyVisualSmokeAnomalyClassificationEvaluationSummary(WpfLabelingShellWindow window, string summaryPath)
+    {
+        if (window == null || string.IsNullOrWhiteSpace(summaryPath))
+        {
+            return;
+        }
+
+        string fullSummaryPath = Path.GetFullPath(summaryPath);
+        AnomalyClassificationEvaluationReport report = AnomalyClassificationEvaluationService.ReadSummaryFile(fullSummaryPath);
+        AssertTrue(report.TotalImageCount > 0, "visual smoke anomaly classification summary did not contain evaluated images");
+        AnomalyClassificationEvaluationOptions options = ReadVisualSmokeAnomalyClassificationEvaluationOptions(fullSummaryPath);
+        WpfAnomalyClassificationEvaluationPresentation presentation =
+            WpfAnomalyClassificationEvaluationPresentationService.Build(report, options);
+        AssertTrue(!string.IsNullOrWhiteSpace(presentation.RecommendationText), "visual smoke anomaly classification summary did not produce a recommendation");
+        AssertTrue(!string.IsNullOrWhiteSpace(presentation.MetricsText), "visual smoke anomaly classification summary did not produce metrics text");
+        Console.WriteLine("WPF visual smoke anomaly evaluation: " + presentation.RecommendationText + " / " + presentation.MetricsText);
+
+        SelectVisualSmokeReviewTab(window, "yolo");
+        window.ShellViewModel.SetModelCenterAnomalyEvaluationState(presentation);
+        if (window.FindName("YoloAnomalyEvaluationPanel") is System.Windows.FrameworkElement anomalyPanel)
+        {
+            anomalyPanel.BringIntoView();
+        }
+
+        window.UpdateLayout();
+    }
+
+    private static AnomalyClassificationEvaluationOptions ReadVisualSmokeAnomalyClassificationEvaluationOptions(string summaryPath)
+    {
+        var options = new AnomalyClassificationEvaluationOptions();
+        try
+        {
+            var summary = Newtonsoft.Json.Linq.JObject.Parse(File.ReadAllText(summaryPath));
+            if (summary.SelectToken("thresholds") is not Newtonsoft.Json.Linq.JObject thresholds)
+            {
+                return options;
+            }
+
+            options.MinimumTotalImageCount = ReadVisualSmokeThresholdInt(
+                thresholds,
+                "minimumTotalImageCount",
+                options.MinimumTotalImageCount);
+            options.MinimumPerClassImageCount = ReadVisualSmokeThresholdInt(
+                thresholds,
+                "minimumPerClassImageCount",
+                options.MinimumPerClassImageCount);
+            options.MinimumAccuracy = ReadVisualSmokeThresholdDouble(
+                thresholds,
+                "minimumAccuracy",
+                options.MinimumAccuracy);
+            options.MinimumPerClassAccuracy = ReadVisualSmokeThresholdDouble(
+                thresholds,
+                "minimumPerClassAccuracy",
+                options.MinimumPerClassAccuracy);
+            options.MinimumConfidence = ReadVisualSmokeThresholdDouble(
+                thresholds,
+                "minimumConfidence",
+                options.MinimumConfidence);
+        }
+        catch
+        {
+            return options;
+        }
+
+        return options;
+    }
+
+    private static int ReadVisualSmokeThresholdInt(
+        Newtonsoft.Json.Linq.JObject thresholds,
+        string propertyName,
+        int fallback)
+    {
+        string value = thresholds.SelectToken(propertyName)?.ToString() ?? string.Empty;
+        return int.TryParse(value, NumberStyles.Integer, CultureInfo.InvariantCulture, out int parsed)
+            ? parsed
+            : fallback;
+    }
+
+    private static double ReadVisualSmokeThresholdDouble(
+        Newtonsoft.Json.Linq.JObject thresholds,
+        string propertyName,
+        double fallback)
+    {
+        string value = thresholds.SelectToken(propertyName)?.ToString() ?? string.Empty;
+        return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double parsed)
+            ? parsed
+            : fallback;
     }
 
     private static void ApplyVisualSmokeTrainingRecoveryStatus(WpfLabelingShellWindow window)
@@ -8995,6 +9198,173 @@ internal static partial class Program
         }
     }
 
+    private static int RunWpfModelCenterRealCandidateSaveSmoke(string[] args)
+    {
+        try
+        {
+            if (System.Windows.Application.Current == null)
+            {
+                _ = new System.Windows.Application
+                {
+                    ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown
+                };
+            }
+
+            string outputPath = Path.GetFullPath(GetArgumentValue(
+                args,
+                "--output",
+                Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "artifacts", "ui", "wpf-model-center-real-candidate-save-after-1920.png")));
+            int windowWidth = TryParseInt(GetArgumentValue(args, "--width", "1920"), 1920);
+            int windowHeight = TryParseInt(GetArgumentValue(args, "--height", "1080"), 1080);
+            string yoloRoot = Path.GetFullPath(GetArgumentValue(args, "--yolo-root", @"C:\Git\yolov8"));
+            string dataYamlPath = GetArgumentValue(args, "--data-yaml", string.Empty);
+            string datasetRoot = GetArgumentValue(args, "--dataset-root", string.Empty);
+            if (string.IsNullOrWhiteSpace(datasetRoot) && !string.IsNullOrWhiteSpace(dataYamlPath))
+            {
+                datasetRoot = Path.GetDirectoryName(Path.GetFullPath(dataYamlPath));
+            }
+
+            datasetRoot = Path.GetFullPath(datasetRoot);
+            string baselineWeightsPath = Path.GetFullPath(GetArgumentValue(
+                args,
+                "--baseline-weights",
+                Path.Combine(yoloRoot, "runs", "segment", "openvisionlab-yolov8-segment", "weights", "best.pt")));
+            string expectedCandidateWeightsPath = Path.GetFullPath(GetArgumentValue(
+                args,
+                "--candidate-weights",
+                Path.Combine(yoloRoot, "runs", "segment", "openvisionlab-yolov8-seg-20label-finetune-80ep-img160-20260707", "weights", "best.pt")));
+
+            AssertTrue(Directory.Exists(yoloRoot), $"YOLOv8 root was not found: {yoloRoot}");
+            AssertTrue(Directory.Exists(datasetRoot), $"dataset root was not found: {datasetRoot}");
+            AssertTrue(File.Exists(Path.Combine(datasetRoot, "data.yaml")), $"dataset data.yaml was not found: {Path.Combine(datasetRoot, "data.yaml")}");
+            AssertTrue(File.Exists(baselineWeightsPath), $"baseline weights were not found: {baselineWeightsPath}");
+            AssertTrue(File.Exists(expectedCandidateWeightsPath), $"candidate weights were not found: {expectedCandidateWeightsPath}");
+
+            var trainingWeightsServiceProbe = new WpfTrainingWeightsService();
+            WpfTrainingWeightsComparison initialComparison = trainingWeightsServiceProbe.BuildComparison(
+                yoloRoot,
+                datasetRoot,
+                baselineWeightsPath);
+            AssertTrue(initialComparison.HasLatestWeights, "real model-center smoke did not find a latest training candidate");
+            AssertEqual(expectedCandidateWeightsPath, initialComparison.LatestWeightsPath);
+            AssertTrue(initialComparison.LatestWeightsMatchesCurrentDataset, "real model-center smoke candidate should match the current dataset data.yaml");
+            AssertTrue(initialComparison.ShouldApplyLatest, "real model-center smoke candidate should be newer than the baseline inspection model");
+            AssertTrue(initialComparison.LatestMetrics?.HasScore == true, "real model-center smoke candidate should expose training metrics from results.csv");
+
+            CData previousData = CGlobal.Inst.Data;
+            CCommunicationLearning previousCommunication = GetPrivateField<CCommunicationLearning>(CGlobal.Inst, "deepLearning");
+            string previousRecipeName = CGlobal.Inst.Recipe.Name;
+            string tempRoot = CreateTempRoot();
+            try
+            {
+                string imageRoot = Path.Combine(datasetRoot, "data", "test", "images");
+                CGlobal.Inst.Data = CreateWpfLabelingSessionData(tempRoot, imageRoot, datasetRoot);
+                CGlobal.Inst.Data.ProjectSettings.DatasetPurpose = LabelingDatasetPurpose.Segmentation;
+                CGlobal.Inst.Data.ClassNamedList.Clear();
+                CGlobal.Inst.Data.ClassNamedList.Add(new CClassItem { Text = "NG", DrawColor = Color.DeepSkyBlue });
+
+                PythonModelSettings settings = CGlobal.Inst.Data.ProjectSettings.PythonModel;
+                settings.ModelEngine = PythonModelSettings.EngineYoloV8;
+                settings.ProjectRootPath = yoloRoot;
+                settings.PythonExecutablePath = Path.Combine(yoloRoot, ".venv", "Scripts", "python.exe");
+                settings.ClientScriptPath = Path.Combine(yoloRoot, "labeling_tcp_client.py");
+                settings.WeightsPath = baselineWeightsPath;
+                settings.ImageRootPath = imageRoot;
+                settings.InferenceImageSize = 160;
+                settings.MinimumDetectionConfidence = 0.25F;
+                settings.AutoStartClient = false;
+                CGlobal.Inst.Recipe.Name = $"real_model_center_smoke_{Guid.NewGuid():N}";
+
+                WpfLabelingShellWindow window = new WpfLabelingShellWindow
+                {
+                    Width = Math.Max(VisualSmokeMinimumWindowWidth, windowWidth),
+                    Height = Math.Max(VisualSmokeMinimumWindowHeight, windowHeight),
+                    Left = 24,
+                    Top = 24,
+                    WindowStartupLocation = System.Windows.WindowStartupLocation.Manual,
+                    Topmost = true
+                };
+
+                try
+                {
+                    window.Show();
+                    PumpWpfDispatcher(TimeSpan.FromMilliseconds(500));
+                    InvokePrivateResult<object>(window, "RefreshYoloStatus");
+                    InvokePrivateResult<object>(window, "UpdateYoloCommandButtons");
+
+                    bool stagedCandidate = InvokePrivateResult<bool>(window, "TryApplyLatestTrainingWeightsFromProject", true);
+                    PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
+                    AssertTrue(stagedCandidate, "real model-center smoke should stage the fine-tuned candidate");
+                    AssertEqual(expectedCandidateWeightsPath, CGlobal.Inst.Data.ProjectSettings.PythonModel.WeightsPath);
+                    AssertTrue(GetPrivateField<bool>(window, "hasPendingTrainingWeightsRecipeSave"), "staged fine-tuned candidate should require recipe save");
+
+                    window.ShellViewModel.TrainingModelCenterCommand.Execute(null);
+                    PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
+                    AssertTrue(window.ShellViewModel.IsModelCenterConfirmModelEnabled, "real model-center smoke should enable saving the staged candidate");
+                    AssertTrue(window.ShellViewModel.ModelCenterCandidateModelDetailText.Contains("openvisionlab-yolov8-seg-20label-finetune", StringComparison.Ordinal),
+                        "real model-center smoke should show the fine-tuned run as the candidate");
+
+                    window.YoloModelSettingsViewModel.SaveSettingsCommand.Execute(null);
+                    bool saved = WaitUntilWpf(
+                        () =>
+                        {
+                            ModelCandidate current = ModelRegistryService.FindCurrentInspectionModel(CGlobal.Inst.Data.ProjectSettings.ModelRegistry);
+                            return !GetPrivateField<bool>(window, "hasPendingTrainingWeightsRecipeSave")
+                                && string.Equals(CGlobal.Inst.Data.ProjectSettings.PythonModel.WeightsPath, expectedCandidateWeightsPath, StringComparison.OrdinalIgnoreCase)
+                                && current != null
+                                && string.Equals(current.WeightsPath, expectedCandidateWeightsPath, StringComparison.OrdinalIgnoreCase)
+                                && current.SavedToRecipe
+                                && string.Equals(current.Decision, ModelRegistryService.CandidateDecisionAdopted, StringComparison.Ordinal);
+                        },
+                        TimeSpan.FromSeconds(8));
+                    AssertTrue(saved, "real model-center smoke should save the fine-tuned candidate as the current inspection model. " + BuildModelCenterConfirmSaveDebugText(window));
+
+                    AssertTrue(CGlobal.Inst.Data.ProjectSettings.ModelRegistry.AdoptionHistory.Any(item =>
+                            string.Equals(item.WeightsPath, expectedCandidateWeightsPath, StringComparison.OrdinalIgnoreCase)
+                            && item.SavedToRecipe),
+                        "real model-center smoke should persist an adoption-history record for the fine-tuned candidate");
+
+                    string recipeConfigPath = Path.Combine(AppContext.BaseDirectory, "RECIPE", CGlobal.Inst.Recipe.Name, "VISION.xml");
+                    AssertTrue(File.Exists(recipeConfigPath), $"real model-center smoke recipe config was not saved: {recipeConfigPath}");
+                    AssertTrue(File.ReadAllText(recipeConfigPath).Contains("openvisionlab-yolov8-seg-20label-finetune", StringComparison.Ordinal),
+                        "saved recipe config should persist the fine-tuned weights path");
+
+                    PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
+                    CaptureWindow(window, outputPath);
+                    Console.WriteLine(
+                        "WPF model-center real candidate save: candidate="
+                        + expectedCandidateWeightsPath
+                        + ", baseline="
+                        + baselineWeightsPath
+                        + ", recipe="
+                        + recipeConfigPath);
+                    Console.WriteLine($"WPF model-center real candidate save captured: {outputPath}");
+                }
+                finally
+                {
+                    window.Close();
+                    PumpWpfDispatcher(TimeSpan.FromMilliseconds(100));
+                }
+            }
+            finally
+            {
+                CGlobal.Inst.Data = previousData;
+                CGlobal.Inst.DeepLearning = previousCommunication;
+                CGlobal.Inst.Recipe.Name = previousRecipeName;
+                DeleteTempRoot(tempRoot);
+                ShutdownVisualSmokeApplication();
+            }
+
+            return 0;
+        }
+        catch (Exception ex)
+        {
+            Console.Error.WriteLine($"FAIL WPF model-center real candidate save smoke: {ex.Message}");
+            Console.Error.WriteLine(ex.ToString());
+            return 1;
+        }
+    }
+
     private static CData CreateWpfLabelingSessionData(string root, string imageRoot, string outputRoot)
     {
         var data = new CData();
@@ -9893,36 +10263,43 @@ internal static partial class Program
         }
 
         string tabKey = reviewTab.Trim().ToLowerInvariant();
-        WpfShellWorkflowStage stage = tabKey switch
-        {
-            "objects" or "object" => WpfShellWorkflowStage.Labeling,
-            "candidates" or "candidate" => WpfShellWorkflowStage.Inference,
-            "guide" or "learning" or "learn" => WpfShellWorkflowStage.Dataset,
-            "classes" or "class" => WpfShellWorkflowStage.Labeling,
-            "yolo" or "model" or "yolo-model" or "yolo-model-anomaly" or "training" => WpfShellWorkflowStage.TrainingModel,
-            _ => WpfShellWorkflowStage.Dataset
-        };
+        bool isLabelingGuideTab = tabKey is "labeling-guide" or "guide-labeling";
+        WpfShellWorkflowStage stage = isLabelingGuideTab
+            ? WpfShellWorkflowStage.Labeling
+            : tabKey switch
+            {
+                "objects" or "object" => WpfShellWorkflowStage.Labeling,
+                "candidates" or "candidate" => WpfShellWorkflowStage.Inference,
+                "guide" or "learning" or "learn" => WpfShellWorkflowStage.Dataset,
+                "classes" or "class" => WpfShellWorkflowStage.Labeling,
+                "yolo" or "model" or "yolo-model" or "yolo-model-anomaly" or "training" => WpfShellWorkflowStage.TrainingModel,
+                _ => WpfShellWorkflowStage.Dataset
+            };
         window.ShellViewModel?.SetWorkflowStage(stage);
         window.ShellViewModel?.SetRightWorkflowShortcut(stage == WpfShellWorkflowStage.Labeling
-            ? tabKey switch
-            {
-                "objects" or "object" => WpfRightWorkflowShortcut.SavedLabels,
-                "guide" or "learning" or "learn" => WpfRightWorkflowShortcut.LabelingGuide,
-                "classes" or "class" => WpfRightWorkflowShortcut.ClassCatalog,
-                _ => WpfRightWorkflowShortcut.None
-            }
+            ? isLabelingGuideTab
+                ? WpfRightWorkflowShortcut.LabelingGuide
+                : tabKey switch
+                {
+                    "objects" or "object" => WpfRightWorkflowShortcut.SavedLabels,
+                    "guide" or "learning" or "learn" => WpfRightWorkflowShortcut.LabelingGuide,
+                    "classes" or "class" => WpfRightWorkflowShortcut.ClassCatalog,
+                    _ => WpfRightWorkflowShortcut.None
+                }
             : WpfRightWorkflowShortcut.None);
         window.UpdateLayout();
 
-        string controlName = tabKey switch
-        {
-            "objects" or "object" => "ObjectsReviewTab",
-            "candidates" or "candidate" => "CandidatesReviewTab",
-            "guide" or "learning" or "learn" => "LearningReviewTab",
-            "classes" or "class" => "ClassesReviewTab",
-            "yolo" or "model" or "yolo-model" or "yolo-model-anomaly" or "training" => "YoloSettingsReviewTab",
-            _ => string.Empty
-        };
+        string controlName = isLabelingGuideTab
+            ? "LearningReviewTab"
+            : tabKey switch
+            {
+                "objects" or "object" => "ObjectsReviewTab",
+                "candidates" or "candidate" => "CandidatesReviewTab",
+                "guide" or "learning" or "learn" => "LearningReviewTab",
+                "classes" or "class" => "ClassesReviewTab",
+                "yolo" or "model" or "yolo-model" or "yolo-model-anomaly" or "training" => "YoloSettingsReviewTab",
+                _ => string.Empty
+            };
 
         if (!string.IsNullOrWhiteSpace(controlName)
             && window.FindName(controlName) is System.Windows.Controls.TabItem tab)
@@ -10067,7 +10444,7 @@ internal static partial class Program
         }
 
         string tabKey = reviewTab.Trim().ToLowerInvariant();
-        if (tabKey is not ("guide" or "learning" or "learn"))
+        if (tabKey is not ("guide" or "learning" or "learn" or "labeling-guide" or "guide-labeling"))
         {
             return;
         }
@@ -10819,6 +11196,102 @@ internal static partial class Program
             AssertTrue(noUiCandidateReport.DetailText.Contains("\uAC80\uD1A0 \uAE30\uC900 \uC2E0\uB8B0\uB3C4", StringComparison.Ordinal), "model comparison report should translate zero UI-threshold candidate reasons");
             AssertTrue(noUiCandidateReport.DetailText.Contains("25.0", StringComparison.Ordinal), "translated zero-candidate reason should preserve the UI confidence threshold");
             AssertTrue(!noUiCandidateReport.DetailText.Contains("UI-threshold candidates", StringComparison.Ordinal), "model comparison report should not expose raw zero-candidate promotion reasons");
+            File.WriteAllText(
+                summaryPath,
+                JsonConvert.SerializeObject(new
+                {
+                    dataYaml = dataYamlPath,
+                    task = "test",
+                    uiConfidence = 0.25,
+                    baseline = new { labelsPath = baselineLabels },
+                    candidate = new
+                    {
+                        labelsPath = candidateLabels,
+                        confidence = new
+                        {
+                            thresholdSweep = new[]
+                            {
+                                new { confidence = 0.25, uiCandidateCount = 2 },
+                                new { confidence = 0.10, uiCandidateCount = 10 }
+                            }
+                        }
+                    },
+                    promotion = new
+                    {
+                        recommendation = "promote",
+                        reason = "Candidate improves mAP and does not regress precision or recall; review examples before saving it as the inspection model.",
+                        reasons = new[]
+                        {
+                            "Candidate improves mAP and does not regress precision or recall; review examples before saving it as the inspection model."
+                        }
+                    }
+                }));
+            WpfModelComparisonReviewReport promoteReport = service.BuildFromSummaryFile(
+                summaryPath,
+                new[] { "OK", "NG" },
+                confidenceThreshold: null,
+                maxExamples: 10);
+            AssertTrue(promoteReport.DetailText.Contains("\uAD50\uCCB4 \uCD94\uCC9C", StringComparison.Ordinal), "model comparison report should surface the promote decision");
+            AssertTrue(promoteReport.DetailText.Contains("mAP", StringComparison.Ordinal), "translated promote reason should preserve the mAP improvement context");
+            AssertTrue(promoteReport.DetailText.Contains("\uC815\uBC00\uB3C4", StringComparison.Ordinal), "translated promote reason should mention precision");
+            AssertTrue(promoteReport.DetailText.Contains("\uC7AC\uD604\uC728", StringComparison.Ordinal), "translated promote reason should mention recall");
+            AssertTrue(promoteReport.DetailText.Contains("\uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5", StringComparison.Ordinal), "translated promote reason should point to saving as the inspection model");
+            AssertTrue(promoteReport.DetailText.Contains("\uAC80\uD1A0 \uAE30\uC900\uBCC4 \uD6C4\uBCF4", StringComparison.Ordinal), "promote detail should still include the threshold sweep");
+            AssertTrue(!promoteReport.DetailText.Contains("Candidate improves", StringComparison.Ordinal), "model comparison report should not expose raw English promote reasons");
+            File.WriteAllText(
+                summaryPath,
+                JsonConvert.SerializeObject(new
+                {
+                    dataYaml = dataYamlPath,
+                    task = "test",
+                    uiConfidence = 0.25,
+                    baseline = new { labelsPath = baselineLabels },
+                    candidate = new
+                    {
+                        labelsPath = candidateLabels,
+                        confidence = new
+                        {
+                            thresholdSweep = new[]
+                            {
+                                new { confidence = 0.25, uiCandidateCount = 0 },
+                                new { confidence = 0.10, uiCandidateCount = 0 },
+                                new { confidence = 0.05, uiCandidateCount = 3 },
+                                new { confidence = 0.01, uiCandidateCount = 259 }
+                            }
+                        }
+                    },
+                    promotion = new
+                    {
+                        recommendation = "hold",
+                        reason = "Held-out comparison uses 9 labeled images; collect at least 10 before promotion.",
+                        reasons = new[]
+                        {
+                            "Held-out comparison uses 9 labeled images; collect at least 10 before promotion.",
+                            "Segment held-out comparison uses 3 positive segmentation labels; collect at least 5 positive mask labels before promotion.",
+                            "Segment held-out comparison uses 3 positive segmentation images; collect at least 5 positive mask images before promotion.",
+                            "Candidate produced 0 UI-threshold candidates at confidence 0.25; lower the review threshold or retrain before promotion."
+                        }
+                    }
+                }));
+            WpfModelComparisonReviewReport multiReasonReport = service.BuildFromSummaryFile(
+                summaryPath,
+                new[] { "OK", "NG" },
+                confidenceThreshold: null,
+                maxExamples: 10);
+            AssertTrue(multiReasonReport.DetailText.Contains("\uCD5C\uC885 \uAC80\uC99D", StringComparison.Ordinal), "model comparison report should keep weak-evidence blockers when multiple promotion reasons exist");
+            AssertTrue(multiReasonReport.DetailText.Contains("\uC591\uC131 \uB9C8\uC2A4\uD06C", StringComparison.Ordinal), "model comparison report should keep positive segmentation evidence blockers when multiple promotion reasons exist");
+            AssertTrue(multiReasonReport.DetailText.Contains("\uC774\uBBF8\uC9C0", StringComparison.Ordinal), "model comparison report should keep positive segmentation image evidence blockers when multiple promotion reasons exist");
+            AssertTrue(multiReasonReport.DetailText.Contains("\uAC80\uD1A0 \uAE30\uC900 \uC2E0\uB8B0\uB3C4", StringComparison.Ordinal), "model comparison report should keep zero UI-candidate blockers when multiple promotion reasons exist");
+            AssertTrue(multiReasonReport.DetailText.Contains("9", StringComparison.Ordinal) && multiReasonReport.DetailText.Contains("10", StringComparison.Ordinal), "multi-reason promotion detail should preserve held-out evidence counts");
+            AssertTrue(multiReasonReport.DetailText.Contains("3", StringComparison.Ordinal) && multiReasonReport.DetailText.Contains("5", StringComparison.Ordinal), "multi-reason promotion detail should preserve positive segmentation evidence counts");
+            AssertTrue(multiReasonReport.DetailText.Contains("25.0", StringComparison.Ordinal), "multi-reason promotion detail should preserve the UI confidence threshold");
+            AssertTrue(multiReasonReport.DetailText.Contains("\uAC80\uD1A0 \uAE30\uC900\uBCC4 \uD6C4\uBCF4", StringComparison.Ordinal), "multi-reason promotion detail should include candidate threshold sweep guidance");
+            AssertTrue(multiReasonReport.DetailText.Contains("5.0", StringComparison.Ordinal) && multiReasonReport.DetailText.Contains("3", StringComparison.Ordinal), "threshold sweep guidance should preserve lower-threshold candidate counts");
+            AssertTrue(multiReasonReport.DetailText.Contains("1.0", StringComparison.Ordinal) && multiReasonReport.DetailText.Contains("259", StringComparison.Ordinal), "threshold sweep guidance should show the low-threshold candidate flood risk");
+            AssertTrue(!multiReasonReport.DetailText.Contains("Held-out comparison", StringComparison.Ordinal), "multi-reason promotion detail should not expose raw held-out text");
+            AssertTrue(!multiReasonReport.DetailText.Contains("positive segmentation labels", StringComparison.Ordinal), "multi-reason promotion detail should not expose raw positive segmentation text");
+            AssertTrue(!multiReasonReport.DetailText.Contains("positive segmentation images", StringComparison.Ordinal), "multi-reason promotion detail should not expose raw positive segmentation image text");
+            AssertTrue(!multiReasonReport.DetailText.Contains("UI-threshold candidates", StringComparison.Ordinal), "multi-reason promotion detail should not expose raw zero-candidate text");
             AssertEqual(3, report.Examples.Count);
             AssertTrue(report.Examples.Any(item => item.Kind == "ClassChanged" && item.Detail.Contains("OK", StringComparison.Ordinal) && item.Detail.Contains("NG", StringComparison.Ordinal)), "model comparison review should surface class changes");
             AssertTrue(report.Examples.Any(item => item.Kind == "CandidateOnly" && item.ImageKey == "candidate_only"), "model comparison review should surface new-model-only candidates");
@@ -10852,6 +11325,21 @@ internal static partial class Program
             AssertTrue(segmentReport.Examples.Any(item => item.Kind == "BaselineOnly" && item.ImageKey == "seg_shifted"), "segmentation comparison should surface baseline-only polygon changes");
             AssertTrue(segmentReport.Examples.All(item => item.HasFocusBox), "segmentation comparison examples should convert polygons to focus boxes");
             AssertTrue(segmentReport.Examples.Any(item => item.Kind == "CandidateOnly" && item.Detail.Contains("SEG", StringComparison.Ordinal) && item.Detail.Contains("93", StringComparison.Ordinal)), "segmentation comparison should preserve polygon class and confidence details");
+
+            string malformedSegmentBaselineLabels = Path.Combine(root, "malformed-segment-baseline", "labels");
+            string malformedSegmentCandidateLabels = Path.Combine(root, "malformed-segment-candidate", "labels");
+            Directory.CreateDirectory(malformedSegmentBaselineLabels);
+            Directory.CreateDirectory(malformedSegmentCandidateLabels);
+            WriteLabel(malformedSegmentBaselineLabels, "bad_segment_fallback", "0 0.50 0.50 0.20 0.20 0.91 bad 0.10");
+            WpfModelComparisonReviewReport malformedSegmentReport = service.BuildFromLabelDirectories(
+                malformedSegmentBaselineLabels,
+                malformedSegmentCandidateLabels,
+                new[] { "SEG" },
+                confidenceThreshold: 0.25D,
+                iouThreshold: 0.5D,
+                maxExamples: 10);
+            AssertEqual(0, malformedSegmentReport.Examples.Count);
+            AssertTrue(malformedSegmentReport.DetailText.Contains("\uAE30\uC874 \uBAA8\uB378 0\uAC1C", StringComparison.Ordinal), "malformed segmentation rows should not fall back to bbox confidence parsing");
 
             WpfModelComparisonReviewReport missingLabelsReport = service.BuildFromLabelDirectories(
                 Path.Combine(root, "missing-baseline"),
@@ -10963,8 +11451,12 @@ internal static partial class Program
             AssertTrue(realScriptSource.Contains("New-ComparisonEvidence", StringComparison.Ordinal), "model comparison script should count held-out evidence before writing a promotion recommendation");
             AssertTrue(realScriptSource.Contains("comparisonLabelCount", StringComparison.Ordinal), "model comparison summary should persist the held-out labeled image count");
             AssertTrue(realScriptSource.Contains("minimumHeldoutLabelCount", StringComparison.Ordinal), "model comparison recommendation should block promotion when held-out evidence is too small");
+            AssertTrue(realScriptSource.Contains("minimumPositiveSegmentationLabelLineCount", StringComparison.Ordinal), "model comparison recommendation should block promotion when positive segmentation evidence is too small");
+            AssertTrue(realScriptSource.Contains("minimumPositiveSegmentationImageCount", StringComparison.Ordinal), "model comparison recommendation should block promotion when positive segmentation image evidence is too small");
             AssertTrue(realScriptSource.Contains("uiCandidateCount", StringComparison.Ordinal), "model comparison recommendation should inspect UI-threshold candidate count");
             AssertTrue(realScriptSource.Contains("UI-threshold candidates", StringComparison.Ordinal), "model comparison recommendation should block promotion when the candidate produces no UI-visible candidates");
+            AssertTrue(realScriptSource.Contains("thresholdSweep", StringComparison.Ordinal), "model comparison confidence summary should persist review-threshold candidate counts");
+            AssertTrue(realScriptSource.Contains("reasons = @($reasonList)", StringComparison.Ordinal), "model comparison recommendation should persist every promotion blocker");
             AssertTrue(realScriptSource.Contains("promotion = $promotion", StringComparison.Ordinal), "model comparison summary should persist the promotion recommendation");
             AssertTrue(realScriptSource.Contains("evidence = $evidence", StringComparison.Ordinal), "model comparison summary should persist held-out comparison evidence");
             AssertTrue(realScriptSource.Contains("## Recommendation", StringComparison.Ordinal), "model comparison report should show the promotion recommendation");
@@ -15210,6 +15702,129 @@ internal static partial class Program
         }
     }
 
+    private static void TestWpfYoloV8AnomalyClassificationRuntimeSmoke()
+    {
+        if (System.Windows.Application.Current == null)
+        {
+            _ = new System.Windows.Application
+            {
+                ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown
+            };
+        }
+
+        CData previousData = CGlobal.Inst.Data;
+        string previousRecipeName = CGlobal.Inst.Recipe.Name;
+        string root = CreateTempRoot();
+        try
+        {
+            string yoloRoot = GetEnvironmentValue("LABELING_YOLOV8_CLASSIFICATION_SMOKE_ROOT", @"C:\Git\yolov8");
+            string pythonPath = GetEnvironmentValue(
+                "LABELING_YOLOV8_CLASSIFICATION_SMOKE_PYTHON_EXE",
+                Path.Combine(yoloRoot, ".venv", "Scripts", "python.exe"));
+            string clientScriptPath = GetEnvironmentValue(
+                "LABELING_YOLOV8_CLASSIFICATION_SMOKE_CLIENT",
+                Path.Combine(yoloRoot, "labeling_tcp_client.py"));
+            string weightsPath = GetEnvironmentValue(
+                "LABELING_YOLOV8_CLASSIFICATION_SMOKE_WEIGHTS",
+                Path.Combine(yoloRoot, "yolov8n-cls.pt"));
+            string imagePath = GetEnvironmentValue("LABELING_YOLOV8_CLASSIFICATION_SMOKE_IMAGE", string.Empty);
+            if (string.IsNullOrWhiteSpace(imagePath))
+            {
+                imagePath = Path.Combine(root, "classification-smoke.png");
+                using Bitmap image = CreateSolidBitmap(106, 106, Color.DarkGray);
+                image.Save(imagePath);
+            }
+            else
+            {
+                imagePath = Path.GetFullPath(imagePath);
+            }
+
+            AssertTrue(Directory.Exists(yoloRoot), $"YOLOv8 root was not found: {yoloRoot}");
+            AssertTrue(File.Exists(pythonPath), $"YOLOv8 smoke Python was not found: {pythonPath}");
+            AssertTrue(File.Exists(clientScriptPath), $"YOLOv8 TCP adapter was not found: {clientScriptPath}");
+            AssertTrue(File.Exists(weightsPath), $"YOLOv8 classification weights were not found: {weightsPath}");
+            AssertTrue(File.Exists(imagePath), $"YOLOv8 classification smoke image was not found: {imagePath}");
+
+            string outputRoot = Path.Combine(root, "dataset");
+            var data = new CData();
+            data.ConfigureOutputRoot(outputRoot);
+            data.ProjectSettings.DatasetPurpose = LabelingDatasetPurpose.AnomalyDetection;
+            data.ProjectSettings.PythonModel.ModelEngine = PythonModelSettings.EngineYoloV8;
+            data.ProjectSettings.PythonModel.ProjectRootPath = yoloRoot;
+            data.ProjectSettings.PythonModel.PythonExecutablePath = pythonPath;
+            data.ProjectSettings.PythonModel.ClientScriptPath = clientScriptPath;
+            data.ProjectSettings.PythonModel.WeightsPath = weightsPath;
+            data.ProjectSettings.PythonModel.ImageRootPath = Path.GetDirectoryName(imagePath) ?? string.Empty;
+            data.ProjectSettings.PythonModel.MinimumDetectionConfidence = 0F;
+            data.ProjectSettings.PythonModel.MaximumDetectionCandidates = 20;
+            data.ProjectSettings.PythonModel.InferenceImageSize = 64;
+            data.ProjectSettings.PythonModel.DetectionTimeoutSeconds = 120;
+            data.ProjectSettings.PythonModel.AutoStartClient = false;
+
+            YoloWorkerSmokeTestResult probe = YoloWorkerSmokeTestService
+                .RunAsync(data.ProjectSettings.PythonModel, imagePath, CancellationToken.None)
+                .GetAwaiter()
+                .GetResult();
+            AssertTrue(probe.Succeeded, $"YOLOv8 classification probe failed: {probe.Summary} {probe.Error}");
+            YoloWorkerSmokeCandidate mappedClass = probe.Candidates.FirstOrDefault(candidate =>
+                candidate.ImageLevel
+                && string.Equals(candidate.CandidateType, "imageClassification", StringComparison.OrdinalIgnoreCase));
+            AssertTrue(mappedClass != null, "YOLOv8 classification probe did not return an image-level classification candidate");
+            AssertTrue(!string.IsNullOrWhiteSpace(mappedClass.ClassName), "YOLOv8 classification probe did not return a class name");
+
+            data.ProjectSettings.AnomalyClassification.AbnormalClassNames.Add(mappedClass.ClassName);
+            data.ProjectSettings.AnomalyClassification.MinimumConfidence = Math.Max(0D, mappedClass.Confidence - 0.0001D);
+            CGlobal.Inst.Data = data;
+            SetPrivateField(CGlobal.Inst.Recipe, "m_strName", string.Empty);
+
+            WpfLabelingShellWindow window = new WpfLabelingShellWindow();
+            try
+            {
+                AssertTrue(window.TryLoadImage(imagePath, populateQueue: true, refreshQueueDetails: false), "WPF YOLOv8 anomaly classification smoke image load failed");
+                PumpWpfDispatcher(TimeSpan.FromMilliseconds(20));
+
+                Task<YoloWorkerSmokeTestResult> detectionTask = InvokePrivateResult<Task<YoloWorkerSmokeTestResult>>(
+                    window,
+                    "RunDetectionForImageAsync",
+                    imagePath,
+                    true,
+                    CancellationToken.None);
+                AssertTrue(WaitUntilWpf(() => detectionTask.IsCompleted, TimeSpan.FromSeconds(180)), "WPF YOLOv8 anomaly classification runtime smoke did not complete");
+
+                YoloWorkerSmokeTestResult result = detectionTask.GetAwaiter().GetResult();
+                AssertTrue(result.Succeeded, $"WPF YOLOv8 anomaly classification runtime smoke failed: {result.Summary} {result.Error}");
+                YoloWorkerSmokeCandidate runtimeCandidate = result.Candidates.FirstOrDefault(candidate =>
+                    candidate.ImageLevel
+                    && string.Equals(candidate.CandidateType, "imageClassification", StringComparison.OrdinalIgnoreCase));
+                AssertTrue(runtimeCandidate != null, "WPF YOLOv8 anomaly classification runtime smoke did not return an image-level classification candidate");
+                AssertEqual(mappedClass.ClassName, runtimeCandidate.ClassName);
+
+                WpfCandidateReviewStateService candidateState = GetPrivateField<WpfCandidateReviewStateService>(window, "candidateReviewState");
+                AssertTrue(candidateState.PendingCandidates.Any(candidate =>
+                        candidate.ImageLevel
+                        && string.Equals(candidate.CandidateType, "imageClassification", StringComparison.OrdinalIgnoreCase)),
+                    "WPF YOLOv8 anomaly classification candidate was not loaded into Candidate Review state");
+
+                var reviewStatus = new AnomalyImageReviewStatusService();
+                reviewStatus.LoadReviewStatus(data, new[] { imagePath });
+                AnomalyImageReviewStatus status = reviewStatus.GetItems().FirstOrDefault(item =>
+                    string.Equals(item.ImagePath, imagePath, StringComparison.OrdinalIgnoreCase));
+                AssertTrue(status != null, "WPF YOLOv8 anomaly classification smoke did not persist anomaly review status");
+                AssertEqual(AnomalyImageReviewState.Abnormal, status.ReviewState);
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            CGlobal.Inst.Data = previousData;
+            SetPrivateField(CGlobal.Inst.Recipe, "m_strName", previousRecipeName);
+            DeleteTempRoot(root);
+        }
+    }
+
     private static void TestAnomalyClassificationDatasetExportService()
     {
         string root = CreateTempRoot();
@@ -15376,6 +15991,248 @@ internal static partial class Program
         {
             DeleteTempRoot(root);
         }
+    }
+
+    private static void TestAnomalyClassificationEvaluationService()
+    {
+        AssertTrue(!new AnomalyClassificationEvaluationReport().IsAdoptionCandidate, "empty anomaly evaluation report should not be adoptable");
+        WpfAnomalyClassificationEvaluationPresentation emptyPresentation =
+            WpfAnomalyClassificationEvaluationPresentationService.Build(new AnomalyClassificationEvaluationReport());
+        AssertTrue(emptyPresentation.RecommendationText.Contains("\uBCF4\uB958", StringComparison.Ordinal), "empty anomaly evaluation presentation should be hold");
+        var weakSamples = new[]
+        {
+            new AnomalyClassificationEvaluationSample
+            {
+                ImagePath = "abnormal-0.png",
+                ExpectedClassName = "abnormal",
+                PredictedClassName = "abnormal",
+                Confidence = 0.67D
+            },
+            new AnomalyClassificationEvaluationSample
+            {
+                ImagePath = "normal-0.png",
+                ExpectedClassName = "normal",
+                PredictedClassName = "normal",
+                Confidence = 0.55D
+            }
+        };
+
+        AnomalyClassificationEvaluationReport weakReport = AnomalyClassificationEvaluationService.Build(weakSamples);
+        AssertTrue(!weakReport.IsAdoptionCandidate, "tiny anomaly classification evaluation should not be an adoption candidate");
+        AssertEqual(2, weakReport.TotalImageCount);
+        AssertEqual(1, weakReport.NormalImageCount);
+        AssertEqual(1, weakReport.AbnormalImageCount);
+        AssertTrue(weakReport.HoldReasons.Any(reason => reason.Contains("at least 10", StringComparison.Ordinal)), "evaluation should require enough held-out images");
+        AssertTrue(weakReport.HoldReasons.Any(reason => reason.Contains("normal", StringComparison.OrdinalIgnoreCase) && reason.Contains("at least 5", StringComparison.Ordinal)), "evaluation should require enough normal held-out images");
+        AssertTrue(weakReport.HoldReasons.Any(reason => reason.Contains("abnormal", StringComparison.OrdinalIgnoreCase) && reason.Contains("at least 5", StringComparison.Ordinal)), "evaluation should require enough abnormal held-out images");
+
+        var imbalancedSamples = new List<AnomalyClassificationEvaluationSample>();
+        for (int index = 0; index < 5; index++)
+        {
+            imbalancedSamples.Add(new AnomalyClassificationEvaluationSample
+            {
+                ImagePath = $"normal-{index}.png",
+                ExpectedClassName = "normal",
+                PredictedClassName = "normal",
+                Confidence = 0.95D
+            });
+            imbalancedSamples.Add(new AnomalyClassificationEvaluationSample
+            {
+                ImagePath = $"abnormal-{index}.png",
+                ExpectedClassName = "abnormal",
+                PredictedClassName = index == 0 ? "abnormal" : "normal",
+                Confidence = 0.95D
+            });
+        }
+
+        AnomalyClassificationEvaluationReport imbalancedReport = AnomalyClassificationEvaluationService.Build(imbalancedSamples);
+        AssertTrue(!imbalancedReport.IsAdoptionCandidate, "poor abnormal recall should block anomaly classification adoption");
+        AssertEqual(10, imbalancedReport.TotalImageCount);
+        AssertEqual(0.6D, imbalancedReport.Accuracy);
+        AssertEqual(0.2D, imbalancedReport.AbnormalAccuracy);
+        AssertTrue(imbalancedReport.HoldReasons.Any(reason => reason.Contains("Abnormal accuracy", StringComparison.Ordinal)), "evaluation should expose abnormal-class accuracy blockers");
+
+        var lowConfidenceSamples = new List<AnomalyClassificationEvaluationSample>();
+        for (int index = 0; index < 5; index++)
+        {
+            lowConfidenceSamples.Add(new AnomalyClassificationEvaluationSample
+            {
+                ImagePath = $"normal-low-confidence-{index}.png",
+                ExpectedClassName = "normal",
+                PredictedClassName = "normal",
+                Confidence = 0.79D
+            });
+            lowConfidenceSamples.Add(new AnomalyClassificationEvaluationSample
+            {
+                ImagePath = $"abnormal-low-confidence-{index}.png",
+                ExpectedClassName = "abnormal",
+                PredictedClassName = "abnormal",
+                Confidence = 0.79D
+            });
+        }
+
+        AnomalyClassificationEvaluationReport lowConfidenceReport = AnomalyClassificationEvaluationService.Build(
+            lowConfidenceSamples,
+            new AnomalyClassificationEvaluationOptions { MinimumConfidence = 0.8D });
+        AssertTrue(!lowConfidenceReport.IsAdoptionCandidate, "low-confidence correct anomaly predictions should not be adoption candidates");
+        AssertEqual(10, lowConfidenceReport.TotalImageCount);
+        AssertEqual(0, lowConfidenceReport.CorrectImageCount);
+        AssertEqual(10, lowConfidenceReport.LowConfidenceClassMatchCount);
+        AssertEqual(0D, lowConfidenceReport.Accuracy);
+        AssertTrue(lowConfidenceReport.HoldReasons.Any(reason => reason.Contains("Accuracy", StringComparison.Ordinal)), "low-confidence evaluation should surface accuracy blockers");
+        AssertTrue(lowConfidenceReport.HoldReasons.Any(reason => reason.Contains("minimum confidence", StringComparison.OrdinalIgnoreCase) && reason.Contains("10", StringComparison.Ordinal)), "low-confidence evaluation should explain how many class matches failed confidence");
+        WpfAnomalyClassificationEvaluationPresentation lowConfidencePresentation =
+            WpfAnomalyClassificationEvaluationPresentationService.Build(
+                lowConfidenceReport,
+                new AnomalyClassificationEvaluationOptions { MinimumConfidence = 0.8D });
+        AssertTrue(lowConfidencePresentation.RecommendationText.Contains("\uBCF4\uB958", StringComparison.Ordinal), "low-confidence anomaly evaluation should be presented as hold");
+        AssertTrue(lowConfidencePresentation.MetricsText.Contains("\uB0AE\uC740 \uC2E0\uB8B0\uB3C4", StringComparison.Ordinal) && lowConfidencePresentation.MetricsText.Contains("10", StringComparison.Ordinal), "presentation metrics should show low-confidence class-match count");
+        AssertTrue(lowConfidencePresentation.DetailText.Contains("\uC2E0\uB8B0\uB3C4 \uBBF8\uB2EC", StringComparison.Ordinal), "presentation detail should explain confidence blockers");
+
+        string summaryRoot = CreateTempRoot();
+        string summaryPath = Path.Combine(summaryRoot, "classification-evaluation-summary.json");
+        File.WriteAllText(
+            summaryPath,
+            JsonConvert.SerializeObject(new
+            {
+                metrics = new
+                {
+                    totalImageCount = 4,
+                    normalImageCount = 2,
+                    abnormalImageCount = 2,
+                    correctImageCount = 1,
+                    normalCorrectCount = 1,
+                    abnormalCorrectCount = 0,
+                    lowConfidenceClassMatchCount = 2,
+                    accuracy = 0.25,
+                    normalAccuracy = 0.5,
+                    abnormalAccuracy = 0.0
+                },
+                promotion = new
+                {
+                    recommendation = "hold",
+                    reasons = new[]
+                    {
+                        "2 class-matching predictions were below minimum confidence 0.8."
+                    }
+                }
+            }));
+        AnomalyClassificationEvaluationReport parsedSummary = AnomalyClassificationEvaluationService.ReadSummaryFile(summaryPath);
+        AssertEqual(4, parsedSummary.TotalImageCount);
+        AssertEqual(2, parsedSummary.LowConfidenceClassMatchCount);
+        AssertEqual(0.25D, parsedSummary.Accuracy);
+        AssertTrue(parsedSummary.HoldReasons.Any(reason => reason.Contains("minimum confidence", StringComparison.OrdinalIgnoreCase)), "summary loader should preserve confidence hold reasons");
+        WpfAnomalyClassificationEvaluationPresentation parsedPresentation =
+            WpfAnomalyClassificationEvaluationPresentationService.Build(
+                parsedSummary,
+                new AnomalyClassificationEvaluationOptions { MinimumConfidence = 0.8D });
+        AssertTrue(parsedPresentation.DetailText.Contains("\uC2E0\uB8B0\uB3C4 \uBBF8\uB2EC", StringComparison.Ordinal), "parsed summary should feed operator-readable confidence detail");
+        string holdWithoutReasonsJson = JsonConvert.SerializeObject(new
+        {
+            metrics = new
+            {
+                totalImageCount = 10,
+                normalImageCount = 5,
+                abnormalImageCount = 5,
+                correctImageCount = 10,
+                normalCorrectCount = 5,
+                abnormalCorrectCount = 5,
+                lowConfidenceClassMatchCount = 0,
+                accuracy = 1.0,
+                normalAccuracy = 1.0,
+                abnormalAccuracy = 1.0
+            },
+            promotion = new
+            {
+                recommendation = "hold",
+                reasons = Array.Empty<string>()
+            }
+        });
+        AnomalyClassificationEvaluationReport holdWithoutReasonsReport =
+            AnomalyClassificationEvaluationService.ParseSummaryJson(holdWithoutReasonsJson);
+        AssertTrue(!holdWithoutReasonsReport.IsAdoptionCandidate, "summary loader should honor explicit hold recommendation even when reasons are absent");
+        WpfAnomalyClassificationEvaluationPresentation holdWithoutReasonsPresentation =
+            WpfAnomalyClassificationEvaluationPresentationService.Build(holdWithoutReasonsReport);
+        AssertTrue(holdWithoutReasonsPresentation.RecommendationText.Contains("\uBCF4\uB958", StringComparison.Ordinal), "explicit hold recommendation should remain visible as hold");
+        string missingPromotionJson = JsonConvert.SerializeObject(new
+        {
+            metrics = new
+            {
+                totalImageCount = 10,
+                normalImageCount = 5,
+                abnormalImageCount = 5,
+                correctImageCount = 10,
+                normalCorrectCount = 5,
+                abnormalCorrectCount = 5,
+                lowConfidenceClassMatchCount = 0,
+                accuracy = 1.0,
+                normalAccuracy = 1.0,
+                abnormalAccuracy = 1.0
+            }
+        });
+        AnomalyClassificationEvaluationReport missingPromotionReport =
+            AnomalyClassificationEvaluationService.ParseSummaryJson(missingPromotionJson);
+        AssertTrue(!missingPromotionReport.IsAdoptionCandidate, "summary loader should require an explicit adopt recommendation");
+        string modelCenterLookupRoot = Path.Combine(summaryRoot, "model-center-lookup");
+        string oldEvaluationDirectory = Path.Combine(modelCenterLookupRoot, "classification-evaluation-20260708-010000");
+        string latestEvaluationDirectory = Path.Combine(modelCenterLookupRoot, "classification-evaluation-20260708-020000");
+        Directory.CreateDirectory(oldEvaluationDirectory);
+        Directory.CreateDirectory(latestEvaluationDirectory);
+        string oldEvaluationSummaryPath = Path.Combine(oldEvaluationDirectory, "classification-evaluation-summary.json");
+        string latestEvaluationSummaryPath = Path.Combine(latestEvaluationDirectory, "classification-evaluation-summary.json");
+        File.WriteAllText(oldEvaluationSummaryPath, File.ReadAllText(summaryPath));
+        File.WriteAllText(latestEvaluationSummaryPath, File.ReadAllText(summaryPath));
+        File.SetLastWriteTimeUtc(oldEvaluationSummaryPath, new DateTime(2026, 7, 8, 1, 0, 0, DateTimeKind.Utc));
+        File.SetLastWriteTimeUtc(latestEvaluationSummaryPath, new DateTime(2026, 7, 8, 2, 0, 0, DateTimeKind.Utc));
+        string modelCenterSummaryPath = InvokePrivateStaticResult<string>(
+            typeof(WpfLabelingShellWindow),
+            "FindModelCenterAnomalyEvaluationSummaryPath",
+            modelCenterLookupRoot);
+        AssertEqual(latestEvaluationSummaryPath, modelCenterSummaryPath);
+
+        var strongSamples = new List<AnomalyClassificationEvaluationSample>();
+        for (int index = 0; index < 5; index++)
+        {
+            strongSamples.Add(new AnomalyClassificationEvaluationSample
+            {
+                ImagePath = $"normal-good-{index}.png",
+                ExpectedClassName = "normal",
+                PredictedClassName = "normal",
+                Confidence = 0.91D
+            });
+            strongSamples.Add(new AnomalyClassificationEvaluationSample
+            {
+                ImagePath = $"abnormal-good-{index}.png",
+                ExpectedClassName = "abnormal",
+                PredictedClassName = "abnormal",
+                Confidence = 0.93D
+            });
+        }
+
+        AnomalyClassificationEvaluationReport strongReport = AnomalyClassificationEvaluationService.Build(strongSamples);
+        AssertTrue(strongReport.IsAdoptionCandidate, "balanced high-accuracy anomaly classification evaluation should be an adoption candidate");
+        AssertEqual(10, strongReport.TotalImageCount);
+        AssertEqual(5, strongReport.NormalImageCount);
+        AssertEqual(5, strongReport.AbnormalImageCount);
+        AssertEqual(1D, strongReport.Accuracy);
+        AssertEqual(0, strongReport.HoldReasons.Count);
+        WpfAnomalyClassificationEvaluationPresentation strongPresentation =
+            WpfAnomalyClassificationEvaluationPresentationService.Build(strongReport);
+        AssertTrue(strongPresentation.RecommendationText.Contains("\uCC44\uD0DD \uAC00\uB2A5", StringComparison.Ordinal), "strong anomaly evaluation should be presented as adoptable");
+        AssertTrue(strongPresentation.ActionText.Contains("\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378", StringComparison.Ordinal), "adoptable presentation should guide model save action");
+
+        string evaluationScript = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "scripts", "evaluate-yolo-classification.ps1"));
+        AssertTrue(evaluationScript.Contains("--smoke-test", StringComparison.Ordinal), "classification evaluation script should run the local YOLO adapter smoke path");
+        AssertTrue(evaluationScript.Contains("imageClassification", StringComparison.Ordinal), "classification evaluation script should read image-level classification candidates");
+        AssertTrue(evaluationScript.Contains("classification-evaluation-summary.json", StringComparison.Ordinal), "classification evaluation script should write a stable summary artifact");
+        AssertTrue(evaluationScript.Contains("minimumTotalImageCount", StringComparison.Ordinal), "classification evaluation summary should persist total-image adoption thresholds");
+        AssertTrue(evaluationScript.Contains("minimumPerClassImageCount", StringComparison.Ordinal), "classification evaluation summary should persist per-class adoption thresholds");
+        AssertTrue(evaluationScript.Contains("minimumConfidence", StringComparison.Ordinal), "classification evaluation summary should persist the confidence adoption threshold");
+        AssertTrue(evaluationScript.Contains("lowConfidenceClassMatchCount", StringComparison.Ordinal), "classification evaluation summary should persist low-confidence class-match counts");
+        AssertTrue(evaluationScript.Contains("$confidenceValue -ge $MinimumConfidence", StringComparison.Ordinal), "classification evaluation script should require enough confidence before counting a prediction as correct");
+        AssertTrue(evaluationScript.Contains("class-matching predictions were below minimum confidence", StringComparison.Ordinal), "classification evaluation script should explain confidence-gated hold reasons");
+        AssertTrue(evaluationScript.Contains("recommendation = $recommendation", StringComparison.Ordinal), "classification evaluation summary should persist adopt/hold recommendation");
+        AssertTrue(evaluationScript.Contains("reasons = $holdReasons", StringComparison.Ordinal), "classification evaluation summary should persist hold reasons");
     }
 
     private static void TestYoloImageLabelStatusService()
@@ -24081,6 +24938,8 @@ internal static partial class Program
         canvasViewModel.SetNoObjectCompletionState(hasImage: true, hasLabelObjects: false, hasPendingCandidates: false);
         AssertTrue(canvasViewModel.IsNoObjectCompletionEnabled, "empty current image should enable no-object completion");
         AssertTrue(canvasViewModel.NoObjectCompletionToolTip.Contains("YOLO", StringComparison.Ordinal), "no-object completion tooltip should explain that a blank YOLO label is saved");
+        AssertTrue(canvasViewModel.NoObjectCompletionToolTip.Contains("\uB77C\uBCA8\uC744 \uB9CC\uB4E4\uC9C0 \uC54A\uACE0", StringComparison.Ordinal), "no-object completion tooltip should fit box, polygon, and brush workflows");
+        AssertTrue(!canvasViewModel.NoObjectCompletionToolTip.Contains("\uBC15\uC2A4", StringComparison.Ordinal), "no-object completion tooltip should not force box wording for segmentation datasets");
         canvasViewModel.CompleteNoObjectCommand.Execute(null);
         AssertTrue(noObjectExecuted, "canvas no-object button should execute the injected shell completion action");
         canvasViewModel.SetNoObjectCompletionState(hasImage: true, hasLabelObjects: true, hasPendingCandidates: false);
@@ -24144,6 +25003,9 @@ internal static partial class Program
             AssertTrue(
                 window.CanvasPanelViewModel.CurrentWorkflowActionText.Contains("이미지 큐", StringComparison.Ordinal),
                 "empty canvas should guide the operator to start from the image queue");
+            AssertTrue(
+                !window.CanvasPanelViewModel.CurrentWorkflowActionText.Contains("\uC67C\uCABD", StringComparison.Ordinal),
+                "empty canvas guide should not hard-code a left-side queue location");
 
             SetPrivateField(window, "activeImageSize", new System.Drawing.Size(200, 120));
             InvokePrivateResult<object>(window, "RefreshCanvasWorkflowContext");
@@ -24151,6 +25013,49 @@ internal static partial class Program
             AssertTrue(
                 window.CanvasPanelViewModel.CurrentWorkflowActionText.Contains("빠른 도구", StringComparison.Ordinal),
                 "loaded canvas should guide the operator to start labeling instead of reopening an image");
+
+            var candidateState = GetPrivateField<WpfCandidateReviewStateService>(window, "candidateReviewState");
+            candidateState.LoadPendingCandidates(
+                new[]
+                {
+                    new YoloWorkerSmokeCandidate
+                    {
+                        Index = 1,
+                        ClassName = "NG",
+                        Confidence = 0.92,
+                        X = 10,
+                        Y = 12,
+                        Width = 20,
+                        Height = 18
+                    }
+                },
+                clearConfirmed: true);
+            InvokePrivate(window, "ShowCandidateReviewWorkflowView");
+            AssertEqual("\uAC80\uD1A0", window.CanvasPanelViewModel.CurrentWorkflowStepText);
+            AssertEqual("AI \uD6C4\uBCF4 \uAC80\uD1A0", window.CanvasPanelViewModel.CurrentWorkflowToolText);
+            AssertTrue(
+                window.CanvasPanelViewModel.CurrentWorkflowActionText.Contains("\uD655\uC815", StringComparison.Ordinal)
+                    && !window.CanvasPanelViewModel.CurrentWorkflowActionText.Contains("\uCD94\uB860 \uC2E4\uD589", StringComparison.Ordinal),
+                "pending AI candidates should guide the operator to review candidates instead of running inspection again");
+            candidateState.ClearAll();
+            candidateState.MutableConfirmedCandidates.Add(new YoloWorkerSmokeCandidate
+            {
+                Index = 1,
+                ClassName = "NG",
+                Confidence = 0.92,
+                X = 10,
+                Y = 12,
+                Width = 20,
+                Height = 18
+            });
+            InvokePrivate(window, "ShowSavedLabelsWorkflowView");
+            AssertEqual("\uC800\uC7A5", window.CanvasPanelViewModel.CurrentWorkflowStepText);
+            AssertTrue(
+                window.CanvasPanelViewModel.CurrentWorkflowActionText.Contains("\uC774\uBBF8\uC9C0 \uD050", StringComparison.Ordinal)
+                    && !window.CanvasPanelViewModel.CurrentWorkflowActionText.Contains("\uCD94\uB860 \uC2E4\uD589", StringComparison.Ordinal),
+                "saved-label review should guide the operator to the image queue next action instead of leaving inference guidance active");
+            candidateState.ClearAll();
+            InvokePrivate(window, "ExecuteLabelingModeCommand");
 
             var learningPanel = (WpfLearningWorkflowPanel)window.FindName("LearningWorkflowPanelControl");
             learningPanel.DatasetPurposeList.SelectedItem = learningPanel.ViewModel.DatasetPurposeModes.First(item => item.Mode == WpfLearningMode.Segmentation);
@@ -24181,6 +25086,10 @@ internal static partial class Program
                 window.CanvasPanelViewModel.CurrentWorkflowActionText.Contains("다음 버튼", StringComparison.Ordinal)
                     && window.CanvasPanelViewModel.CurrentWorkflowActionText.Contains("이어서 작업", StringComparison.Ordinal),
                 "saved labels should point the operator to the visible next-image queue button without awkward unlabeled wording");
+            AssertTrue(
+                window.CanvasPanelViewModel.CurrentWorkflowActionText.Contains("\uC774\uBBF8\uC9C0 \uD050", StringComparison.Ordinal)
+                    && !window.CanvasPanelViewModel.CurrentWorkflowActionText.Contains("\uC67C\uCABD", StringComparison.Ordinal),
+                "saved labels should refer to the image queue without hard-coding the old left-side layout");
             AssertTrue(!window.CanvasPanelViewModel.IsAnnotationSaveEnabled, "saved labels should disable the canvas-local save action");
             AssertEqual("\uC800\uC7A5 \uC644\uB8CC", window.CanvasPanelViewModel.AnnotationSaveActionText);
         }
@@ -24202,7 +25111,9 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "LearningModeListBox", "SelectedItem", "SelectedMode");
         AssertNamedXamlBinding(xaml, xName, "DatasetPurposeListBox", "ItemsSource", "DatasetPurposeModes");
         AssertNamedXamlBinding(xaml, xName, "DatasetPurposeListBox", "SelectedItem", "SelectedDatasetPurposeMode");
+        AssertNamedXamlBinding(xaml, xName, "DatasetPurposeListBox", "Visibility", "DatasetOnboardingVisibility");
         AssertNamedXamlBinding(xaml, xName, "DatasetPurposeSummaryText", "Text", "DatasetPurposeSummaryText");
+        AssertNamedXamlBinding(xaml, xName, "DatasetPurposeSummaryText", "Visibility", "DatasetOnboardingVisibility");
         AssertNamedXamlBinding(xaml, xName, "DatasetPurposeToolSummaryText", "Text", "DatasetPurposeToolSummaryText");
         AssertNamedXamlValue(xaml, xName, "DatasetPurposeToolSummaryText", "Visibility", "Collapsed");
         AssertNamedXamlBinding(xaml, xName, "GuideToolsRoleTitleText", "Text", "GuideToolsRoleTitleText");
@@ -24212,6 +25123,9 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "DatasetSetupFirstActionText", "Text", "DatasetSetupFirstActionText");
         AssertNamedXamlBinding(xaml, xName, "DatasetSetupSequenceText", "Text", "DatasetSetupSequenceText");
         AssertNamedXamlBinding(xaml, xName, "DatasetSetupStatusText", "Text", "DatasetSetupStatusText");
+        AssertNamedXamlBinding(xaml, xName, "DatasetSetupActionPanel", "Visibility", "DatasetOnboardingVisibility");
+        AssertNamedXamlBinding(xaml, xName, "FirstRunSamplePathPanel", "Visibility", "DatasetOnboardingVisibility");
+        AssertNamedXamlBinding(xaml, xName, "YoloDatasetStructurePanel", "Visibility", "DatasetOnboardingVisibility");
         AssertNamedXamlBinding(xaml, xName, "DatasetSetupStartButton", "Command", "DatasetSetupStartCommand");
         AssertNamedXamlBinding(xaml, xName, "DatasetSetupStartButton", "CommandParameter", "SelectedDatasetPurposeMode");
         AssertNamedXamlBinding(xaml, xName, "DatasetSetupStartButtonText", "Text", "DatasetSetupActionText");
@@ -24269,6 +25183,7 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "DatasetDashboardStatusText", "Text", "DatasetDashboardStatusText");
         AssertNamedXamlBinding(xaml, xName, "DatasetDashboardSummaryText", "Text", "DatasetDashboardSummaryText");
         AssertNamedXamlBinding(xaml, xName, "ObjectDetectionMvpNextActionText", "Text", "ObjectDetectionMvpNextActionText");
+        AssertNamedXamlBinding(xaml, xName, "ObjectDetectionMvpNextActionText", "Visibility", "DatasetOnboardingVisibility");
         AssertNamedXamlBinding(xaml, xName, "YoloDatasetStructureTitleText", "Text", "YoloDatasetStructureTitleText");
         AssertNamedXamlBinding(xaml, xName, "YoloDatasetStructureSummaryText", "Text", "YoloDatasetStructureSummaryText");
         AssertNamedXamlBinding(xaml, xName, "YoloDatasetStructureItemsControl", "ItemsSource", "YoloDatasetStructureItems");
@@ -24310,10 +25225,13 @@ internal static partial class Program
         AssertNamedXamlElement(xaml, xName, "TextBlock", "FirstRunChecklistSummaryText");
         AssertNamedXamlElement(xaml, xName, "ItemsControl", "FirstRunChecklistItemsControl");
         AssertNamedXamlElement(xaml, xName, "Border", "CurrentWorkflowStepPanel");
+        AssertNamedXamlElement(xaml, xName, "TextBlock", "CurrentLabelingTaskTitleText");
         AssertNamedXamlElement(xaml, xName, "TextBlock", "CurrentStepNameText");
         AssertNamedXamlElement(xaml, xName, "TextBlock", "CurrentStepDetailText");
         AssertNamedXamlElement(xaml, xName, "TextBlock", "CurrentWorkflowActionText");
         AssertNamedXamlElement(xaml, xName, "TextBlock", "CurrentToolHintText");
+        AssertNamedXamlElement(xaml, xName, "TextBlock", "CurrentLabelingTaskChecklistPanel");
+        AssertNamedXamlElement(xaml, xName, "Expander", "LabelingGuideDetailsExpander");
         AssertNamedXamlElement(xaml, xName, "Border", "YoloCurrentTrainingActionPanel");
         AssertNamedXamlElement(xaml, xName, "Grid", "YoloCurrentTrainingStepPanel");
         AssertNamedXamlElement(xaml, xName, "TextBlock", "YoloCurrentTrainingStepTitleText");
@@ -24380,16 +25298,27 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "YoloFixClassesButton", "Command", "YoloFixClassesCommand");
         AssertNamedXamlBinding(xaml, xName, "YoloFixLabelsButton", "Command", "YoloFixLabelsCommand");
         AssertNamedXamlBinding(xaml, xName, "YoloFixDatasetButton", "Command", "YoloFixDatasetCommand");
-        AssertNamedXamlBinding(xaml, xName, "CurrentStepNameText", "Text", "SelectedStep.Text");
+        AssertNamedXamlBinding(xaml, xName, "CurrentWorkflowStepPanel", "Visibility", "LabelingTaskVisibility");
+        AssertNamedXamlValue(xaml, xName, "CurrentWorkflowStepPanel", "BorderBrush", "{DynamicResource BorderBrushDark}");
+        AssertNamedXamlValue(xaml, xName, "CurrentLabelingTaskTitleText", "Text", "현재 이미지");
+        AssertNamedXamlBinding(xaml, xName, "CurrentStepNameText", "Text", "CurrentLabelingTaskStepText");
         AssertNamedXamlBinding(xaml, xName, "CurrentStepDetailText", "Text", "StepDetailText");
-        AssertNamedXamlBinding(xaml, xName, "CurrentWorkflowActionText", "Text", "CurrentWorkflowActionText");
-        AssertNamedXamlBinding(xaml, xName, "CurrentToolHintText", "Text", "ToolDetailText");
+        AssertNamedXamlBinding(xaml, xName, "CurrentWorkflowActionText", "Text", "CurrentLabelingTaskActionText");
+        AssertNamedXamlValue(xaml, xName, "CurrentWorkflowActionText", "Foreground", "{DynamicResource PrimaryTextBrush}");
+        AssertNamedXamlBinding(xaml, xName, "CurrentToolHintText", "Text", "CurrentLabelingTaskToolText");
+        AssertNamedXamlBinding(xaml, xName, "CurrentLabelingTaskChecklistPanel", "Text", "CurrentLabelingTaskChecklistSummaryText");
+        AssertNamedXamlBinding(xaml, xName, "LabelingGuideDetailsExpander", "Visibility", "LabelingTaskVisibility");
+        AssertNamedXamlValue(xaml, xName, "LabelingGuideDetailsExpander", "Header", "필요할 때만: 학습·검사 세부");
+        AssertNamedXamlValue(xaml, xName, "LabelingGuideDetailsExpander", "IsExpanded", "False");
         string panelSource = File.ReadAllText(panelPath);
         string shellSource = ReadWpfLabelingShellWindowSources();
+        string datasetSetupSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.DatasetSetupCommands.cs"));
+        string canvasWorkflowCommandsSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.CanvasWorkflowCommands.cs"));
         string annotationWorkflowServiceSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfAnnotationWorkflowService.cs"));
         string annotationCapabilityServiceSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfAnnotationToolCapabilityService.cs"));
         string trainingWeightsServiceSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfTrainingWeightsService.cs"));
         string learningWorkflowViewModelSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "ViewModels", "WpfLearningWorkflowPanelViewModel.cs"));
+        string testProgramSource = File.ReadAllText(Path.Combine(root, "tests", "LabelingApplication.Tests", "Program.cs"));
         AssertTrue(panelSource.Contains("ModeDetailText", StringComparison.Ordinal), "WPF education panel should explain the selected lesson mode");
         AssertTrue(panelSource.Contains("StepDetailText", StringComparison.Ordinal), "WPF education panel should explain the selected lesson step");
         AssertTrue(panelSource.Contains("ToolDetailText", StringComparison.Ordinal), "WPF education panel should explain the selected annotation tool");
@@ -24397,6 +25326,10 @@ internal static partial class Program
         AssertTrue(panelSource.Contains("AnnotationCommandToolItemsControl", StringComparison.Ordinal), "WPF education panel should render one-shot edit commands outside the selected-tool list");
         AssertTrue(panelSource.Contains("TemplateWorkflowPanel", StringComparison.Ordinal), "WPF guide should expose a first-visible template labeling workflow card");
         AssertTrue(panelSource.IndexOf("GuideToolsRolePanel", StringComparison.Ordinal) < panelSource.IndexOf("DatasetSetupActionPanel", StringComparison.Ordinal), "Guide/Tools should identify primary work versus helper tools before detailed setup cards");
+        AssertTrue(panelSource.Contains("LabelingGuideDetailsExpander", StringComparison.Ordinal), "WPF guide should keep secondary guide/tool content behind a collapsed details expander");
+        AssertTrue(panelSource.Contains("CurrentLabelingTaskChecklistPanel", StringComparison.Ordinal), "WPF guide should expose a compact current-task flow hint instead of starting with the full tutorial stack");
+        AssertTrue(panelSource.Contains("CurrentLabelingTaskChecklistSummaryText", StringComparison.Ordinal),
+            "WPF guide current-task flow hint should be owned by the ViewModel instead of hard-coded to drawing steps");
         AssertTrue(panelSource.Contains("TemplateWorkflowStepTemplate", StringComparison.Ordinal), "WPF guide should render template labeling as structured steps instead of a loose help paragraph");
         AssertTrue(panelSource.Contains("AutomationProperties.AutomationId=\"TemplateWorkflowPanel\"", StringComparison.Ordinal), "template workflow card should expose a stable AutomationId for visual and EXE smoke tests");
         AssertTrue(panelSource.Contains("AutomationProperties.AutomationId=\"TemplateWorkflowRoleText\"", StringComparison.Ordinal), "template workflow card should expose the helper-role text for visual and UIAutomation checks");
@@ -24413,6 +25346,9 @@ internal static partial class Program
         AssertTrue(panelSource.Contains("AutomationProperties.AutomationId=\"{Binding Order, StringFormat=FirstRunChecklistItem{0}}\"", StringComparison.Ordinal), "first-run checklist rows should expose per-step AutomationIds");
         AssertTrue(learningWorkflowViewModelSource.Contains("SelectedDatasetPurposeMode", StringComparison.Ordinal), "learning workflow ViewModel should keep dataset purpose separate from lesson mode");
         AssertTrue(learningWorkflowViewModelSource.Contains("FirstRunSamplePathItems", StringComparison.Ordinal), "learning workflow ViewModel should own the beginner sample path items");
+        AssertTrue(learningWorkflowViewModelSource.Contains("DatasetOnboardingVisibility", StringComparison.Ordinal), "learning workflow ViewModel should own dataset onboarding visibility");
+        AssertTrue(learningWorkflowViewModelSource.Contains("LabelingTaskVisibility", StringComparison.Ordinal), "learning workflow ViewModel should own compact labeling task visibility");
+        AssertTrue(learningWorkflowViewModelSource.Contains("SetLiveLabelingTask", StringComparison.Ordinal), "learning workflow ViewModel should accept live canvas task text");
         AssertTrue(learningWorkflowViewModelSource.Contains("TemplateWorkflowSteps", StringComparison.Ordinal), "learning workflow ViewModel should own the template labeling workflow steps");
         AssertTrue(learningWorkflowViewModelSource.Contains("GuideToolsPrimaryTaskText", StringComparison.Ordinal), "learning workflow ViewModel should own the Guide/Tools primary-task wording");
         AssertTrue(learningWorkflowViewModelSource.Contains("GuideToolsHelperTaskText", StringComparison.Ordinal), "learning workflow ViewModel should own the Guide/Tools helper-task wording");
@@ -24476,8 +25412,11 @@ internal static partial class Program
         AssertTrue(panelSource.Contains("AutomationProperties.AutomationId=\"LearningWorkflowScrollViewer\"", StringComparison.Ordinal), "Guide ScrollViewer should expose a stable AutomationId for real-EXE workflow scrolling");
         AssertTrue(panelSource.Contains("ForwardMouseWheelToAncestorScrollViewer", StringComparison.Ordinal), "nested guide lists should pass mouse wheel scrolling through a behavior");
         AssertTrue(panelSource.IndexOf("CurrentWorkflowStepPanel", StringComparison.Ordinal) < panelSource.IndexOf("AnnotationToolListBox", StringComparison.Ordinal), "current step should be the first-visible guide cue before tools");
+        AssertTrue(panelSource.IndexOf("CurrentWorkflowStepPanel", StringComparison.Ordinal) < panelSource.IndexOf("DatasetSetupActionPanel", StringComparison.Ordinal), "compact labeling task should appear before onboarding cards in source order");
+        AssertTrue(panelSource.IndexOf("CurrentWorkflowStepPanel", StringComparison.Ordinal) < panelSource.IndexOf("LabelingGuideDetailsExpander", StringComparison.Ordinal), "compact labeling task should appear before secondary guide details");
+        AssertTrue(panelSource.IndexOf("LabelingGuideDetailsExpander", StringComparison.Ordinal) < panelSource.IndexOf("YoloCurrentTrainingActionPanel", StringComparison.Ordinal), "training and tool details should live inside the secondary guide details expander");
         AssertTrue(panelSource.IndexOf("CurrentWorkflowStepPanel", StringComparison.Ordinal) < panelSource.IndexOf("YoloCurrentTrainingActionPanel", StringComparison.Ordinal), "training next step should follow the current guide step");
-        AssertTrue(panelSource.IndexOf("YoloCurrentTrainingActionPanel", StringComparison.Ordinal) < panelSource.IndexOf("LearningStepListBox", StringComparison.Ordinal), "training next step should stay in the first-visible guide area before secondary workflow lists");
+        AssertTrue(panelSource.IndexOf("YoloCurrentTrainingActionPanel", StringComparison.Ordinal) < panelSource.IndexOf("LearningStepListBox", StringComparison.Ordinal), "training next step should stay before secondary workflow lists inside guide details");
         AssertTrue(panelSource.IndexOf("YoloCurrentTrainingProgressItemsControl", StringComparison.Ordinal) < panelSource.IndexOf("YoloCurrentTrainingStepPanel", StringComparison.Ordinal), "YOLO completion checklist should appear before the single next-action button");
         AssertTrue(panelSource.IndexOf("YoloCurrentTrainingProgressItemsControl", StringComparison.Ordinal) < panelSource.IndexOf("DatasetStatusDashboardPanel", StringComparison.Ordinal), "dataset status dashboard should stay near the completion chips without hiding the real-EXE chip targets");
         AssertTrue(panelSource.IndexOf("DatasetStatusDashboardPanel", StringComparison.Ordinal) < panelSource.IndexOf("YoloCurrentTrainingStepPanel", StringComparison.Ordinal), "dataset status dashboard should be visible before the single next-action button pushes it below the fold");
@@ -24488,9 +25427,8 @@ internal static partial class Program
         AssertTrue(panelSource.IndexOf("DatasetPurposeToolSummaryText", StringComparison.Ordinal) < panelSource.IndexOf("DatasetSetupActionPanel", StringComparison.Ordinal), "dataset setup actions should follow the selected dataset-purpose explanation");
         AssertTrue(panelSource.IndexOf("DatasetSetupSequenceText", StringComparison.Ordinal) < panelSource.IndexOf("FirstRunChecklistItemsControl", StringComparison.Ordinal), "first-run checklist should follow the short preparation sequence");
         AssertTrue(panelSource.IndexOf("FirstRunChecklistItemsControl", StringComparison.Ordinal) < panelSource.IndexOf("DatasetSetupStatusText", StringComparison.Ordinal), "first-run checklist should stay inside the dataset setup card before status text");
-        AssertTrue(panelSource.IndexOf("YoloDatasetStructurePanel", StringComparison.Ordinal) < panelSource.IndexOf("CurrentWorkflowStepPanel", StringComparison.Ordinal), "YOLO dataset structure lesson should stay first-visible before the current-step card");
         AssertTrue(panelSource.IndexOf("YoloDatasetStructurePanel", StringComparison.Ordinal) < panelSource.IndexOf("ObjectDetectionMvpNextActionText", StringComparison.Ordinal), "object-detection MVP summary should follow the dataset structure lesson");
-        AssertTrue(panelSource.IndexOf("ObjectDetectionMvpNextActionText", StringComparison.Ordinal) < panelSource.IndexOf("CurrentWorkflowStepPanel", StringComparison.Ordinal), "object-detection MVP summary should stay first-visible before the current-step card");
+        AssertTrue(panelSource.IndexOf("ObjectDetectionMvpNextActionText", StringComparison.Ordinal) < panelSource.IndexOf("LabelingGuideDetailsExpander", StringComparison.Ordinal), "onboarding summary should stay before secondary labeling details");
         AssertTrue(panelSource.IndexOf("DatasetDashboardPrimaryActionPanel", StringComparison.Ordinal) < panelSource.IndexOf("DatasetDashboardMetricItemsControl", StringComparison.Ordinal), "dataset dashboard should show the immediate beginner action before metric cards");
         AssertTrue(panelSource.Contains("DataTrigger Binding=\"{Binding DatasetDashboardActionText}\" Value=\"\"", StringComparison.Ordinal), "empty dataset dashboard actions should collapse instead of leaving a blank guide chip");
         AssertTrue(panelSource.IndexOf("YoloCurrentTrainingActionPanel", StringComparison.Ordinal) < panelSource.IndexOf("TutorialIntroPanel", StringComparison.Ordinal), "training next step should not be buried below long-form tutorial content");
@@ -24499,7 +25437,7 @@ internal static partial class Program
         AssertTrue(panelSource.IndexOf("AnnotationToolListBox", StringComparison.Ordinal) < panelSource.IndexOf("LearningConceptsExpander", StringComparison.Ordinal), "annotation tools should not be hidden inside secondary learning concepts");
         AssertTrue(panelSource.Contains("StateText", StringComparison.Ordinal), "YOLO training workflow rows should show per-step state text");
         AssertTrue(panelSource.Contains("StateIconKind", StringComparison.Ordinal), "YOLO training workflow rows should show per-step state icons");
-        AssertTrue(panelSource.Contains("IsExpanded=\"False\"", StringComparison.Ordinal), "secondary lesson concepts should be collapsed by default so the guide starts with the actionable YOLO flow");
+        AssertTrue(panelSource.Contains("IsExpanded=\"False\"", StringComparison.Ordinal), "secondary guide details should be collapsed by default so the guide starts with the compact current task");
         AssertTrue(panelSource.Contains("TrainingChecklistActionText", StringComparison.Ordinal), "YOLO guide should expose a direct labeling action instead of making users hunt through lesson controls");
         AssertTrue(panelSource.Contains("TrainingResultComparisonText", StringComparison.Ordinal), "YOLO guide should show training metrics comparison beside the run history");
         AssertTrue(panelSource.Contains("TrainingResultReportItems", StringComparison.Ordinal), "YOLO guide should show structured training comparison report rows");
@@ -24522,6 +25460,16 @@ internal static partial class Program
         AssertTrue(shellSource.Contains("RefreshCanvasAnnotationToolScope", StringComparison.Ordinal), "dataset purpose changes should refresh the canvas toolbar with the same filtered tool scope");
         AssertTrue(shellSource.Contains("DatasetPurposeListBox_SelectionChanged", StringComparison.Ordinal), "dataset purpose changes should use a dedicated shell command path");
         AssertTrue(shellSource.Contains("ExecuteStartDatasetSetupCommand", StringComparison.Ordinal), "dataset setup should be a named shell command instead of hidden in the selector");
+        AssertTrue(datasetSetupSource.Contains("EnterLabelingWorkbenchStartView();", StringComparison.Ordinal), "dataset setup completion should route beginners to the compact labeling start view");
+        AssertTrue(shellSource.Contains("EnterLabelingWorkbenchStartView();", StringComparison.Ordinal), "top labeling-workbench navigation should use the same compact labeling start view");
+        AssertTrue(shellSource.Contains("EnterLabelingMode(openGuidePanel: false)", StringComparison.Ordinal), "compact labeling start should not auto-open the guide/class side panel");
+        AssertTrue(shellSource.Contains("LearningWorkflowViewModel?.ShowDatasetOnboarding", StringComparison.Ordinal), "dataset-stage guide should show dataset onboarding instead of the labeling task card");
+        AssertTrue(shellSource.Contains("LearningWorkflowViewModel?.ShowLabelingTask", StringComparison.Ordinal), "labeling-stage guide should show the compact current-task card");
+        AssertTrue(shellSource.Contains("LearningWorkflowViewModel?.SetLiveLabelingTask", StringComparison.Ordinal), "canvas workflow context should also update the guide current-task card");
+        AssertTrue(testProgramSource.Contains("bool isLabelingGuideTab = tabKey is \"labeling-guide\" or \"guide-labeling\"", StringComparison.Ordinal), "visual smoke should expose a labeling-stage guide alias separate from dataset onboarding");
+        AssertTrue(testProgramSource.Contains("? WpfRightWorkflowShortcut.LabelingGuide", StringComparison.Ordinal), "visual smoke labeling-guide should activate the guide/tools shortcut in the labeling stage");
+        AssertTrue(!datasetSetupSource.Contains("FocusClassCatalogTab();", StringComparison.Ordinal), "dataset setup completion should not force beginners into class management");
+        AssertTrue(canvasWorkflowCommandsSource.Contains("EnterLabelingMode(openGuidePanel: true)", StringComparison.Ordinal), "explicit labeling-mode commands should still surface the labeling guide when requested");
         AssertTrue(shellSource.Contains("ProjectSettings.DatasetPurpose", StringComparison.Ordinal), "dataset purpose selection should be persisted in project settings");
         AssertTrue(!panelCodeSource.Contains("public event", StringComparison.Ordinal), "learning workflow code-behind should not expose shell event relays");
         AssertTrue(inputBehaviorSource.Contains("ScrollToVerticalOffset", StringComparison.Ordinal), "guide mouse wheel handling should scroll the parent panel through a shared behavior");
@@ -24550,6 +25498,42 @@ internal static partial class Program
         AssertEqual(7, viewModel.LearningModes.Count);
         AssertEqual(3, viewModel.DatasetPurposeModes.Count);
         AssertEqual(10, viewModel.AnnotationTools.Count);
+        AssertTrue(viewModel.CurrentLabelingTaskActionText.Contains("\uC774\uBBF8\uC9C0 \uD050", StringComparison.Ordinal), "compact guide default task should point to the image queue");
+        AssertTrue(!viewModel.CurrentLabelingTaskActionText.Contains("\uC67C\uCABD \uC774\uBBF8\uC9C0 \uD050", StringComparison.Ordinal)
+            && !viewModel.CurrentLabelingTaskActionText.Contains("\uC88C\uCE21 \uC774\uBBF8\uC9C0 \uD050", StringComparison.Ordinal),
+            "compact guide default task should not hard-code an old left-side image queue");
+        AssertEqual("1  \uC774\uBBF8\uC9C0", viewModel.CurrentLabelingTaskChecklistFirstText);
+        AssertEqual("2  \uC5F4\uAE30", viewModel.CurrentLabelingTaskChecklistSecondText);
+        AssertEqual("3  \uB77C\uBCA8", viewModel.CurrentLabelingTaskChecklistThirdText);
+        AssertEqual("\uD750\uB984: \uC774\uBBF8\uC9C0 > \uC5F4\uAE30 > \uB77C\uBCA8", viewModel.CurrentLabelingTaskChecklistSummaryText);
+        AssertEqual(System.Windows.Visibility.Visible, viewModel.DatasetOnboardingVisibility);
+        AssertEqual(System.Windows.Visibility.Collapsed, viewModel.LabelingTaskVisibility);
+        viewModel.ShowLabelingTask();
+        AssertEqual(System.Windows.Visibility.Collapsed, viewModel.DatasetOnboardingVisibility);
+        AssertEqual(System.Windows.Visibility.Visible, viewModel.LabelingTaskVisibility);
+        viewModel.SetLiveLabelingTask("\uB77C\uBCA8", "\uBE0C\uB7EC\uC2DC", "\uB9C8\uC2A4\uD06C\uB97C \uADF8\uB9AC\uACE0 \uB77C\uBCA8 \uC800\uC7A5\uC744 \uB204\uB974\uC138\uC694.");
+        AssertEqual("\uB77C\uBCA8", viewModel.CurrentLabelingTaskStepText);
+        AssertEqual("\uB3C4\uAD6C: \uBE0C\uB7EC\uC2DC", viewModel.CurrentLabelingTaskToolText);
+        AssertTrue(viewModel.CurrentLabelingTaskActionText.Contains("\uB77C\uBCA8 \uC800\uC7A5", StringComparison.Ordinal), "compact guide task should use the live canvas next-action text");
+        AssertEqual("1  \uADF8\uB9AC\uAE30", viewModel.CurrentLabelingTaskChecklistFirstText);
+        AssertEqual("2  \uC800\uC7A5", viewModel.CurrentLabelingTaskChecklistSecondText);
+        AssertEqual("3  \uB2E4\uC74C", viewModel.CurrentLabelingTaskChecklistThirdText);
+        AssertEqual("\uD750\uB984: \uADF8\uB9AC\uAE30 > \uC800\uC7A5 > \uB2E4\uC74C", viewModel.CurrentLabelingTaskChecklistSummaryText);
+        viewModel.SetLiveLabelingTask("\uCD94\uB860", "\uD604\uC7AC \uAC80\uC0AC", "\uD604\uC7AC \uAC80\uC0AC\uB85C AI \uD6C4\uBCF4\uB97C \uB9CC\uB4DC\uC138\uC694.");
+        AssertEqual("\uBAA8\uB4DC: \uD604\uC7AC \uAC80\uC0AC", viewModel.CurrentLabelingTaskToolText);
+        AssertEqual("1  \uAC80\uC0AC", viewModel.CurrentLabelingTaskChecklistFirstText);
+        AssertEqual("2  \uD655\uC778", viewModel.CurrentLabelingTaskChecklistSecondText);
+        AssertEqual("3  \uAC80\uD1A0", viewModel.CurrentLabelingTaskChecklistThirdText);
+        AssertEqual("\uD750\uB984: \uAC80\uC0AC > \uD655\uC778 > \uAC80\uD1A0", viewModel.CurrentLabelingTaskChecklistSummaryText);
+        viewModel.SetLiveLabelingTask("\uAC80\uD1A0", "AI \uD6C4\uBCF4 \uAC80\uD1A0", "AI \uD6C4\uBCF4\uB97C \uD655\uC778\uD558\uACE0 \uD655\uC815 \uB610\uB294 \uC2A4\uD0B5\uD558\uC138\uC694.");
+        AssertEqual("\uBAA8\uB4DC: AI \uD6C4\uBCF4 \uAC80\uD1A0", viewModel.CurrentLabelingTaskToolText);
+        AssertEqual("1  \uD655\uC778", viewModel.CurrentLabelingTaskChecklistFirstText);
+        AssertEqual("2  \uD655\uC815", viewModel.CurrentLabelingTaskChecklistSecondText);
+        AssertEqual("3  \uC2A4\uD0B5", viewModel.CurrentLabelingTaskChecklistThirdText);
+        AssertEqual("\uD750\uB984: \uD655\uC778 > \uD655\uC815 > \uC2A4\uD0B5", viewModel.CurrentLabelingTaskChecklistSummaryText);
+        viewModel.ShowDatasetOnboarding();
+        AssertEqual(System.Windows.Visibility.Visible, viewModel.DatasetOnboardingVisibility);
+        AssertEqual(System.Windows.Visibility.Collapsed, viewModel.LabelingTaskVisibility);
         AssertEqual("Select,Rectangle,PanZoom", string.Join(",", viewModel.SelectableAnnotationTools.Select(item => item.Tool)));
         AssertEqual(3, viewModel.AnnotationCommandTools.Count);
         AssertEqual(6, viewModel.VisibleAnnotationTools.Count);
@@ -24564,6 +25548,16 @@ internal static partial class Program
         AssertTrue(viewModel.DatasetSetupFirstActionText.Contains("\uCC98\uC74C \uC2DC\uC791", StringComparison.Ordinal), "dataset setup should expose a first-run action cue");
         AssertTrue(viewModel.DatasetSetupFirstActionText.Contains("\uAC1D\uCCB4\uD0D0\uC9C0", StringComparison.Ordinal), "object-detection first-run cue should name the selected purpose");
         AssertEqual("\uC0C8\uB85C \uB9CC\uB4E4\uAE30", viewModel.DatasetSetupActionText);
+        var firstRunImageItem = viewModel.FirstRunChecklistItems.First(item => item.Order == 2);
+        AssertTrue(firstRunImageItem.ToolTip.Contains("\uC774\uBBF8\uC9C0 \uD050", StringComparison.Ordinal), "first-run image step should mention the image queue");
+        AssertTrue(!firstRunImageItem.ToolTip.Contains("\uC88C\uCE21 \uC774\uBBF8\uC9C0 \uD050", StringComparison.Ordinal), "first-run image step should not point to a fixed left-side queue");
+        var yoloLoadImagesStep = viewModel.YoloTrainingWorkflowSteps.First(item => item.Order == 2);
+        AssertTrue(yoloLoadImagesStep.ActionText.Contains("\uC774\uBBF8\uC9C0 \uD050", StringComparison.Ordinal)
+            && yoloLoadImagesStep.ResultText.Contains("\uC774\uBBF8\uC9C0 \uD050", StringComparison.Ordinal),
+            "YOLO training image-load step should mention the image queue");
+        AssertTrue(!yoloLoadImagesStep.ActionText.Contains("\uC88C\uCE21 \uC774\uBBF8\uC9C0 \uD050", StringComparison.Ordinal)
+            && !yoloLoadImagesStep.ResultText.Contains("\uC88C\uCE21 \uC774\uBBF8\uC9C0 \uD050", StringComparison.Ordinal),
+            "YOLO training image-load step should not point to a fixed left-side queue");
         AssertEqual(5, viewModel.FirstRunSamplePathItems.Count);
         AssertEqual(1, viewModel.FirstRunSamplePathItems[0].ShortcutWorkflowStepOrder);
         AssertEqual(2, viewModel.FirstRunSamplePathItems[1].ShortcutWorkflowStepOrder);
@@ -25854,6 +26848,18 @@ internal static partial class Program
         AssertTrue(ciWorkflow.Contains("--priority-workflow-docs", StringComparison.Ordinal), "CI workflow should run the docs smoke");
         AssertTrue(appProject.Contains("dll\\Lib.Common.dll", StringComparison.Ordinal), "app project should reference Lib.Common by checked-in DLL");
         AssertTrue(appProject.Contains("dll\\Lib.OpenCV.dll", StringComparison.Ordinal), "app project should reference Lib.OpenCV by checked-in DLL");
+        AssertTrue(appProject.Contains("CopyCheckedInNoahLibrariesToOutput", StringComparison.Ordinal), "app project should force checked-in Noah DLLs into the EXE output");
+        AssertTrue(appProject.Contains("<CheckedInNoahLibrary Include=\"$(MSBuildProjectDirectory)\\dll\\Lib.Common.dll\"", StringComparison.Ordinal), "app project should copy checked-in Lib.Common into the EXE output");
+        AssertTrue(appProject.Contains("<CheckedInNoahLibrary Include=\"$(MSBuildProjectDirectory)\\dll\\Lib.OpenCV.dll\"", StringComparison.Ordinal), "app project should copy checked-in Lib.OpenCV into the EXE output");
+        AssertTrue(appProject.Contains("packages\\OpenCvSharp4.4.4.0.20200915\\lib\\netstandard2.0\\OpenCvSharp.dll", StringComparison.Ordinal), "app project should reference the repo-local netstandard OpenCvSharp assembly");
+        AssertTrue(appProject.Contains("CopyRepoLocalOpenCvSharpLibrariesToOutput", StringComparison.Ordinal), "app project should force repo-local OpenCvSharp DLLs into the EXE output");
+        AssertTrue(appProject.Contains("<RepoLocalOpenCvSharpLibrary Include=\"$(MSBuildProjectDirectory)\\packages\\OpenCvSharp4.4.4.0.20200915\\lib\\netstandard2.0\\OpenCvSharp.dll\"", StringComparison.Ordinal), "app project should copy the repo-local OpenCvSharp managed assembly into the EXE output");
+        AssertTrue(appProject.Contains("<RepoLocalOpenCvSharpLibrary Include=\"$(MSBuildProjectDirectory)\\packages\\OpenCvSharp4.runtime.win.4.5.5.20211231\\runtimes\\win-x64\\native\\OpenCvSharpExtern.dll\"", StringComparison.Ordinal), "app project should copy the repo-local OpenCvSharp native runtime into the EXE output");
+        AssertTrue(appProject.Contains("opencv_videoio_ffmpeg455_64.dll", StringComparison.Ordinal), "app project should copy the repo-local OpenCvSharp video runtime into the EXE output");
+        AssertTrue(!appProject.Contains("CopyCheckedInOpenCvSharpLibrariesToOutput", StringComparison.Ordinal), "app project should not force the legacy checked-in OpenCvSharp runtime set into the EXE output");
+        AssertTrue(appProject.Contains("CopyLegacyOpenCvRuntimeDependenciesToOutput", StringComparison.Ordinal), "app project should force legacy OpenCvSharp runtime dependencies into the EXE output");
+        AssertTrue(appProject.Contains("packages\\System.Memory.4.5.5\\lib\\netstandard2.0\\System.Memory.dll", StringComparison.Ordinal), "app project should copy System.Memory for legacy OpenCvSharp loading");
+        AssertTrue(appProject.Contains("packages\\System.Runtime.CompilerServices.Unsafe.6.0.0\\lib\\netstandard2.0\\System.Runtime.CompilerServices.Unsafe.dll", StringComparison.Ordinal), "app project should copy System.Runtime.CompilerServices.Unsafe for legacy OpenCvSharp loading");
         AssertTrue(!appProject.Contains("LibraryNoahSourceRoot", StringComparison.Ordinal), "app project should not depend on sibling Library-Noah source");
         AssertTrue(!testProject.Contains("LibraryNoahSourceRoot", StringComparison.Ordinal), "test project should not depend on sibling Library-Noah source");
         AssertTrue(!displayCoreProject.Contains("LibraryNoahSourceRoot", StringComparison.Ordinal), "display core project should not depend on sibling Library-Noah source");
@@ -26449,6 +27455,18 @@ internal static partial class Program
             AssertNamedXamlElement(shellXaml, xName, "TextBlock", railTextName);
         }
 
+        AssertTrue(shellXamlSource.Contains("AutomationProperties.Name=\"&#xD604;&#xC7AC; &#xC791;&#xC5C5; &#xBCF4;&#xAE30;\"", StringComparison.Ordinal), "labeling guide shortcut should read as current work instead of a broad tool panel");
+        AssertTrue(shellXamlSource.Contains("AutomationProperties.Name=\"&#xD604;&#xC7AC; &#xC791;&#xC5C5; &#xD328;&#xB110; &#xC5F4;&#xAE30;\"", StringComparison.Ordinal), "collapsed guide rail should open the current-work panel");
+        AssertTrue(shellXamlSource.Contains("<iconPacks:PackIconMaterial Kind=\"ClipboardTextOutline\" Width=\"12\" Height=\"12\" Margin=\"0,0,4,0\" />", StringComparison.Ordinal), "labeling guide shortcut should use a current-task icon instead of a drawing-shape icon");
+        int guideRailTextIndex = shellXamlSource.IndexOf("x:Name=\"RightWorkflowRailGuideToolsText\"", StringComparison.Ordinal);
+        AssertTrue(guideRailTextIndex >= 0
+            && shellXamlSource.IndexOf("Text=\"&#xC791;&#xC5C5;\"", guideRailTextIndex, StringComparison.Ordinal) > guideRailTextIndex,
+            "collapsed guide rail label should display the current-work wording");
+        int guideRailButtonIndex = shellXamlSource.IndexOf("x:Name=\"RightWorkflowRailGuideToolsButton\"", StringComparison.Ordinal);
+        AssertTrue(guideRailButtonIndex >= 0
+            && shellXamlSource.IndexOf("Kind=\"ClipboardTextOutline\"", guideRailButtonIndex, StringComparison.Ordinal) > guideRailButtonIndex,
+            "collapsed guide rail should use the current-task icon");
+
         AssertTrue(shellXamlSource.Contains("<Setter Property=\"Width\" Value=\"60\" />", StringComparison.Ordinal), "right workflow collapsed rail buttons should reserve enough width for icon and short Korean labels");
         AssertTrue(shellXamlSource.Contains("<Setter Property=\"Height\" Value=\"42\" />", StringComparison.Ordinal), "right workflow collapsed rail buttons should reserve enough height for icon and label");
         AssertNamedXamlBinding(shellXaml, xName, "RightWorkflowShortcutBar", "Visibility", "ShellViewModel.IsRightWorkflowShortcutBarVisible");
@@ -26492,6 +27510,12 @@ internal static partial class Program
         AssertNamedXamlBinding(shellXaml, xName, "YoloModelAdoptionDecisionSummaryText", "Text", "ShellViewModel.ModelCenterDecisionSummaryText");
         AssertNamedXamlBinding(shellXaml, xName, "YoloModelAdoptionDecisionEvidenceText", "Text", "ShellViewModel.ModelCenterDecisionEvidenceText");
         AssertNamedXamlBinding(shellXaml, xName, "YoloModelAdoptionDecisionActionText", "Text", "ShellViewModel.ModelCenterDecisionActionText");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationPanel", "Visibility", "ShellViewModel.IsModelCenterAnomalyEvaluationVisible");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationTitleText", "Text", "ShellViewModel.ModelCenterAnomalyEvaluationTitleText");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationRecommendationText", "Text", "ShellViewModel.ModelCenterAnomalyEvaluationRecommendationText");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationMetricsText", "Text", "ShellViewModel.ModelCenterAnomalyEvaluationMetricsText");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationDetailText", "Text", "ShellViewModel.ModelCenterAnomalyEvaluationDetailText");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationActionText", "Text", "ShellViewModel.ModelCenterAnomalyEvaluationActionText");
         AssertNamedXamlBinding(shellXaml, xName, "ModelRegistryTitleText", "Text", "ShellViewModel.ModelRegistryTitleText");
         AssertNamedXamlBinding(shellXaml, xName, "ModelRegistrySummaryPrimaryText", "Text", "ShellViewModel.ModelRegistrySummaryPrimaryText");
         AssertNamedXamlBinding(shellXaml, xName, "ModelRegistrySummarySecondaryText", "Text", "ShellViewModel.ModelRegistrySummarySecondaryText");
@@ -26669,6 +27693,12 @@ internal static partial class Program
         AssertTrue(shellViewModelSource.Contains("ModelCenterDecisionSummaryText", StringComparison.Ordinal), "shell ViewModel should expose a compact model-adoption decision summary");
         AssertTrue(shellViewModelSource.Contains("ModelCenterDecisionEvidenceText", StringComparison.Ordinal), "shell ViewModel should expose model-adoption evidence text");
         AssertTrue(shellViewModelSource.Contains("ModelCenterDecisionActionText", StringComparison.Ordinal), "shell ViewModel should expose the exact model-adoption action text");
+        AssertTrue(shellViewModelSource.Contains("SetModelCenterAnomalyEvaluationState", StringComparison.Ordinal), "shell ViewModel should expose anomaly classification evaluation state for Model Center");
+        AssertTrue(shellViewModelSource.Contains("ClearModelCenterAnomalyEvaluationState", StringComparison.Ordinal), "shell ViewModel should clear anomaly classification evaluation state");
+        AssertTrue(shellSource.Contains("RefreshModelCenterAnomalyEvaluationState", StringComparison.Ordinal), "model-center dashboard should refresh anomaly classification evaluation state from the active output root");
+        AssertTrue(shellSource.Contains("FindModelCenterAnomalyEvaluationSummaryPath", StringComparison.Ordinal), "model-center dashboard should own a bounded anomaly evaluation summary lookup");
+        AssertTrue(shellSource.Contains("classification-evaluation-summary.json", StringComparison.Ordinal), "model-center dashboard should look for the stable anomaly evaluation summary artifact name");
+        AssertTrue(shellSource.Contains("WpfAnomalyClassificationEvaluationPresentationService.Build", StringComparison.Ordinal), "model-center dashboard should delegate anomaly evaluation wording to the presentation service");
         AssertTrue(shellViewModelSource.Contains("SetModelRegistryState", StringComparison.Ordinal), "shell ViewModel should expose model-registry presentation state");
         AssertTrue(shellViewModelSource.Contains("ModelRegistryProfileText", StringComparison.Ordinal), "shell ViewModel should expose the model profile registry row");
         AssertTrue(shellViewModelSource.Contains("ModelRegistryTrainingRunText", StringComparison.Ordinal), "shell ViewModel should expose the training-run registry row");
@@ -26795,6 +27825,25 @@ internal static partial class Program
             "model adoption decision panel should use decision emphasis instead of global error red");
         AssertTrue(!adoptionDecisionTemplate.Contains("AccentBrush", StringComparison.Ordinal),
             "model adoption decision panel should not read as a recovery/error panel");
+        int anomalyEvaluationStart = shellXamlSource.IndexOf("x:Name=\"YoloAnomalyEvaluationPanel\"", StringComparison.Ordinal);
+        int lifecycleDetailStart = shellXamlSource.IndexOf("x:Name=\"YoloModelLifecycleDetailPanel\"", StringComparison.Ordinal);
+        AssertTrue(anomalyEvaluationStart > adoptionDecisionStart && anomalyEvaluationStart < adoptionDecisionEnd,
+            "anomaly classification evaluation should appear in the model-center decision flow before dataset readiness details");
+        AssertTrue(lifecycleDetailStart > anomalyEvaluationStart,
+            "anomaly classification evaluation should remain above the collapsed lifecycle detail table");
+        string anomalyEvaluationTemplate = shellXamlSource.Substring(anomalyEvaluationStart, lifecycleDetailStart - anomalyEvaluationStart);
+        AssertTrue(anomalyEvaluationTemplate.Contains("Text=\"{Binding ShellViewModel.ModelCenterAnomalyEvaluationRecommendationText}\"", StringComparison.Ordinal)
+            && anomalyEvaluationTemplate.Contains("Text=\"{Binding ShellViewModel.ModelCenterAnomalyEvaluationDetailText}\"", StringComparison.Ordinal),
+            "anomaly evaluation card should expose recommendation and blocker detail text");
+        XElement anomalyEvaluationDetailExpander = shellXaml.Descendants()
+            .FirstOrDefault(element => element.Name.LocalName == "Expander"
+                && string.Equals((string)element.Attribute(xName), "YoloAnomalyEvaluationDetailExpander", StringComparison.Ordinal));
+        AssertTrue(anomalyEvaluationDetailExpander != null, "anomaly evaluation blocker detail should live behind a stable detail expander");
+        AssertEqual("False", (string)anomalyEvaluationDetailExpander.Attribute("IsExpanded"));
+        AssertTrue(anomalyEvaluationTemplate.Contains("x:Name=\"YoloAnomalyEvaluationDetailExpander\"", StringComparison.Ordinal),
+            "anomaly evaluation detail should be collapsible in the default model-center view");
+        AssertTrue(!anomalyEvaluationTemplate.Contains("AccentBrush", StringComparison.Ordinal),
+            "anomaly evaluation hold state should use model-decision emphasis instead of global error red");
         XElement datasetReadinessExpander = shellXaml.Descendants()
             .FirstOrDefault(element => element.Name.LocalName == "Expander"
                 && string.Equals((string)element.Attribute(xName), "YoloDatasetReadinessQuickPanel", StringComparison.Ordinal));
@@ -27148,6 +28197,14 @@ internal static partial class Program
             AssertEqual(System.Windows.Visibility.Visible, classCatalogReviewTab.Visibility);
             AssertEqual(System.Windows.Visibility.Collapsed, yoloModelCenterReviewTab.Visibility);
             AssertEqual(System.Windows.Visibility.Collapsed, workflowStageModelActionPanel.Visibility);
+            InvokePrivate(window, "EnterLabelingWorkbenchStartView");
+            window.UpdateLayout();
+            AssertTrue(window.ShellViewModel.IsLabelingStageActive, "dataset setup completion should land on the labeling stage");
+            AssertTrue(!window.ShellViewModel.IsRightWorkflowDockExpanded, "dataset setup completion should keep the beginner side workflow collapsed");
+            AssertTrue(window.ShellViewModel.IsRightWorkflowDockRailVisible, "dataset setup completion should leave only the compact side rail visible");
+            AssertTrue(window.ShellViewModel.IsSavedLabelsShortcutActive, "dataset setup completion should select the saved-label view, not class management");
+            AssertTrue(!window.ShellViewModel.IsClassCatalogShortcutActive, "dataset setup completion should not force class management active");
+            AssertTrue(ReferenceEquals(savedLabelsReviewTab, ((System.Windows.Controls.TabControl)window.FindName("ReviewTabControl")).SelectedItem), "dataset setup completion should keep the saved-label tab selected for the collapsed rail");
             window.ShellViewModel.SetWorkflowStage(WpfShellWorkflowStage.Inference);
             window.UpdateLayout();
             AssertTrue(window.ShellViewModel.IsRightWorkflowDockExpanded, "inference review should keep the right workflow panel expanded");
@@ -30973,6 +32030,20 @@ internal static partial class Program
         AssertEqual("Restart YOLO then retry", shellViewModel.ModelCenterRecoveryActionText);
         shellViewModel.ClearModelCenterRecoveryState();
         AssertTrue(!shellViewModel.IsModelCenterRecoveryVisible, "model-center recovery card should hide after the recovery state is cleared");
+        AssertTrue(!shellViewModel.IsModelCenterAnomalyEvaluationVisible, "model-center anomaly evaluation should start hidden until a summary is loaded");
+        shellViewModel.SetModelCenterAnomalyEvaluationState(new WpfAnomalyClassificationEvaluationPresentation
+        {
+            RecommendationText = "\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00: \uBCF4\uB958",
+            MetricsText = "\uD3C9\uAC00 4\uC7A5 / \uC815\uC0C1 1/2, \uC774\uC0C1 0/2 / \uC804\uCCB4 25%",
+            DetailText = "\uBCF4\uB958 \uC0AC\uC720: \uAC80\uC99D \uC774\uBBF8\uC9C0 4/10\uC7A5",
+            ActionText = "\uC815\uC0C1/\uC774\uC0C1 held-out \uC774\uBBF8\uC9C0\uB97C \uB354 \uBAA8\uC73C\uACE0 \uB2E4\uC2DC \uD3C9\uAC00"
+        });
+        AssertTrue(shellViewModel.IsModelCenterAnomalyEvaluationVisible, "model-center anomaly evaluation should become visible after a presentation is set");
+        AssertTrue(shellViewModel.ModelCenterAnomalyEvaluationRecommendationText.Contains("\uBCF4\uB958", StringComparison.Ordinal), "model-center anomaly evaluation should expose the recommendation");
+        AssertTrue(shellViewModel.ModelCenterAnomalyEvaluationDetailText.Contains("\uAC80\uC99D \uC774\uBBF8\uC9C0", StringComparison.Ordinal), "model-center anomaly evaluation should expose blocker detail");
+        shellViewModel.ClearModelCenterAnomalyEvaluationState();
+        AssertTrue(!shellViewModel.IsModelCenterAnomalyEvaluationVisible, "model-center anomaly evaluation should hide after it is cleared");
+        AssertEqual(string.Empty, shellViewModel.ModelCenterAnomalyEvaluationMetricsText);
         shellViewModel.SetModelCenterModelState("Current best.pt", "New candidate.pt", "Save required", "Compare then save");
         AssertEqual("Current best.pt", shellViewModel.ModelCenterCurrentModelText);
         AssertEqual("New candidate.pt", shellViewModel.ModelCenterCandidateModelText);
@@ -31384,9 +32455,9 @@ internal static partial class Program
         AssertTrue(!shellViewModel.IsSavedLabelsShortcutActive, "guide shortcut should deactivate saved-label shortcut");
         AssertTrue(shellViewModel.IsLabelingGuideShortcutActive, "guide shortcut should become active");
         AssertTrue(!shellViewModel.IsClassCatalogShortcutActive, "guide shortcut should deactivate class shortcut");
-        AssertEqual("\uAC00\uC774\uB4DC/\uB3C4\uAD6C", shellViewModel.RightWorkflowViewTitleText);
-        AssertTrue(shellViewModel.RightWorkflowViewDetailText.Contains("\uD15C\uD50C\uB9BF", StringComparison.Ordinal), "guide/tools right workflow detail should mention template and helper tools");
-        AssertEqual("\uB3C4\uAD6C", shellViewModel.RightWorkflowRailCurrentViewText);
+        AssertEqual("\uD604\uC7AC \uC791\uC5C5", shellViewModel.RightWorkflowViewTitleText);
+        AssertTrue(shellViewModel.RightWorkflowViewDetailText.Contains("\uD604\uC7AC \uC774\uBBF8\uC9C0", StringComparison.Ordinal), "current-task right workflow detail should focus on the current image action");
+        AssertEqual("\uC791\uC5C5", shellViewModel.RightWorkflowRailCurrentViewText);
         shellViewModel.SetRightWorkflowShortcut(WpfRightWorkflowShortcut.ClassCatalog);
         AssertTrue(!shellViewModel.IsSavedLabelsShortcutActive, "class shortcut should deactivate saved-label shortcut");
         AssertTrue(!shellViewModel.IsLabelingGuideShortcutActive, "class shortcut should deactivate guide shortcut");
@@ -31463,6 +32534,8 @@ internal static partial class Program
         AssertEqual("\uB77C\uBCA8 \uC791\uC5C5 \uD544\uC694", queueViewModel.CurrentImageTaskTitleText);
         AssertEqual("\uC791\uC5C5", queueViewModel.CurrentImageTaskBadgeText);
         AssertEqual("NeedsLabel", queueViewModel.CurrentImageTaskKey);
+        AssertTrue(queueViewModel.CurrentImageTaskDetailText.Contains("\uB77C\uBCA8\uC744 \uB9CC\uB4E0 \uB4A4", StringComparison.Ordinal), "queue current-task guidance should fit box, polygon, and brush labeling");
+        AssertTrue(!queueViewModel.CurrentImageTaskDetailText.Contains("\uBC15\uC2A4", StringComparison.Ordinal), "queue current-task guidance should not force box wording for segmentation datasets");
         currentTaskItem.QueueBadgeText = "AI 2";
         currentTaskItem.QueueStatusSummary = "AI \uD6C4\uBCF4 2\uAC1C \uAC80\uD1A0 \uD544\uC694";
         currentTaskItem.ReviewState = YoloImageReviewState.Candidate;

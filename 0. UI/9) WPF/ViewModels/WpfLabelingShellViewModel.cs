@@ -85,6 +85,11 @@ namespace MvcVisionSystem
         private string modelCenterDecisionSummaryText = "\uD310\uB2E8: \uD559\uC2B5 \uACB0\uACFC \uBE44\uAD50 \uC804";
         private string modelCenterDecisionEvidenceText = "\uADFC\uAC70: \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uACFC \uD559\uC2B5 \uACB0\uACFC\uB97C \uD655\uC778\uD558\uC138\uC694.";
         private string modelCenterDecisionActionText = "\uC800\uC7A5: \uD6C4\uBCF4 \uAC80\uD1A0 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5";
+        private bool isModelCenterAnomalyEvaluationVisible;
+        private string modelCenterAnomalyEvaluationRecommendationText = string.Empty;
+        private string modelCenterAnomalyEvaluationMetricsText = string.Empty;
+        private string modelCenterAnomalyEvaluationDetailText = string.Empty;
+        private string modelCenterAnomalyEvaluationActionText = string.Empty;
         private string modelRegistrySummaryPrimaryText = "\uD604\uC7AC \uAC80\uC0AC: \uC5C6\uC74C / \uD559\uC2B5 \uD6C4\uBCF4: \uC5C6\uC74C";
         private string modelRegistrySummarySecondaryText = "YOLOv5 / \uCD5C\uADFC \uD559\uC2B5 \uC5C6\uC74C / \uC774\uB825 0\uAC74 / \uD6C4\uBCF4 \uC5C6\uC74C";
         private string modelRegistryProfileText = "\uBAA8\uB378 \uD504\uB85C\uD544: \uBBF8\uC124\uC815";
@@ -486,6 +491,38 @@ namespace MvcVisionSystem
         {
             get => modelCenterDecisionActionText;
             private set => SetProperty(ref modelCenterDecisionActionText, value ?? string.Empty);
+        }
+
+        public string ModelCenterAnomalyEvaluationTitleText => "\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00";
+
+        public bool IsModelCenterAnomalyEvaluationVisible
+        {
+            get => isModelCenterAnomalyEvaluationVisible;
+            private set => SetProperty(ref isModelCenterAnomalyEvaluationVisible, value);
+        }
+
+        public string ModelCenterAnomalyEvaluationRecommendationText
+        {
+            get => modelCenterAnomalyEvaluationRecommendationText;
+            private set => SetProperty(ref modelCenterAnomalyEvaluationRecommendationText, value ?? string.Empty);
+        }
+
+        public string ModelCenterAnomalyEvaluationMetricsText
+        {
+            get => modelCenterAnomalyEvaluationMetricsText;
+            private set => SetProperty(ref modelCenterAnomalyEvaluationMetricsText, value ?? string.Empty);
+        }
+
+        public string ModelCenterAnomalyEvaluationDetailText
+        {
+            get => modelCenterAnomalyEvaluationDetailText;
+            private set => SetProperty(ref modelCenterAnomalyEvaluationDetailText, value ?? string.Empty);
+        }
+
+        public string ModelCenterAnomalyEvaluationActionText
+        {
+            get => modelCenterAnomalyEvaluationActionText;
+            private set => SetProperty(ref modelCenterAnomalyEvaluationActionText, value ?? string.Empty);
         }
 
         public string ModelRegistryTitleText => "\uBAA8\uB378 \uB808\uC9C0\uC2A4\uD2B8\uB9AC";
@@ -1027,7 +1064,7 @@ namespace MvcVisionSystem
             {
                 return shortcut switch
                 {
-                    WpfRightWorkflowShortcut.LabelingGuide => "\uAC00\uC774\uB4DC/\uB3C4\uAD6C",
+                    WpfRightWorkflowShortcut.LabelingGuide => "\uD604\uC7AC \uC791\uC5C5",
                     WpfRightWorkflowShortcut.ClassCatalog => "\uD074\uB798\uC2A4",
                     _ => "\uC800\uC7A5 \uB77C\uBCA8"
                 };
@@ -1054,7 +1091,7 @@ namespace MvcVisionSystem
             {
                 return shortcut switch
                 {
-                    WpfRightWorkflowShortcut.LabelingGuide => "\uD15C\uD50C\uB9BF/\uBCF4\uC870 \uB3C4\uAD6C\uC640 \uB77C\uBCA8\uB9C1 \uC21C\uC11C\uB97C \uD655\uC778\uD569\uB2C8\uB2E4.",
+                    WpfRightWorkflowShortcut.LabelingGuide => "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC5D0\uC11C \uD655\uC778, \uD655\uC815, \uC2A4\uD0B5 \uC911 \uB2E4\uC74C \uD589\uB3D9\uC744 \uC55E\uC5D0 \uBCF4\uC5EC\uC90D\uB2C8\uB2E4.",
                     WpfRightWorkflowShortcut.ClassCatalog => "\uB77C\uBCA8 \uD074\uB798\uC2A4 \uC774\uB984\uACFC \uC0C9\uC0C1\uC744 \uAD00\uB9AC\uD569\uB2C8\uB2E4.",
                     _ => "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 \uC800\uC7A5 \uB77C\uBCA8\uC744 \uD655\uC778\uD558\uACE0 \uC218\uC815\uD569\uB2C8\uB2E4."
                 };
@@ -1081,7 +1118,7 @@ namespace MvcVisionSystem
             {
                 return shortcut switch
                 {
-                    WpfRightWorkflowShortcut.LabelingGuide => "\uB3C4\uAD6C",
+                    WpfRightWorkflowShortcut.LabelingGuide => "\uC791\uC5C5",
                     WpfRightWorkflowShortcut.ClassCatalog => "\uD074\uB798\uC2A4",
                     _ => "\uB77C\uBCA8"
                 };
@@ -1188,6 +1225,34 @@ namespace MvcVisionSystem
         public void ClearModelCenterRecoveryState()
         {
             SetModelCenterRecoveryState(string.Empty, string.Empty, string.Empty);
+        }
+
+        public void SetModelCenterAnomalyEvaluationState(WpfAnomalyClassificationEvaluationPresentation presentation)
+        {
+            if (presentation == null)
+            {
+                ClearModelCenterAnomalyEvaluationState();
+                return;
+            }
+
+            ModelCenterAnomalyEvaluationRecommendationText = (presentation.RecommendationText ?? string.Empty).Trim();
+            ModelCenterAnomalyEvaluationMetricsText = (presentation.MetricsText ?? string.Empty).Trim();
+            ModelCenterAnomalyEvaluationDetailText = (presentation.DetailText ?? string.Empty).Trim();
+            ModelCenterAnomalyEvaluationActionText = (presentation.ActionText ?? string.Empty).Trim();
+            IsModelCenterAnomalyEvaluationVisible =
+                !string.IsNullOrWhiteSpace(ModelCenterAnomalyEvaluationRecommendationText)
+                || !string.IsNullOrWhiteSpace(ModelCenterAnomalyEvaluationMetricsText)
+                || !string.IsNullOrWhiteSpace(ModelCenterAnomalyEvaluationDetailText)
+                || !string.IsNullOrWhiteSpace(ModelCenterAnomalyEvaluationActionText);
+        }
+
+        public void ClearModelCenterAnomalyEvaluationState()
+        {
+            ModelCenterAnomalyEvaluationRecommendationText = string.Empty;
+            ModelCenterAnomalyEvaluationMetricsText = string.Empty;
+            ModelCenterAnomalyEvaluationDetailText = string.Empty;
+            ModelCenterAnomalyEvaluationActionText = string.Empty;
+            IsModelCenterAnomalyEvaluationVisible = false;
         }
 
         public void SetModelCenterModelState(

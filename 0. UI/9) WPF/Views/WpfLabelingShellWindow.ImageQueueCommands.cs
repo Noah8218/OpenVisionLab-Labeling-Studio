@@ -13,11 +13,21 @@ namespace MvcVisionSystem
         private void ExecuteLoadImageRootQueueCommand()
         {
             EnsureProjectSettings();
-            string imageRootPath = global.Data.ProjectSettings.PythonModel.ImageRootPath;
+            string imageRootPath = YoloModelSettingsViewModel?.ImageRootPath?.Trim();
+            if (string.IsNullOrWhiteSpace(imageRootPath))
+            {
+                imageRootPath = global.Data.ProjectSettings.PythonModel.ImageRootPath;
+            }
             if (string.IsNullOrWhiteSpace(imageRootPath) || !Directory.Exists(imageRootPath))
             {
                 AppendLog($"설정된 이미지 루트가 없습니다: {imageRootPath}");
                 return;
+            }
+
+            if (!string.Equals(global.Data.ProjectSettings.PythonModel.ImageRootPath, imageRootPath, StringComparison.OrdinalIgnoreCase))
+            {
+                global.Data.ProjectSettings.PythonModel.ImageRootPath = imageRootPath;
+                SaveCurrentImageRootToRecipe(imageRootPath);
             }
 
             LoadImageQueueFromRoot(imageRootPath, activeImagePath, loadFirstImage: true);

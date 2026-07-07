@@ -315,10 +315,17 @@ namespace MvcVisionSystem
             PopulateTrainingEditorFields();
             RefreshTrainingReadinessPanel(refreshYaml: false);
             RefreshYoloTrainingStepCompletion();
-            FocusClassCatalogTab();
-            if (sampleResult?.Applied == true && Directory.Exists(sampleResult.ImageRootPath))
+            EnterLabelingWorkbenchStartView();
+            string setupImageRootPath = sampleResult?.Applied == true
+                ? sampleResult.ImageRootPath
+                : ResolveActiveDatasetImageRoot();
+            if (Directory.Exists(setupImageRootPath))
             {
-                LoadImageQueueFromRoot(sampleResult.ImageRootPath, string.Empty, loadFirstImage: true);
+                LoadImageQueueFromRoot(setupImageRootPath, string.Empty, loadFirstImage: true);
+            }
+            else
+            {
+                ClearImageQueueAfterDatasetSwitch(setupImageRootPath);
             }
 
             string manifestPath = LabelingDatasetManifestService.GetManifestPath(recipeName);

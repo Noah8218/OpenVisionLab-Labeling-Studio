@@ -52,6 +52,8 @@ namespace MvcVisionSystem
             string task = summary.SelectToken("task")?.Value<string>() ?? "val";
             string promotionDecision = summary.SelectToken("promotion.recommendation")?.Value<string>() ?? string.Empty;
             string promotionReason = summary.SelectToken("promotion.reason")?.Value<string>() ?? string.Empty;
+            IReadOnlyList<string> promotionReasons = ReadPromotionReasons(summary.SelectToken("promotion.reasons"));
+            string candidateConfidenceSweepText = BuildConfidenceSweepText(summary.SelectToken("candidate.confidence.thresholdSweep"));
             Func<string, string> resolveImagePath = BuildImagePathResolver(dataYamlPath, task);
             double threshold = confidenceThreshold
                 ?? summary.SelectToken("uiConfidence")?.Value<double?>()
@@ -67,7 +69,9 @@ namespace MvcVisionSystem
                 summaryJsonPath,
                 resolveImagePath,
                 promotionDecision,
-                promotionReason);
+                promotionReason,
+                promotionReasons,
+                candidateConfidenceSweepText);
         }
 
         public WpfModelComparisonReviewReport BuildFromLabelDirectories(
@@ -80,7 +84,9 @@ namespace MvcVisionSystem
             string sourcePath = "",
             Func<string, string> resolveImagePath = null,
             string promotionDecision = "",
-            string promotionReason = "")
+            string promotionReason = "",
+            IReadOnlyList<string> promotionReasons = null,
+            string candidateConfidenceSweepText = "")
         {
             if (!Directory.Exists(baselineLabelsPath) || !Directory.Exists(candidateLabelsPath))
             {
@@ -105,10 +111,14 @@ namespace MvcVisionSystem
                 : $"\uBAA8\uB378 \uCC28\uC774 \uC608\uC2DC: \uCC28\uC774 {differenceImageCount}\uAC1C \uC774\uBBF8\uC9C0 / \uC608\uC2DC {examples.Count}\uAC1C";
             string detail =
                 $"\uAE30\uC874 \uBAA8\uB378 {baselineCount}\uAC1C, \uC0C8 \uBAA8\uB378 {candidateCount}\uAC1C, \uC2E0\uB8B0\uB3C4 {confidenceThreshold.ToString("P0", CultureInfo.CurrentCulture)}, \uACB9\uCE68 {iouThreshold.ToString("P0", CultureInfo.CurrentCulture)}";
-            string promotionDetail = BuildPromotionDetailText(promotionDecision, promotionReason);
+            string promotionDetail = BuildPromotionDetailText(promotionDecision, promotionReason, promotionReasons);
             if (!string.IsNullOrWhiteSpace(promotionDetail))
             {
                 detail += " / " + promotionDetail;
+            }
+            if (!string.IsNullOrWhiteSpace(candidateConfidenceSweepText))
+            {
+                detail += " / " + candidateConfidenceSweepText;
             }
 
             return new WpfModelComparisonReviewReport(
@@ -119,7 +129,28 @@ namespace MvcVisionSystem
                 examples: examples);
         }
 
-        private static string BuildPromotionDetailText(string decision, string reason)
+        private static IReadOnlyList<string> ReadPromotionReasons(JToken token)
+        {
+            if (token == null)
+            {
+                return Array.Empty<string>();
+            }
+
+            if (token is JArray array)
+            {
+                return array
+                    .Values<string>()
+                    .Where(item => !string.IsNullOrWhiteSpace(item))
+                    .ToArray();
+            }
+
+            string reason = token.Value<string>();
+            return string.IsNullOrWhiteSpace(reason)
+                ? Array.Empty<string>()
+                : new[] { reason };
+        }
+
+        private static string BuildPromotionDetailText(string decision, string reason, IReadOnlyList<string> reasons = null)
         {
             if (string.IsNullOrWhiteSpace(decision))
             {
@@ -133,10 +164,23 @@ namespace MvcVisionSystem
                 "review" => "\uC608\uC2DC \uAC80\uD1A0",
                 _ => "\uAD50\uCCB4 \uD310\uB2E8"
             };
-            string reasonText = BuildPromotionReasonText(reason);
-            return string.IsNullOrWhiteSpace(reasonText)
+            List<string> reasonTexts = (reasons ?? Array.Empty<string>())
+                .Select(BuildPromotionReasonText)
+                .Where(item => !string.IsNullOrWhiteSpace(item))
+                .Distinct(StringComparer.Ordinal)
+                .ToList();
+            if (reasonTexts.Count == 0 && !string.IsNullOrWhiteSpace(reason))
+            {
+                string reasonText = BuildPromotionReasonText(reason);
+                if (!string.IsNullOrWhiteSpace(reasonText))
+                {
+                    reasonTexts.Add(reasonText);
+                }
+            }
+
+            return reasonTexts.Count == 0
                 ? label
-                : label + ": " + reasonText;
+                : label + ": " + string.Join(" / ", reasonTexts);
         }
 
         private static string BuildPromotionReasonText(string reason)
@@ -148,6 +192,13 @@ namespace MvcVisionSystem
 
             string trimmed = reason.Trim();
             string normalized = trimmed.ToLowerInvariant();
+            if (normalized.Contains("improves map", StringComparison.Ordinal)
+                && normalized.Contains("does not regress precision", StringComparison.Ordinal)
+                && normalized.Contains("recall", StringComparison.Ordinal))
+            {
+                return "\uC0C8 \uBAA8\uB378\uC774 mAP\uB97C \uAC1C\uC120\uD588\uACE0 \uC815\uBC00\uB3C4/\uC7AC\uD604\uC728\uC774 \uB0AE\uC544\uC9C0\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uBE44\uAD50 \uC608\uC2DC\uB97C \uD655\uC778\uD55C \uB4A4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694.";
+            }
+
             if (normalized.Contains("precision", StringComparison.Ordinal)
                 && normalized.Contains("below", StringComparison.Ordinal)
                 && normalized.Contains("minimum", StringComparison.Ordinal))
@@ -193,6 +244,36 @@ namespace MvcVisionSystem
                         threshold);
             }
 
+            if (normalized.Contains("positive segmentation labels", StringComparison.Ordinal)
+                && normalized.Contains("positive mask labels", StringComparison.Ordinal))
+            {
+                MatchCollection numbers = Regex.Matches(trimmed, @"[-+]?\d+(?:\.\d+)?");
+                string current = numbers.Count > 0 ? numbers[0].Value : string.Empty;
+                string minimum = numbers.Count > 1 ? numbers[1].Value : string.Empty;
+                return string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(minimum)
+                    ? "\uCD5C\uC885 \uAC80\uC99D \uC591\uC131 \uB9C8\uC2A4\uD06C \uB77C\uBCA8\uC774 \uAD50\uCCB4 \uD310\uB2E8\uC5D0 \uBD80\uC871\uD569\uB2C8\uB2E4."
+                    : string.Format(
+                        CultureInfo.CurrentCulture,
+                        "\uCD5C\uC885 \uAC80\uC99D \uC591\uC131 \uB9C8\uC2A4\uD06C \uB77C\uBCA8\uC774 {0}\uAC1C\uBFD0\uC785\uB2C8\uB2E4. \uBAA8\uB378 \uAD50\uCCB4 \uC804\uC5D0 \uCD5C\uC18C {1}\uAC1C\uAE4C\uC9C0 \uD655\uBCF4\uD558\uC138\uC694.",
+                        current,
+                        minimum);
+            }
+
+            if (normalized.Contains("positive segmentation images", StringComparison.Ordinal)
+                && normalized.Contains("positive mask images", StringComparison.Ordinal))
+            {
+                MatchCollection numbers = Regex.Matches(trimmed, @"[-+]?\d+(?:\.\d+)?");
+                string current = numbers.Count > 0 ? numbers[0].Value : string.Empty;
+                string minimum = numbers.Count > 1 ? numbers[1].Value : string.Empty;
+                return string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(minimum)
+                    ? "\uCD5C\uC885 \uAC80\uC99D \uC591\uC131 \uB9C8\uC2A4\uD06C \uC774\uBBF8\uC9C0\uAC00 \uAD50\uCCB4 \uD310\uB2E8\uC5D0 \uBD80\uC871\uD569\uB2C8\uB2E4."
+                    : string.Format(
+                        CultureInfo.CurrentCulture,
+                        "\uCD5C\uC885 \uAC80\uC99D \uC591\uC131 \uB9C8\uC2A4\uD06C \uC774\uBBF8\uC9C0\uAC00 {0}\uC7A5\uBFD0\uC785\uB2C8\uB2E4. \uBAA8\uB378 \uAD50\uCCB4 \uC804\uC5D0 \uCD5C\uC18C {1}\uC7A5\uAE4C\uC9C0 \uD655\uBCF4\uD558\uC138\uC694.",
+                        current,
+                        minimum);
+            }
+
             return trimmed.All(c => c <= 127)
                 ? "\uBAA8\uB378 \uAD50\uCCB4 \uADFC\uAC70\uB97C \uB354 \uD655\uC778\uD55C \uB4A4 \uD310\uB2E8\uD558\uC138\uC694."
                 : trimmed;
@@ -203,6 +284,35 @@ namespace MvcVisionSystem
             return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double number)
                 ? number.ToString("P1", CultureInfo.CurrentCulture)
                 : string.Empty;
+        }
+
+        private static string BuildConfidenceSweepText(JToken token)
+        {
+            if (!(token is JArray array))
+            {
+                return string.Empty;
+            }
+
+            List<string> items = new List<string>();
+            foreach (JToken item in array)
+            {
+                double? confidence = item.SelectToken("confidence")?.Value<double?>();
+                int? count = item.SelectToken("uiCandidateCount")?.Value<int?>();
+                if (!confidence.HasValue || !count.HasValue)
+                {
+                    continue;
+                }
+
+                items.Add(string.Format(
+                    CultureInfo.CurrentCulture,
+                    "{0} {1}\uAC1C",
+                    confidence.Value.ToString("P1", CultureInfo.CurrentCulture),
+                    count.Value));
+            }
+
+            return items.Count == 0
+                ? string.Empty
+                : "\uAC80\uD1A0 \uAE30\uC900\uBCC4 \uD6C4\uBCF4: " + string.Join(" / ", items);
         }
 
         private static List<WpfModelComparisonReviewExample> BuildExamples(
@@ -411,6 +521,11 @@ namespace MvcVisionSystem
             if (TryParseSegmentationDetection(parts, classId, classNames, out detection))
             {
                 return true;
+            }
+
+            if (parts.Length > 6)
+            {
+                return false;
             }
 
             if (parts.Length < 5

@@ -110,8 +110,18 @@ namespace MvcVisionSystem
 
         private void ExecuteLabelingModeCommand()
         {
+            EnterLabelingMode(openGuidePanel: true);
+            AppendLog("\uB77C\uBCA8\uB9C1 \uBAA8\uB4DC\uB85C \uC804\uD658\uD588\uC2B5\uB2C8\uB2E4. \uCEA0\uBC84\uC2A4\uB294 \uB77C\uBCA8\uB9CC \uD45C\uC2DC\uD569\uB2C8\uB2E4.");
+        }
+
+        private void EnterLabelingMode(bool openGuidePanel)
+        {
             SetWorkflowMode(WorkflowMode.Labeling);
-            FocusAnnotationToolsTab();
+            if (openGuidePanel)
+            {
+                FocusAnnotationToolsTab();
+            }
+
             if (MainCanvasViewModel.TeachingCommand?.CanExecute(null) == true)
             {
                 if (!MainCanvasViewModel.IsTeachingMode)
@@ -119,8 +129,6 @@ namespace MvcVisionSystem
                     MainCanvasViewModel.TeachingCommand.Execute(null);
                 }
             }
-
-            AppendLog("\uB77C\uBCA8\uB9C1 \uBAA8\uB4DC\uB85C \uC804\uD658\uD588\uC2B5\uB2C8\uB2E4. \uCEA0\uBC84\uC2A4\uB294 \uB77C\uBCA8\uB9CC \uD45C\uC2DC\uD569\uB2C8\uB2E4.");
         }
 
         private void ExecuteInferenceModeCommand()

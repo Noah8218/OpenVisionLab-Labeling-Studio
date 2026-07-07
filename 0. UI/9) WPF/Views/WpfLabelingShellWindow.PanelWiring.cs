@@ -62,6 +62,7 @@ namespace MvcVisionSystem
 
         private void ShowSavedLabelsWorkflowView()
         {
+            SetWorkflowMode(WorkflowMode.Labeling);
             ShellViewModel?.SetWorkflowStage(WpfShellWorkflowStage.Labeling);
             ShellViewModel?.SetRightWorkflowShortcut(WpfRightWorkflowShortcut.SavedLabels);
             ShellViewModel?.SetRightWorkflowDockExpanded(true);
@@ -70,6 +71,7 @@ namespace MvcVisionSystem
 
         private void ShowCandidateReviewWorkflowView()
         {
+            SetWorkflowMode(WorkflowMode.Inference);
             ShellViewModel?.SetWorkflowStage(WpfShellWorkflowStage.Inference);
             ShellViewModel?.SetRightWorkflowDockExpanded(true);
             SelectRightWorkflowView(CandidatesReviewTab);
@@ -77,6 +79,15 @@ namespace MvcVisionSystem
 
         private void ShowGuideToolsWorkflowView(WpfShellWorkflowStage stage)
         {
+            if (stage == WpfShellWorkflowStage.Dataset)
+            {
+                LearningWorkflowViewModel?.ShowDatasetOnboarding();
+            }
+            else if (stage == WpfShellWorkflowStage.Labeling)
+            {
+                LearningWorkflowViewModel?.ShowLabelingTask();
+            }
+
             ShellViewModel?.SetWorkflowStage(stage);
             ShellViewModel?.SetRightWorkflowShortcut(stage == WpfShellWorkflowStage.Labeling
                 || stage == WpfShellWorkflowStage.Dataset
