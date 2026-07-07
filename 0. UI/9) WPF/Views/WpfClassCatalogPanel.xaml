@@ -137,6 +137,7 @@
                            FontFamily="Segoe UI"
                            FontSize="11"
                            TextWrapping="Wrap"
+                           Visibility="Collapsed"
                            Margin="0,4,0,0" />
                 <TextBlock x:Name="ClassCatalogSummaryText"
                            AutomationProperties.AutomationId="ClassCatalogSummaryText"
@@ -163,6 +164,7 @@
                            FontFamily="Segoe UI"
                            FontSize="10.5"
                            TextWrapping="Wrap"
+                           Visibility="Collapsed"
                            Margin="0,2,0,0" />
                 <TextBlock x:Name="ClassCatalogActionText"
                            AutomationProperties.AutomationId="ClassCatalogActionText"
@@ -172,6 +174,7 @@
                            FontSize="10.5"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
+                           Visibility="Collapsed"
                            Margin="0,3,0,0" />
             </StackPanel>
         </Border>

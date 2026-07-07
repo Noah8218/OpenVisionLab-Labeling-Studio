@@ -10013,3 +10013,27 @@ Last updated: 2026-07-07
   - This is a WPF layout/presentation slice only. It does not change dataset creation/opening, annotation tool selection, template labeling commands, training, inference, or Viewer/OpenGL/ROI/brush/eraser paths.
 - Next:
   - Continue with class setup and model/training panel density, then decide whether any collapsed first-run shortcut needs an explicit expand affordance based on real operator use.
+
+## 2026-07-07 Class setup left panel compact layout
+
+- Self-evaluation:
+  - The class setup panel already exposed the name input, add/rename/delete buttons, color expander, and class list, but the guide card still repeated details that were available through the current class summary and controls.
+  - The smallest safe change was to keep the guide title, class count/selection summary, current drawing class title, edit controls, and class list visible while hiding repeated explanatory detail lines by default.
+- Changes:
+  - `WpfClassCatalogPanel.xaml` now collapses the class guide detail, current drawing class detail, and class next-action detail text by default.
+  - Class name input, add/rename/delete commands, color expander, edit status, and class list remain visible and bound.
+  - `--wpf-class-catalog-panel` now locks the compact class-panel visibility contract.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-class-catalog-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab classes --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-class-panel-compact-after-1920.png` passed.
+- Capture:
+  - Before: `artifacts\ui\wpf-class-panel-compact-before-1920.png`.
+  - After: `artifacts\ui\wpf-class-panel-compact-after-1920.png`.
+  - Visual comparison confirmed the class edit controls and recipe class list start higher at 1920x1080.
+- Remaining risk:
+  - This is a WPF layout/presentation slice only. It does not change class add/rename/delete behavior, class color application, label saving, training, inference, or Viewer/OpenGL/ROI/brush/eraser paths.
+- Next:
+  - Continue with model/training panel density, then reassess whether the left workflow panel still needs a stronger show-more/less affordance.

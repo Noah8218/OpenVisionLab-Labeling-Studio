@@ -29959,14 +29959,17 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "ClassCatalogGuideTitleText", "Text", "ClassCatalogGuideTitleText");
         AssertTrue(guideDetailText != null, "WPF class catalog guide detail was not found");
         AssertNamedXamlBinding(xaml, xName, "ClassCatalogGuideDetailText", "Text", "ClassCatalogGuideDetailText");
+        AssertNamedXamlValue(xaml, xName, "ClassCatalogGuideDetailText", "Visibility", "Collapsed");
         AssertTrue(guideSummaryText != null, "WPF class catalog summary was not found");
         AssertNamedXamlBinding(xaml, xName, "ClassCatalogSummaryText", "Text", "ClassCatalogSummaryText");
         AssertTrue(currentDrawingClassTitleText != null, "WPF current drawing class title was not found");
         AssertNamedXamlBinding(xaml, xName, "CurrentDrawingClassTitleText", "Text", "CurrentDrawingClassTitleText");
         AssertTrue(currentDrawingClassDetailText != null, "WPF current drawing class detail was not found");
         AssertNamedXamlBinding(xaml, xName, "CurrentDrawingClassDetailText", "Text", "CurrentDrawingClassDetailText");
+        AssertNamedXamlValue(xaml, xName, "CurrentDrawingClassDetailText", "Visibility", "Collapsed");
         AssertTrue(guideActionText != null, "WPF class catalog next action was not found");
         AssertNamedXamlBinding(xaml, xName, "ClassCatalogActionText", "Text", "ClassCatalogActionText");
+        AssertNamedXamlValue(xaml, xName, "ClassCatalogActionText", "Visibility", "Collapsed");
         AssertTrue(classNameBox != null, "WPF class name editor was not found in class catalog XAML");
         AssertTrue(classNameBox.Attribute("KeyDown") == null, "WPF class name editor should route Enter through a behavior command");
         string classCatalogXamlSource = File.ReadAllText(xamlPath);
