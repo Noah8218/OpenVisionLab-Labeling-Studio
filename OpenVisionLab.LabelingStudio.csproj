@@ -12,7 +12,6 @@
     <AssemblyName>OpenVisionLab.LabelingStudio</AssemblyName>
     <ApplicationIcon>lens.ico</ApplicationIcon>
     <Platforms>AnyCPU;x86;x64</Platforms>
-    <LibraryNoahSourceRoot Condition="'$(LibraryNoahSourceRoot)' == ''">$(MSBuildProjectDirectory)\..\Library-Noah</LibraryNoahSourceRoot>
     <OpenVisionLabSourceRoot Condition="'$(OpenVisionLabSourceRoot)' == ''">$(MSBuildProjectDirectory)\OpenVisionLab</OpenVisionLabSourceRoot>
     <PlatformTarget>x64</PlatformTarget>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
@@ -57,6 +56,14 @@
       <HintPath>dll\CircularProgressBar.dll</HintPath>
       <Private>True</Private>
     </Reference>
+    <Reference Include="Lib.Common">
+      <HintPath>dll\Lib.Common.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
+    <Reference Include="Lib.OpenCV">
+      <HintPath>dll\Lib.OpenCV.dll</HintPath>
+      <Private>True</Private>
+    </Reference>
     <Reference Include="OpenVisionLab.Logging" Condition="!Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Logging\OpenVisionLab.Logging.csproj')">
       <HintPath>dll\OpenVisionLab.Logging.dll</HintPath>
       <Private>True</Private>
@@ -78,11 +85,11 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="OpenCvSharp">
-      <HintPath>$(LibraryNoahSourceRoot)\Lib.Common\DLL\OpenCvSharp.dll</HintPath>
+      <HintPath>$(OpenVisionLabSourceRoot)\dll\OpenCVSharp\OpenCvSharp.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="OpenCvSharp.Extensions">
-      <HintPath>$(LibraryNoahSourceRoot)\Lib.Common\DLL\OpenCvSharp.Extensions.dll</HintPath>
+      <HintPath>$(OpenVisionLabSourceRoot)\dll\OpenCVSharp\OpenCvSharp.Extensions.dll</HintPath>
       <Private>True</Private>
     </Reference>
     <Reference Include="SharpGL" Condition="Exists('$(OpenVisionLabSourceRoot)\dll\SharpGL\SharpGL.dll')">
@@ -118,9 +125,6 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="$(LibraryNoahSourceRoot)\Lib.Common\Lib.Common.csproj" />
-    <ProjectReference Include="$(LibraryNoahSourceRoot)\Lib.OpenCV\Lib.OpenCV.csproj"
-                      Condition="Exists('$(LibraryNoahSourceRoot)\Lib.OpenCV\Lib.OpenCV.csproj')" />
     <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Mvvm\OpenVisionLab.Mvvm.csproj"
                       Condition="Exists('$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Mvvm\OpenVisionLab.Mvvm.csproj')" />
     <ProjectReference Include="$(OpenVisionLabSourceRoot)\Library\OpenVisionLab.Logging\OpenVisionLab.Logging.csproj"
@@ -162,15 +166,15 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       <CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
     </None>
-    <Content Include="$(LibraryNoahSourceRoot)\Lib.Common\DLL\OpenCvSharp.dll">
+    <Content Include="$(OpenVisionLabSourceRoot)\dll\OpenCVSharp\OpenCvSharp.dll">
       <Link>OpenCvSharp.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="$(LibraryNoahSourceRoot)\Lib.Common\DLL\OpenCvSharp.Extensions.dll">
+    <Content Include="$(OpenVisionLabSourceRoot)\dll\OpenCVSharp\OpenCvSharp.Extensions.dll">
       <Link>OpenCvSharp.Extensions.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
-    <Content Include="$(LibraryNoahSourceRoot)\Lib.Common\DLL\OpenCvSharpExtern.dll">
+    <Content Include="$(OpenVisionLabSourceRoot)\dll\OpenCVSharp\OpenCvSharpExtern.dll">
       <Link>OpenCvSharpExtern.dll</Link>
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>

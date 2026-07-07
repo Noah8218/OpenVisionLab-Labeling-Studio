@@ -7,7 +7,6 @@
     <UseWPF>true</UseWPF>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>disable</Nullable>
-    <LibraryNoahSourceRoot Condition="'$(LibraryNoahSourceRoot)' == ''">$(MSBuildProjectDirectory)\..\..\..\Library-Noah</LibraryNoahSourceRoot>
     <OpenVisionLabSourceRoot Condition="'$(OpenVisionLabSourceRoot)' == ''">$(MSBuildProjectDirectory)\..\..\OpenVisionLab</OpenVisionLabSourceRoot>
   </PropertyGroup>
 
@@ -22,7 +21,7 @@
       <Private>True</Private>
     </Reference>
     <Reference Include="OpenCvSharp">
-      <HintPath>$(LibraryNoahSourceRoot)\Lib.Common\DLL\OpenCvSharp.dll</HintPath>
+      <HintPath>$(OpenVisionLabSourceRoot)\dll\OpenCVSharp\OpenCvSharp.dll</HintPath>
       <Private>True</Private>
     </Reference>
   </ItemGroup>

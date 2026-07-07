@@ -25793,31 +25793,45 @@ internal static partial class Program
     {
         string root = FindRepositoryRoot();
         string readmePath = Path.Combine(root, "README.md");
+        string appProjectPath = Path.Combine(root, "OpenVisionLab.LabelingStudio.csproj");
+        string testProjectPath = Path.Combine(root, "tests", "LabelingApplication.Tests", "LabelingApplication.Tests.csproj");
+        string displayCoreProjectPath = Path.Combine(root, "OpenVisionLab", "Library", "OpenVisionLab.Display.Core", "OpenVisionLab.Display.Core.csproj");
         string codeStructurePath = Path.Combine(root, "docs", "CODE_STRUCTURE.md");
         string directionPath = Path.Combine(root, "docs", "LABELING_PROGRAM_DIRECTION.md");
         string yoloWorkflowPath = Path.Combine(root, "docs", "YOLOV5_TRAINING_RESULT_WORKFLOW.md");
         string segmentationWorkflowPath = Path.Combine(root, "docs", "SEGMENTATION_UX_COMPLETION.md");
         string anomalyWorkflowPath = Path.Combine(root, "docs", "ANOMALY_DETECTION_FLOW.md");
         string completenessAuditPath = Path.Combine(root, "docs", "LABELING_STUDIO_COMPLETENESS_AUDIT.md");
+        string releaseNotesPath = Path.Combine(root, "RELEASE_NOTES.md");
+        string ciWorkflowPath = Path.Combine(root, ".github", "workflows", "ci.yml");
         string tutorialReadmePath = Path.Combine(root, "docs", "tutorial", "README.md");
         string tutorialHtmlPath = Path.Combine(root, "docs", "tutorial", "labeling-workbench-tutorial.html");
         string tutorialStandaloneHtmlPath = Path.Combine(root, "docs", "tutorial", "labeling-workbench-tutorial-standalone.html");
 
+        AssertTrue(File.Exists(Path.Combine(root, "dll", "Lib.Common.dll")), "Lib.Common should be available as a checked-in DLL");
+        AssertTrue(File.Exists(Path.Combine(root, "dll", "Lib.OpenCV.dll")), "Lib.OpenCV should be available as a checked-in DLL");
         AssertTrue(File.Exists(yoloWorkflowPath), "YOLOv5 training/result workflow document should exist");
         AssertTrue(File.Exists(segmentationWorkflowPath), "segmentation UX completion document should exist");
         AssertTrue(File.Exists(anomalyWorkflowPath), "anomaly detection flow document should exist");
         AssertTrue(File.Exists(completenessAuditPath), "product completeness audit document should exist");
+        AssertTrue(File.Exists(releaseNotesPath), "release notes document should exist");
+        AssertTrue(File.Exists(ciWorkflowPath), "CI workflow should exist");
         AssertTrue(File.Exists(tutorialReadmePath), "tutorial README should exist");
         AssertTrue(File.Exists(tutorialHtmlPath), "tutorial HTML guide should exist");
         AssertTrue(File.Exists(tutorialStandaloneHtmlPath), "standalone tutorial HTML guide should exist");
 
         string readme = File.ReadAllText(readmePath, Encoding.UTF8);
+        string appProject = File.ReadAllText(appProjectPath, Encoding.UTF8);
+        string testProject = File.ReadAllText(testProjectPath, Encoding.UTF8);
+        string displayCoreProject = File.ReadAllText(displayCoreProjectPath, Encoding.UTF8);
         string codeStructure = File.ReadAllText(codeStructurePath, Encoding.UTF8);
         string direction = File.ReadAllText(directionPath, Encoding.UTF8);
         string yoloWorkflow = File.ReadAllText(yoloWorkflowPath, Encoding.UTF8);
         string segmentationWorkflow = File.ReadAllText(segmentationWorkflowPath, Encoding.UTF8);
         string anomalyWorkflow = File.ReadAllText(anomalyWorkflowPath, Encoding.UTF8);
         string completenessAudit = File.ReadAllText(completenessAuditPath, Encoding.UTF8);
+        string releaseNotes = File.ReadAllText(releaseNotesPath, Encoding.UTF8);
+        string ciWorkflow = File.ReadAllText(ciWorkflowPath, Encoding.UTF8);
         string tutorialReadme = File.ReadAllText(tutorialReadmePath, Encoding.UTF8);
         string tutorialHtml = File.ReadAllText(tutorialHtmlPath, Encoding.UTF8);
         string tutorialStandaloneHtml = File.ReadAllText(tutorialStandaloneHtmlPath, Encoding.UTF8);
@@ -25825,6 +25839,24 @@ internal static partial class Program
         AssertTrue(readme.Contains("YOLOV5_TRAINING_RESULT_WORKFLOW.md", StringComparison.Ordinal), "README should link the YOLOv5 workflow criteria");
         AssertTrue(readme.Contains("SEGMENTATION_UX_COMPLETION.md", StringComparison.Ordinal), "README should link the segmentation UX criteria");
         AssertTrue(readme.Contains("ANOMALY_DETECTION_FLOW.md", StringComparison.Ordinal), "README should link the anomaly detection criteria");
+        AssertTrue(readme.Contains("## 1분 요약", StringComparison.Ordinal), "README should include a one-minute summary section");
+        AssertTrue(readme.Contains("## 설치", StringComparison.Ordinal), "README should include installation prerequisites");
+        AssertTrue(readme.Contains("## 샘플 데이터", StringComparison.Ordinal), "README should include sample data guidance");
+        AssertTrue(readme.Contains("## Build Command", StringComparison.Ordinal), "README should include build commands");
+        AssertTrue(readme.Contains("## Smoke Command", StringComparison.Ordinal), "README should include smoke commands");
+        AssertTrue(readme.Contains("## CI", StringComparison.Ordinal), "README should include CI status");
+        AssertTrue(readme.Contains("## Release Notes", StringComparison.Ordinal), "README should link release notes");
+        AssertTrue(readme.Contains("## Roadmap", StringComparison.Ordinal), "README should include a roadmap");
+        AssertTrue(readme.Contains("## Known Limitations", StringComparison.Ordinal), "README should include known limitations");
+        AssertTrue(releaseNotes.Contains("## Unreleased", StringComparison.Ordinal), "release notes should keep an Unreleased section");
+        AssertTrue(ciWorkflow.Contains("Check required README sections", StringComparison.Ordinal), "CI workflow should check the README contract");
+        AssertTrue(ciWorkflow.Contains("dotnet build .\\tests\\LabelingApplication.Tests\\LabelingApplication.Tests.csproj", StringComparison.Ordinal), "CI workflow should run the test-project build");
+        AssertTrue(ciWorkflow.Contains("--priority-workflow-docs", StringComparison.Ordinal), "CI workflow should run the docs smoke");
+        AssertTrue(appProject.Contains("dll\\Lib.Common.dll", StringComparison.Ordinal), "app project should reference Lib.Common by checked-in DLL");
+        AssertTrue(appProject.Contains("dll\\Lib.OpenCV.dll", StringComparison.Ordinal), "app project should reference Lib.OpenCV by checked-in DLL");
+        AssertTrue(!appProject.Contains("LibraryNoahSourceRoot", StringComparison.Ordinal), "app project should not depend on sibling Library-Noah source");
+        AssertTrue(!testProject.Contains("LibraryNoahSourceRoot", StringComparison.Ordinal), "test project should not depend on sibling Library-Noah source");
+        AssertTrue(!displayCoreProject.Contains("LibraryNoahSourceRoot", StringComparison.Ordinal), "display core project should not depend on sibling Library-Noah source");
         AssertTrue(codeStructure.Contains("OpenVisionLab Labeling Studio", StringComparison.Ordinal), "code structure should use the public product name");
         AssertTrue(!codeStructure.Contains("`Labelling_Application`", StringComparison.Ordinal), "code structure should not present the repository folder name as the product identity");
         AssertTrue(codeStructure.Contains("docs/YOLOV5_TRAINING_RESULT_WORKFLOW.md", StringComparison.Ordinal), "code structure should route priority 3 to the YOLOv5 workflow criteria");
@@ -25856,6 +25888,7 @@ internal static partial class Program
         var publicDocuments = new Dictionary<string, string>
         {
             ["README.md"] = readme,
+            ["RELEASE_NOTES.md"] = releaseNotes,
             ["docs/tutorial/README.md"] = tutorialReadme,
             ["docs/tutorial/labeling-workbench-tutorial.html"] = tutorialHtml,
             ["docs/tutorial/labeling-workbench-tutorial-standalone.html"] = tutorialStandaloneHtml

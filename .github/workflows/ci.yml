@@ -1,0 +1,59 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  build:
+    name: Build and smoke
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Check required README sections
+        shell: pwsh
+        run: |
+          $readme = Get-Content README.md -Raw -Encoding UTF8
+          $required = @(
+            '## 1분 요약',
+            '## 설치',
+            '## 실행',
+            '## 샘플 데이터',
+            '## Build Command',
+            '## Smoke Command',
+            '## CI',
+            '## Release Notes',
+            '## Roadmap',
+            '## Known Limitations'
+          )
+          foreach ($section in $required) {
+            if (-not $readme.Contains($section)) {
+              throw "README is missing required section: $section"
+            }
+          }
+          if (-not (Test-Path RELEASE_NOTES.md)) {
+            throw "RELEASE_NOTES.md is missing"
+          }
+
+      - name: Build tests
+        shell: pwsh
+        run: dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+
+      - name: Smoke docs
+        shell: pwsh
+        run: dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs
+
+      - name: Whitespace check
+        shell: pwsh
+        run: git diff --check
