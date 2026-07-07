@@ -2,6 +2,33 @@
 
 This document records code paths that have already been performance- or UX-verified and should not be casually refactored. Treat these areas as protected product behavior: change them only when the user reports a new issue in that exact path, or when a focused verification gate proves the change is necessary.
 
+## WPF Visual Smoke Capture
+
+Status: stable for current-source WPF render capture as of 2026-07-07.
+
+Protected behavior:
+
+- `--wpf-visual-smoke` should render the WPF window visual tree to PNG, not copy desktop pixels with `CopyFromScreen`.
+- Captures must remain usable when the desktop is locked, obscured, or focused elsewhere.
+- 1920x1080 visual smoke requests should produce a 1920x1080 PNG when the WPF window is sized to that capture target.
+- Treat this as current-source WPF view evidence, not direct EXE UI Automation evidence.
+
+Required gates before reporting this path complete again:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab candidates --width 1920 --height 1080 --output .\artifacts\ui\wpf-render-capture-candidate-review-after-1920.png
+git diff --check
+```
+
+Latest evidence:
+
+```text
+WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\wpf-render-capture-candidate-review-after-1920.png
+IMAGE_SIZE=1920x1080
+Manual image inspection: WPF Candidate Review screen, not Windows lock/spotlight screen.
+```
+
 ## Segmentation Label Navigation Auto-Save
 
 Status: stable for focused WPF SEG navigation coverage as of 2026-07-07.
@@ -296,8 +323,10 @@ Protected behavior:
 - Segmentation readiness diagnostics must warn when the held-out test split contains OK/background images but no positive NG mask image.
 - Comparison summaries and reports must include a promotion recommendation. Low-precision candidates, currently below `0.10`, must be marked `hold` so they are not mistaken for production-ready promotion evidence.
 - Comparison summaries and reports must include held-out evidence counts, and promotion must stay `hold` below the 10 labeled-image recommendation even if the candidate metrics improve.
+- Promotion must stay `hold` when the candidate produces zero UI-threshold candidates at the configured UI confidence, even if precision and mAP improve.
 - The WPF Candidate Review model-comparison detail must surface the promotion recommendation from `comparison-summary.json`.
 - The WPF Candidate Review model-comparison detail must not expose raw script promotion reasons such as `Candidate precision`; low-precision hold reasons should be translated into operator-facing Korean while preserving the evidence values.
+- The WPF Candidate Review model-comparison detail should translate weak held-out evidence and zero UI-threshold candidate hold reasons into operator-facing Korean while preserving counts/confidence values.
 
 Required gates before reporting a change complete:
 
@@ -325,6 +354,9 @@ PASS YOLOv8 SEG same-class true-test comparison wrote comparison-summary.json fo
 PASS YOLOv8 SEG promotion recommendation comparison wrote `promotion.recommendation=hold` for the same 30ep/img128 candidate because precision=0.016 is below the 0.10 minimum.
 PASS YOLOv8 SEG promotion evidence count guard keeps `promotion.recommendation=hold` below 10 held-out labeled images and writes `evidence.comparisonLabelCount` to `comparison-summary.json`.
 PASS WPF model comparison review service translates low-precision promotion hold reasons and blocks raw `Candidate precision` text from Candidate Review detail.
+PASS YOLOv8 SEG userseed true-test comparison wrote precision=0.121, recall=0.333, mAP50=0.223, mAP50-95=0.064, UI candidates=0, and `promotion.recommendation=hold` because real held-out evidence is 9/10.
+PASS YOLOv8 SEG zero-UI-candidate guard fixture wrote evidence=10/10, UI candidates=0, and `promotion.recommendation=hold` with the UI-threshold candidate reason.
+PASS WPF model comparison review service translates weak-evidence and zero-UI-candidate promotion hold reasons without exposing raw script text.
 ```
 
 ## YOLOv8 Segmentation OK/NG Local Folder Dataset Prep
@@ -1576,6 +1608,14 @@ Model-center current-inspection reachability is covered by `--wpf-status-panels`
 2026-07-06 YOLOv8 SEG readiness coverage-warning contract: `YoloDatasetDiagnosticsService.BuildQualityWarnings` should warn, without blocking training, when a segmentation-purpose dataset has fewer than five positive train or valid mask images, or when OK/background empty labels are at least three times the positive mask images in either split. The warnings use `YoloDatasetStatistics` split-level empty-label counts and flow through the existing WPF readiness/dashboard warning path. This is dataset readiness diagnostics only and does not run training, judge accuracy, change WPF layout, or touch Viewer/OpenGL/ROI/brush/eraser hot paths. Covered by isolated test build, `--dataset-readiness-purpose`, `--wpf-training-readiness-presentation`, and `--wpf-training-dashboard-quality`.
 
 2026-07-06 public tutorial screenshot contract: README and tutorial screenshots that represent the current workflow should be generated from current 1920x1080 WPF visual-smoke captures, and public screenshot path fields should be redacted to non-local placeholder text. The standalone tutorial HTML should embed the refreshed PNGs as base64 rather than retaining stale image data. This is documentation evidence only; it does not change product runtime behavior. Covered by isolated test build, WPF visual-smoke captures under `artifacts\ui\tutorial-refresh`, `--priority-workflow-docs`, standalone image-embed count checks, and `git diff --check`.
+
+2026-07-07 image queue compact layout contract: the WPF image queue should prioritize the file list over duplicated secondary controls. The repeated folder path row and quick-filter shortcut grid stay collapsed by default because the primary folder buttons plus status filter combo/search already cover normal operation. The queue column may use 320px at 1920x1080, but must not cause canvas toolbar wrapping. This is WPF layout only and does not change queue loading, keyboard navigation, label persistence, Viewer/OpenGL/ROI/brush/eraser paths, training, or inference execution. Covered by isolated test build, `--wpf-labeling-shell`, `--wpf-image-queue-status`, `--wpf-image-queue-keyboard-navigation`, `--wpf-image-queue-click-load-path`, `--wpf-image-queue-click-loads-canvas`, 1920x1080 before/after visual smoke captures under `artifacts\ui`, and `git diff --check`.
+
+2026-07-07 AI candidate left-panel compact layout contract: the WPF Candidate Review panel should keep operator-critical state and actions visible while hiding repeated explanatory detail text by default. The panel should still expose AI-candidate scope, role-card titles/results, selected candidate summary, confirm/skip/navigation actions, model validation status, confidence slider, and review history. Panel detail text, role-card detail text, action guide text, and model-comparison detail/action text stay bound for accessibility/diagnostics but are collapsed in the default layout. This is WPF layout/presentation only and does not change candidate selection, confirmation, saving, training, inference, Viewer/OpenGL/ROI/brush/eraser paths, or model comparison logic. Covered by isolated test build, `--wpf-labeling-shell`, 1920x1080 before/after visual smoke captures under `artifacts\ui`, and `git diff --check`.
+
+2026-07-07 saved-label left-panel compact layout contract: the WPF Object Review/Saved Label panel should keep save state, selected object details, class editing controls, and the object list visible while hiding repeated explanatory detail text by default. Mode detail, action guide, and selected-task action detail text stay bound for accessibility/diagnostics but are collapsed in the default layout. This is WPF layout/presentation only and does not change object selection, label saving/reopening, template labeling, training, inference, Viewer/OpenGL/ROI/brush/eraser paths, or model comparison logic. Covered by isolated test build, `--wpf-labeling-shell`, `--wpf-object-review-panel`, 1920x1080 before/after visual smoke captures under `artifacts\ui`, and `git diff --check`.
+
+2026-07-07 guide/tools left-panel compact layout contract: the WPF Learning Workflow guide/tools panel should keep dataset purpose selection, dataset setup/open actions, current-step cards, tutorial access, YOLO dataset structure, and workflow cards available while hiding repeated helper text and first-run shortcut tile lists by default. Dataset-purpose tool summary, guide-tools helper detail, first-run checklist tiles, first-run sample-path summary, and first-run sample-path shortcut tiles stay bound and named for accessibility/diagnostics but are collapsed in the default layout. This is WPF layout/presentation only and does not change dataset creation/opening, annotation tool selection, template labeling commands, training, inference, Viewer/OpenGL/ROI/brush/eraser paths, or model comparison logic. Covered by isolated test build, `--wpf-learning-workflow-panel`, `--wpf-labeling-shell`, `--wpf-responsive-layout --width 1920 --height 1080`, 1920x1080 before/after visual smoke captures under `artifacts\ui`, and `git diff --check`.
 
 ## Refactor Rule
 

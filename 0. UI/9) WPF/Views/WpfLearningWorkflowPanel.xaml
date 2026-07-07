@@ -786,6 +786,7 @@
                        FontFamily="Segoe UI"
                        FontSize="10"
                        TextWrapping="Wrap"
+                       Visibility="Collapsed"
                        Margin="0,0,0,6" />
             <Border x:Name="GuideToolsRolePanel"
                     AutomationProperties.AutomationId="GuideToolsRolePanel"
@@ -822,6 +823,7 @@
                                FontSize="10"
                                LineHeight="12"
                                TextWrapping="Wrap"
+                               Visibility="Collapsed"
                                Margin="0,2,0,0" />
                 </StackPanel>
             </Border>
@@ -922,6 +924,7 @@
                                   AutomationProperties.AutomationId="FirstRunChecklistItemsControl"
                                   ItemsSource="{Binding FirstRunChecklistItems}"
                                   ItemTemplate="{StaticResource FirstRunChecklistItemTemplate}"
+                                  Visibility="Collapsed"
                                   Margin="0,0,0,2">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -987,6 +990,7 @@
                                FontSize="9"
                                LineHeight="11"
                                TextWrapping="Wrap"
+                               Visibility="Collapsed"
                                Margin="0,0,0,5" />
                     <Border Background="#172554"
                             BorderBrush="#3B82F6"
@@ -1007,6 +1011,7 @@
                     <ItemsControl x:Name="FirstRunSamplePathItemsControl"
                                   AutomationProperties.AutomationId="FirstRunSamplePathItemsControl"
                                   ItemsSource="{Binding FirstRunSamplePathItems}"
+                                  Visibility="Collapsed"
                                   ItemTemplate="{StaticResource FirstRunSamplePathItemTemplate}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>

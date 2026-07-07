@@ -255,6 +255,7 @@
                            FontFamily="Segoe UI"
                            FontSize="9"
                            TextWrapping="Wrap"
+                           Visibility="Collapsed"
                            Margin="0,2,0,0" />
                 <Grid x:Name="CandidateReviewRoleSplitPanel"
                       AutomationProperties.AutomationId="CandidateReviewRoleSplitPanel"
@@ -290,6 +291,7 @@
                                        MaxHeight="22"
                                        TextWrapping="Wrap"
                                        TextTrimming="CharacterEllipsis"
+                                       Visibility="Collapsed"
                                        Margin="0,2,0,0" />
                             <TextBlock x:Name="CurrentImageReviewRoleResultText"
                                        AutomationProperties.AutomationId="CurrentImageReviewRoleResultText"
@@ -302,6 +304,7 @@
                                        MaxHeight="22"
                                        TextWrapping="Wrap"
                                        TextTrimming="CharacterEllipsis"
+                                       Visibility="Collapsed"
                                        Margin="0,2,0,0" />
                         </StackPanel>
                     </Border>
@@ -357,6 +360,7 @@
                            FontSize="9"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
+                           Visibility="Collapsed"
                            Margin="0,5,0,0" />
             </StackPanel>
         </Border>
@@ -460,6 +464,7 @@
                            FontFamily="Segoe UI"
                            FontSize="9"
                            TextWrapping="Wrap"
+                           Visibility="Collapsed"
                            Margin="0,2,0,0" />
                 <TextBlock x:Name="ModelComparisonActionText"
                            AutomationProperties.AutomationId="ModelComparisonActionText"
@@ -469,6 +474,7 @@
                            FontSize="9"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
+                           Visibility="Collapsed"
                            Margin="0,3,0,0" />
                 <Border x:Name="ModelCandidateDecisionPanel"
                         AutomationProperties.AutomationId="ModelCandidateDecisionPanel"

@@ -209,6 +209,7 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                            FontFamily="Segoe UI"
                            FontSize="10"
                            TextWrapping="Wrap"
+                           Visibility="Collapsed"
                            Margin="0,2,0,0" />
                 <TextBlock x:Name="ObjectReviewActionGuideText"
                            AutomationProperties.AutomationId="ObjectReviewActionGuideText"
@@ -217,6 +218,7 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                            FontFamily="Segoe UI"
                            FontSize="10"
                            TextWrapping="Wrap"
+                           Visibility="Collapsed"
                            Margin="0,3,0,0" />
             </StackPanel>
         </Border>
@@ -288,6 +290,7 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                            FontFamily="Segoe UI"
                            FontSize="10"
                            Margin="0,3,0,0"
+                           Visibility="Collapsed"
                            TextWrapping="Wrap" />
             </StackPanel>
         </Border>

@@ -342,7 +342,7 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
-                    <RowDefinition x:Name="ImageQueueBatchProgressRow" Height="Auto" MinHeight="22" />
+                    <RowDefinition x:Name="ImageQueueBatchProgressRow" Height="Auto" MinHeight="16" />
                 </Grid.RowDefinitions>
 
                 <WrapPanel x:Name="ImageQueuePrimaryActionsPanel"
@@ -369,7 +369,7 @@
                     </ui:Button>
                 </WrapPanel>
 
-                <Grid Grid.Row="1" Margin="0,3,0,3">
+                <Grid Grid.Row="1" Margin="0,3,0,3" Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
                         <ColumnDefinition Width="44" />
@@ -509,7 +509,7 @@
                     </Grid>
                 </Grid>
 
-                <UniformGrid Grid.Row="4" Columns="3" VerticalAlignment="Center">
+                <UniformGrid Grid.Row="4" Columns="3" VerticalAlignment="Center" Visibility="Collapsed">
                     <ui:Button x:Name="QueueFilterUnfinishedButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterUnfinishedActive}" AutomationProperties.Name="&#xC791;&#xC5C5; &#xD544;&#xC694; &#xD544;&#xD130;" ToolTip="&#xB77C;&#xBCA8;&#xB9C1;, AI &#xD6C4;&#xBCF4; &#xAC80;&#xD1A0;, &#xC800;&#xC7A5; &#xD544;&#xC694;, &#xC2E4;&#xD328; &#xD56D;&#xBAA9;&#xB9CC; &#xBCF4;&#xAE30;" Command="{Binding QueueFilterUnfinishedCommand}">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="PlaylistPlay" />

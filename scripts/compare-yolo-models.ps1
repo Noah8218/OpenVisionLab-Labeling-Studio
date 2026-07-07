@@ -703,10 +703,28 @@ function Get-ModelMetric($Model, [string]$MetricName) {
     return [double]$value
 }
 
-function New-PromotionRecommendation($Baseline, $Candidate, $Evidence) {
+function Get-ModelConfidenceValue($Model, [string]$ValueName) {
+    if ($null -eq $Model -or $null -eq $Model.confidence) {
+        return $null
+    }
+
+    $value = $Model.confidence[$ValueName]
+    if ($null -eq $value) {
+        $value = $Model.confidence.$ValueName
+    }
+
+    if ($null -eq $value) {
+        return $null
+    }
+
+    return [double]$value
+}
+
+function New-PromotionRecommendation($Baseline, $Candidate, $Evidence, [double]$UiConfidence) {
     $minimumPrecision = 0.10
     $heldoutLabelCount = if ($null -eq $Evidence) { 0 } else { [int]$Evidence.comparisonLabelCount }
     $minimumHeldoutLabelCount = if ($null -eq $Evidence) { $RecommendedPromotionLabelCount } else { [int]$Evidence.recommendedLabelCount }
+    $minimumUiCandidateCount = 1
     $baselinePrecision = Get-ModelMetric $Baseline "precision"
     $candidatePrecision = Get-ModelMetric $Candidate "precision"
     $baselineRecall = Get-ModelMetric $Baseline "recall"
@@ -715,6 +733,7 @@ function New-PromotionRecommendation($Baseline, $Candidate, $Evidence) {
     $candidateMap50 = Get-ModelMetric $Candidate "map50"
     $baselineMap5095 = Get-ModelMetric $Baseline "map5095"
     $candidateMap5095 = Get-ModelMetric $Candidate "map5095"
+    $candidateUiCandidateCount = Get-ModelConfidenceValue $Candidate "uiCandidateCount"
 
     if ($heldoutLabelCount -lt $minimumHeldoutLabelCount) {
         return [ordered]@{
@@ -743,6 +762,18 @@ function New-PromotionRecommendation($Baseline, $Candidate, $Evidence) {
             minimumPrecision = $minimumPrecision
             heldoutLabelCount = $heldoutLabelCount
             minimumHeldoutLabelCount = $minimumHeldoutLabelCount
+        }
+    }
+
+    if ($null -ne $candidateUiCandidateCount -and $candidateUiCandidateCount -lt $minimumUiCandidateCount) {
+        return [ordered]@{
+            recommendation = "hold"
+            reason = "Candidate produced 0 UI-threshold candidates at confidence $(Format-NullableNumber $UiConfidence); lower the review threshold or retrain before promotion."
+            minimumPrecision = $minimumPrecision
+            heldoutLabelCount = $heldoutLabelCount
+            minimumHeldoutLabelCount = $minimumHeldoutLabelCount
+            minimumUiCandidateCount = $minimumUiCandidateCount
+            uiCandidateCount = [int]$candidateUiCandidateCount
         }
     }
 
@@ -863,7 +894,7 @@ New-Item -ItemType Directory -Force -Path $runOutputRoot | Out-Null
 $baseline = Invoke-ModelVal "baseline" $BaselineWeights $runOutputRoot
 $candidate = Invoke-ModelVal "candidate" $CandidateWeights $runOutputRoot
 $evidence = New-ComparisonEvidence $DataYaml $Task $ModelTask
-$promotion = New-PromotionRecommendation $baseline $candidate $evidence
+$promotion = New-PromotionRecommendation $baseline $candidate $evidence $UiConfidence
 
 $summary = [ordered]@{
     createdAt = (Get-Date).ToString("o")

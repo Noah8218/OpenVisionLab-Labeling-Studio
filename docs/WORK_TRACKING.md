@@ -2,6 +2,56 @@
 
 Last updated: 2026-07-07
 
+## 2026-07-07 YOLOv8 SEG userseed held-out comparison and UI-candidate guard
+
+- Self-evaluation:
+  - The next model-quality slice was to compare an existing newer local YOLOv8 SEG candidate without starting another training job.
+  - `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-userseed-60ep-img160-20260707\weights\best.pt` was trained against the same `circular_seg_exe_20260706_183245` dataset family and had stronger validation metrics than the earlier 30ep/img128 candidate.
+  - The comparison exposed a promotion risk: metrics can improve while the model still produces `0` UI-threshold candidates at the app's default `0.25` confidence.
+- Changes:
+  - `scripts\compare-yolo-models.ps1` now blocks promotion when the candidate has fewer than one UI-threshold candidate.
+  - The promotion summary records `minimumUiCandidateCount` and `uiCandidateCount` for that hold case.
+  - `WpfModelComparisonReviewService` now translates held-out-evidence and zero-UI-candidate hold reasons into Korean operator guidance while preserving counts/confidence values.
+- Evidence:
+  - Real held-out comparison: `artifacts\yolo-model-comparison\yolov8-seg-ng-test-baseline-vs-userseed-60ep-img160-20260707\20260707-113411\comparison-summary.json`.
+  - Real result: evidence `9/10`, precision `0.121`, recall `0.333`, mAP50 `0.223`, mAP50-95 `0.064`, UI candidates `0`, max confidence `0.091`, recommendation `hold`.
+  - Guard fixture comparison: `artifacts\yolo-model-comparison\yolov8-seg-userseed-zero-ui-guard-fixture-run\20260707-113534\comparison-summary.json`.
+  - Guard result: evidence `10/10`, precision `0.108`, recall `0.333`, mAP50 `0.219`, mAP50-95 `0.063`, UI candidates `0`, recommendation `hold` with reason `Candidate produced 0 UI-threshold candidates at confidence 0.25...`.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-review-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-run-service` passed.
+  - Real YOLOv8 SEG `compare-yolo-models.ps1 -Task test -ModelTask segment -UiConfidence 0.25` passed for the userseed candidate.
+  - Guard-fixture YOLOv8 SEG `compare-yolo-models.ps1 -Task test -ModelTask segment -UiConfidence 0.25` passed and proved the zero-UI-candidate hold branch.
+- Capture:
+  - Current-source WPF render capture: `artifacts\ui\wpf-model-comparison-guard-after-1920.png`.
+  - The capture confirms the Candidate Review model-comparison panel still renders correctly after the hold-reason presentation changes.
+- Remaining risk:
+  - The userseed candidate still should not be promoted: it has only 9 real held-out images and 0 candidates at the default UI confidence.
+  - The zero-UI-candidate branch was proved with a generated 10-label fixture, not a new real operator-labeled image.
+- Next:
+  - Add more real positive/negative held-out SEG samples or tune training/confidence so a candidate produces usable UI-threshold candidates before considering model replacement.
+
+## 2026-07-07 WPF visual smoke render capture
+
+- Self-evaluation:
+  - The previous model-comparison wording slice had one remaining evidence risk: `--wpf-visual-smoke` returned the Windows lock/spotlight screen because `CaptureWindow` copied desktop pixels.
+  - The smallest useful fix was to change the WPF test helper only, not product UI: render the current WPF window visual tree directly to PNG.
+- Changes:
+  - `CaptureWindow` now uses WPF `RenderTargetBitmap` plus `PngBitmapEncoder`.
+  - This keeps WPF current-source visual smoke evidence independent from desktop lock/focus state.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab candidates --width 1920 --height 1080 --output .\artifacts\ui\wpf-render-capture-candidate-review-after-1920.png` passed.
+  - `artifacts\ui\wpf-render-capture-candidate-review-after-1920.png` was inspected and shows the WPF Candidate Review screen, not the Windows lock screen.
+  - Image dimensions were verified as `1920x1080`.
+- Capture:
+  - `artifacts\ui\wpf-render-capture-candidate-review-after-1920.png`.
+- Remaining risk:
+  - This is a current-source WPF render capture, not direct EXE UI Automation screenshot evidence.
+- Next:
+  - Continue YOLOv8 SEG quality/held-out comparison work or use the fixed visual smoke path for any further UI wording/layout changes.
+
 ## 2026-07-07 model comparison promotion reason wording
 
 - Self-evaluation:
@@ -20,6 +70,7 @@ Last updated: 2026-07-07
   - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
 - Capture:
   - A 1920x1080 WPF visual smoke capture was attempted at `artifacts\ui\wpf-model-comparison-reason-korean-after-1920.png` and `artifacts\ui\wpf-model-comparison-reason-korean-after-1920-v2.png`, but the desktop capture returned the Windows lock/spotlight screen instead of the WPF app. Those files are not valid UI evidence and should not be used as current-product screenshots.
+  - Follow-up current-source evidence was captured after switching WPF visual smoke to render capture: `artifacts\ui\wpf-render-capture-candidate-review-after-1920.png`. It shows the Candidate Review model-comparison panel with the Korean low-precision hold reason and was verified as `1920x1080`.
 - Remaining risk:
   - This is display text only. It does not improve the YOLOv8 SEG model metrics or change promotion thresholds.
 - Next:
@@ -9867,3 +9918,98 @@ Last updated: 2026-07-07
   - This refresh covers the representative public screenshots used by README and the tutorial sections touched by the latest UI changes. It does not regenerate every tutorial PNG.
 - Next:
   - Continue with large-folder image-queue thumbnail/scroll performance, then YOLOv8 SEG held-out comparison/model quality once the UI documentation slice is closed.
+
+## 2026-07-07 Image queue compact layout
+
+- Self-evaluation:
+  - The image queue was visually dominated by secondary controls: folder path, duplicated quick-filter buttons, batch controls, and progress state all appeared above the file list.
+  - The smallest safe UX fix was to remove the duplicate default clutter without changing queue load behavior: keep the status filter/search path available, hide quick-filter shortcuts by default, hide the repeated folder path row, and give the file list more vertical room.
+- Changes:
+  - `WpfImageQueuePanel.xaml` now collapses the repeated current-folder path row and default quick-filter shortcut grid while preserving the status filter combo/search and existing commands.
+  - `WpfLabelingShellWindow.xaml` increases the image queue column from 300 to 320 after visual smoke showed 340 caused canvas toolbar wrapping.
+  - `--wpf-image-queue-status` now locks the default-hidden quick-filter contract so the compact queue layout does not regress silently.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-keyboard-navigation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-loads-canvas` passed.
+  - `git diff --check` passed with LF-to-CRLF warnings only.
+- Capture:
+  - Before: `artifacts\ui\wpf-image-queue-layout-before-1920.png`.
+  - After: `artifacts\ui\wpf-image-queue-layout-after-verified-1920.png`.
+  - Visual comparison confirmed the image list starts higher and canvas toolbar buttons no longer wrap at 1920x1080.
+- Remaining risk:
+  - Left workflow panels still carry too much explanatory text in AI-candidate/model-review states. They should be reduced in a separate slice because existing tests intentionally require model-validation information to remain visible.
+- Next:
+  - Compact the left workflow panels by stage, starting with collapsing or shortening explanatory text that duplicates the top subnavigation and current action cards.
+
+## 2026-07-07 AI candidate left panel compact layout
+
+- Self-evaluation:
+  - After the image queue compaction, the left AI-candidate workflow panel still exposed too much explanatory text at once.
+  - The smallest safe change was to keep the same sections, bindings, candidate actions, and model-validation state while hiding repeated explanatory detail lines by default.
+- Changes:
+  - `WpfCandidateReviewPanel.xaml` now keeps the AI-candidate scope text, role-card titles/results, selected-candidate summary, candidate actions, model validation status, confidence slider, and review history visible.
+  - Repeated detail text is collapsed by default: panel detail text, role-card detail lines, action guide text, and model-comparison detail/action text.
+  - `--wpf-labeling-shell` now locks this compact left-panel visibility contract.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab candidates --width 1920 --height 1080 --output .\artifacts\ui\wpf-left-panel-compact-after-1920.png` passed.
+- Capture:
+  - Before: `artifacts\ui\wpf-left-panel-compact-before-1920.png`.
+  - After: `artifacts\ui\wpf-left-panel-compact-after-1920.png`.
+  - Visual comparison confirmed the top-left AI-candidate role area is shorter while candidate action buttons, model validation status, confidence slider, and review history remain visible.
+- Remaining risk:
+  - This is the AI-candidate panel only. Saved-label, guide/tools, class, and model-center panels may still need separate stage-specific density passes.
+- Next:
+  - Continue compacting left workflow panels by stage, starting with saved-label/guide-tools areas if operator screenshots still show excessive text.
+
+## 2026-07-07 Saved-label left panel compact layout
+
+- Self-evaluation:
+  - The saved-label/Object Review panel still spent left-panel height on repeated mode and action guidance, which duplicated the top workflow state and current task card.
+  - The smallest safe change was to keep save status, selected object state, class editing, and object list visible while hiding only repeated explanatory lines by default.
+- Changes:
+  - `WpfObjectReviewPanel.xaml` now collapses the saved-label mode detail, action guide, and selected-task action detail text by default.
+  - Object count, save badge, selected object title/detail, class apply/delete controls, and object list remain visible and bound.
+  - `--wpf-object-review-panel` now locks the compact saved-label visibility contract.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-object-review-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab objects --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-object-panel-compact-after-1920.png` passed.
+- Capture:
+  - Before: `artifacts\ui\wpf-object-panel-compact-before-expanded-1920.png`.
+  - After: `artifacts\ui\wpf-object-panel-compact-after-1920.png`.
+  - Visual comparison confirmed the saved-label object list starts higher while save state, selected object details, class editing, and object rows remain visible.
+- Remaining risk:
+  - This is a WPF layout/presentation slice only. It does not change object selection, save/reopen behavior, template labeling, training, inference, or Viewer/OpenGL/ROI/brush/eraser paths.
+- Next:
+  - Continue the same stage-by-stage density pass for guide/tools, class setup, and model/training panels, then re-check whether the left panel still competes with the canvas.
+
+## 2026-07-07 Guide/tools left panel compact layout
+
+- Self-evaluation:
+  - The dataset home/guide-tools panel still exposed beginner-oriented detail blocks and first-run shortcut tiles by default, even after the top workflow and subnavigation made the primary path visible.
+  - The smallest safe change was to keep dataset purpose, primary dataset setup actions, and current-step cards visible while hiding repeated helper text and first-run shortcut tiles by default.
+- Changes:
+  - `WpfLearningWorkflowPanel.xaml` now collapses the dataset-purpose tool summary, guide-tools helper detail, first-run checklist tiles, first-run sample-path summary, and first-run sample-path shortcut tiles by default.
+  - The existing bindings, AutomationIds, dataset setup buttons, current step, tutorial card, YOLO dataset structure, and lower workflow cards remain in place.
+  - `--wpf-learning-workflow-panel` now locks the compact guide/tools visibility contract.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-guide-tools-compact-after-1920.png` passed.
+- Capture:
+  - Before: `artifacts\ui\wpf-guide-tools-compact-before-1920.png`.
+  - After: `artifacts\ui\wpf-guide-tools-compact-after-1920.png`.
+  - Visual comparison confirmed the default guide/tools panel shows fewer first-run tiles and exposes more lower workflow content at 1920x1080.
+- Remaining risk:
+  - This is a WPF layout/presentation slice only. It does not change dataset creation/opening, annotation tool selection, template labeling commands, training, inference, or Viewer/OpenGL/ROI/brush/eraser paths.
+- Next:
+  - Continue with class setup and model/training panel density, then decide whether any collapsed first-run shortcut needs an explicit expand affordance based on real operator use.

@@ -10376,28 +10376,24 @@ internal static partial class Program
 
     private static void CaptureWindow(System.Windows.Window window, string outputPath)
     {
-        System.Windows.Media.Matrix transform = System.Windows.Media.Matrix.Identity;
-        System.Windows.PresentationSource source = System.Windows.PresentationSource.FromVisual(window);
-        if (source?.CompositionTarget != null)
-        {
-            transform = source.CompositionTarget.TransformToDevice;
-        }
-
-        System.Windows.Point topLeft = window.PointToScreen(new System.Windows.Point(0, 0));
-        int width = Math.Max(1, (int)Math.Round(window.ActualWidth * transform.M11));
-        int height = Math.Max(1, (int)Math.Round(window.ActualHeight * transform.M22));
-
+        window.UpdateLayout();
+        int width = Math.Max(1, (int)Math.Ceiling(window.ActualWidth));
+        int height = Math.Max(1, (int)Math.Ceiling(window.ActualHeight));
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
-        using (Bitmap bitmap = new Bitmap(width, height))
-        using (Graphics graphics = Graphics.FromImage(bitmap))
+
+        var renderBitmap = new System.Windows.Media.Imaging.RenderTargetBitmap(
+            width,
+            height,
+            96,
+            96,
+            System.Windows.Media.PixelFormats.Pbgra32);
+        renderBitmap.Render(window);
+
+        var encoder = new System.Windows.Media.Imaging.PngBitmapEncoder();
+        encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(renderBitmap));
+        using (FileStream stream = File.Create(outputPath))
         {
-            graphics.CopyFromScreen(
-                (int)Math.Round(topLeft.X),
-                (int)Math.Round(topLeft.Y),
-                0,
-                0,
-                new Size(width, height));
-            bitmap.Save(outputPath, System.Drawing.Imaging.ImageFormat.Png);
+            encoder.Save(stream);
         }
     }
 
@@ -10777,6 +10773,52 @@ internal static partial class Program
             AssertTrue(report.DetailText.Contains("\uC815\uBC00\uB3C4", StringComparison.Ordinal), "model comparison report should translate low-precision promotion reasons for operators");
             AssertTrue(report.DetailText.Contains("1.6", StringComparison.Ordinal), "translated low-precision reason should preserve the current evidence value");
             AssertTrue(!report.DetailText.Contains("Candidate precision", StringComparison.Ordinal), "model comparison report should not expose raw English promotion reasons");
+            File.WriteAllText(
+                summaryPath,
+                JsonConvert.SerializeObject(new
+                {
+                    dataYaml = dataYamlPath,
+                    task = "test",
+                    uiConfidence = 0.25,
+                    baseline = new { labelsPath = baselineLabels },
+                    candidate = new { labelsPath = candidateLabels },
+                    promotion = new
+                    {
+                        recommendation = "hold",
+                        reason = "Held-out comparison uses 9 labeled images; collect at least 10 before promotion."
+                    }
+                }));
+            WpfModelComparisonReviewReport weakEvidenceReport = service.BuildFromSummaryFile(
+                summaryPath,
+                new[] { "OK", "NG" },
+                confidenceThreshold: null,
+                maxExamples: 10);
+            AssertTrue(weakEvidenceReport.DetailText.Contains("\uCD5C\uC885 \uAC80\uC99D", StringComparison.Ordinal), "model comparison report should translate weak held-out evidence reasons");
+            AssertTrue(weakEvidenceReport.DetailText.Contains("9", StringComparison.Ordinal) && weakEvidenceReport.DetailText.Contains("10", StringComparison.Ordinal), "translated weak-evidence reason should preserve evidence counts");
+            AssertTrue(!weakEvidenceReport.DetailText.Contains("Held-out comparison", StringComparison.Ordinal), "model comparison report should not expose raw held-out evidence reasons");
+            File.WriteAllText(
+                summaryPath,
+                JsonConvert.SerializeObject(new
+                {
+                    dataYaml = dataYamlPath,
+                    task = "test",
+                    uiConfidence = 0.25,
+                    baseline = new { labelsPath = baselineLabels },
+                    candidate = new { labelsPath = candidateLabels },
+                    promotion = new
+                    {
+                        recommendation = "hold",
+                        reason = "Candidate produced 0 UI-threshold candidates at confidence 0.25; lower the review threshold or retrain before promotion."
+                    }
+                }));
+            WpfModelComparisonReviewReport noUiCandidateReport = service.BuildFromSummaryFile(
+                summaryPath,
+                new[] { "OK", "NG" },
+                confidenceThreshold: null,
+                maxExamples: 10);
+            AssertTrue(noUiCandidateReport.DetailText.Contains("\uAC80\uD1A0 \uAE30\uC900 \uC2E0\uB8B0\uB3C4", StringComparison.Ordinal), "model comparison report should translate zero UI-threshold candidate reasons");
+            AssertTrue(noUiCandidateReport.DetailText.Contains("25.0", StringComparison.Ordinal), "translated zero-candidate reason should preserve the UI confidence threshold");
+            AssertTrue(!noUiCandidateReport.DetailText.Contains("UI-threshold candidates", StringComparison.Ordinal), "model comparison report should not expose raw zero-candidate promotion reasons");
             AssertEqual(3, report.Examples.Count);
             AssertTrue(report.Examples.Any(item => item.Kind == "ClassChanged" && item.Detail.Contains("OK", StringComparison.Ordinal) && item.Detail.Contains("NG", StringComparison.Ordinal)), "model comparison review should surface class changes");
             AssertTrue(report.Examples.Any(item => item.Kind == "CandidateOnly" && item.ImageKey == "candidate_only"), "model comparison review should surface new-model-only candidates");
@@ -10900,6 +10942,8 @@ internal static partial class Program
             AssertTrue(realScriptSource.Contains("New-ComparisonEvidence", StringComparison.Ordinal), "model comparison script should count held-out evidence before writing a promotion recommendation");
             AssertTrue(realScriptSource.Contains("comparisonLabelCount", StringComparison.Ordinal), "model comparison summary should persist the held-out labeled image count");
             AssertTrue(realScriptSource.Contains("minimumHeldoutLabelCount", StringComparison.Ordinal), "model comparison recommendation should block promotion when held-out evidence is too small");
+            AssertTrue(realScriptSource.Contains("uiCandidateCount", StringComparison.Ordinal), "model comparison recommendation should inspect UI-threshold candidate count");
+            AssertTrue(realScriptSource.Contains("UI-threshold candidates", StringComparison.Ordinal), "model comparison recommendation should block promotion when the candidate produces no UI-visible candidates");
             AssertTrue(realScriptSource.Contains("promotion = $promotion", StringComparison.Ordinal), "model comparison summary should persist the promotion recommendation");
             AssertTrue(realScriptSource.Contains("evidence = $evidence", StringComparison.Ordinal), "model comparison summary should persist held-out comparison evidence");
             AssertTrue(realScriptSource.Contains("## Recommendation", StringComparison.Ordinal), "model comparison report should show the promotion recommendation");
@@ -24139,9 +24183,11 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "DatasetPurposeListBox", "SelectedItem", "SelectedDatasetPurposeMode");
         AssertNamedXamlBinding(xaml, xName, "DatasetPurposeSummaryText", "Text", "DatasetPurposeSummaryText");
         AssertNamedXamlBinding(xaml, xName, "DatasetPurposeToolSummaryText", "Text", "DatasetPurposeToolSummaryText");
+        AssertNamedXamlValue(xaml, xName, "DatasetPurposeToolSummaryText", "Visibility", "Collapsed");
         AssertNamedXamlBinding(xaml, xName, "GuideToolsRoleTitleText", "Text", "GuideToolsRoleTitleText");
         AssertNamedXamlBinding(xaml, xName, "GuideToolsPrimaryTaskText", "Text", "GuideToolsPrimaryTaskText");
         AssertNamedXamlBinding(xaml, xName, "GuideToolsHelperTaskText", "Text", "GuideToolsHelperTaskText");
+        AssertNamedXamlValue(xaml, xName, "GuideToolsHelperTaskText", "Visibility", "Collapsed");
         AssertNamedXamlBinding(xaml, xName, "DatasetSetupFirstActionText", "Text", "DatasetSetupFirstActionText");
         AssertNamedXamlBinding(xaml, xName, "DatasetSetupSequenceText", "Text", "DatasetSetupSequenceText");
         AssertNamedXamlBinding(xaml, xName, "DatasetSetupStatusText", "Text", "DatasetSetupStatusText");
@@ -24164,13 +24210,16 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "TutorialIntroSummaryText", "Text", "TutorialSummaryText");
         AssertNamedXamlBinding(xaml, xName, "FirstRunSamplePathTitleText", "Text", "FirstRunSamplePathTitleText");
         AssertNamedXamlBinding(xaml, xName, "FirstRunSamplePathSummaryText", "Text", "FirstRunSamplePathSummaryText");
+        AssertNamedXamlValue(xaml, xName, "FirstRunSamplePathSummaryText", "Visibility", "Collapsed");
         AssertNamedXamlBinding(xaml, xName, "FirstRunSamplePathPrimaryActionText", "Text", "FirstRunSamplePathPrimaryActionText");
         AssertNamedXamlBinding(xaml, xName, "FirstRunSamplePathItemsControl", "ItemsSource", "FirstRunSamplePathItems");
+        AssertNamedXamlValue(xaml, xName, "FirstRunSamplePathItemsControl", "Visibility", "Collapsed");
         AssertNamedXamlBinding(xaml, xName, "FirstRunSamplePathShortcutButton", "Command", "DataContext.FirstRunSamplePathCommand");
         AssertNamedXamlBinding(xaml, xName, "FirstRunSamplePathShortcutButton", "CommandParameter", ".");
         AssertNamedXamlBinding(xaml, xName, "FirstRunChecklistTitleText", "Text", "FirstRunChecklistTitleText");
         AssertNamedXamlBinding(xaml, xName, "FirstRunChecklistSummaryText", "Text", "FirstRunChecklistSummaryText");
         AssertNamedXamlBinding(xaml, xName, "FirstRunChecklistItemsControl", "ItemsSource", "FirstRunChecklistItems");
+        AssertNamedXamlValue(xaml, xName, "FirstRunChecklistItemsControl", "Visibility", "Collapsed");
         AssertNamedXamlBinding(xaml, xName, "TutorialChecklistItemsControl", "ItemsSource", "TutorialChecklistItems");
         AssertNamedXamlBinding(xaml, xName, "TutorialHtmlGuidePathText", "Text", "TutorialHtmlPathText");
         AssertNamedXamlBinding(xaml, xName, "GroundTruthChipText", "Text", "GroundTruthChipText");
@@ -29612,6 +29661,12 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "CandidateReviewModeScopeText", "Text", "PanelModeScopeText");
         AssertNamedXamlBinding(xaml, xName, "CandidateReviewModeDetailText", "Text", "PanelModeDetailText");
         AssertNamedXamlBinding(xaml, xName, "CandidateReviewActionGuideText", "Text", "ReviewActionGuideText");
+        AssertNamedXamlValue(xaml, xName, "CandidateReviewModeDetailText", "Visibility", "Collapsed");
+        AssertNamedXamlValue(xaml, xName, "CurrentImageReviewRoleDetailText", "Visibility", "Collapsed");
+        AssertNamedXamlValue(xaml, xName, "ModelValidationRoleDetailText", "Visibility", "Collapsed");
+        AssertNamedXamlValue(xaml, xName, "CandidateReviewActionGuideText", "Visibility", "Collapsed");
+        AssertNamedXamlValue(xaml, xName, "ModelComparisonDetailText", "Visibility", "Collapsed");
+        AssertNamedXamlValue(xaml, xName, "ModelComparisonActionText", "Visibility", "Collapsed");
         AssertNamedXamlBinding(xaml, xName, "CandidateCompletionTitleText", "Text", "CompletionTitleText");
         AssertNamedXamlBinding(xaml, xName, "CandidateCompletionDetailText", "Text", "CompletionDetailText");
         AssertNamedXamlBinding(xaml, xName, "CandidateCompletionNextActionText", "Text", "CompletionNextActionText");
@@ -30134,11 +30189,14 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "ObjectReviewModeScopeText", "Text", "PanelModeScopeText");
         AssertNamedXamlBinding(xaml, xName, "ObjectReviewModeDetailText", "Text", "PanelModeDetailText");
         AssertNamedXamlBinding(xaml, xName, "ObjectReviewActionGuideText", "Text", "ActionGuideText");
+        AssertNamedXamlValue(xaml, xName, "ObjectReviewModeDetailText", "Visibility", "Collapsed");
+        AssertNamedXamlValue(xaml, xName, "ObjectReviewActionGuideText", "Visibility", "Collapsed");
         AssertNamedXamlBinding(xaml, xName, "ObjectReviewLabelSaveBadgeText", "Text", "LabelSaveBadgeText");
         AssertNamedXamlBinding(xaml, xName, "ObjectReviewLabelSaveDetailText", "Text", "LabelSaveDetailText");
         AssertNamedXamlBinding(xaml, xName, "ObjectReviewSelectedTaskTitleText", "Text", "SelectedObjectTaskTitleText");
         AssertNamedXamlBinding(xaml, xName, "ObjectReviewSelectedTaskDetailText", "Text", "SelectedObjectTaskDetailText");
         AssertNamedXamlBinding(xaml, xName, "ObjectReviewSelectedTaskActionText", "Text", "SelectedObjectTaskActionText");
+        AssertNamedXamlValue(xaml, xName, "ObjectReviewSelectedTaskActionText", "Visibility", "Collapsed");
         AssertNamedXamlBinding(xaml, xName, "ObjectListBox", "ItemsSource", "Objects");
         AssertNamedXamlBinding(xaml, xName, "ObjectListBox", "SelectedItem", "SelectedObject");
         AssertNamedXamlBinding(xaml, xName, "ObjectClassBox", "ItemsSource", "ClassNames");
@@ -33357,6 +33415,8 @@ internal static partial class Program
                 "WPF queue primary action buttons should reserve vertical space before the folder path row");
             AssertTrue(queuePanelSource.Contains("<UniformGrid Grid.Row=\"4\" Columns=\"3\"", StringComparison.Ordinal),
                 "WPF queue quick filters should use a three-column compact layout so more image rows stay visible in the narrow queue panel");
+            AssertTrue(queuePanelSource.Contains("<UniformGrid Grid.Row=\"4\" Columns=\"3\" VerticalAlignment=\"Center\" Visibility=\"Collapsed\"", StringComparison.Ordinal),
+                "WPF queue quick filters should stay hidden by default because the status filter combo owns normal queue filtering");
             AssertTrue(queuePanelSource.Contains("<ColumnDefinition Width=\"36\" />", StringComparison.Ordinal),
                 "WPF queue file column should reserve a compact thumbnail slot before row status text");
             AssertTrue(queuePanelSource.Contains("Source=\"{Binding ThumbnailSource, IsAsync=True}\"", StringComparison.Ordinal),

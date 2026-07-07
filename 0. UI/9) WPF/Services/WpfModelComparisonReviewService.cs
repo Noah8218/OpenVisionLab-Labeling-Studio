@@ -164,6 +164,35 @@ namespace MvcVisionSystem
                         minimum);
             }
 
+            if (normalized.Contains("held-out comparison uses", StringComparison.Ordinal)
+                && normalized.Contains("labeled images", StringComparison.Ordinal)
+                && normalized.Contains("collect at least", StringComparison.Ordinal))
+            {
+                MatchCollection numbers = Regex.Matches(trimmed, @"[-+]?\d+(?:\.\d+)?");
+                string current = numbers.Count > 0 ? numbers[0].Value : string.Empty;
+                string minimum = numbers.Count > 1 ? numbers[1].Value : string.Empty;
+                return string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(minimum)
+                    ? "\uCD5C\uC885 \uAC80\uC99D \uB77C\uBCA8 \uC218\uAC00 \uAD50\uCCB4 \uD310\uB2E8\uC5D0 \uBD80\uC871\uD569\uB2C8\uB2E4."
+                    : string.Format(
+                        CultureInfo.CurrentCulture,
+                        "\uCD5C\uC885 \uAC80\uC99D \uB77C\uBCA8\uC774 {0}\uAC1C\uBFD0\uC785\uB2C8\uB2E4. \uBAA8\uB378 \uAD50\uCCB4 \uC804\uC5D0 \uCD5C\uC18C {1}\uAC1C\uAE4C\uC9C0 \uD655\uBCF4\uD558\uC138\uC694.",
+                        current,
+                        minimum);
+            }
+
+            if (normalized.Contains("ui-threshold candidates", StringComparison.Ordinal)
+                && normalized.Contains("confidence", StringComparison.Ordinal))
+            {
+                MatchCollection numbers = Regex.Matches(trimmed, @"[-+]?\d+(?:\.\d+)?");
+                string threshold = numbers.Count > 1 ? FormatReasonPercent(numbers[1].Value) : string.Empty;
+                return string.IsNullOrWhiteSpace(threshold)
+                    ? "\uAC80\uD1A0 \uAE30\uC900 \uC2E0\uB8B0\uB3C4\uC5D0\uC11C \uC0C8 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uAE30\uC900\uC744 \uB0AE\uCD94\uAC70\uB098 \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694."
+                    : string.Format(
+                        CultureInfo.CurrentCulture,
+                        "\uAC80\uD1A0 \uAE30\uC900 \uC2E0\uB8B0\uB3C4 {0}\uC5D0\uC11C \uC0C8 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uAE30\uC900\uC744 \uB0AE\uCD94\uAC70\uB098 \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694.",
+                        threshold);
+            }
+
             return trimmed.All(c => c <= 127)
                 ? "\uBAA8\uB378 \uAD50\uCCB4 \uADFC\uAC70\uB97C \uB354 \uD655\uC778\uD55C \uB4A4 \uD310\uB2E8\uD558\uC138\uC694."
                 : trimmed;
