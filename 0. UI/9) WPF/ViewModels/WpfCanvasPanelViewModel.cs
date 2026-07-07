@@ -77,6 +77,9 @@ namespace MvcVisionSystem
         private string activeLabelClassActionText = "\uD074\uB798\uC2A4 \uAD00\uB9AC";
         private string activeLabelClassActionToolTip = "\uC624\uB978\uCABD \uD074\uB798\uC2A4 \uD328\uB110\uC744 \uC5F4\uC5B4 \uC0C8 \uB77C\uBCA8 \uC774\uB984\uC744 \uCD94\uAC00\uD558\uAC70\uB098 \uB2E4\uC74C \uB77C\uBCA8 \uD074\uB798\uC2A4\uB97C \uBC14\uAFC9\uB2C8\uB2E4.";
         private bool isLabelClassSetupMissing = true;
+        private int brushSize = 12;
+        private string brushSizeText = "12px";
+        private System.Windows.Visibility maskBrushControlVisibility = System.Windows.Visibility.Collapsed;
         private ICommand fitCommand = new RelayCommand(NoOpCommand);
         private ICommand actualSizeCommand = new RelayCommand(NoOpCommand);
         private ICommand panCommand = new RelayCommand(NoOpCommand);
@@ -96,6 +99,8 @@ namespace MvcVisionSystem
         private ICommand deleteAnnotationCommand = new RelayCommand(NoOpCommand);
         private ICommand saveAnnotationCommand = new RelayCommand(NoOpCommand);
         private ICommand completeNoObjectCommand = new RelayCommand(NoOpCommand);
+        private ICommand decreaseBrushSizeCommand = new RelayCommand(NoOpCommand);
+        private ICommand increaseBrushSizeCommand = new RelayCommand(NoOpCommand);
 
         public string ViewName => nameof(WpfCanvasPanel);
 
@@ -275,6 +280,36 @@ namespace MvcVisionSystem
         {
             get => completeNoObjectCommand;
             private set => SetProperty(ref completeNoObjectCommand, value);
+        }
+
+        public ICommand DecreaseBrushSizeCommand
+        {
+            get => decreaseBrushSizeCommand;
+            private set => SetProperty(ref decreaseBrushSizeCommand, value);
+        }
+
+        public ICommand IncreaseBrushSizeCommand
+        {
+            get => increaseBrushSizeCommand;
+            private set => SetProperty(ref increaseBrushSizeCommand, value);
+        }
+
+        public int BrushSize
+        {
+            get => brushSize;
+            private set => SetProperty(ref brushSize, value);
+        }
+
+        public string BrushSizeText
+        {
+            get => brushSizeText;
+            private set => SetProperty(ref brushSizeText, value ?? string.Empty);
+        }
+
+        public System.Windows.Visibility MaskBrushControlVisibility
+        {
+            get => maskBrushControlVisibility;
+            private set => SetProperty(ref maskBrushControlVisibility, value);
         }
 
         public bool IsAnnotationSaveEnabled
@@ -538,6 +573,19 @@ namespace MvcVisionSystem
             ResetAiOverlayCommand = new RelayCommand(resetAiOverlay ?? NoOpCommand);
         }
 
+        public void ConfigureBrushSizeCommands(Action decreaseBrushSize, Action increaseBrushSize)
+        {
+            DecreaseBrushSizeCommand = new RelayCommand(decreaseBrushSize ?? NoOpCommand);
+            IncreaseBrushSizeCommand = new RelayCommand(increaseBrushSize ?? NoOpCommand);
+        }
+
+        public void SetBrushSize(int size)
+        {
+            int normalized = Math.Clamp(size, 2, 64);
+            BrushSize = normalized;
+            BrushSizeText = $"{normalized}px";
+        }
+
         public void ConfigureCandidateReviewCommands(
             Action previousCandidate,
             Action nextCandidate,
@@ -775,7 +823,16 @@ namespace MvcVisionSystem
             if (AnnotationTools.Contains(selectedTool))
             {
                 SelectedAnnotationTool = selectedTool;
+                RefreshMaskBrushControlVisibility();
             }
+        }
+
+        private void RefreshMaskBrushControlVisibility()
+        {
+            WpfAnnotationTool? tool = SelectedAnnotationTool?.Tool;
+            MaskBrushControlVisibility = tool == WpfAnnotationTool.Brush || tool == WpfAnnotationTool.Eraser
+                ? System.Windows.Visibility.Visible
+                : System.Windows.Visibility.Collapsed;
         }
 
         public void SetWorkflowContext(string stepText, string toolText, string actionText)

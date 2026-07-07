@@ -74,8 +74,8 @@ namespace MvcVisionSystem
             if (currentWorkflowMode == WorkflowMode.Inference)
             {
                 return pendingDetectionCandidates.Count > 0
-                    ? "단계: 후보 검토"
-                    : "단계: 추론 검토";
+                    ? "단계: AI 후보 검토"
+                    : "단계: AI 후보 대기";
             }
 
             if (!string.IsNullOrWhiteSpace(annotationDirtyReason))
@@ -111,7 +111,7 @@ namespace MvcVisionSystem
 
             if (pendingDetectionCandidates.Count > 0)
             {
-                return "다음: 후보 확정/스킵";
+                return "다음: AI 후보 확정/스킵";
             }
 
             if (!string.IsNullOrWhiteSpace(annotationDirtyReason))

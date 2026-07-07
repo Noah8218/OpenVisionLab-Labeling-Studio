@@ -37,6 +37,10 @@ namespace MvcVisionSystem
                 () => ShowClassCatalogWorkflowView(WpfShellWorkflowStage.Labeling));
             CanvasPanelViewModel.ConfigureDisplayModeSelection(
                 ExecuteCanvasDisplayModeSelectionChanged);
+            CanvasPanelViewModel.ConfigureBrushSizeCommands(
+                ExecuteDecreaseBrushSizeCommand,
+                ExecuteIncreaseBrushSizeCommand);
+            SyncCanvasBrushSizeFromWorkflow();
             RefreshCanvasWorkflowContext();
             RefreshAttachedCommandBindings(
                 CanvasAnnotationToolListBox,
@@ -143,7 +147,7 @@ namespace MvcVisionSystem
             {
                 WpfLearningStep.Sample => "이미지 선택: 왼쪽 이미지 큐에서 작업할 이미지를 여세요.",
                 WpfLearningStep.Infer => "추론 실행: 현재 검사로 AI 후보를 만들고 검토 탭에서 확인하세요.",
-                WpfLearningStep.Review => "후보 검토: 확정, 전체 확정, 또는 스킵하세요.",
+                WpfLearningStep.Review => "AI 후보 검토: 확정, 전체 확정, 또는 스킵하세요.",
                 WpfLearningStep.Save when !string.IsNullOrWhiteSpace(annotationDirtyReason) => "저장 필요: 라벨 저장 버튼으로 현재 라벨을 파일에 반영하세요.",
                 WpfLearningStep.Save => "저장 완료: 왼쪽 큐의 다음 버튼으로 이어서 작업하세요.",
                 _ => "다음 작업을 선택하세요."

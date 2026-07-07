@@ -105,7 +105,7 @@ namespace MvcVisionSystem
             RedrawReviewRois();
             UpdateDetectionResultOverlay();
             SetPythonStatus("\uCD94\uB860: AI \uD6C4\uBCF4 \uD45C\uC2DC \uC9C0\uC6C0");
-            AppendLog($"\uAC80\uCD9C \uD6C4\uBCF4 \uD45C\uC2DC \uC9C0\uC6C0: {removedCount}\uAC1C");
+            AppendLog($"AI \uD6C4\uBCF4 \uD45C\uC2DC \uC9C0\uC6C0: {removedCount}\uAC1C");
         }
 
         private void ExecuteLabelingModeCommand()

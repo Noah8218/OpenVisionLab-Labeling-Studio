@@ -38,14 +38,14 @@ namespace MvcVisionSystem
                     "2/4 라벨링",
                     "라벨링 워크벤치",
                     "저장 라벨만 보며 박스를 그리고 클래스 확인 후 라벨 저장.",
-                    "다음: 현재 검사 또는 추론 검토에서 AI 후보 확인"),
+                    "다음: 현재 검사로 AI 후보 만들기"),
 
                 WpfShellWorkflowStage.Inference => new WpfWorkflowStagePresentation(
                     stage,
-                    "3/4 추론",
-                    "추론 검토",
-                    "AI 후보만 보며 저장 라벨로 확정하거나 후보를 숨깁니다.",
-                    "다음: AI 후보 확정/숨김 후 다음 미완료, 완료되면 학습/모델 센터"),
+                    "3/4 AI 후보",
+                    "AI 후보 검토",
+                    "검사 모델이 만든 AI 후보를 저장 라벨로 확정하거나 후보만 숨깁니다.",
+                    "다음: 후보를 모두 확정/숨김한 뒤 다음 미완료 또는 학습/모델 센터"),
 
                 WpfShellWorkflowStage.TrainingModel => new WpfWorkflowStagePresentation(
                     stage,

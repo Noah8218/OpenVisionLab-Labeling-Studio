@@ -17,6 +17,8 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+$RecommendedPromotionLabelCount = 10
+
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptRoot
 $repoParent = Split-Path -Parent $repoRoot
@@ -83,6 +85,146 @@ function Remove-YamlInlineComment([string]$Value) {
     }
 
     return $Value
+}
+
+function Read-DataYamlScalarValues([string]$Path) {
+    $values = @{}
+    foreach ($rawLine in Get-Content -LiteralPath $Path) {
+        $line = (Remove-YamlInlineComment $rawLine).Trim()
+        if ([string]::IsNullOrWhiteSpace($line)) {
+            continue
+        }
+
+        $separatorIndex = $line.IndexOf(":")
+        if ($separatorIndex -le 0) {
+            continue
+        }
+
+        $key = $line.Substring(0, $separatorIndex).Trim()
+        $value = $line.Substring($separatorIndex + 1).Trim()
+        if ($value.Length -ge 2 -and (($value[0] -eq '"' -and $value[$value.Length - 1] -eq '"') -or ($value[0] -eq "'" -and $value[$value.Length - 1] -eq "'"))) {
+            $value = $value.Substring(1, $value.Length - 2)
+        }
+
+        if (-not [string]::IsNullOrWhiteSpace($key)) {
+            $values[$key] = $value.Trim()
+        }
+    }
+
+    return $values
+}
+
+function Resolve-DataYamlValuePath([string]$YamlFilePath, [string]$YamlRootPath, [string]$YamlPath) {
+    $normalizedYamlPath = if ($null -eq $YamlPath) { "" } else { $YamlPath }
+    $normalizedYamlPath = $normalizedYamlPath.Replace("/", [System.IO.Path]::DirectorySeparatorChar)
+    if ([System.IO.Path]::IsPathRooted($normalizedYamlPath)) {
+        return [System.IO.Path]::GetFullPath($normalizedYamlPath)
+    }
+
+    $yamlDirectory = Split-Path -Parent $YamlFilePath
+    $root = if ([string]::IsNullOrWhiteSpace($YamlRootPath)) { $yamlDirectory } else { $YamlRootPath.Replace("/", [System.IO.Path]::DirectorySeparatorChar) }
+    if (-not [System.IO.Path]::IsPathRooted($root)) {
+        $root = Join-Path $yamlDirectory $root
+    }
+
+    return [System.IO.Path]::GetFullPath((Join-Path $root $normalizedYamlPath))
+}
+
+function Test-SupportedImagePath([string]$Path) {
+    $extension = [System.IO.Path]::GetExtension($Path)
+    return @(".bmp", ".jpg", ".jpeg", ".png", ".tif", ".tiff") -contains $extension.ToLowerInvariant()
+}
+
+function Resolve-ListImagePath([string]$ListDirectory, [string]$ImagePath) {
+    $normalized = if ($null -eq $ImagePath) { "" } else { $ImagePath }
+    $normalized = $normalized.Replace("/", [System.IO.Path]::DirectorySeparatorChar)
+    if ([System.IO.Path]::IsPathRooted($normalized)) {
+        return [System.IO.Path]::GetFullPath($normalized)
+    }
+
+    return [System.IO.Path]::GetFullPath((Join-Path $ListDirectory $normalized))
+}
+
+function Resolve-LabelPathFromImagePath([string]$ImagePath) {
+    $directory = Split-Path -Parent $ImagePath
+    $directoryName = Split-Path -Leaf $directory
+    $parent = Split-Path -Parent $directory
+    $labelsDirectory = if ($directoryName -ieq "images" -and -not [string]::IsNullOrWhiteSpace($parent)) {
+        Join-Path $parent "labels"
+    } else {
+        Join-Path $directory "labels"
+    }
+
+    return Join-Path $labelsDirectory ([System.IO.Path]::GetFileNameWithoutExtension($ImagePath) + ".txt")
+}
+
+function Get-SplitImagePaths([string]$ResolvedPath) {
+    if ([string]::IsNullOrWhiteSpace($ResolvedPath)) {
+        return @()
+    }
+
+    if (Test-Path -LiteralPath $ResolvedPath -PathType Container) {
+        return @(Get-ChildItem -LiteralPath $ResolvedPath -File -ErrorAction SilentlyContinue |
+            Where-Object { Test-SupportedImagePath $_.FullName } |
+            ForEach-Object { $_.FullName })
+    }
+
+    if (Test-Path -LiteralPath $ResolvedPath -PathType Leaf) {
+        $listDirectory = Split-Path -Parent $ResolvedPath
+        return @(Get-Content -LiteralPath $ResolvedPath |
+            ForEach-Object { (Remove-YamlInlineComment $_).Trim() } |
+            Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+            ForEach-Object { Resolve-ListImagePath $listDirectory $_ } |
+            Where-Object { (Test-Path -LiteralPath $_ -PathType Leaf) -and (Test-SupportedImagePath $_) })
+    }
+
+    return @()
+}
+
+function Test-SegmentationLabelLine([string]$Line) {
+    $text = if ($null -eq $Line) { "" } else { $Line }
+    $tokens = @($text -split '\s+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($tokens.Count -lt 7 -or $tokens.Count % 2 -eq 0) {
+        return $false
+    }
+
+    foreach ($token in $tokens) {
+        $value = 0.0
+        if (-not [double]::TryParse($token, [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$value)) {
+            return $false
+        }
+    }
+
+    return $true
+}
+
+function New-ComparisonEvidence([string]$DataYamlPath, [string]$SplitName, [string]$ValidationTask) {
+    $values = Read-DataYamlScalarValues $DataYamlPath
+    $splitPath = if ($values.ContainsKey($SplitName)) { $values[$SplitName] } else { "" }
+    $yamlRootPath = if ($values.ContainsKey("path")) { $values["path"] } else { "" }
+    $resolvedSplitPath = if ([string]::IsNullOrWhiteSpace($splitPath)) { "" } else { Resolve-DataYamlValuePath $DataYamlPath $yamlRootPath $splitPath }
+    $imagePaths = @(Get-SplitImagePaths $resolvedSplitPath)
+    $labelPaths = @($imagePaths |
+        ForEach-Object { Resolve-LabelPathFromImagePath $_ } |
+        Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })
+    $positiveSegmentationLabelLineCount = if ($ValidationTask -ieq "segment") {
+        @($labelPaths |
+            ForEach-Object { Get-Content -LiteralPath $_ } |
+            ForEach-Object { (Remove-YamlInlineComment $_).Trim() } |
+            Where-Object { Test-SegmentationLabelLine $_ }).Count
+    } else {
+        $null
+    }
+
+    return [ordered]@{
+        split = $SplitName
+        imagesPath = $resolvedSplitPath
+        imageCount = $imagePaths.Count
+        labelFileCount = $labelPaths.Count
+        comparisonLabelCount = [System.Math]::Min($imagePaths.Count, $labelPaths.Count)
+        positiveSegmentationLabelLineCount = $positiveSegmentationLabelLineCount
+        recommendedLabelCount = $RecommendedPromotionLabelCount
+    }
 }
 
 function Convert-YamlClassNameScalar([string]$Value) {
@@ -544,9 +686,115 @@ function Format-NullableNumber($Value) {
     return ([double]$Value).ToString("0.###", [System.Globalization.CultureInfo]::InvariantCulture)
 }
 
+function Get-ModelMetric($Model, [string]$MetricName) {
+    if ($null -eq $Model -or $null -eq $Model.metrics) {
+        return $null
+    }
+
+    $value = $Model.metrics[$MetricName]
+    if ($null -eq $value) {
+        $value = $Model.metrics.$MetricName
+    }
+
+    if ($null -eq $value) {
+        return $null
+    }
+
+    return [double]$value
+}
+
+function New-PromotionRecommendation($Baseline, $Candidate, $Evidence) {
+    $minimumPrecision = 0.10
+    $heldoutLabelCount = if ($null -eq $Evidence) { 0 } else { [int]$Evidence.comparisonLabelCount }
+    $minimumHeldoutLabelCount = if ($null -eq $Evidence) { $RecommendedPromotionLabelCount } else { [int]$Evidence.recommendedLabelCount }
+    $baselinePrecision = Get-ModelMetric $Baseline "precision"
+    $candidatePrecision = Get-ModelMetric $Candidate "precision"
+    $baselineRecall = Get-ModelMetric $Baseline "recall"
+    $candidateRecall = Get-ModelMetric $Candidate "recall"
+    $baselineMap50 = Get-ModelMetric $Baseline "map50"
+    $candidateMap50 = Get-ModelMetric $Candidate "map50"
+    $baselineMap5095 = Get-ModelMetric $Baseline "map5095"
+    $candidateMap5095 = Get-ModelMetric $Candidate "map5095"
+
+    if ($heldoutLabelCount -lt $minimumHeldoutLabelCount) {
+        return [ordered]@{
+            recommendation = "hold"
+            reason = "Held-out comparison uses $heldoutLabelCount labeled images; collect at least $minimumHeldoutLabelCount before promotion."
+            minimumPrecision = $minimumPrecision
+            heldoutLabelCount = $heldoutLabelCount
+            minimumHeldoutLabelCount = $minimumHeldoutLabelCount
+        }
+    }
+
+    if ($null -eq $candidatePrecision -or $null -eq $candidateRecall -or $null -eq $candidateMap50 -or $null -eq $candidateMap5095) {
+        return [ordered]@{
+            recommendation = "hold"
+            reason = "Candidate metrics are incomplete; keep the current inspection model."
+            minimumPrecision = $minimumPrecision
+            heldoutLabelCount = $heldoutLabelCount
+            minimumHeldoutLabelCount = $minimumHeldoutLabelCount
+        }
+    }
+
+    if ($candidatePrecision -lt $minimumPrecision) {
+        return [ordered]@{
+            recommendation = "hold"
+            reason = "Candidate precision $(Format-NullableNumber $candidatePrecision) is below the minimum $(Format-NullableNumber $minimumPrecision); review labels/training before promotion."
+            minimumPrecision = $minimumPrecision
+            heldoutLabelCount = $heldoutLabelCount
+            minimumHeldoutLabelCount = $minimumHeldoutLabelCount
+        }
+    }
+
+    if ($null -ne $baselineMap50 -and $candidateMap50 -lt $baselineMap50) {
+        return [ordered]@{
+            recommendation = "hold"
+            reason = "Candidate mAP50 is lower than the current inspection model."
+            minimumPrecision = $minimumPrecision
+            heldoutLabelCount = $heldoutLabelCount
+            minimumHeldoutLabelCount = $minimumHeldoutLabelCount
+        }
+    }
+
+    if ($null -ne $baselineMap5095 -and $candidateMap5095 -lt $baselineMap5095) {
+        return [ordered]@{
+            recommendation = "hold"
+            reason = "Candidate mAP50-95 is lower than the current inspection model."
+            minimumPrecision = $minimumPrecision
+            heldoutLabelCount = $heldoutLabelCount
+            minimumHeldoutLabelCount = $minimumHeldoutLabelCount
+        }
+    }
+
+    $betterMap50 = $null -ne $baselineMap50 -and $candidateMap50 -gt $baselineMap50
+    $betterMap5095 = $null -ne $baselineMap5095 -and $candidateMap5095 -gt $baselineMap5095
+    $precisionNotWorse = $null -eq $baselinePrecision -or $candidatePrecision -ge $baselinePrecision
+    $recallNotWorse = $null -eq $baselineRecall -or $candidateRecall -ge $baselineRecall
+
+    if ($betterMap50 -and $betterMap5095 -and $precisionNotWorse -and $recallNotWorse) {
+        return [ordered]@{
+            recommendation = "promote"
+            reason = "Candidate improves mAP and does not regress precision or recall; review examples before saving it as the inspection model."
+            minimumPrecision = $minimumPrecision
+            heldoutLabelCount = $heldoutLabelCount
+            minimumHeldoutLabelCount = $minimumHeldoutLabelCount
+        }
+    }
+
+    return [ordered]@{
+        recommendation = "review"
+        reason = "Candidate metrics are mixed; inspect comparison examples before deciding."
+        minimumPrecision = $minimumPrecision
+        heldoutLabelCount = $heldoutLabelCount
+        minimumHeldoutLabelCount = $minimumHeldoutLabelCount
+    }
+}
+
 function Write-MarkdownReport($Summary, [string]$Path) {
     $baseline = $Summary.baseline
     $candidate = $Summary.candidate
+    $promotion = $Summary.promotion
+    $evidence = $Summary.evidence
     $lines = New-Object System.Collections.Generic.List[string]
     $lines.Add("# YOLO Model Comparison")
     $lines.Add("")
@@ -554,6 +802,9 @@ function Write-MarkdownReport($Summary, [string]$Path) {
     $lines.Add("- Task: ``$($Summary.task)``")
     $lines.Add("- Model task: ``$($Summary.modelTask)``")
     $lines.Add("- UI confidence: ``$($Summary.uiConfidence)``")
+    if ($null -ne $evidence) {
+        $lines.Add("- Held-out evidence: ``$($evidence.comparisonLabelCount)`` labeled images / recommended ``$($evidence.recommendedLabelCount)``")
+    }
     $lines.Add("")
     $lines.Add("| Model | Precision | Recall | mAP50 | mAP50-95 | UI candidates | Max confidence |")
     $lines.Add("| --- | ---: | ---: | ---: | ---: | ---: | ---: |")
@@ -563,6 +814,16 @@ function Write-MarkdownReport($Summary, [string]$Path) {
         $lines.Add("| $($item.name) | $(Format-NullableNumber $metrics.precision) | $(Format-NullableNumber $metrics.recall) | $(Format-NullableNumber $metrics.map50) | $(Format-NullableNumber $metrics.map5095) | $($confidence.uiCandidateCount)/$($confidence.predictionCount) | $(Format-NullableNumber $confidence.maxConfidence) |")
     }
     $lines.Add("")
+    if ($null -ne $promotion) {
+        $lines.Add("## Recommendation")
+        $lines.Add("")
+        $lines.Add("- Decision: ``$($promotion.recommendation)``")
+        $lines.Add("- Reason: $($promotion.reason)")
+        $lines.Add("- Minimum precision: ``$(Format-NullableNumber $promotion.minimumPrecision)``")
+        $lines.Add("- Held-out labels: ``$($promotion.heldoutLabelCount)`` / required ``$($promotion.minimumHeldoutLabelCount)``")
+        $lines.Add("")
+    }
+
     $lines.Add("## Files")
     $lines.Add("")
     $lines.Add("- Baseline weights: ``$($baseline.weights)``")
@@ -601,6 +862,8 @@ New-Item -ItemType Directory -Force -Path $runOutputRoot | Out-Null
 
 $baseline = Invoke-ModelVal "baseline" $BaselineWeights $runOutputRoot
 $candidate = Invoke-ModelVal "candidate" $CandidateWeights $runOutputRoot
+$evidence = New-ComparisonEvidence $DataYaml $Task $ModelTask
+$promotion = New-PromotionRecommendation $baseline $candidate $evidence
 
 $summary = [ordered]@{
     createdAt = (Get-Date).ToString("o")
@@ -608,8 +871,10 @@ $summary = [ordered]@{
     task = $Task
     modelTask = $ModelTask
     uiConfidence = $UiConfidence
+    evidence = $evidence
     baseline = $baseline
     candidate = $candidate
+    promotion = $promotion
 }
 
 $jsonPath = Join-Path $runOutputRoot "comparison-summary.json"

@@ -37,6 +37,11 @@ namespace MvcVisionSystem
                 return false;
             }
 
+            if (!TrySavePendingAnnotationsBeforeImageChange(imagePath))
+            {
+                return false;
+            }
+
             Stopwatch loadStopwatch = Stopwatch.StartNew();
             long stepStartTicks = loadStopwatch.ElapsedTicks;
             bool cacheHit = false;
@@ -259,6 +264,31 @@ namespace MvcVisionSystem
                 queuePopulateMilliseconds,
                 reviewRefreshMilliseconds,
                 preloadScheduleMilliseconds);
+        }
+
+        private bool TrySavePendingAnnotationsBeforeImageChange(string nextImagePath)
+        {
+            if (activeImageBitmap == null
+                || string.IsNullOrWhiteSpace(activeImagePath)
+                || string.IsNullOrWhiteSpace(nextImagePath)
+                || string.Equals(Path.GetFullPath(activeImagePath), Path.GetFullPath(nextImagePath), StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (string.IsNullOrWhiteSpace(annotationDirtyReason) && !HasPendingMaskStrokeCommitWork())
+            {
+                return true;
+            }
+
+            if (SaveCurrentAnnotations(out int savedCount))
+            {
+                AppendLog($"이미지 전환 전 라벨 자동 저장: {Path.GetFileName(activeImagePath)} / 객체 {savedCount}개");
+                return true;
+            }
+
+            AppendLog($"이미지 전환 중단: 현재 이미지 라벨을 저장하지 못했습니다. {Path.GetFileName(activeImagePath)}");
+            return false;
         }
 
         private void PreloadAdjacentQueueImages(string imagePath)

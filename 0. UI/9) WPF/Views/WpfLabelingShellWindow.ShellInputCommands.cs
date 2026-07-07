@@ -51,23 +51,42 @@ namespace MvcVisionSystem
         // Shell-level keyboard shortcuts stay outside the constructor/field file so command routing is easier to audit.
         private void ExecuteShellPreviewKeyDownCommand(KeyInputCommandArgs e)
         {
-            if (e == null
-                || (e.Modifiers & ModifierKeys.Control) != ModifierKeys.Control
-                || IsTextEditingElement(e.OriginalSource))
+            if (e == null || IsTextEditingElement(e.OriginalSource))
             {
                 return;
             }
 
-            if (e.Key == Key.Z)
+            if ((e.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
             {
-                bool isRedoShortcut = (e.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
-                e.Handled = isRedoShortcut ? RedoWpfAnnotationHistory() : UndoWpfAnnotationHistory();
+                if (e.Key == Key.Z)
+                {
+                    bool isRedoShortcut = (e.Modifiers & ModifierKeys.Shift) == ModifierKeys.Shift;
+                    e.Handled = isRedoShortcut ? RedoWpfAnnotationHistory() : UndoWpfAnnotationHistory();
+                    return;
+                }
+
+                if (e.Key == Key.Y)
+                {
+                    e.Handled = RedoWpfAnnotationHistory();
+                }
+
                 return;
             }
 
-            if (e.Key == Key.Y)
+            if (e.Modifiers != ModifierKeys.None)
             {
-                e.Handled = RedoWpfAnnotationHistory();
+                return;
+            }
+
+            if (e.Key == Key.Down || e.Key == Key.Right)
+            {
+                e.Handled = TryOpenAdjacentQueueImage(1);
+                return;
+            }
+
+            if (e.Key == Key.Up || e.Key == Key.Left)
+            {
+                e.Handled = TryOpenAdjacentQueueImage(-1);
             }
         }
 
@@ -75,6 +94,7 @@ namespace MvcVisionSystem
         {
             return source is TextBox
                 || source is ComboBox
+                || source is System.Windows.Controls.Primitives.RangeBase
                 || source is System.Windows.Controls.Primitives.TextBoxBase;
         }
     }

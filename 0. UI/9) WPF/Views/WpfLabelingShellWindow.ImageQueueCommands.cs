@@ -366,6 +366,59 @@ namespace MvcVisionSystem
             return loaded;
         }
 
+        private bool TryOpenAdjacentQueueImage(int direction)
+        {
+            if (direction == 0 || imageQueueItems.Count == 0)
+            {
+                return false;
+            }
+
+            imageQueueView?.Refresh();
+            IReadOnlyList<WpfImageQueueItem> visibleItems = GetVisibleQueueItems()
+                .Where(CanOpenQueueItem)
+                .ToList();
+            if (visibleItems.Count == 0)
+            {
+                return false;
+            }
+
+            int currentIndex = FindQueueNavigationIndex(visibleItems, activeImagePath);
+            if (currentIndex < 0)
+            {
+                currentIndex = FindQueueNavigationIndex(visibleItems, ImageQueueViewModel?.SelectedQueueItem?.ImagePath);
+            }
+
+            int targetIndex = currentIndex < 0
+                ? (direction > 0 ? 0 : visibleItems.Count - 1)
+                : currentIndex + Math.Sign(direction);
+            if (targetIndex < 0 || targetIndex >= visibleItems.Count)
+            {
+                return false;
+            }
+
+            WpfImageQueueItem targetItem = visibleItems[targetIndex];
+            SelectImageQueueItem(targetItem.ImagePath);
+            return TryOpenSelectedQueueImage(targetItem, skipIfAlreadyActive: true);
+        }
+
+        private static int FindQueueNavigationIndex(IReadOnlyList<WpfImageQueueItem> items, string imagePath)
+        {
+            if (items == null || string.IsNullOrWhiteSpace(imagePath))
+            {
+                return -1;
+            }
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                if (string.Equals(items[i]?.ImagePath, imagePath, StringComparison.OrdinalIgnoreCase))
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
         private string BuildOpenQueueSelectionFailureMessage()
         {
             string searchText = ImageQueueSearchBox?.Text?.Trim() ?? string.Empty;

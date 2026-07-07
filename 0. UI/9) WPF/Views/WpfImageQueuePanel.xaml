@@ -509,7 +509,7 @@
                     </Grid>
                 </Grid>
 
-                <UniformGrid Grid.Row="4" Columns="2" VerticalAlignment="Center">
+                <UniformGrid Grid.Row="4" Columns="3" VerticalAlignment="Center">
                     <ui:Button x:Name="QueueFilterUnfinishedButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterUnfinishedActive}" AutomationProperties.Name="&#xC791;&#xC5C5; &#xD544;&#xC694; &#xD544;&#xD130;" ToolTip="&#xB77C;&#xBCA8;&#xB9C1;, AI &#xD6C4;&#xBCF4; &#xAC80;&#xD1A0;, &#xC800;&#xC7A5; &#xD544;&#xC694;, &#xC2E4;&#xD328; &#xD56D;&#xBAA9;&#xB9CC; &#xBCF4;&#xAE30;" Command="{Binding QueueFilterUnfinishedCommand}">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="PlaylistPlay" />
@@ -634,6 +634,7 @@
                                       AutomationProperties.Name="{Binding QueueRowAccessibleName}">
                                     <Grid.ColumnDefinitions>
                                         <ColumnDefinition Width="3" />
+                                        <ColumnDefinition Width="36" />
                                         <ColumnDefinition Width="18" />
                                         <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
@@ -642,14 +643,28 @@
                                             MinHeight="30"
                                             CornerRadius="2"
                                             Background="{Binding QueueRowAccentBrush}" />
-                                    <iconPacks:PackIconMaterial Grid.Column="1"
+                                    <Border Grid.Column="1"
+                                            Width="32"
+                                            Height="28"
+                                            Margin="4,0,0,0"
+                                            Background="#151A20"
+                                            BorderBrush="{DynamicResource GridLineBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="2"
+                                            ClipToBounds="True">
+                                        <Image Source="{Binding ThumbnailSource, IsAsync=True}"
+                                               Stretch="UniformToFill"
+                                               Opacity="0.92"
+                                               RenderOptions.BitmapScalingMode="LowQuality" />
+                                    </Border>
+                                    <iconPacks:PackIconMaterial Grid.Column="2"
                                                                 Width="14"
                                                                 Height="14"
                                                                 VerticalAlignment="Center"
                                                                 HorizontalAlignment="Center"
                                                                 Kind="{Binding QueueIconKind}"
                                                                 Foreground="{Binding QueueIconBrush}" />
-                                    <StackPanel Grid.Column="2" Margin="5,0,0,0">
+                                    <StackPanel Grid.Column="3" Margin="5,0,0,0">
                                         <Grid>
                                             <Grid.ColumnDefinitions>
                                                 <ColumnDefinition Width="*" />

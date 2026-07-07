@@ -71,9 +71,9 @@ namespace MvcVisionSystem
                 selectedConfirmable,
                 hasConfirmableCandidates,
                 hasVisibleCandidates && hasSelectedCandidate,
-                selectedConfirmable ? "\uC120\uD0DD \uAC80\uCD9C \uD6C4\uBCF4 \uD655\uC815" : BuildCandidateConfirmDisabledHintText(selectedCandidate),
+                selectedConfirmable ? "\uC120\uD0DD AI \uD6C4\uBCF4 \uD655\uC815" : BuildCandidateConfirmDisabledHintText(selectedCandidate),
                 hasConfirmableCandidates ? "\uD45C\uC2DC\uB41C \uD655\uC815 \uAC00\uB2A5 \uD6C4\uBCF4 \uC804\uCCB4 \uD655\uC815" : "\uD655\uC815 \uAC00\uB2A5\uD55C \uD45C\uC2DC \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uC911\uBCF5 \uAC00\uB2A5 \uD6C4\uBCF4\uB294 \uC81C\uC678\uD569\uB2C8\uB2E4.",
-                hasSelectedCandidate ? "\uC120\uD0DD \uAC80\uCD9C \uD6C4\uBCF4 \uC2A4\uD0B5" : "\uC2A4\uD0B5\uD560 \uAC80\uCD9C \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.");
+                hasSelectedCandidate ? "\uC120\uD0DD AI \uD6C4\uBCF4 \uC2A4\uD0B5" : "\uC2A4\uD0B5\uD560 AI \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.");
             CandidateReviewViewModel?.SetNavigationState(canNavigateCandidates, canNavigateCandidates, canFocusCandidate);
             CandidateReviewViewModel?.SetCurrentLabelFocusState(
                 canFocusCurrentLabel,

@@ -2,6 +2,284 @@
 
 This document records code paths that have already been performance- or UX-verified and should not be casually refactored. Treat these areas as protected product behavior: change them only when the user reports a new issue in that exact path, or when a focused verification gate proves the change is necessary.
 
+## Segmentation Label Navigation Auto-Save
+
+Status: stable for focused WPF SEG navigation coverage as of 2026-07-07.
+
+Protected behavior:
+
+- Loading a different image must first save dirty annotations for the previous active image.
+- Pending Brush/Eraser mask strokes must be flushed before the active image state is cleared.
+- A pending brush mask must leave both segment JSON and a non-empty mask PNG for the previous image.
+- Moved segmentation polygons must persist their updated coordinates before image navigation.
+- DataGrid queue-click navigation must use the same save-before-load boundary; clicking another row after a brush stroke must save the previous image and reload it when returning.
+- Keyboard queue navigation must use the same save-before-load boundary; moving with `Down` after a brush stroke must save the previous image and reload it when returning.
+- If the current annotations cannot be saved, image navigation should stop instead of silently discarding edits.
+
+Required gates before reporting this path complete again:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-loads-canvas
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-keyboard-navigation
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification
+git diff --check
+```
+
+Latest evidence:
+
+```text
+PASS WPF image navigation auto-saves pending brush masks
+PASS WPF image navigation auto-saves moved segmentation labels
+PASS WPF image queue click loads canvas and preserves pending labels
+PASS WPF image queue click uses the lightweight load path
+PASS WPF image queue arrow keys load adjacent images
+```
+
+## YOLOv8 SEG Real EXE Workflow
+
+Status: stable for the local circular-defect EXE workflow after a fresh 2026-07-07 built-EXE pass.
+
+Protected behavior:
+
+- The EXE can create a segmentation recipe from the dataset workflow.
+- The EXE can select the parent `images` folder that contains `OK` and `NG` child folders.
+- NG brush labels must save segment JSON and mask PNG artifacts.
+- OK child-folder images must contribute empty/background label files for segmentation training.
+- The local `C:\Git\yolov8` worker path must be able to train YOLOv8 SEG, apply the resulting `best.pt`, and run current-image inference from the trained model.
+- EXE automation helpers may retry stale UIA combo/dialog states, but should not change product runtime behavior.
+
+Required gates before reporting this workflow complete again:
+
+```powershell
+dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-circular-segmentation-workflow --exe "C:\Git\Labelling_Application\artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe" --image-root "D:\circular_defect_labeling_dataset_v1\images" --yolov8-root "C:\Git\yolov8" --label-count 12
+git diff --check
+```
+
+Latest evidence:
+
+```text
+EXE_CIRCULAR_SEGMENTATION_WORKFLOW recipe=circular_seg_exe_20260707_010325
+EXE_CIRCULAR_SEGMENTATION_WORKFLOW trainedWeights=C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt
+EXE_CIRCULAR_SEGMENTATION_WORKFLOW trainSegments=6 validSegments=3 testSegments=3 backgroundLabels=20
+EXE_CIRCULAR_SEGMENTATION_WORKFLOW inferenceStatus=후보: NG 1.3%  크기 104x105 / 위치 x=1, y=0 / 추론: 완료  모델 YOLOv8 / openvisionlab-yolov8-segment\best.pt / 후보 1
+```
+
+## Canvas Brush-Size Toolbar and Candidate Review Wording
+
+Status: stable for canvas brush-size discoverability and Stage 3 `AI 후보 검토` wording after focused WPF command, candidate-review, MVVM, public tutorial, and 1920x1080 visual smoke coverage.
+
+Protected behavior:
+
+- The canvas toolbar shows brush-size controls only for Brush/Eraser tools.
+- The toolbar controls update the shared `WpfLearningWorkflowPanelViewModel.BrushSize`; brush/eraser rendering must continue to use that existing workflow value.
+- The canvas brush-size text must stay synced when the workflow panel slider changes.
+- Brush-size controls must not introduce new brush/eraser commit work during pointer movement.
+- Candidate Review and Stage 3 guidance should use `AI 후보 검토` consistently for model-generated candidates.
+- The top Stage 3 workflow button must decode to `3 AI 후보`, the inference mode switcher must decode to `AI 후보 검토`, and decoded XAML must not contain the ambiguous `추론 검토` label.
+- Candidate Review guidance must distinguish action semantics: confirm adds a saved label, while skip hides only the AI candidate.
+- Public README/tutorial copy and the 12번 candidate-review screenshot should not reintroduce the ambiguous `추론 검토` label for the operator-facing review step.
+- Candidate Review current-image controls must stay above model-validation controls by actual `Grid.Row` placement, not source declaration order.
+
+Required gates before reporting a change complete:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-canvas-panel-commands
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-layout
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-presentation
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-mask-drag-performance
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --annotation-tool brush --review-tab guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-brush-size-toolbar-after-1920.png
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab candidates --width 1920 --height 1080 --output .\artifacts\ui\wpf-stage3-ai-candidate-button-after-1920.png
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs
+git diff --check
+```
+
+Latest evidence:
+
+```text
+PASS WPF canvas panel declares viewer commands
+PASS WPF candidate review supports navigation and focus commands
+PASS WPF candidate rows show visual review status
+PASS WPF candidate review presentation marks AI candidates as unsaved
+PASS WPF labeling shell can be constructed without the WinForms shell
+PASS MVVM infrastructure observable and command helpers
+PASS WPF mask brush drag commit performance
+WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\wpf-brush-size-toolbar-after-1920.png
+WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\wpf-stage3-ai-candidate-button-after-1920.png
+```
+
+## Image Queue Row Thumbnails
+
+Status: stable for compact visible-row thumbnails after focused WPF structure and 1920x1080 visual smoke coverage.
+
+Protected behavior:
+
+- Queue row thumbnails are small, per-row previews before the status icon and filename.
+- `WpfImageQueueItem.ThumbnailSource` must load lazily and return a frozen image source so visible rows can bind safely.
+- Thumbnail decode should stay small, currently `DecodePixelWidth = 42`.
+- Thumbnail binding should remain asynchronous from XAML and must not replace the normal queue shell load path.
+- Queue row virtualization, row status icon/badge, tooltips, automation names, click loading, and arrow-key navigation must stay intact.
+
+Required gates before reporting a change complete:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-keyboard-navigation
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --annotation-tool brush --review-tab guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-image-queue-thumbnail-after-1920.png
+git diff --check
+```
+
+Latest evidence:
+
+```text
+PASS WPF image queue presents row status with icons
+PASS WPF image queue arrow keys load adjacent images
+PASS WPF image queue click uses the lightweight load path
+WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\wpf-image-queue-thumbnail-after-1920.png
+```
+
+## Image Queue Large-Folder Thumbnail Performance
+
+Status: stable for bulk queue replacement, visible-row lazy thumbnails, and thumbnail file-handle release after focused 1200-item WPF fixture coverage.
+
+Protected behavior:
+
+- Loading an image folder into the queue should replace shell rows with one bulk reset notification, not one notification per image.
+- Queue load must not create thumbnails for every image path.
+- Thumbnail creation should remain lazy and should start only when a row thumbnail is requested.
+- Thumbnail bitmaps should be loaded with `OnLoad`, frozen, and released from their source file stream so the image file is not locked by preview display.
+- Existing row status, click loading, arrow-key navigation, quick filters, and row virtualization must stay intact.
+
+Required gates before reporting a change complete:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-large-folder-performance
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-keyboard-navigation
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-selection-service
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+git diff --check
+```
+
+Latest evidence:
+
+```text
+LARGE_QUEUE_LOAD_MS=132.8; ITEMS=1200; COLLECTION_ACTIONS=1
+PASS WPF image queue large folder keeps bulk and lazy thumbnail behavior
+PASS WPF image queue presents row status with icons
+PASS WPF image queue arrow keys load adjacent images
+PASS WPF image queue click uses the lightweight load path
+PASS WPF image queue selection service owns queue state decisions
+PASS WPF labeling shell can be constructed without the WinForms shell
+```
+
+## Image Queue Compact Filter Layout
+
+Status: stable for the current three-column quick-filter layout after focused WPF structure and 1920x1080 visual smoke coverage.
+
+Protected behavior:
+
+- The image queue quick filters use three columns so the queue list starts higher in the right panel.
+- All seven quick filters remain visible and bound to the existing `WpfImageQueuePanelViewModel` commands/state.
+- The selected quick-filter active styling, count text, and tooltips remain unchanged.
+- The current-image task card and queue DataGrid bindings remain unchanged.
+- This layout change must not alter queue click loading, arrow-key navigation, or row virtualization.
+
+Required gates before reporting a change complete:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-keyboard-navigation
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --annotation-tool brush --review-tab guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-image-queue-density-after-1920.png
+git diff --check
+```
+
+Latest evidence:
+
+```text
+PASS WPF image queue presents row status with icons
+PASS WPF image queue arrow keys load adjacent images
+PASS WPF image queue click uses the lightweight load path
+WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\wpf-image-queue-density-after-1920.png
+```
+
+## Image Queue Keyboard Navigation
+
+Status: stable for shell-level adjacent image navigation after focused WPF coverage.
+
+Protected behavior:
+
+- `Down` and `Right` open the next visible queue image.
+- `Up` and `Left` open the previous visible queue image.
+- Navigation uses the current filtered/searched queue view, not hidden rows.
+- Arrow navigation must reuse the normal queue image-load path so dirty-label auto-save and lightweight image loading still apply.
+- Arrow navigation must not steal key input from text boxes, combo boxes, or sliders.
+- Navigation does not wrap at the first or last visible item.
+
+Required gates before reporting a change complete:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-keyboard-navigation
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-selection-service
+git diff --check
+```
+
+Latest evidence:
+
+```text
+PASS WPF image queue arrow keys load adjacent images
+PASS WPF image queue click uses the lightweight load path
+PASS WPF image queue selection service owns queue state decisions
+```
+
+## SEG Label Edit Navigation Persistence
+
+Status: stable for moved manual segmentation labels and dirty image navigation after focused WPF coverage.
+
+Protected behavior:
+
+- Moving a selected manual SEG polygon, polygon point, or raster mask must mark the current image dirty before the operator leaves the image.
+- Image navigation must save the currently loaded dirty annotations before clearing the canvas and loading the next image.
+- Pending brush-stroke work must be flushed through the normal save path before image navigation when the current image has an active path.
+- If the pre-navigation save fails, navigation must stop so the current unsaved labels stay visible.
+- The save must target the previous active image name/path, not the next image being loaded.
+
+Required gates before reporting a change complete:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-mask-drag-performance
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-mask-dirty-bounds
+git diff --check
+```
+
+Latest evidence:
+
+```text
+PASS WPF image navigation auto-saves moved segmentation labels
+PASS WPF segmentation object manipulation verification matrix passes
+PASS WPF segmentation object manipulation updates shell state
+PASS WPF mask brush drag commit performance
+PASS WPF mask overlay dirty bounds reset
+```
+
 ## YOLOv8 Segmentation Model Comparison Validation Path
 
 Status: stable for request generation, preflight validation, and script syntax after focused service coverage.
@@ -16,11 +294,16 @@ Protected behavior:
 - YOLOv8/YOLO11 segmentation model comparison must reject held-out splits that only have empty OK/background labels, bbox-only labels, or malformed segment labels; at least one positive YOLO segment label line with paired coordinates is required before validation launches.
 - YOLOv8/YOLO11 model comparison must reject same-count but different-name class lists. `data.yaml`, baseline weights, and candidate weights must have the same ordered class names before validation launches.
 - Segmentation readiness diagnostics must warn when the held-out test split contains OK/background images but no positive NG mask image.
+- Comparison summaries and reports must include a promotion recommendation. Low-precision candidates, currently below `0.10`, must be marked `hold` so they are not mistaken for production-ready promotion evidence.
+- Comparison summaries and reports must include held-out evidence counts, and promotion must stay `hold` below the 10 labeled-image recommendation even if the candidate metrics improve.
+- The WPF Candidate Review model-comparison detail must surface the promotion recommendation from `comparison-summary.json`.
+- The WPF Candidate Review model-comparison detail must not expose raw script promotion reasons such as `Candidate precision`; low-precision hold reasons should be translated into operator-facing Korean while preserving the evidence values.
 
 Required gates before reporting a change complete:
 
 ```powershell
 dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-review-service
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-run-service
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-heldout
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-weights-service
@@ -32,12 +315,16 @@ Latest evidence:
 ```text
 PASS WPF model comparison run service builds script requests
 PASS WPF model comparison button requires held-out test split
+PASS WPF model comparison review service builds disagreement examples and surfaces promotion hold recommendations
 PASS WPF training weights service selects latest best.pt
 PASS WPF training readiness presentation is operator-readable
 PASS YOLOv8 segmentation comparison rejects empty-background-only and bbox-only held-out labels
 EXPECTED_BLOCK Model comparison cannot start: dataset labels=1 [NG], baseline labels=1 [Defect], candidate labels=1 [NG].
 PASS YOLOv8 SEG same-class val comparison wrote comparison-summary.json for NG baseline-vs-candidate; both models scored mAP50=0.0 and UI candidates=0, so this is workflow evidence only.
 PASS YOLOv8 SEG same-class true-test comparison wrote comparison-summary.json for `circular_seg_exe_20260706_183245`; the 30ep/img128 candidate improved over baseline to recall=1.0, mAP50=0.105, mAP50-95=0.044, but precision=0.016 keeps this as held-out evidence only, not promotion evidence.
+PASS YOLOv8 SEG promotion recommendation comparison wrote `promotion.recommendation=hold` for the same 30ep/img128 candidate because precision=0.016 is below the 0.10 minimum.
+PASS YOLOv8 SEG promotion evidence count guard keeps `promotion.recommendation=hold` below 10 held-out labeled images and writes `evidence.comparisonLabelCount` to `comparison-summary.json`.
+PASS WPF model comparison review service translates low-precision promotion hold reasons and blocks raw `Candidate precision` text from Candidate Review detail.
 ```
 
 ## YOLOv8 Segmentation OK/NG Local Folder Dataset Prep
@@ -1287,6 +1574,8 @@ Model-center current-inspection reachability is covered by `--wpf-status-panels`
 2026-07-06 EXE top subnavigation click-through contract: the real EXE should let an operator click all four top workflow stage buttons and see only that stage's compact `하위 작업` shortcuts. Dataset exposes dataset/class shortcuts, labeling exposes label/tool/class shortcuts, inference exposes AI-candidate/current-inspection shortcuts, and training/model exposes model/candidate/current-inspection shortcuts. Enabled shortcuts should be invokable without the subnavigation disappearing. Covered by isolated test build and `--exe-top-subnavigation-smoke` with capture `artifacts\ui\exe-top-subnavigation-smoke.png`.
 
 2026-07-06 YOLOv8 SEG readiness coverage-warning contract: `YoloDatasetDiagnosticsService.BuildQualityWarnings` should warn, without blocking training, when a segmentation-purpose dataset has fewer than five positive train or valid mask images, or when OK/background empty labels are at least three times the positive mask images in either split. The warnings use `YoloDatasetStatistics` split-level empty-label counts and flow through the existing WPF readiness/dashboard warning path. This is dataset readiness diagnostics only and does not run training, judge accuracy, change WPF layout, or touch Viewer/OpenGL/ROI/brush/eraser hot paths. Covered by isolated test build, `--dataset-readiness-purpose`, `--wpf-training-readiness-presentation`, and `--wpf-training-dashboard-quality`.
+
+2026-07-06 public tutorial screenshot contract: README and tutorial screenshots that represent the current workflow should be generated from current 1920x1080 WPF visual-smoke captures, and public screenshot path fields should be redacted to non-local placeholder text. The standalone tutorial HTML should embed the refreshed PNGs as base64 rather than retaining stale image data. This is documentation evidence only; it does not change product runtime behavior. Covered by isolated test build, WPF visual-smoke captures under `artifacts\ui\tutorial-refresh`, `--priority-workflow-docs`, standalone image-embed count checks, and `git diff --check`.
 
 ## Refactor Rule
 

@@ -668,6 +668,54 @@
                             </ItemsPanelTemplate>
                         </ListBox.ItemsPanel>
                     </ListBox>
+                        <Border x:Name="CanvasBrushSizeControl"
+                                Visibility="{Binding MaskBrushControlVisibility}"
+                                Background="{DynamicResource CanvasBrush}"
+                                BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                                BorderThickness="1"
+                                CornerRadius="4"
+                                Padding="4,0"
+                                Margin="2,0,6,0"
+                                Height="27"
+                                VerticalAlignment="Center"
+                                ToolTip="&#xBE0C;&#xB7EC;&#xC2DC;/&#xC9C0;&#xC6B0;&#xAC1C; &#xD06C;&#xAE30;">
+                            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                                <TextBlock Text="&#xBE0C;&#xB7EC;&#xC2DC;"
+                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           Margin="0,0,5,0"
+                                           VerticalAlignment="Center" />
+                                <ui:Button x:Name="CanvasDecreaseBrushSizeButton"
+                                           Style="{StaticResource CanvasAnnotationCommandButtonStyle}"
+                                           Width="24"
+                                           MinWidth="24"
+                                           Margin="0"
+                                           ToolTip="&#xBE0C;&#xB7EC;&#xC2DC; &#xD06C;&#xAE30; &#xC904;&#xC774;&#xAE30;"
+                                           Command="{Binding DecreaseBrushSizeCommand}">
+                                    <iconPacks:PackIconMaterial Kind="Minus" Width="13" Height="13" />
+                                </ui:Button>
+                                <TextBlock x:Name="CanvasBrushSizeText"
+                                           Text="{Binding BrushSizeText}"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="11"
+                                           FontWeight="SemiBold"
+                                           Width="38"
+                                           TextAlignment="Center"
+                                           VerticalAlignment="Center" />
+                                <ui:Button x:Name="CanvasIncreaseBrushSizeButton"
+                                           Style="{StaticResource CanvasAnnotationCommandButtonStyle}"
+                                           Width="24"
+                                           MinWidth="24"
+                                           Margin="0"
+                                           ToolTip="&#xBE0C;&#xB7EC;&#xC2DC; &#xD06C;&#xAE30; &#xB298;&#xB9AC;&#xAE30;"
+                                           Command="{Binding IncreaseBrushSizeCommand}">
+                                    <iconPacks:PackIconMaterial Kind="Plus" Width="13" Height="13" />
+                                </ui:Button>
+                            </StackPanel>
+                        </Border>
                         <TextBlock Text="&#xBAA8;&#xB4DC;"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
                                    FontFamily="Segoe UI"

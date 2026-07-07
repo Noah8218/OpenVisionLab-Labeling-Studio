@@ -54,7 +54,7 @@ namespace MvcVisionSystem
         private const double PreferredInitialShellWidth = 1920D;
         private const double PreferredInitialShellHeight = 1080D;
         private readonly CGlobal global = CGlobal.Inst;
-        private readonly ObservableCollection<WpfImageQueueItem> imageQueueItems = new ObservableCollection<WpfImageQueueItem>();
+        private readonly WpfBulkObservableCollection<WpfImageQueueItem> imageQueueItems = new WpfBulkObservableCollection<WpfImageQueueItem>();
         private readonly YoloImageReviewStatusService imageReviewStatus = new YoloImageReviewStatusService();
         private readonly AnomalyImageReviewStatusService anomalyImageReviewStatus = new AnomalyImageReviewStatusService();
         private int queuedActiveImageQueueStatusRefreshVersion;
@@ -190,6 +190,7 @@ namespace MvcVisionSystem
             DataContext = viewModels;
             TemplateMatchingAutoLabelViewModel.ConfigureHost(this);
             ComposePanelViewModels();
+            LearningWorkflowViewModel.PropertyChanged += LearningWorkflowViewModel_PropertyChanged;
             ApplyProjectDatasetPurposeToWorkflow();
             ConfigureShellCommands();
             RegisterLearningWorkflowPanelNames();

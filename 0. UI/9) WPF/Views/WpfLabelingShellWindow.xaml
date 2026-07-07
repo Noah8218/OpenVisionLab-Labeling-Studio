@@ -808,10 +808,10 @@
                                         <TextBlock Text="&#xB77C;&#xBCA8;&#xB9C1; &#xC2DC;&#xC791;" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </ui:Button>
-                                <ui:Button x:Name="InferenceModeButton" Style="{StaticResource WorkflowModeToolbarButtonStyle}" HorizontalAlignment="Stretch" MinWidth="218" Margin="0,0,0,4" AutomationProperties.Name="&#xCD94;&#xB860; &#xAC80;&#xD1A0;" ToolTip="&#xD604;&#xC7AC; &#xC774;&#xBBF8;&#xC9C0;&#xC640; &#xD050; &#xAC80;&#xCD9C; &#xBC84;&#xD2BC;&#xC744; &#xD65C;&#xC131;&#xD654;" IsEnabled="{Binding ShellViewModel.IsInferenceModeButtonEnabled}" Tag="{Binding ShellViewModel.IsInferenceModeActive}" Command="{Binding ShellViewModel.InferenceModeCommand}">
+                                <ui:Button x:Name="InferenceModeButton" Style="{StaticResource WorkflowModeToolbarButtonStyle}" HorizontalAlignment="Stretch" MinWidth="218" Margin="0,0,0,4" AutomationProperties.Name="AI &#xD6C4;&#xBCF4; &#xAC80;&#xD1A0;" ToolTip="AI &#xD6C4;&#xBCF4; &#xAC80;&#xD1A0; &#xBC84;&#xD2BC;&#xC744; &#xD65C;&#xC131;&#xD654;" IsEnabled="{Binding ShellViewModel.IsInferenceModeButtonEnabled}" Tag="{Binding ShellViewModel.IsInferenceModeActive}" Command="{Binding ShellViewModel.InferenceModeCommand}">
                                     <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                                         <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="RobotIndustrial" />
-                                        <TextBlock Text="&#xCD94;&#xB860; &#xAC80;&#xD1A0;" VerticalAlignment="Center" />
+                                        <TextBlock Text="AI &#xD6C4;&#xBCF4; &#xAC80;&#xD1A0;" VerticalAlignment="Center" />
                                     </StackPanel>
                                 </ui:Button>
                                 <ui:Button x:Name="CheckYoloButton" Style="{StaticResource WpfUiToolbarButtonStyle}" HorizontalAlignment="Stretch" MinWidth="218" Margin="0" AutomationProperties.Name="&#xBAA8;&#xB378; &#xC2E4;&#xD589; &#xD658;&#xACBD;" ToolTip="&#xBAA8;&#xB378; &#xC2E4;&#xD589; &#xACBD;&#xB85C;&#xC640; Python &#xD658;&#xACBD; &#xC810;&#xAC80;" Command="{Binding ShellViewModel.CheckYoloCommand}">
@@ -953,8 +953,8 @@
                     <ui:Button x:Name="InferenceReviewStageButton"
                                Style="{StaticResource WorkflowStageButtonStyle}"
                                AutomationProperties.AutomationId="InferenceReviewStageButton"
-                               AutomationProperties.Name="&#xCD94;&#xB860; &#xAC80;&#xD1A0;"
-                               ToolTip="&#xBAA8;&#xB378; &#xD6C4;&#xBCF4;&#xB9CC; &#xBCF4;&#xBA74;&#xC11C; &#xC218;&#xB77D;&#xD558;&#xAC70;&#xB098; &#xAC70;&#xC808;&#xD569;&#xB2C8;&#xB2E4;."
+                               AutomationProperties.Name="AI &#xD6C4;&#xBCF4; &#xAC80;&#xD1A0;"
+                               ToolTip="&#xAC80;&#xC0AC; &#xBAA8;&#xB378;&#xC774; &#xB9CC;&#xB4E0; AI &#xD6C4;&#xBCF4;&#xB97C; &#xC800;&#xC7A5; &#xB77C;&#xBCA8;&#xB85C; &#xD655;&#xC815;&#xD558;&#xAC70;&#xB098; &#xD6C4;&#xBCF4;&#xB9CC; &#xC228;&#xAE41;&#xB2C8;&#xB2E4;."
                                Tag="{Binding ShellViewModel.IsInferenceStageActive, ElementName=ShellWindow}"
                                Command="{Binding ShellViewModel.InferenceReviewCommand, ElementName=ShellWindow}">
                         <Grid>
@@ -964,7 +964,7 @@
                             </Grid.ColumnDefinitions>
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="RobotIndustrial" />
                             <TextBlock Grid.Column="1"
-                                       Text="3 &#xCD94;&#xB860; &#xAC80;&#xD1A0;"
+                                       Text="3 AI &#xD6C4;&#xBCF4;"
                                        FontWeight="SemiBold"
                                        VerticalAlignment="Center"
                                        TextTrimming="CharacterEllipsis" />

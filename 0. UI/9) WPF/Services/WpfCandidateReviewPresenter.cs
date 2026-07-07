@@ -129,7 +129,7 @@ namespace MvcVisionSystem
         {
             if (candidate == null)
             {
-                return "\uC120\uD0DD\uB41C \uAC80\uCD9C \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
+                return "\uC120\uD0DD\uB41C AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
             }
 
             string confidence = FormatConfidence(candidate, "P2");
@@ -157,9 +157,9 @@ namespace MvcVisionSystem
                     "-",
                     "-",
                     "\uACB9\uCE68\n0%",
-                    "\uD6C4\uBCF4 \uC5C6\uC74C: \uAC80\uD1A0\uD560 \uAC80\uCD9C \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
+                    "\uD6C4\uBCF4 \uC5C6\uC74C: \uAC80\uD1A0\uD560 AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.",
                     false,
-                    "\uC120\uD0DD: \uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C");
+                    "\uC120\uD0DD: AI \uD6C4\uBCF4 \uC5C6\uC74C");
             }
 
             string confidence = FormatConfidence(candidate, "P1");
@@ -187,7 +187,7 @@ namespace MvcVisionSystem
         {
             if (candidate == null)
             {
-                return "\uC120\uD0DD: \uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C";
+                return "\uC120\uD0DD: AI \uD6C4\uBCF4 \uC5C6\uC74C";
             }
 
             string candidateText = BuildCandidateSummaryName(candidate);
@@ -221,7 +221,7 @@ namespace MvcVisionSystem
 
             if (!string.IsNullOrWhiteSpace(overlap.Label))
             {
-                return "\uBD80\uBD84 \uACB9\uCE68: \uAC80\uCD9C \uD6C4\uBCF4\uC640 \uAE30\uC874 \uB77C\uBCA8\uC744 \uBE44\uAD50\uD55C \uB4A4, \uC0C8 \uAC1D\uCCB4\uBA74 \uD655\uC815\uD558\uC138\uC694.";
+                return "\uBD80\uBD84 \uACB9\uCE68: AI \uD6C4\uBCF4\uC640 \uAE30\uC874 \uB77C\uBCA8\uC744 \uBE44\uAD50\uD55C \uB4A4, \uC0C8 \uAC1D\uCCB4\uBA74 \uD655\uC815\uD558\uC138\uC694.";
             }
 
             return "\uC0C8 \uD6C4\uBCF4: \uACB9\uCE58\uB294 \uAE30\uC874 \uB77C\uBCA8\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uB9DE\uC73C\uBA74 \uD655\uC815, \uC544\uB2C8\uBA74 \uC2A4\uD0B5\uD558\uC138\uC694.";
@@ -268,7 +268,7 @@ namespace MvcVisionSystem
         {
             if (candidate == null)
             {
-                return "\uD655\uC815\uD560 \uAC80\uCD9C \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
+                return "\uD655\uC815\uD560 AI \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
             }
 
             if (bounds.IsEmpty)

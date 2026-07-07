@@ -41,12 +41,7 @@ namespace MvcVisionSystem
             suppressImageQueueSelection = true;
             try
             {
-                imageQueueItems.Clear();
-                foreach (WpfImageQueueItem item in imageQueueSelectionService.CreateShellItems(imagePaths))
-                {
-                    imageQueueItems.Add(item);
-                }
-
+                imageQueueItems.ReplaceAll(imageQueueSelectionService.CreateShellItems(imagePaths));
                 imageQueueView?.Refresh();
                 SelectImageQueueItem(selectedImagePath);
             }

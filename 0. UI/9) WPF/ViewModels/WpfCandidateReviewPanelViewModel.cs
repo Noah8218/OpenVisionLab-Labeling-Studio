@@ -21,8 +21,8 @@ namespace MvcVisionSystem
         private static readonly Action<KeyInputCommandArgs> NoOpKeyCommand = _ => { };
         private static readonly Action<WpfModelComparisonReviewExample> NoOpModelComparisonExampleCommand = _ => { };
         private string confidenceText = "0%";
-        private string detailText = "\uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C";
-        private string selectedCandidateSummaryText = "\uC120\uD0DD: \uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C";
+        private string detailText = "AI \uD6C4\uBCF4 \uC5C6\uC74C";
+        private string selectedCandidateSummaryText = "\uC120\uD0DD: AI \uD6C4\uBCF4 \uC5C6\uC74C";
         private WpfCandidateReviewListItem selectedCandidate;
         private bool isConfirmSelectedEnabled;
         private bool isConfirmAllEnabled;
@@ -36,9 +36,9 @@ namespace MvcVisionSystem
         private string completionDetailText = "\uC774\uBBF8\uC9C0\uB97C \uC5F4\uAC70\uB098 \uD604\uC7AC \uC774\uBBF8\uC9C0\uB97C \uAC80\uC0AC\uD558\uBA74 \uD6C4\uBCF4 \uAC80\uD1A0 \uC0C1\uD0DC\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
         private string completionNextActionText = "\uB2E4\uC74C: \uC774\uBBF8\uC9C0 \uC120\uD0DD \uB610\uB294 \uAC80\uC0AC";
         private string completeImageAndNextActionText = "\uC774\uBBF8\uC9C0 \uC644\uB8CC";
-        private string confirmSelectedToolTip = "\uD655\uC815\uD560 \uAC80\uCD9C \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
+        private string confirmSelectedToolTip = "\uD655\uC815\uD560 AI \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
         private string confirmAllToolTip = "\uD655\uC815 \uAC00\uB2A5\uD55C \uD45C\uC2DC \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
-        private string skipSelectedToolTip = "\uC2A4\uD0B5\uD560 \uAC80\uCD9C \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
+        private string skipSelectedToolTip = "\uC2A4\uD0B5\uD560 AI \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
         private string focusCurrentLabelToolTip = "\uACB9\uCE58\uB294 \uAE30\uC874 \uB77C\uBCA8\uC744 \uB77C\uBCA8 \uBAA9\uB85D\uACFC \uD654\uBA74\uC5D0\uC11C \uC120\uD0DD\uD569\uB2C8\uB2E4.";
         private string completeImageAndNextToolTip = "\uD604\uC7AC \uC774\uBBF8\uC9C0\uB97C \uC644\uB8CC\uD558\uACE0 \uB2E4\uC74C \uBBF8\uAC80\uD1A0 \uC774\uBBF8\uC9C0\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4.";
         private Visibility comparisonVisibility = Visibility.Collapsed;
@@ -85,25 +85,25 @@ namespace MvcVisionSystem
 
         public string ViewName => nameof(WpfCandidateReviewPanel);
 
-        public string PanelModeTitleText => "\uD604\uC7AC \uC774\uBBF8\uC9C0 \uD6C4\uBCF4 \uAC80\uD1A0";
+        public string PanelModeTitleText => "\uD604\uC7AC \uC774\uBBF8\uC9C0 AI \uD6C4\uBCF4 \uD655\uC815";
 
         public string PanelModeBadgeText => "AI \uD6C4\uBCF4 \uAC80\uD1A0";
 
         public string PanelModeScopeText => "\uD655\uC815 \uC804\uC5D0\uB294 \uC800\uC7A5 \uB77C\uBCA8 \uC544\uB2D8";
 
-        public string PanelModeDetailText => "\uC774 \uD328\uB110\uC740 \uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 AI \uAC80\uCD9C \uD6C4\uBCF4\uB97C \uAC80\uD1A0\uD569\uB2C8\uB2E4. \uD655\uC815\uD558\uAE30 \uC804\uC5D0\uB294 \uC800\uC7A5 \uB77C\uBCA8\uC774 \uC544\uB2C8\uBA70, \uD655\uC815\uD55C \uD6C4\uBCF4\uB294 \uC800\uC7A5 \uB77C\uBCA8\uB85C \uC804\uD658\uB418\uACE0 \uD604\uC7AC \uC774\uBBF8\uC9C0 \uD30C\uC77C\uC5D0 \uBC18\uC601\uB429\uB2C8\uB2E4.";
+        public string PanelModeDetailText => "\uC774 \uD328\uB110\uC740 \uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 AI \uD6C4\uBCF4\uB97C \uD655\uC778\uD569\uB2C8\uB2E4. \uD655\uC815\uD558\uBA74 \uC800\uC7A5 \uB77C\uBCA8\uC774 \uB418\uACE0, \uC2A4\uD0B5\uD558\uBA74 \uD6C4\uBCF4 \uD45C\uC2DC\uB9CC \uC228\uAE41\uB2C8\uB2E4.";
 
-        public string ReviewActionGuideText => "\uBA3C\uC800 \uD604\uC7AC \uC774\uBBF8\uC9C0 \uD6C4\uBCF4\uB97C \uD655\uC815/\uC2A4\uD0B5\uD558\uC138\uC694. \uD655\uC815\uD55C \uD6C4\uBCF4\uB294 \uC800\uC7A5 \uB77C\uBCA8\uC5D0 \uCD94\uAC00\uB418\uACE0 \uC800\uC7A5 \uC0C1\uD0DC\uAC00 \uAC31\uC2E0\uB418\uBA70, \uBAA8\uB378 \uAC80\uC99D\uC740 \uC544\uB798 \uCE74\uB4DC\uC5D0\uC11C \uB530\uB85C \uD310\uB2E8\uD569\uB2C8\uB2E4.";
+        public string ReviewActionGuideText => "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 AI \uD6C4\uBCF4\uB97C \uBA3C\uC800 \uD655\uC815\uD558\uAC70\uB098 \uC2A4\uD0B5\uD558\uC138\uC694. \uD655\uC815=\uC800\uC7A5 \uB77C\uBCA8 \uCD94\uAC00, \uC2A4\uD0B5=\uD6C4\uBCF4\uB9CC \uC228\uAE40, \uBAA8\uB378 \uAC80\uC99D\uC740 \uC544\uB798 \uCE74\uB4DC\uC5D0\uC11C \uB530\uB85C \uD310\uB2E8\uD569\uB2C8\uB2E4.";
 
         public string ModelComparisonSectionTitleText => "\uD559\uC2B5 \uBAA8\uB378 \uAC80\uC99D";
 
         public string ModelComparisonSectionDetailText => "\uD559\uC2B5\uC774 \uB05D\uB09C \uBAA8\uB378 \uD6C4\uBCF4\uB97C \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uACFC \uBE44\uAD50\uD558\uACE0 \uCC44\uD0DD \uC5EC\uBD80\uB97C \uD310\uB2E8\uD569\uB2C8\uB2E4.";
 
-        public string CurrentImageReviewRoleTitleText => "\uD604\uC7AC \uC774\uBBF8\uC9C0 \uD6C4\uBCF4";
+        public string CurrentImageReviewRoleTitleText => "\uD604\uC7AC \uC774\uBBF8\uC9C0 AI \uD6C4\uBCF4";
 
-        public string CurrentImageReviewRoleDetailText => "\uC218\uB77D/\uC2A4\uD0B5\uC740 \uC9C0\uAE08 \uBCF4\uB294 \uC774\uBBF8\uC9C0\uC5D0\uB9CC \uC801\uC6A9";
+        public string CurrentImageReviewRoleDetailText => "\uD655\uC815/\uC2A4\uD0B5\uC740 \uC9C0\uAE08 \uBCF4\uB294 \uC774\uBBF8\uC9C0\uC5D0\uB9CC \uC801\uC6A9";
 
-        public string CurrentImageReviewRoleResultText => "\uACB0\uACFC: \uD655\uC815 \uC989\uC2DC \uC800\uC7A5 \uB77C\uBCA8 \uBC18\uC601 \uB610\uB294 \uD6C4\uBCF4 \uC228\uAE40";
+        public string CurrentImageReviewRoleResultText => "\uACB0\uACFC: \uD655\uC815=\uC800\uC7A5 \uB77C\uBCA8 \uCD94\uAC00 / \uC2A4\uD0B5=\uD6C4\uBCF4\uB9CC \uC228\uAE40";
 
         public string ModelValidationRoleTitleText => "\uD559\uC2B5 \uBAA8\uB378 \uAC80\uC99D";
 
@@ -603,7 +603,7 @@ namespace MvcVisionSystem
             ComparisonCurrentText = "-";
             ComparisonOverlapText = "\uACB9\uCE68\n0%";
             ComparisonDecisionText = string.Empty;
-            SelectedCandidateSummaryText = "\uC120\uD0DD: \uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C";
+            SelectedCandidateSummaryText = "\uC120\uD0DD: AI \uD6C4\uBCF4 \uC5C6\uC74C";
             IsComparisonHighOverlap = false;
         }
 
@@ -616,7 +616,7 @@ namespace MvcVisionSystem
             ComparisonOverlapText = presentation.OverlapText;
             ComparisonDecisionText = presentation.DecisionText;
             SelectedCandidateSummaryText = string.IsNullOrWhiteSpace(presentation.SelectionSummaryText)
-                ? SelectedCandidate?.Title ?? "\uC120\uD0DD: \uAC80\uCD9C \uD6C4\uBCF4 \uC5C6\uC74C"
+                ? SelectedCandidate?.Title ?? "\uC120\uD0DD: AI \uD6C4\uBCF4 \uC5C6\uC74C"
                 : presentation.SelectionSummaryText;
             IsComparisonHighOverlap = presentation.IsHighOverlap;
         }

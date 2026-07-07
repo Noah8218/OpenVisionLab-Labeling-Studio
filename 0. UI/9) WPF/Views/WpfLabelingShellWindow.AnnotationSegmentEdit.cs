@@ -121,10 +121,11 @@ namespace MvcVisionSystem
         private void CompleteSelectedSegmentEdit()
         {
             bool changed = activeSegmentDragChanged;
+            bool movedPoint = activePolygonPointDragIndex >= 0;
             if (activeSegmentDragSnapshot != null && activeSegmentDragChanged)
             {
                 PushAnnotationHistorySnapshot(activeSegmentDragSnapshot);
-                AppendLog(activePolygonPointDragIndex >= 0
+                AppendLog(movedPoint
                     ? "Polygon point moved."
                     : "Mask or polygon moved.");
             }
@@ -137,6 +138,9 @@ namespace MvcVisionSystem
             RefreshPolygonOverlays();
             if (changed)
             {
+                MarkAnnotationsDirty(movedPoint
+                    ? "Move polygon point"
+                    : "Move polygon");
                 RefreshObjectList();
                 RefreshActiveImageQueueStatus(hasActiveCandidates: pendingDetectionCandidates.Count > 0);
             }

@@ -624,7 +624,7 @@
                     <ColumnDefinition Width="46" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
-                <TextBlock Text="&#xAC80;&#xCD9C; &#xD6C4;&#xBCF4;"
+                <TextBlock Text="AI &#xD6C4;&#xBCF4;"
                            Grid.Row="1"
                            Foreground="{DynamicResource DisabledTextBrush}"
                            FontFamily="Segoe UI"
@@ -684,7 +684,7 @@
                                    Style="{StaticResource CandidateReviewButtonStyle}"
                                    AutomationProperties.AutomationId="PreviousCandidateButton"
                                    AutomationProperties.Name="&#xC774;&#xC804; &#xD6C4;&#xBCF4;"
-                                   ToolTip="&#xC774;&#xC804; &#xAC80;&#xCD9C; &#xD6C4;&#xBCF4;&#xB97C; &#xC120;&#xD0DD;&#xD569;&#xB2C8;&#xB2E4;."
+                                   ToolTip="&#xC774;&#xC804; AI &#xD6C4;&#xBCF4;&#xB97C; &#xC120;&#xD0DD;&#xD569;&#xB2C8;&#xB2E4;."
                                    IsEnabled="{Binding IsPreviousCandidateEnabled}"
                                    Command="{Binding PreviousCandidateCommand}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -696,7 +696,7 @@
                                    Style="{StaticResource CandidateReviewButtonStyle}"
                                    AutomationProperties.AutomationId="FocusCandidateButton"
                                    AutomationProperties.Name="&#xD6C4;&#xBCF4; &#xCD08;&#xC810;"
-                                   ToolTip="&#xC120;&#xD0DD;&#xD55C; &#xAC80;&#xCD9C; &#xD6C4;&#xBCF4;&#xB97C; &#xCE94;&#xBC84;&#xC2A4; &#xAC00;&#xC6B4;&#xB370;&#xB85C; &#xAC00;&#xC838;&#xC635;&#xB2C8;&#xB2E4;."
+                                   ToolTip="&#xC120;&#xD0DD;&#xD55C; AI &#xD6C4;&#xBCF4;&#xB97C; &#xCE94;&#xBC84;&#xC2A4; &#xAC00;&#xC6B4;&#xB370;&#xB85C; &#xAC00;&#xC838;&#xC635;&#xB2C8;&#xB2E4;."
                                    IsEnabled="{Binding IsFocusCandidateEnabled}"
                                    Command="{Binding FocusCandidateCommand}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
@@ -720,7 +720,7 @@
                                    Style="{StaticResource CandidateReviewButtonStyle}"
                                    AutomationProperties.AutomationId="NextCandidateButton"
                                    AutomationProperties.Name="&#xB2E4;&#xC74C; &#xD6C4;&#xBCF4;"
-                                   ToolTip="&#xB2E4;&#xC74C; &#xAC80;&#xCD9C; &#xD6C4;&#xBCF4;&#xB97C; &#xC120;&#xD0DD;&#xD569;&#xB2C8;&#xB2E4;."
+                                   ToolTip="&#xB2E4;&#xC74C; AI &#xD6C4;&#xBCF4;&#xB97C; &#xC120;&#xD0DD;&#xD569;&#xB2C8;&#xB2E4;."
                                    IsEnabled="{Binding IsNextCandidateEnabled}"
                                    Command="{Binding NextCandidateCommand}">
                             <StackPanel Orientation="Horizontal" VerticalAlignment="Center">

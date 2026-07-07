@@ -293,6 +293,8 @@ internal static partial class Program
                 return wizard;
             }
 
+            _ = CloseRecipeManagerWindowIfOpen(process, stableHandle);
+
             System.Windows.Automation.AutomationElement root = stableHandle != IntPtr.Zero
                 ? RefreshAutomationRoot(process, stableHandle)
                 : RefreshAutomationRoot(process);
@@ -336,6 +338,8 @@ internal static partial class Program
                 }
             }
 
+            _ = CloseRecipeManagerWindowIfOpen(process, stableHandle);
+
             root = stableHandle != IntPtr.Zero
                 ? RefreshAutomationRoot(process, stableHandle)
                 : RefreshAutomationRoot(process);
@@ -344,10 +348,78 @@ internal static partial class Program
                 _ = TryInvokeAutomationButtonByAutomationId(root, "DatasetHomeStageButton");
             }
 
+            Thread.Sleep(220);
+            root = stableHandle != IntPtr.Zero
+                ? RefreshAutomationRoot(process, stableHandle)
+                : RefreshAutomationRoot(process);
+            _ = SelectAutomationTabByAutomationId(root, "LearningReviewTab") || SelectTabItemByName(root, "\uAC00\uC774\uB4DC/\uB3C4\uAD6C");
+            _ = SelectListItemByText(root, "\uC138\uADF8\uBA58\uD14C\uC774\uC158") || SelectListItemByText(root, "Segmentation");
+            if (TryInvokeAutomationButtonByAutomationId(root, "DatasetSetupStartButton"))
+            {
+                if (WaitUntil(
+                        () => (wizard = FindProcessWindowByName(process, "\uB370\uC774\uD130\uC14B \uC0DD\uC131")) != null,
+                        TimeSpan.FromSeconds(3)))
+                {
+                    return wizard;
+                }
+            }
+
             Thread.Sleep(350);
         }
 
         return FindProcessWindowByName(process, "\uB370\uC774\uD130\uC14B \uC0DD\uC131");
+    }
+
+    private static bool CloseRecipeManagerWindowIfOpen(Process process, IntPtr mainHandle)
+    {
+        if (process == null || process.HasExited)
+        {
+            return false;
+        }
+
+        IntPtr primaryHandle = mainHandle != IntPtr.Zero ? mainHandle : process.MainWindowHandle;
+        bool closed = false;
+        uint targetProcessId = (uint)process.Id;
+        EnumWindows((hWnd, _) =>
+        {
+            if (hWnd == primaryHandle || !IsWindowVisible(hWnd))
+            {
+                return true;
+            }
+
+            GetWindowThreadProcessId(hWnd, out uint processId);
+            if (processId != targetProcessId)
+            {
+                return true;
+            }
+
+            try
+            {
+                System.Windows.Automation.AutomationElement element = System.Windows.Automation.AutomationElement.FromHandle(hWnd);
+                if (element != null
+                    && element.Current.ControlType == System.Windows.Automation.ControlType.Window
+                    && ContainsAutomationText(element, "\uB808\uC2DC\uD53C \uAD00\uB9AC"))
+                {
+                    SendMessage(hWnd, WmClose, IntPtr.Zero, IntPtr.Zero);
+                    closed = true;
+                }
+            }
+            catch (System.Windows.Automation.ElementNotAvailableException)
+            {
+            }
+            catch (System.Runtime.InteropServices.COMException)
+            {
+            }
+
+            return true;
+        }, IntPtr.Zero);
+
+        if (closed)
+        {
+            Thread.Sleep(300);
+        }
+
+        return closed;
     }
 
     private static void ConfigureYoloV8SegmentationRuntimeThroughExe(
@@ -1308,7 +1380,8 @@ internal static partial class Program
         }
 
         if (TryClickComboBoxRelativeOption(process, stableHandle, comboAutomationId, itemName, comboBox, -92)
-            || TryClickComboBoxRelativeOption(process, stableHandle, comboAutomationId, itemName, comboBox, 52))
+            || TryClickComboBoxRelativeOption(process, stableHandle, comboAutomationId, itemName, comboBox, 52)
+            || TryClickComboBoxRelativeOption(process, stableHandle, comboAutomationId, itemName, comboBox, 82))
         {
             selectedItem = itemName;
             return true;
@@ -1386,6 +1459,8 @@ internal static partial class Program
         {
             NativeClick(GetAutomationCenter(comboBox));
             Thread.Sleep(120);
+            SendKeys.SendWait("%{DOWN}");
+            Thread.Sleep(120);
             SendKeys.SendWait("{HOME}");
             Thread.Sleep(80);
             SendKeys.SendWait("{DOWN}");
@@ -1421,10 +1496,18 @@ internal static partial class Program
             new System.Windows.Automation.PropertyCondition(
                 System.Windows.Automation.AutomationElement.NameProperty,
                 name));
-        System.Windows.Automation.AutomationElementCollection matches =
-            System.Windows.Automation.AutomationElement.RootElement.FindAll(
+        System.Windows.Automation.AutomationElementCollection matches;
+        try
+        {
+            matches = System.Windows.Automation.AutomationElement.RootElement.FindAll(
                 System.Windows.Automation.TreeScope.Descendants,
                 condition);
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            return null;
+        }
+
         foreach (System.Windows.Automation.AutomationElement element in matches)
         {
             try
@@ -1442,6 +1525,9 @@ internal static partial class Program
                 }
             }
             catch (System.Windows.Automation.ElementNotAvailableException)
+            {
+            }
+            catch (System.Runtime.InteropServices.COMException)
             {
             }
         }

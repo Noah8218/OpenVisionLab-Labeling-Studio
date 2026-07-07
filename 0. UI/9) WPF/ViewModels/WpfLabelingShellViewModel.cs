@@ -1035,7 +1035,7 @@ namespace MvcVisionSystem
 
             return stage switch
             {
-                WpfShellWorkflowStage.Inference => "\uCD94\uB860 \uAC80\uD1A0",
+                WpfShellWorkflowStage.Inference => "AI 후보 검토",
                 WpfShellWorkflowStage.TrainingModel => "\uD559\uC2B5/\uBAA8\uB378",
                 _ => "\uB370\uC774\uD130\uC14B \uD648"
             };
@@ -1089,7 +1089,7 @@ namespace MvcVisionSystem
 
             return stage switch
             {
-                WpfShellWorkflowStage.Inference => "\uCD94\uB860",
+                WpfShellWorkflowStage.Inference => "AI 후보",
                 WpfShellWorkflowStage.TrainingModel => "\uBAA8\uB378",
                 _ => "\uD648"
             };

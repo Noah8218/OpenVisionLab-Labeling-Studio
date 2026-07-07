@@ -5,6 +5,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace MvcVisionSystem
 {
@@ -49,6 +50,8 @@ namespace MvcVisionSystem
             string candidateLabelsPath = ResolveSummaryPath(summaryJsonPath, summary.SelectToken("candidate.labelsPath")?.Value<string>());
             string dataYamlPath = ResolveSummaryPath(summaryJsonPath, summary.SelectToken("dataYaml")?.Value<string>());
             string task = summary.SelectToken("task")?.Value<string>() ?? "val";
+            string promotionDecision = summary.SelectToken("promotion.recommendation")?.Value<string>() ?? string.Empty;
+            string promotionReason = summary.SelectToken("promotion.reason")?.Value<string>() ?? string.Empty;
             Func<string, string> resolveImagePath = BuildImagePathResolver(dataYamlPath, task);
             double threshold = confidenceThreshold
                 ?? summary.SelectToken("uiConfidence")?.Value<double?>()
@@ -62,7 +65,9 @@ namespace MvcVisionSystem
                 DefaultIouThreshold,
                 maxExamples,
                 summaryJsonPath,
-                resolveImagePath);
+                resolveImagePath,
+                promotionDecision,
+                promotionReason);
         }
 
         public WpfModelComparisonReviewReport BuildFromLabelDirectories(
@@ -73,7 +78,9 @@ namespace MvcVisionSystem
             double iouThreshold = DefaultIouThreshold,
             int maxExamples = 5,
             string sourcePath = "",
-            Func<string, string> resolveImagePath = null)
+            Func<string, string> resolveImagePath = null,
+            string promotionDecision = "",
+            string promotionReason = "")
         {
             if (!Directory.Exists(baselineLabelsPath) || !Directory.Exists(candidateLabelsPath))
             {
@@ -98,6 +105,11 @@ namespace MvcVisionSystem
                 : $"\uBAA8\uB378 \uCC28\uC774 \uC608\uC2DC: \uCC28\uC774 {differenceImageCount}\uAC1C \uC774\uBBF8\uC9C0 / \uC608\uC2DC {examples.Count}\uAC1C";
             string detail =
                 $"\uAE30\uC874 \uBAA8\uB378 {baselineCount}\uAC1C, \uC0C8 \uBAA8\uB378 {candidateCount}\uAC1C, \uC2E0\uB8B0\uB3C4 {confidenceThreshold.ToString("P0", CultureInfo.CurrentCulture)}, \uACB9\uCE68 {iouThreshold.ToString("P0", CultureInfo.CurrentCulture)}";
+            string promotionDetail = BuildPromotionDetailText(promotionDecision, promotionReason);
+            if (!string.IsNullOrWhiteSpace(promotionDetail))
+            {
+                detail += " / " + promotionDetail;
+            }
 
             return new WpfModelComparisonReviewReport(
                 hasComparison: true,
@@ -105,6 +117,63 @@ namespace MvcVisionSystem
                 detailText: detail,
                 sourcePath: sourcePath,
                 examples: examples);
+        }
+
+        private static string BuildPromotionDetailText(string decision, string reason)
+        {
+            if (string.IsNullOrWhiteSpace(decision))
+            {
+                return string.Empty;
+            }
+
+            string label = decision.Trim().ToLowerInvariant() switch
+            {
+                "promote" => "\uAD50\uCCB4 \uCD94\uCC9C",
+                "hold" => "\uAD50\uCCB4 \uBCF4\uB958",
+                "review" => "\uC608\uC2DC \uAC80\uD1A0",
+                _ => "\uAD50\uCCB4 \uD310\uB2E8"
+            };
+            string reasonText = BuildPromotionReasonText(reason);
+            return string.IsNullOrWhiteSpace(reasonText)
+                ? label
+                : label + ": " + reasonText;
+        }
+
+        private static string BuildPromotionReasonText(string reason)
+        {
+            if (string.IsNullOrWhiteSpace(reason))
+            {
+                return string.Empty;
+            }
+
+            string trimmed = reason.Trim();
+            string normalized = trimmed.ToLowerInvariant();
+            if (normalized.Contains("precision", StringComparison.Ordinal)
+                && normalized.Contains("below", StringComparison.Ordinal)
+                && normalized.Contains("minimum", StringComparison.Ordinal))
+            {
+                MatchCollection numbers = Regex.Matches(trimmed, @"[-+]?\d+(?:\.\d+)?");
+                string current = numbers.Count > 0 ? FormatReasonPercent(numbers[0].Value) : string.Empty;
+                string minimum = numbers.Count > 1 ? FormatReasonPercent(numbers[1].Value) : string.Empty;
+                return string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(minimum)
+                    ? "\uC815\uBC00\uB3C4\uAC00 \uCD5C\uC18C \uAE30\uC900\uBCF4\uB2E4 \uB0AE\uC2B5\uB2C8\uB2E4. \uB77C\uBCA8\uACFC \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uB354 \uD655\uC778\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694."
+                    : string.Format(
+                        CultureInfo.CurrentCulture,
+                        "\uC815\uBC00\uB3C4 {0}\uAC00 \uCD5C\uC18C \uAE30\uC900 {1}\uBCF4\uB2E4 \uB0AE\uC2B5\uB2C8\uB2E4. \uB77C\uBCA8\uACFC \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uB354 \uD655\uC778\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694.",
+                        current,
+                        minimum);
+            }
+
+            return trimmed.All(c => c <= 127)
+                ? "\uBAA8\uB378 \uAD50\uCCB4 \uADFC\uAC70\uB97C \uB354 \uD655\uC778\uD55C \uB4A4 \uD310\uB2E8\uD558\uC138\uC694."
+                : trimmed;
+        }
+
+        private static string FormatReasonPercent(string value)
+        {
+            return double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out double number)
+                ? number.ToString("P1", CultureInfo.CurrentCulture)
+                : string.Empty;
         }
 
         private static List<WpfModelComparisonReviewExample> BuildExamples(

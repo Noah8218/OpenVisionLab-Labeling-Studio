@@ -1,6 +1,307 @@
 # Work Tracking
 
-Last updated: 2026-07-06
+Last updated: 2026-07-07
+
+## 2026-07-07 model comparison promotion reason wording
+
+- Self-evaluation:
+  - Stage 3 workflow wording and candidate-completion flow already had focused coverage, and the large image-queue path already had a protected 1200-item lazy-thumbnail gate.
+  - The next narrow operator risk was in Candidate Review after YOLOv8 SEG model comparison: the promotion card could surface raw script text such as `Candidate precision ... below the minimum ...`.
+  - The useful fix was presentation-only. Keep comparison metrics, script execution, model promotion rules, and training/inference paths unchanged.
+- Changes:
+  - `WpfModelComparisonReviewService` now translates low-precision promotion-hold reasons into Korean operator guidance while preserving the metric values.
+  - Unknown ASCII-only promotion reasons fall back to a generic Korean review instruction instead of exposing raw implementation text.
+  - Already-localized promotion reasons still pass through unchanged.
+  - Focused coverage now asserts that the low-precision reason keeps the `1.6%` evidence value and does not expose `Candidate precision`.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-review-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+- Capture:
+  - A 1920x1080 WPF visual smoke capture was attempted at `artifacts\ui\wpf-model-comparison-reason-korean-after-1920.png` and `artifacts\ui\wpf-model-comparison-reason-korean-after-1920-v2.png`, but the desktop capture returned the Windows lock/spotlight screen instead of the WPF app. Those files are not valid UI evidence and should not be used as current-product screenshots.
+- Remaining risk:
+  - This is display text only. It does not improve the YOLOv8 SEG model metrics or change promotion thresholds.
+- Next:
+  - Continue with the next local operating slice: either capture reliable current-build Candidate Review visual evidence once desktop capture is available, or continue YOLOv8 SEG quality work with stronger labeled data and held-out comparison.
+
+## 2026-07-07 Stage 3 AI candidate wording refresh
+
+- Self-evaluation:
+  - The current Stage 3 label `추론 검토` still read like a model execution step, while the actual operator task is to review generated AI candidates and confirm or hide them.
+  - The smallest useful fix was wording only: keep commands/workflow intact and make the visible stage, panel, rail, and public tutorial copy say `AI 후보 검토`.
+  - Follow-up visual evidence found the top workflow button and the mode switcher could still reintroduce the old `추론 검토` wording because the XAML text is XML-entity encoded.
+- Changes:
+  - `WpfWorkflowStagePresentationService`, `WpfLabelingShellViewModel`, candidate-review ViewModel text, shell status text, and canvas step guidance now identify Stage 3 as `AI 후보 검토`.
+  - Candidate review guidance now states the exact semantics: confirm adds a saved label; skip hides only the candidate.
+  - Public README/tutorial copy and the tutorial 12번 candidate-review screenshots were refreshed to the same `AI 후보 검토` wording.
+  - The top Stage 3 workflow button now shows `3 AI 후보`, the inference mode switcher now shows `AI 후보 검토`, and the XAML contract test decodes XML entities before checking that `추론 검토` is not reintroduced.
+  - The standalone tutorial HTML now embeds the refreshed 12번 annotated AI-candidate screenshot.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-layout` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-presentation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab candidates --width 1920 --height 1080 --output .\artifacts\ui\wpf-stage3-candidate-review-after-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab candidates --width 1920 --height 1080 --output .\artifacts\ui\wpf-stage3-ai-candidate-button-after-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - `git diff --check` passed.
+- Capture:
+  - Before: `artifacts\ui\wpf-stage3-candidate-review-before-1920.png`.
+  - After: `artifacts\ui\wpf-stage3-candidate-review-after-1920.png`.
+  - Follow-up baseline: `artifacts\ui\wpf-stage3-candidate-review-after-1920.png` still showed the old top button label.
+  - Follow-up after: `artifacts\ui\wpf-stage3-ai-candidate-button-after-1920.png`.
+  - Tutorial refresh: `docs\tutorial\images\12-inference-dock-1920.png`, `docs\tutorial\images\annotated\12-inference-dock-1920-annotated.png`.
+- Remaining risk:
+  - This is a wording/UX clarity pass only. It does not change inference execution, candidate geometry, or model quality.
+- Next:
+  - Continue local segmentation operating UX by making the AI candidate review completion path easier to act on after each image.
+
+## 2026-07-07 SEG label navigation auto-save guard
+
+- Self-evaluation:
+  - The highest current operating risk is label loss when the operator draws or edits a SEG label and immediately moves to another image.
+  - The current image-load path already auto-saves dirty annotations before replacing the active image; the missing proof was the pending brush/mask case where CPU materialization is intentionally deferred for performance.
+- Changes:
+  - Added focused WPF coverage for `TryLoadImage(current) -> Brush MouseUp -> TryLoadImage(next)`.
+  - The new check verifies pending brush work marks the image dirty, image navigation flushes that work, and the previous image gets both segment JSON and non-empty mask PNG artifacts before the canvas state is cleared.
+  - Strengthened the DataGrid queue-click load test so clicking another image after a pending brush stroke auto-saves the previous image and clicking back reloads the saved label.
+  - Strengthened the image-queue keyboard navigation test so `Down` after a pending brush stroke auto-saves the previous image and reloading that image restores the label.
+  - Added a focused `--wpf-image-queue-click-loads-canvas` switch for the real DataGrid click path, separate from the source-contract click-load-path check.
+  - The existing moved-polygon auto-save coverage remains in the same segmentation gate.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-loads-canvas` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-keyboard-navigation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification` passed, including `PASS WPF image navigation auto-saves pending brush masks` and `PASS WPF image navigation auto-saves moved segmentation labels`.
+- Capture:
+  - No screenshot is required because this is persistence/test coverage only; no WPF layout or visual styling changed in this slice.
+- Remaining risk:
+  - This is focused WPF coverage, not a manual EXE navigation pass on the operator's real dataset.
+- Next:
+  - Continue with image queue operating UX: visible-list density and preview behavior.
+
+## 2026-07-07 YOLOv8 SEG real EXE workflow recheck
+
+- Self-evaluation:
+  - The current YOLOv8 SEG path had CLI training/prediction evidence, but the product risk was whether the built EXE could still drive the full local workflow end to end.
+  - The smallest safe fix was to harden the existing EXE UI automation against transient combo/dialog UIA failures, then rerun the established circular segmentation workflow instead of creating another parallel test path.
+- Changes:
+  - `tests\LabelingApplication.Tests\Program.ExeCircularSegmentationWorkflow.cs` now closes a stray Recipe Manager helper window before retrying dataset setup, retries the dataset-home creation path, and uses stronger YOLOv8 combo fallback input.
+  - `tests\LabelingApplication.Tests\Program.cs` now treats transient UI Automation `COMException` during process-wide name search like a stale element instead of failing the whole smoke before fallback input can run.
+- Evidence:
+  - `--exe-circular-segmentation-workflow` created `circular_seg_exe_20260707_010325` through the built EXE.
+  - EXE-selected image root: `D:\circular_defect_labeling_dataset_v1\images`.
+  - Saved SEG artifacts: train segments 6, valid segments 3, test segments 3, OK/background labels 20.
+  - EXE training produced and applied `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt`.
+  - EXE current-image inference completed with `NG 1.3%` and one YOLOv8 candidate from the trained model.
+- Verification:
+  - `dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false` passed with 0 warnings / 0 errors.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-circular-segmentation-workflow --exe "C:\Git\Labelling_Application\artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe" --image-root "D:\circular_defect_labeling_dataset_v1\images" --yolov8-root "C:\Git\yolov8" --label-count 12` passed.
+  - `git diff --check` passed; only existing LF/CRLF warnings were printed.
+- Capture:
+  - Screenshots: `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260707_010325\screenshots`
+  - Final inference screenshot: `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260707_010325\screenshots\12_trained_model_inference.png`
+- Remaining risk:
+  - This is real EXE runtime wiring evidence, not production model-quality evidence. The model is trained from a tiny 12-label smoke slice.
+- Next:
+  - Continue YOLOv8 SEG quality work with larger labeled data and repeatable held-out comparison before recommending model promotion.
+
+## 2026-07-07 YOLOv8 SEG promotion evidence count guard
+
+- Self-evaluation:
+  - The model-comparison UI already warns when final-verification evidence is weak, but the generated comparison artifact could still make a `promote` recommendation from a tiny held-out split if metrics happened to improve.
+  - The smallest safe fix is to make the comparison script count held-out labeled images and make promotion impossible below the existing 10-label recommendation.
+- Changes:
+  - `scripts\compare-yolo-models.ps1` now writes an `evidence` block to `comparison-summary.json` with split name, image count, label-file count, comparison label count, positive segmentation line count, and recommended label count.
+  - The Markdown report shows held-out evidence beside the metrics and recommendation.
+  - `New-PromotionRecommendation` now marks candidates `hold` when the held-out labeled image count is below 10, even if metrics improve.
+  - Focused model-comparison run-service coverage now checks that the script preserves the evidence and minimum-heldout guard.
+- Verification:
+  - PowerShell parser check for `scripts\compare-yolo-models.ps1` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-run-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-review-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-heldout` passed.
+- Capture:
+  - No screenshot is required because this changes comparison artifacts/recommendation logic only, not WPF layout or visual styling.
+- Remaining risk:
+  - This is a recommendation guard, not a new training-quality improvement. A production-ready YOLOv8 SEG model still needs more real labeled data, a same-class baseline, and a held-out comparison with enough images.
+- Next:
+  - Continue YOLOv8 SEG quality work by improving the real labeled dataset/training run, then rerun true held-out comparison once the evidence count is sufficient.
+
+## 2026-07-06 Image queue large-folder thumbnail performance
+
+- Self-evaluation:
+  - Row thumbnails solved image recognition, but a large image folder still needed proof that thumbnails do not turn queue loading into a full-folder decode pass.
+  - The smallest safe fix was to keep thumbnails visible-row lazy, make collection replacement a single reset, and ensure thumbnail streams do not hold image files open.
+- Changes:
+  - `ImageQueueItems` now uses the existing bulk observable collection and replaces a loaded queue with one reset notification.
+  - `WpfImageQueueItem.ThumbnailSource` loads the small thumbnail from a file stream with `OnLoad`, then freezes the bitmap so the source image file is not locked after thumbnail creation.
+  - Added a focused 1200-item queue fixture that proves large folder loading does not attempt thumbnail creation until a row thumbnail is actually requested.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-large-folder-performance` passed with `LARGE_QUEUE_LOAD_MS=132.8; ITEMS=1200; COLLECTION_ACTIONS=1`.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-keyboard-navigation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-selection-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+- Capture:
+  - No screenshot is needed for this pass because it changes queue load/thumbnail file-handle behavior only, not WPF layout or visual styling.
+- Remaining risk:
+  - This focused gate covers shell queue loading and lazy thumbnail behavior with 1200 fixture paths. It is not a direct EXE manual scroll timing pass on the operator's real folder.
+- Next:
+  - Continue with YOLOv8 SEG model-quality work once the current queue performance slice is closed with final build and diff checks.
+
+## 2026-07-06 Canvas brush-size toolbar and AI candidate wording
+
+- Self-evaluation:
+  - The next operator pain points were brush-size discoverability during SEG labeling and confusion around the Stage 3 candidate-review wording.
+  - The smallest safe change was to expose the existing brush size beside the active canvas brush/eraser tools, and to standardize review wording on `AI 후보`.
+- Changes:
+  - The canvas toolbar now shows `- 12px +` brush-size controls only for Brush/Eraser tools.
+  - The controls update the shared `WpfLearningWorkflowPanelViewModel.BrushSize`, so the existing brush/eraser rendering path remains the source of truth.
+  - The canvas display stays synced when the left workflow brush-size slider changes.
+  - Stage 3 and Candidate Review text now uses `AI 후보` consistently instead of `검출 후보`.
+  - A brittle candidate-review layout test was narrowed to the existing `Grid.Row` placement checks instead of file declaration order.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-canvas-panel-commands` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-layout` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-presentation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-mask-drag-performance` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-keyboard-navigation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path` passed.
+- Capture:
+  - Brush toolbar before: `artifacts\ui\wpf-brush-size-toolbar-before-1920.png`
+  - Brush toolbar after: `artifacts\ui\wpf-brush-size-toolbar-after-1920.png`
+  - Candidate-review wording after: `artifacts\ui\wpf-candidate-review-ai-wording-after-1920.png`
+- Remaining risk:
+  - No real EXE manual click pass was run for this narrow step.
+  - Public tutorial screenshots still need a separate full refresh because the tutorial overview images predate the current queue/toolbar polish.
+
+## 2026-07-06 Image queue row thumbnails
+
+- Self-evaluation:
+  - After the queue list gained more vertical room, the next operator pain point was identifying images from file names alone.
+  - The smallest useful preview is a compact row thumbnail that does not change the queue selection, click-load, or filtering workflow.
+- Changes:
+  - Each image queue row now shows a small thumbnail before the status icon and filename.
+  - `WpfImageQueueItem` lazily creates one frozen 42px-wide thumbnail per image path.
+  - The XAML binding uses `IsAsync=True` and keeps row virtualization enabled, so thumbnail decode is tied to visible rows instead of the full queue load path.
+  - Existing row status icon, badge, tooltip, automation name, filter buttons, and image-open commands are unchanged.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-keyboard-navigation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --annotation-tool brush --review-tab guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-image-queue-thumbnail-before-1920.png` captured the pre-thumbnail baseline.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --annotation-tool brush --review-tab guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-image-queue-thumbnail-after-1920.png` captured the verified thumbnail layout.
+- Capture:
+  - Before: `artifacts\ui\wpf-image-queue-thumbnail-before-1920.png`
+  - After: `artifacts\ui\wpf-image-queue-thumbnail-after-1920.png`
+  - README/tutorial references were checked; the public tutorial overview still uses older annotated screenshots, so a full tutorial screenshot refresh remains separate documentation work.
+- Remaining risk:
+  - Thumbnail decode is intentionally small and lazy, but a real very-large folder scroll performance pass has not been run in this step.
+  - Brush-size discoverability remains the next labeling UX priority.
+
+## 2026-07-06 Image queue compact quick filters
+
+- Self-evaluation:
+  - The operator-reported issue was that the image queue list shows too few rows during one-by-one labeling.
+  - The smallest safe layout improvement is to reclaim vertical space from the quick-filter area without removing any filter or changing the queue load path.
+- Changes:
+  - The image queue quick filters now use a three-column layout instead of two columns.
+  - This reduces the quick-filter block by one row at 1920x1080 and lets the image list start higher.
+  - Existing filter buttons, counts, active styling, tooltips, current-task card, and queue DataGrid bindings are unchanged.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-keyboard-navigation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --annotation-tool brush --review-tab guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-image-queue-density-before-1920.png` captured the pre-change baseline.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --annotation-tool brush --review-tab guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-image-queue-density-after-1920.png` captured the verified layout after the change.
+- Capture:
+  - Before: `artifacts\ui\wpf-image-queue-density-before-1920.png`
+  - After: `artifacts\ui\wpf-image-queue-density-after-1920.png`
+  - Public README/tutorial screenshots were not updated because this was a narrow queue density change, not a workflow/tutorial-content change.
+- Remaining risk:
+  - The queue still does not show image thumbnails/previews. That remains the next image-queue UX priority.
+
+## 2026-07-06 Image queue keyboard navigation
+
+- Self-evaluation:
+  - After SEG persistence was fixed, the next operator pain point was moving through the image list without repeatedly clicking rows.
+  - The smallest useful UX change is to reuse the existing queue load path from the shell keyboard handler.
+- Changes:
+  - `Down` / `Right` now opens the next visible image queue item.
+  - `Up` / `Left` now opens the previous visible image queue item.
+  - Navigation respects the current queue filter/search view and does not wrap at the first/last visible item.
+  - Text boxes, combo boxes, and sliders keep their normal arrow-key behavior.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-keyboard-navigation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-click-load-path` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-selection-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification` passed.
+- Capture:
+  - No screenshot is required because this adds keyboard navigation behavior without changing layout, visual styling, visible text, or tutorial images.
+- Remaining risk:
+  - The image queue is still visually cramped and has no thumbnail preview. Those remain the next UX priorities.
+
+## 2026-07-06 SEG moved-label navigation persistence
+
+- Self-evaluation:
+  - The operator-reported failure was data loss: a moved SEG label showed `save needed`, but leaving and returning to the image could lose the edit.
+  - The smallest safe fix is to mark moved manual segmentation objects dirty at drag release and auto-save dirty annotations before `TryLoadImage` clears the current canvas state.
+- Changes:
+  - Moving a selected manual SEG mask/polygon/polygon point now marks the current image as dirty with a `Move polygon` / `Move polygon point` reason.
+  - `TryLoadImage` now saves dirty or pending-mask-stroke annotations for the currently loaded image before switching to the next image.
+  - If that save fails, image navigation is stopped instead of clearing the current unsaved labels.
+  - Added a focused WPF regression test that loads an image, moves a manual SEG polygon, navigates to another image, and verifies the original image's segment JSON persisted the moved coordinates.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 4 existing external `Lib.Common` warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification` passed, including `PASS WPF image navigation auto-saves moved segmentation labels`.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-mask-drag-performance` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-mask-dirty-bounds` passed.
+- Capture:
+  - No screenshot is required because this changes persistence/navigation behavior only, not WPF layout, visible styling, or tutorial images.
+- Remaining risk:
+  - Image queue keyboard navigation, a larger/preview-capable queue, brush-size discoverability in the active workflow, and clearer Stage 3 manual-edit guidance remain separate UX work.
+
+## 2026-07-06 YOLOv8 SEG model comparison promotion recommendation
+
+- Self-evaluation:
+  - The latest held-out comparison proved the candidate was better than baseline on recall and mAP, but precision was only `0.016`.
+  - The smallest useful product hardening is to make the comparison artifact and WPF review panel say whether the trained candidate should be promoted, held, or reviewed before the operator saves it as the inspection model.
+- Changes:
+  - `scripts\compare-yolo-models.ps1` now writes a `promotion` block to `comparison-summary.json`.
+  - The Markdown comparison report now shows a `Recommendation` section with `promote`, `review`, or `hold`.
+  - Candidates below `0.10` precision are conservatively marked `hold`.
+  - `WpfModelComparisonReviewService` now reads the summary `promotion` block and appends the recommendation to the Candidate Review model-comparison detail text.
+- Evidence:
+  - A real YOLOv8 SEG `test` comparison against `circular_seg_exe_20260706_183245` wrote `artifacts\yolo-model-comparison\yolov8-seg-promotion-recommendation-smoke-20260706\20260706-221152\comparison-summary.json`.
+  - The candidate metrics were precision `0.016`, recall `1.0`, mAP50 `0.105`, and mAP50-95 `0.044`.
+  - The summary/report recommendation is `hold` with reason `Candidate precision 0.016 is below the minimum 0.1; review labels/training before promotion.`
+- Verification:
+  - PowerShell parse for `scripts\compare-yolo-models.ps1` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-restore /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-review-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-run-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-heldout` passed.
+  - `powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\compare-yolo-models.ps1 ... -Task test -ModelTask segment -ImageSize 128 -BatchSize 1 -UiConfidence 0.01 ...` passed and wrote the recommendation artifact above.
+- Capture:
+  - No screenshot is required because this changes comparison artifacts and existing review-panel text only, not WPF layout or visual styling.
+- Remaining risk:
+  - The threshold is a conservative promotion guard, not a full industrial model governance policy. The next priority remains improving YOLOv8 SEG data/model quality so a candidate can pass the hold gate on real held-out data.
 
 ## 2026-07-06 YOLOv8 SEG template-batch fixture local training smoke
 
@@ -9543,3 +9844,26 @@ Last updated: 2026-07-06
   - This focused gate verifies the WPF load path and brush preview state. It does not add a new direct EXE UIAutomation image-switch smoke.
 - Next:
   - If the operator still sees retained brush pixels after this, run a direct EXE smoke around queue selection with screenshot/pixel comparison and inspect whether the retained pixels are coming from saved segmentation artifacts rather than the preview layer.
+
+## 2026-07-06 Public tutorial screenshot refresh
+
+- Self-evaluation:
+  - The public README/tutorial screenshots still showed an older workflow surface: no brush-size toolbar, no current image-queue thumbnails/three-column filters, and older AI-candidate review wording.
+  - The public docs folder also already had visible local path text in old screenshots, so the refreshed public images need path redaction rather than another raw absolute-path capture.
+- Changes:
+  - Refreshed `docs\tutorial\images\01-overview-1920.png`, `03-labeling-workbench-1920.png`, and `12-inference-dock-1920.png` from current 1920x1080 WPF visual-smoke captures.
+  - Refreshed `docs\tutorial\images\annotated\01-overview-1920-annotated.png`, `03-labeling-workbench-1920-annotated.png`, `12-inference-dock-1920-annotated.png`, and `readme-current-workflow-20260703.png`.
+  - Rebuilt `docs\tutorial\labeling-workbench-tutorial-standalone.html` so its embedded base64 images match the refreshed PNGs.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --annotation-tool brush --review-tab objects --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\tutorial-refresh\current-labeling-stage-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --annotation-tool brush --review-tab candidates --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\tutorial-refresh\current-review-candidates-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - Standalone tutorial embedding check found 14 `data:image/png;base64` entries and no remaining `src="images/` references.
+- Capture:
+  - Before/after public screenshot evidence is stored under `artifacts\ui\tutorial-refresh\before-*.png` and `artifacts\ui\tutorial-refresh\after-*.png`.
+  - Visual comparison confirmed that the after images show the current brush-size toolbar, current image-queue thumbnails/filter layout, Stage 3 AI-candidate wording, and redacted `sample-images` path text instead of a local absolute path.
+- Remaining risk:
+  - This refresh covers the representative public screenshots used by README and the tutorial sections touched by the latest UI changes. It does not regenerate every tutorial PNG.
+- Next:
+  - Continue with large-folder image-queue thumbnail/scroll performance, then YOLOv8 SEG held-out comparison/model quality once the UI documentation slice is closed.

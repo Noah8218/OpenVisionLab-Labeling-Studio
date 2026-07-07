@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Runtime.CompilerServices;
 using System.Windows.Media;
+using System.Windows.Media.Imaging;
 using Brush = System.Windows.Media.Brush;
 using Color = System.Windows.Media.Color;
 using ColorConverter = System.Windows.Media.ColorConverter;
@@ -42,6 +43,8 @@ namespace MvcVisionSystem
         private bool isLabeled;
         private bool isSaveRequired;
         private YoloImageReviewState reviewState;
+        private ImageSource thumbnailSource;
+        private bool thumbnailLoadAttempted;
 
         public event PropertyChangedEventHandler PropertyChanged;
 
@@ -54,6 +57,20 @@ namespace MvcVisionSystem
         public string FileSize { get; private set; } = string.Empty;
 
         public string Modified { get; private set; } = string.Empty;
+
+        public ImageSource ThumbnailSource
+        {
+            get
+            {
+                if (!thumbnailLoadAttempted)
+                {
+                    thumbnailLoadAttempted = true;
+                    thumbnailSource = CreateThumbnailSource(ImagePath);
+                }
+
+                return thumbnailSource;
+            }
+        }
 
         public string LabelStatus
         {
@@ -238,6 +255,39 @@ namespace MvcVisionSystem
             }
 
             return $"{Math.Max(0, bytes)} B";
+        }
+
+        private static ImageSource CreateThumbnailSource(string imagePath)
+        {
+            if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
+            {
+                return null;
+            }
+
+            try
+            {
+                var bitmap = new BitmapImage();
+                using (var stream = new FileStream(imagePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite | FileShare.Delete))
+                {
+                    bitmap.BeginInit();
+                    bitmap.CacheOption = BitmapCacheOption.OnLoad;
+                    bitmap.CreateOptions = BitmapCreateOptions.IgnoreColorProfile;
+                    bitmap.DecodePixelWidth = 42;
+                    bitmap.StreamSource = stream;
+                    bitmap.EndInit();
+                }
+
+                bitmap.Freeze();
+                return bitmap;
+            }
+            catch (Exception ex) when (ex is IOException
+                || ex is UnauthorizedAccessException
+                || ex is NotSupportedException
+                || ex is InvalidOperationException
+                || ex is ArgumentException)
+            {
+                return null;
+            }
         }
 
         private static Brush CreateFrozenBrush(string color)

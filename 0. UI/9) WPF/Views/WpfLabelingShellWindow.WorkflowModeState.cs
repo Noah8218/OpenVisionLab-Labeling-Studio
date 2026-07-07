@@ -17,7 +17,7 @@ namespace MvcVisionSystem
             UpdateYoloCommandButtons();
             UpdateCandidateActionState();
             SetModelStatus(mode == WorkflowMode.Inference
-                ? "모드: 추론 검토"
+                ? "모드: AI 후보 검토"
                 : "모드: 라벨링");
             RefreshCanvasWorkflowContext();
             UpdateWorkflowProgressStatus();
@@ -42,9 +42,9 @@ namespace MvcVisionSystem
                 return true;
             }
 
-            SetPythonStatus("\uCD94\uB860: \uAC80\uD1A0 \uBAA8\uB4DC \uD544\uC694");
-            SetGlobalInferenceStatus("추론 검토 모드 필요", isBusy: false, isWarning: true);
-            AppendLog("검출 건너뜀. 먼저 추론 검토 모드로 전환하세요.");
+            SetPythonStatus("AI 후보: 검토 모드 필요");
+            SetGlobalInferenceStatus("AI 후보 검토 모드 필요", isBusy: false, isWarning: true);
+            AppendLog("검출 건너뜀. 먼저 AI 후보 검토 모드로 전환하세요.");
             UpdateYoloCommandButtons();
             return false;
         }
