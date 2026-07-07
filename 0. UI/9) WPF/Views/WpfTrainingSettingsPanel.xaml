@@ -204,6 +204,7 @@
                                FontWeight="SemiBold" />
                     <TextBlock x:Name="TrainingRecommendationText"
                                Text="{Binding TrainingRecommendationText}"
+                               Visibility="Collapsed"
                                Style="{StaticResource TrainingHelpTextStyle}" />
                     <ui:Button x:Name="ApplyFastTrainingPresetButton"
                                AutomationProperties.AutomationId="ApplyFastTrainingPresetButton"
@@ -250,6 +251,7 @@
                              mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
                     <TextBlock x:Name="TrainingImageSizeGuideText"
                                Text="{Binding ImageSizeGuideText}"
+                               Visibility="Collapsed"
                                Style="{StaticResource TrainingHelpTextStyle}" />
                 </StackPanel>
 
@@ -262,6 +264,7 @@
                              mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
                     <TextBlock x:Name="TrainingBatchGuideText"
                                Text="{Binding BatchGuideText}"
+                               Visibility="Collapsed"
                                Style="{StaticResource TrainingHelpTextStyle}" />
                 </StackPanel>
 
@@ -274,6 +277,7 @@
                              mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
                     <TextBlock x:Name="TrainingEpochGuideText"
                                Text="{Binding EpochGuideText}"
+                               Visibility="Collapsed"
                                Style="{StaticResource TrainingHelpTextStyle}" />
                 </StackPanel>
 
@@ -285,6 +289,7 @@
                               ToolTip="{Binding CfgGuideText}" />
                     <TextBlock x:Name="TrainingCfgGuideText"
                                Text="{Binding CfgGuideText}"
+                               Visibility="Collapsed"
                                Style="{StaticResource TrainingHelpTextStyle}" />
                 </StackPanel>
 
@@ -296,6 +301,7 @@
                               ToolTip="{Binding WeightGuideText}" />
                     <TextBlock x:Name="TrainingWeightGuideText"
                                Text="{Binding WeightGuideText}"
+                               Visibility="Collapsed"
                                Style="{StaticResource TrainingHelpTextStyle}" />
                 </StackPanel>
 
@@ -308,6 +314,7 @@
                              mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
                     <TextBlock x:Name="TrainingValidationPercentGuideText"
                                Text="{Binding ValidationPercentGuideText}"
+                               Visibility="Collapsed"
                                Style="{StaticResource TrainingHelpTextStyle}" />
                 </StackPanel>
 
@@ -320,6 +327,7 @@
                              mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
                     <TextBlock x:Name="TrainingSplitSeedGuideText"
                                Text="{Binding SplitSeedGuideText}"
+                               Visibility="Collapsed"
                                Style="{StaticResource TrainingHelpTextStyle}" />
                 </StackPanel>
 
@@ -332,6 +340,7 @@
                              mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
                     <TextBlock x:Name="TrainingTestPercentGuideText"
                                Text="{Binding TestPercentGuideText}"
+                               Visibility="Collapsed"
                                Style="{StaticResource TrainingHelpTextStyle}" />
                 </StackPanel>
 
@@ -340,6 +349,7 @@
                            Grid.ColumnSpan="2"
                            Text="{Binding SplitPolicyHintText}"
                            Style="{StaticResource TrainingHelpTextStyle}"
+                           Visibility="Collapsed"
                            Margin="0,8,0,0" />
             </Grid>
             </Expander>

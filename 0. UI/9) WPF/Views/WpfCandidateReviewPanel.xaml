@@ -336,6 +336,7 @@
                                        MaxHeight="22"
                                        TextWrapping="Wrap"
                                        TextTrimming="CharacterEllipsis"
+                                       Visibility="Collapsed"
                                        Margin="0,2,0,0" />
                             <TextBlock x:Name="ModelValidationRoleResultText"
                                        AutomationProperties.AutomationId="ModelValidationRoleResultText"

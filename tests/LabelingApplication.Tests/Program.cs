@@ -10832,6 +10832,27 @@ internal static partial class Program
             AssertTrue(report.Examples.All(item => !string.IsNullOrWhiteSpace(item.ImagePath) && File.Exists(item.ImagePath)), "model comparison examples should resolve source image paths through data.yaml");
             AssertTrue(report.Examples.Any(item => item.ImagePath.EndsWith("candidate_only.bmp", StringComparison.OrdinalIgnoreCase)), "model comparison image resolver should preserve source image extensions");
 
+            string segmentBaselineLabels = Path.Combine(root, "segment-baseline", "labels");
+            string segmentCandidateLabels = Path.Combine(root, "segment-candidate", "labels");
+            Directory.CreateDirectory(segmentBaselineLabels);
+            Directory.CreateDirectory(segmentCandidateLabels);
+            WriteLabel(segmentBaselineLabels, "seg_shifted", "0 0.10 0.10 0.30 0.10 0.30 0.30 0.10 0.30");
+            WriteLabel(segmentCandidateLabels, "seg_shifted", "0 0.60 0.60 0.80 0.60 0.80 0.80 0.60 0.80 0.93");
+            WpfModelComparisonReviewReport segmentReport = service.BuildFromLabelDirectories(
+                segmentBaselineLabels,
+                segmentCandidateLabels,
+                new[] { "SEG" },
+                confidenceThreshold: 0.25D,
+                iouThreshold: 0.5D,
+                maxExamples: 10);
+            AssertTrue(segmentReport.HasComparison, "segmentation label rows should produce a visible comparison report");
+            AssertTrue(segmentReport.SummaryText.Contains("1", StringComparison.Ordinal), "segmentation comparison should count the shifted image as a difference");
+            AssertEqual(2, segmentReport.Examples.Count);
+            AssertTrue(segmentReport.Examples.Any(item => item.Kind == "CandidateOnly" && item.ImageKey == "seg_shifted"), "segmentation comparison should surface candidate-only polygon changes");
+            AssertTrue(segmentReport.Examples.Any(item => item.Kind == "BaselineOnly" && item.ImageKey == "seg_shifted"), "segmentation comparison should surface baseline-only polygon changes");
+            AssertTrue(segmentReport.Examples.All(item => item.HasFocusBox), "segmentation comparison examples should convert polygons to focus boxes");
+            AssertTrue(segmentReport.Examples.Any(item => item.Kind == "CandidateOnly" && item.Detail.Contains("SEG", StringComparison.Ordinal) && item.Detail.Contains("93", StringComparison.Ordinal)), "segmentation comparison should preserve polygon class and confidence details");
+
             WpfModelComparisonReviewReport missingLabelsReport = service.BuildFromLabelDirectories(
                 Path.Combine(root, "missing-baseline"),
                 candidateLabels,
@@ -26433,6 +26454,7 @@ internal static partial class Program
         AssertNamedXamlBinding(shellXaml, xName, "YoloModelLifecycleAdoptionText", "Text", "ShellViewModel.ModelCenterAdoptionDetailText");
         AssertNamedXamlBinding(shellXaml, xName, "YoloModelLifecycleNextActionTitleText", "Text", "ShellViewModel.ModelCenterNextActionTitleText");
         AssertNamedXamlBinding(shellXaml, xName, "YoloModelLifecycleNextActionText", "Text", "ShellViewModel.ModelCenterNextActionDetailText");
+        AssertNamedXamlValue(shellXaml, xName, "YoloModelLifecycleDetailPanel", "Visibility", "Collapsed");
         AssertNamedXamlBinding(shellXaml, xName, "YoloModelAdoptionDecisionTitleText", "Text", "ShellViewModel.ModelCenterDecisionTitleText");
         AssertNamedXamlBinding(shellXaml, xName, "YoloModelAdoptionDecisionSummaryText", "Text", "ShellViewModel.ModelCenterDecisionSummaryText");
         AssertNamedXamlBinding(shellXaml, xName, "YoloModelAdoptionDecisionEvidenceText", "Text", "ShellViewModel.ModelCenterDecisionEvidenceText");
@@ -27919,6 +27941,7 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "TrainingTestPercentBox", "Text", "TestPercentText");
         AssertNamedXamlBinding(xaml, xName, "TrainingSplitSeedBox", "Text", "SplitSeedText");
         AssertNamedXamlBinding(xaml, xName, "TrainingRecommendationText", "Text", "TrainingRecommendationText");
+        AssertNamedXamlValue(xaml, xName, "TrainingRecommendationText", "Visibility", "Collapsed");
         AssertNamedXamlBinding(xaml, xName, "TrainingImageSizeGuideText", "Text", "ImageSizeGuideText");
         AssertNamedXamlBinding(xaml, xName, "TrainingBatchGuideText", "Text", "BatchGuideText");
         AssertNamedXamlBinding(xaml, xName, "TrainingEpochGuideText", "Text", "EpochGuideText");
@@ -27928,6 +27951,15 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "TrainingSplitSeedGuideText", "Text", "SplitSeedGuideText");
         AssertNamedXamlBinding(xaml, xName, "TrainingTestPercentGuideText", "Text", "TestPercentGuideText");
         AssertNamedXamlBinding(xaml, xName, "TrainingSplitPolicyHintText", "Text", "SplitPolicyHintText");
+        AssertNamedXamlValue(xaml, xName, "TrainingImageSizeGuideText", "Visibility", "Collapsed");
+        AssertNamedXamlValue(xaml, xName, "TrainingBatchGuideText", "Visibility", "Collapsed");
+        AssertNamedXamlValue(xaml, xName, "TrainingEpochGuideText", "Visibility", "Collapsed");
+        AssertNamedXamlValue(xaml, xName, "TrainingCfgGuideText", "Visibility", "Collapsed");
+        AssertNamedXamlValue(xaml, xName, "TrainingWeightGuideText", "Visibility", "Collapsed");
+        AssertNamedXamlValue(xaml, xName, "TrainingValidationPercentGuideText", "Visibility", "Collapsed");
+        AssertNamedXamlValue(xaml, xName, "TrainingSplitSeedGuideText", "Visibility", "Collapsed");
+        AssertNamedXamlValue(xaml, xName, "TrainingTestPercentGuideText", "Visibility", "Collapsed");
+        AssertNamedXamlValue(xaml, xName, "TrainingSplitPolicyHintText", "Visibility", "Collapsed");
         AssertNamedXamlBinding(xaml, xName, "TrainingReadinessText", "Text", "TrainingReadinessText");
         AssertNamedXamlBinding(xaml, xName, "TrainingReadinessText", "Foreground", "TrainingReadinessForeground");
         AssertNamedXamlBinding(xaml, xName, "TrainingProgressBar", "Value", "TrainingProgressValue");
@@ -30659,11 +30691,14 @@ internal static partial class Program
             string currentWeightsPath = Path.Combine(modelRegistryTempRoot, "current.pt");
             string candidateWeightsPath = Path.Combine(modelRegistryTempRoot, "runs", "train", "exp7", "weights", "best.pt");
             string rejectedWeightsPath = Path.Combine(modelRegistryTempRoot, "runs", "train", "exp6", "weights", "best.pt");
+            string pendingWeightsPath = Path.Combine(modelRegistryTempRoot, "runs", "train", "exp8", "weights", "best.pt");
             Directory.CreateDirectory(Path.GetDirectoryName(candidateWeightsPath));
             Directory.CreateDirectory(Path.GetDirectoryName(rejectedWeightsPath));
+            Directory.CreateDirectory(Path.GetDirectoryName(pendingWeightsPath));
             File.WriteAllText(currentWeightsPath, "current");
             File.WriteAllText(candidateWeightsPath, "candidate");
             File.WriteAllText(rejectedWeightsPath, "rejected");
+            File.WriteAllText(pendingWeightsPath, "pending");
 
             var modelRegistryPresentation = WpfModelRegistryPresentationService.Build(
                 new PythonModelSettings
@@ -30817,6 +30852,18 @@ internal static partial class Program
                 ModelRegistryService.CandidateDecisionAdopted,
                 "operator saved",
                 savedToRecipe: true);
+            ModelRegistryService.RecordTrainingCandidate(
+                registrySettings,
+                registryPythonSettings,
+                LabelingDatasetPurpose.ObjectDetection,
+                modelRegistryTempRoot,
+                pendingWeightsPath,
+                candidateWeightsPath,
+                "mAP50-95 +1.0%p",
+                "completed",
+                100,
+                "training completed",
+                savedToRecipe: false);
             WpfModelRegistryPresentation registryHistoryPresentation = WpfModelRegistryPresentationService.Build(
                 registryPythonSettings,
                 new WpfTrainingWeightsComparison
@@ -30836,6 +30883,10 @@ internal static partial class Program
             AssertTrue(registryHistoryPresentation.HistoryItems.Count >= 2, "model registry presentation should expose multiple recent model-history rows");
             AssertTrue(registryHistoryPresentation.HistoryItems.Any(item => item.DecisionText.Contains("\uAC70\uC808", StringComparison.Ordinal)), "model history should include rejected candidates");
             AssertTrue(registryHistoryPresentation.HistoryItems.Any(item => item.DecisionText.Contains("\uD604\uC7AC \uC0AC\uC6A9", StringComparison.Ordinal)), "model history should identify the current inspection model");
+            WpfModelRegistryHistoryItem rejectedHistoryItem = registryHistoryPresentation.HistoryItems.FirstOrDefault(item => item.WeightsPath == rejectedWeightsPath);
+            AssertTrue(rejectedHistoryItem != null, "model history should keep rejected candidates visible for traceability");
+            AssertTrue(!rejectedHistoryItem.CanPromoteToInspectionModel, "rejected model-history rows should not be directly promotable to inspection model");
+            AssertTrue(rejectedHistoryItem.ActionText.Contains("\uAC70\uC808", StringComparison.Ordinal), "rejected model-history rows should expose a rejected action state");
             shellViewModel.SetModelRegistryState(registryHistoryPresentation);
             AssertTrue(shellViewModel.IsModelRegistryHistoryVisible, "shell model-registry history should become visible when rows exist");
             AssertTrue(shellViewModel.ModelRegistryHistoryItems.Count >= 2, "shell ViewModel should keep recent model-history rows for the model center");
@@ -30848,7 +30899,7 @@ internal static partial class Program
             AssertTrue(shellViewModel.SelectedModelHistoryCurrentModelText.Contains("\uD604\uC7AC \uAC80\uC0AC", StringComparison.Ordinal), "selected model-history comparison should include the current model column");
             AssertTrue(shellViewModel.SelectedModelHistorySelectedModelText.Contains("\uD604\uC7AC \uAC80\uC0AC", StringComparison.Ordinal), "the initially selected current model should compare as the current model");
 
-            WpfModelRegistryHistoryItem promotableHistoryItem = shellViewModel.ModelRegistryHistoryItems.FirstOrDefault(item => item.CanPromoteToInspectionModel);
+            WpfModelRegistryHistoryItem promotableHistoryItem = shellViewModel.ModelRegistryHistoryItems.FirstOrDefault(item => item.CanPromoteToInspectionModel && item.WeightsPath == pendingWeightsPath);
             AssertTrue(promotableHistoryItem != null, "model history should expose a non-current candidate that can be applied intentionally");
             shellViewModel.SelectedModelRegistryHistoryItem = promotableHistoryItem;
             AssertEqual(promotableHistoryItem.TitleText, shellViewModel.SelectedModelHistoryTitleText);

@@ -164,7 +164,8 @@ namespace MvcVisionSystem
             }
 
             bool weightsExists = File.Exists(candidate.WeightsPath ?? string.Empty);
-            bool canPromote = !candidate.IsCurrentInspectionModel && weightsExists;
+            bool isRejected = string.Equals(decisionCode, ModelRegistryService.CandidateDecisionRejected, StringComparison.Ordinal);
+            bool canPromote = !candidate.IsCurrentInspectionModel && weightsExists && !isRejected;
             return new WpfModelRegistryHistoryItem
             {
                 CandidateId = candidate.CandidateId ?? string.Empty,
@@ -183,11 +184,15 @@ namespace MvcVisionSystem
                 CanPromoteToInspectionModel = canPromote,
                 ActionText = candidate.IsCurrentInspectionModel
                     ? "\uD604\uC7AC \uC0AC\uC6A9 \uC911"
+                    : isRejected
+                        ? "\uAC70\uC808\uB41C \uD6C4\uBCF4"
                     : weightsExists
                         ? "\uAC80\uC0AC \uBAA8\uB378\uB85C \uC801\uC6A9"
                         : "\uD30C\uC77C \uC5C6\uC74C",
                 ActionToolTip = candidate.IsCurrentInspectionModel
                     ? "\uC774\uBBF8 \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uB85C \uB4F1\uB85D\uB41C \uC774\uB825\uC785\uB2C8\uB2E4."
+                    : isRejected
+                        ? "\uAC70\uC808\uB41C \uD6C4\uBCF4\uB294 \uBC14\uB85C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC801\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4. \uD544\uC694\uD558\uBA74 \uB2E4\uC2DC \uD559\uC2B5/\uBE44\uAD50\uD558\uC138\uC694."
                     : weightsExists
                         ? "\uC120\uD0DD\uD55C \uC774\uB825\uC758 \uAC00\uC911\uCE58\uB97C recipe\uC758 \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4."
                         : "\uC774\uB825\uC758 \uAC00\uC911\uCE58 \uD30C\uC77C\uC774 \uC5C6\uC5B4 \uC801\uC6A9\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."

@@ -2222,7 +2222,10 @@
                                                      </Expander>
                                                  </StackPanel>
                                              </Border>
-                                             <Border BorderBrush="{DynamicResource BorderBrushDark}"
+                                             <Border x:Name="YoloModelLifecycleDetailPanel"
+                                                     AutomationProperties.AutomationId="YoloModelLifecycleDetailPanel"
+                                                     Visibility="Collapsed"
+                                                     BorderBrush="{DynamicResource BorderBrushDark}"
                                                      BorderThickness="0,1,0,0"
                                                      Padding="0,7,0,0">
                                                 <Grid>

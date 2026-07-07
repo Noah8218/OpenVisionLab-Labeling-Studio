@@ -402,8 +402,18 @@ namespace MvcVisionSystem
             detection = default;
             string[] parts = (line ?? string.Empty)
                 .Split((char[])null, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length < 2
+                || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int classId))
+            {
+                return false;
+            }
+
+            if (TryParseSegmentationDetection(parts, classId, classNames, out detection))
+            {
+                return true;
+            }
+
             if (parts.Length < 5
-                || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out int classId)
                 || !TryParseDouble(parts[1], out double centerX)
                 || !TryParseDouble(parts[2], out double centerY)
                 || !TryParseDouble(parts[3], out double width)
@@ -423,6 +433,58 @@ namespace MvcVisionSystem
                 Math.Max(0D, centerY - height / 2D),
                 Math.Min(1D, centerX + width / 2D),
                 Math.Min(1D, centerY + height / 2D));
+            return detection.Right > detection.Left && detection.Bottom > detection.Top;
+        }
+
+        private static bool TryParseSegmentationDetection(
+            string[] parts,
+            int classId,
+            IReadOnlyList<string> classNames,
+            out YoloLabelDetection detection)
+        {
+            detection = default;
+            int coordinateTokenCount = parts.Length - 1;
+            double confidence = 1D;
+            if (coordinateTokenCount >= 7 && coordinateTokenCount % 2 == 1)
+            {
+                if (!TryParseDouble(parts[parts.Length - 1], out confidence))
+                {
+                    return false;
+                }
+
+                coordinateTokenCount--;
+            }
+
+            if (coordinateTokenCount < 6 || coordinateTokenCount % 2 != 0)
+            {
+                return false;
+            }
+
+            double left = 1D;
+            double top = 1D;
+            double right = 0D;
+            double bottom = 0D;
+            for (int i = 1; i <= coordinateTokenCount; i += 2)
+            {
+                if (!TryParseDouble(parts[i], out double x) || !TryParseDouble(parts[i + 1], out double y))
+                {
+                    return false;
+                }
+
+                left = Math.Min(left, x);
+                top = Math.Min(top, y);
+                right = Math.Max(right, x);
+                bottom = Math.Max(bottom, y);
+            }
+
+            detection = new YoloLabelDetection(
+                classId,
+                ResolveClassName(classId, classNames),
+                confidence,
+                Math.Max(0D, Math.Min(1D, left)),
+                Math.Max(0D, Math.Min(1D, top)),
+                Math.Max(0D, Math.Min(1D, right)),
+                Math.Max(0D, Math.Min(1D, bottom)));
             return detection.Right > detection.Left && detection.Bottom > detection.Top;
         }
 

@@ -10037,3 +10037,112 @@ Last updated: 2026-07-07
   - This is a WPF layout/presentation slice only. It does not change class add/rename/delete behavior, class color application, label saving, training, inference, or Viewer/OpenGL/ROI/brush/eraser paths.
 - Next:
   - Continue with model/training panel density, then reassess whether the left workflow panel still needs a stronger show-more/less affordance.
+
+## 2026-07-07 Training settings left panel compact layout
+
+- Self-evaluation:
+  - The model/training panel repeated recommendation and parameter guidance in the main left-panel flow even though the same guidance remains available from the bound controls/tooltips and current training status cards.
+  - The smallest safe UX change was to keep training readiness, current settings, preset action, advanced parameters, training controls, and post-training actions visible while hiding repeated guide text by default.
+- Changes:
+  - `WpfTrainingSettingsPanel.xaml` now collapses the training recommendation paragraph, advanced-parameter guide lines, and split-policy hint by default.
+  - Training setting controls, tooltips, readiness state, start/stop buttons, progress/status, and post-training candidate actions remain visible and bound.
+  - `--wpf-training-settings-panel` now locks the compact training-settings visibility contract.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-settings-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab training --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-training-panel-compact-after-1920.png` passed.
+- Capture:
+  - Before: `artifacts\ui\wpf-training-panel-compact-before-1920.png`.
+  - After: `artifacts\ui\wpf-training-panel-compact-after-1920.png`.
+  - Visual comparison confirmed the repeated recommendation text is hidden and the current training settings/status cards start higher at 1920x1080.
+- Remaining risk:
+  - This is a WPF layout/presentation slice only. It does not change training readiness rules, training execution, model selection, inference, annotation persistence, or Viewer/OpenGL/ROI/brush/eraser paths.
+- Next:
+  - Reassess the full left workflow panel after these stage-specific density passes, then return to YOLOv8 SEG operating/model-quality work.
+
+## 2026-07-07 Model center left panel compact layout
+
+- Self-evaluation:
+  - The model center left panel still repeated the current model, training candidate, adoption status, and next action in both the priority card and a lower lifecycle detail table.
+  - The smallest safe change was to keep the priority card, model registry summary, adoption decision summary/detail expander, dataset check, training buttons, and runtime-management expanders while hiding only the duplicated lifecycle detail table by default.
+- Changes:
+  - `WpfLabelingShellWindow.xaml` now names the lifecycle detail table as `YoloModelLifecycleDetailPanel` and collapses it by default.
+  - Existing lifecycle text bindings remain in the XAML for diagnostics/accessibility, but the default model-center view gives more vertical room to dataset check and model runtime management.
+  - `--wpf-labeling-shell` now locks the compact model-center detail-panel visibility contract.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab yolo --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-yolo-model-panel-compact-after-1920.png` passed.
+- Capture:
+  - Before: `artifacts\ui\wpf-yolo-model-panel-compact-before-1920.png`.
+  - After: `artifacts\ui\wpf-yolo-model-panel-compact-after-1920.png`.
+  - Visual comparison confirmed the duplicate lifecycle table is hidden and the dataset-check/runtime-management expanders are visible higher in the left panel at 1920x1080.
+- Remaining risk:
+  - This is a WPF layout/presentation slice only. It does not change model registry state, model adoption commands, training execution, inference, annotation persistence, or Viewer/OpenGL/ROI/brush/eraser paths.
+- Next:
+  - Return to YOLOv8 SEG operating/model-quality work unless operator use exposes another specific layout blocker.
+
+## 2026-07-07 YOLOv8 SEG model comparison polygon examples
+
+- Self-evaluation:
+  - The held-out model comparison runner already validates segmentation datasets and promotion guards, but Candidate Review example parsing still assumed YOLO box rows (`class cx cy w h`).
+  - For YOLOv8 SEG operation, the next narrow model-quality fix was to let comparison examples read YOLO segmentation polygon rows (`class x1 y1 x2 y2 ...`) and convert their extent into focus boxes.
+- Changes:
+  - `WpfModelComparisonReviewService` now parses segmentation polygon label rows with optional trailing confidence.
+  - Polygon extents are clamped to normalized image space and reused by the existing Candidate Review disagreement examples.
+  - `--wpf-model-comparison-review-service` now covers shifted SEG polygons as candidate-only and baseline-only examples with focus boxes.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-review-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-heldout` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-run-service` passed.
+- Remaining risk:
+  - This is comparison-result parsing only. It does not run real YOLOv8 training/inference, change promotion thresholds, or touch Viewer/OpenGL/ROI/brush/eraser paths.
+- Next:
+  - Continue YOLOv8 SEG operating quality with the next evidence-based slice: model comparison/report clarity, trained-model adoption safety, or real operator dataset smoke when the EXE is available.
+
+## 2026-07-07 Model history rejected-candidate apply guard
+
+- Self-evaluation:
+  - Model history intentionally keeps rejected and adopted model candidates visible for traceability.
+  - The unsafe edge was that a rejected non-current candidate with an existing `best.pt` could still appear as directly promotable from the history action.
+- Changes:
+  - `WpfModelRegistryPresentationService` now keeps rejected model-history rows visible but marks them as rejected and not directly promotable.
+  - Existing non-current, non-rejected candidates remain intentionally promotable from model history.
+  - `--wpf-labeling-shell` now locks both states.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --model-registry` passed.
+- Remaining risk:
+  - This is model-history presentation/action gating only. It does not run real YOLOv8 training/inference, change registry persistence schema, or alter Viewer/OpenGL/ROI/brush/eraser paths.
+- Next:
+  - Continue YOLOv8 SEG operating quality with model comparison/report clarity or a real operator dataset smoke when EXE use is available.
+
+## 2026-07-07 Model candidate decision wording and collapsed-detail guard
+
+- Self-evaluation:
+  - The model candidate decision presentation had already been split out of shell code-behind, but its operator-facing save/reject/rejected-state text still needed a readable Korean pass.
+  - The Candidate Review model-validation detail control also needed the same default collapsed-detail contract as the recent compact panel work, so dense text does not return by accident.
+- Changes:
+  - `WpfModelCandidateDecisionPresentationService` now owns readable Korean candidate-save, reject, rejected, saved, no-candidate, and reject-result status/detail/tooltip text.
+  - `WpfCandidateReviewPanel.xaml` keeps `ModelValidationRoleDetailText` collapsed by default while preserving the binding for accessibility/diagnostics.
+  - `--mvvm-infra` and `--wpf-candidate-review-panel` now lock the service text and collapsed-detail contract.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --model-registry` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab candidates --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-candidate-decision-text-after-1920.png` passed.
+- Capture:
+  - Before: `artifacts\ui\wpf-model-candidate-decision-text-before-1920.png`.
+  - After: `artifacts\ui\wpf-model-candidate-decision-text-after-1920.png`.
+  - The visual smoke captures the current Candidate Review layout. The exact model-decision text states are protected by the focused service/ViewModel tests rather than by this generic screenshot state.
+- Remaining risk:
+  - This is presentation and compact-layout protection only. It does not run real YOLOv8 training/inference, change model registry persistence schema, or touch Viewer/OpenGL/ROI/brush/eraser paths.
+- Next:
+  - Continue YOLOv8 SEG operating quality with model comparison/report clarity or a real operator dataset smoke when EXE use is available.
