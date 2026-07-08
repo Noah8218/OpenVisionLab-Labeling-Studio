@@ -2,6 +2,22 @@
 
 Last updated: 2026-07-08
 
+## 2026-07-08 CI OpenCvSharp restore contract
+
+- Self-evaluation:
+  - GitHub Actions completed for `c16dfc9e` but failed in the build step because CI could not resolve `OpenCvSharp.Mat`, `OpenCvSharp.Point`, and `OpenCvSharp.MatType`.
+  - The root cause was that `OpenVisionLab.LabelingStudio.csproj` compiled against ignored repo-local `packages\OpenCvSharp...` HintPath DLLs that exist locally but are absent after a clean GitHub checkout.
+- Changes:
+  - Replaced the app project's ignored `packages` compile references with explicit NuGet `PackageReference` entries for the same OpenCvSharp/runtime/support versions.
+  - Changed OpenCvSharp output copying to use restored `$(NuGetPackageRoot)` assets first, while keeping local `packages` as an optional fallback when present.
+  - Updated the priority workflow docs smoke contract so this CI-safe dependency shape is locked.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
+  - Output check confirmed `OpenCvSharp.dll`, `OpenCvSharp.Extensions.dll`, `OpenCvSharpExtern.dll`, `opencv_videoio_ffmpeg455_64.dll`, `System.Memory.dll`, and `System.Runtime.CompilerServices.Unsafe.dll` in `artifacts\isolated-out`.
+- Remaining risk:
+  - Remote GitHub Actions has not been rerun yet because this fix has not been pushed in this turn.
+
 ## 2026-07-08 labeling guide current-task card border
 
 - Self-evaluation:
@@ -873,7 +889,7 @@ Last updated: 2026-07-08
   - After fixing that copy, the same OpenCvSharp initialization path still indicated missing legacy runtime support assemblies such as `System.Memory.dll`.
 - Changes:
   - Added `CopyCheckedInNoahLibrariesToOutput` to `OpenVisionLab.LabelingStudio.csproj` so `dll\Lib.Common.dll` and `dll\Lib.OpenCV.dll` are copied into the EXE output after build.
-  - Added `CopyLegacyOpenCvRuntimeDependenciesToOutput` so the existing repo-local `packages\System.Memory.4.5.5`, `System.Buffers.4.5.1`, `System.Numerics.Vectors.4.5.0`, `System.Runtime.CompilerServices.Unsafe.6.0.0`, and `System.Threading.Tasks.Extensions.4.5.4` DLLs are copied into the EXE output.
+  - Added `CopyLegacyOpenCvRuntimeDependenciesToOutput` so the OpenCvSharp support DLLs are copied into the EXE output.
   - Extended `--priority-workflow-docs` coverage so the checked-in DLL output-copy target cannot disappear silently.
 - Evidence:
   - Failed EXE artifact: `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260707_193100\screenshots\failure.latest.png`.

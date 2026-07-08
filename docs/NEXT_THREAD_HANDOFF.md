@@ -191,7 +191,7 @@ Current priority is not more interoperability unless the user asks. The next lik
 - The app now references and force-copies checked-in DLLs into the EXE output:
   - `dll\Lib.Common.dll`
   - `dll\Lib.OpenCV.dll`
-- The app also force-copies existing repo-local legacy OpenCvSharp support DLLs from `packages\System.Memory.4.5.5`, `System.Buffers.4.5.1`, `System.Numerics.Vectors.4.5.0`, `System.Runtime.CompilerServices.Unsafe.6.0.0`, and `System.Threading.Tasks.Extensions.4.5.4` into the EXE output.
+- The app restores OpenCvSharp support through NuGet (`OpenCvSharp4` 4.4.0.20200915, `OpenCvSharp4.runtime.win` 4.5.5.20211231, and legacy support assemblies) and force-copies the restored DLLs into the EXE output, with existing local `packages` files used only as a fallback when present.
 - The focused docs smoke asserts the README/release/CI sections and the bundled DLL dependency contract.
 
 Latest verified commands for the DLL/CI/docs slice:

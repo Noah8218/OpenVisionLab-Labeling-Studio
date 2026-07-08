@@ -97,7 +97,7 @@ Latest stable areas to avoid reworking:
 - Latest explicit-adopt guard recheck: `--wpf-yolov8-anomaly-classification-runtime-smoke` passed, and `scripts\evaluate-yolo-classification.ps1 -MinimumConfidence 0.8` wrote `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-explicit-adopt-guard-recheck\classification-evaluation-20260708-014426\classification-evaluation-summary.json`; it remains `hold` with 4 images, normal 1/2, abnormal 0/2, 25% confidence-gated accuracy, and 2 low-confidence class matches.
 - Latest focused regression sweep after the guide UX pass: `--wpf-model-comparison-heldout`, `--wpf-model-comparison-run-service`, `--wpf-candidate-polygon-training-flow`, `--wpf-segmentation-object-verification`, `--dataset-readiness-purpose`, `--wpf-image-queue-status`, `--wpf-candidate-review-panel`, `--wpf-model-comparison-review-service`, `--anomaly-classification-evaluation`, `--wpf-yolov8-anomaly-classification-runtime-smoke`, YOLOv8 adapter compile/self-test, PowerShell parser checks for the YOLO comparison/evaluation scripts, solution build, output-copy check for checked-in Noah/OpenCvSharp DLL dependencies, and `--wpf-responsive-layout --width 1920 --height 1080` passed on 2026-07-08 KST.
 - Model candidate rejected-history guard and candidate decision presentation text.
-- README/release/CI skeleton, checked-in `dll\Lib.Common.dll` / `dll\Lib.OpenCV.dll` dependency/output-copy contract, and repo-local legacy OpenCvSharp support DLL output-copy contract.
+- README/release/CI skeleton, checked-in `dll\Lib.Common.dll` / `dll\Lib.OpenCV.dll` dependency/output-copy contract, and NuGet-restored OpenCvSharp support DLL output-copy contract with local `packages` fallback.
 
 Known remaining gaps:
 

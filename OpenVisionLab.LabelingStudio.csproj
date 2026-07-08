@@ -84,34 +84,6 @@
       <HintPath>dll\OpenVisionLab.DrawObject.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="OpenCvSharp">
-      <HintPath>packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="OpenCvSharp.Extensions">
-      <HintPath>packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.Extensions.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System.Buffers">
-      <HintPath>packages\System.Buffers.4.5.1\lib\netstandard2.0\System.Buffers.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System.Memory">
-      <HintPath>packages\System.Memory.4.5.5\lib\netstandard2.0\System.Memory.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System.Numerics.Vectors">
-      <HintPath>packages\System.Numerics.Vectors.4.5.0\lib\netstandard2.0\System.Numerics.Vectors.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System.Runtime.CompilerServices.Unsafe">
-      <HintPath>packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
-    <Reference Include="System.Threading.Tasks.Extensions">
-      <HintPath>packages\System.Threading.Tasks.Extensions.4.5.4\lib\netstandard2.0\System.Threading.Tasks.Extensions.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
     <Reference Include="SharpGL" Condition="Exists('$(OpenVisionLabSourceRoot)\dll\SharpGL\SharpGL.dll')">
       <HintPath>$(OpenVisionLabSourceRoot)\dll\SharpGL\SharpGL.dll</HintPath>
       <Private>True</Private>
@@ -138,8 +110,15 @@
     <PackageReference Include="log4net" Version="3.3.1" />
     <PackageReference Include="MahApps.Metro.IconPacks.Material" Version="6.2.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+    <PackageReference Include="OpenCvSharp4" Version="4.4.0.20200915" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.5.5.20211231" />
+    <PackageReference Include="System.Buffers" Version="4.5.1" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.8" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.27" />
+    <PackageReference Include="System.Memory" Version="4.5.5" />
+    <PackageReference Include="System.Numerics.Vectors" Version="4.5.0" />
+    <PackageReference Include="System.Runtime.CompilerServices.Unsafe" Version="6.0.0" />
+    <PackageReference Include="System.Threading.Tasks.Extensions" Version="4.5.4" />
     <PackageReference Include="WPF-UI" Version="4.3.0" />
     <PackageReference Include="YamlDotNet" Version="13.1.1" />
   </ItemGroup>
@@ -204,25 +183,52 @@
           SkipUnchangedFiles="false" />
   </Target>
 
-  <Target Name="CopyRepoLocalOpenCvSharpLibrariesToOutput" AfterTargets="CopyFilesToOutputDirectory">
+  <Target Name="CopyOpenCvSharpPackageLibrariesToOutput" AfterTargets="CopyFilesToOutputDirectory">
     <ItemGroup>
-      <RepoLocalOpenCvSharpLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.dll" />
-      <RepoLocalOpenCvSharpLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.Extensions.dll" />
-      <RepoLocalOpenCvSharpLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.4.5.5.20211231\runtimes\win-x64\native\OpenCvSharpExtern.dll" />
-      <RepoLocalOpenCvSharpLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.4.5.5.20211231\runtimes\win-x64\native\opencv_videoio_ffmpeg455_64.dll" />
+      <OpenCvSharpPackageLibrary Include="$(NuGetPackageRoot)opencvsharp4\4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.dll"
+                                 Condition="Exists('$(NuGetPackageRoot)opencvsharp4\4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.dll')" />
+      <OpenCvSharpPackageLibrary Include="$(NuGetPackageRoot)opencvsharp4\4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.Extensions.dll"
+                                 Condition="Exists('$(NuGetPackageRoot)opencvsharp4\4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.Extensions.dll')" />
+      <OpenCvSharpPackageLibrary Include="$(NuGetPackageRoot)opencvsharp4.runtime.win\4.5.5.20211231\runtimes\win-x64\native\OpenCvSharpExtern.dll"
+                                 Condition="Exists('$(NuGetPackageRoot)opencvsharp4.runtime.win\4.5.5.20211231\runtimes\win-x64\native\OpenCvSharpExtern.dll')" />
+      <OpenCvSharpPackageLibrary Include="$(NuGetPackageRoot)opencvsharp4.runtime.win\4.5.5.20211231\runtimes\win-x64\native\opencv_videoio_ffmpeg455_64.dll"
+                                 Condition="Exists('$(NuGetPackageRoot)opencvsharp4.runtime.win\4.5.5.20211231\runtimes\win-x64\native\opencv_videoio_ffmpeg455_64.dll')" />
+      <OpenCvSharpPackageLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.dll"
+                                 Condition="Exists('$(MSBuildProjectDirectory)\packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.dll')" />
+      <OpenCvSharpPackageLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.Extensions.dll"
+                                 Condition="Exists('$(MSBuildProjectDirectory)\packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.Extensions.dll')" />
+      <OpenCvSharpPackageLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.4.5.5.20211231\runtimes\win-x64\native\OpenCvSharpExtern.dll"
+                                 Condition="Exists('$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.4.5.5.20211231\runtimes\win-x64\native\OpenCvSharpExtern.dll')" />
+      <OpenCvSharpPackageLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.4.5.5.20211231\runtimes\win-x64\native\opencv_videoio_ffmpeg455_64.dll"
+                                 Condition="Exists('$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.4.5.5.20211231\runtimes\win-x64\native\opencv_videoio_ffmpeg455_64.dll')" />
     </ItemGroup>
-    <Copy SourceFiles="@(RepoLocalOpenCvSharpLibrary)"
+    <Copy SourceFiles="@(OpenCvSharpPackageLibrary)"
           DestinationFolder="$(OutDir)"
           SkipUnchangedFiles="false" />
   </Target>
 
   <Target Name="CopyLegacyOpenCvRuntimeDependenciesToOutput" AfterTargets="CopyFilesToOutputDirectory">
     <ItemGroup>
-      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Memory.4.5.5\lib\netstandard2.0\System.Memory.dll" />
-      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Buffers.4.5.1\lib\netstandard2.0\System.Buffers.dll" />
-      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Numerics.Vectors.4.5.0\lib\netstandard2.0\System.Numerics.Vectors.dll" />
-      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll" />
-      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Threading.Tasks.Extensions.4.5.4\lib\netstandard2.0\System.Threading.Tasks.Extensions.dll" />
+      <LegacyOpenCvRuntimeDependency Include="$(NuGetPackageRoot)system.memory\4.5.5\lib\netstandard2.0\System.Memory.dll"
+                                      Condition="Exists('$(NuGetPackageRoot)system.memory\4.5.5\lib\netstandard2.0\System.Memory.dll')" />
+      <LegacyOpenCvRuntimeDependency Include="$(NuGetPackageRoot)system.buffers\4.5.1\lib\netstandard2.0\System.Buffers.dll"
+                                      Condition="Exists('$(NuGetPackageRoot)system.buffers\4.5.1\lib\netstandard2.0\System.Buffers.dll')" />
+      <LegacyOpenCvRuntimeDependency Include="$(NuGetPackageRoot)system.numerics.vectors\4.5.0\lib\netstandard2.0\System.Numerics.Vectors.dll"
+                                      Condition="Exists('$(NuGetPackageRoot)system.numerics.vectors\4.5.0\lib\netstandard2.0\System.Numerics.Vectors.dll')" />
+      <LegacyOpenCvRuntimeDependency Include="$(NuGetPackageRoot)system.runtime.compilerservices.unsafe\6.0.0\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll"
+                                      Condition="Exists('$(NuGetPackageRoot)system.runtime.compilerservices.unsafe\6.0.0\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll')" />
+      <LegacyOpenCvRuntimeDependency Include="$(NuGetPackageRoot)system.threading.tasks.extensions\4.5.4\lib\netstandard2.0\System.Threading.Tasks.Extensions.dll"
+                                      Condition="Exists('$(NuGetPackageRoot)system.threading.tasks.extensions\4.5.4\lib\netstandard2.0\System.Threading.Tasks.Extensions.dll')" />
+      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Memory.4.5.5\lib\netstandard2.0\System.Memory.dll"
+                                      Condition="Exists('$(MSBuildProjectDirectory)\packages\System.Memory.4.5.5\lib\netstandard2.0\System.Memory.dll')" />
+      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Buffers.4.5.1\lib\netstandard2.0\System.Buffers.dll"
+                                      Condition="Exists('$(MSBuildProjectDirectory)\packages\System.Buffers.4.5.1\lib\netstandard2.0\System.Buffers.dll')" />
+      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Numerics.Vectors.4.5.0\lib\netstandard2.0\System.Numerics.Vectors.dll"
+                                      Condition="Exists('$(MSBuildProjectDirectory)\packages\System.Numerics.Vectors.4.5.0\lib\netstandard2.0\System.Numerics.Vectors.dll')" />
+      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll"
+                                      Condition="Exists('$(MSBuildProjectDirectory)\packages\System.Runtime.CompilerServices.Unsafe.6.0.0\lib\netstandard2.0\System.Runtime.CompilerServices.Unsafe.dll')" />
+      <LegacyOpenCvRuntimeDependency Include="$(MSBuildProjectDirectory)\packages\System.Threading.Tasks.Extensions.4.5.4\lib\netstandard2.0\System.Threading.Tasks.Extensions.dll"
+                                      Condition="Exists('$(MSBuildProjectDirectory)\packages\System.Threading.Tasks.Extensions.4.5.4\lib\netstandard2.0\System.Threading.Tasks.Extensions.dll')" />
     </ItemGroup>
     <Copy SourceFiles="@(LegacyOpenCvRuntimeDependency)"
           DestinationFolder="$(OutDir)"
