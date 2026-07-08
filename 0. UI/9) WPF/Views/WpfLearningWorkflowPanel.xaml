@@ -1161,6 +1161,14 @@
                       Visibility="{Binding LabelingTaskVisibility}"
                       Margin="0,0,0,8">
                 <StackPanel Margin="0,6,0,0">
+                    <Expander x:Name="LabelingGuideTrainingFlowExpander"
+                              AutomationProperties.AutomationId="LabelingGuideTrainingFlowExpander"
+                              Header="&#xD559;&#xC2B5; &#xD750;&#xB984;"
+                              IsExpanded="True"
+                              Foreground="{DynamicResource SecondaryTextBrush}"
+                              Background="Transparent"
+                              BorderBrush="{DynamicResource BorderBrushDark}">
+                        <StackPanel Margin="0,6,0,0">
             <!-- Keep the next training step available without making it the default labeling guide. -->
             <Border x:Name="YoloCurrentTrainingActionPanel"
                     Background="{DynamicResource CanvasBrush}"
@@ -1484,7 +1492,17 @@
                     </Border>
                 </StackPanel>
             </Border>
+                    </StackPanel>
+            </Expander>
 
+            <Expander x:Name="LabelingGuideWorkflowToolsExpander"
+                      AutomationProperties.AutomationId="LabelingGuideWorkflowToolsExpander"
+                      Header="&#xB3C4;&#xAD6C; &#xBC0F; &#xC6CC;&#xD06C;&#xD50C;&#xB85C;&#xC6B0;"
+                      IsExpanded="False"
+                      Foreground="{DynamicResource SecondaryTextBrush}"
+                      Background="Transparent"
+                      BorderBrush="{DynamicResource BorderBrushDark}">
+                <StackPanel Margin="0,6,0,0">
             <TextBlock x:Name="LearningStepHeaderText"
                        Text="작업 단계"
                        Style="{StaticResource LearningWorkflowCaptionStyle}"
@@ -1554,10 +1572,22 @@
                         </Button>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
-            </ItemsControl>
+    </ItemsControl>
+
+                </StackPanel>
+            </Expander>
+
+            <Expander x:Name="LabelingGuideTemplateAndTutorialExpander"
+                      AutomationProperties.AutomationId="LabelingGuideTemplateAndTutorialExpander"
+                      Header="&#xD15C;&#xD50C;&#xB9BF; / &#xD290;&#xD1A0;&#xB9AC;&#xC5BC;"
+                      IsExpanded="False"
+                      Foreground="{DynamicResource SecondaryTextBrush}"
+                      Background="Transparent"
+                      BorderBrush="{DynamicResource BorderBrushDark}">
+                <StackPanel Margin="0,6,0,0">
 
             <Border x:Name="TemplateWorkflowPanel"
-                    AutomationProperties.AutomationId="TemplateWorkflowPanel"
+                     AutomationProperties.AutomationId="TemplateWorkflowPanel"
                     Background="{DynamicResource CanvasBrush}"
                     BorderBrush="{DynamicResource AccentBrush}"
                     BorderThickness="1"
@@ -1760,7 +1790,17 @@
                     </Grid>
                 </StackPanel>
             </Border>
+                </StackPanel>
+            </Expander>
 
+            <Expander x:Name="LabelingGuideYoloValidationExpander"
+                      AutomationProperties.AutomationId="LabelingGuideYoloValidationExpander"
+                      Header="YOLO &#xAC80;&#xC99D; / &#xD559;&#xC2B5;"
+                      IsExpanded="False"
+                      Foreground="{DynamicResource SecondaryTextBrush}"
+                      Background="Transparent"
+                      BorderBrush="{DynamicResource BorderBrushDark}">
+                <StackPanel Margin="0,6,0,0">
             <Border x:Name="YoloTrainingWorkflowPanel"
                     Background="{DynamicResource CanvasBrush}"
                     BorderBrush="{DynamicResource BorderBrushDark}"
@@ -2105,6 +2145,8 @@
                                    Margin="0,8,0,0" />
                     </Grid>
                 </StackPanel>
+            </Expander>
+                    </StackPanel>
             </Expander>
                 </StackPanel>
             </Expander>
