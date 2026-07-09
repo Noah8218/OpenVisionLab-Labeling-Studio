@@ -1503,6 +1503,14 @@
                       Background="Transparent"
                       BorderBrush="{DynamicResource BorderBrushDark}">
                 <StackPanel Margin="0,6,0,0">
+            <Expander x:Name="LabelingGuideLearningStepsExpander"
+                      AutomationProperties.AutomationId="LabelingGuideLearningStepsExpander"
+                      Header="&#xD559;&#xC2B5; &#xB2E8;&#xACC4;"
+                      IsExpanded="True"
+                      Foreground="{DynamicResource SecondaryTextBrush}"
+                      Background="Transparent"
+                      BorderBrush="{DynamicResource BorderBrushDark}">
+                <StackPanel Margin="0,6,0,0">
             <TextBlock x:Name="LearningStepHeaderText"
                        Text="작업 단계"
                        Style="{StaticResource LearningWorkflowCaptionStyle}"
@@ -1521,7 +1529,17 @@
                     </ItemsPanelTemplate>
                 </ListBox.ItemsPanel>
             </ListBox>
+                </StackPanel>
+            </Expander>
 
+            <Expander x:Name="LabelingGuideAnnotationToolsExpander"
+                      AutomationProperties.AutomationId="LabelingGuideAnnotationToolsExpander"
+                      Header="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C;"
+                      IsExpanded="False"
+                      Foreground="{DynamicResource SecondaryTextBrush}"
+                      Background="Transparent"
+                      BorderBrush="{DynamicResource BorderBrushDark}">
+                <StackPanel Margin="0,6,0,0">
             <TextBlock x:Name="AnnotationToolHeaderText"
                        Text="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C;"
                        Style="{StaticResource LearningWorkflowCaptionStyle}"
@@ -1540,10 +1558,19 @@
                     </ItemsPanelTemplate>
                 </ListBox.ItemsPanel>
             </ListBox>
+                </StackPanel>
+            </Expander>
 
-            <ItemsControl x:Name="AnnotationCommandToolItemsControl"
+            <Expander x:Name="LabelingGuideAnnotationCommandsExpander"
+                      AutomationProperties.AutomationId="LabelingGuideAnnotationCommandsExpander"
+                      Header="&#xC791;&#xC5C5; &#xBA85;&#xB839;"
+                      IsExpanded="False"
+                      Foreground="{DynamicResource SecondaryTextBrush}"
+                      Background="Transparent"
+                      BorderBrush="{DynamicResource BorderBrushDark}">
+                <ItemsControl x:Name="AnnotationCommandToolItemsControl"
                           ItemsSource="{Binding AnnotationCommandTools}"
-                          Margin="0,-4,0,10">
+                          Margin="0,6,0,10">
                 <ItemsControl.ItemsPanel>
                     <ItemsPanelTemplate>
                         <WrapPanel Orientation="Horizontal" />
@@ -1573,6 +1600,7 @@
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>
     </ItemsControl>
+                </Expander>
 
                 </StackPanel>
             </Expander>
@@ -1586,7 +1614,14 @@
                       BorderBrush="{DynamicResource BorderBrushDark}">
                 <StackPanel Margin="0,6,0,0">
 
-            <Border x:Name="TemplateWorkflowPanel"
+            <Expander x:Name="LabelingGuideTemplateWorkflowExpander"
+                      AutomationProperties.AutomationId="LabelingGuideTemplateWorkflowExpander"
+                      Header="&#xD15C;&#xD50C;&#xB9BF; &#xB77C;&#xBC14;&#xD305;"
+                      IsExpanded="False"
+                      Foreground="{DynamicResource SecondaryTextBrush}"
+                      Background="Transparent"
+                      BorderBrush="{DynamicResource BorderBrushDark}">
+                <Border x:Name="TemplateWorkflowPanel"
                      AutomationProperties.AutomationId="TemplateWorkflowPanel"
                     Background="{DynamicResource CanvasBrush}"
                     BorderBrush="{DynamicResource AccentBrush}"
@@ -1690,8 +1725,16 @@
                     </WrapPanel>
                 </StackPanel>
             </Border>
+            </Expander>
 
-            <Border x:Name="TutorialIntroPanel"
+            <Expander x:Name="LabelingGuideTutorialIntroExpander"
+                      AutomationProperties.AutomationId="LabelingGuideTutorialIntroExpander"
+                      Header="&#xD15C;&#xD50C;&#xB9BF;/&#xD130;&#xD0AC;&#xB85C;"
+                      IsExpanded="False"
+                      Foreground="{DynamicResource SecondaryTextBrush}"
+                      Background="Transparent"
+                      BorderBrush="{DynamicResource BorderBrushDark}">
+                <Border x:Name="TutorialIntroPanel"
                     Background="{DynamicResource CanvasBrush}"
                     BorderBrush="{DynamicResource AccentBrush}"
                     BorderThickness="1"
@@ -1790,6 +1833,8 @@
                     </Grid>
                 </StackPanel>
             </Border>
+            </Expander>
+
                 </StackPanel>
             </Expander>
 
