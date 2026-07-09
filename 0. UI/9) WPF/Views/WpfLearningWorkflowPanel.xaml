@@ -1164,7 +1164,7 @@
                     <Expander x:Name="LabelingGuideTrainingFlowExpander"
                               AutomationProperties.AutomationId="LabelingGuideTrainingFlowExpander"
                               Header="&#xD559;&#xC2B5; &#xD750;&#xB984;"
-                              IsExpanded="True"
+                              IsExpanded="False"
                               Foreground="{DynamicResource SecondaryTextBrush}"
                               Background="Transparent"
                               BorderBrush="{DynamicResource BorderBrushDark}">

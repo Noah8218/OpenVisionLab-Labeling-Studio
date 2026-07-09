@@ -1,6 +1,64 @@
 # Work Tracking
 
-Last updated: 2026-07-08
+Last updated: 2026-07-09
+
+## 2026-07-09 Learning guide training flow density pass
+
+- Self-evaluation:
+  - The labeling guide still risked overload when `LabelingGuideTrainingFlowExpander` opened by default with multiple dense workflow/next-action blocks.
+  - The narrow safety-first fix was to keep the guide current-task card first and hide the step-by-step training flow details behind a manual expander state.
+- Changes:
+  - `WpfLearningWorkflowPanel.xaml` now sets `LabelingGuideTrainingFlowExpander` to `IsExpanded="False"` by default.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-polygon-training-flow`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-readiness-purpose`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-training-workflow`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab labeling-guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-labeling-guide-training-flow-collapsed-1920.png`
+  - `git diff --check`
+- Capture:
+  - After: `artifacts\ui\wpf-labeling-guide-training-flow-collapsed-1920.png`
+  - UI density comparison shows the default training details collapsed in the labeling guide.
+- Remaining risk:
+  - UI change only; it does not alter runtime/training/inference logic or open CVAT/ROI/brush/eraser hot paths.
+- Next:
+  - Re-evaluate the same density pass for class setup and model/training side panels once operator feedback confirms this step is sufficient.
+
+## 2026-07-08 YOLOv8 SEG 40-label comparison predict-label fix
+
+- Self-evaluation:
+  - The 40-label circular SEG EXE workflow passed and produced a larger held-out split, but the first YOLOv8 model comparison exposed a mismatch: Ultralytics `val` saved-label confidences reported `0` UI-threshold candidates at `0.25`, while the real `labeling_tcp_client.py --smoke-test` adapter path returned candidates for two NG test images at the same threshold.
+  - The model-adoption UI must match the actual app inference path, so YOLOv8 comparison should use `val` for metrics and separate `predict` labels for UI candidate counts and Candidate Review examples.
+- Changes:
+  - `scripts\compare-yolo-models.ps1` now resolves the selected `val`/`test` split once, keeps Ultralytics validation labels as `validationLabelsPath`, and writes `labelsPath` from a separate `model.predict(..., save_txt=True, save_conf=True)` run.
+  - `--wpf-model-comparison-run-service` now locks that YOLOv8 comparisons count UI candidates from predict labels rather than validation labels.
+- Evidence:
+  - EXE workflow: `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260708_213227`, with `trainSegments=20`, `validSegments=10`, `testSegments=10`, and `backgroundLabels=20`.
+  - Fine-tuned candidate: `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-40label-finetune-80ep-img160-20260708\weights\best.pt`.
+  - Patched comparison: `artifacts\yolo-model-comparison\yolov8-seg-40label-baseline-vs-finetune80-20260708-predict-ui\20260708-215754\comparison-summary.json`.
+  - Patched comparison result: baseline precision `0.0017`, recall `0.2`, mAP50 `0.0017`, mAP50-95 `0.0002`, UI candidates `0`; candidate precision `0.582`, recall `0.5`, mAP50 `0.683`, mAP50-95 `0.281`, UI candidates `2` at confidence `0.25`, and `promotion.recommendation=promote`.
+  - Direct adapter sweep: `artifacts\yolo-tcp-smoke\yolov8-seg-40label-finetune80-conf025-20260708\summary.json`, with 16 test images, 10 positives, 6 negatives, 2 positive images with candidates, 0 negative images with candidates, and 2 total candidates at confidence `0.25`.
+  - Model Center save/adoption smoke: `--wpf-model-center-real-candidate-save` saved the same 40-label candidate as the current inspection model and wrote capture `artifacts\ui\wpf-model-center-real-40label-finetune-save-after-20260708-1920.png`; recipe config was saved under `tests\LabelingApplication.Tests\artifacts\isolated-out\RECIPE\real_model_center_smoke_*\VISION.xml`.
+  - Candidate Review display smoke: `artifacts\ui\wpf-model-comparison-40label-promote-after-20260709-1920.png` shows the real 40-label `comparison-summary.json` with `차이 2개 이미지 / 예시 2개`, `기존 모델 0개`, `새 모델 2개`, and the Korean promote guidance.
+  - Current-image TCP confirm/save smoke: `artifacts\real-yolo-smoke\40label-current-image-025-ng-20260709\summary.txt` used the same 40-label candidate on held-out `025_NG.png`, detected one `NG` polygon candidate at confidence `0.3039`, committed it, and saved YOLO label text plus segment JSON and mask PNG under `artifacts\real-yolo-smoke\40label-current-image-025-ng-20260709\dataset\data\train\`.
+- Verification so far:
+  - `dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\run\Debug\` passed.
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed before the EXE workflow and will be rerun after this patch.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-circular-segmentation-workflow --exe .\artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe --image-root D:\circular_defect_labeling_dataset_v1\images --yolov8-root C:\Git\yolov8 --label-count 40` passed.
+  - `C:\Git\yolov8\.venv\Scripts\yolo.exe segment train ... epochs=80 imgsz=160 ... name=openvisionlab-yolov8-seg-40label-finetune-80ep-img160-20260708` passed.
+  - PowerShell parser check passed for `scripts\compare-yolo-models.ps1`.
+  - Patched `scripts\compare-yolo-models.ps1 -Task test -ModelTask segment -UiConfidence 0.25` passed and wrote the promote summary above.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-center-real-candidate-save --data-yaml C:\Git\Labelling_Application\artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260708_213227\dataset\data.yaml --candidate-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-40label-finetune-80ep-img160-20260708\weights\best.pt --baseline-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt --output C:\Git\Labelling_Application\artifacts\ui\wpf-model-center-real-40label-finetune-save-after-20260708-1920.png --width 1920 --height 1080` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab candidates --right-workflow-expanded --model-comparison-summary C:\Git\Labelling_Application\artifacts\yolo-model-comparison\yolov8-seg-40label-baseline-vs-finetune80-20260708-predict-ui\20260708-215754\comparison-summary.json --width 1920 --height 1080 --output C:\Git\Labelling_Application\artifacts\ui\wpf-model-comparison-40label-promote-after-20260709-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --real-yolo-smoke` passed with `LABELING_SMOKE_*` environment variables pointing to the 40-label candidate, `025_NG.png`, confidence `0.25`, image size `160`, and `LABELING_SMOKE_EXPECT_SEGMENTATION=true`.
+- Remaining risk:
+  - This is still circular-fixture evidence, not broad production accuracy. Recall is limited: at `0.25`, the adapter found candidates on 2 of 10 positive held-out images.
+  - Lowering confidence to `0.10` finds 9 of 10 positive images but also produces candidates on all 6 OK images, so `0.10` is noisy for this dataset.
+  - Next SEG work should review the two positive Candidate Review examples, add more varied real SEG labels, and rerun held-out comparison before broad deployment claims.
 
 ## 2026-07-08 CI OpenCvSharp restore contract
 
@@ -15,8 +73,9 @@ Last updated: 2026-07-08
   - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
   - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs` passed.
   - Output check confirmed `OpenCvSharp.dll`, `OpenCvSharp.Extensions.dll`, `OpenCvSharpExtern.dll`, `opencv_videoio_ffmpeg455_64.dll`, `System.Memory.dll`, and `System.Runtime.CompilerServices.Unsafe.dll` in `artifacts\isolated-out`.
+  - GitHub Actions CI for pushed commit `36d63be3` was inspected via the GitHub REST API on 2026-07-08 KST. Run `28912003281` completed with `success`: https://github.com/Noah8218/OpenVisionLab-Labeling-Studio/actions/runs/28912003281
 - Remaining risk:
-  - Remote GitHub Actions has not been rerun yet because this fix has not been pushed in this turn.
+  - No remaining CI risk for the pushed OpenCvSharp restore fix; inspect CI again after future pushes.
 
 ## 2026-07-08 labeling guide current-task card border
 
@@ -266,18 +325,18 @@ Last updated: 2026-07-08
   - After the UI/UX and regression sweep, the next highest-value runtime check was to verify that the previously promotable circular-defect YOLOv8 SEG fine-tune still works through the real local TCP workflow.
   - This recheck uses existing local files only: no model download, no dependency upgrade, and no retraining.
 - Evidence:
-  - Artifact root: `artifacts\real-yolo-smoke\finetune80-current-image-025-ng-20260708-recheck`.
+  - Artifact root: `artifacts\real-yolo-smoke\finetune80-current-image-025-ng-20260708-latest`.
   - Weight: `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-20label-finetune-80ep-img160-20260707\weights\best.pt`.
   - Image: `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260707_221147\dataset\data\test\images\025_NG.png`.
-  - Summary: `artifacts\real-yolo-smoke\finetune80-current-image-025-ng-20260708-recheck\summary.txt`.
-  - Model Center save/adoption capture: `artifacts\ui\wpf-model-center-real-finetune-save-recheck-20260708-1920.png`.
+  - Summary: `artifacts\real-yolo-smoke\finetune80-current-image-025-ng-20260708-latest\summary.txt`.
+  - Model Center save/adoption capture: `artifacts\ui\wpf-model-center-real-finetune-save-recheck-20260708-latest-1920.png`.
 - Result:
   - The local YOLOv8 adapter returned one `NG` polygon candidate at confidence `0.7682`.
   - The WPF workflow confirmed/saved labels and wrote segment JSON plus mask PNG.
   - `segmentExists=True`, `maskExists=True`, `candidateCount=1`, `polygonCandidateCount=1`.
 - Verification:
   - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --real-yolo-smoke` passed with the local YOLOv8 environment variables set to the fine-tuned SEG weight and `025_NG.png`.
-  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-center-real-candidate-save --yolo-root C:\Git\yolov8 --data-yaml .\artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260707_221147\dataset\data.yaml --baseline-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt --candidate-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-20label-finetune-80ep-img160-20260707\weights\best.pt --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-center-real-finetune-save-recheck-20260708-1920.png` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-center-real-candidate-save --yolo-root C:\Git\yolov8 --data-yaml .\artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260707_221147\dataset\data.yaml --baseline-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt --candidate-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-20label-finetune-80ep-img160-20260707\weights\best.pt --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-center-real-finetune-save-recheck-20260708-latest-1920.png` passed.
 - Remaining risk:
   - This is current-image runtime/workflow evidence only. It does not broaden the held-out set, improve model accuracy, or prove production readiness outside the circular-defect fixture.
 - Next:
@@ -575,9 +634,9 @@ Last updated: 2026-07-08
   - README/tutorial screenshots were not updated because this is a Model Center evaluation-summary state, not a public tutorial/default workflow screenshot.
 - Remaining risk:
   - This makes existing anomaly evaluation evidence visible. It does not improve the tiny fixture's model accuracy or replace real operator normal/abnormal data.
-  - The production app still needs a deliberate command or workflow step that generates/selects a real `classification-evaluation-summary.json`; this slice proves the Model Center display surface, bounded production summary auto-load, and smoke summary path.
+  - At this point the production app still needed a deliberate command or workflow step that generated/selected a real `classification-evaluation-summary.json`; the later 2026-07-08 Model Center evaluation run action adds that app command path, while real operator normal/abnormal evidence remains open.
 - Next:
-  - Add a small production workflow for choosing or generating the anomaly evaluation summary once real normal/abnormal held-out data exists.
+  - Use the later Model Center `평가 실행` path with real normal/abnormal held-out data and keep the generated summary under the same adoption guard.
 
 ## 2026-07-07 anomaly classification evaluation presentation
 
@@ -767,16 +826,20 @@ Last updated: 2026-07-08
   - Training output: `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-20label-finetune-80ep-img160-20260707\weights\best.pt`.
   - Summary: `artifacts\yolo-model-comparison\yolov8-seg-20label-baseline-vs-finetune80-20260707\20260707-222900\comparison-summary.json`.
   - Report: `artifacts\yolo-model-comparison\yolov8-seg-20label-baseline-vs-finetune80-20260707\20260707-222900\comparison-report.md`.
+  - Latest comparison recheck: `artifacts\yolo-model-comparison\yolov8-seg-20label-baseline-vs-finetune80-20260708-latest\20260708-185046\comparison-summary.json`.
   - Held-out evidence passes minimum counts: labeled images `11/10`, positive segmentation labels `5/5`, positive segmentation images `5/5`.
   - Candidate metrics: precision `1.0`, recall `0.589`, mAP50 `0.767`, mAP50-95 `0.257`.
   - Candidate review threshold sweep: `0.25=2`, `0.10=10`, `0.05=18`, `0.01=109`.
   - Promotion recommendation is now `promote`: the candidate improves mAP, does not regress precision or recall, and produces `2` UI-threshold candidates at confidence `0.25`.
+  - Latest direct adapter test-split sweep at `conf=0.25` returned zero candidates for all 6 OK images, one `NG` polygon candidate for `024_NG.png` at confidence `0.5065`, one `NG` polygon candidate for `025_NG.png` at confidence `0.7682`, and zero candidates for `022_NG.png`, `023_NG.png`, and `032_NG.png`.
 - Verification:
   - `C:\Git\yolov8\.venv\Scripts\yolo.exe segment train model=C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-userseed-60ep-img160-20260707\weights\best.pt data=C:\Git\Labelling_Application\artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260707_221147\dataset\data.yaml epochs=80 imgsz=160 batch=1 device=cpu workers=0 project=C:\Git\yolov8\runs\segment name=openvisionlab-yolov8-seg-20label-finetune-80ep-img160-20260707 exist_ok=True patience=100 cache=False` passed.
   - `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\compare-yolo-models.ps1 -PythonExe C:\Git\yolov8\.venv\Scripts\python.exe -YoloProjectRoot C:\Git\yolov8 -YoloSourceRoot C:\Git\yolov8\ultralyticsMaster -DataYaml .\artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260707_221147\dataset\data.yaml -BaselineWeights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt -CandidateWeights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-20label-finetune-80ep-img160-20260707\weights\best.pt -ImageSize 160 -BatchSize 1 -Task test -ModelTask segment -UiConfidence 0.25 -OutputDirectory .\artifacts\yolo-model-comparison\yolov8-seg-20label-baseline-vs-finetune80-20260707` passed.
+  - Latest recheck command passed with the same inputs and output directory `artifacts\yolo-model-comparison\yolov8-seg-20label-baseline-vs-finetune80-20260708-latest`; the summary again reports `promotion.recommendation=promote`, baseline UI candidates `0`, candidate UI candidates `2`, precision `1.0`, recall `0.589`, mAP50 `0.767`, and mAP50-95 `0.257`.
+  - A direct adapter sweep over all 11 test images passed with `C:\Git\yolov8\labeling_tcp_client.py --smoke-test --model yolov8 --conf 0.25 --img-size 160`; only `024_NG.png` and `025_NG.png` produced candidates.
 - Remaining risk:
   - This is the first promotable candidate for the circular SEG artifact, not broad production accuracy evidence for other products, lighting, optics, or defect types.
-  - The held-out set is still small, and recall is `0.589`; an operator should review the two default-threshold examples before saving the candidate as the inspection model.
+  - The held-out set is still small, and recall is `0.589`; the direct sweep also shows 3 of 5 held-out NG images still produce no default-threshold UI candidate. An operator should review the two default-threshold examples before saving the candidate as the inspection model.
 - Next:
   - Review the candidate examples and model-adoption UI flow for the promotable `best.pt`, then continue to anomaly classification real operator-data evaluation when enough normal/abnormal data exists.
 
@@ -11295,3 +11358,82 @@ Last updated: 2026-07-08
   - The visual-smoke harness maps `--review-tab guide` to dataset stage for historical captures, so the before/after evidence is a consistent guide-panel comparison rather than a perfect reproduction of the user's `2 라벨링` screenshot.
 - Next:
   - Continue the UI/UX pass using the same commercial-tool pattern: default panels should show current task and primary controls first, with dense help/details behind explicit affordances.
+
+## 2026-07-08 YOLOv8 SEG model-comparison current-weight guard
+
+- Self-evaluation:
+  - Candidate Review used the newest `artifacts\yolo-model-comparison\**\comparison-summary.json` globally, so a newer summary from a different baseline/candidate pair could make the current model candidate look better or worse than its own held-out comparison.
+  - The smallest safe fix was to keep the existing artifact format and filter latest-summary selection by the current baseline and candidate weight paths before showing the review report.
+- Changes:
+  - `WpfModelComparisonReviewService.BuildLatestReport` now accepts optional baseline/candidate weight paths and ignores summaries whose `baseline.weights`/`candidate.weights` do not match.
+  - `WpfLabelingShellWindow.ProjectTrainingWeights` passes the current comparison's `CurrentWeightsPath` and `LatestWeightsPath` into Candidate Review.
+  - `--wpf-model-comparison-review-service` now covers a newer stale `promote` summary from another candidate and verifies the current matched summary remains `hold`.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-review-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-run-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+- Remaining risk:
+  - This is adoption-review state selection only. It does not improve model accuracy, rerun YOLOv8 training/inference, change promotion thresholds, or touch Viewer/OpenGL/ROI/brush/eraser paths.
+- Next:
+  - Continue YOLOv8 SEG operating quality with more varied real saved SEG data and held-out comparison, then return to anomaly classification real operator-data runtime/model smoke.
+
+## 2026-07-08 Anomaly classification evaluation summary load action
+
+- Self-evaluation:
+  - Model Center could auto-display `classification-evaluation-summary.json` from bounded output-root locations, but there was no explicit operator action to load a real held-out anomaly evaluation summary produced elsewhere.
+  - The smallest safe workflow improvement was to add a manual summary picker without adding a new evaluator UI, background runner, or download/dependency path.
+- Changes:
+  - `WpfLabelingShellViewModel` now exposes `LoadAnomalyEvaluationSummaryCommand` plus picker visibility/enabled state.
+  - Model Center shows a `평가 불러오기` action for anomaly datasets and keeps the manually selected summary until the dataset context changes.
+  - `WpfLabelingShellWindow.ModelCenterDashboard` reuses `AnomalyClassificationEvaluationService` and `WpfAnomalyClassificationEvaluationPresentationService` to fail closed on invalid/missing JSON and display valid summaries.
+  - The visual-smoke anomaly summary injection now also enables the picker state so current UI captures exercise the same visible action.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-evaluation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose anomaly --review-tab yolo --right-workflow-expanded --anomaly-classification-evaluation-summary .\artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-late-recheck\classification-evaluation-20260708-011412\classification-evaluation-summary.json --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-center-anomaly-evaluation-load-summary-after-20260708-1920.png` passed.
+- Capture:
+  - After: `artifacts\ui\wpf-model-center-anomaly-evaluation-load-summary-after-20260708-1920.png`.
+  - A true before capture is not available because the button change was already made before capture. The after capture shows the existing anomaly evaluation card plus the new `평가 불러오기` action.
+- README/tutorial image check:
+  - Public README/tutorial images were reviewed. They include general Model Center/training screenshots, but do not pin the anomaly evaluation summary-load state.
+  - No README/tutorial image was updated; this evidence stays under `artifacts\ui`.
+- Remaining risk:
+  - This loads and reviews an existing summary only. It does not generate the evaluation summary from the app, train a new anomaly model, improve anomaly accuracy, or provide real operator normal/abnormal held-out evidence.
+- Next:
+  - Add real operator normal/abnormal held-out data and run the existing evaluation script, then use `평가 불러오기` to review the summary in Model Center.
+
+## 2026-07-08 Anomaly classification Model Center evaluation run action
+
+- Current state:
+  - Model Center could display or manually load anomaly evaluation summaries, but operators still had to run `scripts\evaluate-yolo-classification.ps1` outside the app to create a new summary.
+  - The remaining safe slice was an app command that reuses the existing script and presentation services without changing thresholds, training, inference, or model adoption.
+- Changes:
+  - Added `WpfAnomalyClassificationEvaluationRunService` to build and validate a YOLOv8-only anomaly evaluation run request.
+  - The runner exports reviewed normal/abnormal images into a fresh `classification-evaluation-input\...` dataset, passes the local YOLOv8 adapter/weights/dataset/minimum-confidence values to `scripts\evaluate-yolo-classification.ps1`, and returns the generated `classification-evaluation-summary.json`.
+  - Model Center now shows `평가 실행` beside `평가 불러오기` for anomaly datasets. A successful run is parsed through `AnomalyClassificationEvaluationService` and displayed through `WpfAnomalyClassificationEvaluationPresentationService`; invalid, missing, or non-YOLOv8 requests fail closed.
+  - `WpfLabelingShellViewModel` exposes `RunAnomalyEvaluationCommand`; WPF command state disables the run/load actions while another model command is active.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\` passed with 0 warnings / 0 errors.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-evaluation` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-training-workflow` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolov8-anomaly-classification-runtime-smoke` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-review-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-run-service` passed.
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose anomaly --review-tab yolo --right-workflow-expanded --anomaly-classification-evaluation-summary .\artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-late-recheck\classification-evaluation-20260708-011412\classification-evaluation-summary.json --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-center-anomaly-evaluation-run-button-after-20260708-1920.png` passed.
+  - `powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\evaluate-yolo-classification.ps1 -Weights "C:\Git\Labelling_Application\artifacts\yolov8-cls-training-smoke\normal-abnormal-fixture\runs\yolov8n-cls-normal-abnormal-smoke-e10\weights\best.pt" -DatasetRoot "C:\Git\Labelling_Application\artifacts\yolov8-cls-training-smoke\normal-abnormal-fixture\dataset" -Split test -ImageSize 64 -Confidence 0.0 -MinimumConfidence 0.8 -OutputDirectory "artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-run-button-recheck"` passed and wrote `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-run-button-recheck\classification-evaluation-20260708-161237\classification-evaluation-summary.json`.
+  - The recheck summary remains `hold`: 4 images, normal 1/2, abnormal 0/2, 25% confidence-gated accuracy, and 2 low-confidence class matches.
+- Capture:
+  - After: `artifacts\ui\wpf-model-center-anomaly-evaluation-run-button-after-20260708-1920.png`.
+  - A true before capture for this exact button was not captured before editing. The previous load-summary capture is only a close baseline showing the same card before the new `평가 실행` action.
+- README/tutorial image check:
+  - Public README/tutorial references were reviewed. They use general Model Center/training screenshots and do not document this anomaly-specific evaluation-run state.
+  - No README/tutorial image was updated; this evidence stays under `artifacts\ui`.
+- Remaining risk:
+  - The app can now generate and load an anomaly evaluation summary, but the available fixture is still synthetic and remains `hold`. This does not improve model accuracy and does not provide real operator normal/abnormal adoption evidence.
+  - The run action is deliberately YOLOv8-only; YOLO11 remains blocked until compatible local runtime and weights are verified.
+- Next:
+  - Add real operator normal/abnormal held-out images, run `평가 실행`, review the generated summary, and only then consider anomaly model adoption.

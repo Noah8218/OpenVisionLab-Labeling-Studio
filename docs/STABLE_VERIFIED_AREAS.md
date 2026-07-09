@@ -103,6 +103,35 @@ PASS WPF labeling shell can be constructed without the WinForms shell
 WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\wpf-labeling-guide-ai-candidate-checklist-after-1920.png
 ```
 
+## Learning Guide Training Flow Details Collapsed
+
+Status: stable for compact labeling-mode guide density as of 2026-07-09.
+
+Protected behavior:
+
+- In labeling mode, the guide panel should prioritize the current task card and hide deep training-flow detail by default.
+- `LabelingGuideTrainingFlowExpander` inside `WpfLearningWorkflowPanel.xaml` remains collapsed by default to reduce left-panel cognitive load.
+- This change is a presentation density control; it must not alter annotation commands, brush/eraser runtime, canvas interaction, or model execution paths.
+
+Required gates before reporting this path complete again:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab labeling-guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-labeling-guide-training-flow-collapsed-1920.png
+git diff --check
+```
+
+Latest evidence:
+
+```text
+After: C:\Git\Labelling_Application\artifacts\ui\wpf-labeling-guide-training-flow-collapsed-1920.png
+PASS WPF learning workflow panel declares education modes and annotation tools
+PASS WPF labeling shell can be constructed without the WinForms shell
+WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\wpf-labeling-guide-training-flow-collapsed-1920.png
+```
+
 ## WPF Visual Smoke Capture
 
 Status: stable for current-source WPF render capture as of 2026-07-07.
@@ -141,6 +170,10 @@ Protected behavior:
 - `WpfLabelingShellViewModel` should only hold the current Model Center anomaly-evaluation presentation state and clear it when no summary is active.
 - `YoloAnomalyEvaluationPanel` should stay hidden until an anomaly evaluation presentation is set.
 - For anomaly-detection datasets, the Model Center dashboard may load `classification-evaluation-summary.json` only from the active output root or its direct `classification-evaluation\` child. Do not add recursive image-folder scans to this refresh path.
+- For anomaly-detection datasets, Model Center should expose an explicit `평가 실행` action that runs only through the local YOLOv8 adapter path. It should export a fresh `classification-evaluation-input\...` dataset from reviewed normal/abnormal images, run `scripts\evaluate-yolo-classification.ps1`, and immediately parse the generated `classification-evaluation-summary.json` through the same evaluation/presentation services.
+- For anomaly-detection datasets, Model Center should expose an explicit `평가 불러오기` action that lets the operator select an existing `classification-evaluation-summary.json`. The selected summary may live outside the active output root, but it must still be parsed through `AnomalyClassificationEvaluationService` and presented through `WpfAnomalyClassificationEvaluationPresentationService`.
+- The in-app anomaly evaluation runner must not claim YOLO11 readiness; non-YOLOv8 engines should fail validation instead of being routed through the YOLOv8 evaluation script.
+- A manually selected anomaly evaluation summary should stay active until the dataset context changes or the selected file becomes unavailable. Invalid or missing JSON must fail closed by hiding/clearing the evaluation card, not by showing an adoptable state.
 - When visible, the panel should show recommendation, metrics, blocker detail, and next action inside the Model Center decision flow, above the collapsed lifecycle detail table.
 - The panel is visibility/presentation only; it must not change training, inference, evaluation thresholds, model registry persistence, or annotation hot paths.
 
@@ -150,7 +183,8 @@ Required gates before reporting this path complete again:
 dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-evaluation
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose anomaly --review-tab yolo --right-workflow-expanded --anomaly-classification-evaluation-summary .\artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260707-minconf08\classification-evaluation-20260707-232709\classification-evaluation-summary.json --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-center-anomaly-evaluation-after-1920.png
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose anomaly --review-tab yolo --right-workflow-expanded --anomaly-classification-evaluation-summary .\artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-late-recheck\classification-evaluation-20260708-011412\classification-evaluation-summary.json --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-center-anomaly-evaluation-run-button-after-20260708-1920.png
 git diff --check
 ```
 
@@ -173,6 +207,8 @@ PASS WPF YOLOv8 anomaly classification runtime smoke maps image-level candidates
 Evaluation summary: C:\Git\Labelling_Application\artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-recheck\classification-evaluation-20260708-004229\classification-evaluation-summary.json
 After: C:\Git\Labelling_Application\artifacts\ui\wpf-model-center-anomaly-evaluation-recheck-20260708-1920.png
 Result: hold, 4 images, normal 1/2, abnormal 0/2, confidence-gated accuracy 25%, low-confidence class matches 2
+Manual load action after: C:\Git\Labelling_Application\artifacts\ui\wpf-model-center-anomaly-evaluation-load-summary-after-20260708-1920.png
+Run/load actions after: C:\Git\Labelling_Application\artifacts\ui\wpf-model-center-anomaly-evaluation-run-button-after-20260708-1920.png
 ```
 
 ## Segmentation Label Navigation Auto-Save
@@ -212,7 +248,7 @@ PASS WPF image queue arrow keys load adjacent images
 
 ## YOLOv8 SEG Fine-Tune Model Center Adoption
 
-Status: stable for focused WPF adoption evidence of the circular-defect fine-tune candidate as of 2026-07-07.
+Status: stable for focused WPF adoption evidence of the circular-defect fine-tune candidate as of 2026-07-08.
 
 Protected behavior:
 
@@ -235,9 +271,11 @@ Latest evidence:
 
 ```text
 WPF model-center real candidate save: candidate=C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-20label-finetune-80ep-img160-20260707\weights\best.pt
-WPF model-center real candidate save captured: C:\Git\Labelling_Application\artifacts\ui\wpf-model-center-real-finetune-save-after-1920.png
+WPF model-center real candidate save captured: C:\Git\Labelling_Application\artifacts\ui\wpf-model-center-real-finetune-save-recheck-20260708-latest-1920.png
 PASS Real YOLO TCP workflow detects, overlays, confirms, and saves labels
-summary: C:\Git\Labelling_Application\artifacts\real-yolo-smoke\finetune80-current-image-025-ng-20260707\summary.txt
+summary: C:\Git\Labelling_Application\artifacts\real-yolo-smoke\finetune80-current-image-025-ng-20260708-latest\summary.txt
+latest comparison: C:\Git\Labelling_Application\artifacts\yolo-model-comparison\yolov8-seg-20label-baseline-vs-finetune80-20260708-latest\20260708-185046\comparison-summary.json
+latest adapter sweep: OK images 0 candidates; 024_NG 1 NG candidate at 0.5065; 025_NG 1 NG candidate at 0.7682; 022_NG/023_NG/032_NG 0 candidates at confidence 0.25.
 ```
 
 ## YOLOv8 SEG Real EXE Workflow
@@ -505,6 +543,7 @@ Protected behavior:
 - Promotion summaries must preserve multiple hold blockers in `promotion.reasons` when more than one adoption risk applies, such as weak held-out evidence plus zero UI-threshold candidates.
 - Candidate confidence summaries should preserve `thresholdSweep` counts so operators can see whether lower review thresholds produce a usable number of candidates or a noisy flood, without changing the default promotion threshold.
 - The WPF Candidate Review model-comparison detail must surface the promotion recommendation from `comparison-summary.json`.
+- The WPF Candidate Review latest model-comparison lookup must match the current baseline and candidate weight paths, so stale summaries from other candidates cannot drive the current adoption state.
 - The WPF Candidate Review model-comparison detail must not expose raw script promotion reasons such as `Candidate precision`; low-precision hold reasons should be translated into operator-facing Korean while preserving the evidence values.
 - The WPF Candidate Review model-comparison detail should translate weak held-out evidence and zero UI-threshold candidate hold reasons into operator-facing Korean while preserving counts/confidence values, including when those reasons are reported together.
 
@@ -1691,6 +1730,8 @@ Model-center current-inspection reachability is covered by `--wpf-status-panels`
 
 2026-07-07 anomaly classification evaluation adoption guard contract: `AnomalyClassificationEvaluationService` should keep normal/abnormal model adoption blocked unless held-out evidence has at least 10 total images, at least 5 normal and 5 abnormal images, overall accuracy >= 0.9, per-class accuracy >= 0.8, and correct predictions meet the configured minimum confidence. `scripts\evaluate-yolo-classification.ps1` should run the local YOLOv8 adapter over a held-out `normal`/`abnormal` split, accept `-MinimumConfidence`, count low-confidence class matches as incorrect evidence, and write `classification-evaluation-summary.json` with the same adopt/hold evidence. Tiny fixtures, including the current synthetic trained-fixture smoke and `artifacts\real-smoke\yolo11-cls`, must remain evidence-only even when runtime paths pass. Covered by isolated test build, `--anomaly-classification-evaluation`, PowerShell parser check, and the synthetic trained-fixture evaluation summaries under `artifacts\yolo-classification-evaluation`.
 
+2026-07-08 anomaly classification Model Center evaluation run contract: `WpfAnomalyClassificationEvaluationRunService` should build the app-level run request for YOLOv8 only, export reviewed normal/abnormal images into a fresh classification-evaluation input dataset, pass the local adapter, weights, dataset root, and configured minimum confidence into `scripts\evaluate-yolo-classification.ps1`, and leave non-YOLOv8 engines blocked by validation. The generated summary should be applied through the existing `AnomalyClassificationEvaluationService` and `WpfAnomalyClassificationEvaluationPresentationService`; this runner must not change thresholds, model adoption, training, inference, model registry, or annotation hot paths. Covered by isolated test build, `--anomaly-classification-evaluation`, `--wpf-labeling-shell`, and a current 1920x1080 Model Center visual smoke capture.
+
 2026-07-07 anomaly classification evaluation presentation contract: `AnomalyClassificationEvaluationService` should read `classification-evaluation-summary.json` back into `AnomalyClassificationEvaluationReport`, and `WpfAnomalyClassificationEvaluationPresentationService` should translate that report into operator-facing Korean recommendation, metrics, detail, and action text. It must present adoptable only when the core evaluation report is adoptable, and hold details should include insufficient evidence counts, overall/per-class accuracy blockers, and low-confidence class-match blockers. This is presentation/loading only and does not alter evaluation thresholds, training, inference, model registry, or annotation hot paths. Covered by isolated test build and `--anomaly-classification-evaluation`.
 
 2026-07-03 anomaly classification decision contract: `AnomalyClassificationDecisionService` should map image-level classification candidates to `Normal` or `Abnormal` only through explicit `AnomalyClassificationDecisionOptions` class-name lists and a configured confidence threshold. It must leave unknown classes, ambiguous classes mapped to both states, low-confidence results, missing configuration, and non-image-level detections unmapped as `Unreviewed`. Do not hardcode `Normal`, `OK`, `NG`, `Defect`, or similar class-name guesses into runtime anomaly state changes. Covered by isolated test build and `--anomaly-classification-decision`.
@@ -1850,6 +1891,8 @@ Model-center current-inspection reachability is covered by `--wpf-status-panels`
 2026-07-07 YOLOv8 SEG promotable comparison Candidate Review contract: Candidate Review should translate a `promotion.recommendation=promote` reason into operator-facing Korean that preserves the mAP/precision/recall evidence and points to reviewing examples before saving as the inspection model. YOLO bbox fallback parsing must stay limited to 5- or 6-token box rows so long segmentation-like rows cannot be misread as boxes with coordinate values as confidence. The visual-smoke summary injection path should allow a real `comparison-summary.json` to be displayed in Candidate Review and should keep displayed counts aligned with the summary, including `baseline.uiCandidateCount=0` and `candidate.uiCandidateCount=2` for `yolov8-seg-20label-baseline-vs-finetune80-20260707\20260707-222900`. Covered by isolated test build, `--wpf-model-comparison-review-service`, `--wpf-model-comparison-heldout`, and current-source 1920x1080 capture `artifacts\ui\wpf-model-comparison-finetune-promote-after-1920.png`.
 
 2026-07-07 YOLOv8 SEG fine-tune direct adapter smoke contract: the promotable fine-tuned weight `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-20label-finetune-80ep-img160-20260707\weights\best.pt` should load through the local `C:\Git\yolov8\labeling_tcp_client.py --smoke-test` path with `classNames=["NG"]`. At confidence `0.25`, the held-out `025_NG.png` and `024_NG.png` smoke images should each return one `NG` polygon candidate, while `011_OK.png` should return zero candidates. Covered by JSON artifacts under `artifacts\yolo-smoke\finetune80-20260707`; this proves adapter/model-load behavior for selected examples, not recipe adoption or broad production accuracy.
+
+2026-07-08 YOLOv8 SEG comparison predict-label contract: for local Ultralytics YOLOv8 comparisons, `scripts\compare-yolo-models.ps1` should keep validation metrics and UI review evidence separate. `model.val` remains the metric source, but `labelsPath`, `confidence.uiCandidateCount`, `confidence.thresholdSweep`, and Candidate Review examples should come from a separate `model.predict` label export for the selected split because that matches the app's `labeling_tcp_client.py` inference path. The corrected 40-label comparison `artifacts\yolo-model-comparison\yolov8-seg-40label-baseline-vs-finetune80-20260708-predict-ui\20260708-215754\comparison-summary.json` reports candidate precision `0.582`, recall `0.5`, mAP50 `0.683`, mAP50-95 `0.281`, UI candidates `2` at confidence `0.25`, and `promotion.recommendation=promote`; direct adapter sweep `artifacts\yolo-tcp-smoke\yolov8-seg-40label-finetune80-conf025-20260708\summary.json` agrees with 2 positive images and 0 OK images producing candidates. Focused Model Center save/adoption smoke then saved that candidate as the current inspection model and captured `artifacts\ui\wpf-model-center-real-40label-finetune-save-after-20260708-1920.png`; Candidate Review visual smoke captured `artifacts\ui\wpf-model-comparison-40label-promote-after-20260709-1920.png` with the same 2 new-model examples and promote guidance. Real current-image TCP smoke `artifacts\real-yolo-smoke\40label-current-image-025-ng-20260709\summary.txt` then confirmed `025_NG.png` into YOLO label text, segment JSON, mask PNG, and review status `Confirmed`. This is fixture-scoped circular SEG evidence only, not broad production accuracy.
 
 2026-07-08 anomaly evaluation timestamp-summary lookup contract: Model Center anomaly evaluation lookup should match the evaluation script's normal output shape by checking a direct `classification-evaluation-summary.json`, a fixed `classification-evaluation\classification-evaluation-summary.json`, and the newest immediate `classification-evaluation-*` summary folder. Missing or inaccessible roots should leave the optional evaluation card hidden, not throw into the UI. This is lookup/presentation stability only; it does not train or promote an anomaly model. Covered by isolated test build, `--anomaly-classification-evaluation`, `--wpf-labeling-shell`, and 1920x1080 Model Center capture `artifacts\ui\wpf-model-center-anomaly-evaluation-timestamp-lookup-after-20260708-1920.png`.
 
