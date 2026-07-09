@@ -1828,6 +1828,17 @@
             </TabControl>
             </StackPanel>
             </Expander>
+            <Expander x:Name="LabelingGuideReferenceExpander"
+                      Header="&#xBCF4;&#xC870; &#xAC00;&#xC774;&#xB4DC; (&#xAC80;&#xC99D;/&#xC2EC;&#xD654;)"
+                      IsExpanded="False"
+                      Foreground="{DynamicResource SecondaryTextBrush}"
+                      Background="Transparent"
+                      BorderBrush="{DynamicResource BorderBrushDark}"
+                      Margin="0,6,0,0">
+                <StackPanel>
+                    <TabControl x:Name="LabelingGuideReferenceSubTabs"
+                                Margin="0,0,0,0">
+                        <TabItem Header="YOLO &#xAC80;&#xC99D; / &#xD559;&#xC2B5;">
             <Expander x:Name="LabelingGuideYoloValidationExpander"
                       AutomationProperties.AutomationId="LabelingGuideYoloValidationExpander"
                       Header="YOLO &#xAC80;&#xC99D; / &#xD559;&#xC2B5;"
@@ -2038,13 +2049,17 @@
                             </WrapPanel>
                         </StackPanel>
                     </Border>
-                    <ItemsControl x:Name="YoloTrainingWorkflowItemsControl"
-                                  ItemsSource="{Binding YoloTrainingWorkflowSteps}"
-                                  ItemTemplate="{StaticResource YoloTrainingWorkflowStepTemplate}"
-                                  Margin="0,8,0,0" />
-                </StackPanel>
-            </Border>
+                     <ItemsControl x:Name="YoloTrainingWorkflowItemsControl"
+                                   ItemsSource="{Binding YoloTrainingWorkflowSteps}"
+                                   ItemTemplate="{StaticResource YoloTrainingWorkflowStepTemplate}"
+                                   Margin="0,8,0,0" />
+                    </StackPanel>
+                </Border>
 
+                    </StackPanel>
+                </Expander>
+                        </TabItem>
+                        <TabItem Header="&#xC2EC;&#xD654; &#xAC1C;&#xB150;">
             <Expander x:Name="LearningConceptsExpander"
                       Header="&#xC2EC;&#xD654; &#xAC1C;&#xB150;"
                       ToolTip="YOLO &#xC21C;&#xC11C;&#xB97C; &#xB530;&#xB77C;&#xD55C; &#xB4A4; &#xD544;&#xC694;&#xD560; &#xB54C;&#xB9CC; &#xC5FD;&#xC5B4; &#xBCF4;&#xC138;&#xC694;."
@@ -2178,12 +2193,14 @@
                                    HorizontalAlignment="Right"
                                    VerticalAlignment="Center"
                                    Margin="0,8,0,0" />
-                    </Grid>
+                     </Grid>
+                 </StackPanel>
+             </Expander>
+                </TabItem>
+            </TabControl>
                 </StackPanel>
             </Expander>
-                    </StackPanel>
-            </Expander>
-                </StackPanel>
+            </StackPanel>
             </Expander>
         </StackPanel>
     </ScrollViewer>
