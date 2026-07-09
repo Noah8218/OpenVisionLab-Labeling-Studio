@@ -1495,13 +1495,19 @@
                     </StackPanel>
             </Expander>
 
-            <Expander x:Name="LabelingGuideWorkflowToolsExpander"
-                      AutomationProperties.AutomationId="LabelingGuideWorkflowToolsExpander"
-                      Header="&#xB3C4;&#xAD6C; &#xBC0F; &#xC6CC;&#xD06C;&#xD50C;&#xB85C;&#xC6B0;"
-                      IsExpanded="False"
-                      Foreground="{DynamicResource SecondaryTextBrush}"
-                      Background="Transparent"
-                      BorderBrush="{DynamicResource BorderBrushDark}">
+            <TabControl x:Name="LabelingGuideWorkflowTabs"
+                        AutomationProperties.AutomationId="LabelingGuideWorkflowTabs"
+                        Margin="0,6,0,0"
+                        Background="Transparent">
+                <TabItem Header="&#xC6CC;&#xD06C;&#xD50C;&#xB85C;&#xC6B0; &#xAC00;&#xC774;&#xB4DC;"
+                         AutomationProperties.AutomationId="LabelingGuideWorkflowTab">
+                    <Expander x:Name="LabelingGuideWorkflowToolsExpander"
+                              AutomationProperties.AutomationId="LabelingGuideWorkflowToolsExpander"
+                              Header="&#xB3C4;&#xAD6C; &#xBC0F; &#xC6CC;&#xD06C;&#xD50C;&#xB85C;&#xC6B0;"
+                              IsExpanded="False"
+                              Foreground="{DynamicResource SecondaryTextBrush}"
+                              Background="Transparent"
+                              BorderBrush="{DynamicResource BorderBrushDark}">
                 <StackPanel Margin="0,6,0,0">
             <Expander x:Name="LabelingGuideLearningStepsExpander"
                       AutomationProperties.AutomationId="LabelingGuideLearningStepsExpander"
@@ -1512,7 +1518,7 @@
                       BorderBrush="{DynamicResource BorderBrushDark}">
                 <StackPanel Margin="0,6,0,0">
             <TextBlock x:Name="LearningStepHeaderText"
-                       Text="작업 단계"
+                       Text="&#xC791;&#xC5C5; &#xB2E8;&#xACC4;"
                        Style="{StaticResource LearningWorkflowCaptionStyle}"
                        Margin="0,0,0,4" />
             <ListBox x:Name="LearningStepListBox"
@@ -1605,7 +1611,10 @@
                 </StackPanel>
             </Expander>
 
-            <Expander x:Name="LabelingGuideTemplateAndTutorialExpander"
+                </TabItem>
+                <TabItem Header="&#xD15C;&#xD50C;&#xB9BF; / &#xD22C;&#xD1A0;&#xB9AC;&#xC5BC;"
+                         AutomationProperties.AutomationId="LabelingGuideTemplateTutorialTab">
+                    <Expander x:Name="LabelingGuideTemplateAndTutorialExpander"
                       AutomationProperties.AutomationId="LabelingGuideTemplateAndTutorialExpander"
                       Header="&#xD15C;&#xD50C;&#xB9BF; / &#xD290;&#xD1A0;&#xB9AC;&#xC5BC;"
                       IsExpanded="False"
@@ -1725,8 +1734,7 @@
                     </WrapPanel>
                 </StackPanel>
             </Border>
-            </Expander>
-
+                </Expander>
             <Expander x:Name="LabelingGuideTutorialIntroExpander"
                       AutomationProperties.AutomationId="LabelingGuideTutorialIntroExpander"
                       Header="&#xD15C;&#xD50C;&#xB9BF;/&#xD22C;&#xD1A0;&#xB9AC;&#xB17C;"
@@ -1838,6 +1846,8 @@
                 </StackPanel>
             </Expander>
 
+                </TabItem>
+            </TabControl>
             <Expander x:Name="LabelingGuideYoloValidationExpander"
                       AutomationProperties.AutomationId="LabelingGuideYoloValidationExpander"
                       Header="YOLO &#xAC80;&#xC99D; / &#xD559;&#xC2B5;"

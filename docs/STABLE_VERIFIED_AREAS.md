@@ -132,6 +132,35 @@ PASS WPF labeling shell can be constructed without the WinForms shell
 WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\wpf-labeling-guide-training-flow-collapsed-1920.png
 ```
 
+## Learning Guide Tabbed Layout
+
+Status: stable for guide/tools density reduction and secondary detail separation as of 2026-07-09.
+
+Protected behavior:
+
+- In labeling mode, the high-frequency workflow guidance should remain visible without forcing users through a single deep scrolling stack.
+- `LabelingGuideWorkflowToolsExpander` + workflow/명령 blocks and 템플릿/튜토리얼 blocks should remain available, but separated by explicit tabs so beginners can stay in the primary path by default.
+- This is presentation structure only; it should not alter annotation commands, brush/eraser behavior, viewer interaction, navigation, training execution, or model inference.
+
+Required gates before reporting this path complete again:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false /m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab labeling-guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\learning-workflow-guide-tabs-1920x1080.png
+git diff --check
+```
+
+Latest evidence:
+
+```text
+After: C:\Git\Labelling_Application\artifacts\ui\learning-workflow-guide-tabs-1920x1080.png
+PASS WPF learning workflow panel declares education modes and annotation tools
+PASS WPF labeling shell can be constructed without the WinForms shell
+WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\learning-workflow-guide-tabs-1920x1080.png
+```
+
 ## WPF Visual Smoke Capture
 
 Status: stable for current-source WPF render capture as of 2026-07-07.

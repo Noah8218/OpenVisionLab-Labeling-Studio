@@ -28,6 +28,34 @@ Last updated: 2026-07-09
 - Next:
   - Re-evaluate the same density pass for class setup and model/training side panels once operator feedback confirms this step is sufficient.
 
+## 2026-07-09 Learning guide workflow tabs density pass
+
+- Self-evaluation:
+  - The `가이드/도구` 영역 was still a single long vertical list where workflow, commands, tutorials, and template guidance were tightly stacked, so first-view guidance was cognitively heavy.
+  - The first-principles commercial UX pattern is to separate frequent primary actions from secondary guidance, so the high-priority learning flow stays in the default path.
+- Changes:
+  - `WpfLearningWorkflowPanel.xaml` now wraps the existing workflow and template/tutoria content in `LabelingGuideWorkflowTabs`.
+  - `LabelingGuide` now uses two tabs:
+    - `워크플로우 가이드`: workflow/학습 단계, 툴, 명령
+    - `템플릿 / 튜토리얼`: 템플릿 워크플로우 및 튜토리얼 안내
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false /m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-polygon-training-flow`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-readiness-purpose`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-training-workflow`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab labeling-guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\learning-workflow-guide-tabs-1920x1080.png`
+  - `git diff --check`
+- Capture:
+  - After: `artifacts\ui\learning-workflow-guide-tabs-1920x1080.png`
+- Remaining risk:
+  - 탭 전환이 새로운 패턴이라 초보자가 탭 존재를 인지하지 못할 수 있어 추가 텍스트 힌트가 필요할 수 있음.
+  - UI change only; does not alter runtime/training/inference or hot paths.
+- Next:
+  - Monitor actual operator feedback on discoverability of the new `템플릿 / 튜토리얼` tab and continue the larger left-panel UX pass if needed.
+
 ## 2026-07-08 YOLOv8 SEG 40-label comparison predict-label fix
 
 - Self-evaluation:
