@@ -161,6 +161,35 @@ PASS WPF labeling shell can be constructed without the WinForms shell
 WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\learning-workflow-guide-tabs-1920x1080.png
 ```
 
+## Learning Guide Template/Tutorial Subtabs
+
+Status: stable for template/tutorial secondary density reduction as of 2026-07-09.
+
+Protected behavior:
+
+- In the "템플릿 / 튜토리얼" section of the labeling guide, the high-frequency template workflow and tutorial content are now separated into sibling subtabs.
+- A separate default first-use path remains unchanged: template workflow can still be started from the existing `TemplateCurrentImageCommand` and `TemplateBatchCommand`.
+- This is presentation structure only; it must not alter annotation commands, canvas interaction, image loading, training execution, or model inference.
+
+Required gates before reporting this path complete again:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false /m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab labeling-guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\learning-workflow-guide-tabs-template-tutorial-subtabs-1920x1080.png
+git diff --check
+```
+
+Latest evidence:
+
+```text
+After: C:\Git\Labelling_Application\artifacts\ui\learning-workflow-guide-tabs-template-tutorial-subtabs-1920x1080.png
+PASS WPF learning workflow panel declares education modes and annotation tools
+PASS WPF labeling shell can be constructed without the WinForms shell
+WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\learning-workflow-guide-tabs-template-tutorial-subtabs-1920x1080.png
+```
+
 ## WPF Visual Smoke Capture
 
 Status: stable for current-source WPF render capture as of 2026-07-07.

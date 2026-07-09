@@ -2,6 +2,27 @@
 
 Last updated: 2026-07-09
 
+## 2026-07-09 Learning guide template/tutorial tab density pass
+
+- Self-evaluation:
+  - After the workflow tab split, the `템플릿/튜토리얼` tab was still a long stack of nested expanders, so first-view density remained high when switching to that tab.
+  - A second-level split is needed for parity with the first tab: keep one high-frequency path visible by default and move secondary material into a sibling tab.
+- Changes:
+  - `WpfLearningWorkflowPanel.xaml` now replaces the nested `LabelingGuideTemplateWorkflowExpander` + `LabelingGuideTutorialIntroExpander` stack with `LabelingGuideTemplateTutorialSubTabs`.
+  - `템플릿 라벨링` content is now in one sub-tab and `튜토리얼` content is in a separate sub-tab under `LabelingGuideTemplateTutorialTab`.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false /m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab labeling-guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\learning-workflow-guide-tabs-template-tutorial-subtabs-1920x1080.png`
+  - `git diff --check`
+- Capture:
+  - After: `artifacts\ui\learning-workflow-guide-tabs-template-tutorial-subtabs-1920x1080.png`
+- Remaining risk:
+  - UI density pass only; no annotation engine, training, or runtime logic changed.
+- Next:
+  - Gather operator feedback on discoverability in the new template/tutorial tab before moving to a broader left-panel task-journey redesign.
+
 ## 2026-07-09 Learning guide training flow density pass
 
 - Self-evaluation:

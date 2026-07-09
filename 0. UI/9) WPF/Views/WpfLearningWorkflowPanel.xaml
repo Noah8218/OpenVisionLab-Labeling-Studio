@@ -1495,357 +1495,327 @@
                     </StackPanel>
             </Expander>
 
+            <TextBlock x:Name="LabelingGuideWorkflowIntroText"
+                        Text="현재 단계 가이드는 위쪽 작업 카드에서 우선 확인하고, 템플릿/튜토리얼 안내는 아래 탭에서 확인하세요."
+                        Foreground="{DynamicResource SecondaryTextBrush}"
+                        FontFamily="Segoe UI"
+                        FontSize="10"
+                        Margin="0,0,0,4"
+                        TextWrapping="Wrap" />
             <TabControl x:Name="LabelingGuideWorkflowTabs"
                         AutomationProperties.AutomationId="LabelingGuideWorkflowTabs"
                         Margin="0,6,0,0"
                         Background="Transparent">
                 <TabItem Header="&#xC6CC;&#xD06C;&#xD50C;&#xB85C;&#xC6B0; &#xAC00;&#xC774;&#xB4DC;"
                          AutomationProperties.AutomationId="LabelingGuideWorkflowTab">
-                    <Expander x:Name="LabelingGuideWorkflowToolsExpander"
-                              AutomationProperties.AutomationId="LabelingGuideWorkflowToolsExpander"
-                              Header="&#xB3C4;&#xAD6C; &#xBC0F; &#xC6CC;&#xD06C;&#xD50C;&#xB85C;&#xC6B0;"
-                              IsExpanded="False"
-                              Foreground="{DynamicResource SecondaryTextBrush}"
-                              Background="Transparent"
-                              BorderBrush="{DynamicResource BorderBrushDark}">
-                <StackPanel Margin="0,6,0,0">
-            <Expander x:Name="LabelingGuideLearningStepsExpander"
-                      AutomationProperties.AutomationId="LabelingGuideLearningStepsExpander"
-                      Header="&#xD559;&#xC2B5; &#xB2E8;&#xACC4;"
-                      IsExpanded="True"
-                      Foreground="{DynamicResource SecondaryTextBrush}"
-                      Background="Transparent"
-                      BorderBrush="{DynamicResource BorderBrushDark}">
-                <StackPanel Margin="0,6,0,0">
-            <TextBlock x:Name="LearningStepHeaderText"
-                       Text="&#xC791;&#xC5C5; &#xB2E8;&#xACC4;"
-                       Style="{StaticResource LearningWorkflowCaptionStyle}"
-                       Margin="0,0,0,4" />
-            <ListBox x:Name="LearningStepListBox"
-                     Style="{StaticResource LearningWorkflowListBoxStyle}"
-                     ItemContainerStyle="{StaticResource LearningWorkflowItemStyle}"
-                     ItemTemplate="{StaticResource LearningStepItemTemplate}"
-                     ItemsSource="{Binding LearningSteps}"
-                     SelectedItem="{Binding SelectedStep, Mode=TwoWay}"
-                     mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding LearningStepSelectionChangedCommand}"
-                     Margin="0,0,0,10">
-                <ListBox.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" />
-                    </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-            </ListBox>
-                </StackPanel>
-            </Expander>
-
-            <Expander x:Name="LabelingGuideAnnotationToolsExpander"
-                      AutomationProperties.AutomationId="LabelingGuideAnnotationToolsExpander"
-                      Header="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C;"
-                      IsExpanded="False"
-                      Foreground="{DynamicResource SecondaryTextBrush}"
-                      Background="Transparent"
-                      BorderBrush="{DynamicResource BorderBrushDark}">
-                <StackPanel Margin="0,6,0,0">
-            <TextBlock x:Name="AnnotationToolHeaderText"
-                       Text="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C;"
-                       Style="{StaticResource LearningWorkflowCaptionStyle}"
-                       Margin="0,0,0,4" />
-            <ListBox x:Name="AnnotationToolListBox"
-                     Style="{StaticResource LearningWorkflowListBoxStyle}"
-                     ItemContainerStyle="{StaticResource LearningWorkflowItemStyle}"
-                     ItemTemplate="{StaticResource AnnotationToolItemTemplate}"
-                     ItemsSource="{Binding SelectableAnnotationTools}"
-                     SelectedItem="{Binding SelectedTool, Mode=TwoWay}"
-                     mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding AnnotationToolSelectionChangedCommand}"
-                     Margin="0,0,0,10">
-                <ListBox.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" />
-                    </ItemsPanelTemplate>
-                </ListBox.ItemsPanel>
-            </ListBox>
-                </StackPanel>
-            </Expander>
-
-            <Expander x:Name="LabelingGuideAnnotationCommandsExpander"
-                      AutomationProperties.AutomationId="LabelingGuideAnnotationCommandsExpander"
-                      Header="&#xC791;&#xC5C5; &#xBA85;&#xB839;"
-                      IsExpanded="False"
-                      Foreground="{DynamicResource SecondaryTextBrush}"
-                      Background="Transparent"
-                      BorderBrush="{DynamicResource BorderBrushDark}">
-                <ItemsControl x:Name="AnnotationCommandToolItemsControl"
-                          ItemsSource="{Binding AnnotationCommandTools}"
-                          Margin="0,6,0,10">
-                <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" />
-                    </ItemsPanelTemplate>
-                </ItemsControl.ItemsPanel>
-                <ItemsControl.ItemTemplate>
-                    <DataTemplate>
-                        <Button Style="{StaticResource LearningWorkflowMiniButtonStyle}"
-                                Command="{Binding DataContext.AnnotationToolSelectionChangedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
-                                CommandParameter="{Binding}"
-                                IsEnabled="{Binding IsActionEnabled}"
-                                ToolTip="{Binding ToolTip}"
-                                Margin="0,0,5,4">
-                            <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconMaterial Kind="{Binding IconKind}"
-                                                            Width="12"
-                                                            Height="12"
-                                                            Margin="0,0,4,0"
-                                                            VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding Text}"
-                                           FontFamily="Segoe UI"
-                                           FontSize="10"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center" />
+                    <TabControl x:Name="LabelingGuideWorkflowSubTabs"
+                                Background="Transparent"
+                                Margin="0,6,0,0"
+                                BorderBrush="{DynamicResource BorderBrushDark}"
+                                BorderThickness="1">
+                        <TabItem Header="&#xD559;&#xC2B5; &#xB2E8;&#xACC4;"
+                                 AutomationProperties.AutomationId="LabelingGuideLearningStepsExpander">
+                            <StackPanel Margin="0,6,0,0">
+                                <TextBlock x:Name="LearningStepHeaderText"
+                                           Text="&#xC791;&#xC5C5; &#xB2E8;&#xACC4;"
+                                           Style="{StaticResource LearningWorkflowCaptionStyle}"
+                                           Margin="0,0,0,4" />
+                                <ListBox x:Name="LearningStepListBox"
+                                         Style="{StaticResource LearningWorkflowListBoxStyle}"
+                                         ItemContainerStyle="{StaticResource LearningWorkflowItemStyle}"
+                                         ItemTemplate="{StaticResource LearningStepItemTemplate}"
+                                         ItemsSource="{Binding LearningSteps}"
+                                         SelectedItem="{Binding SelectedStep, Mode=TwoWay}"
+                                         mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding LearningStepSelectionChangedCommand}"
+                                         Margin="0,0,0,10">
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                </ListBox>
                             </StackPanel>
-                        </Button>
-                    </DataTemplate>
-                </ItemsControl.ItemTemplate>
-    </ItemsControl>
-                </Expander>
+                        </TabItem>
 
-                </StackPanel>
-            </Expander>
+                        <TabItem Header="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C;"
+                                 AutomationProperties.AutomationId="LabelingGuideAnnotationToolsExpander">
+                            <StackPanel Margin="0,6,0,0">
+                                <TextBlock x:Name="AnnotationToolHeaderText"
+                                           Text="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C;"
+                                           Style="{StaticResource LearningWorkflowCaptionStyle}"
+                                           Margin="0,0,0,4" />
+                                <ListBox x:Name="AnnotationToolListBox"
+                                         Style="{StaticResource LearningWorkflowListBoxStyle}"
+                                         ItemContainerStyle="{StaticResource LearningWorkflowItemStyle}"
+                                         ItemTemplate="{StaticResource AnnotationToolItemTemplate}"
+                                         ItemsSource="{Binding SelectableAnnotationTools}"
+                                         SelectedItem="{Binding SelectedTool, Mode=TwoWay}"
+                                         mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding AnnotationToolSelectionChangedCommand}"
+                                         Margin="0,0,0,10">
+                                    <ListBox.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <WrapPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ListBox.ItemsPanel>
+                                </ListBox>
+                            </StackPanel>
+                        </TabItem>
 
+                        <TabItem Header="&#xC791;&#xC5C5; &#xBA85;&#xB839;"
+                                 AutomationProperties.AutomationId="LabelingGuideAnnotationCommandsExpander">
+                            <ItemsControl x:Name="AnnotationCommandToolItemsControl"
+                                          ItemsSource="{Binding AnnotationCommandTools}"
+                                          Margin="0,6,0,10">
+                                <ItemsControl.ItemsPanel>
+                                    <ItemsPanelTemplate>
+                                        <WrapPanel Orientation="Horizontal" />
+                                    </ItemsPanelTemplate>
+                                </ItemsControl.ItemsPanel>
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate>
+                                        <Button Style="{StaticResource LearningWorkflowMiniButtonStyle}"
+                                                Command="{Binding DataContext.AnnotationToolSelectionChangedCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
+                                                CommandParameter="{Binding}"
+                                                IsEnabled="{Binding IsActionEnabled}"
+                                                ToolTip="{Binding ToolTip}"
+                                                Margin="0,0,5,4">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconMaterial Kind="{Binding IconKind}"
+                                                                            Width="12"
+                                                                            Height="12"
+                                                                            Margin="0,0,4,0"
+                                                                            VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding Text}"
+                                                           FontFamily="Segoe UI"
+                                                           FontSize="10"
+                                                           FontWeight="SemiBold"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </TabItem>
+                    </TabControl>
                 </TabItem>
                 <TabItem Header="&#xD15C;&#xD50C;&#xB9BF; / &#xD22C;&#xD1A0;&#xB9AC;&#xC5BC;"
                          AutomationProperties.AutomationId="LabelingGuideTemplateTutorialTab">
-                    <Expander x:Name="LabelingGuideTemplateAndTutorialExpander"
-                      AutomationProperties.AutomationId="LabelingGuideTemplateAndTutorialExpander"
-                      Header="&#xD15C;&#xD50C;&#xB9BF; / &#xD290;&#xD1A0;&#xB9AC;&#xC5BC;"
-                      IsExpanded="False"
-                      Foreground="{DynamicResource SecondaryTextBrush}"
-                      Background="Transparent"
-                      BorderBrush="{DynamicResource BorderBrushDark}">
-                <StackPanel Margin="0,6,0,0">
-
-            <Expander x:Name="LabelingGuideTemplateWorkflowExpander"
-                      AutomationProperties.AutomationId="LabelingGuideTemplateWorkflowExpander"
-                      Header="&#xD15C;&#xD50C;&#xB9BF; &#xB77C;&#xBC14;&#xD305;"
-                      IsExpanded="False"
-                      Foreground="{DynamicResource SecondaryTextBrush}"
-                      Background="Transparent"
-                      BorderBrush="{DynamicResource BorderBrushDark}">
-                <Border x:Name="TemplateWorkflowPanel"
-                     AutomationProperties.AutomationId="TemplateWorkflowPanel"
-                    Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource AccentBrush}"
-                    BorderThickness="1"
-                    CornerRadius="5"
-                    Padding="9"
-                    Margin="0,0,0,10">
-                <StackPanel>
-                    <Grid>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <iconPacks:PackIconMaterial Kind="SelectionSearch"
-                                                    Width="16"
-                                                    Height="16"
-                                                    Foreground="{DynamicResource PrimaryTextBrush}"
-                                                    Margin="0,0,6,0"
-                                                    VerticalAlignment="Center" />
-                        <TextBlock x:Name="TemplateWorkflowTitleText"
-                                   Grid.Column="1"
-                                   AutomationProperties.AutomationId="TemplateWorkflowTitleText"
-                                   Text="{Binding TemplateWorkflowTitleText}"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"
-                                   VerticalAlignment="Center"
-                                   TextWrapping="Wrap" />
-                    </Grid>
-                    <TextBlock x:Name="TemplateWorkflowSummaryText"
-                               AutomationProperties.AutomationId="TemplateWorkflowSummaryText"
-                               Text="{Binding TemplateWorkflowSummaryText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="10"
-                               Margin="0,6,0,0"
-                               TextWrapping="Wrap" />
-                    <Border x:Name="TemplateWorkflowRolePanel"
-                            AutomationProperties.AutomationId="TemplateWorkflowRolePanel"
-                            Background="{DynamicResource PanelBrush}"
-                            BorderBrush="{DynamicResource BorderBrushDark}"
-                            BorderThickness="1"
-                            CornerRadius="4"
-                            Padding="6,4"
-                            Margin="0,6,0,0">
-                        <TextBlock x:Name="TemplateWorkflowRoleText"
-                                   AutomationProperties.AutomationId="TemplateWorkflowRoleText"
-                                   Text="{Binding TemplateWorkflowRoleText}"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="10"
-                                   FontWeight="SemiBold"
-                                   LineHeight="12"
-                                   TextWrapping="Wrap" />
-                    </Border>
-                    <ItemsControl x:Name="TemplateWorkflowItemsControl"
-                                  AutomationProperties.AutomationId="TemplateWorkflowItemsControl"
-                                  ItemsSource="{Binding TemplateWorkflowSteps}"
-                                  ItemTemplate="{StaticResource TemplateWorkflowStepTemplate}"
-                                  Margin="0,7,0,0" />
-                    <WrapPanel Margin="0,1,0,0">
-                        <Button x:Name="TemplateCurrentImageGuideButton"
-                                AutomationProperties.AutomationId="TemplateCurrentImageGuideButton"
-                                AutomationProperties.Name="{Binding TemplateCurrentActionText}"
-                                Style="{StaticResource LearningWorkflowMiniButtonStyle}"
-                                ToolTip="{Binding TemplateCurrentActionToolTipText}"
-                                Command="{Binding TemplateCurrentImageCommand}">
-                            <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconMaterial Kind="SelectionSearch"
-                                                            Width="12"
-                                                            Height="12"
-                                                            Margin="0,0,4,0"
-                                                            VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding TemplateCurrentActionText}"
-                                           FontFamily="Segoe UI"
-                                           FontSize="10"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-                        <Button x:Name="TemplateBatchGuideButton"
-                                AutomationProperties.AutomationId="TemplateBatchGuideButton"
-                                AutomationProperties.Name="{Binding TemplateBatchActionText}"
-                                Style="{StaticResource LearningWorkflowMiniButtonStyle}"
-                                ToolTip="{Binding TemplateBatchActionToolTipText}"
-                                Command="{Binding TemplateBatchCommand}">
-                            <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconMaterial Kind="PlaylistCheck"
-                                                            Width="12"
-                                                            Height="12"
-                                                            Margin="0,0,4,0"
-                                                            VerticalAlignment="Center" />
-                                <TextBlock Text="{Binding TemplateBatchActionText}"
-                                           FontFamily="Segoe UI"
-                                           FontSize="10"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-                    </WrapPanel>
-                </StackPanel>
-            </Border>
-                </Expander>
-            <Expander x:Name="LabelingGuideTutorialIntroExpander"
-                      AutomationProperties.AutomationId="LabelingGuideTutorialIntroExpander"
-                      Header="&#xD15C;&#xD50C;&#xB9BF;/&#xD22C;&#xD1A0;&#xB9AC;&#xB17C;"
-                      IsExpanded="False"
-                      Foreground="{DynamicResource SecondaryTextBrush}"
-                      Background="Transparent"
-                      BorderBrush="{DynamicResource BorderBrushDark}">
-                <Border x:Name="TutorialIntroPanel"
-                    Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource AccentBrush}"
-                    BorderThickness="1"
-                    CornerRadius="5"
-                    Padding="9"
-                    Margin="0,0,0,10">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
-                        <iconPacks:PackIconMaterial Kind="SchoolOutline"
-                                                    Width="16"
-                                                    Height="16"
-                                                    Foreground="{DynamicResource PrimaryTextBrush}"
-                                                    Margin="0,0,6,0"
-                                                    VerticalAlignment="Center" />
-                        <TextBlock x:Name="TutorialIntroTitleText"
-                                   Text="{Binding TutorialTitleText}"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="12"
-                                   FontWeight="SemiBold"
-                                   VerticalAlignment="Center" />
-                    </StackPanel>
-                    <TextBlock x:Name="TutorialIntroSummaryText"
-                               Text="{Binding TutorialSummaryText}"
-                               Foreground="{DynamicResource SecondaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="11"
-                               Margin="0,6,0,0"
-                               TextWrapping="Wrap" />
-                    <Expander x:Name="TutorialChecklistExpander"
-                              Header="&#xC0C1;&#xC138; &#xCCB4;&#xD06C;&#xB9AC;&#xC2A4;&#xD2B8;"
-                              IsExpanded="False"
-                              Foreground="{DynamicResource SecondaryTextBrush}"
-                              Background="Transparent"
-                              BorderBrush="{DynamicResource BorderBrushDark}"
-                              Margin="0,7,0,0">
-                    <ItemsControl x:Name="TutorialChecklistItemsControl"
-                                  ItemsSource="{Binding TutorialChecklistItems}"
-                                  Margin="0,6,0,0">
-                        <ItemsControl.ItemTemplate>
-                            <DataTemplate>
-                                <Grid Margin="0,0,0,4">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="17" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <iconPacks:PackIconMaterial Kind="CheckCircleOutline"
-                                                                Width="12"
-                                                                Height="12"
-                                                                Foreground="{DynamicResource AccentBrush}"
-                                                                Margin="0,2,4,0"
-                                                                VerticalAlignment="Top" />
-                                    <TextBlock Grid.Column="1"
-                                               Text="{Binding}"
-                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                    <TabControl x:Name="LabelingGuideTemplateTutorialSubTabs"
+                                Background="Transparent"
+                                Margin="0,6,0,0"
+                                BorderBrush="{DynamicResource BorderBrushDark}"
+                                BorderThickness="1">
+                        <TabItem Header="&#xD15C;&#xD50C;&#xB9BF; &#xB77C;&#xBC14;&#xD305;"
+                                 AutomationProperties.AutomationId="LabelingGuideTemplateWorkflowExpander">
+                            <Border x:Name="TemplateWorkflowPanel"
+                                    AutomationProperties.AutomationId="TemplateWorkflowPanel"
+                                    Background="{DynamicResource CanvasBrush}"
+                                    BorderBrush="{DynamicResource AccentBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="5"
+                                    Padding="9"
+                                    Margin="0,0,0,10">
+                                <StackPanel>
+                                    <Grid>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <iconPacks:PackIconMaterial Kind="SelectionSearch"
+                                                                    Width="16"
+                                                                    Height="16"
+                                                                    Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                    Margin="0,0,6,0"
+                                                                    VerticalAlignment="Center" />
+                                        <TextBlock x:Name="TemplateWorkflowTitleText"
+                                                   Grid.Column="1"
+                                                   AutomationProperties.AutomationId="TemplateWorkflowTitleText"
+                                                   Text="{Binding TemplateWorkflowTitleText}"
+                                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center"
+                                                   TextWrapping="Wrap" />
+                                    </Grid>
+                                    <TextBlock x:Name="TemplateWorkflowSummaryText"
+                                               AutomationProperties.AutomationId="TemplateWorkflowSummaryText"
+                                               Text="{Binding TemplateWorkflowSummaryText}"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
                                                FontFamily="Segoe UI"
                                                FontSize="10"
+                                               Margin="0,6,0,0"
                                                TextWrapping="Wrap" />
-                                </Grid>
-                            </DataTemplate>
-                        </ItemsControl.ItemTemplate>
-                    </ItemsControl>
-                    </Expander>
-                    <Grid Margin="0,6,0,0">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Button x:Name="TutorialOpenHtmlGuideButton"
-                                Style="{StaticResource LearningWorkflowMiniButtonStyle}"
-                                Command="{Binding TutorialOpenHtmlGuideCommand}"
-                                ToolTip="HTML &#xD29C;&#xD1A0;&#xB9AC;&#xC5BC;&#xC744; &#xBE0C;&#xB77C;&#xC6B0;&#xC800;&#xB85C; &#xC5FD;&#xB2C8;&#xB2E4;.">
-                            <StackPanel Orientation="Horizontal">
-                                <iconPacks:PackIconMaterial Kind="OpenInNew"
-                                                            Width="12"
-                                                            Height="12"
-                                                            Margin="0,0,4,0"
-                                                            VerticalAlignment="Center" />
-                                <TextBlock Text="HTML &#xC5F4;&#xAE30;"
-                                           FontFamily="Segoe UI"
-                                           FontSize="10"
-                                           FontWeight="SemiBold"
-                                           VerticalAlignment="Center" />
-                            </StackPanel>
-                        </Button>
-                        <TextBlock Grid.Column="1"
-                                   x:Name="TutorialHtmlGuidePathText"
-                                   Text="{Binding TutorialHtmlPathText}"
-                                   ToolTip="{Binding TutorialHtmlPathText}"
-                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="10"
-                                   Margin="7,5,0,0"
-                                   VerticalAlignment="Center"
-                                   TextTrimming="CharacterEllipsis" />
-                    </Grid>
-                </StackPanel>
-            </Border>
-            </Expander>
+                                    <Border x:Name="TemplateWorkflowRolePanel"
+                                            AutomationProperties.AutomationId="TemplateWorkflowRolePanel"
+                                            Background="{DynamicResource PanelBrush}"
+                                            BorderBrush="{DynamicResource BorderBrushDark}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="6,4"
+                                            Margin="0,6,0,0">
+                                        <TextBlock x:Name="TemplateWorkflowRoleText"
+                                                   AutomationProperties.AutomationId="TemplateWorkflowRoleText"
+                                                   Text="{Binding TemplateWorkflowRoleText}"
+                                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="10"
+                                                   FontWeight="SemiBold"
+                                                   LineHeight="12"
+                                                   TextWrapping="Wrap" />
+                                    </Border>
+                                    <ItemsControl x:Name="TemplateWorkflowItemsControl"
+                                                  AutomationProperties.AutomationId="TemplateWorkflowItemsControl"
+                                                  ItemsSource="{Binding TemplateWorkflowSteps}"
+                                                  ItemTemplate="{StaticResource TemplateWorkflowStepTemplate}"
+                                                  Margin="0,7,0,0" />
+                                    <WrapPanel Margin="0,1,0,0">
+                                        <Button x:Name="TemplateCurrentImageGuideButton"
+                                                AutomationProperties.AutomationId="TemplateCurrentImageGuideButton"
+                                                AutomationProperties.Name="{Binding TemplateCurrentActionText}"
+                                                Style="{StaticResource LearningWorkflowMiniButtonStyle}"
+                                                ToolTip="{Binding TemplateCurrentActionToolTipText}"
+                                                Command="{Binding TemplateCurrentImageCommand}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconMaterial Kind="SelectionSearch"
+                                                                            Width="12"
+                                                                            Height="12"
+                                                                            Margin="0,0,4,0"
+                                                                            VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding TemplateCurrentActionText}"
+                                                           FontFamily="Segoe UI"
+                                                           FontSize="10"
+                                                           FontWeight="SemiBold"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button x:Name="TemplateBatchGuideButton"
+                                                AutomationProperties.AutomationId="TemplateBatchGuideButton"
+                                                AutomationProperties.Name="{Binding TemplateBatchActionText}"
+                                                Style="{StaticResource LearningWorkflowMiniButtonStyle}"
+                                                ToolTip="{Binding TemplateBatchActionToolTipText}"
+                                                Command="{Binding TemplateBatchCommand}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconMaterial Kind="PlaylistCheck"
+                                                                            Width="12"
+                                                                            Height="12"
+                                                                            Margin="0,0,4,0"
+                                                                            VerticalAlignment="Center" />
+                                                <TextBlock Text="{Binding TemplateBatchActionText}"
+                                                           FontFamily="Segoe UI"
+                                                           FontSize="10"
+                                                           FontWeight="SemiBold"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                    </WrapPanel>
+                                </StackPanel>
+                            </Border>
+                        </TabItem>
 
-                </StackPanel>
-            </Expander>
-
+                        <TabItem Header="&#xD15C;&#xD50C;&#xB9BF;/&#xD22C;&#xD1A0;&#xB9AC;&#xC5BC;"
+                                 AutomationProperties.AutomationId="LabelingGuideTutorialIntroExpander">
+                            <Border x:Name="TutorialIntroPanel"
+                                    Background="{DynamicResource CanvasBrush}"
+                                    BorderBrush="{DynamicResource AccentBrush}"
+                                    BorderThickness="1"
+                                    CornerRadius="5"
+                                    Padding="9"
+                                    Margin="0,6,0,10">
+                                <StackPanel>
+                                    <StackPanel Orientation="Horizontal">
+                                        <iconPacks:PackIconMaterial Kind="SchoolOutline"
+                                                                    Width="16"
+                                                                    Height="16"
+                                                                    Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                    Margin="0,0,6,0"
+                                                                    VerticalAlignment="Center" />
+                                        <TextBlock x:Name="TutorialIntroTitleText"
+                                                   Text="{Binding TutorialTitleText}"
+                                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="12"
+                                                   FontWeight="SemiBold"
+                                                   VerticalAlignment="Center" />
+                                    </StackPanel>
+                                    <TextBlock x:Name="TutorialIntroSummaryText"
+                                               Text="{Binding TutorialSummaryText}"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="11"
+                                               Margin="0,6,0,0"
+                                               TextWrapping="Wrap" />
+                                    <Expander x:Name="TutorialChecklistExpander"
+                                              Header="&#xC0C1;&#xC138; &#xCCB4;&#xD06C;&#xB9AC;&#xC2A4;&#xD2B8;"
+                                              IsExpanded="False"
+                                              Foreground="{DynamicResource SecondaryTextBrush}"
+                                              Background="Transparent"
+                                              BorderBrush="{DynamicResource BorderBrushDark}"
+                                              Margin="0,7,0,0">
+                                        <ItemsControl x:Name="TutorialChecklistItemsControl"
+                                                      ItemsSource="{Binding TutorialChecklistItems}"
+                                                      Margin="0,6,0,0">
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate>
+                                                    <Grid Margin="0,0,0,4">
+                                                        <Grid.ColumnDefinitions>
+                                                            <ColumnDefinition Width="17" />
+                                                            <ColumnDefinition Width="*" />
+                                                        </Grid.ColumnDefinitions>
+                                                        <iconPacks:PackIconMaterial Kind="CheckCircleOutline"
+                                                                                    Width="12"
+                                                                                    Height="12"
+                                                                                    Foreground="{DynamicResource AccentBrush}"
+                                                                                    Margin="0,2,4,0"
+                                                                                    VerticalAlignment="Top" />
+                                                        <TextBlock Grid.Column="1"
+                                                                   Text="{Binding}"
+                                                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                   FontFamily="Segoe UI"
+                                                                   FontSize="10"
+                                                                   TextWrapping="Wrap" />
+                                                    </Grid>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </Expander>
+                                    <Grid Margin="0,6,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <Button x:Name="TutorialOpenHtmlGuideButton"
+                                                Style="{StaticResource LearningWorkflowMiniButtonStyle}"
+                                                Command="{Binding TutorialOpenHtmlGuideCommand}"
+                                                ToolTip="HTML &#xD29C;&#xD1A0;&#xB9AC;&#xC5BC;&#xC744; &#xBE0C;&#xB77C;&#xC6B0;&#xC800;&#xB85C; &#xC5FD;&#xB2C8;&#xB2E4;.">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconMaterial Kind="OpenInNew"
+                                                                            Width="12"
+                                                                            Height="12"
+                                                                            Margin="0,0,4,0"
+                                                                            VerticalAlignment="Center" />
+                                                <TextBlock Text="HTML &#xC5F4;&#xAE30;"
+                                                           FontFamily="Segoe UI"
+                                                           FontSize="10"
+                                                           FontWeight="SemiBold"
+                                                           VerticalAlignment="Center" />
+                                            </StackPanel>
+                                        </Button>
+                                        <TextBlock Grid.Column="1"
+                                                   x:Name="TutorialHtmlGuidePathText"
+                                                   Text="{Binding TutorialHtmlPathText}"
+                                                   ToolTip="{Binding TutorialHtmlPathText}"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="10"
+                                                   Margin="7,5,0,0"
+                                                   VerticalAlignment="Center"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+                                </StackPanel>
+                            </Border>
+                        </TabItem>
+                    </TabControl>
                 </TabItem>
             </TabControl>
             <Expander x:Name="LabelingGuideYoloValidationExpander"
