@@ -2,6 +2,30 @@
 
 Last updated: 2026-07-09
 
+## 2026-07-09 Learning guide workflow guide-expander density pass
+
+- Self-evaluation:
+  - The `?쒗?` tab was still dense in one vertical stack once expanded, making left-panel first-view navigation feel crowded for beginners.
+  - The smallest safe refinement was to put `LabelingGuideWorkflowIntroText` and the entire workflow/template/tutorial section behind one additional `LabelingGuideWorkflowGuideExpander` with collapsed-by-default behavior.
+- Changes:
+  - `WpfLearningWorkflowPanel.xaml` now wraps the existing `LabelingGuideWorkflowIntroText` + `LabelingGuideWorkflowTabs` block in a new collapsed expander:
+    - `LabelingGuideWorkflowGuideExpander`
+    - Header text: workflow/guide/help grouping and defaults to collapsed (`IsExpanded="False"`).
+  - This keeps the current task and status content visible while moving lower-priority instructions into an intentional step.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab labeling-guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-labeling-guide-workflow-guide-expander-latest-1920.png`
+  - `git diff --check`
+- Capture:
+  - After: `artifacts\ui\wpf-labeling-guide-workflow-guide-expander-latest-1920.png`
+- Remaining risk:
+  - UX density reduction only; no runtime/annotation performance path changes.
+- Next:
+  - Collect operator feedback on whether this collapse point is intuitive; if still high friction, apply the same pattern to class/training/model side panels at the control/action level.
+
 ## 2026-07-09 Learning guide template/tutorial tab density pass
 
 - Self-evaluation:

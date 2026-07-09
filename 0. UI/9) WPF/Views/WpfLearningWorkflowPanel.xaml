@@ -1495,7 +1495,15 @@
                     </StackPanel>
             </Expander>
 
-            <TextBlock x:Name="LabelingGuideWorkflowIntroText"
+            <Expander x:Name="LabelingGuideWorkflowGuideExpander"
+                      Header="&#xB85C;&#xBCA8; &#xAC00;&#xC774;&#xB4DC; (&#xC870;&#xD68C;/&#xB3C4;&#xAD6C;/&#xBA85;&#xB839;)"
+                      IsExpanded="False"
+                      Foreground="{DynamicResource SecondaryTextBrush}"
+                      Background="Transparent"
+                      BorderBrush="{DynamicResource BorderBrushDark}"
+                      Margin="0,6,0,0">
+            <StackPanel>
+                <TextBlock x:Name="LabelingGuideWorkflowIntroText"
                         Text="현재 단계 가이드는 위쪽 작업 카드에서 우선 확인하고, 템플릿/튜토리얼 안내는 아래 탭에서 확인하세요."
                         Foreground="{DynamicResource SecondaryTextBrush}"
                         FontFamily="Segoe UI"
@@ -1818,6 +1826,8 @@
                     </TabControl>
                 </TabItem>
             </TabControl>
+            </StackPanel>
+            </Expander>
             <Expander x:Name="LabelingGuideYoloValidationExpander"
                       AutomationProperties.AutomationId="LabelingGuideYoloValidationExpander"
                       Header="YOLO &#xAC80;&#xC99D; / &#xD559;&#xC2B5;"

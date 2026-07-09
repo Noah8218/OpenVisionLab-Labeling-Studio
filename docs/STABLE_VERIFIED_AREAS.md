@@ -161,6 +161,36 @@ PASS WPF labeling shell can be constructed without the WinForms shell
 WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\learning-workflow-guide-tabs-1920x1080.png
 ```
 
+## Learning Guide Workflow Guide Expander
+
+Status: stable as of 2026-07-09 for collapsing secondary workflow/tutorial content behind an explicit expander.
+
+Protected behavior:
+
+- `LabelingGuideWorkflowGuideExpander` should keep high-frequency current-task guidance visible while moving template/tutorial workflow and command guidance behind one collapsed step.
+- This should remain a presentation-density control only: no changes to annotation command ownership, brush/eraser runtime, candidate review flow, training execution, or model inference.
+- `LabelingGuideIntroText` and `LabelingGuideWorkflowTabs` must remain bound/visible inside the expander content, preserving their previous guidance text and bindings.
+
+Required gates before reporting this path complete again:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false /m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab labeling-guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-labeling-guide-workflow-guide-expander-latest-1920.png
+git diff --check
+```
+
+Latest evidence:
+
+```text
+After: C:\Git\Labelling_Application\artifacts\ui\wpf-labeling-guide-workflow-guide-expander-latest-1920.png
+PASS WPF learning workflow panel declares education modes and annotation tools
+PASS WPF labeling shell can be constructed without the WinForms shell
+WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\wpf-labeling-guide-workflow-guide-expander-latest-1920.png
+```
+
 ## Learning Guide Template/Tutorial Subtabs
 
 Status: stable for template/tutorial secondary density reduction as of 2026-07-09.
