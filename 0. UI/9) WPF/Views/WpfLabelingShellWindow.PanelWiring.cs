@@ -291,7 +291,9 @@ namespace MvcVisionSystem
                 ShowSavedLabelsWorkflowView,
                 FocusCurrentStageGuideToolsTab,
                 FocusClassCatalogTab,
-                ExecutePromoteSelectedModelHistoryCommand);
+                ExecutePromoteSelectedModelHistoryCommand,
+                ExecuteRunAnomalyEvaluationCommand,
+                ExecuteLoadAnomalyEvaluationSummaryCommand);
             RefreshAttachedCommandBindings(
                 this,
                 WindowLifecycleCommandBehavior.LoadedCommandProperty,

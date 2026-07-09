@@ -97,6 +97,7 @@ namespace MvcVisionSystem
         private readonly WpfTrainingWeightsService trainingWeightsService = new WpfTrainingWeightsService();
         private readonly WpfModelComparisonReviewService modelComparisonReviewService = new WpfModelComparisonReviewService();
         private readonly WpfModelComparisonRunService modelComparisonRunService = new WpfModelComparisonRunService();
+        private readonly WpfAnomalyClassificationEvaluationRunService anomalyClassificationEvaluationRunService = new WpfAnomalyClassificationEvaluationRunService();
         private readonly WpfTrainingGuideHistoryService trainingGuideHistoryService = new WpfTrainingGuideHistoryService();
         private readonly WpfMaskEditStateService maskEditStateService = new WpfMaskEditStateService();
         private readonly WpfMaskStrokeHistoryDraftService maskStrokeHistoryDraftService = new WpfMaskStrokeHistoryDraftService();
@@ -107,6 +108,7 @@ namespace MvcVisionSystem
         private bool isTrainingCommandRunning;
         private bool isTrainingWorkflowRunning;
         private bool isModelComparisonRunning;
+        private bool isAnomalyEvaluationRunning;
         private bool suppressProjectRecipeSelection;
         private int batchDetectionTotalCount;
         private int batchDetectionCompletedCount;

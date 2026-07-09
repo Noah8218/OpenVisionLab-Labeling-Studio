@@ -183,6 +183,17 @@ function Get-SplitImagePaths([string]$ResolvedPath) {
     return @()
 }
 
+function Resolve-DataYamlSplitPath([string]$DataYamlPath, [string]$SplitName) {
+    $values = Read-DataYamlScalarValues $DataYamlPath
+    $splitPath = if ($values.ContainsKey($SplitName)) { $values[$SplitName] } else { "" }
+    $yamlRootPath = if ($values.ContainsKey("path")) { $values["path"] } else { "" }
+    if ([string]::IsNullOrWhiteSpace($splitPath)) {
+        return ""
+    }
+
+    return Resolve-DataYamlValuePath $DataYamlPath $yamlRootPath $splitPath
+}
+
 function Test-SegmentationLabelLine([string]$Line) {
     $text = if ($null -eq $Line) { "" } else { $Line }
     $tokens = @($text -split '\s+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
@@ -201,10 +212,7 @@ function Test-SegmentationLabelLine([string]$Line) {
 }
 
 function New-ComparisonEvidence([string]$DataYamlPath, [string]$SplitName, [string]$ValidationTask) {
-    $values = Read-DataYamlScalarValues $DataYamlPath
-    $splitPath = if ($values.ContainsKey($SplitName)) { $values[$SplitName] } else { "" }
-    $yamlRootPath = if ($values.ContainsKey("path")) { $values["path"] } else { "" }
-    $resolvedSplitPath = if ([string]::IsNullOrWhiteSpace($splitPath)) { "" } else { Resolve-DataYamlValuePath $DataYamlPath $yamlRootPath $splitPath }
+    $resolvedSplitPath = Resolve-DataYamlSplitPath $DataYamlPath $SplitName
     $imagePaths = @(Get-SplitImagePaths $resolvedSplitPath)
     $labelPaths = @($imagePaths |
         ForEach-Object { Resolve-LabelPathFromImagePath $_ } |
@@ -504,11 +512,17 @@ function Invoke-YoloVal([string]$RunName, [string]$WeightsPath, [string]$RunOutp
 function Invoke-UltralyticsVal([string]$RunName, [string]$WeightsPath, [string]$RunOutputRoot) {
     $logPath = Join-Path $RunOutputRoot "$RunName.log"
     $runProject = Join-Path $RunOutputRoot "runs"
+    $predictSource = Resolve-DataYamlSplitPath $DataYaml $Task
+    if ([string]::IsNullOrWhiteSpace($predictSource) -or -not (Test-Path -LiteralPath $predictSource)) {
+        throw "YOLO prediction source not found for $Task split: $predictSource"
+    }
+
     New-Item -ItemType Directory -Force -Path $runProject | Out-Null
 
     $code = @'
 import json
 import sys
+from pathlib import Path
 
 from ultralytics import YOLO
 
@@ -520,6 +534,7 @@ image_size = int(sys.argv[5])
 batch_size = int(sys.argv[6])
 split_name = sys.argv[7]
 model_task = sys.argv[8]
+predict_source = sys.argv[9]
 
 model = YOLO(weights_path)
 metrics = model.val(
@@ -561,6 +576,21 @@ payload = {
     "map5095": scalar(metric_source, ("map", "map5095")),
 }
 print("OPENVISIONLAB_METRICS_JSON=" + json.dumps(payload, separators=(",", ":")))
+
+predict_name = run_name + "-predict"
+model.predict(
+    source=predict_source,
+    imgsz=image_size,
+    conf=0.001,
+    iou=0.7,
+    project=run_project,
+    name=predict_name,
+    exist_ok=True,
+    save_txt=True,
+    save_conf=True,
+    verbose=False,
+)
+print("OPENVISIONLAB_PREDICT_LABELS=" + str(Path(run_project) / predict_name / "labels"))
 '@
 
     $arguments = @(
@@ -572,7 +602,8 @@ print("OPENVISIONLAB_METRICS_JSON=" + json.dumps(payload, separators=(",", ":"))
         $ImageSize.ToString(),
         $BatchSize.ToString(),
         $Task,
-        $ModelTask
+        $ModelTask,
+        $predictSource
     )
 
     $previousPythonPath = $env:PYTHONPATH
@@ -606,9 +637,10 @@ print("OPENVISIONLAB_METRICS_JSON=" + json.dumps(payload, separators=(",", ":"))
         name = $RunName
         weights = $WeightsPath
         logPath = $logPath
-        labelsPath = Join-Path $runProject "$RunName\labels"
+        validationLabelsPath = Join-Path $runProject "$RunName\labels"
+        labelsPath = Join-Path $runProject "$RunName-predict\labels"
         metrics = Read-UltralyticsMetrics $logPath
-        confidence = Read-PredictionConfidenceSummary (Join-Path $runProject "$RunName\labels") $UiConfidence
+        confidence = Read-PredictionConfidenceSummary (Join-Path $runProject "$RunName-predict\labels") $UiConfidence
     }
 }
 

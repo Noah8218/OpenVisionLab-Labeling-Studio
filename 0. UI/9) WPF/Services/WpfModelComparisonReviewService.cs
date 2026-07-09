@@ -18,7 +18,9 @@ namespace MvcVisionSystem
         public WpfModelComparisonReviewReport BuildLatestReport(
             IReadOnlyList<string> classNames,
             double confidenceThreshold = DefaultConfidenceThreshold,
-            int maxExamples = 5)
+            int maxExamples = 5,
+            string baselineWeightsPath = "",
+            string candidateWeightsPath = "")
         {
             string artifactsRoot = Path.Combine(FindRepositoryRoot(), "artifacts", "yolo-model-comparison");
             if (!Directory.Exists(artifactsRoot))
@@ -26,9 +28,12 @@ namespace MvcVisionSystem
                 return WpfModelComparisonReviewReport.Empty;
             }
 
-            string summaryPath = Directory.EnumerateFiles(artifactsRoot, "comparison-summary.json", SearchOption.AllDirectories)
+            string[] summaryPaths = Directory
+                .EnumerateFiles(artifactsRoot, "comparison-summary.json", SearchOption.AllDirectories)
                 .OrderByDescending(File.GetLastWriteTimeUtc)
-                .FirstOrDefault();
+                .ToArray();
+            string summaryPath = summaryPaths.FirstOrDefault(path =>
+                SummaryWeightsMatch(path, baselineWeightsPath, candidateWeightsPath));
             return string.IsNullOrWhiteSpace(summaryPath)
                 ? WpfModelComparisonReviewReport.Empty
                 : BuildFromSummaryFile(summaryPath, classNames, confidenceThreshold, maxExamples);
@@ -313,6 +318,38 @@ namespace MvcVisionSystem
             return items.Count == 0
                 ? string.Empty
                 : "\uAC80\uD1A0 \uAE30\uC900\uBCC4 \uD6C4\uBCF4: " + string.Join(" / ", items);
+        }
+
+        private static bool SummaryWeightsMatch(
+            string summaryJsonPath,
+            string baselineWeightsPath,
+            string candidateWeightsPath)
+        {
+            string expectedBaseline = NormalizeFullPath(baselineWeightsPath);
+            string expectedCandidate = NormalizeFullPath(candidateWeightsPath);
+            bool requireBaseline = !string.IsNullOrWhiteSpace(expectedBaseline);
+            bool requireCandidate = !string.IsNullOrWhiteSpace(expectedCandidate);
+            if (!requireBaseline && !requireCandidate)
+            {
+                return true;
+            }
+
+            try
+            {
+                JObject summary = JObject.Parse(File.ReadAllText(summaryJsonPath));
+                string actualBaseline = NormalizeFullPath(ResolveSummaryPath(
+                    summaryJsonPath,
+                    summary.SelectToken("baseline.weights")?.Value<string>()));
+                string actualCandidate = NormalizeFullPath(ResolveSummaryPath(
+                    summaryJsonPath,
+                    summary.SelectToken("candidate.weights")?.Value<string>()));
+                return (!requireBaseline || PathsEqual(actualBaseline, expectedBaseline))
+                    && (!requireCandidate || PathsEqual(actualCandidate, expectedCandidate));
+            }
+            catch
+            {
+                return false;
+            }
         }
 
         private static List<WpfModelComparisonReviewExample> BuildExamples(
@@ -655,6 +692,32 @@ namespace MvcVisionSystem
                 ? Path.GetFullPath(path)
                 : Path.GetFullPath(Path.Combine(Path.GetDirectoryName(summaryJsonPath) ?? Directory.GetCurrentDirectory(), path));
         }
+
+        private static string NormalizeFullPath(string path)
+        {
+            if (string.IsNullOrWhiteSpace(path))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                return Path.GetFullPath(path.Trim());
+            }
+            catch (ArgumentException)
+            {
+                return path.Trim();
+            }
+            catch (NotSupportedException)
+            {
+                return path.Trim();
+            }
+        }
+
+        private static bool PathsEqual(string left, string right)
+            => !string.IsNullOrWhiteSpace(left)
+                && !string.IsNullOrWhiteSpace(right)
+                && string.Equals(NormalizeFullPath(left), NormalizeFullPath(right), StringComparison.OrdinalIgnoreCase);
 
         private static Func<string, string> BuildImagePathResolver(string dataYamlPath, string task)
         {

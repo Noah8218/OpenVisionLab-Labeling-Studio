@@ -2142,6 +2142,7 @@ internal static partial class Program
         Console.WriteLine("WPF visual smoke anomaly evaluation: " + presentation.RecommendationText + " / " + presentation.MetricsText);
 
         SelectVisualSmokeReviewTab(window, "yolo");
+        window.ShellViewModel.SetModelCenterAnomalyEvaluationPickerVisible(true);
         window.ShellViewModel.SetModelCenterAnomalyEvaluationState(presentation);
         if (window.FindName("YoloAnomalyEvaluationPanel") is System.Windows.FrameworkElement anomalyPanel)
         {
@@ -9232,7 +9233,9 @@ internal static partial class Program
             string expectedCandidateWeightsPath = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--candidate-weights",
-                Path.Combine(yoloRoot, "runs", "segment", "openvisionlab-yolov8-seg-20label-finetune-80ep-img160-20260707", "weights", "best.pt")));
+                Path.Combine(yoloRoot, "runs", "segment", "openvisionlab-yolov8-seg-40label-finetune-80ep-img160-20260708", "weights", "best.pt")));
+            string expectedCandidateRunName = Directory.GetParent(Path.GetDirectoryName(expectedCandidateWeightsPath) ?? string.Empty)?.Name
+                ?? Path.GetFileNameWithoutExtension(expectedCandidateWeightsPath);
 
             AssertTrue(Directory.Exists(yoloRoot), $"YOLOv8 root was not found: {yoloRoot}");
             AssertTrue(Directory.Exists(datasetRoot), $"dataset root was not found: {datasetRoot}");
@@ -9301,7 +9304,7 @@ internal static partial class Program
                     window.ShellViewModel.TrainingModelCenterCommand.Execute(null);
                     PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
                     AssertTrue(window.ShellViewModel.IsModelCenterConfirmModelEnabled, "real model-center smoke should enable saving the staged candidate");
-                    AssertTrue(window.ShellViewModel.ModelCenterCandidateModelDetailText.Contains("openvisionlab-yolov8-seg-20label-finetune", StringComparison.Ordinal),
+                    AssertTrue(window.ShellViewModel.ModelCenterCandidateModelDetailText.Contains(expectedCandidateRunName, StringComparison.Ordinal),
                         "real model-center smoke should show the fine-tuned run as the candidate");
 
                     window.YoloModelSettingsViewModel.SaveSettingsCommand.Execute(null);
@@ -9326,7 +9329,7 @@ internal static partial class Program
 
                     string recipeConfigPath = Path.Combine(AppContext.BaseDirectory, "RECIPE", CGlobal.Inst.Recipe.Name, "VISION.xml");
                     AssertTrue(File.Exists(recipeConfigPath), $"real model-center smoke recipe config was not saved: {recipeConfigPath}");
-                    AssertTrue(File.ReadAllText(recipeConfigPath).Contains("openvisionlab-yolov8-seg-20label-finetune", StringComparison.Ordinal),
+                    AssertTrue(File.ReadAllText(recipeConfigPath).Contains(expectedCandidateRunName, StringComparison.Ordinal),
                         "saved recipe config should persist the fine-tuned weights path");
 
                     PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
@@ -11085,6 +11088,11 @@ internal static partial class Program
     private static void TestWpfModelComparisonReviewService()
     {
         string root = CreateTempRoot();
+        string comparisonArtifactsRoot = Path.Combine(
+            Directory.GetCurrentDirectory(),
+            "artifacts",
+            "yolo-model-comparison",
+            "unit-latest-filter-" + Guid.NewGuid().ToString("N"));
         try
         {
             string baselineLabels = Path.Combine(root, "baseline", "labels");
@@ -11135,6 +11143,65 @@ internal static partial class Program
                 }));
 
             var service = new WpfModelComparisonReviewService();
+            string expectedBaselineWeights = Path.Combine(root, "weights", "baseline.pt");
+            string expectedCandidateWeights = Path.Combine(root, "weights", "candidate.pt");
+            string staleBaselineWeights = Path.Combine(root, "weights", "stale-baseline.pt");
+            string staleCandidateWeights = Path.Combine(root, "weights", "stale-candidate.pt");
+            string matchingSummaryDirectory = Path.Combine(comparisonArtifactsRoot, "20260708-older-matching");
+            string staleSummaryDirectory = Path.Combine(comparisonArtifactsRoot, "20260708-newer-stale");
+            Directory.CreateDirectory(matchingSummaryDirectory);
+            Directory.CreateDirectory(staleSummaryDirectory);
+            string matchingSummaryPath = Path.Combine(matchingSummaryDirectory, "comparison-summary.json");
+            string staleSummaryPath = Path.Combine(staleSummaryDirectory, "comparison-summary.json");
+            File.WriteAllText(
+                matchingSummaryPath,
+                JsonConvert.SerializeObject(new
+                {
+                    dataYaml = dataYamlPath,
+                    task = "test",
+                    uiConfidence = 0.25,
+                    baseline = new { weights = expectedBaselineWeights, labelsPath = baselineLabels },
+                    candidate = new { weights = expectedCandidateWeights, labelsPath = candidateLabels },
+                    promotion = new
+                    {
+                        recommendation = "hold",
+                        reason = "Candidate precision 0.016 is below the minimum 0.1; review labels/training before promotion."
+                    }
+                }));
+            File.WriteAllText(
+                staleSummaryPath,
+                JsonConvert.SerializeObject(new
+                {
+                    dataYaml = dataYamlPath,
+                    task = "test",
+                    uiConfidence = 0.25,
+                    baseline = new { weights = staleBaselineWeights, labelsPath = baselineLabels },
+                    candidate = new { weights = staleCandidateWeights, labelsPath = candidateLabels },
+                    promotion = new
+                    {
+                        recommendation = "promote",
+                        reason = "Candidate improves mAP and does not regress precision or recall; review examples before saving it as the inspection model."
+                    }
+                }));
+            File.SetLastWriteTimeUtc(matchingSummaryPath, DateTime.UtcNow.AddMinutes(-10));
+            File.SetLastWriteTimeUtc(staleSummaryPath, DateTime.UtcNow);
+            WpfModelComparisonReviewReport matchedLatestReport = service.BuildLatestReport(
+                new[] { "OK", "NG" },
+                confidenceThreshold: 0.25D,
+                maxExamples: 10,
+                baselineWeightsPath: expectedBaselineWeights,
+                candidateWeightsPath: expectedCandidateWeights);
+            AssertTrue(matchedLatestReport.HasComparison, "latest model comparison lookup should find the summary that matches the current baseline/candidate weights");
+            AssertTrue(matchedLatestReport.DetailText.Contains("\uAD50\uCCB4 \uBCF4\uB958", StringComparison.Ordinal), "latest model comparison lookup should not use a newer summary from another candidate");
+            AssertTrue(!matchedLatestReport.DetailText.Contains("\uAD50\uCCB4 \uCD94\uCC9C", StringComparison.Ordinal), "stale promote summaries from another candidate should not drive the current review");
+            WpfModelComparisonReviewReport unmatchedLatestReport = service.BuildLatestReport(
+                new[] { "OK", "NG" },
+                confidenceThreshold: 0.25D,
+                maxExamples: 10,
+                baselineWeightsPath: expectedBaselineWeights,
+                candidateWeightsPath: Path.Combine(root, "weights", "unmatched-candidate.pt"));
+            AssertTrue(!unmatchedLatestReport.HasComparison, "latest model comparison lookup should fail closed when no summary matches the current candidate weights");
+
             WpfModelComparisonReviewReport report = service.BuildFromSummaryFile(
                 summaryPath,
                 new[] { "OK", "NG" },
@@ -11350,6 +11417,11 @@ internal static partial class Program
         }
         finally
         {
+            if (Directory.Exists(comparisonArtifactsRoot))
+            {
+                Directory.Delete(comparisonArtifactsRoot, recursive: true);
+            }
+
             DeleteTempRoot(root);
         }
 
@@ -11445,6 +11517,9 @@ internal static partial class Program
             AssertTrue(realScriptSource.Contains("dataset labels=", StringComparison.Ordinal), "model comparison preflight should explain label-count mismatch clearly");
             AssertTrue(realScriptSource.Contains("Invoke-UltralyticsVal", StringComparison.Ordinal), "model comparison script should support local Ultralytics validation");
             AssertTrue(realScriptSource.Contains("OPENVISIONLAB_METRICS_JSON", StringComparison.Ordinal), "Ultralytics validation should emit parseable metrics for comparison reports");
+            AssertTrue(realScriptSource.Contains("model.predict", StringComparison.Ordinal), "Ultralytics comparison should count UI candidates from predict labels, not validation labels");
+            AssertTrue(realScriptSource.Contains("$RunName-predict\\labels", StringComparison.Ordinal), "Ultralytics comparison should expose predict labels for Candidate Review examples");
+            AssertTrue(realScriptSource.Contains("validationLabelsPath", StringComparison.Ordinal), "Ultralytics comparison should keep validation labels separate from UI review labels");
             AssertTrue(realScriptSource.Contains("ModelTask", StringComparison.Ordinal), "model comparison script should keep split task separate from detect/segment task");
             AssertTrue(realScriptSource.Contains("New-PromotionRecommendation", StringComparison.Ordinal), "model comparison script should write a promotion recommendation");
             AssertTrue(realScriptSource.Contains("minimumPrecision", StringComparison.Ordinal), "model comparison recommendation should guard low-precision candidates");
@@ -16233,6 +16308,79 @@ internal static partial class Program
         AssertTrue(evaluationScript.Contains("class-matching predictions were below minimum confidence", StringComparison.Ordinal), "classification evaluation script should explain confidence-gated hold reasons");
         AssertTrue(evaluationScript.Contains("recommendation = $recommendation", StringComparison.Ordinal), "classification evaluation summary should persist adopt/hold recommendation");
         AssertTrue(evaluationScript.Contains("reasons = $holdReasons", StringComparison.Ordinal), "classification evaluation summary should persist hold reasons");
+
+        string runRoot = CreateTempRoot();
+        try
+        {
+            string sourceRoot = Path.Combine(runRoot, "source");
+            string yoloRoot = Path.Combine(runRoot, "yolov8");
+            string pythonPath = Path.Combine(yoloRoot, ".venv", "Scripts", "python.exe");
+            string workerPath = Path.Combine(yoloRoot, "labeling_tcp_client.py");
+            string weightsPath = Path.Combine(yoloRoot, "runs", "classify", "normal-abnormal", "weights", "best.pt");
+            Directory.CreateDirectory(sourceRoot);
+            Directory.CreateDirectory(Path.GetDirectoryName(pythonPath) ?? yoloRoot);
+            Directory.CreateDirectory(Path.GetDirectoryName(weightsPath) ?? yoloRoot);
+            File.WriteAllText(pythonPath, string.Empty);
+            File.WriteAllText(workerPath, string.Empty);
+            File.WriteAllText(weightsPath, string.Empty);
+
+            string normalPath = Path.Combine(sourceRoot, "normal-eval.png");
+            string abnormalPath = Path.Combine(sourceRoot, "abnormal-eval.png");
+            using (Bitmap normalImage = CreateSolidBitmap(12, 10, Color.White))
+            using (Bitmap abnormalImage = CreateSolidBitmap(12, 10, Color.Black))
+            {
+                normalImage.Save(normalPath);
+                abnormalImage.Save(abnormalPath);
+            }
+
+            var runData = new CData();
+            runData.ConfigureOutputRoot(Path.Combine(runRoot, "dataset"));
+            runData.ProjectSettings.DatasetPurpose = LabelingDatasetPurpose.AnomalyDetection;
+            runData.ProjectSettings.YoloDataset.ValidationPercent = 0;
+            runData.ProjectSettings.YoloDataset.TestPercent = 100;
+            runData.ProjectSettings.PythonModel.ModelEngine = PythonModelSettings.EngineYoloV8;
+            runData.ProjectSettings.PythonModel.ProjectRootPath = yoloRoot;
+            runData.ProjectSettings.PythonModel.PythonExecutablePath = pythonPath;
+            runData.ProjectSettings.PythonModel.ClientScriptPath = workerPath;
+            runData.ProjectSettings.PythonModel.WeightsPath = weightsPath;
+            runData.ProjectSettings.PythonModel.ImageRootPath = sourceRoot;
+            runData.ProjectSettings.PythonModel.InferenceImageSize = 96;
+            runData.ProjectSettings.AnomalyClassification.MinimumConfidence = 0.8D;
+
+            var runReviewStatus = new AnomalyImageReviewStatusService();
+            runReviewStatus.SetImages(new[] { normalPath, abnormalPath });
+            runReviewStatus.MarkNormal(normalPath);
+            runReviewStatus.MarkAbnormal(abnormalPath);
+            runReviewStatus.SaveReviewStatus(runData);
+
+            var runService = new WpfAnomalyClassificationEvaluationRunService(FindRepositoryRoot());
+            WpfAnomalyClassificationEvaluationRunRequest request = runService.BuildRequest(runData);
+            AssertEqual("yolov8", request.ModelName);
+            AssertEqual("test", request.Split);
+            AssertEqual(96, request.ImageSize);
+            AssertEqual(0.8D, request.MinimumConfidence);
+            AssertTrue(request.DatasetRootPath.Contains("classification-evaluation-input", StringComparison.Ordinal), "WPF anomaly evaluation runner should export to a fresh evaluation input folder");
+            AssertTrue(File.Exists(Path.Combine(request.DatasetRootPath, "test", "normal", "normal-eval.png")), "WPF anomaly evaluation runner should export reviewed normal test images");
+            AssertTrue(File.Exists(Path.Combine(request.DatasetRootPath, "test", "abnormal", "abnormal-eval.png")), "WPF anomaly evaluation runner should export reviewed abnormal test images");
+            AssertEqual(0, runService.ValidateRequest(request).Count);
+            IReadOnlyList<string> arguments = runService.BuildPowerShellArguments(request);
+            AssertTrue(arguments.Contains("-WorkerScript"), "WPF anomaly evaluation runner should pass the local YOLOv8 TCP adapter");
+            AssertTrue(arguments.Contains(workerPath), "WPF anomaly evaluation runner should pass the configured local adapter path");
+            AssertTrue(arguments.Contains("-DatasetRoot"), "WPF anomaly evaluation runner should pass the exported classification dataset root");
+            AssertTrue(arguments.Contains(request.DatasetRootPath), "WPF anomaly evaluation runner should pass the exported dataset path");
+            AssertTrue(arguments.Contains("-MinimumConfidence"), "WPF anomaly evaluation runner should pass the confidence adoption threshold");
+            AssertTrue(arguments.Contains("0.8"), "WPF anomaly evaluation runner should pass the configured confidence adoption threshold value");
+
+            runData.ProjectSettings.PythonModel.ModelEngine = PythonModelSettings.EngineYolo11;
+            WpfAnomalyClassificationEvaluationRunRequest yolo11Request = runService.BuildRequest(runData);
+            AssertTrue(
+                runService.ValidateRequest(yolo11Request).Any(error => error.Contains("YOLOv8", StringComparison.Ordinal)),
+                "WPF anomaly evaluation runner should not claim YOLO11 readiness through the YOLOv8 evaluation script");
+        }
+        finally
+        {
+            DeleteTempRoot(runRoot);
+        }
     }
 
     private static void TestYoloImageLabelStatusService()
@@ -27518,6 +27666,12 @@ internal static partial class Program
         AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationMetricsText", "Text", "ShellViewModel.ModelCenterAnomalyEvaluationMetricsText");
         AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationDetailText", "Text", "ShellViewModel.ModelCenterAnomalyEvaluationDetailText");
         AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationActionText", "Text", "ShellViewModel.ModelCenterAnomalyEvaluationActionText");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationRunButton", "Command", "ShellViewModel.RunAnomalyEvaluationCommand");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationRunButton", "IsEnabled", "ShellViewModel.IsModelCenterAnomalyEvaluationPickerEnabled");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationRunButton", "Visibility", "ShellViewModel.IsModelCenterAnomalyEvaluationPickerVisible");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationLoadSummaryButton", "Command", "ShellViewModel.LoadAnomalyEvaluationSummaryCommand");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationLoadSummaryButton", "IsEnabled", "ShellViewModel.IsModelCenterAnomalyEvaluationPickerEnabled");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloAnomalyEvaluationLoadSummaryButton", "Visibility", "ShellViewModel.IsModelCenterAnomalyEvaluationPickerVisible");
         AssertNamedXamlBinding(shellXaml, xName, "ModelRegistryTitleText", "Text", "ShellViewModel.ModelRegistryTitleText");
         AssertNamedXamlBinding(shellXaml, xName, "ModelRegistrySummaryPrimaryText", "Text", "ShellViewModel.ModelRegistrySummaryPrimaryText");
         AssertNamedXamlBinding(shellXaml, xName, "ModelRegistrySummarySecondaryText", "Text", "ShellViewModel.ModelRegistrySummarySecondaryText");
@@ -27697,7 +27851,13 @@ internal static partial class Program
         AssertTrue(shellViewModelSource.Contains("ModelCenterDecisionActionText", StringComparison.Ordinal), "shell ViewModel should expose the exact model-adoption action text");
         AssertTrue(shellViewModelSource.Contains("SetModelCenterAnomalyEvaluationState", StringComparison.Ordinal), "shell ViewModel should expose anomaly classification evaluation state for Model Center");
         AssertTrue(shellViewModelSource.Contains("ClearModelCenterAnomalyEvaluationState", StringComparison.Ordinal), "shell ViewModel should clear anomaly classification evaluation state");
+        AssertTrue(shellViewModelSource.Contains("RunAnomalyEvaluationCommand", StringComparison.Ordinal), "shell ViewModel should expose a command for running anomaly evaluation");
+        AssertTrue(shellViewModelSource.Contains("LoadAnomalyEvaluationSummaryCommand", StringComparison.Ordinal), "shell ViewModel should expose a command for explicitly loading an anomaly evaluation summary");
+        AssertTrue(shellViewModelSource.Contains("SetModelCenterAnomalyEvaluationPickerVisible", StringComparison.Ordinal), "shell ViewModel should own anomaly evaluation summary picker visibility");
         AssertTrue(shellSource.Contains("RefreshModelCenterAnomalyEvaluationState", StringComparison.Ordinal), "model-center dashboard should refresh anomaly classification evaluation state from the active output root");
+        AssertTrue(shellSource.Contains("ExecuteRunAnomalyEvaluationCommand", StringComparison.Ordinal), "model-center dashboard should route anomaly evaluation execution through a command");
+        AssertTrue(shellSource.Contains("ExecuteLoadAnomalyEvaluationSummaryCommand", StringComparison.Ordinal), "model-center dashboard should route explicit anomaly evaluation summary loading through a command");
+        AssertTrue(shellSource.Contains("manualModelCenterAnomalyEvaluationSummaryPath", StringComparison.Ordinal), "model-center dashboard should keep a manually selected anomaly evaluation summary until the dataset context changes");
         AssertTrue(shellSource.Contains("FindModelCenterAnomalyEvaluationSummaryPath", StringComparison.Ordinal), "model-center dashboard should own a bounded anomaly evaluation summary lookup");
         AssertTrue(shellSource.Contains("classification-evaluation-summary.json", StringComparison.Ordinal), "model-center dashboard should look for the stable anomaly evaluation summary artifact name");
         AssertTrue(shellSource.Contains("WpfAnomalyClassificationEvaluationPresentationService.Build", StringComparison.Ordinal), "model-center dashboard should delegate anomaly evaluation wording to the presentation service");
@@ -32033,6 +32193,12 @@ internal static partial class Program
         shellViewModel.ClearModelCenterRecoveryState();
         AssertTrue(!shellViewModel.IsModelCenterRecoveryVisible, "model-center recovery card should hide after the recovery state is cleared");
         AssertTrue(!shellViewModel.IsModelCenterAnomalyEvaluationVisible, "model-center anomaly evaluation should start hidden until a summary is loaded");
+        AssertTrue(!shellViewModel.IsModelCenterAnomalyEvaluationPickerVisible, "anomaly evaluation summary picker should start hidden");
+        shellViewModel.SetModelCenterAnomalyEvaluationPickerVisible(true);
+        AssertTrue(shellViewModel.IsModelCenterAnomalyEvaluationPickerVisible, "anomaly evaluation summary picker should become visible for anomaly datasets");
+        AssertTrue(shellViewModel.IsModelCenterAnomalyEvaluationPickerEnabled, "anomaly evaluation summary picker should be enabled while model-center review commands can run");
+        shellViewModel.SetModelCenterAnomalyEvaluationPickerVisible(false);
+        AssertTrue(!shellViewModel.IsModelCenterAnomalyEvaluationPickerEnabled, "hidden anomaly evaluation summary picker should not stay enabled");
         shellViewModel.SetModelCenterAnomalyEvaluationState(new WpfAnomalyClassificationEvaluationPresentation
         {
             RecommendationText = "\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00: \uBCF4\uB958",

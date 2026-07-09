@@ -1,6 +1,7 @@
 using MvcVisionSystem._1._Core;
 using MvcVisionSystem.Yolo;
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System.Text.Json;
@@ -9,6 +10,8 @@ namespace MvcVisionSystem
 {
     public partial class WpfLabelingShellWindow
     {
+        private string manualModelCenterAnomalyEvaluationSummaryPath = string.Empty;
+
         private void RefreshModelCenterDashboard(
             WpfTrainingWeightsComparison comparison = null,
             string configuredWeightsPathOverride = null,
@@ -76,19 +79,185 @@ namespace MvcVisionSystem
             UpdateCandidateModelDecisionPanel(comparison);
         }
 
+        private async void ExecuteRunAnomalyEvaluationCommand()
+        {
+            if (isAnomalyEvaluationRunning)
+            {
+                return;
+            }
+
+            EnsureProjectSettings();
+            if (global.Data?.ProjectSettings?.DatasetPurpose != LabelingDatasetPurpose.AnomalyDetection)
+            {
+                SetYoloCommandStatus("\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00\uB294 anomaly \uB370\uC774\uD130\uC14B\uC5D0\uC11C\uB9CC \uC2E4\uD589\uD569\uB2C8\uB2E4.", isBusy: false);
+                return;
+            }
+
+            SaveYoloEditorFields();
+            SaveTrainingEditorFields();
+            WpfAnomalyClassificationEvaluationRunRequest request = anomalyClassificationEvaluationRunService.BuildRequest(global.Data);
+            IReadOnlyList<string> validationErrors = anomalyClassificationEvaluationRunService.ValidateRequest(request);
+            if (validationErrors.Count > 0)
+            {
+                string message = "\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC2E4\uD589 \uBD88\uAC00: " + string.Join(" / ", validationErrors.Take(3));
+                SetYoloCommandStatus(message, isBusy: false);
+                AppendLog(message);
+                return;
+            }
+
+            isAnomalyEvaluationRunning = true;
+            UpdateYoloCommandButtons();
+            SetYoloCommandStatus("\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC2E4\uD589 \uC911...", isBusy: true);
+            AppendLog($"Anomaly classification evaluation started: weights={Path.GetFileName(request.WeightsPath)}, dataset={request.DatasetRootPath}");
+
+            try
+            {
+                WpfAnomalyClassificationEvaluationRunResult result = await anomalyClassificationEvaluationRunService
+                    .RunAsync(request)
+                    .ConfigureAwait(true);
+
+                if (!result.Succeeded || string.IsNullOrWhiteSpace(result.SummaryPath))
+                {
+                    string errorText = BuildAnomalyEvaluationFailureText(result);
+                    SetYoloCommandStatus(errorText, isBusy: false);
+                    AppendLog(errorText);
+                    return;
+                }
+
+                if (!TryApplyModelCenterAnomalyEvaluationSummary(result.SummaryPath))
+                {
+                    string errorText = "\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 summary\uB97C \uC77D\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uC0DD\uC131\uB41C JSON\uC744 \uD655\uC778\uD558\uC138\uC694.";
+                    SetYoloCommandStatus(errorText, isBusy: false);
+                    AppendLog($"{errorText} {result.SummaryPath}");
+                    return;
+                }
+
+                manualModelCenterAnomalyEvaluationSummaryPath = result.SummaryPath;
+                string summaryName = Path.GetFileName(Path.GetDirectoryName(result.SummaryPath) ?? result.SummaryPath);
+                string completeText = $"\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC644\uB8CC: {summaryName}";
+                RefreshModelCenterDashboard();
+                SetYoloCommandStatus(completeText, isBusy: false);
+                AppendLog($"{completeText}: {result.SummaryPath}");
+            }
+            catch (Exception ex)
+            {
+                string errorText = $"\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC2E4\uD328: {ex.Message}";
+                SetYoloCommandStatus(errorText, isBusy: false);
+                AppendLog(errorText);
+            }
+            finally
+            {
+                isAnomalyEvaluationRunning = false;
+                UpdateYoloCommandButtons();
+            }
+        }
+
         private void RefreshModelCenterAnomalyEvaluationState()
         {
             if (global.Data?.ProjectSettings?.DatasetPurpose != LabelingDatasetPurpose.AnomalyDetection)
+            {
+                manualModelCenterAnomalyEvaluationSummaryPath = string.Empty;
+                ShellViewModel?.SetModelCenterAnomalyEvaluationPickerVisible(false);
+                ShellViewModel?.ClearModelCenterAnomalyEvaluationState();
+                return;
+            }
+
+            ShellViewModel?.SetModelCenterAnomalyEvaluationPickerVisible(true);
+            string summaryPath = ResolveModelCenterAnomalyEvaluationSummaryPath(global.Data.OutputRootPath);
+            if (string.IsNullOrWhiteSpace(summaryPath))
             {
                 ShellViewModel?.ClearModelCenterAnomalyEvaluationState();
                 return;
             }
 
-            string summaryPath = FindModelCenterAnomalyEvaluationSummaryPath(global.Data.OutputRootPath);
-            if (string.IsNullOrWhiteSpace(summaryPath))
+            if (!TryApplyModelCenterAnomalyEvaluationSummary(summaryPath))
             {
+                manualModelCenterAnomalyEvaluationSummaryPath = string.Empty;
                 ShellViewModel?.ClearModelCenterAnomalyEvaluationState();
+            }
+        }
+
+        private void ExecuteLoadAnomalyEvaluationSummaryCommand()
+        {
+            EnsureProjectSettings();
+            if (global.Data?.ProjectSettings?.DatasetPurpose != LabelingDatasetPurpose.AnomalyDetection)
+            {
+                SetYoloCommandStatus("\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00\uB294 anomaly \uB370\uC774\uD130\uC14B\uC5D0\uC11C\uB9CC \uBD88\uB7EC\uC635\uB2C8\uB2E4.", isBusy: false);
                 return;
+            }
+
+            string initialPath = !string.IsNullOrWhiteSpace(manualModelCenterAnomalyEvaluationSummaryPath)
+                ? manualModelCenterAnomalyEvaluationSummaryPath
+                : ResolveModelCenterAnomalyEvaluationSummaryPath(global.Data.OutputRootPath);
+            if (string.IsNullOrWhiteSpace(initialPath))
+            {
+                initialPath = global.Data.OutputRootPath ?? string.Empty;
+            }
+
+            if (!TryPickFile(
+                "\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 summary \uC120\uD0DD",
+                "classification evaluation summary (*.json)|*.json|All files (*.*)|*.*",
+                initialPath,
+                out string selectedPath))
+            {
+                SetYoloCommandStatus("\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 summary \uC120\uD0DD\uC744 \uCDE8\uC18C\uD588\uC2B5\uB2C8\uB2E4.", isBusy: false);
+                return;
+            }
+
+            if (TryApplyModelCenterAnomalyEvaluationSummary(selectedPath))
+            {
+                manualModelCenterAnomalyEvaluationSummaryPath = selectedPath;
+                SetYoloCommandStatus($"\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 summary \uBD88\uB7EC\uC624\uAE30 \uC644\uB8CC: {Path.GetFileName(selectedPath)}", isBusy: false);
+                AppendLog($"Anomaly classification evaluation summary loaded: {selectedPath}");
+                return;
+            }
+
+            manualModelCenterAnomalyEvaluationSummaryPath = string.Empty;
+            ShellViewModel?.ClearModelCenterAnomalyEvaluationState();
+            SetYoloCommandStatus("\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 summary\uB97C \uC77D\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. JSON \uD30C\uC77C\uACFC \uD3C9\uAC00 \uACB0\uACFC\uB97C \uD655\uC778\uD558\uC138\uC694.", isBusy: false);
+            AppendLog($"Anomaly classification evaluation summary load failed: {selectedPath}");
+        }
+
+        private static string BuildAnomalyEvaluationFailureText(WpfAnomalyClassificationEvaluationRunResult result)
+        {
+            string detail = result?.Error ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(detail))
+            {
+                detail = result?.Output ?? string.Empty;
+            }
+
+            if (string.IsNullOrWhiteSpace(detail))
+            {
+                return "\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC2E4\uD328: \uC2E4\uD589 \uACB0\uACFC\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
+            }
+
+            string firstLine = detail
+                .Split(new[] { '\r', '\n' }, StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault() ?? detail.Trim();
+            return $"\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC2E4\uD328: {firstLine}";
+        }
+
+        private string ResolveModelCenterAnomalyEvaluationSummaryPath(string outputRootPath)
+        {
+            if (!string.IsNullOrWhiteSpace(manualModelCenterAnomalyEvaluationSummaryPath))
+            {
+                string manualPath = manualModelCenterAnomalyEvaluationSummaryPath.Trim();
+                if (File.Exists(manualPath))
+                {
+                    return manualPath;
+                }
+
+                manualModelCenterAnomalyEvaluationSummaryPath = string.Empty;
+            }
+
+            return FindModelCenterAnomalyEvaluationSummaryPath(outputRootPath);
+        }
+
+        private bool TryApplyModelCenterAnomalyEvaluationSummary(string summaryPath)
+        {
+            if (string.IsNullOrWhiteSpace(summaryPath) || !File.Exists(summaryPath))
+            {
+                return false;
             }
 
             try
@@ -97,10 +266,11 @@ namespace MvcVisionSystem
                 AnomalyClassificationEvaluationOptions options = ReadModelCenterAnomalyEvaluationOptions(summaryPath);
                 ShellViewModel?.SetModelCenterAnomalyEvaluationState(
                     WpfAnomalyClassificationEvaluationPresentationService.Build(report, options));
+                return true;
             }
             catch
             {
-                ShellViewModel?.ClearModelCenterAnomalyEvaluationState();
+                return false;
             }
         }
 

@@ -214,7 +214,11 @@ namespace MvcVisionSystem
                     comparison?.LatestWeightsPath));
             // Candidate Review shows visual disagreement examples from the latest model-comparison artifact.
             // This keeps final best.pt adoption tied to held-out examples, not only aggregate metrics.
-            WpfModelComparisonReviewReport report = modelComparisonReviewService.BuildLatestReport(classNames, confidence);
+            WpfModelComparisonReviewReport report = modelComparisonReviewService.BuildLatestReport(
+                classNames,
+                confidence,
+                baselineWeightsPath: comparison?.CurrentWeightsPath,
+                candidateWeightsPath: comparison?.LatestWeightsPath);
             CandidateReviewViewModel.SetModelComparisonReview(report);
             UpdateCandidateModelDecisionPanel(comparison);
         }

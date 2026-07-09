@@ -90,6 +90,8 @@ namespace MvcVisionSystem
         private string modelCenterAnomalyEvaluationMetricsText = string.Empty;
         private string modelCenterAnomalyEvaluationDetailText = string.Empty;
         private string modelCenterAnomalyEvaluationActionText = string.Empty;
+        private bool isModelCenterAnomalyEvaluationPickerVisible;
+        private bool isModelCenterAnomalyEvaluationPickerEnabled;
         private string modelRegistrySummaryPrimaryText = "\uD604\uC7AC \uAC80\uC0AC: \uC5C6\uC74C / \uD559\uC2B5 \uD6C4\uBCF4: \uC5C6\uC74C";
         private string modelRegistrySummarySecondaryText = "YOLOv5 / \uCD5C\uADFC \uD559\uC2B5 \uC5C6\uC74C / \uC774\uB825 0\uAC74 / \uD6C4\uBCF4 \uC5C6\uC74C";
         private string modelRegistryProfileText = "\uBAA8\uB378 \uD504\uB85C\uD544: \uBBF8\uC124\uC815";
@@ -150,6 +152,8 @@ namespace MvcVisionSystem
         private ICommand trainingModelCenterCommand = new RelayCommand(NoOpCommand);
         private ICommand reviewCandidateModelCommand = new RelayCommand(NoOpCommand);
         private ICommand promoteSelectedModelHistoryCommand = new RelayCommand(NoOpCommand);
+        private ICommand runAnomalyEvaluationCommand = new RelayCommand(NoOpCommand);
+        private ICommand loadAnomalyEvaluationSummaryCommand = new RelayCommand(NoOpCommand);
         private ICommand showSavedLabelsViewCommand = new RelayCommand(NoOpCommand);
         private ICommand showLabelingGuideViewCommand = new RelayCommand(NoOpCommand);
         private ICommand showClassCatalogViewCommand = new RelayCommand(NoOpCommand);
@@ -525,6 +529,18 @@ namespace MvcVisionSystem
             private set => SetProperty(ref modelCenterAnomalyEvaluationActionText, value ?? string.Empty);
         }
 
+        public bool IsModelCenterAnomalyEvaluationPickerVisible
+        {
+            get => isModelCenterAnomalyEvaluationPickerVisible;
+            private set => SetProperty(ref isModelCenterAnomalyEvaluationPickerVisible, value);
+        }
+
+        public bool IsModelCenterAnomalyEvaluationPickerEnabled
+        {
+            get => isModelCenterAnomalyEvaluationPickerEnabled;
+            private set => SetProperty(ref isModelCenterAnomalyEvaluationPickerEnabled, value);
+        }
+
         public string ModelRegistryTitleText => "\uBAA8\uB378 \uB808\uC9C0\uC2A4\uD2B8\uB9AC";
 
         public string ModelRegistrySummaryPrimaryText
@@ -851,6 +867,18 @@ namespace MvcVisionSystem
             private set => SetProperty(ref promoteSelectedModelHistoryCommand, value);
         }
 
+        public ICommand RunAnomalyEvaluationCommand
+        {
+            get => runAnomalyEvaluationCommand;
+            private set => SetProperty(ref runAnomalyEvaluationCommand, value);
+        }
+
+        public ICommand LoadAnomalyEvaluationSummaryCommand
+        {
+            get => loadAnomalyEvaluationSummaryCommand;
+            private set => SetProperty(ref loadAnomalyEvaluationSummaryCommand, value);
+        }
+
         public ICommand ShowSavedLabelsViewCommand
         {
             get => showSavedLabelsViewCommand;
@@ -942,7 +970,9 @@ namespace MvcVisionSystem
             Action showSavedLabelsView = null,
             Action showLabelingGuideView = null,
             Action showClassCatalogView = null,
-            Action promoteSelectedModelHistory = null)
+            Action promoteSelectedModelHistory = null,
+            Action runAnomalyEvaluation = null,
+            Action loadAnomalyEvaluationSummary = null)
         {
             // Shell lifecycle and toolbar commands are injected; key commands use a DTO so this ViewModel avoids WPF EventArgs.
             ToggleThemeCommand = new RelayCommand(toggleTheme ?? NoOpCommand);
@@ -957,6 +987,8 @@ namespace MvcVisionSystem
             TrainingModelCenterCommand = new RelayCommand(trainingModelCenter ?? NoOpCommand);
             ReviewCandidateModelCommand = new RelayCommand(reviewCandidateModel ?? inferenceReview ?? inferenceMode ?? NoOpCommand);
             PromoteSelectedModelHistoryCommand = new RelayCommand(promoteSelectedModelHistory ?? NoOpCommand);
+            RunAnomalyEvaluationCommand = new RelayCommand(runAnomalyEvaluation ?? NoOpCommand);
+            LoadAnomalyEvaluationSummaryCommand = new RelayCommand(loadAnomalyEvaluationSummary ?? NoOpCommand);
             ShowSavedLabelsViewCommand = new RelayCommand(showSavedLabelsView ?? labelingMode ?? NoOpCommand);
             ShowLabelingGuideViewCommand = new RelayCommand(showLabelingGuideView ?? labelingMode ?? NoOpCommand);
             ShowClassCatalogViewCommand = new RelayCommand(showClassCatalogView ?? labelingMode ?? NoOpCommand);
@@ -981,6 +1013,7 @@ namespace MvcVisionSystem
             RefreshModelCenterReviewCandidateEnabled();
             RefreshModelCenterInspectCurrentImageEnabled();
             RefreshSelectedModelHistoryActionEnabled();
+            RefreshModelCenterAnomalyEvaluationPickerEnabled();
         }
 
         public void SetWorkflowModeState(bool isInferenceMode, bool canSwitchMode)
@@ -1253,6 +1286,18 @@ namespace MvcVisionSystem
             ModelCenterAnomalyEvaluationDetailText = string.Empty;
             ModelCenterAnomalyEvaluationActionText = string.Empty;
             IsModelCenterAnomalyEvaluationVisible = false;
+        }
+
+        public void SetModelCenterAnomalyEvaluationPickerVisible(bool isVisible)
+        {
+            IsModelCenterAnomalyEvaluationPickerVisible = isVisible;
+            RefreshModelCenterAnomalyEvaluationPickerEnabled();
+        }
+
+        private void RefreshModelCenterAnomalyEvaluationPickerEnabled()
+        {
+            IsModelCenterAnomalyEvaluationPickerEnabled =
+                IsModelCenterAnomalyEvaluationPickerVisible && canRunModelCenterReviewCommands;
         }
 
         public void SetModelCenterModelState(
