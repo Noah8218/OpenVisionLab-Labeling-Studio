@@ -1535,10 +1535,12 @@
                                          ItemsSource="{Binding LearningSteps}"
                                          SelectedItem="{Binding SelectedStep, Mode=TwoWay}"
                                          mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding LearningStepSelectionChangedCommand}"
+                                         MaxHeight="180"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
                                          Margin="0,0,0,10">
                                     <ListBox.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <WrapPanel Orientation="Horizontal" />
+                                            <StackPanel />
                                         </ItemsPanelTemplate>
                                     </ListBox.ItemsPanel>
                                 </ListBox>
@@ -1559,10 +1561,12 @@
                                          ItemsSource="{Binding SelectableAnnotationTools}"
                                          SelectedItem="{Binding SelectedTool, Mode=TwoWay}"
                                          mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding AnnotationToolSelectionChangedCommand}"
+                                         MaxHeight="180"
+                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
                                          Margin="0,0,0,10">
                                     <ListBox.ItemsPanel>
                                         <ItemsPanelTemplate>
-                                            <WrapPanel Orientation="Horizontal" />
+                                            <StackPanel />
                                         </ItemsPanelTemplate>
                                     </ListBox.ItemsPanel>
                                 </ListBox>
@@ -1570,13 +1574,15 @@
                         </TabItem>
 
                         <TabItem Header="&#xC791;&#xC5C5; &#xBA85;&#xB839;"
-                                 AutomationProperties.AutomationId="LabelingGuideAnnotationCommandsExpander">
+                                  AutomationProperties.AutomationId="LabelingGuideAnnotationCommandsExpander">
                             <ItemsControl x:Name="AnnotationCommandToolItemsControl"
                                           ItemsSource="{Binding AnnotationCommandTools}"
+                                          ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                          MaxHeight="180"
                                           Margin="0,6,0,10">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
+                                        <StackPanel />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                                 <ItemsControl.ItemTemplate>
@@ -1586,6 +1592,7 @@
                                                 CommandParameter="{Binding}"
                                                 IsEnabled="{Binding IsActionEnabled}"
                                                 ToolTip="{Binding ToolTip}"
+                                                HorizontalAlignment="Left"
                                                 Margin="0,0,5,4">
                                             <StackPanel Orientation="Horizontal">
                                                 <iconPacks:PackIconMaterial Kind="{Binding IconKind}"

@@ -47,6 +47,32 @@ Last updated: 2026-07-09
 - Next:
   - Gather operator feedback on discoverability in the new template/tutorial tab before moving to a broader left-panel task-journey redesign.
 
+## 2026-07-09 Learning guide command-list compacting
+
+- Self-evaluation:
+  - The three workflow sub-tabs in the labeling guide still had dense horizontal chips, especially `학습 단계`, `라벨링 도구`, and `작업 명령`.
+  - The smallest safe refinement was to keep current bindings intact and make each command list a short vertical sequence with a fixed max height and vertical scroll when needed.
+- Changes:
+  - `WpfLearningWorkflowPanel.xaml` now sets `MaxHeight="180"` and `ScrollViewer.VerticalScrollBarVisibility="Auto"` for:
+    - `LearningStepListBox`
+    - `AnnotationToolListBox`
+    - `AnnotationCommandToolItemsControl`
+  - The three list containers now use a `StackPanel` items panel, which enforces one-column vertical stepping instead of horizontal flow.
+  - `AnnotationCommandToolItemsControl` command buttons are horizontally left-aligned.
+- Verification:
+  - `dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false /m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080`
+  - `dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab labeling-guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\learning-workflow-guide-command-list-compact-1920.png`
+  - `git diff --check`
+- Capture:
+  - After: `artifacts\ui\learning-workflow-guide-command-list-compact-1920.png`
+- Remaining risk:
+  - UX density reduction only; no changes to annotation engine, training, inference, hot paths, or data model.
+- Next:
+  - Re-check feedback on discoverability of the three-step workflow columns after this flattening. If still high cognitive load remains, move secondary command groups behind explicit collapsible sections.
+
 ## 2026-07-09 Learning guide training flow density pass
 
 - Self-evaluation:

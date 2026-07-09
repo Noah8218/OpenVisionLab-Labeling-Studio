@@ -220,6 +220,36 @@ PASS WPF labeling shell can be constructed without the WinForms shell
 WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\learning-workflow-guide-tabs-template-tutorial-subtabs-1920x1080.png
 ```
 
+## Learning Guide Workflow Command List Compacting
+
+Status: stable as of 2026-07-09 for command-list density and first-view readability.
+
+Protected behavior:
+
+- In labeling mode, `학습 단계`, `라벨링 도구`, and `작업 명령` lists use bounded-height, one-column vertical stacks with vertical scrolling.
+- Command labels/icons and selection bindings remain unchanged; only layout density is adjusted.
+- This keeps the visible panel focused and avoids crowding without altering annotation commands, canvas/ROI paths, training execution, or inference logic.
+
+Required gates before reporting this path complete again:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false /m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab labeling-guide --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\learning-workflow-guide-command-list-compact-1920.png
+git diff --check
+```
+
+Latest evidence:
+
+```text
+After: C:\Git\Labelling_Application\artifacts\ui\learning-workflow-guide-command-list-compact-1920.png
+PASS WPF learning workflow panel declares education modes and annotation tools
+PASS WPF labeling shell can be constructed without the WinForms shell
+WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\learning-workflow-guide-command-list-compact-1920.png
+```
+
 ## WPF Visual Smoke Capture
 
 Status: stable for current-source WPF render capture as of 2026-07-07.
