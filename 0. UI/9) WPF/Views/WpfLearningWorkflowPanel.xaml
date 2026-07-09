@@ -1729,7 +1729,7 @@
 
             <Expander x:Name="LabelingGuideTutorialIntroExpander"
                       AutomationProperties.AutomationId="LabelingGuideTutorialIntroExpander"
-                      Header="&#xD15C;&#xD50C;&#xB9BF;/&#xD130;&#xD0AC;&#xB85C;"
+                      Header="&#xD15C;&#xD50C;&#xB9BF;/&#xD22C;&#xD1A0;&#xB9AC;&#xB17C;"
                       IsExpanded="False"
                       Foreground="{DynamicResource SecondaryTextBrush}"
                       Background="Transparent"
