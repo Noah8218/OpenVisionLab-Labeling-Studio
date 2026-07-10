@@ -761,17 +761,19 @@
                        Visibility="{Binding DatasetOnboardingVisibility}"
                        Margin="0,0,0,4" />
             <ListBox x:Name="DatasetPurposeListBox"
-                     Style="{StaticResource LearningWorkflowListBoxStyle}"
-                     ItemContainerStyle="{StaticResource LearningWorkflowItemStyle}"
-                     ItemTemplate="{StaticResource LearningWorkflowItemTemplate}"
-                     ItemsSource="{Binding DatasetPurposeModes}"
-                     SelectedItem="{Binding SelectedDatasetPurposeMode, Mode=TwoWay}"
-                     mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding DatasetPurposeSelectionChangedCommand}"
-                     Visibility="{Binding DatasetOnboardingVisibility}"
-                     Margin="0,0,0,6">
+                      Style="{StaticResource LearningWorkflowListBoxStyle}"
+                      ItemContainerStyle="{StaticResource LearningWorkflowItemStyle}"
+                      ItemTemplate="{StaticResource LearningWorkflowItemTemplate}"
+                      ItemsSource="{Binding DatasetPurposeModes}"
+                      SelectedItem="{Binding SelectedDatasetPurposeMode, Mode=TwoWay}"
+                      mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding DatasetPurposeSelectionChangedCommand}"
+                      Visibility="{Binding DatasetOnboardingVisibility}"
+                      MaxHeight="170"
+                      ScrollViewer.VerticalScrollBarVisibility="Auto"
+                      Margin="0,0,0,6">
                 <ListBox.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" />
+                        <StackPanel Orientation="Vertical" />
                     </ItemsPanelTemplate>
                 </ListBox.ItemsPanel>
             </ListBox>
@@ -999,10 +1001,12 @@
                                   ItemsSource="{Binding FirstRunChecklistItems}"
                                   ItemTemplate="{StaticResource FirstRunChecklistItemTemplate}"
                                   Visibility="Collapsed"
+                                  MaxHeight="130"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                   Margin="0,0,0,2">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal" />
+                                <StackPanel />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
@@ -1087,10 +1091,12 @@
                                   AutomationProperties.AutomationId="FirstRunSamplePathItemsControl"
                                   ItemsSource="{Binding FirstRunSamplePathItems}"
                                   Visibility="Collapsed"
+                                  MaxHeight="110"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                   ItemTemplate="{StaticResource FirstRunSamplePathItemTemplate}">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal" />
+                                <StackPanel />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
@@ -1193,14 +1199,16 @@
                     <TextBlock Text="&#xC644;&#xB8CC; &#xCCB4;&#xD06C;"
                                Style="{StaticResource LearningWorkflowCaptionStyle}"
                                Margin="0,3,0,2" />
-                    <ItemsControl x:Name="YoloCurrentTrainingProgressItemsControl"
+            <ItemsControl x:Name="YoloCurrentTrainingProgressItemsControl"
                                   AutomationProperties.AutomationId="YoloCurrentTrainingProgressItemsControl"
                                   ItemsSource="{Binding YoloTrainingWorkflowSteps}"
                                   ItemTemplate="{StaticResource YoloTrainingProgressChipTemplate}"
+                                  MaxHeight="160"
+                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                   Margin="0,0,0,3">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal" />
+                                <StackPanel Orientation="Vertical" />
                             </ItemsPanelTemplate>
                         </ItemsControl.ItemsPanel>
                     </ItemsControl>
@@ -1294,13 +1302,15 @@
                                            TextWrapping="NoWrap"
                                            TextTrimming="CharacterEllipsis" />
                             </StackPanel>
-                            <ItemsControl x:Name="DatasetDashboardMetricItemsControl"
-                                          AutomationProperties.AutomationId="DatasetDashboardMetricItemsControl"
-                                          ItemsSource="{Binding DatasetDashboardMetrics}"
-                                          ItemTemplate="{StaticResource DatasetDashboardMetricTemplate}">
+            <ItemsControl x:Name="DatasetDashboardMetricItemsControl"
+                                           AutomationProperties.AutomationId="DatasetDashboardMetricItemsControl"
+                                           ItemsSource="{Binding DatasetDashboardMetrics}"
+                                           ItemTemplate="{StaticResource DatasetDashboardMetricTemplate}"
+                                           MaxHeight="150"
+                                           ScrollViewer.VerticalScrollBarVisibility="Auto">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
-                                        <WrapPanel Orientation="Horizontal" />
+                                        <StackPanel Orientation="Vertical" />
                                     </ItemsPanelTemplate>
                                 </ItemsControl.ItemsPanel>
                             </ItemsControl>
@@ -1683,7 +1693,15 @@
                                                   AutomationProperties.AutomationId="TemplateWorkflowItemsControl"
                                                   ItemsSource="{Binding TemplateWorkflowSteps}"
                                                   ItemTemplate="{StaticResource TemplateWorkflowStepTemplate}"
-                                                  Margin="0,7,0,0" />
+                                                  MaxHeight="140"
+                                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                  Margin="0,7,0,0">
+                                        <ItemsControl.ItemsPanel>
+                                            <ItemsPanelTemplate>
+                                                <StackPanel />
+                                            </ItemsPanelTemplate>
+                                        </ItemsControl.ItemsPanel>
+                                    </ItemsControl>
                                     <WrapPanel Margin="0,1,0,0">
                                         <Button x:Name="TemplateCurrentImageGuideButton"
                                                 AutomationProperties.AutomationId="TemplateCurrentImageGuideButton"
@@ -1854,217 +1872,223 @@
                       Background="Transparent"
                       BorderBrush="{DynamicResource BorderBrushDark}">
                 <StackPanel Margin="0,6,0,0">
-            <Border x:Name="YoloTrainingWorkflowPanel"
-                    Background="{DynamicResource CanvasBrush}"
-                    BorderBrush="{DynamicResource BorderBrushDark}"
-                    BorderThickness="1"
-                    CornerRadius="5"
-                    Padding="9"
-                    Margin="0,0,0,10">
-                <StackPanel>
-                    <TextBlock Text="YOLO &#xD559;&#xC2B5; &#xC21C;&#xC11C;"
-                               Style="{StaticResource LearningWorkflowCaptionStyle}" />
-                    <TextBlock x:Name="YoloTrainingWorkflowSummaryText"
-                               Text="{Binding TrainingWorkflowSummaryText}"
-                               Foreground="{DynamicResource PrimaryTextBrush}"
-                               FontFamily="Segoe UI"
-                               FontSize="11"
-                               TextWrapping="Wrap" />
-                    <Border Background="{DynamicResource PanelBrush}"
+                    <Border x:Name="YoloTrainingWorkflowPanel"
+                            Background="{DynamicResource CanvasBrush}"
                             BorderBrush="{DynamicResource BorderBrushDark}"
                             BorderThickness="1"
-                            CornerRadius="4"
-                            Padding="7"
-                            Margin="0,7,0,0">
+                            CornerRadius="5"
+                            Padding="9"
+                            Margin="0,0,0,10">
                         <StackPanel>
-                            <TextBlock x:Name="YoloTrainingChecklistStatusText"
-                                       Text="{Binding TrainingChecklistStatusText}"
+                            <TextBlock Text="YOLO &#xD559;&#xC2B5; &#xC21C;&#xC11C;"
+                                       Style="{StaticResource LearningWorkflowCaptionStyle}" />
+                            <TextBlock x:Name="YoloTrainingWorkflowSummaryText"
+                                       Text="{Binding TrainingWorkflowSummaryText}"
                                        Foreground="{DynamicResource PrimaryTextBrush}"
                                        FontFamily="Segoe UI"
                                        FontSize="11"
-                                       FontWeight="SemiBold"
                                        TextWrapping="Wrap" />
-                            <TextBlock x:Name="YoloTrainingChecklistDetailText"
-                                       Text="{Binding TrainingChecklistDetailText}"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10"
-                                       Margin="0,3,0,0"
-                                       TextWrapping="Wrap" />
-                            <TextBlock x:Name="YoloTrainingChecklistActionText"
-                                       Text="{Binding TrainingChecklistActionText}"
-                                       Foreground="{DynamicResource PrimaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10"
-                                       Margin="0,4,0,0"
-                                       TextWrapping="Wrap" />
-                            <TextBlock x:Name="YoloTrainingHistoryText"
-                                       Text="{Binding TrainingHistoryText}"
-                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10"
-                                       Margin="0,4,0,0"
-                                       TextWrapping="Wrap" />
-                            <Border x:Name="YoloTrainingResultComparisonPanel"
-                                    Background="{DynamicResource ToolbarButtonBrush}"
-                                    BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                            <Border Background="{DynamicResource PanelBrush}"
+                                    BorderBrush="{DynamicResource BorderBrushDark}"
                                     BorderThickness="1"
                                     CornerRadius="4"
-                                    Padding="6"
-                                    Margin="0,5,0,0">
+                                    Padding="7"
+                                    Margin="0,7,0,0">
                                 <StackPanel>
-                                    <TextBlock x:Name="YoloTrainingResultComparisonTitleText"
-                                               Text="&#xD559;&#xC2B5; &#xACB0;&#xACFC; &#xBE44;&#xAD50;"
+                                    <TextBlock x:Name="YoloTrainingChecklistStatusText"
+                                               Text="{Binding TrainingChecklistStatusText}"
                                                Foreground="{DynamicResource PrimaryTextBrush}"
                                                FontFamily="Segoe UI"
-                                               FontSize="10"
-                                               FontWeight="SemiBold" />
-                                    <TextBlock x:Name="YoloTrainingModelAdoptionDecisionText"
-                                               AutomationProperties.AutomationId="YoloTrainingModelAdoptionDecisionText"
-                                               Text="{Binding TrainingModelAdoptionDecisionText}"
-                                               Foreground="{DynamicResource PrimaryTextBrush}"
-                                               FontFamily="Segoe UI"
-                                               FontSize="10"
+                                               FontSize="11"
                                                FontWeight="SemiBold"
-                                               Margin="0,3,0,0"
                                                TextWrapping="Wrap" />
-                                    <TextBlock x:Name="YoloTrainingResultComparisonText"
-                                               Text="{Binding TrainingResultComparisonText}"
+                                    <TextBlock x:Name="YoloTrainingChecklistDetailText"
+                                               Text="{Binding TrainingChecklistDetailText}"
                                                Foreground="{DynamicResource SecondaryTextBrush}"
                                                FontFamily="Segoe UI"
                                                FontSize="10"
                                                Margin="0,3,0,0"
                                                TextWrapping="Wrap" />
-                                    <ItemsControl x:Name="YoloTrainingResultReportItemsControl"
-                                                  AutomationProperties.AutomationId="YoloTrainingResultReportItemsControl"
-                                                  ItemsSource="{Binding TrainingResultReportItems}"
-                                                  Margin="0,5,0,0">
+                                    <TextBlock x:Name="YoloTrainingChecklistActionText"
+                                               Text="{Binding TrainingChecklistActionText}"
+                                               Foreground="{DynamicResource PrimaryTextBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="10"
+                                               Margin="0,4,0,0"
+                                               TextWrapping="Wrap" />
+                                    <TextBlock x:Name="YoloTrainingHistoryText"
+                                               Text="{Binding TrainingHistoryText}"
+                                               Foreground="{DynamicResource SecondaryTextBrush}"
+                                               FontFamily="Segoe UI"
+                                               FontSize="10"
+                                               Margin="0,4,0,0"
+                                               TextWrapping="Wrap" />
+                                    <Border x:Name="YoloTrainingResultComparisonPanel"
+                                            Background="{DynamicResource ToolbarButtonBrush}"
+                                            BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                                            BorderThickness="1"
+                                            CornerRadius="4"
+                                            Padding="6"
+                                            Margin="0,5,0,0">
+                                        <StackPanel>
+                                            <TextBlock x:Name="YoloTrainingResultComparisonTitleText"
+                                                       Text="&#xD559;&#xC2B5; &#xACB0;&#xACFC; &#xBE44;&#xAD50;"
+                                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                                       FontFamily="Segoe UI"
+                                                       FontSize="10"
+                                                       FontWeight="SemiBold" />
+                                            <TextBlock x:Name="YoloTrainingModelAdoptionDecisionText"
+                                                       AutomationProperties.AutomationId="YoloTrainingModelAdoptionDecisionText"
+                                                       Text="{Binding TrainingModelAdoptionDecisionText}"
+                                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                                       FontFamily="Segoe UI"
+                                                       FontSize="10"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,3,0,0"
+                                                       TextWrapping="Wrap" />
+                                            <TextBlock x:Name="YoloTrainingResultComparisonText"
+                                                       Text="{Binding TrainingResultComparisonText}"
+                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                       FontFamily="Segoe UI"
+                                                       FontSize="10"
+                                                       Margin="0,3,0,0"
+                                                       TextWrapping="Wrap" />
+                                            <ItemsControl x:Name="YoloTrainingResultReportItemsControl"
+                                                         AutomationProperties.AutomationId="YoloTrainingResultReportItemsControl"
+                                                         ItemsSource="{Binding TrainingResultReportItems}"
+                                                         MaxHeight="110"
+                                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                         Margin="0,5,0,0">
+                                                <ItemsControl.ItemTemplate>
+                                                    <DataTemplate>
+                                                        <Grid Margin="0,0,0,4">
+                                                            <Grid.ColumnDefinitions>
+                                                                <ColumnDefinition Width="18" />
+                                                                <ColumnDefinition Width="42" />
+                                                                <ColumnDefinition Width="*" />
+                                                            </Grid.ColumnDefinitions>
+                                                            <iconPacks:PackIconMaterial Kind="{Binding IconKind}"
+                                                                                        Width="13"
+                                                                                        Height="13"
+                                                                                        Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                                        Margin="0,2,4,0"
+                                                                                        VerticalAlignment="Top" />
+                                                            <TextBlock Grid.Column="1"
+                                                                       Text="{Binding Title}"
+                                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                       FontFamily="Segoe UI"
+                                                                       FontSize="9"
+                                                                       FontWeight="SemiBold"
+                                                                       TextTrimming="CharacterEllipsis" />
+                                                            <StackPanel Grid.Column="2">
+                                                                <TextBlock Text="{Binding Value}"
+                                                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                           FontFamily="Segoe UI"
+                                                                           FontSize="9"
+                                                                           FontWeight="SemiBold"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                                <TextBlock Text="{Binding Detail}"
+                                                                           Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                           FontFamily="Segoe UI"
+                                                                           FontSize="8"
+                                                                           TextWrapping="NoWrap"
+                                                                           TextTrimming="CharacterEllipsis" />
+                                                            </StackPanel>
+                                                        </Grid>
+                                                    </DataTemplate>
+                                                </ItemsControl.ItemTemplate>
+                                            </ItemsControl>
+                                            <TextBlock x:Name="YoloModelComparisonBasisText"
+                                                       AutomationProperties.AutomationId="YoloModelComparisonBasisText"
+                                                       Text="{Binding ModelComparisonBasisText}"
+                                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                                       FontFamily="Segoe UI"
+                                                       FontSize="9"
+                                                       FontWeight="SemiBold"
+                                                       Margin="0,2,0,0"
+                                                       TextWrapping="Wrap" />
+                                            <WrapPanel Margin="0,3,0,0">
+                                                <Button x:Name="YoloRunModelComparisonButton"
+                                                        AutomationProperties.AutomationId="YoloRunModelComparisonButton"
+                                                        Style="{StaticResource LearningWorkflowMiniButtonStyle}"
+                                                        ToolTip="{Binding RunModelComparisonToolTipText}"
+                                                        IsEnabled="{Binding IsRunModelComparisonEnabled}"
+                                                        Command="{Binding RunModelComparisonCommand}">
+                                                    <StackPanel Orientation="Horizontal">
+                                                        <iconPacks:PackIconMaterial Kind="SwapHorizontal" Width="12" Height="12" Margin="0,0,4,0" />
+                                                        <TextBlock Text="{Binding RunModelComparisonActionText}" FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </WrapPanel>
+                                        </StackPanel>
+                                    </Border>
+                                    <ItemsControl x:Name="YoloTrainingRunHistoryItemsControl"
+                                                   ItemsSource="{Binding TrainingRunHistoryItems}"
+                                                   MaxHeight="110"
+                                                   ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                                   Margin="0,4,0,0">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
-                                                <Grid Margin="0,0,0,4">
-                                                    <Grid.ColumnDefinitions>
-                                                        <ColumnDefinition Width="18" />
-                                                        <ColumnDefinition Width="42" />
-                                                        <ColumnDefinition Width="*" />
-                                                    </Grid.ColumnDefinitions>
-                                                    <iconPacks:PackIconMaterial Kind="{Binding IconKind}"
-                                                                                Width="13"
-                                                                                Height="13"
-                                                                                Foreground="{DynamicResource SecondaryTextBrush}"
-                                                                                Margin="0,2,4,0"
-                                                                                VerticalAlignment="Top" />
-                                                    <TextBlock Grid.Column="1"
-                                                               Text="{Binding Title}"
+                                                <Border Background="{DynamicResource ToolbarButtonBrush}"
+                                                        BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                                                        BorderThickness="1"
+                                                        CornerRadius="3"
+                                                        Padding="5,3"
+                                                        Margin="0,0,0,3">
+                                                    <TextBlock Text="{Binding}"
                                                                Foreground="{DynamicResource SecondaryTextBrush}"
                                                                FontFamily="Segoe UI"
-                                                               FontSize="9"
-                                                               FontWeight="SemiBold"
+                                                               FontSize="10"
                                                                TextTrimming="CharacterEllipsis" />
-                                                    <StackPanel Grid.Column="2">
-                                                        <TextBlock Text="{Binding Value}"
-                                                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                                                   FontFamily="Segoe UI"
-                                                                   FontSize="9"
-                                                                   FontWeight="SemiBold"
-                                                                   TextTrimming="CharacterEllipsis" />
-                                                        <TextBlock Text="{Binding Detail}"
-                                                                   Foreground="{DynamicResource SecondaryTextBrush}"
-                                                                   FontFamily="Segoe UI"
-                                                                   FontSize="8"
-                                                                   TextWrapping="NoWrap"
-                                                                   TextTrimming="CharacterEllipsis" />
-                                                    </StackPanel>
-                                                </Grid>
+                                                </Border>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>
                                     </ItemsControl>
-                                    <TextBlock x:Name="YoloModelComparisonBasisText"
-                                               AutomationProperties.AutomationId="YoloModelComparisonBasisText"
-                                               Text="{Binding ModelComparisonBasisText}"
-                                               Foreground="{DynamicResource SecondaryTextBrush}"
-                                               FontFamily="Segoe UI"
-                                               FontSize="9"
-                                               FontWeight="SemiBold"
-                                               Margin="0,2,0,0"
-                                               TextWrapping="Wrap" />
-                                    <WrapPanel Margin="0,3,0,0">
-                                        <Button x:Name="YoloRunModelComparisonButton"
-                                                AutomationProperties.AutomationId="YoloRunModelComparisonButton"
+                                    <WrapPanel Margin="0,2,0,0">
+                                        <Button x:Name="YoloFixClassesButton"
                                                 Style="{StaticResource LearningWorkflowMiniButtonStyle}"
-                                                ToolTip="{Binding RunModelComparisonToolTipText}"
-                                                IsEnabled="{Binding IsRunModelComparisonEnabled}"
-                                                Command="{Binding RunModelComparisonCommand}">
+                                                ToolTip="&#xD074;&#xB798;&#xC2A4; &#xD0ED;&#xC73C;&#xB85C; &#xC774;&#xB3D9;"
+                                                IsEnabled="{Binding IsYoloFixClassesEnabled}"
+                                                Command="{Binding YoloFixClassesCommand}">
                                             <StackPanel Orientation="Horizontal">
-                                                <iconPacks:PackIconMaterial Kind="SwapHorizontal" Width="12" Height="12" Margin="0,0,4,0" />
-                                                <TextBlock Text="{Binding RunModelComparisonActionText}" FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold" />
+                                                <iconPacks:PackIconMaterial Kind="TagMultipleOutline" Width="12" Height="12" Margin="0,0,4,0" />
+                                                <TextBlock Text="&#xD074;&#xB798;&#xC2A4; &#xB4F1;&#xB85D;" FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button x:Name="YoloFixLabelsButton"
+                                                Style="{StaticResource LearningWorkflowMiniButtonStyle}"
+                                                ToolTip="&#xB77C;&#xBCA8;&#xB9C1; &#xBAA8;&#xB4DC;&#xC640; &#xBC15;&#xC2A4; &#xB3C4;&#xAD6C;&#xB85C; &#xC774;&#xB3D9;"
+                                                IsEnabled="{Binding IsYoloFixLabelsEnabled}"
+                                                Command="{Binding YoloFixLabelsCommand}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconMaterial Kind="ShapeSquareRoundedPlus" Width="12" Height="12" Margin="0,0,4,0" />
+                                                <TextBlock Text="&#xB77C;&#xBCA8;&#xB9C1; &#xC2DC;&#xC791;" FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold" />
+                                            </StackPanel>
+                                        </Button>
+                                        <Button x:Name="YoloFixDatasetButton"
+                                                Style="{StaticResource LearningWorkflowMiniButtonStyle}"
+                                                ToolTip="YOLO &#xB370;&#xC774;&#xD130;&#xC14B; &#xC810;&#xAC80;&#xC73C;&#xB85C; &#xC774;&#xB3D9;"
+                                                IsEnabled="{Binding IsYoloFixDatasetEnabled}"
+                                                Command="{Binding YoloFixDatasetCommand}">
+                                            <StackPanel Orientation="Horizontal">
+                                                <iconPacks:PackIconMaterial Kind="CheckAll" Width="12" Height="12" Margin="0,0,4,0" />
+                                                <TextBlock Text="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC810;&#xAC80;" FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold" />
                                             </StackPanel>
                                         </Button>
                                     </WrapPanel>
                                 </StackPanel>
                             </Border>
-                            <ItemsControl x:Name="YoloTrainingRunHistoryItemsControl"
-                                          ItemsSource="{Binding TrainingRunHistoryItems}"
-                                          Margin="0,4,0,0">
-                                <ItemsControl.ItemTemplate>
-                                    <DataTemplate>
-                                        <Border Background="{DynamicResource ToolbarButtonBrush}"
-                                                BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
-                                                BorderThickness="1"
-                                                CornerRadius="3"
-                                                Padding="5,3"
-                                                Margin="0,0,0,3">
-                                            <TextBlock Text="{Binding}"
-                                                       Foreground="{DynamicResource SecondaryTextBrush}"
-                                                       FontFamily="Segoe UI"
-                                                       FontSize="10"
-                                                       TextTrimming="CharacterEllipsis" />
-                                        </Border>
-                                    </DataTemplate>
-                                </ItemsControl.ItemTemplate>
+                            <ItemsControl x:Name="YoloTrainingWorkflowItemsControl"
+                                            ItemsSource="{Binding YoloTrainingWorkflowSteps}"
+                                            ItemTemplate="{StaticResource YoloTrainingWorkflowStepTemplate}"
+                                            MaxHeight="180"
+                                            ScrollViewer.VerticalScrollBarVisibility="Auto"
+                                            Margin="0,8,0,0">
                             </ItemsControl>
-                            <WrapPanel Margin="0,2,0,0">
-                                <Button x:Name="YoloFixClassesButton"
-                                        Style="{StaticResource LearningWorkflowMiniButtonStyle}"
-                                        ToolTip="&#xD074;&#xB798;&#xC2A4; &#xD0ED;&#xC73C;&#xB85C; &#xC774;&#xB3D9;"
-                                        IsEnabled="{Binding IsYoloFixClassesEnabled}"
-                                        Command="{Binding YoloFixClassesCommand}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconMaterial Kind="TagMultipleOutline" Width="12" Height="12" Margin="0,0,4,0" />
-                                        <TextBlock Text="&#xD074;&#xB798;&#xC2A4; &#xB4F1;&#xB85D;" FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold" />
-                                    </StackPanel>
-                                </Button>
-                                <Button x:Name="YoloFixLabelsButton"
-                                        Style="{StaticResource LearningWorkflowMiniButtonStyle}"
-                                        ToolTip="&#xB77C;&#xBCA8;&#xB9C1; &#xBAA8;&#xB4DC;&#xC640; &#xBC15;&#xC2A4; &#xB3C4;&#xAD6C;&#xB85C; &#xC774;&#xB3D9;"
-                                        IsEnabled="{Binding IsYoloFixLabelsEnabled}"
-                                        Command="{Binding YoloFixLabelsCommand}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconMaterial Kind="ShapeSquareRoundedPlus" Width="12" Height="12" Margin="0,0,4,0" />
-                                        <TextBlock Text="&#xB77C;&#xBCA8;&#xB9C1; &#xC2DC;&#xC791;" FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold" />
-                                    </StackPanel>
-                                </Button>
-                                <Button x:Name="YoloFixDatasetButton"
-                                        Style="{StaticResource LearningWorkflowMiniButtonStyle}"
-                                        ToolTip="YOLO &#xB370;&#xC774;&#xD130;&#xC14B; &#xC810;&#xAC80;&#xC73C;&#xB85C; &#xC774;&#xB3D9;"
-                                        IsEnabled="{Binding IsYoloFixDatasetEnabled}"
-                                        Command="{Binding YoloFixDatasetCommand}">
-                                    <StackPanel Orientation="Horizontal">
-                                        <iconPacks:PackIconMaterial Kind="CheckAll" Width="12" Height="12" Margin="0,0,4,0" />
-                                        <TextBlock Text="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC810;&#xAC80;" FontFamily="Segoe UI" FontSize="10" FontWeight="SemiBold" />
-                                    </StackPanel>
-                                </Button>
-                            </WrapPanel>
                         </StackPanel>
                     </Border>
-                     <ItemsControl x:Name="YoloTrainingWorkflowItemsControl"
-                                   ItemsSource="{Binding YoloTrainingWorkflowSteps}"
-                                   ItemTemplate="{StaticResource YoloTrainingWorkflowStepTemplate}"
-                                   Margin="0,8,0,0" />
-                    </StackPanel>
-                </Border>
-
-                    </StackPanel>
-                </Expander>
+                </StackPanel>
+            </Expander>
                         </TabItem>
                         <TabItem Header="&#xC2EC;&#xD654; &#xAC1C;&#xB150;">
             <Expander x:Name="LearningConceptsExpander"
@@ -2080,17 +2104,19 @@
                                Style="{StaticResource LearningWorkflowCaptionStyle}" />
                     <ListBox x:Name="LearningModeListBox"
                              Style="{StaticResource LearningWorkflowListBoxStyle}"
-                             ItemContainerStyle="{StaticResource LearningWorkflowItemStyle}"
-                             ItemTemplate="{StaticResource LearningWorkflowItemTemplate}"
-                             ItemsSource="{Binding LearningModes}"
-                             SelectedItem="{Binding SelectedMode, Mode=TwoWay}"
-                             mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding LearningModeSelectionChangedCommand}">
-                        <ListBox.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <WrapPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ListBox.ItemsPanel>
-                    </ListBox>
+                      ItemContainerStyle="{StaticResource LearningWorkflowItemStyle}"
+                      ItemTemplate="{StaticResource LearningWorkflowItemTemplate}"
+                      ItemsSource="{Binding LearningModes}"
+                      SelectedItem="{Binding SelectedMode, Mode=TwoWay}"
+                              mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding LearningModeSelectionChangedCommand}"
+                              MaxHeight="150"
+                              ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Vertical" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+            </ListBox>
 
 
                     <StackPanel Orientation="Horizontal"
