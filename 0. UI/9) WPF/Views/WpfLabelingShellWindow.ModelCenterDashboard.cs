@@ -41,6 +41,12 @@ namespace MvcVisionSystem
             bool canReviewCandidate = CanReviewModelCandidate(comparison, configuredWeightsPath, hasPendingModelSelection);
             string confirmModelButtonText = BuildModelCenterConfirmModelButtonText(comparison, configuredWeightsPath, hasPendingModelSelection);
             string confirmModelButtonToolTip = BuildModelCenterConfirmModelButtonToolTip(comparison, configuredWeightsPath, hasPendingModelSelection);
+            bool isModelPromotionHeld = CandidateReviewViewModel?.IsModelPromotionHeld == true;
+            bool canConfirmModel = hasPendingModelSelection && !isModelPromotionHeld;
+            if (isModelPromotionHeld)
+            {
+                confirmModelButtonToolTip = WpfModelCandidateDecisionPresentationService.BuildHeldCandidateSaveBlockedStatus();
+            }
             string runtimeActionText = WpfModelRegistryPresentationService.BuildSelectedRuntimeSummaryText(settings);
             ShellViewModel?.SetModelCenterModelState(
                 currentModelText,
@@ -49,7 +55,7 @@ namespace MvcVisionSystem
                 nextActionText,
                 confirmModelButtonText,
                 confirmModelButtonToolTip,
-                hasPendingModelSelection,
+                canConfirmModel,
                 BuildModelCenterDecisionSummaryText(comparison, configuredWeightsPath, hasPendingModelSelection),
                 BuildModelCenterDecisionEvidenceText(comparison, configuredWeightsPath, hasPendingModelSelection),
                 BuildModelCenterDecisionActionText(comparison, configuredWeightsPath, hasPendingModelSelection),
@@ -69,7 +75,7 @@ namespace MvcVisionSystem
                 canReviewCandidate,
                 confirmModelButtonText,
                 confirmModelButtonToolTip,
-                hasPendingModelSelection);
+                canConfirmModel);
             ShellViewModel?.SetModelCenterCandidateReviewState(
                 reviewCandidateButtonText,
                 reviewCandidateButtonToolTip,

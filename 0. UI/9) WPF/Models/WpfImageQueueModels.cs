@@ -43,6 +43,7 @@ namespace MvcVisionSystem
         private bool isLabeled;
         private bool isSaveRequired;
         private YoloImageReviewState reviewState;
+        private YoloImageQualityReviewState qualityReviewState;
         private ImageSource thumbnailSource;
         private bool thumbnailLoadAttempted;
 
@@ -154,6 +155,12 @@ namespace MvcVisionSystem
             set => SetField(ref reviewState, value);
         }
 
+        public YoloImageQualityReviewState QualityReviewState
+        {
+            get => qualityReviewState;
+            set => SetField(ref qualityReviewState, value);
+        }
+
         public static WpfImageQueueItem CreateShell(string imagePath)
         {
             FileInfo fileInfo = new FileInfo(imagePath);
@@ -239,7 +246,8 @@ namespace MvcVisionSystem
                 || string.Equals(propertyName, nameof(DetectStatus), StringComparison.Ordinal)
                 || string.Equals(propertyName, nameof(Dimensions), StringComparison.Ordinal)
                 || string.Equals(propertyName, nameof(Detail), StringComparison.Ordinal)
-                || string.Equals(propertyName, nameof(QueueStatusSummary), StringComparison.Ordinal);
+                || string.Equals(propertyName, nameof(QueueStatusSummary), StringComparison.Ordinal)
+                || string.Equals(propertyName, nameof(QualityReviewState), StringComparison.Ordinal);
         }
 
         private static string FormatFileSize(long bytes)
@@ -321,6 +329,7 @@ namespace MvcVisionSystem
             return filter switch
             {
                 WpfImageQueueFilter.Unlabeled => "작업 필요",
+                WpfImageQueueFilter.NeedsFix => "수정 필요",
                 WpfImageQueueFilter.Requested => "검사중",
                 WpfImageQueueFilter.Candidate => "AI 후보",
                 WpfImageQueueFilter.Confirmed => "저장됨",
@@ -336,6 +345,7 @@ namespace MvcVisionSystem
     {
         All,
         Unlabeled,
+        NeedsFix,
         Requested,
         Candidate,
         Confirmed,

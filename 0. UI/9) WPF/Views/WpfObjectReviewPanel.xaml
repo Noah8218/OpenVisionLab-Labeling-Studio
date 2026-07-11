@@ -22,6 +22,22 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
             </Style.Triggers>
         </Style>
 
+        <Style x:Key="ObjectReviewQualityButtonStyle"
+               TargetType="{x:Type ui:Button}"
+               BasedOn="{StaticResource ObjectReviewButtonStyle}">
+            <Setter Property="Height" Value="25" />
+            <Setter Property="Padding" Value="5,0" />
+            <Setter Property="Margin" Value="2,0" />
+            <Setter Property="FontSize" Value="10.5" />
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding RelativeSource={RelativeSource Self}, Path=Tag}" Value="True">
+                    <Setter Property="Background" Value="{DynamicResource SelectedRowBrush}" />
+                    <Setter Property="BorderBrush" Value="{DynamicResource AccentBrush}" />
+                    <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
+
         <Style x:Key="ObjectReviewComboBoxStyle" TargetType="ComboBox">
             <Setter Property="Height" Value="24" />
             <Setter Property="Background" Value="{DynamicResource InputBrush}" />
@@ -265,6 +281,121 @@ xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
                                FontSize="10"
                                Margin="6,1,0,0"
                                TextWrapping="Wrap" />
+                </Grid>
+                <Border Height="1"
+                        Background="{DynamicResource BorderBrushDark}"
+                        Margin="0,7,0,6" />
+                <Grid x:Name="ObjectQualityReviewPanel"
+                      AutomationProperties.AutomationId="ObjectQualityReviewPanel">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="&#xD488;&#xC9C8; &#xAC80;&#xC218;"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="11"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                        <TextBlock x:Name="ObjectQualityReviewStatusText"
+                                   Grid.Column="1"
+                                   AutomationProperties.AutomationId="ObjectQualityReviewStatusText"
+                                   Text="{Binding QualityReviewStatusText}"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   FontWeight="SemiBold"
+                                   VerticalAlignment="Center" />
+                    </Grid>
+                    <UniformGrid Grid.Row="1" Columns="3" Margin="-2,5,-2,0">
+                        <ui:Button x:Name="MarkQualityUnreviewedButton"
+                                   AutomationProperties.AutomationId="MarkQualityUnreviewedButton"
+                                   AutomationProperties.Name="&#xBBF8;&#xAC80;&#xD1A0;"
+                                   Style="{StaticResource ObjectReviewQualityButtonStyle}"
+                                   Content="&#xBBF8;&#xAC80;&#xD1A0;"
+                                   Tag="{Binding IsQualityUnreviewedActive}"
+                                   IsEnabled="{Binding IsQualityReviewEnabled}"
+                                   Command="{Binding MarkQualityUnreviewedCommand}" />
+                        <ui:Button x:Name="MarkQualityNeedsFixButton"
+                                   AutomationProperties.AutomationId="MarkQualityNeedsFixButton"
+                                   AutomationProperties.Name="&#xC218;&#xC815; &#xD544;&#xC694;"
+                                   Style="{StaticResource ObjectReviewQualityButtonStyle}"
+                                   Content="&#xC218;&#xC815; &#xD544;&#xC694;"
+                                   Tag="{Binding IsQualityNeedsFixActive}"
+                                   IsEnabled="{Binding IsQualityReviewEnabled}"
+                                   Command="{Binding MarkQualityNeedsFixCommand}" />
+                        <ui:Button x:Name="MarkQualityReviewedButton"
+                                   AutomationProperties.AutomationId="MarkQualityReviewedButton"
+                                   AutomationProperties.Name="&#xAC80;&#xC218; &#xC644;&#xB8CC;"
+                                   Style="{StaticResource ObjectReviewQualityButtonStyle}"
+                                   Content="&#xAC80;&#xC218; &#xC644;&#xB8CC;"
+                                   Tag="{Binding IsQualityReviewedActive}"
+                                   IsEnabled="{Binding IsMarkQualityReviewedEnabled}"
+                                   Command="{Binding MarkQualityReviewedCommand}" />
+                    </UniformGrid>
+                    <Grid Grid.Row="2" Margin="0,5,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="54" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock Text="&#xC218;&#xC815; &#xC0AC;&#xC720;"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   VerticalAlignment="Center" />
+                        <TextBox x:Name="QualityReviewNoteTextBox"
+                                 Grid.Column="1"
+                                 AutomationProperties.AutomationId="QualityReviewNoteTextBox"
+                                 AutomationProperties.Name="&#xC218;&#xC815; &#xC0AC;&#xC720;"
+                                 Text="{Binding QualityReviewNoteText, UpdateSourceTrigger=PropertyChanged}"
+                                 IsEnabled="{Binding IsQualityReviewEnabled}"
+                                 MaxLength="200"
+                                 Height="24"
+                                 Padding="5,0"
+                                 VerticalContentAlignment="Center"
+                                 Background="{DynamicResource InputBrush}"
+                                 Foreground="{DynamicResource PrimaryTextBrush}"
+                                 BorderBrush="{DynamicResource InputBorderBrush}"
+                                 BorderThickness="1"
+                                 FontFamily="Segoe UI"
+                                 FontSize="10.5"
+                                 ToolTip="&#xC0AC;&#xC720;&#xB97C; &#xC785;&#xB825;&#xD558;&#xACE0; &#xC218;&#xC815; &#xD544;&#xC694;&#xB97C; &#xB204;&#xB974;&#xBA74; &#xD568;&#xAED8; &#xC800;&#xC7A5;&#xB429;&#xB2C8;&#xB2E4;." />
+                    </Grid>
+                    <Grid Grid.Row="3" Margin="0,4,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBlock x:Name="ObjectQualityReviewDetailText"
+                                   AutomationProperties.AutomationId="ObjectQualityReviewDetailText"
+                                   Text="{Binding QualityReviewDetailText}"
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="9.5"
+                                   TextWrapping="Wrap"
+                                   MaxHeight="28"
+                                   VerticalAlignment="Center" />
+                        <ui:Button x:Name="ExportQualityReviewReportButton"
+                                   Grid.Column="1"
+                                   AutomationProperties.AutomationId="ExportQualityReviewReportButton"
+                                   AutomationProperties.Name="QA &#xBCF4;&#xACE0;&#xC11C;"
+                                   Style="{StaticResource ObjectReviewButtonStyle}"
+                                   Content="QA &#xBCF4;&#xACE0;&#xC11C;"
+                                   Command="{Binding ExportQualityReviewReportCommand}"
+                                   IsEnabled="{Binding IsQualityReviewEnabled}"
+                                   Height="25"
+                                   Padding="6,0"
+                                   Margin="6,0,0,0"
+                                   FontSize="10"
+                                   ToolTip="&#xC800;&#xC7A5; &#xD3F4;&#xB354;&#xC5D0; label-quality-review.md&#xB85C; &#xC800;&#xC7A5;&#xD569;&#xB2C8;&#xB2E4;." />
+                    </Grid>
                 </Grid>
                 <TextBlock x:Name="ObjectReviewSelectedTaskTitleText"
                            AutomationProperties.AutomationId="ObjectReviewSelectedTaskTitleText"

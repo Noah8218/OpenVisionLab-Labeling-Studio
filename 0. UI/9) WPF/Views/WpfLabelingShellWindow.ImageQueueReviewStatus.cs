@@ -255,6 +255,145 @@ namespace MvcVisionSystem
             UpdateImageQueueStatusText();
         }
 
+        private void ExecuteMarkQualityUnreviewedCommand()
+        {
+            SetActiveImageQualityReviewState(YoloImageQualityReviewState.Unreviewed);
+        }
+
+        private void ExecuteMarkQualityNeedsFixCommand()
+        {
+            SetActiveImageQualityReviewState(YoloImageQualityReviewState.NeedsFix);
+        }
+
+        private void ExecuteMarkQualityReviewedCommand()
+        {
+            SetActiveImageQualityReviewState(YoloImageQualityReviewState.Reviewed);
+        }
+
+        private void ExecuteExportQualityReviewReportCommand()
+        {
+            if (!IsLabelQualityReviewPurpose())
+            {
+                SetModelStatus("QA 보고서는 Detection/Segmentation 데이터셋에서 내보낼 수 있습니다.");
+                return;
+            }
+
+            string outputPath = YoloImageQualityReviewReportExportService.ResolveDefaultOutputPath(global.Data);
+            if (string.IsNullOrWhiteSpace(outputPath))
+            {
+                SetModelStatus("QA 보고서 저장 실패: 데이터셋 저장 폴더를 먼저 지정하세요.");
+                return;
+            }
+
+            try
+            {
+                YoloImageQualityReviewReportExportResult result = YoloImageQualityReviewReportExportService.ExportMarkdown(
+                    imageReviewStatus.GetItems(),
+                    outputPath);
+                SetModelStatus($"QA 보고서 저장: {Path.GetFileName(result.OutputPath)} / 수정 필요 {result.NeedsFixCount}");
+                AppendLog($"QA 보고서 저장: {Path.GetFileName(result.OutputPath)} / 전체 {result.TotalImageCount} / 수정 필요 {result.NeedsFixCount} / 검수 완료 {result.ReviewedCount}");
+            }
+            catch (Exception exception)
+            {
+                SetModelStatus($"QA 보고서 저장 실패: {exception.Message}");
+                AppendLog($"QA 보고서 저장 실패: {exception.Message}");
+            }
+        }
+
+        private void SetActiveImageQualityReviewState(YoloImageQualityReviewState state)
+        {
+            if (!IsLabelQualityReviewPurpose() || string.IsNullOrWhiteSpace(activeImagePath))
+            {
+                AppendLog("품질 검수 상태를 변경할 Detection/Segmentation 이미지를 먼저 여세요.");
+                return;
+            }
+
+            WpfImageQueueItem item = FindImageQueueItem(activeImagePath);
+            if (state == YoloImageQualityReviewState.Reviewed
+                && (item == null
+                    || item.IsSaveRequired
+                    || !string.IsNullOrWhiteSpace(annotationDirtyReason)
+                    || !WpfImageQueueFilterService.HasCompletedLabelWork(item)))
+            {
+                SetModelStatus("검수 완료 불가: 라벨 저장 또는 객체 없음 완료 후 다시 선택하세요.");
+                RefreshActiveImageQualityReviewPresentation(item, imageReviewStatus.GetOrCreate(activeImagePath));
+                return;
+            }
+
+            string imageName = Path.GetFileNameWithoutExtension(activeImagePath);
+            YoloImageReviewStatus status = state switch
+            {
+                YoloImageQualityReviewState.NeedsFix => imageReviewStatus.MarkQualityNeedsFix(
+                    activeImagePath,
+                    imageName,
+                    ObjectReviewViewModel?.QualityReviewNoteText),
+                YoloImageQualityReviewState.Reviewed => imageReviewStatus.MarkQualityReviewed(activeImagePath, imageName),
+                _ => imageReviewStatus.ClearQualityReview(activeImagePath, imageName)
+            };
+            ApplyReviewStatusToItem(item, status);
+            imageReviewStatus.SaveReviewStatus(global.Data);
+            imageQueueView?.Refresh();
+            UpdateImageQueueStatusText();
+
+            string displayText = WpfImageQueuePresenter.FormatQualityReviewState(state);
+            SetModelStatus($"품질 검수: {displayText}");
+            AppendLog($"품질 검수 상태 변경: {Path.GetFileName(activeImagePath)} / {displayText}");
+        }
+
+        private void InvalidateActiveImageQualityReviewAfterEdit()
+        {
+            if (!IsLabelQualityReviewPurpose() || string.IsNullOrWhiteSpace(activeImagePath))
+            {
+                return;
+            }
+
+            YoloImageReviewStatus before = imageReviewStatus.GetOrCreate(activeImagePath);
+            if (before?.QualityReviewState != YoloImageQualityReviewState.Reviewed)
+            {
+                RefreshActiveImageQualityReviewPresentation(FindImageQueueItem(activeImagePath), before);
+                return;
+            }
+
+            YoloImageReviewStatus status = imageReviewStatus.InvalidateQualityReviewAfterEdit(
+                activeImagePath,
+                Path.GetFileNameWithoutExtension(activeImagePath));
+            ApplyReviewStatusToItem(FindImageQueueItem(activeImagePath), status);
+            imageReviewStatus.SaveReviewStatus(global.Data);
+        }
+
+        private void RefreshActiveImageQualityReviewPresentation()
+        {
+            WpfImageQueueItem item = FindImageQueueItem(activeImagePath);
+            RefreshActiveImageQualityReviewPresentation(item, imageReviewStatus.GetOrCreate(activeImagePath));
+        }
+
+        private void RefreshActiveImageQualityReviewPresentation(
+            WpfImageQueueItem item,
+            YoloImageReviewStatus status)
+        {
+            bool hasActiveImage = IsLabelQualityReviewPurpose()
+                && !string.IsNullOrWhiteSpace(activeImagePath)
+                && item != null
+                && string.Equals(item.ImagePath, activeImagePath, StringComparison.OrdinalIgnoreCase);
+            bool canMarkReviewed = hasActiveImage
+                && string.IsNullOrWhiteSpace(annotationDirtyReason)
+                && !item.IsSaveRequired
+                && WpfImageQueueFilterService.HasCompletedLabelWork(item);
+            ObjectReviewViewModel?.SetQualityReviewState(
+                status?.QualityReviewState ?? YoloImageQualityReviewState.Unreviewed,
+                hasActiveImage,
+                canMarkReviewed,
+                status?.QualityReviewNote);
+        }
+
+        private bool IsLabelQualityReviewPurpose()
+        {
+            EnsureProjectSettings();
+            LabelingDatasetPurpose purpose = global.Data.ProjectSettings.DatasetPurpose;
+            return purpose == LabelingDatasetPurpose.ObjectDetection
+                || purpose == LabelingDatasetPurpose.Segmentation;
+        }
+
         private bool IsAnomalyDatasetPurpose()
         {
             EnsureProjectSettings();

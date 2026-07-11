@@ -5,6 +5,7 @@ using System.Collections.Specialized;
 using System.ComponentModel;
 using System.Linq;
 using System.Windows.Input;
+using MvcVisionSystem.Yolo;
 using OpenVisionLab.Mvvm;
 
 namespace MvcVisionSystem
@@ -25,11 +26,23 @@ namespace MvcVisionSystem
         private string selectedClassName = string.Empty;
         private bool isDeleteEnabled;
         private bool isApplyClassEnabled;
+        private string qualityReviewStatusText = "이미지 없음";
+        private string qualityReviewDetailText = "이미지를 열면 품질 검수 상태를 표시합니다.";
+        private string qualityReviewNoteText = string.Empty;
+        private bool isQualityReviewEnabled;
+        private bool isMarkQualityReviewedEnabled;
+        private bool isQualityUnreviewedActive;
+        private bool isQualityNeedsFixActive;
+        private bool isQualityReviewedActive;
         private int selectionNotificationSuppressDepth;
         private ICommand deleteObjectCommand = new RelayCommand(NoOpCommand);
         private ICommand applyObjectClassCommand = new RelayCommand(NoOpCommand);
         private ICommand objectSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand objectPreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(NoOpKeyCommand);
+        private ICommand markQualityUnreviewedCommand = new RelayCommand(NoOpCommand);
+        private ICommand markQualityNeedsFixCommand = new RelayCommand(NoOpCommand);
+        private ICommand markQualityReviewedCommand = new RelayCommand(NoOpCommand);
+        private ICommand exportQualityReviewReportCommand = new RelayCommand(NoOpCommand);
 
         public string ViewName => nameof(WpfObjectReviewPanel);
 
@@ -69,6 +82,30 @@ namespace MvcVisionSystem
         {
             get => objectPreviewKeyDownCommand;
             private set => SetProperty(ref objectPreviewKeyDownCommand, value);
+        }
+
+        public ICommand MarkQualityUnreviewedCommand
+        {
+            get => markQualityUnreviewedCommand;
+            private set => SetProperty(ref markQualityUnreviewedCommand, value);
+        }
+
+        public ICommand MarkQualityNeedsFixCommand
+        {
+            get => markQualityNeedsFixCommand;
+            private set => SetProperty(ref markQualityNeedsFixCommand, value);
+        }
+
+        public ICommand MarkQualityReviewedCommand
+        {
+            get => markQualityReviewedCommand;
+            private set => SetProperty(ref markQualityReviewedCommand, value);
+        }
+
+        public ICommand ExportQualityReviewReportCommand
+        {
+            get => exportQualityReviewReportCommand;
+            private set => SetProperty(ref exportQualityReviewReportCommand, value);
         }
 
         public string SummaryText
@@ -155,17 +192,82 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isApplyClassEnabled, value);
         }
 
+        public string QualityReviewStatusText
+        {
+            get => qualityReviewStatusText;
+            private set => SetProperty(ref qualityReviewStatusText, value ?? string.Empty);
+        }
+
+        public string QualityReviewDetailText
+        {
+            get => qualityReviewDetailText;
+            private set => SetProperty(ref qualityReviewDetailText, value ?? string.Empty);
+        }
+
+        public string QualityReviewNoteText
+        {
+            get => qualityReviewNoteText;
+            set
+            {
+                string note = value ?? string.Empty;
+                if (note.Length > YoloImageReviewStatusService.QualityReviewNoteMaxLength)
+                {
+                    note = note.Substring(0, YoloImageReviewStatusService.QualityReviewNoteMaxLength);
+                }
+
+                SetProperty(ref qualityReviewNoteText, note);
+            }
+        }
+
+        public bool IsQualityReviewEnabled
+        {
+            get => isQualityReviewEnabled;
+            private set => SetProperty(ref isQualityReviewEnabled, value);
+        }
+
+        public bool IsMarkQualityReviewedEnabled
+        {
+            get => isMarkQualityReviewedEnabled;
+            private set => SetProperty(ref isMarkQualityReviewedEnabled, value);
+        }
+
+        public bool IsQualityUnreviewedActive
+        {
+            get => isQualityUnreviewedActive;
+            private set => SetProperty(ref isQualityUnreviewedActive, value);
+        }
+
+        public bool IsQualityNeedsFixActive
+        {
+            get => isQualityNeedsFixActive;
+            private set => SetProperty(ref isQualityNeedsFixActive, value);
+        }
+
+        public bool IsQualityReviewedActive
+        {
+            get => isQualityReviewedActive;
+            private set => SetProperty(ref isQualityReviewedActive, value);
+        }
+
         public bool IsSelectionNotificationSuppressed => selectionNotificationSuppressDepth > 0;
 
         public void ConfigureCommands(
             Action deleteObject,
             Action applyObjectClass,
+            Action markQualityUnreviewed,
+            Action markQualityNeedsFix,
+            Action markQualityReviewed,
+            Action exportQualityReviewReport,
             Action<object> objectSelectionChanged,
             Action<KeyInputCommandArgs> objectPreviewKeyDown)
         {
             // The review panel exposes commands; the shell injects workflow actions without owning the view events.
             DeleteObjectCommand = new RelayCommand(deleteObject ?? NoOpCommand);
             ApplyObjectClassCommand = new RelayCommand(applyObjectClass ?? NoOpCommand);
+            MarkQualityUnreviewedCommand = new RelayCommand(markQualityUnreviewed ?? NoOpCommand);
+            MarkQualityNeedsFixCommand = new RelayCommand(markQualityNeedsFix ?? NoOpCommand);
+            MarkQualityReviewedCommand = new RelayCommand(markQualityReviewed ?? NoOpCommand);
+            ExportQualityReviewReportCommand = new RelayCommand(exportQualityReviewReport ?? NoOpCommand);
             ObjectSelectionChangedCommand = new RelayCommand<object>(objectSelectionChanged ?? NoOpSelectionCommand);
             ObjectPreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(objectPreviewKeyDown ?? NoOpKeyCommand);
         }
@@ -324,6 +426,47 @@ namespace MvcVisionSystem
             LabelSaveDetailText = string.IsNullOrWhiteSpace(detailText)
                 ? "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 \uB77C\uBCA8 \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4."
                 : detailText.Trim();
+        }
+
+        public void SetQualityReviewState(
+            YoloImageQualityReviewState state,
+            bool hasActiveImage,
+            bool canMarkReviewed,
+            string qualityReviewNote = "")
+        {
+            IsQualityReviewEnabled = hasActiveImage;
+            IsMarkQualityReviewedEnabled = hasActiveImage && canMarkReviewed;
+            IsQualityUnreviewedActive = hasActiveImage && state == YoloImageQualityReviewState.Unreviewed;
+            IsQualityNeedsFixActive = hasActiveImage && state == YoloImageQualityReviewState.NeedsFix;
+            IsQualityReviewedActive = hasActiveImage && state == YoloImageQualityReviewState.Reviewed;
+            QualityReviewNoteText = hasActiveImage
+                ? YoloImageReviewStatusService.NormalizeQualityReviewNote(qualityReviewNote)
+                : string.Empty;
+
+            if (!hasActiveImage)
+            {
+                QualityReviewStatusText = "이미지 없음";
+                QualityReviewDetailText = "Detection/Segmentation 이미지를 열면 품질 검수 상태를 표시합니다.";
+                return;
+            }
+
+            switch (state)
+            {
+                case YoloImageQualityReviewState.NeedsFix:
+                    QualityReviewStatusText = "수정 필요";
+                    QualityReviewDetailText = "사유를 고치면 수정 필요를 다시 눌러 저장하세요.";
+                    break;
+                case YoloImageQualityReviewState.Reviewed:
+                    QualityReviewStatusText = "검수 완료";
+                    QualityReviewDetailText = "현재 저장 라벨이 품질 검수를 통과했습니다.";
+                    break;
+                default:
+                    QualityReviewStatusText = "미검토";
+                    QualityReviewDetailText = canMarkReviewed
+                        ? "저장 라벨을 확인한 뒤 수정 필요 또는 검수 완료를 선택하세요."
+                        : "라벨 저장 또는 객체 없음 완료 후 검수 완료를 선택할 수 있습니다.";
+                    break;
+            }
         }
 
         public void RefreshActionState()

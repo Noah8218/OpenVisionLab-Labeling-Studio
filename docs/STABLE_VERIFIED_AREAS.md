@@ -2,6 +2,85 @@
 
 This document records code paths that have already been performance- or UX-verified and should not be casually refactored. Treat these areas as protected product behavior: change them only when the user reports a new issue in that exact path, or when a focused verification gate proves the change is necessary.
 
+## Local Detection/Segmentation Image Quality Review
+
+Status: stable for image-level local QA state, short issue reasons, and local report export as of 2026-07-11.
+
+Protected behavior:
+
+- Human QA state is independent from AI candidate review state and label-file save state.
+- Detection/Segmentation images support `미검토`, `수정 필요`, and `검수 완료`; anomaly review remains separate.
+- `검수 완료` requires saved/completed label work.
+- Editing a reviewed label returns QA to `미검토`; editing a `수정 필요` image must not silently clear the issue.
+- `review-status.json` stores the quality state while remaining backward compatible with rows that do not contain the new fields.
+- A `수정 필요` image can store one current issue reason of at most 200 characters. Newlines are normalized, and resolving or clearing the issue removes the current reason.
+- The image queue `수정 필요` filter shows issue images, and those images are not counted as QA complete even when their label files are saved.
+- `QA 보고서` writes `label-quality-review.md` under the configured output root with aggregate QA counts and a needs-fix table. It must escape Markdown cells and must not expose an absolute dataset path.
+- Visible report feedback should show the file name and counts rather than a machine-specific absolute path.
+- Do not replace this local state with account, assignment, collaboration, or server concepts unless product scope changes explicitly.
+
+Required gates before reporting this path complete again:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --yolo-image-review-status
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --label-quality-review-report
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-object-review-panel
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs
+git diff --check
+```
+
+Latest evidence:
+
+```text
+Before: C:\Git\Labelling_Application\artifacts\ui\wpf-label-quality-qa-before-20260711-1920.png
+After: C:\Git\Labelling_Application\artifacts\ui\wpf-label-quality-qa-after-20260711-1920.png
+Reason/report before: C:\Git\Labelling_Application\artifacts\ui\wpf-label-quality-note-before-20260711-1920.png
+Reason/report after: C:\Git\Labelling_Application\artifacts\ui\wpf-label-quality-note-after-20260711-1920.png
+PASS YOLO image review status tracks labels, candidates, and next unlabeled image
+PASS YOLO image quality review exports local markdown report
+PASS WPF image queue presents row status with icons
+PASS WPF object review summarizes current labels
+PASS WPF labeling shell can be constructed without the WinForms shell
+WPF responsive layout passed: 1920x1080, tabs=objects
+WPF responsive layout passed: 1366x768, tabs=objects
+```
+
+## Current-Work Default Information Hierarchy
+
+Status: stable for the compact labeling-stage current-work surface as of 2026-07-11.
+
+Protected behavior:
+
+- The first-visible current-work card should show the current image/mode, immediate action, and completion flow without a nested role-card dashboard.
+- Tool, object/AI, and quality context should remain available under the collapsed `작업 세부 보기` disclosure.
+- The immediate next flow must not be duplicated inside the optional context section.
+- Training and inspection detail should remain in the separate collapsed `필요할 때만: 학습·검사 세부` section.
+- This presentation contract must not change annotation, Viewer/OpenGL/ROI, brush/eraser, training, or inference behavior.
+
+Required gates before reporting this path complete again:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-learning-workflow-panel
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --review-tabs guide --width 1920 --height 1080
+git diff --check
+```
+
+Latest evidence:
+
+```text
+Before: C:\Git\Labelling_Application\artifacts\ui\wpf-workbench-ia-before-20260711-1920.png
+After: C:\Git\Labelling_Application\artifacts\ui\wpf-workbench-ia-after-20260711-1920.png
+PASS WPF learning workflow panel declares education modes and annotation tools
+PASS WPF labeling shell can be constructed without the WinForms shell
+WPF responsive layout passed: 1920x1080, tabs=guide
+WPF responsive layout passed: 1366x768, tabs=guide
+```
+
 ## Beginner Labeling Start View
 
 Status: stable for compact beginner entry after dataset setup and top `2 라벨링` navigation as of 2026-07-07.
@@ -101,6 +180,134 @@ After checklist: C:\Git\Labelling_Application\artifacts\ui\wpf-labeling-guide-ai
 PASS WPF learning workflow panel declares education modes and annotation tools
 PASS WPF labeling shell can be constructed without the WinForms shell
 WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\wpf-labeling-guide-ai-candidate-checklist-after-1920.png
+```
+
+## AI Candidate Review First-Class Summary
+
+Status: stable for first-visible AI-review mode summary as of 2026-07-10.
+
+Protected behavior:
+
+- Candidate Review should read as an AI-review workbench mode, not only as a loose list of buttons.
+- `CandidateReviewWorkbenchSummaryGrid` should stay near the top of `WpfCandidateReviewPanel.xaml`, before lower-priority detail cards and before the confidence slider.
+- The summary grid should expose candidate count, confidence threshold, selected candidate, and next completion state through ViewModel bindings.
+- Candidate count should come from `WpfCandidateReviewPanelViewModel.CandidateCountSummaryText`, derived from existing candidate rows in `SetCandidates`.
+- The primary action group should keep the visible `후보 이동 / 결정` label above navigation, focus, confirm, confirm-all, and skip controls.
+- This is WPF presentation only. It must not change candidate state ownership, confirm/skip behavior, segment JSON/mask PNG save behavior, YOLO label export, model comparison, or Viewer/OpenGL/ROI/brush/eraser paths.
+
+Required gates before reporting this path complete again:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab candidates --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-ai-candidate-review-first-class-after-20260710-1920.png
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs
+git diff --check
+```
+
+Latest evidence:
+
+```text
+Before: C:\Git\Labelling_Application\artifacts\ui\wpf-ai-candidate-review-first-class-before-20260710-1920.png
+After: C:\Git\Labelling_Application\artifacts\ui\wpf-ai-candidate-review-first-class-after-20260710-1920.png
+Tutorial: C:\Git\Labelling_Application\docs\tutorial\images\annotated\12-inference-dock-1920-annotated.png
+PASS WPF candidate review supports navigation and focus commands
+PASS WPF labeling shell can be constructed without the WinForms shell
+WPF responsive layout passed: 1920x1080, tabs=objects,candidates,guide,classes,yolo,training
+PASS Priority workflow docs cover YOLOv5, segmentation, and anomaly flows
+git diff --check passed
+```
+
+## Model Quality Summary Cards
+
+Status: stable for scan-friendly model validation summary in Candidate Review as of 2026-07-10.
+
+Protected behavior:
+
+- `ModelQualitySummaryGrid` should stay inside `ModelComparisonReviewPanel` and before `ModelCandidateDecisionPanel`.
+- The summary grid should expose status, evidence/source, decision, and next action through existing ViewModel-owned strings.
+- `ModelQualityStatusText` binds to `ModelComparisonStatusText`.
+- `ModelQualitySourceText` binds to `ModelComparisonSourceText`.
+- `ModelQualityDecisionText` binds to `ModelComparisonDecisionText`, so the card shows `교체 추천/보류/예시 검토` from the held-out report instead of the separate candidate workflow state.
+- `ModelQualityNextActionText` binds to `ModelComparisonActionText`.
+- A `hold` report must direct the operator to improve data/model quality and rerun validation, not to save the candidate.
+- The old long source/status lines should not be the visible primary model-quality UI.
+- Candidate workflow status and save/reject controls remain in `ModelCandidateDecisionPanel`; do not merge those states back into the comparison decision card.
+- This summary must not change YOLOv8 runtime behavior, claim YOLO11 readiness, or touch Viewer/OpenGL/ROI/brush/eraser paths.
+
+Required gates before reporting this path complete again:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-responsive-layout --width 1920 --height 1080
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose segmentation --review-tab candidates --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-quality-summary-after-20260710-1920.png
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs
+git diff --check
+```
+
+Latest evidence:
+
+```text
+Before: C:\Git\Labelling_Application\artifacts\ui\wpf-model-quality-summary-before-20260710-1920.png
+After: C:\Git\Labelling_Application\artifacts\ui\wpf-model-quality-summary-after-20260710-1920.png
+Tutorial: C:\Git\Labelling_Application\docs\tutorial\images\annotated\12-inference-dock-1920-annotated.png
+PASS WPF candidate review supports navigation and focus commands
+PASS WPF labeling shell can be constructed without the WinForms shell
+WPF responsive layout passed: 1920x1080, tabs=objects,candidates,guide,classes,yolo,training
+PASS Priority workflow docs cover YOLOv5, segmentation, and anomaly flows
+git diff --check passed
+```
+
+## YOLOv8 SEG Image-Level Promotion Guard
+
+Status: stable for fail-closed image-level segmentation adoption evidence and confidence-coupled model save as of 2026-07-11.
+
+Protected behavior:
+
+- `compare-yolo-models.ps1` keeps aggregate validation metrics and UI inference evidence separate.
+- Segmentation comparison summaries must include `uiPositiveImageCount`, `uiPositiveImagesWithCandidates`, `uiPositiveImageCoverage`, `uiBackgroundImageCount`, `uiBackgroundImagesWithCandidates`, and `uiBackgroundCandidateRate`.
+- Promotion requires at least `5` background held-out images, positive-image coverage `>= 0.5`, and background-candidate rate `<= 0.1` at the selected UI confidence.
+- A missing image-level operating result must fail closed as `hold`; do not silently fall back to total candidate count.
+- The comparison summary `uiConfidence` must match the current inspection confidence. A missing or different value must become `hold` and direct the operator to rerun comparison at the current confidence.
+- `WpfModelComparisonReviewReport.PromotionDecision` and `RecommendationText` must preserve the report recommendation for Candidate Review.
+- A held pending candidate must have Candidate Review and Model Center save disabled while reject remains available when a valid baseline exists.
+- Both `ExecuteSaveModelCandidateCommand` and pending-weight `ExecuteSaveYoloSettingsCommand` must refuse held candidate adoption.
+- This guard does not improve model accuracy and must not be described as production readiness.
+
+Required gates before reporting this path complete again:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --mvvm-infra
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-review-service
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-heldout
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-run-service
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-center-real-candidate-save --yolo-root C:\Git\yolov8 --data-yaml .\artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260708_213227\dataset\data.yaml --baseline-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt --candidate-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-40label-operating-selected-conf020-20260711\weights\best.pt --candidate-confidence 0.20
+git diff --check
+```
+
+Latest evidence:
+
+```text
+0.25 summary: artifacts\yolo-model-comparison\yolov8-seg-40label-operating-guard-20260710\20260710-181821\comparison-summary.json
+hold: positive coverage 2/10 = 0.2, background-candidate rate 0/6 = 0
+0.10 summary: artifacts\yolo-model-comparison\yolov8-seg-40label-operating-guard-conf010-20260710\20260710-181924\comparison-summary.json
+hold: positive coverage 9/10 = 0.9, background-candidate rate 6/6 = 1.0
+Operating-selected summary: artifacts\yolo-model-comparison\yolov8-seg-40label-operating-selected-conf020-20260711\20260711-220539\comparison-summary.json
+promote at 0.20: precision 0.7748, recall 0.6891, mAP50 0.6900, positive coverage 6/10 = 0.6, background-candidate rate 0/6 = 0
+Candidate: C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-40label-operating-selected-conf020-20260711\weights\best.pt
+Confidence mismatch before: artifacts\ui\wpf-seg-operating-confidence-mismatch-before-20260711-1920.png
+Confidence mismatch after hold: artifacts\ui\wpf-seg-operating-confidence-mismatch-after-20260711-1920.png
+Validated 0.20 adoption: artifacts\ui\wpf-seg-operating-conf020-adopt-after-20260711-1920.png
+Real TCP save: artifacts\real-yolo-smoke\40label-operating-selected-conf020-current-image-025-ng-20260711\summary.txt
+Before: artifacts\ui\wpf-seg-operating-guard-before-20260710-1920.png
+After: artifacts\ui\wpf-seg-operating-guard-after-20260710-1920.png
 ```
 
 ## Learning Guide Training Flow Details Collapsed
@@ -275,6 +482,41 @@ Latest evidence:
 WPF visual smoke captured: C:\Git\Labelling_Application\artifacts\ui\wpf-render-capture-candidate-review-after-1920.png
 IMAGE_SIZE=1920x1080
 Manual image inspection: WPF Candidate Review screen, not Windows lock/spotlight screen.
+```
+
+## YOLOv8 Anomaly Classification Circular-Defect Evidence
+
+Status: stable for the scoped local circular-defect train/infer/evaluate/app-mapping loop as of 2026-07-11.
+
+Protected behavior:
+
+- The local workflow continues to use `C:\Git\yolov8`, its `.venv`, editable source, `labeling_tcp_client.py`, and cached `yolov8n-cls.pt`; no implicit model or package download is part of this gate.
+- Classification candidates remain image-level `imageClassification` results and map only through explicit normal/abnormal class settings.
+- The focused WPF runtime smoke must retain its default abnormal behavior and may use `LABELING_YOLOV8_CLASSIFICATION_SMOKE_EXPECTED_CLASS`, `LABELING_YOLOV8_CLASSIFICATION_SMOKE_EXPECTED_STATE`, and `LABELING_YOLOV8_CLASSIFICATION_SMOKE_IMAGE_SIZE` for real held-out normal/abnormal checks.
+- Adoption remains fail-closed through `AnomalyClassificationEvaluationService`; a matching class below the configured minimum confidence still counts as incorrect.
+- The current `adopt` result applies only to the existing circular-defect source family. Do not turn it into a broad production-readiness or YOLO11-readiness claim.
+
+Required gates before reporting this path complete again:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-training-workflow
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-evaluation
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolov8-anomaly-classification-runtime-smoke
+C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile C:\Git\yolov8\labeling_tcp_client.py
+C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --self-test
+git diff --check
+```
+
+Latest evidence:
+
+```text
+Weight: C:\Git\Labelling_Application\artifacts\yolov8-cls-training-smoke\circular-defect-real-20260711\runs\yolov8n-cls-circular-defect-balanced-e20-img128-20260711\weights\best.pt
+Evaluation: C:\Git\Labelling_Application\artifacts\yolo-classification-evaluation\circular-defect-balanced-e20-minconf08-20260711\classification-evaluation-20260711-214135\classification-evaluation-summary.json
+Result: adopt, 15/15, normal 5/5, abnormal 10/10, minimum confidence 0.8, low-confidence class matches 0
+WPF app mapping: held-out normal -> Normal; held-out abnormal -> Abnormal
+Capture: C:\Git\Labelling_Application\artifacts\ui\wpf-model-center-anomaly-circular-adopt-20260711-1920.png
+Scope limit: one source family; 5 normal and 10 abnormal held-out images; train-only normal oversampling is not new evidence
 ```
 
 ## Anomaly Classification Evaluation Model Center Surface

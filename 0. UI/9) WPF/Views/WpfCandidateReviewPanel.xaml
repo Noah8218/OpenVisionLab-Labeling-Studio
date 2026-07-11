@@ -248,6 +248,124 @@
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
                            Margin="0,3,0,0" />
+                <Grid x:Name="CandidateReviewWorkbenchSummaryGrid"
+                      AutomationProperties.AutomationId="CandidateReviewWorkbenchSummaryGrid"
+                      Margin="0,6,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Border x:Name="CandidateReviewCandidateCountCard"
+                            AutomationProperties.AutomationId="CandidateReviewCandidateCountCard"
+                            Background="{StaticResource CandidateReviewAiPanelBrush}"
+                            BorderBrush="{StaticResource CandidateReviewAiBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6"
+                            Margin="0,0,4,4">
+                        <StackPanel>
+                            <TextBlock Text="&#xD6C4;&#xBCF4;"
+                                       Foreground="{DynamicResource DisabledTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="CandidateReviewCandidateCountText"
+                                       AutomationProperties.AutomationId="CandidateReviewCandidateCountText"
+                                       Text="{Binding CandidateCountSummaryText}"
+                                       Foreground="{StaticResource CandidateReviewAiTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="CandidateReviewConfidenceCard"
+                            AutomationProperties.AutomationId="CandidateReviewConfidenceCard"
+                            Grid.Column="1"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource BorderBrushDark}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6"
+                            Margin="4,0,0,4">
+                        <StackPanel>
+                            <TextBlock Text="&#xAE30;&#xC900;"
+                                       Foreground="{DynamicResource DisabledTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="CandidateReviewConfidenceSummaryText"
+                                       AutomationProperties.AutomationId="CandidateReviewConfidenceSummaryText"
+                                       Text="{Binding ConfidenceText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="CandidateReviewSelectedSummaryCard"
+                            AutomationProperties.AutomationId="CandidateReviewSelectedSummaryCard"
+                            Grid.Row="1"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource BorderBrushDark}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6"
+                            Margin="0,2,4,0">
+                        <StackPanel>
+                            <TextBlock Text="&#xC120;&#xD0DD;"
+                                       Foreground="{DynamicResource DisabledTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="CandidateReviewSelectedSummaryChipText"
+                                       AutomationProperties.AutomationId="CandidateReviewSelectedSummaryChipText"
+                                       Text="{Binding SelectedCandidateSummaryText}"
+                                       ToolTip="{Binding SelectedCandidateSummaryText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="CandidateReviewNextStateCard"
+                            AutomationProperties.AutomationId="CandidateReviewNextStateCard"
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource BorderBrushDark}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6"
+                            Margin="4,2,0,0">
+                        <StackPanel>
+                            <TextBlock Text="&#xB2E4;&#xC74C;"
+                                       Foreground="{DynamicResource DisabledTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="CandidateReviewNextStateText"
+                                       AutomationProperties.AutomationId="CandidateReviewNextStateText"
+                                       Text="{Binding CompletionNextActionText}"
+                                       ToolTip="{Binding CompletionNextActionText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
                 <TextBlock x:Name="CandidateReviewModeDetailText"
                            AutomationProperties.AutomationId="CandidateReviewModeDetailText"
                            Text="{Binding PanelModeDetailText}"
@@ -426,6 +544,138 @@
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
                            Margin="0,0,0,5" />
+                <Grid x:Name="ModelQualitySummaryGrid"
+                      AutomationProperties.AutomationId="ModelQualitySummaryGrid"
+                      Margin="0,0,0,6">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <Border x:Name="ModelQualityStatusCard"
+                            AutomationProperties.AutomationId="ModelQualityStatusCard"
+                            Background="#111D2A"
+                            BorderBrush="#2563EB"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6"
+                            Margin="0,0,4,4">
+                        <StackPanel>
+                            <TextBlock Text="&#xC0C1;&#xD0DC;"
+                                       Foreground="{DynamicResource DisabledTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="ModelQualityStatusText"
+                                       AutomationProperties.AutomationId="ModelQualityStatusText"
+                                       Text="{Binding ModelComparisonStatusText}"
+                                       ToolTip="{Binding ModelComparisonStatusText}"
+                                       Foreground="{StaticResource CandidateReviewModelTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       LineHeight="12"
+                                       MaxHeight="26" />
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="ModelQualitySourceCard"
+                            AutomationProperties.AutomationId="ModelQualitySourceCard"
+                            Grid.Column="1"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource BorderBrushDark}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6"
+                            Margin="4,0,0,4">
+                        <StackPanel>
+                            <TextBlock Text="&#xADFC;&#xAC70;"
+                                       Foreground="{DynamicResource DisabledTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="ModelQualitySourceText"
+                                       AutomationProperties.AutomationId="ModelQualitySourceText"
+                                       Text="{Binding ModelComparisonSourceText}"
+                                       ToolTip="{Binding ModelComparisonSourceText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       LineHeight="12"
+                                       MaxHeight="26" />
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="ModelQualityDecisionCard"
+                            AutomationProperties.AutomationId="ModelQualityDecisionCard"
+                            Grid.Row="1"
+                            Background="{DynamicResource ToolbarButtonBrush}"
+                            BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6"
+                            Margin="0,2,4,0">
+                        <StackPanel>
+                            <TextBlock Text="&#xD310;&#xC815;"
+                                       Foreground="{DynamicResource DisabledTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="ModelQualityDecisionText"
+                                       AutomationProperties.AutomationId="ModelQualityDecisionText"
+                                       Text="{Binding ModelComparisonDecisionText}"
+                                       ToolTip="{Binding ModelComparisonDecisionText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       LineHeight="12"
+                                       MaxHeight="26" />
+                        </StackPanel>
+                    </Border>
+                    <Border x:Name="ModelQualityNextActionCard"
+                            AutomationProperties.AutomationId="ModelQualityNextActionCard"
+                            Grid.Row="1"
+                            Grid.Column="1"
+                            Background="{DynamicResource PanelBrush}"
+                            BorderBrush="{DynamicResource BorderBrushDark}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="6"
+                            Margin="4,2,0,0">
+                        <StackPanel>
+                            <TextBlock Text="&#xB2E4;&#xC74C;"
+                                       Foreground="{DynamicResource DisabledTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock x:Name="ModelQualityNextActionText"
+                                       AutomationProperties.AutomationId="ModelQualityNextActionText"
+                                       Text="{Binding ModelComparisonActionText}"
+                                       ToolTip="{Binding ModelComparisonActionText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10"
+                                       FontWeight="SemiBold"
+                                       TextWrapping="Wrap"
+                                       TextTrimming="CharacterEllipsis"
+                                       LineHeight="12"
+                                       MaxHeight="26" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
                 <TextBlock x:Name="ModelComparisonSourceText"
                            AutomationProperties.AutomationId="ModelComparisonSourceText"
                            Text="{Binding ModelComparisonSourceText}"
@@ -435,8 +685,9 @@
                            FontSize="9.5"
                            FontWeight="SemiBold"
                            TextWrapping="Wrap"
-                           Margin="0,0,0,5" />
-                <Grid>
+                           Visibility="Collapsed"
+                           Margin="0" />
+                <Grid Visibility="Collapsed">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="Auto" />
                         <ColumnDefinition Width="*" />
@@ -686,6 +937,15 @@
                              Grid.ColumnSpan="3"
                              Margin="0,0,0,8"
                              AutomationProperties.AutomationId="CandidateReviewPrimaryActionsPanel">
+                    <TextBlock x:Name="CandidateReviewDecisionTitleText"
+                               AutomationProperties.AutomationId="CandidateReviewDecisionTitleText"
+                               Text="&#xD6C4;&#xBCF4; &#xC774;&#xB3D9; / &#xACB0;&#xC815;"
+                               Foreground="{StaticResource CandidateReviewAiTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis"
+                               Margin="0,0,0,5" />
                     <UniformGrid Columns="4">
                         <ui:Button x:Name="PreviousCandidateButton"
                                    Style="{StaticResource CandidateReviewButtonStyle}"

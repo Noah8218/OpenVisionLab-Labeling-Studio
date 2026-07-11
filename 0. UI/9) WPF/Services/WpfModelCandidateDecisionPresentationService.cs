@@ -42,6 +42,24 @@ namespace MvcVisionSystem
             };
         }
 
+        public static WpfModelCandidateDecisionPresentation BuildHeldCandidate(
+            string candidateWeightsPath,
+            bool canReject)
+        {
+            string candidateName = FormatModelName(candidateWeightsPath, "\uD6C4\uBCF4 \uBAA8\uB378");
+            return new WpfModelCandidateDecisionPresentation
+            {
+                CanSave = false,
+                CanReject = canReject,
+                StatusText = $"\uD6C4\uBCF4 \uACB0\uC815: \uAC80\uC99D \uBCF4\uB958 ({candidateName})",
+                DetailText = "\uCD5C\uC885 \uAC80\uC99D \uACB0\uACFC\uAC00 \uAD50\uCCB4 \uBCF4\uB958\uC785\uB2C8\uB2E4. \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694. \uAC70\uC808\uD558\uBA74 \uAE30\uC874 \uAC80\uC0AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4.",
+                SaveToolTip = "\uAD50\uCCB4 \uBCF4\uB958 \uD6C4\uBCF4\uB294 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4. \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.",
+                RejectToolTip = canReject
+                    ? "\uD559\uC2B5 \uACB0\uACFC\uB97C \uC4F0\uC9C0 \uC54A\uACE0 \uAE30\uC874 \uAC80\uC0AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4."
+                    : "\uB418\uB3CC\uB9B4 \uAE30\uC874 \uAC80\uC0AC \uBAA8\uB378 \uACBD\uB85C\uAC00 \uC5C6\uC5B4 \uAC70\uC808\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4."
+            };
+        }
+
         public static WpfModelCandidateDecisionPresentation BuildRejectedCandidate(
             string candidateWeightsPath,
             string decisionSummary)
@@ -101,6 +119,11 @@ namespace MvcVisionSystem
         public static string BuildNoRejectCandidateStatus()
         {
             return "\uAC70\uC808\uD560 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
+        }
+
+        public static string BuildHeldCandidateSaveBlockedStatus()
+        {
+            return "\uD6C4\uBCF4 \uAC80\uC99D \uACB0\uACFC\uAC00 \uAD50\uCCB4 \uBCF4\uB958\uC5EC\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.";
         }
 
         public static string BuildRejectDecisionSummary()

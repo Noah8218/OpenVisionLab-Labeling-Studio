@@ -20,6 +20,9 @@ $ErrorActionPreference = "Stop"
 $RecommendedPromotionLabelCount = 10
 $RecommendedSegmentationPositiveLabelCount = 5
 $RecommendedSegmentationPositiveImageCount = 5
+$RecommendedSegmentationBackgroundImageCount = 5
+$MinimumSegmentationUiPositiveImageCoverage = 0.50
+$MaximumSegmentationUiBackgroundCandidateRate = 0.10
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptRoot
@@ -236,6 +239,11 @@ function New-ComparisonEvidence([string]$DataYamlPath, [string]$SplitName, [stri
     } else {
         $null
     }
+    $backgroundSegmentationImageCount = if ($ValidationTask -ieq "segment") {
+        $labelPaths.Count - $positiveSegmentationImageCount
+    } else {
+        $null
+    }
 
     return [ordered]@{
         split = $SplitName
@@ -245,6 +253,7 @@ function New-ComparisonEvidence([string]$DataYamlPath, [string]$SplitName, [stri
         comparisonLabelCount = [System.Math]::Min($imagePaths.Count, $labelPaths.Count)
         positiveSegmentationLabelLineCount = $positiveSegmentationLabelLineCount
         positiveSegmentationImageCount = $positiveSegmentationImageCount
+        backgroundSegmentationImageCount = $backgroundSegmentationImageCount
         recommendedLabelCount = $RecommendedPromotionLabelCount
     }
 }
@@ -725,6 +734,78 @@ function Read-PredictionConfidenceSummary([string]$LabelsPath, [double]$Threshol
     }
 }
 
+function Test-PredictionFileAtThreshold([string]$Path, [double]$Threshold) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return $false
+    }
+
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        $parts = @($line -split '\s+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+        if ($parts.Count -lt 6) {
+            continue
+        }
+
+        $confidence = 0.0
+        if ([double]::TryParse($parts[$parts.Count - 1], [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$confidence) -and $confidence -ge $Threshold) {
+            return $true
+        }
+    }
+
+    return $false
+}
+
+function Read-SegmentationPredictionImageEvidence($Model, $Evidence, [double]$Threshold) {
+    $positiveImageCount = 0
+    $positiveImagesWithCandidates = 0
+    $backgroundImageCount = 0
+    $backgroundImagesWithCandidates = 0
+
+    foreach ($imagePath in @(Get-SplitImagePaths $Evidence.imagesPath)) {
+        $answerLabelPath = Resolve-LabelPathFromImagePath $imagePath
+        if (-not (Test-Path -LiteralPath $answerLabelPath -PathType Leaf)) {
+            continue
+        }
+
+        $isPositive = @(Get-Content -LiteralPath $answerLabelPath |
+            ForEach-Object { (Remove-YamlInlineComment $_).Trim() } |
+            Where-Object { Test-SegmentationLabelLine $_ }).Count -gt 0
+        $predictionLabelPath = Join-Path $Model.labelsPath (([System.IO.Path]::GetFileNameWithoutExtension($imagePath)) + ".txt")
+        $hasUiCandidate = Test-PredictionFileAtThreshold $predictionLabelPath $Threshold
+        if ($isPositive) {
+            $positiveImageCount++
+            if ($hasUiCandidate) {
+                $positiveImagesWithCandidates++
+            }
+        }
+        else {
+            $backgroundImageCount++
+            if ($hasUiCandidate) {
+                $backgroundImagesWithCandidates++
+            }
+        }
+    }
+
+    return [ordered]@{
+        uiPositiveImageCount = $positiveImageCount
+        uiPositiveImagesWithCandidates = $positiveImagesWithCandidates
+        uiPositiveImageCoverage = if ($positiveImageCount -gt 0) { [double]$positiveImagesWithCandidates / $positiveImageCount } else { $null }
+        uiBackgroundImageCount = $backgroundImageCount
+        uiBackgroundImagesWithCandidates = $backgroundImagesWithCandidates
+        uiBackgroundCandidateRate = if ($backgroundImageCount -gt 0) { [double]$backgroundImagesWithCandidates / $backgroundImageCount } else { $null }
+    }
+}
+
+function Add-SegmentationPredictionImageEvidence($Model, $Evidence, [double]$Threshold) {
+    if ($null -eq $Model -or $null -eq $Model.confidence -or $null -eq $Evidence) {
+        return
+    }
+
+    $imageEvidence = Read-SegmentationPredictionImageEvidence $Model $Evidence $Threshold
+    foreach ($key in $imageEvidence.Keys) {
+        $Model.confidence[$key] = $imageEvidence[$key]
+    }
+}
+
 function Get-ReviewConfidenceThresholds([double]$UiConfidence) {
     $thresholds = New-Object System.Collections.Generic.List[double]
     foreach ($threshold in @($UiConfidence, 0.25, 0.10, 0.05, 0.01)) {
@@ -824,7 +905,8 @@ function New-PromotionRecommendationResult(
     $PositiveSegmentationLabelLineCount,
     [int]$MinimumPositiveSegmentationLabelLineCount,
     $PositiveSegmentationImageCount,
-    [int]$MinimumPositiveSegmentationImageCount) {
+    [int]$MinimumPositiveSegmentationImageCount,
+    $SegmentationOperatingEvidence) {
     $reasonList = @()
     if ($null -ne $Reasons) {
         foreach ($reason in $Reasons) {
@@ -859,6 +941,12 @@ function New-PromotionRecommendationResult(
         $result["positiveSegmentationImageCount"] = [int]$PositiveSegmentationImageCount
     }
 
+    if ($null -ne $SegmentationOperatingEvidence) {
+        foreach ($key in $SegmentationOperatingEvidence.Keys) {
+            $result[$key] = $SegmentationOperatingEvidence[$key]
+        }
+    }
+
     return $result
 }
 
@@ -870,6 +958,29 @@ function New-PromotionRecommendation($Baseline, $Candidate, $Evidence, [double]$
     $minimumPositiveSegmentationLabelLineCount = $RecommendedSegmentationPositiveLabelCount
     $positiveSegmentationImageCount = if ($null -eq $Evidence -or $null -eq $Evidence.positiveSegmentationImageCount) { $null } else { [int]$Evidence.positiveSegmentationImageCount }
     $minimumPositiveSegmentationImageCount = $RecommendedSegmentationPositiveImageCount
+    $backgroundSegmentationImageCount = if ($null -eq $Evidence -or $null -eq $Evidence.backgroundSegmentationImageCount) { $null } else { [int]$Evidence.backgroundSegmentationImageCount }
+    $candidateUiPositiveImageCount = Get-ModelConfidenceValue $Candidate "uiPositiveImageCount"
+    $candidateUiPositiveImagesWithCandidates = Get-ModelConfidenceValue $Candidate "uiPositiveImagesWithCandidates"
+    $candidateUiPositiveImageCoverage = Get-ModelConfidenceValue $Candidate "uiPositiveImageCoverage"
+    $candidateUiBackgroundImageCount = Get-ModelConfidenceValue $Candidate "uiBackgroundImageCount"
+    $candidateUiBackgroundImagesWithCandidates = Get-ModelConfidenceValue $Candidate "uiBackgroundImagesWithCandidates"
+    $candidateUiBackgroundCandidateRate = Get-ModelConfidenceValue $Candidate "uiBackgroundCandidateRate"
+    $segmentationOperatingEvidence = if ($null -ne $positiveSegmentationImageCount) {
+        [ordered]@{
+            minimumBackgroundSegmentationImageCount = $RecommendedSegmentationBackgroundImageCount
+            backgroundSegmentationImageCount = $backgroundSegmentationImageCount
+            minimumUiPositiveImageCoverage = $MinimumSegmentationUiPositiveImageCoverage
+            uiPositiveImageCount = $candidateUiPositiveImageCount
+            uiPositiveImagesWithCandidates = $candidateUiPositiveImagesWithCandidates
+            uiPositiveImageCoverage = $candidateUiPositiveImageCoverage
+            maximumUiBackgroundCandidateRate = $MaximumSegmentationUiBackgroundCandidateRate
+            uiBackgroundImageCount = $candidateUiBackgroundImageCount
+            uiBackgroundImagesWithCandidates = $candidateUiBackgroundImagesWithCandidates
+            uiBackgroundCandidateRate = $candidateUiBackgroundCandidateRate
+        }
+    } else {
+        $null
+    }
     $minimumUiCandidateCount = 1
     $baselinePrecision = Get-ModelMetric $Baseline "precision"
     $candidatePrecision = Get-ModelMetric $Candidate "precision"
@@ -894,9 +1005,26 @@ function New-PromotionRecommendation($Baseline, $Candidate, $Evidence, [double]$
         $holdReasons.Add("Segment held-out comparison uses $positiveSegmentationImageCount positive segmentation images; collect at least $minimumPositiveSegmentationImageCount positive mask images before promotion.")
     }
 
+    if ($null -ne $backgroundSegmentationImageCount -and $backgroundSegmentationImageCount -lt $RecommendedSegmentationBackgroundImageCount) {
+        $holdReasons.Add("Segment held-out comparison uses $backgroundSegmentationImageCount background segmentation images; collect at least $RecommendedSegmentationBackgroundImageCount background images before promotion.")
+    }
+
+    if ($null -ne $positiveSegmentationImageCount -and ($null -eq $candidateUiPositiveImageCoverage -or $null -eq $candidateUiBackgroundCandidateRate)) {
+        $holdReasons.Add("Candidate UI-threshold image evidence is incomplete; rerun the held-out comparison before promotion.")
+    }
+    else {
+        if ($null -ne $candidateUiPositiveImageCoverage -and $candidateUiPositiveImageCoverage -lt $MinimumSegmentationUiPositiveImageCoverage) {
+            $holdReasons.Add("Candidate UI-threshold positive image coverage $([int]$candidateUiPositiveImagesWithCandidates)/$([int]$candidateUiPositiveImageCount) ($(Format-NullableNumber $candidateUiPositiveImageCoverage)) is below minimum $(Format-NullableNumber $MinimumSegmentationUiPositiveImageCoverage) at confidence $(Format-NullableNumber $UiConfidence); add varied training data or tune the model before promotion.")
+        }
+
+        if ($null -ne $candidateUiBackgroundCandidateRate -and $candidateUiBackgroundCandidateRate -gt $MaximumSegmentationUiBackgroundCandidateRate) {
+            $holdReasons.Add("Candidate UI-threshold background candidate rate $([int]$candidateUiBackgroundImagesWithCandidates)/$([int]$candidateUiBackgroundImageCount) ($(Format-NullableNumber $candidateUiBackgroundCandidateRate)) exceeds maximum $(Format-NullableNumber $MaximumSegmentationUiBackgroundCandidateRate) at confidence $(Format-NullableNumber $UiConfidence); add background data or tune the model before promotion.")
+        }
+    }
+
     if ($null -eq $candidatePrecision -or $null -eq $candidateRecall -or $null -eq $candidateMap50 -or $null -eq $candidateMap5095) {
         $holdReasons.Add("Candidate metrics are incomplete; keep the current inspection model.")
-        return New-PromotionRecommendationResult "hold" $holdReasons $minimumPrecision $heldoutLabelCount $minimumHeldoutLabelCount $minimumUiCandidateCount $candidateUiCandidateCount $positiveSegmentationLabelLineCount $minimumPositiveSegmentationLabelLineCount $positiveSegmentationImageCount $minimumPositiveSegmentationImageCount
+        return New-PromotionRecommendationResult "hold" $holdReasons $minimumPrecision $heldoutLabelCount $minimumHeldoutLabelCount $minimumUiCandidateCount $candidateUiCandidateCount $positiveSegmentationLabelLineCount $minimumPositiveSegmentationLabelLineCount $positiveSegmentationImageCount $minimumPositiveSegmentationImageCount $segmentationOperatingEvidence
     }
 
     if ($candidatePrecision -lt $minimumPrecision) {
@@ -916,7 +1044,7 @@ function New-PromotionRecommendation($Baseline, $Candidate, $Evidence, [double]$
     }
 
     if ($holdReasons.Count -gt 0) {
-        return New-PromotionRecommendationResult "hold" $holdReasons $minimumPrecision $heldoutLabelCount $minimumHeldoutLabelCount $minimumUiCandidateCount $candidateUiCandidateCount $positiveSegmentationLabelLineCount $minimumPositiveSegmentationLabelLineCount $positiveSegmentationImageCount $minimumPositiveSegmentationImageCount
+        return New-PromotionRecommendationResult "hold" $holdReasons $minimumPrecision $heldoutLabelCount $minimumHeldoutLabelCount $minimumUiCandidateCount $candidateUiCandidateCount $positiveSegmentationLabelLineCount $minimumPositiveSegmentationLabelLineCount $positiveSegmentationImageCount $minimumPositiveSegmentationImageCount $segmentationOperatingEvidence
     }
 
     $betterMap50 = $null -ne $baselineMap50 -and $candidateMap50 -gt $baselineMap50
@@ -925,10 +1053,10 @@ function New-PromotionRecommendation($Baseline, $Candidate, $Evidence, [double]$
     $recallNotWorse = $null -eq $baselineRecall -or $candidateRecall -ge $baselineRecall
 
     if ($betterMap50 -and $betterMap5095 -and $precisionNotWorse -and $recallNotWorse) {
-        return New-PromotionRecommendationResult "promote" @("Candidate improves mAP and does not regress precision or recall; review examples before saving it as the inspection model.") $minimumPrecision $heldoutLabelCount $minimumHeldoutLabelCount $minimumUiCandidateCount $candidateUiCandidateCount $positiveSegmentationLabelLineCount $minimumPositiveSegmentationLabelLineCount $positiveSegmentationImageCount $minimumPositiveSegmentationImageCount
+        return New-PromotionRecommendationResult "promote" @("Candidate improves mAP and does not regress precision or recall; review examples before saving it as the inspection model.") $minimumPrecision $heldoutLabelCount $minimumHeldoutLabelCount $minimumUiCandidateCount $candidateUiCandidateCount $positiveSegmentationLabelLineCount $minimumPositiveSegmentationLabelLineCount $positiveSegmentationImageCount $minimumPositiveSegmentationImageCount $segmentationOperatingEvidence
     }
 
-    return New-PromotionRecommendationResult "review" @("Candidate metrics are mixed; inspect comparison examples before deciding.") $minimumPrecision $heldoutLabelCount $minimumHeldoutLabelCount $minimumUiCandidateCount $candidateUiCandidateCount $positiveSegmentationLabelLineCount $minimumPositiveSegmentationLabelLineCount $positiveSegmentationImageCount $minimumPositiveSegmentationImageCount
+    return New-PromotionRecommendationResult "review" @("Candidate metrics are mixed; inspect comparison examples before deciding.") $minimumPrecision $heldoutLabelCount $minimumHeldoutLabelCount $minimumUiCandidateCount $candidateUiCandidateCount $positiveSegmentationLabelLineCount $minimumPositiveSegmentationLabelLineCount $positiveSegmentationImageCount $minimumPositiveSegmentationImageCount $segmentationOperatingEvidence
 }
 
 function Write-MarkdownReport($Summary, [string]$Path) {
@@ -945,6 +1073,9 @@ function Write-MarkdownReport($Summary, [string]$Path) {
     $lines.Add("- UI confidence: ``$($Summary.uiConfidence)``")
     if ($null -ne $evidence) {
         $lines.Add("- Held-out evidence: ``$($evidence.comparisonLabelCount)`` labeled images / recommended ``$($evidence.recommendedLabelCount)``")
+        if ($null -ne $evidence.backgroundSegmentationImageCount) {
+            $lines.Add("- Background segmentation images: ``$($evidence.backgroundSegmentationImageCount)``")
+        }
     }
     $lines.Add("")
     $lines.Add("| Model | Precision | Recall | mAP50 | mAP50-95 | UI candidates | Max confidence |")
@@ -964,6 +1095,12 @@ function Write-MarkdownReport($Summary, [string]$Path) {
             $lines.Add("")
             $lines.Add("- Candidate review threshold sweep: " + ($sweepItems -join ", "))
         }
+    }
+    if ($null -ne $candidate.confidence.uiPositiveImageCoverage) {
+        $lines.Add("- Candidate UI positive-image coverage: ``$($candidate.confidence.uiPositiveImagesWithCandidates)/$($candidate.confidence.uiPositiveImageCount)`` (``$(Format-NullableNumber $candidate.confidence.uiPositiveImageCoverage)``)")
+    }
+    if ($null -ne $candidate.confidence.uiBackgroundCandidateRate) {
+        $lines.Add("- Candidate UI background-candidate rate: ``$($candidate.confidence.uiBackgroundImagesWithCandidates)/$($candidate.confidence.uiBackgroundImageCount)`` (``$(Format-NullableNumber $candidate.confidence.uiBackgroundCandidateRate)``)")
     }
     $lines.Add("")
     if ($null -ne $promotion) {
@@ -998,6 +1135,15 @@ function Write-MarkdownReport($Summary, [string]$Path) {
         }
         if ($null -ne $promotion.positiveSegmentationImageCount) {
             $lines.Add("- Positive segmentation images: ``$($promotion.positiveSegmentationImageCount)`` / required ``$($promotion.minimumPositiveSegmentationImageCount)``")
+        }
+        if ($null -ne $promotion.backgroundSegmentationImageCount) {
+            $lines.Add("- Background segmentation images: ``$($promotion.backgroundSegmentationImageCount)`` / required ``$($promotion.minimumBackgroundSegmentationImageCount)``")
+        }
+        if ($null -ne $promotion.uiPositiveImageCoverage) {
+            $lines.Add("- UI positive-image coverage: ``$(Format-NullableNumber $promotion.uiPositiveImageCoverage)`` / required ``$(Format-NullableNumber $promotion.minimumUiPositiveImageCoverage)``")
+        }
+        if ($null -ne $promotion.uiBackgroundCandidateRate) {
+            $lines.Add("- UI background-candidate rate: ``$(Format-NullableNumber $promotion.uiBackgroundCandidateRate)`` / maximum ``$(Format-NullableNumber $promotion.maximumUiBackgroundCandidateRate)``")
         }
         if ($null -ne $promotion.uiCandidateCount) {
             $lines.Add("- UI candidates: ``$($promotion.uiCandidateCount)`` / required ``$($promotion.minimumUiCandidateCount)``")
@@ -1044,6 +1190,10 @@ New-Item -ItemType Directory -Force -Path $runOutputRoot | Out-Null
 $baseline = Invoke-ModelVal "baseline" $BaselineWeights $runOutputRoot
 $candidate = Invoke-ModelVal "candidate" $CandidateWeights $runOutputRoot
 $evidence = New-ComparisonEvidence $DataYaml $Task $ModelTask
+if ($ModelTask -ieq "segment") {
+    Add-SegmentationPredictionImageEvidence $baseline $evidence $UiConfidence
+    Add-SegmentationPredictionImageEvidence $candidate $evidence $UiConfidence
+}
 $promotion = New-PromotionRecommendation $baseline $candidate $evidence $UiConfidence
 
 $summary = [ordered]@{

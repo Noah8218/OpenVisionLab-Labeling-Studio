@@ -401,6 +401,11 @@ internal static partial class Program
             return RunSingleSmoke("YOLO image review status tracks labels, candidates, and next unlabeled image", TestYoloImageReviewStatusService);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--label-quality-review-report", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("YOLO image quality review exports local markdown report", TestYoloImageQualityReviewReportExport);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--dataset-quality-audit", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("YOLO dataset quality audit reports labels, missing files, empty labels, and class distribution", TestYoloDatasetQualityAuditReport);
@@ -848,6 +853,7 @@ internal static partial class Program
             ("YOLO annotation service loads saved label rectangles", TestYoloAnnotationLoad),
             ("YOLO image label status reports saved object counts", TestYoloImageLabelStatusService),
             ("YOLO image review status tracks labels, candidates, and next unlabeled image", TestYoloImageReviewStatusService),
+            ("YOLO image quality review exports local markdown report", TestYoloImageQualityReviewReportExport),
             ("COCO detection export writes external dataset JSON", TestCocoDetectionExportService),
             ("COCO detection import writes local YOLO dataset artifacts", TestCocoDetectionImportService),
             ("COCO segmentation export writes polygon dataset JSON", TestCocoSegmentationExportService),
@@ -1313,6 +1319,7 @@ internal static partial class Program
         bool ultralyticsRuntimeReady = HasArgument(args, "--ultralytics-runtime-ready");
         bool anomalyDashboard = HasArgument(args, "--anomaly-dashboard");
         bool qualityDashboard = HasArgument(args, "--quality-dashboard");
+        bool showQualityNeedsFix = HasArgument(args, "--show-quality-needs-fix");
         var temporaryVisualSmokeRoots = new List<string>();
         if (roiOnly)
         {
@@ -1453,6 +1460,34 @@ internal static partial class Program
                     SelectVisualSmokeReviewTab(window, reviewTab);
                     EnsureVisualSmokeRightWorkflowExpanded(window, expandRightWorkflow);
                     PrepareVisualSmokeGuidePanel(window, reviewTab, expandLearningConcepts, focusTemplateWorkflow);
+                    if (showQualityNeedsFix)
+                    {
+                        const string visualQualityNote = "경계가 흐려 마스크 수정 필요";
+                        window.ObjectReviewViewModel.QualityReviewNoteText = visualQualityNote;
+                        window.ObjectReviewViewModel.MarkQualityNeedsFixCommand.Execute(null);
+                        window.ObjectReviewViewModel.ExportQualityReviewReportCommand.Execute(null);
+                        var qualityFilterBox = window.FindName("ImageQueueFilterBox") as System.Windows.Controls.ComboBox;
+                        if (qualityFilterBox != null)
+                        {
+                            qualityFilterBox.SelectedItem = qualityFilterBox.Items
+                                .OfType<WpfImageQueueFilterOption>()
+                                .FirstOrDefault(option => option.Filter == WpfImageQueueFilter.NeedsFix);
+                        }
+
+                        PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
+                        AssertTrue(window.ObjectReviewViewModel.IsQualityNeedsFixActive,
+                            "quality visual smoke did not activate the needs-fix state");
+                        AssertEqual(visualQualityNote, window.ObjectReviewViewModel.QualityReviewNoteText);
+                        AssertTrue(window.ObjectReviewViewModel.IsMarkQualityReviewedEnabled,
+                            "saved needs-fix image should allow the operator to mark quality review complete");
+                        AssertTrue(qualityFilterBox?.SelectedItem is WpfImageQueueFilterOption selectedQualityFilter
+                            && selectedQualityFilter.Filter == WpfImageQueueFilter.NeedsFix,
+                            "quality visual smoke did not select the issue-only queue filter");
+                        string qualityReportPath = YoloImageQualityReviewReportExportService.ResolveDefaultOutputPath(CGlobal.Inst.Data);
+                        AssertTrue(File.Exists(qualityReportPath), "quality visual smoke did not export the local QA report");
+                        AssertTrue(File.ReadAllText(qualityReportPath).Contains(visualQualityNote, StringComparison.Ordinal),
+                            "quality visual smoke report did not contain the current issue reason");
+                    }
                     if (showTrainingRecoveryStatus)
                     {
                         ApplyVisualSmokeTrainingRecoveryStatus(window);
@@ -9217,6 +9252,16 @@ internal static partial class Program
                 Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", "artifacts", "ui", "wpf-model-center-real-candidate-save-after-1920.png")));
             int windowWidth = TryParseInt(GetArgumentValue(args, "--width", "1920"), 1920);
             int windowHeight = TryParseInt(GetArgumentValue(args, "--height", "1080"), 1080);
+            AssertTrue(
+                double.TryParse(
+                    GetArgumentValue(args, "--candidate-confidence", "0.25"),
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out double candidateConfidence)
+                && candidateConfidence >= 0D
+                && candidateConfidence <= 1D,
+                "real model-center smoke candidate confidence must be between 0 and 1");
+            bool expectPromotionHold = HasArgument(args, "--expect-promotion-hold");
             string yoloRoot = Path.GetFullPath(GetArgumentValue(args, "--yolo-root", @"C:\Git\yolov8"));
             string dataYamlPath = GetArgumentValue(args, "--data-yaml", string.Empty);
             string datasetRoot = GetArgumentValue(args, "--dataset-root", string.Empty);
@@ -9274,7 +9319,7 @@ internal static partial class Program
                 settings.WeightsPath = baselineWeightsPath;
                 settings.ImageRootPath = imageRoot;
                 settings.InferenceImageSize = 160;
-                settings.MinimumDetectionConfidence = 0.25F;
+                settings.MinimumDetectionConfidence = (float)candidateConfidence;
                 settings.AutoStartClient = false;
                 CGlobal.Inst.Recipe.Name = $"real_model_center_smoke_{Guid.NewGuid():N}";
 
@@ -9303,34 +9348,57 @@ internal static partial class Program
 
                     window.ShellViewModel.TrainingModelCenterCommand.Execute(null);
                     PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
-                    AssertTrue(window.ShellViewModel.IsModelCenterConfirmModelEnabled, "real model-center smoke should enable saving the staged candidate");
                     AssertTrue(window.ShellViewModel.ModelCenterCandidateModelDetailText.Contains(expectedCandidateRunName, StringComparison.Ordinal),
                         "real model-center smoke should show the fine-tuned run as the candidate");
+                    string resultDetail;
+                    if (expectPromotionHold)
+                    {
+                        AssertTrue(window.CandidateReviewViewModel.IsModelPromotionHeld,
+                            "real model-center smoke should hold a candidate when the comparison confidence differs from the current confidence");
+                        AssertTrue(!window.ShellViewModel.IsModelCenterConfirmModelEnabled,
+                            "real model-center smoke should disable saving a confidence-mismatched candidate");
+                        window.YoloModelSettingsViewModel.SaveSettingsCommand.Execute(null);
+                        PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
+                        AssertTrue(GetPrivateField<bool>(window, "hasPendingTrainingWeightsRecipeSave"),
+                            "blocked confidence-mismatched candidate should remain pending instead of being saved");
+                        AssertTrue(!CGlobal.Inst.Data.ProjectSettings.ModelRegistry.AdoptionHistory.Any(item =>
+                                string.Equals(item.WeightsPath, expectedCandidateWeightsPath, StringComparison.OrdinalIgnoreCase)
+                                && item.SavedToRecipe),
+                            "blocked confidence-mismatched candidate should not create an adoption-history record");
+                        resultDetail = $"hold=true, confidence={candidateConfidence:0.######}";
+                    }
+                    else
+                    {
+                        AssertTrue(!window.CandidateReviewViewModel.IsModelPromotionHeld,
+                            "real model-center smoke should not hold a candidate at its validated confidence");
+                        AssertTrue(window.ShellViewModel.IsModelCenterConfirmModelEnabled, "real model-center smoke should enable saving the staged candidate");
+                        window.YoloModelSettingsViewModel.SaveSettingsCommand.Execute(null);
+                        bool saved = WaitUntilWpf(
+                            () =>
+                            {
+                                ModelCandidate current = ModelRegistryService.FindCurrentInspectionModel(CGlobal.Inst.Data.ProjectSettings.ModelRegistry);
+                                return !GetPrivateField<bool>(window, "hasPendingTrainingWeightsRecipeSave")
+                                    && string.Equals(CGlobal.Inst.Data.ProjectSettings.PythonModel.WeightsPath, expectedCandidateWeightsPath, StringComparison.OrdinalIgnoreCase)
+                                    && current != null
+                                    && string.Equals(current.WeightsPath, expectedCandidateWeightsPath, StringComparison.OrdinalIgnoreCase)
+                                    && current.SavedToRecipe
+                                    && string.Equals(current.Decision, ModelRegistryService.CandidateDecisionAdopted, StringComparison.Ordinal);
+                            },
+                            TimeSpan.FromSeconds(8));
+                        AssertTrue(saved, "real model-center smoke should save the fine-tuned candidate as the current inspection model. " + BuildModelCenterConfirmSaveDebugText(window));
+                        AssertTrue(Math.Abs(CGlobal.Inst.Data.ProjectSettings.PythonModel.MinimumDetectionConfidence - candidateConfidence) < 0.000001D,
+                            "saved inspection model should preserve the confidence used by the promotion comparison");
+                        AssertTrue(CGlobal.Inst.Data.ProjectSettings.ModelRegistry.AdoptionHistory.Any(item =>
+                                string.Equals(item.WeightsPath, expectedCandidateWeightsPath, StringComparison.OrdinalIgnoreCase)
+                                && item.SavedToRecipe),
+                            "real model-center smoke should persist an adoption-history record for the fine-tuned candidate");
 
-                    window.YoloModelSettingsViewModel.SaveSettingsCommand.Execute(null);
-                    bool saved = WaitUntilWpf(
-                        () =>
-                        {
-                            ModelCandidate current = ModelRegistryService.FindCurrentInspectionModel(CGlobal.Inst.Data.ProjectSettings.ModelRegistry);
-                            return !GetPrivateField<bool>(window, "hasPendingTrainingWeightsRecipeSave")
-                                && string.Equals(CGlobal.Inst.Data.ProjectSettings.PythonModel.WeightsPath, expectedCandidateWeightsPath, StringComparison.OrdinalIgnoreCase)
-                                && current != null
-                                && string.Equals(current.WeightsPath, expectedCandidateWeightsPath, StringComparison.OrdinalIgnoreCase)
-                                && current.SavedToRecipe
-                                && string.Equals(current.Decision, ModelRegistryService.CandidateDecisionAdopted, StringComparison.Ordinal);
-                        },
-                        TimeSpan.FromSeconds(8));
-                    AssertTrue(saved, "real model-center smoke should save the fine-tuned candidate as the current inspection model. " + BuildModelCenterConfirmSaveDebugText(window));
-
-                    AssertTrue(CGlobal.Inst.Data.ProjectSettings.ModelRegistry.AdoptionHistory.Any(item =>
-                            string.Equals(item.WeightsPath, expectedCandidateWeightsPath, StringComparison.OrdinalIgnoreCase)
-                            && item.SavedToRecipe),
-                        "real model-center smoke should persist an adoption-history record for the fine-tuned candidate");
-
-                    string recipeConfigPath = Path.Combine(AppContext.BaseDirectory, "RECIPE", CGlobal.Inst.Recipe.Name, "VISION.xml");
-                    AssertTrue(File.Exists(recipeConfigPath), $"real model-center smoke recipe config was not saved: {recipeConfigPath}");
-                    AssertTrue(File.ReadAllText(recipeConfigPath).Contains(expectedCandidateRunName, StringComparison.Ordinal),
-                        "saved recipe config should persist the fine-tuned weights path");
+                        string recipeConfigPath = Path.Combine(AppContext.BaseDirectory, "RECIPE", CGlobal.Inst.Recipe.Name, "VISION.xml");
+                        AssertTrue(File.Exists(recipeConfigPath), $"real model-center smoke recipe config was not saved: {recipeConfigPath}");
+                        AssertTrue(File.ReadAllText(recipeConfigPath).Contains(expectedCandidateRunName, StringComparison.Ordinal),
+                            "saved recipe config should persist the fine-tuned weights path");
+                        resultDetail = "recipe=" + recipeConfigPath;
+                    }
 
                     PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
                     CaptureWindow(window, outputPath);
@@ -9339,8 +9407,8 @@ internal static partial class Program
                         + expectedCandidateWeightsPath
                         + ", baseline="
                         + baselineWeightsPath
-                        + ", recipe="
-                        + recipeConfigPath);
+                        + ", "
+                        + resultDetail);
                     Console.WriteLine($"WPF model-center real candidate save captured: {outputPath}");
                 }
                 finally
@@ -11305,6 +11373,23 @@ internal static partial class Program
             AssertTrue(promoteReport.DetailText.Contains("\uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5", StringComparison.Ordinal), "translated promote reason should point to saving as the inspection model");
             AssertTrue(promoteReport.DetailText.Contains("\uAC80\uD1A0 \uAE30\uC900\uBCC4 \uD6C4\uBCF4", StringComparison.Ordinal), "promote detail should still include the threshold sweep");
             AssertTrue(!promoteReport.DetailText.Contains("Candidate improves", StringComparison.Ordinal), "model comparison report should not expose raw English promote reasons");
+            AssertEqual("promote", promoteReport.PromotionDecision);
+            AssertTrue(promoteReport.RecommendationText.Contains("\uAD50\uCCB4 \uCD94\uCC9C", StringComparison.Ordinal), "model comparison report should expose the translated recommendation separately for summary cards");
+            WpfModelComparisonReviewReport confidenceMismatchReport = service.BuildFromSummaryFile(
+                summaryPath,
+                new[] { "OK", "NG" },
+                confidenceThreshold: 0.20D,
+                maxExamples: 10);
+            AssertEqual("hold", confidenceMismatchReport.PromotionDecision);
+            AssertTrue(confidenceMismatchReport.RecommendationText.Contains("\uAD50\uCCB4 \uBCF4\uB958", StringComparison.Ordinal), "comparison confidence mismatch should fail closed as hold");
+            AssertTrue(confidenceMismatchReport.RecommendationText.Contains("25.0", StringComparison.Ordinal)
+                && confidenceMismatchReport.RecommendationText.Contains("20.0", StringComparison.Ordinal),
+                "comparison confidence mismatch should preserve compared and current confidence values");
+            AssertTrue(confidenceMismatchReport.RecommendationText.Contains("\uB2E4\uC2DC \uC2E4\uD589", StringComparison.Ordinal), "comparison confidence mismatch should direct the operator to rerun validation");
+            AssertTrue(!confidenceMismatchReport.RecommendationText.Contains("Model comparison confidence", StringComparison.Ordinal), "comparison confidence mismatch should not expose raw English service text");
+            var confidenceMismatchViewModel = new WpfCandidateReviewPanelViewModel();
+            confidenceMismatchViewModel.SetModelComparisonReview(confidenceMismatchReport);
+            AssertTrue(confidenceMismatchViewModel.IsModelPromotionHeld, "comparison confidence mismatch should block candidate adoption commands");
             File.WriteAllText(
                 summaryPath,
                 JsonConvert.SerializeObject(new
@@ -11336,7 +11421,10 @@ internal static partial class Program
                             "Held-out comparison uses 9 labeled images; collect at least 10 before promotion.",
                             "Segment held-out comparison uses 3 positive segmentation labels; collect at least 5 positive mask labels before promotion.",
                             "Segment held-out comparison uses 3 positive segmentation images; collect at least 5 positive mask images before promotion.",
-                            "Candidate produced 0 UI-threshold candidates at confidence 0.25; lower the review threshold or retrain before promotion."
+                            "Segment held-out comparison uses 3 background segmentation images; collect at least 5 background images before promotion.",
+                            "Candidate produced 0 UI-threshold candidates at confidence 0.25; lower the review threshold or retrain before promotion.",
+                            "Candidate UI-threshold positive image coverage 2/10 (0.2) is below minimum 0.5 at confidence 0.25; add varied training data or tune the model before promotion.",
+                            "Candidate UI-threshold background candidate rate 2/6 (0.333) exceeds maximum 0.1 at confidence 0.25; add background data or tune the model before promotion."
                         }
                     }
                 }));
@@ -11348,7 +11436,10 @@ internal static partial class Program
             AssertTrue(multiReasonReport.DetailText.Contains("\uCD5C\uC885 \uAC80\uC99D", StringComparison.Ordinal), "model comparison report should keep weak-evidence blockers when multiple promotion reasons exist");
             AssertTrue(multiReasonReport.DetailText.Contains("\uC591\uC131 \uB9C8\uC2A4\uD06C", StringComparison.Ordinal), "model comparison report should keep positive segmentation evidence blockers when multiple promotion reasons exist");
             AssertTrue(multiReasonReport.DetailText.Contains("\uC774\uBBF8\uC9C0", StringComparison.Ordinal), "model comparison report should keep positive segmentation image evidence blockers when multiple promotion reasons exist");
+            AssertTrue(multiReasonReport.DetailText.Contains("\uC815\uC0C1 \uC774\uBBF8\uC9C0", StringComparison.Ordinal), "model comparison report should keep background segmentation evidence blockers when multiple promotion reasons exist");
             AssertTrue(multiReasonReport.DetailText.Contains("\uAC80\uD1A0 \uAE30\uC900 \uC2E0\uB8B0\uB3C4", StringComparison.Ordinal), "model comparison report should keep zero UI-candidate blockers when multiple promotion reasons exist");
+            AssertTrue(multiReasonReport.DetailText.Contains("20.0", StringComparison.Ordinal) && multiReasonReport.DetailText.Contains("50.0", StringComparison.Ordinal), "model comparison report should preserve UI positive-image coverage and minimum rate");
+            AssertTrue(multiReasonReport.DetailText.Contains("33.3", StringComparison.Ordinal) && multiReasonReport.DetailText.Contains("10.0", StringComparison.Ordinal), "model comparison report should preserve UI background-candidate rate and maximum rate");
             AssertTrue(multiReasonReport.DetailText.Contains("9", StringComparison.Ordinal) && multiReasonReport.DetailText.Contains("10", StringComparison.Ordinal), "multi-reason promotion detail should preserve held-out evidence counts");
             AssertTrue(multiReasonReport.DetailText.Contains("3", StringComparison.Ordinal) && multiReasonReport.DetailText.Contains("5", StringComparison.Ordinal), "multi-reason promotion detail should preserve positive segmentation evidence counts");
             AssertTrue(multiReasonReport.DetailText.Contains("25.0", StringComparison.Ordinal), "multi-reason promotion detail should preserve the UI confidence threshold");
@@ -11358,7 +11449,18 @@ internal static partial class Program
             AssertTrue(!multiReasonReport.DetailText.Contains("Held-out comparison", StringComparison.Ordinal), "multi-reason promotion detail should not expose raw held-out text");
             AssertTrue(!multiReasonReport.DetailText.Contains("positive segmentation labels", StringComparison.Ordinal), "multi-reason promotion detail should not expose raw positive segmentation text");
             AssertTrue(!multiReasonReport.DetailText.Contains("positive segmentation images", StringComparison.Ordinal), "multi-reason promotion detail should not expose raw positive segmentation image text");
+            AssertTrue(!multiReasonReport.DetailText.Contains("background segmentation images", StringComparison.Ordinal), "multi-reason promotion detail should not expose raw background segmentation image text");
             AssertTrue(!multiReasonReport.DetailText.Contains("UI-threshold candidates", StringComparison.Ordinal), "multi-reason promotion detail should not expose raw zero-candidate text");
+            AssertTrue(!multiReasonReport.DetailText.Contains("UI-threshold positive image coverage", StringComparison.Ordinal), "multi-reason promotion detail should not expose raw positive-image coverage text");
+            AssertTrue(!multiReasonReport.DetailText.Contains("UI-threshold background candidate rate", StringComparison.Ordinal), "multi-reason promotion detail should not expose raw background-candidate text");
+            AssertEqual("hold", multiReasonReport.PromotionDecision);
+            AssertTrue(multiReasonReport.RecommendationText.Contains("\uAD50\uCCB4 \uBCF4\uB958", StringComparison.Ordinal), "model comparison report should expose the translated hold recommendation separately for summary cards");
+            var holdViewModel = new WpfCandidateReviewPanelViewModel();
+            holdViewModel.SetModelComparisonReview(multiReasonReport);
+            AssertTrue(holdViewModel.IsModelPromotionHeld, "model comparison ViewModel should preserve a fail-closed hold decision for candidate adoption commands");
+            AssertTrue(holdViewModel.ModelComparisonDecisionText.Contains("\uAD50\uCCB4 \uBCF4\uB958", StringComparison.Ordinal), "model-quality decision card should show the held-out recommendation instead of candidate workflow state");
+            AssertTrue(holdViewModel.ModelComparisonActionText.Contains("\uB2E4\uC2DC \uC2E4\uD589", StringComparison.Ordinal), "held model comparison should direct the operator to improve data or tune and rerun validation");
+            AssertTrue(!holdViewModel.ModelComparisonActionText.Contains("\uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5", StringComparison.Ordinal), "held model comparison should not direct the operator to save the candidate as the inspection model");
             AssertEqual(3, report.Examples.Count);
             AssertTrue(report.Examples.Any(item => item.Kind == "ClassChanged" && item.Detail.Contains("OK", StringComparison.Ordinal) && item.Detail.Contains("NG", StringComparison.Ordinal)), "model comparison review should surface class changes");
             AssertTrue(report.Examples.Any(item => item.Kind == "CandidateOnly" && item.ImageKey == "candidate_only"), "model comparison review should surface new-model-only candidates");
@@ -11528,8 +11630,13 @@ internal static partial class Program
             AssertTrue(realScriptSource.Contains("minimumHeldoutLabelCount", StringComparison.Ordinal), "model comparison recommendation should block promotion when held-out evidence is too small");
             AssertTrue(realScriptSource.Contains("minimumPositiveSegmentationLabelLineCount", StringComparison.Ordinal), "model comparison recommendation should block promotion when positive segmentation evidence is too small");
             AssertTrue(realScriptSource.Contains("minimumPositiveSegmentationImageCount", StringComparison.Ordinal), "model comparison recommendation should block promotion when positive segmentation image evidence is too small");
+            AssertTrue(realScriptSource.Contains("minimumBackgroundSegmentationImageCount", StringComparison.Ordinal), "model comparison recommendation should require background segmentation evidence before promotion");
             AssertTrue(realScriptSource.Contains("uiCandidateCount", StringComparison.Ordinal), "model comparison recommendation should inspect UI-threshold candidate count");
             AssertTrue(realScriptSource.Contains("UI-threshold candidates", StringComparison.Ordinal), "model comparison recommendation should block promotion when the candidate produces no UI-visible candidates");
+            AssertTrue(realScriptSource.Contains("uiPositiveImageCoverage", StringComparison.Ordinal), "model comparison summary should persist UI-threshold positive-image coverage");
+            AssertTrue(realScriptSource.Contains("UI-threshold positive image coverage", StringComparison.Ordinal), "model comparison recommendation should block low positive-image coverage");
+            AssertTrue(realScriptSource.Contains("uiBackgroundCandidateRate", StringComparison.Ordinal), "model comparison summary should persist UI-threshold background-candidate rate");
+            AssertTrue(realScriptSource.Contains("UI-threshold background candidate rate", StringComparison.Ordinal), "model comparison recommendation should block excessive background candidates");
             AssertTrue(realScriptSource.Contains("thresholdSweep", StringComparison.Ordinal), "model comparison confidence summary should persist review-threshold candidate counts");
             AssertTrue(realScriptSource.Contains("reasons = @($reasonList)", StringComparison.Ordinal), "model comparison recommendation should persist every promotion blocker");
             AssertTrue(realScriptSource.Contains("promotion = $promotion", StringComparison.Ordinal), "model comparison summary should persist the promotion recommendation");
@@ -15803,6 +15910,15 @@ internal static partial class Program
                 "LABELING_YOLOV8_CLASSIFICATION_SMOKE_WEIGHTS",
                 Path.Combine(yoloRoot, "yolov8n-cls.pt"));
             string imagePath = GetEnvironmentValue("LABELING_YOLOV8_CLASSIFICATION_SMOKE_IMAGE", string.Empty);
+            string expectedClassName = GetEnvironmentValue("LABELING_YOLOV8_CLASSIFICATION_SMOKE_EXPECTED_CLASS", string.Empty);
+            string expectedStateText = GetEnvironmentValue("LABELING_YOLOV8_CLASSIFICATION_SMOKE_EXPECTED_STATE", "abnormal");
+            bool expectNormal = string.Equals(expectedStateText, "normal", StringComparison.OrdinalIgnoreCase);
+            AssertTrue(
+                expectNormal || string.Equals(expectedStateText, "abnormal", StringComparison.OrdinalIgnoreCase),
+                $"Unsupported expected anomaly review state: {expectedStateText}");
+            string imageSizeText = GetEnvironmentValue("LABELING_YOLOV8_CLASSIFICATION_SMOKE_IMAGE_SIZE", "64");
+            AssertTrue(int.TryParse(imageSizeText, out int inferenceImageSize) && inferenceImageSize > 0,
+                $"Invalid classification smoke image size: {imageSizeText}");
             if (string.IsNullOrWhiteSpace(imagePath))
             {
                 imagePath = Path.Combine(root, "classification-smoke.png");
@@ -15832,7 +15948,7 @@ internal static partial class Program
             data.ProjectSettings.PythonModel.ImageRootPath = Path.GetDirectoryName(imagePath) ?? string.Empty;
             data.ProjectSettings.PythonModel.MinimumDetectionConfidence = 0F;
             data.ProjectSettings.PythonModel.MaximumDetectionCandidates = 20;
-            data.ProjectSettings.PythonModel.InferenceImageSize = 64;
+            data.ProjectSettings.PythonModel.InferenceImageSize = inferenceImageSize;
             data.ProjectSettings.PythonModel.DetectionTimeoutSeconds = 120;
             data.ProjectSettings.PythonModel.AutoStartClient = false;
 
@@ -15846,8 +15962,19 @@ internal static partial class Program
                 && string.Equals(candidate.CandidateType, "imageClassification", StringComparison.OrdinalIgnoreCase));
             AssertTrue(mappedClass != null, "YOLOv8 classification probe did not return an image-level classification candidate");
             AssertTrue(!string.IsNullOrWhiteSpace(mappedClass.ClassName), "YOLOv8 classification probe did not return a class name");
+            if (!string.IsNullOrWhiteSpace(expectedClassName))
+            {
+                AssertEqual(expectedClassName, mappedClass.ClassName);
+            }
 
-            data.ProjectSettings.AnomalyClassification.AbnormalClassNames.Add(mappedClass.ClassName);
+            if (expectNormal)
+            {
+                data.ProjectSettings.AnomalyClassification.NormalClassNames.Add(mappedClass.ClassName);
+            }
+            else
+            {
+                data.ProjectSettings.AnomalyClassification.AbnormalClassNames.Add(mappedClass.ClassName);
+            }
             data.ProjectSettings.AnomalyClassification.MinimumConfidence = Math.Max(0D, mappedClass.Confidence - 0.0001D);
             CGlobal.Inst.Data = data;
             SetPrivateField(CGlobal.Inst.Recipe, "m_strName", string.Empty);
@@ -15885,7 +16012,9 @@ internal static partial class Program
                 AnomalyImageReviewStatus status = reviewStatus.GetItems().FirstOrDefault(item =>
                     string.Equals(item.ImagePath, imagePath, StringComparison.OrdinalIgnoreCase));
                 AssertTrue(status != null, "WPF YOLOv8 anomaly classification smoke did not persist anomaly review status");
-                AssertEqual(AnomalyImageReviewState.Abnormal, status.ReviewState);
+                AssertEqual(
+                    expectNormal ? AnomalyImageReviewState.Normal : AnomalyImageReviewState.Abnormal,
+                    status.ReviewState);
             }
             finally
             {
@@ -16549,6 +16678,25 @@ internal static partial class Program
             YoloImageReviewStatus confirmedBySavedLabel = service.RefreshLabelStatusAndReviewState(labeledImagePath, new Size(100, 100), data, hasActiveCandidates: false);
             AssertEqual("Confirmed", confirmedBySavedLabel.DetectionText);
 
+            YoloImageReviewStatus needsFix = service.MarkQualityNeedsFix(
+                labeledImagePath,
+                qualityReviewNote: "  경계가 흐림\r\n마스크 재작업  ");
+            AssertEqual(YoloImageQualityReviewState.NeedsFix, needsFix.QualityReviewState);
+            AssertEqual("경계가 흐림  마스크 재작업", needsFix.QualityReviewNote);
+            AssertEqual(
+                YoloImageQualityReviewState.NeedsFix,
+                service.InvalidateQualityReviewAfterEdit(labeledImagePath).QualityReviewState);
+            YoloImageReviewStatus qualityReviewed = service.MarkQualityReviewed(labeledImagePath);
+            AssertEqual(YoloImageQualityReviewState.Reviewed, qualityReviewed.QualityReviewState);
+            AssertEqual(string.Empty, qualityReviewed.QualityReviewNote);
+            AssertEqual(
+                YoloImageQualityReviewState.Unreviewed,
+                service.InvalidateQualityReviewAfterEdit(labeledImagePath).QualityReviewState);
+            AssertEqual(
+                YoloImageQualityReviewState.Unreviewed,
+                service.ClearQualityReview(labeledImagePath).QualityReviewState);
+            service.MarkQualityNeedsFix(labeledImagePath, qualityReviewNote: "경계 | 마스크 수정");
+
             service.SetDetectionCandidates(candidateImagePath, "candidate", 2);
             service.SaveReviewStatus(data);
 
@@ -16557,11 +16705,15 @@ internal static partial class Program
             string reviewStatusJson = File.ReadAllText(reviewStatusPath);
             AssertTrue(reviewStatusJson.Contains("\"ReviewStateName\": \"Confirmed\""), "review status file did not include a readable confirmed state name");
             AssertTrue(reviewStatusJson.Contains("\"ReviewStateName\": \"Candidate\""), "review status file did not include a readable candidate state name");
+            AssertTrue(reviewStatusJson.Contains("\"QualityReviewStateName\": \"NeedsFix\""), "review status file did not include a readable quality-review state name");
+            AssertTrue(reviewStatusJson.Contains("\"QualityReviewNote\": \"경계 | 마스크 수정\""), "review status file did not include the short quality-review note");
 
             var restored = new YoloImageReviewStatusService();
             restored.LoadReviewStatus(data, imagePaths);
 
             AssertEqual("Confirmed", restored.GetOrCreate(labeledImagePath).DetectionText);
+            AssertEqual(YoloImageQualityReviewState.NeedsFix, restored.GetOrCreate(labeledImagePath).QualityReviewState);
+            AssertEqual("경계 | 마스크 수정", restored.GetOrCreate(labeledImagePath).QualityReviewNote);
             AssertEqual("Candidate 2", restored.GetOrCreate(candidateImagePath).DetectionText);
             AssertEqual("Failed", restored.GetOrCreate(failedImagePath).DetectionText);
             AssertEqual(2, restored.GetOrCreate(failedImagePath).DetectionAttemptCount);
@@ -16573,6 +16725,55 @@ internal static partial class Program
             var restoredFromName = new YoloImageReviewStatusService();
             restoredFromName.LoadReviewStatus(data, imagePaths);
             AssertEqual("Confirmed", restoredFromName.GetOrCreate(labeledImagePath).DetectionText);
+        }
+        finally
+        {
+            DeleteTempRoot(root);
+        }
+    }
+
+    private static void TestYoloImageQualityReviewReportExport()
+    {
+        string root = CreateTempRoot();
+        try
+        {
+            var data = new CData();
+            data.ConfigureOutputRoot(root);
+            string needsFixPath = Path.Combine(root, "images", "needs-fix.png");
+            string reviewedPath = Path.Combine(root, "images", "reviewed.png");
+            string unreviewedPath = Path.Combine(root, "images", "unreviewed.png");
+            var service = new YoloImageReviewStatusService();
+            service.SetImages(new[] { needsFixPath, reviewedPath, unreviewedPath });
+            service.MarkQualityNeedsFix(
+                needsFixPath,
+                qualityReviewNote: "경계 | 불명확\n마스크 재작업");
+            service.MarkQualityReviewed(reviewedPath);
+
+            string outputPath = YoloImageQualityReviewReportExportService.ResolveDefaultOutputPath(data);
+            var generatedAtUtc = new DateTime(2026, 7, 11, 3, 0, 0, DateTimeKind.Utc);
+            YoloImageQualityReviewReportExportResult result = YoloImageQualityReviewReportExportService.ExportMarkdown(
+                service.GetItems(),
+                outputPath,
+                generatedAtUtc);
+
+            AssertTrue(File.Exists(outputPath), "local label quality review markdown was not written");
+            AssertEqual(outputPath, result.OutputPath);
+            AssertEqual(3, result.TotalImageCount);
+            AssertEqual(1, result.UnreviewedCount);
+            AssertEqual(1, result.NeedsFixCount);
+            AssertEqual(1, result.ReviewedCount);
+            string markdown = File.ReadAllText(outputPath);
+            AssertTrue(markdown.Contains("# 라벨 품질 검수 보고서", StringComparison.Ordinal), "quality report should have an operator-facing title");
+            AssertTrue(markdown.Contains("2026-07-11 03:00:00", StringComparison.Ordinal), "quality report should include a deterministic UTC generation time");
+            AssertTrue(markdown.Contains("needs-fix.png", StringComparison.Ordinal), "quality report should list the issue image");
+            AssertTrue(markdown.Contains("경계 \\| 불명확 마스크 재작업", StringComparison.Ordinal), "quality report should normalize and escape the issue reason");
+            AssertTrue(!markdown.Contains(root, StringComparison.OrdinalIgnoreCase), "quality report should not expose the local absolute dataset path");
+
+            string oversizedNote = new string('A', YoloImageReviewStatusService.QualityReviewNoteMaxLength + 20);
+            YoloImageReviewStatus normalized = service.MarkQualityNeedsFix(unreviewedPath, qualityReviewNote: oversizedNote);
+            AssertEqual(YoloImageReviewStatusService.QualityReviewNoteMaxLength, normalized.QualityReviewNote.Length);
+            service.ClearQualityReview(unreviewedPath);
+            AssertEqual(string.Empty, service.GetOrCreate(unreviewedPath).QualityReviewNote);
         }
         finally
         {
@@ -25455,6 +25656,9 @@ internal static partial class Program
         AssertNamedXamlValue(xaml, xName, "CurrentWorkflowActionText", "Foreground", "{DynamicResource PrimaryTextBrush}");
         AssertNamedXamlBinding(xaml, xName, "CurrentToolHintText", "Text", "CurrentLabelingTaskToolText");
         AssertNamedXamlBinding(xaml, xName, "CurrentLabelingTaskChecklistPanel", "Text", "CurrentLabelingTaskChecklistSummaryText");
+        AssertNamedXamlBinding(xaml, xName, "CurrentWorkbenchToolText", "Text", "CurrentLabelingTaskToolText");
+        AssertNamedXamlValue(xaml, xName, "CurrentWorkbenchContextExpander", "Header", "작업 세부 보기");
+        AssertNamedXamlValue(xaml, xName, "CurrentWorkbenchContextExpander", "IsExpanded", "False");
         AssertNamedXamlBinding(xaml, xName, "LabelingGuideDetailsExpander", "Visibility", "LabelingTaskVisibility");
         AssertNamedXamlValue(xaml, xName, "LabelingGuideDetailsExpander", "Header", "필요할 때만: 학습·검사 세부");
         AssertNamedXamlValue(xaml, xName, "LabelingGuideDetailsExpander", "IsExpanded", "False");
@@ -25478,6 +25682,22 @@ internal static partial class Program
         AssertTrue(panelSource.Contains("CurrentLabelingTaskChecklistPanel", StringComparison.Ordinal), "WPF guide should expose a compact current-task flow hint instead of starting with the full tutorial stack");
         AssertTrue(panelSource.Contains("CurrentLabelingTaskChecklistSummaryText", StringComparison.Ordinal),
             "WPF guide current-task flow hint should be owned by the ViewModel instead of hard-coded to drawing steps");
+        AssertTrue(panelSource.Contains("CurrentWorkbenchRoleGrid", StringComparison.Ordinal), "WPF guide should keep optional workbench context available without showing it by default");
+        AssertNamedXamlElement(xaml, xName, "Expander", "CurrentWorkbenchContextExpander");
+        AssertNamedXamlElement(xaml, xName, "Grid", "CurrentWorkbenchRoleGrid");
+        AssertNamedXamlElement(xaml, xName, "Grid", "CurrentWorkbenchToolPanel");
+        AssertNamedXamlElement(xaml, xName, "Grid", "CurrentWorkbenchObjectsPanel");
+        AssertNamedXamlElement(xaml, xName, "Grid", "CurrentWorkbenchQualityPanel");
+        AssertNamedXamlElement(xaml, xName, "TextBlock", "CurrentWorkbenchObjectsText");
+        AssertNamedXamlValue(xaml, xName, "CurrentWorkbenchObjectsText", "Text", "목록에서 확인");
+        AssertNamedXamlElement(xaml, xName, "TextBlock", "CurrentWorkbenchQualityText");
+        XElement workbenchContextExpander = xaml.Descendants()
+            .FirstOrDefault(element => element.Name.LocalName == "Expander"
+                && string.Equals((string)element.Attribute(xName), "CurrentWorkbenchContextExpander", StringComparison.Ordinal));
+        AssertTrue(
+            workbenchContextExpander?.Descendants().Any(element => string.Equals((string)element.Attribute(xName), "CurrentWorkbenchRoleGrid", StringComparison.Ordinal)) == true,
+            "optional workbench context should own the tool, object, and quality rows");
+        AssertTrue(!panelSource.Contains("CurrentWorkbenchActionPanel", StringComparison.Ordinal), "current task flow should not be duplicated in a nested next-action card");
         AssertTrue(panelSource.Contains("TemplateWorkflowStepTemplate", StringComparison.Ordinal), "WPF guide should render template labeling as structured steps instead of a loose help paragraph");
         AssertTrue(panelSource.Contains("AutomationProperties.AutomationId=\"TemplateWorkflowPanel\"", StringComparison.Ordinal), "template workflow card should expose a stable AutomationId for visual and EXE smoke tests");
         AssertTrue(panelSource.Contains("AutomationProperties.AutomationId=\"TemplateWorkflowRoleText\"", StringComparison.Ordinal), "template workflow card should expose the helper-role text for visual and UIAutomation checks");
@@ -28108,9 +28328,13 @@ internal static partial class Program
 
         string modelCandidateDecisionPresentationSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfModelCandidateDecisionPresentationService.cs"));
         string modelCandidateDecisionCommandSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.ModelCandidateDecisionCommands.cs"));
+        string yoloEnvironmentBrowseCommandSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.YoloEnvironmentBrowseCommands.cs"));
         WpfModelCandidateDecisionPresentation pendingModelDecision = WpfModelCandidateDecisionPresentationService.BuildPendingCandidate(
             Path.Combine("runs", "train", "exp7", "weights", "best.pt"),
             Path.Combine("models", "baseline.pt"),
+            canReject: true);
+        WpfModelCandidateDecisionPresentation heldModelDecision = WpfModelCandidateDecisionPresentationService.BuildHeldCandidate(
+            Path.Combine("runs", "segment", "exp8", "weights", "best.pt"),
             canReject: true);
         WpfModelCandidateDecisionPresentation rejectedModelDecision = WpfModelCandidateDecisionPresentationService.BuildRejectedCandidate("best.pt", string.Empty);
         AssertTrue(modelCandidateDecisionPresentationSource.Contains("BuildPendingCandidate", StringComparison.Ordinal), "model candidate decision presentation service should own pending decision wording");
@@ -28118,9 +28342,14 @@ internal static partial class Program
         AssertTrue(pendingModelDecision.CanSave && pendingModelDecision.CanReject, "pending model candidate decision should allow both save and reject when a baseline exists");
         AssertTrue(pendingModelDecision.StatusText.Contains("best.pt", StringComparison.Ordinal), "pending model candidate decision should name the trained weights");
         AssertTrue(pendingModelDecision.DetailText.Contains("baseline.pt", StringComparison.Ordinal), "pending model candidate decision should name the retained baseline model");
+        AssertTrue(!heldModelDecision.CanSave && heldModelDecision.CanReject, "held model candidate decision should block adoption while allowing rejection to keep the baseline");
+        AssertTrue(heldModelDecision.StatusText.Contains("\uAC80\uC99D \uBCF4\uB958", StringComparison.Ordinal), "held model candidate decision should explain that validation blocked adoption");
+        AssertTrue(WpfModelCandidateDecisionPresentationService.BuildHeldCandidateSaveBlockedStatus().Contains("\uC800\uC7A5\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4", StringComparison.Ordinal), "held candidate direct-command guard should explain that the model was not saved");
         AssertTrue(rejectedModelDecision.DetailText.Contains("채택하지 않았습니다", StringComparison.Ordinal), "rejected model candidate decision should explain the candidate was not adopted");
         AssertTrue(modelCandidateDecisionCommandSource.Contains("WpfModelCandidateDecisionPresentationService", StringComparison.Ordinal), "model candidate decision command should delegate operator-facing wording to the presentation service");
         AssertTrue(modelCandidateDecisionCommandSource.Contains("ApplyModelCandidateDecisionPresentation", StringComparison.Ordinal), "model candidate decision command should only adapt presentation DTOs into the ViewModel");
+        AssertTrue(modelCandidateDecisionCommandSource.Contains("IsModelPromotionHeld", StringComparison.Ordinal), "model candidate save command and panel should fail closed when held-out comparison blocks promotion");
+        AssertTrue(yoloEnvironmentBrowseCommandSource.Contains("pendingWeightsRecipeSave && CandidateReviewViewModel?.IsModelPromotionHeld", StringComparison.Ordinal), "generic model-profile save should not bypass a held candidate adoption guard");
         AssertTrue(!modelCandidateDecisionCommandSource.Contains("후보 결정: 저장 또는 거절 필요", StringComparison.Ordinal), "model candidate decision command should not inline pending decision wording");
         AssertTrue(!modelCandidateDecisionCommandSource.Contains("이미 거절된 후보입니다", StringComparison.Ordinal), "model candidate decision command should not inline rejected-candidate tooltips");
 
@@ -30447,6 +30676,18 @@ internal static partial class Program
         AssertTrue(candidateXamlSource.Contains("ScrollViewer.CanContentScroll=\"True\"", StringComparison.Ordinal), "WPF candidate list should keep logical scrolling so virtualization stays active");
         AssertTrue(confidenceSlider != null, "WPF candidate confidence slider was not found in XAML");
         AssertNamedXamlAttachedBinding(xaml, xName, "CandidateConfidenceSlider", "ValueInputCommand", "ConfidenceChangedCommand");
+        AssertNamedXamlElement(xaml, xName, "Grid", "CandidateReviewWorkbenchSummaryGrid");
+        AssertNamedXamlElement(xaml, xName, "Border", "CandidateReviewCandidateCountCard");
+        AssertNamedXamlElement(xaml, xName, "Border", "CandidateReviewConfidenceCard");
+        AssertNamedXamlElement(xaml, xName, "Border", "CandidateReviewSelectedSummaryCard");
+        AssertNamedXamlElement(xaml, xName, "Border", "CandidateReviewNextStateCard");
+        AssertNamedXamlBinding(xaml, xName, "CandidateReviewCandidateCountText", "Text", "CandidateCountSummaryText");
+        AssertNamedXamlBinding(xaml, xName, "CandidateReviewConfidenceSummaryText", "Text", "ConfidenceText");
+        AssertNamedXamlBinding(xaml, xName, "CandidateReviewSelectedSummaryChipText", "Text", "SelectedCandidateSummaryText");
+        AssertNamedXamlBinding(xaml, xName, "CandidateReviewSelectedSummaryChipText", "ToolTip", "SelectedCandidateSummaryText");
+        AssertNamedXamlBinding(xaml, xName, "CandidateReviewNextStateText", "Text", "CompletionNextActionText");
+        AssertNamedXamlBinding(xaml, xName, "CandidateReviewNextStateText", "ToolTip", "CompletionNextActionText");
+        AssertNamedXamlValue(xaml, xName, "CandidateReviewDecisionTitleText", "Text", "후보 이동 / 결정");
         AssertNamedXamlElement(xaml, xName, "Grid", "CandidateReviewRoleSplitPanel");
         AssertNamedXamlElement(xaml, xName, "Border", "CurrentImageCandidateRoleCard");
         AssertNamedXamlElement(xaml, xName, "Border", "ModelValidationRoleCard");
@@ -30481,6 +30722,19 @@ internal static partial class Program
             "WPF candidate comparison decision text should keep the full decision wording in a tooltip when capped");
         AssertNamedXamlBinding(xaml, xName, "ModelComparisonReviewPanel", "Visibility", "ModelComparisonVisibility");
         AssertNamedXamlBinding(xaml, xName, "ModelComparisonSectionTitleText", "Text", "ModelComparisonSectionTitleText");
+        AssertNamedXamlElement(xaml, xName, "Grid", "ModelQualitySummaryGrid");
+        AssertNamedXamlElement(xaml, xName, "Border", "ModelQualityStatusCard");
+        AssertNamedXamlElement(xaml, xName, "Border", "ModelQualitySourceCard");
+        AssertNamedXamlElement(xaml, xName, "Border", "ModelQualityDecisionCard");
+        AssertNamedXamlElement(xaml, xName, "Border", "ModelQualityNextActionCard");
+        AssertNamedXamlBinding(xaml, xName, "ModelQualityStatusText", "Text", "ModelComparisonStatusText");
+        AssertNamedXamlBinding(xaml, xName, "ModelQualityStatusText", "ToolTip", "ModelComparisonStatusText");
+        AssertNamedXamlBinding(xaml, xName, "ModelQualitySourceText", "Text", "ModelComparisonSourceText");
+        AssertNamedXamlBinding(xaml, xName, "ModelQualitySourceText", "ToolTip", "ModelComparisonSourceText");
+        AssertNamedXamlBinding(xaml, xName, "ModelQualityDecisionText", "Text", "ModelComparisonDecisionText");
+        AssertNamedXamlBinding(xaml, xName, "ModelQualityDecisionText", "ToolTip", "ModelComparisonDecisionText");
+        AssertNamedXamlBinding(xaml, xName, "ModelQualityNextActionText", "Text", "ModelComparisonActionText");
+        AssertNamedXamlBinding(xaml, xName, "ModelQualityNextActionText", "ToolTip", "ModelComparisonActionText");
         AssertNamedXamlBinding(xaml, xName, "ModelComparisonStatusText", "Text", "ModelComparisonStatusText");
         AssertNamedXamlBinding(xaml, xName, "ModelComparisonDetailText", "Text", "ModelComparisonDetailText");
         AssertNamedXamlBinding(xaml, xName, "ModelComparisonActionText", "Text", "ModelComparisonActionText");
@@ -30502,6 +30756,8 @@ internal static partial class Program
         AssertTrue(candidateXamlSource.Contains("AutomationProperties.AutomationId=\"ModelCandidateDecisionPanel\"", StringComparison.Ordinal), "WPF model candidate decision panel should expose a stable AutomationId");
         AssertTrue(candidateXamlSource.Contains("AutomationProperties.AutomationId=\"SaveModelCandidateButton\"", StringComparison.Ordinal), "WPF model candidate save button should expose a stable AutomationId");
         AssertTrue(candidateXamlSource.Contains("AutomationProperties.AutomationId=\"RejectModelCandidateButton\"", StringComparison.Ordinal), "WPF model candidate reject button should expose a stable AutomationId");
+        AssertTrue(candidateXamlSource.IndexOf("ModelQualitySummaryGrid", StringComparison.Ordinal) < candidateXamlSource.IndexOf("ModelCandidateDecisionPanel", StringComparison.Ordinal),
+            "model validation should show status, evidence, decision, and next action before candidate adoption controls");
         AssertTrue(modelComparisonPanel != null, "WPF model comparison panel was not found in candidate review XAML");
         AssertTrue(selectedCandidateSummaryPanel != null, "WPF selected candidate summary panel was not found in candidate review XAML");
         AssertTrue(candidateComparisonPanel != null, "WPF candidate comparison panel was not found in candidate review XAML");
@@ -30515,6 +30771,8 @@ internal static partial class Program
         AssertEqual("8", (string)candidateListBox.Attribute("Grid.Row"));
         AssertTrue(candidateXamlSource.IndexOf("SelectedCandidateSummaryPanel", StringComparison.Ordinal) < candidateXamlSource.IndexOf("CandidateReviewPrimaryActionsPanel", StringComparison.Ordinal),
             "current-image candidate summary should appear before the candidate action buttons");
+        AssertTrue(candidateXamlSource.IndexOf("CandidateReviewWorkbenchSummaryGrid", StringComparison.Ordinal) < candidateXamlSource.IndexOf("CandidateReviewRoleSplitPanel", StringComparison.Ordinal),
+            "AI review mode should show candidate count, confidence, selected candidate, and next state before lower-priority detail cards");
         AssertTrue(candidateXamlSource.IndexOf("CandidateReviewRoleSplitPanel", StringComparison.Ordinal) < candidateXamlSource.IndexOf("CandidateConfidenceSlider", StringComparison.Ordinal), "candidate/model role split should be visible before detailed review controls");
         AssertTrue(candidateXamlSource.Contains("ModelComparisonSectionTitleText", StringComparison.Ordinal), "WPF model validation section should have a separate visible title from current-image candidate review");
         AssertTrue(candidateXamlSource.Contains("ModelComparisonSourceText", StringComparison.Ordinal), "WPF model validation section should show which inspection model and trained candidate are being compared");
@@ -30937,6 +31195,11 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "RejectModelCandidateButton", "IsEnabled", "IsRejectModelCandidateEnabled");
         AssertNamedXamlBinding(xaml, xName, "ModelCandidateDecisionPanel", "Visibility", "ModelCandidateDecisionVisibility");
         AssertNamedXamlBinding(xaml, xName, "ModelComparisonSourceText", "Text", "ModelComparisonSourceText");
+        AssertNamedXamlValue(xaml, xName, "ModelComparisonSourceText", "Visibility", "Collapsed");
+        AssertNamedXamlBinding(xaml, xName, "ModelQualityStatusText", "Text", "ModelComparisonStatusText");
+        AssertNamedXamlBinding(xaml, xName, "ModelQualitySourceText", "Text", "ModelComparisonSourceText");
+        AssertNamedXamlBinding(xaml, xName, "ModelQualityDecisionText", "Text", "ModelComparisonDecisionText");
+        AssertNamedXamlBinding(xaml, xName, "ModelQualityNextActionText", "Text", "ModelComparisonActionText");
         AssertNamedXamlBinding(xaml, xName, "ModelCandidateDecisionStatusText", "Text", "ModelCandidateDecisionStatusText");
         AssertNamedXamlBinding(xaml, xName, "ModelCandidateDecisionDetailText", "Text", "ModelCandidateDecisionDetailText");
         AssertNamedXamlBinding(xaml, xName, "CandidatePostActionPolicyText", "Text", "PostActionPolicyText");
@@ -30944,6 +31207,10 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "CandidateReviewModeBadgeText", "Text", "PanelModeBadgeText");
         AssertNamedXamlBinding(xaml, xName, "CandidateReviewModeScopeText", "Text", "PanelModeScopeText");
         AssertNamedXamlBinding(xaml, xName, "CandidateReviewModeDetailText", "Text", "PanelModeDetailText");
+        AssertNamedXamlBinding(xaml, xName, "CandidateReviewCandidateCountText", "Text", "CandidateCountSummaryText");
+        AssertNamedXamlBinding(xaml, xName, "CandidateReviewConfidenceSummaryText", "Text", "ConfidenceText");
+        AssertNamedXamlBinding(xaml, xName, "CandidateReviewSelectedSummaryChipText", "Text", "SelectedCandidateSummaryText");
+        AssertNamedXamlBinding(xaml, xName, "CandidateReviewNextStateText", "Text", "CompletionNextActionText");
         AssertNamedXamlBinding(xaml, xName, "CandidateReviewActionGuideText", "Text", "ReviewActionGuideText");
         AssertNamedXamlValue(xaml, xName, "CandidateReviewModeDetailText", "Visibility", "Collapsed");
         AssertNamedXamlValue(xaml, xName, "CurrentImageReviewRoleDetailText", "Visibility", "Collapsed");
@@ -30960,6 +31227,9 @@ internal static partial class Program
             "candidate review should expose a visible mode badge so AI candidates are not confused with saved labels");
         AssertTrue(panelSource.Contains("AutomationProperties.AutomationId=\"CandidateReviewModeScopeText\"", StringComparison.Ordinal),
             "candidate review should expose explicit scope text that says candidates are not saved labels yet");
+        AssertTrue(panelSource.Contains("AutomationProperties.AutomationId=\"CandidateReviewWorkbenchSummaryGrid\"", StringComparison.Ordinal),
+            "candidate review should expose a first-class workbench summary for candidate count, confidence, selected candidate, and next state");
+        AssertNamedXamlValue(xaml, xName, "CandidateReviewDecisionTitleText", "Text", "후보 이동 / 결정");
         AssertTrue(panelSource.Contains("x:Key=\"CandidateReviewAiBorderBrush\"", StringComparison.Ordinal)
             && panelSource.Contains("x:Key=\"CandidateReviewAiTextBrush\"", StringComparison.Ordinal),
             "candidate review should use dedicated AI-candidate brushes instead of the global error/accent color");
@@ -31040,6 +31310,21 @@ internal static partial class Program
         AssertTrue(shellSource.Contains("RefreshCandidateListWithPreferred(nextCandidate)", StringComparison.Ordinal), "candidate confirm/skip should refresh with the next preferred candidate");
         AssertTrue(shellSource.Contains("FocusCandidateInViewer(nextCandidate", StringComparison.Ordinal), "candidate confirm/skip should keep the next candidate visible on the canvas");
         AssertTrue(!string.IsNullOrWhiteSpace(new WpfCandidateReviewPanelViewModel().PostActionPolicyText), "candidate review should make the next-candidate policy visible");
+        AssertTrue(new WpfCandidateReviewPanelViewModel().CandidateCountSummaryText.Contains("0", StringComparison.Ordinal), "candidate review should expose an initial candidate-count summary");
+        var candidateCountViewModel = new WpfCandidateReviewPanelViewModel();
+        candidateCountViewModel.SetCandidates(
+            new[]
+            {
+                new WpfCandidateReviewListItem(
+                    "AI 후보 1",
+                    string.Empty,
+                    string.Empty,
+                    new object(),
+                    MahApps.Metro.IconPacks.PackIconMaterialKind.InformationOutline,
+                    System.Windows.Media.Brushes.Gray)
+            },
+            string.Empty);
+        AssertTrue(candidateCountViewModel.CandidateCountSummaryText.Contains("1", StringComparison.Ordinal), "candidate review should summarize the visible AI candidate count");
         AssertTrue(new WpfCandidateReviewPanelViewModel().PanelModeTitleText.Contains("AI 후보", StringComparison.Ordinal), "candidate review should identify the panel as AI candidate confirmation");
         AssertTrue(new WpfCandidateReviewPanelViewModel().PanelModeTitleText.Contains("\uD655\uC815", StringComparison.Ordinal), "candidate review should make candidate confirmation visible");
         AssertTrue(new WpfCandidateReviewPanelViewModel().PanelModeBadgeText.Contains("AI \uD6C4\uBCF4", StringComparison.Ordinal), "candidate review mode badge should identify AI candidates");
@@ -31492,6 +31777,22 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "ApplyObjectClassButton", "IsEnabled", "IsApplyClassEnabled");
         AssertNamedXamlBinding(xaml, xName, "DeleteObjectButton", "Command", "DeleteObjectCommand");
         AssertNamedXamlBinding(xaml, xName, "ApplyObjectClassButton", "Command", "ApplyObjectClassCommand");
+        AssertNamedXamlBinding(xaml, xName, "ObjectQualityReviewStatusText", "Text", "QualityReviewStatusText");
+        AssertNamedXamlBinding(xaml, xName, "ObjectQualityReviewDetailText", "Text", "QualityReviewDetailText");
+        AssertNamedXamlBinding(xaml, xName, "QualityReviewNoteTextBox", "Text", "QualityReviewNoteText");
+        AssertNamedXamlBinding(xaml, xName, "QualityReviewNoteTextBox", "IsEnabled", "IsQualityReviewEnabled");
+        AssertNamedXamlValue(xaml, xName, "QualityReviewNoteTextBox", "MaxLength", "200");
+        AssertNamedXamlBinding(xaml, xName, "MarkQualityUnreviewedButton", "Command", "MarkQualityUnreviewedCommand");
+        AssertNamedXamlBinding(xaml, xName, "MarkQualityNeedsFixButton", "Command", "MarkQualityNeedsFixCommand");
+        AssertNamedXamlBinding(xaml, xName, "MarkQualityReviewedButton", "Command", "MarkQualityReviewedCommand");
+        AssertNamedXamlBinding(xaml, xName, "MarkQualityUnreviewedButton", "IsEnabled", "IsQualityReviewEnabled");
+        AssertNamedXamlBinding(xaml, xName, "MarkQualityNeedsFixButton", "IsEnabled", "IsQualityReviewEnabled");
+        AssertNamedXamlBinding(xaml, xName, "MarkQualityReviewedButton", "IsEnabled", "IsMarkQualityReviewedEnabled");
+        AssertNamedXamlBinding(xaml, xName, "MarkQualityUnreviewedButton", "Tag", "IsQualityUnreviewedActive");
+        AssertNamedXamlBinding(xaml, xName, "MarkQualityNeedsFixButton", "Tag", "IsQualityNeedsFixActive");
+        AssertNamedXamlBinding(xaml, xName, "MarkQualityReviewedButton", "Tag", "IsQualityReviewedActive");
+        AssertNamedXamlBinding(xaml, xName, "ExportQualityReviewReportButton", "Command", "ExportQualityReviewReportCommand");
+        AssertNamedXamlBinding(xaml, xName, "ExportQualityReviewReportButton", "IsEnabled", "IsQualityReviewEnabled");
         string objectXamlSource = File.ReadAllText(xamlPath);
         AssertTrue(objectXamlSource.Contains("VirtualizingPanel.VirtualizationMode=\"Recycling\"", StringComparison.Ordinal), "WPF object list should recycle item containers for large label sets");
         AssertTrue(objectXamlSource.Contains("ScrollViewer.CanContentScroll=\"True\"", StringComparison.Ordinal), "WPF object list should keep logical scrolling so virtualization stays active");
@@ -31507,6 +31808,12 @@ internal static partial class Program
         AssertTrue(objectXamlSource.Contains("AutomationProperties.AutomationId=\"ObjectListBox\"", StringComparison.Ordinal), "WPF object review list should expose a stable AutomationId for real-EXE UX checks");
         AssertTrue(objectXamlSource.Contains("AutomationProperties.AutomationId=\"ObjectClassBox\"", StringComparison.Ordinal), "WPF object class selector should expose a stable AutomationId for real-EXE UX checks");
         AssertTrue(objectXamlSource.Contains("AutomationProperties.AutomationId=\"ApplyObjectClassButton\"", StringComparison.Ordinal), "WPF object class apply button should expose a stable AutomationId for real-EXE UX checks");
+        AssertTrue(objectXamlSource.Contains("AutomationProperties.AutomationId=\"ObjectQualityReviewPanel\"", StringComparison.Ordinal), "WPF object review should expose the image-level quality state controls");
+        AssertTrue(objectXamlSource.Contains("AutomationProperties.AutomationId=\"QualityReviewNoteTextBox\"", StringComparison.Ordinal), "WPF object review should expose the short issue-reason input");
+        AssertTrue(objectXamlSource.Contains("AutomationProperties.AutomationId=\"ExportQualityReviewReportButton\"", StringComparison.Ordinal), "WPF object review should expose the local QA report command");
+        AssertTrue(objectXamlSource.Contains("ObjectReviewQualityButtonStyle", StringComparison.Ordinal)
+            && objectXamlSource.Contains("Path=Tag", StringComparison.Ordinal),
+            "quality review buttons should expose their selected state as one segmented control");
 
         string manualSummary = WpfObjectReviewPresenter.FormatManualSummary(1, "Defect", new System.Drawing.Rectangle(36, 36, 35, 35), "\uBC15\uC2A4");
         AssertTrue(manualSummary.Contains("\uD06C\uAE30 35x35 / \uC704\uCE58 x=36, y=36", StringComparison.Ordinal), "WPF object review should show size before position in compact rows");
@@ -31536,6 +31843,21 @@ internal static partial class Program
         objectReviewOnlyViewModel.SetLabelSaveState("Saved", "\uC800\uC7A5\uB428", "\uB77C\uBCA8 \uC800\uC7A5 \uC644\uB8CC");
         AssertEqual("Saved", objectReviewOnlyViewModel.LabelSaveStateKey);
         AssertTrue(objectReviewOnlyViewModel.LabelSaveBadgeText.Contains("\uC800\uC7A5\uB428", StringComparison.Ordinal), "object review save badge should show saved state");
+        objectReviewOnlyViewModel.SetQualityReviewState(YoloImageQualityReviewState.Unreviewed, hasActiveImage: true, canMarkReviewed: false);
+        AssertTrue(objectReviewOnlyViewModel.IsQualityUnreviewedActive, "new quality review should start as unreviewed");
+        AssertTrue(!objectReviewOnlyViewModel.IsMarkQualityReviewedEnabled, "quality approval should stay disabled before labels are saved");
+        objectReviewOnlyViewModel.SetQualityReviewState(
+            YoloImageQualityReviewState.NeedsFix,
+            hasActiveImage: true,
+            canMarkReviewed: true,
+            qualityReviewNote: "경계가 흐림");
+        AssertTrue(objectReviewOnlyViewModel.IsQualityNeedsFixActive, "needs-fix quality state should activate its segmented button");
+        AssertEqual("경계가 흐림", objectReviewOnlyViewModel.QualityReviewNoteText);
+        AssertTrue(objectReviewOnlyViewModel.QualityReviewDetailText.Contains("수정 필요", StringComparison.Ordinal), "needs-fix guidance should explain how to persist an edited reason");
+        objectReviewOnlyViewModel.SetQualityReviewState(YoloImageQualityReviewState.Reviewed, hasActiveImage: true, canMarkReviewed: true);
+        AssertTrue(objectReviewOnlyViewModel.IsQualityReviewedActive, "reviewed quality state should activate its segmented button");
+        AssertTrue(objectReviewOnlyViewModel.QualityReviewStatusText.Contains("검수 완료", StringComparison.Ordinal), "reviewed quality state should use operator-facing Korean text");
+        AssertEqual(string.Empty, objectReviewOnlyViewModel.QualityReviewNoteText);
         AssertTrue(objectReviewOnlyViewModel.SelectedObjectTaskTitleText.Contains("\uB77C\uBCA8 \uC5C6\uC74C", StringComparison.Ordinal), "object review should summarize the no-selection task before a row is selected");
         objectReviewOnlyViewModel.SetObjects(
             new[]
@@ -31549,6 +31871,12 @@ internal static partial class Program
         AssertTrue(objectReviewOnlyViewModel.SelectedObjectTaskActionText.Contains("\uC800\uC7A5 \uD544\uC694", StringComparison.Ordinal), "object review selected-label task should say edits become save-required");
         AssertTrue(shellSource.Contains("WpfObjectReviewEditService.TryApplyClass", StringComparison.Ordinal), "WPF shell should delegate object class application to the review edit service");
         AssertTrue(shellSource.Contains("WpfObjectReviewEditService.TryDelete", StringComparison.Ordinal), "WPF shell should delegate object deletion to the review edit service");
+        AssertTrue(shellSource.Contains("imageReviewStatus.MarkQualityNeedsFix", StringComparison.Ordinal), "WPF shell should persist needs-fix quality state through the review status service");
+        AssertTrue(shellSource.Contains("imageReviewStatus.MarkQualityReviewed", StringComparison.Ordinal), "WPF shell should persist quality approval through the review status service");
+        AssertTrue(shellSource.Contains("YoloImageQualityReviewReportExportService.ExportMarkdown", StringComparison.Ordinal), "WPF shell should export the local QA report through the service");
+        AssertTrue(shellSource.Contains("InvalidateActiveImageQualityReviewAfterEdit", StringComparison.Ordinal), "label edits should invalidate prior quality approval");
+        AssertTrue(reviewStatusSource.Contains("QualityReviewStateName", StringComparison.Ordinal), "quality review state should persist with a readable enum name");
+        AssertTrue(reviewStatusSource.Contains("QualityReviewNote", StringComparison.Ordinal), "quality review state should persist the current short issue reason");
         AssertTrue(objectReviewViewModelSource.Contains("WpfObjectReviewSelectionService.TryResolveSelectedItem", StringComparison.Ordinal), "WPF object review ViewModel should delegate selected-item resolution to the selection service");
         AssertTrue(!objectReviewViewModelSource.Contains("SelectionChangedEventArgs", StringComparison.Ordinal), "WPF object review ViewModel should not expose WPF selection event args in command contracts");
         AssertTrue(!objectReviewViewModelSource.Contains("KeyEventArgs", StringComparison.Ordinal), "WPF object review ViewModel should not expose WPF key event args in command contracts");
@@ -34666,6 +34994,16 @@ internal static partial class Program
             YoloImageReviewStatus noCandidateStatus = service.SetDetectionNoCandidates(imagePath, "failed");
             AssertTrue(WpfImageQueuePresenter.BuildStatusSummary(noCandidateStatus).Contains("객체 없음 완료", StringComparison.Ordinal),
                 "no-candidate queue rows should read as completed no-object review work");
+            YoloImageReviewStatus needsFixStatus = service.MarkQualityNeedsFix(imagePath, "failed");
+            AssertEqual("수정 필요", WpfImageQueuePresenter.BuildBadgeText(needsFixStatus));
+            AssertTrue(WpfImageQueuePresenter.BuildStatusSummary(needsFixStatus).Contains("수정 필요", StringComparison.Ordinal),
+                "quality issues should take precedence in the queue row summary");
+            AssertTrue(WpfImageQueuePresenter.BuildDetailText(needsFixStatus).Contains("품질 검수: 수정 필요", StringComparison.Ordinal),
+                "queue detail should include the independent quality-review state");
+            YoloImageReviewStatus qualityReviewedStatus = service.MarkQualityReviewed(imagePath, "failed");
+            AssertEqual("검수 완료", WpfImageQueuePresenter.BuildBadgeText(qualityReviewedStatus));
+            AssertTrue(WpfImageQueuePresenter.BuildStatusSummary(qualityReviewedStatus).Contains("검수 완료", StringComparison.Ordinal),
+                "quality-reviewed rows should expose the approval state");
 
             var queueSummaryItems = new List<WpfImageQueueItem>
             {
@@ -34687,6 +35025,28 @@ internal static partial class Program
             AssertEqual(2, WpfImageQueueFilterService.CountByFilter(queueSummaryItems, WpfImageQueueFilter.Candidate));
             AssertEqual(1, WpfImageQueueFilterService.CountByFilter(queueSummaryItems, WpfImageQueueFilter.Failed));
             AssertEqual(3, WpfImageQueueFilterService.CountByFilter(queueSummaryItems, WpfImageQueueFilter.Unlabeled));
+            WpfImageQueueItem needsFixItem = WpfImageQueueItem.CreateShell(Path.Combine(root, "needs-fix.jpg"));
+            needsFixItem.ReviewState = YoloImageReviewState.Confirmed;
+            needsFixItem.IsLabeled = true;
+            needsFixItem.QualityReviewState = YoloImageQualityReviewState.NeedsFix;
+            AssertTrue(WpfImageQueueFilterService.ShouldShow(needsFixItem, "needs-fix", WpfImageQueueFilter.NeedsFix),
+                "quality issue filter should show labeled images marked as needing a fix");
+            AssertTrue(!WpfImageQueueFilterService.IsCompletedQueueItem(needsFixItem),
+                "needs-fix images should not count as complete until they are reviewed again");
+            AssertTrue(WpfImageQueueFilterService.HasCompletedLabelWork(needsFixItem),
+                "a saved needs-fix image should remain eligible for quality approval after correction");
+            AssertEqual("수정 필요", WpfImageQueueFilterOption.GetDisplayName(WpfImageQueueFilter.NeedsFix));
+            AssertTrue(WpfImageQueueFilterOption.CreateDefaults().Any(option => option.Filter == WpfImageQueueFilter.NeedsFix),
+                "status filter options should include the quality issue filter");
+            var qualityQueueViewModel = new WpfImageQueuePanelViewModel
+            {
+                SelectedQueueItem = needsFixItem
+            };
+            AssertTrue(qualityQueueViewModel.CurrentImageTaskTitleText.Contains("수정 필요", StringComparison.Ordinal),
+                "selected queue task should prioritize the quality issue");
+            needsFixItem.QualityReviewState = YoloImageQualityReviewState.Reviewed;
+            AssertTrue(qualityQueueViewModel.CurrentImageTaskTitleText.Contains("검수 완료", StringComparison.Ordinal),
+                "selected queue task should refresh when quality review completes");
             AssertTrue(WpfImageQueueFilterService.ShouldShow(queueSummaryItems[0], "candidate", WpfImageQueueFilter.Candidate), "WPF queue filter should match candidate file by state and search text");
             AssertTrue(!WpfImageQueueFilterService.ShouldShow(queueSummaryItems[2], "candidate", WpfImageQueueFilter.Candidate), "WPF queue filter should hide rows outside the selected review state");
             AssertTrue(ReferenceEquals(queueSummaryItems[0], WpfImageQueueFilterService.FindSingleSearchMatch(queueSummaryItems, "candidate-a", WpfImageQueueFilter.Candidate)),

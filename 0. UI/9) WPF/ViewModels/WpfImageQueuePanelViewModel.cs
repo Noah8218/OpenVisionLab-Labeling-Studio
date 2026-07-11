@@ -509,6 +509,7 @@ namespace MvcVisionSystem
                 || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.LabelStatus), StringComparison.Ordinal)
                 || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.DetectStatus), StringComparison.Ordinal)
                 || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.ReviewState), StringComparison.Ordinal)
+                || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.QualityReviewState), StringComparison.Ordinal)
                 || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.IsLabeled), StringComparison.Ordinal)
                 || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.IsSaveRequired), StringComparison.Ordinal)
                 || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.FileName), StringComparison.Ordinal))
@@ -548,6 +549,34 @@ namespace MvcVisionSystem
                     ? "\uC800\uC7A5 \uD544\uC694"
                     : item.QueueBadgeText;
                 CurrentImageTaskKey = "SaveRequired";
+                CurrentImageTaskToolTip = BuildCurrentImageTaskToolTip(
+                    item.FileName,
+                    CurrentImageTaskTitleText,
+                    CurrentImageTaskDetailText,
+                    statusSummary);
+                return;
+            }
+
+            if (item.QualityReviewState == Yolo.YoloImageQualityReviewState.NeedsFix)
+            {
+                CurrentImageTaskTitleText = "라벨 수정 필요";
+                CurrentImageTaskDetailText = "저장 라벨을 확인하고 수정한 뒤 라벨 저장 후 검수 완료로 변경하세요.";
+                CurrentImageTaskBadgeText = "수정 필요";
+                CurrentImageTaskKey = "NeedsFix";
+                CurrentImageTaskToolTip = BuildCurrentImageTaskToolTip(
+                    item.FileName,
+                    CurrentImageTaskTitleText,
+                    CurrentImageTaskDetailText,
+                    statusSummary);
+                return;
+            }
+
+            if (item.QualityReviewState == Yolo.YoloImageQualityReviewState.Reviewed)
+            {
+                CurrentImageTaskTitleText = "품질 검수 완료";
+                CurrentImageTaskDetailText = "현재 저장 라벨이 검수 완료된 이미지입니다.";
+                CurrentImageTaskBadgeText = "검수 완료";
+                CurrentImageTaskKey = "QualityReviewed";
                 CurrentImageTaskToolTip = BuildCurrentImageTaskToolTip(
                     item.FileName,
                     CurrentImageTaskTitleText,

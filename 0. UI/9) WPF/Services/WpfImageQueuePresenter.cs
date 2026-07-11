@@ -46,7 +46,13 @@ namespace MvcVisionSystem
             int confirmedCount = queueItems.Count(item => item.ReviewState == YoloImageReviewState.Confirmed);
             int skippedCount = queueItems.Count(item => item.ReviewState == YoloImageReviewState.Skipped);
             int noCandidateCount = queueItems.Count(item => item.ReviewState == YoloImageReviewState.NoCandidate);
+            int needsFixCount = queueItems.Count(item => item.QualityReviewState == YoloImageQualityReviewState.NeedsFix);
             var parts = new List<string>();
+            if (needsFixCount > 0)
+            {
+                parts.Add($"수정 필요 {needsFixCount}");
+            }
+
             if (candidateCount > 0)
             {
                 parts.Add($"AI 후보 {candidateCount}");
@@ -128,6 +134,16 @@ namespace MvcVisionSystem
 
         public static PackIconMaterialKind GetIconKind(YoloImageReviewStatus status)
         {
+            if (status?.QualityReviewState == YoloImageQualityReviewState.NeedsFix)
+            {
+                return PackIconMaterialKind.AlertCircleOutline;
+            }
+
+            if (status?.QualityReviewState == YoloImageQualityReviewState.Reviewed)
+            {
+                return PackIconMaterialKind.CheckboxMarkedCircleOutline;
+            }
+
             return status?.ReviewState switch
             {
                 YoloImageReviewState.Requested => PackIconMaterialKind.ClockOutline,
@@ -142,6 +158,16 @@ namespace MvcVisionSystem
 
         public static Brush GetIconBrush(YoloImageReviewStatus status)
         {
+            if (status?.QualityReviewState == YoloImageQualityReviewState.NeedsFix)
+            {
+                return WpfImageQueueItem.WarningBrush;
+            }
+
+            if (status?.QualityReviewState == YoloImageQualityReviewState.Reviewed)
+            {
+                return WpfImageQueueItem.SuccessBrush;
+            }
+
             return status?.ReviewState switch
             {
                 YoloImageReviewState.Requested => WpfImageQueueItem.InfoBrush,
@@ -156,6 +182,16 @@ namespace MvcVisionSystem
 
         public static Brush GetBadgeBackgroundBrush(YoloImageReviewStatus status)
         {
+            if (status?.QualityReviewState == YoloImageQualityReviewState.NeedsFix)
+            {
+                return WpfImageQueueItem.WarningBadgeBrush;
+            }
+
+            if (status?.QualityReviewState == YoloImageQualityReviewState.Reviewed)
+            {
+                return WpfImageQueueItem.SuccessBadgeBrush;
+            }
+
             return status?.ReviewState switch
             {
                 YoloImageReviewState.Requested => WpfImageQueueItem.InfoBadgeBrush,
@@ -178,6 +214,16 @@ namespace MvcVisionSystem
             if (status == null)
             {
                 return string.Empty;
+            }
+
+            if (status.QualityReviewState == YoloImageQualityReviewState.NeedsFix)
+            {
+                return "수정 필요";
+            }
+
+            if (status.QualityReviewState == YoloImageQualityReviewState.Reviewed)
+            {
+                return "검수 완료";
             }
 
             return status.ReviewState switch
@@ -203,6 +249,16 @@ namespace MvcVisionSystem
             if (status == null)
             {
                 return "상태 확인 중";
+            }
+
+            if (status.QualityReviewState == YoloImageQualityReviewState.NeedsFix)
+            {
+                return $"수정 필요: 라벨 {FormatLabelStatus(status.LabelText)}";
+            }
+
+            if (status.QualityReviewState == YoloImageQualityReviewState.Reviewed)
+            {
+                return $"검수 완료: 라벨 {FormatLabelStatus(status.LabelText)}";
             }
 
             if (status.ReviewState == YoloImageReviewState.Failed)
@@ -272,7 +328,8 @@ namespace MvcVisionSystem
             List<string> details = new List<string>
             {
                 $"저장 라벨: {FormatLabelStatus(status.LabelText)}",
-                $"AI 후보: {FormatDetectionStatus(status)}"
+                $"AI 후보: {FormatDetectionStatus(status)}",
+                $"품질 검수: {FormatQualityReviewState(status.QualityReviewState)}"
             };
             if (status.DetectionAttemptCount > 0)
             {
@@ -285,6 +342,16 @@ namespace MvcVisionSystem
             }
 
             return string.Join(" / ", details);
+        }
+
+        public static string FormatQualityReviewState(YoloImageQualityReviewState state)
+        {
+            return state switch
+            {
+                YoloImageQualityReviewState.NeedsFix => "수정 필요",
+                YoloImageQualityReviewState.Reviewed => "검수 완료",
+                _ => "미검토"
+            };
         }
     }
 }

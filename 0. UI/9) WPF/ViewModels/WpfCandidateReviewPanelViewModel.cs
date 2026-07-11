@@ -22,6 +22,7 @@ namespace MvcVisionSystem
         private static readonly Action<WpfModelComparisonReviewExample> NoOpModelComparisonExampleCommand = _ => { };
         private string confidenceText = "0%";
         private string detailText = "AI \uD6C4\uBCF4 \uC5C6\uC74C";
+        private string candidateCountSummaryText = "AI \uD6C4\uBCF4 0\uAC1C";
         private string selectedCandidateSummaryText = "\uC120\uD0DD: AI \uD6C4\uBCF4 \uC5C6\uC74C";
         private WpfCandidateReviewListItem selectedCandidate;
         private bool isConfirmSelectedEnabled;
@@ -57,6 +58,8 @@ namespace MvcVisionSystem
         private string modelComparisonExampleHeaderText = "\uAC80\uC99D \uC608\uC2DC 0\uAC74";
         private string modelComparisonExampleSummaryText = "\uC608\uC2DC\uAC00 \uC788\uC73C\uBA74 \uD3BC\uCCD0\uC11C \uC774\uBBF8\uC9C0\uBCC4 \uCC28\uC774 \uC704\uCE58\uB97C \uD655\uC778\uD569\uB2C8\uB2E4.";
         private string modelComparisonStatusText = "\uBAA8\uB378 \uBE44\uAD50: \uB300\uAE30";
+        private string modelComparisonDecisionText = "\uAD50\uCCB4 \uD310\uB2E8: \uB300\uAE30";
+        private string modelComparisonPromotionDecision = string.Empty;
         private string modelComparisonSourceText = DefaultModelComparisonSourceText;
         private string modelComparisonDetailText = "\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378 \uD6C4\uBCF4\uB97C \uAC80\uC99D\uD558\uBA74 \uC774\uACF3\uC5D0 \uAE30\uC874 \uBAA8\uB378\uACFC \uC0C8 \uBAA8\uB378\uC758 \uCC28\uC774\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
         private string modelComparisonActionText = "\uB2E4\uC74C: \uD6C4\uBCF4\uAC00 \uC788\uC73C\uBA74 \uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uC758 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB204\uB974\uACE0, \uAC80\uD1A0 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694.";
@@ -216,6 +219,12 @@ namespace MvcVisionSystem
         {
             get => detailText;
             set => SetProperty(ref detailText, value ?? string.Empty);
+        }
+
+        public string CandidateCountSummaryText
+        {
+            get => candidateCountSummaryText;
+            private set => SetProperty(ref candidateCountSummaryText, value ?? string.Empty);
         }
 
         public string SelectedCandidateSummaryText
@@ -434,6 +443,20 @@ namespace MvcVisionSystem
             private set => SetProperty(ref modelComparisonStatusText, value ?? string.Empty);
         }
 
+        public string ModelComparisonDecisionText
+        {
+            get => modelComparisonDecisionText;
+            private set => SetProperty(ref modelComparisonDecisionText, value ?? string.Empty);
+        }
+
+        public string ModelComparisonPromotionDecision
+        {
+            get => modelComparisonPromotionDecision;
+            private set => SetProperty(ref modelComparisonPromotionDecision, value ?? string.Empty);
+        }
+
+        public bool IsModelPromotionHeld => string.Equals(ModelComparisonPromotionDecision, "hold", StringComparison.OrdinalIgnoreCase);
+
         public string ModelComparisonSourceText
         {
             get => modelComparisonSourceText;
@@ -533,6 +556,7 @@ namespace MvcVisionSystem
             List<WpfCandidateReviewListItem> rows = (candidates ?? Array.Empty<WpfCandidateReviewListItem>()).ToList();
             Candidates.ReplaceAll(rows);
 
+            CandidateCountSummaryText = FormatCandidateCount(rows.Count(item => item?.IsEnabled == true));
             SelectedCandidate = Candidates.FirstOrDefault(item => item.IsEnabled && ReferenceEquals(item.Payload, preferredPayload))
                 ?? Candidates.FirstOrDefault(item => item.IsEnabled);
             DetailText = detail;
@@ -647,6 +671,8 @@ namespace MvcVisionSystem
             IsModelComparisonExamplesExpanded = false;
             UpdateModelComparisonExampleDisclosure();
             ModelComparisonStatusText = "\uBAA8\uB378 \uBE44\uAD50: \uB300\uAE30";
+            ModelComparisonDecisionText = "\uAD50\uCCB4 \uD310\uB2E8: \uB300\uAE30";
+            ModelComparisonPromotionDecision = string.Empty;
             ModelComparisonSourceText = DefaultModelComparisonSourceText;
             ModelComparisonDetailText = "\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378 \uD6C4\uBCF4\uB97C \uAC80\uC99D\uD558\uBA74 \uC774\uACF3\uC5D0 \uAE30\uC874 \uBAA8\uB378\uACFC \uC0C8 \uBAA8\uB378\uC758 \uCC28\uC774\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
             ModelComparisonActionText = "\uB2E4\uC74C: \uD6C4\uBCF4\uAC00 \uC788\uC73C\uBA74 \uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uC758 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB204\uB974\uACE0, \uAC80\uD1A0 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694.";
@@ -669,6 +695,8 @@ namespace MvcVisionSystem
                 IsModelComparisonExamplesExpanded = false;
                 UpdateModelComparisonExampleDisclosure();
                 ModelComparisonStatusText = "\uBAA8\uB378 \uBE44\uAD50: \uC544\uC9C1 \uC2E4\uD589 \uC548 \uB428";
+                ModelComparisonDecisionText = "\uAD50\uCCB4 \uD310\uB2E8: \uBE44\uAD50 \uD544\uC694";
+                ModelComparisonPromotionDecision = string.Empty;
                 ModelComparisonDetailText = "\uBE44\uAD50 \uACB0\uACFC \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uC5D0\uC11C \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB204\uB974\uAC70\uB098 Guide\uC5D0\uC11C \uBAA8\uB378 \uBE44\uAD50\uB97C \uC2E4\uD589\uD558\uC138\uC694.";
                 ModelComparisonActionText = "\uBAA8\uB378 \uD6C4\uBCF4\uB97C \uC801\uC6A9\uD558\uB824\uBA74 \uBE44\uAD50 \uACB0\uACFC\uB97C \uD655\uC778\uD55C \uB4A4 \uBAA8\uB378\uC13C\uD130\uC758 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5 \uBC84\uD2BC\uC744 \uB204\uB974\uC138\uC694.";
                 ModelComparisonVisibility = Visibility.Visible;
@@ -676,12 +704,18 @@ namespace MvcVisionSystem
             }
 
             ModelComparisonStatusText = report.SummaryText;
+            ModelComparisonPromotionDecision = report.PromotionDecision;
+            ModelComparisonDecisionText = string.IsNullOrWhiteSpace(report.RecommendationText)
+                ? "\uAD50\uCCB4 \uD310\uB2E8: \uC608\uC2DC \uAC80\uD1A0"
+                : report.RecommendationText;
             ModelComparisonDetailText = string.IsNullOrWhiteSpace(report.SourcePath)
                 ? report.DetailText
                 : $"{report.DetailText} / {System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(report.SourcePath) ?? report.SourcePath)}";
-            ModelComparisonActionText = (report.Examples?.Count ?? 0) > 0
-                ? "\uB2E4\uC74C: \uC544\uB798 \uC608\uC2DC\uB97C \uD074\uB9AD\uD574 \uC774\uBBF8\uC9C0 \uC704\uCE58\uB97C \uD655\uC778\uD55C \uB4A4 Guide\uC758 \uAD50\uCCB4 \uD310\uB2E8\uC744 \uBCF4\uACE0, \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694."
-                : "\uB2E4\uC74C: \uBAA8\uB378 \uCC28\uC774 \uC608\uC2DC\uAC00 \uC5C6\uC73C\uBA74 \uAC80\uC99D \uB370\uC774\uD130 \uC218\uC640 \uC9C0\uD45C\uB97C \uD655\uC778\uD55C \uB4A4 \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uAC70\uB098 \uD604\uC7AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD558\uC138\uC694.";
+            ModelComparisonActionText = string.Equals(report.PromotionDecision, "hold", StringComparison.OrdinalIgnoreCase)
+                ? "\uB2E4\uC74C: \uB2E4\uC591\uD55C \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694."
+                : (report.Examples?.Count ?? 0) > 0
+                    ? "\uB2E4\uC74C: \uC544\uB798 \uC608\uC2DC\uB97C \uD074\uB9AD\uD574 \uC774\uBBF8\uC9C0 \uC704\uCE58\uB97C \uD655\uC778\uD55C \uB4A4 Guide\uC758 \uAD50\uCCB4 \uD310\uB2E8\uC744 \uBCF4\uACE0, \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694."
+                    : "\uB2E4\uC74C: \uBAA8\uB378 \uCC28\uC774 \uC608\uC2DC\uAC00 \uC5C6\uC73C\uBA74 \uAC80\uC99D \uB370\uC774\uD130 \uC218\uC640 \uC9C0\uD45C\uB97C \uD655\uC778\uD55C \uB4A4 \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uAC70\uB098 \uD604\uC7AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD558\uC138\uC694.";
 
             foreach (WpfModelComparisonReviewExample example in report.Examples ?? Array.Empty<WpfModelComparisonReviewExample>())
             {
@@ -792,6 +826,9 @@ namespace MvcVisionSystem
                 IsReviewHistoryExpanded = false;
             }
         }
+
+        private static string FormatCandidateCount(int count)
+            => count <= 0 ? "AI \uD6C4\uBCF4 0\uAC1C" : $"AI \uD6C4\uBCF4 {count}\uAC1C";
     }
 
     public sealed class WpfCandidateReviewListItem

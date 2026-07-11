@@ -122,6 +122,7 @@ namespace MvcVisionSystem
             return filter switch
             {
                 WpfImageQueueFilter.Unlabeled => !IsCompletedQueueItem(item),
+                WpfImageQueueFilter.NeedsFix => item.QualityReviewState == YoloImageQualityReviewState.NeedsFix,
                 WpfImageQueueFilter.Requested => item.ReviewState == YoloImageReviewState.Requested,
                 WpfImageQueueFilter.Candidate => item.ReviewState == YoloImageReviewState.Candidate,
                 WpfImageQueueFilter.Confirmed => item.ReviewState == YoloImageReviewState.Confirmed,
@@ -139,7 +140,17 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            if (item.IsSaveRequired)
+            if (item.QualityReviewState == YoloImageQualityReviewState.NeedsFix)
+            {
+                return false;
+            }
+
+            return HasCompletedLabelWork(item);
+        }
+
+        public static bool HasCompletedLabelWork(WpfImageQueueItem item)
+        {
+            if (item == null || item.IsSaveRequired)
             {
                 return false;
             }

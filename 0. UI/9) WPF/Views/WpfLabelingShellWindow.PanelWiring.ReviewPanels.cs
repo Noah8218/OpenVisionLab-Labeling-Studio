@@ -11,6 +11,10 @@ namespace MvcVisionSystem
             ObjectReviewViewModel.ConfigureCommands(
                 ExecuteDeleteObjectCommand,
                 ExecuteApplyObjectClassCommand,
+                ExecuteMarkQualityUnreviewedCommand,
+                ExecuteMarkQualityNeedsFixCommand,
+                ExecuteMarkQualityReviewedCommand,
+                ExecuteExportQualityReviewReportCommand,
                 ExecuteObjectSelectionChangedCommand,
                 ExecuteObjectPreviewKeyDownCommand);
             RefreshAttachedCommandBindings(

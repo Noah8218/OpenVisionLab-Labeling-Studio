@@ -60,9 +60,24 @@ namespace MvcVisionSystem
             IReadOnlyList<string> promotionReasons = ReadPromotionReasons(summary.SelectToken("promotion.reasons"));
             string candidateConfidenceSweepText = BuildConfidenceSweepText(summary.SelectToken("candidate.confidence.thresholdSweep"));
             Func<string, string> resolveImagePath = BuildImagePathResolver(dataYamlPath, task);
+            double? summaryConfidence = summary.SelectToken("uiConfidence")?.Value<double?>();
             double threshold = confidenceThreshold
-                ?? summary.SelectToken("uiConfidence")?.Value<double?>()
+                ?? summaryConfidence
                 ?? DefaultConfidenceThreshold;
+            if (confidenceThreshold.HasValue
+                && (!summaryConfidence.HasValue
+                    || Math.Abs(summaryConfidence.Value - confidenceThreshold.Value) > 0.000001D))
+            {
+                promotionDecision = "hold";
+                promotionReason = summaryConfidence.HasValue
+                    ? string.Format(
+                        CultureInfo.InvariantCulture,
+                        "Model comparison confidence {0:0.######} does not match current confidence {1:0.######}; rerun model comparison at the current confidence before promotion.",
+                        summaryConfidence.Value,
+                        confidenceThreshold.Value)
+                    : "Model comparison confidence is missing; rerun model comparison at the current confidence before promotion.";
+                promotionReasons = new[] { promotionReason };
+            }
 
             return BuildFromLabelDirectories(
                 baselineLabelsPath,
@@ -93,6 +108,7 @@ namespace MvcVisionSystem
             IReadOnlyList<string> promotionReasons = null,
             string candidateConfidenceSweepText = "")
         {
+            string promotionDetail = BuildPromotionDetailText(promotionDecision, promotionReason, promotionReasons);
             if (!Directory.Exists(baselineLabelsPath) || !Directory.Exists(candidateLabelsPath))
             {
                 return new WpfModelComparisonReviewReport(
@@ -100,7 +116,9 @@ namespace MvcVisionSystem
                     summaryText: "\uBAA8\uB378 \uCC28\uC774 \uC608\uC2DC: \uD45C\uC2DC\uD560 \uB77C\uBCA8 \uACB0\uACFC \uC5C6\uC74C",
                     detailText: "\uBAA8\uB378 \uBE44\uAD50 \uACB0\uACFC\uB97C \uB9CC\uB4E0 \uB4A4 \uC608\uC2DC\uB97C \uD655\uC778\uD558\uC138\uC694.",
                     sourcePath: sourcePath,
-                    examples: Array.Empty<WpfModelComparisonReviewExample>());
+                    examples: Array.Empty<WpfModelComparisonReviewExample>(),
+                    promotionDecision: promotionDecision,
+                    recommendationText: promotionDetail);
             }
 
             Dictionary<string, List<YoloLabelDetection>> baseline = ReadDetections(baselineLabelsPath, classNames, confidenceThreshold);
@@ -116,7 +134,6 @@ namespace MvcVisionSystem
                 : $"\uBAA8\uB378 \uCC28\uC774 \uC608\uC2DC: \uCC28\uC774 {differenceImageCount}\uAC1C \uC774\uBBF8\uC9C0 / \uC608\uC2DC {examples.Count}\uAC1C";
             string detail =
                 $"\uAE30\uC874 \uBAA8\uB378 {baselineCount}\uAC1C, \uC0C8 \uBAA8\uB378 {candidateCount}\uAC1C, \uC2E0\uB8B0\uB3C4 {confidenceThreshold.ToString("P0", CultureInfo.CurrentCulture)}, \uACB9\uCE68 {iouThreshold.ToString("P0", CultureInfo.CurrentCulture)}";
-            string promotionDetail = BuildPromotionDetailText(promotionDecision, promotionReason, promotionReasons);
             if (!string.IsNullOrWhiteSpace(promotionDetail))
             {
                 detail += " / " + promotionDetail;
@@ -131,7 +148,9 @@ namespace MvcVisionSystem
                 summaryText: summary,
                 detailText: detail,
                 sourcePath: sourcePath,
-                examples: examples);
+                examples: examples,
+                promotionDecision: promotionDecision,
+                recommendationText: promotionDetail);
         }
 
         private static IReadOnlyList<string> ReadPromotionReasons(JToken token)
@@ -197,6 +216,26 @@ namespace MvcVisionSystem
 
             string trimmed = reason.Trim();
             string normalized = trimmed.ToLowerInvariant();
+            if (normalized.Contains("model comparison confidence", StringComparison.Ordinal)
+                && normalized.Contains("does not match current confidence", StringComparison.Ordinal))
+            {
+                MatchCollection numbers = Regex.Matches(trimmed, @"[-+]?\d+(?:\.\d+)?");
+                string compared = numbers.Count > 0 ? FormatReasonPercent(numbers[0].Value) : string.Empty;
+                string current = numbers.Count > 1 ? FormatReasonPercent(numbers[1].Value) : string.Empty;
+                return string.IsNullOrWhiteSpace(compared) || string.IsNullOrWhiteSpace(current)
+                    ? "\uBE44\uAD50 \uAC80\uC99D \uC2E0\uB8B0\uB3C4\uC640 \uD604\uC7AC \uAC80\uC0AC \uC2E0\uB8B0\uB3C4\uAC00 \uB2E4\uB985\uB2C8\uB2E4. \uD604\uC7AC \uC2E0\uB8B0\uB3C4\uB85C \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694."
+                    : string.Format(
+                        CultureInfo.CurrentCulture,
+                        "\uBE44\uAD50 \uAC80\uC99D \uC2E0\uB8B0\uB3C4 {0}\uC640 \uD604\uC7AC \uAC80\uC0AC \uC2E0\uB8B0\uB3C4 {1}\uAC00 \uB2E4\uB985\uB2C8\uB2E4. \uD604\uC7AC \uC2E0\uB8B0\uB3C4\uB85C \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.",
+                        compared,
+                        current);
+            }
+
+            if (normalized.Contains("model comparison confidence is missing", StringComparison.Ordinal))
+            {
+                return "\uBE44\uAD50 \uAC80\uC99D \uC2E0\uB8B0\uB3C4 \uC815\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4. \uD604\uC7AC \uC2E0\uB8B0\uB3C4\uB85C \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.";
+            }
+
             if (normalized.Contains("improves map", StringComparison.Ordinal)
                 && normalized.Contains("does not regress precision", StringComparison.Ordinal)
                 && normalized.Contains("recall", StringComparison.Ordinal))
@@ -277,6 +316,68 @@ namespace MvcVisionSystem
                         "\uCD5C\uC885 \uAC80\uC99D \uC591\uC131 \uB9C8\uC2A4\uD06C \uC774\uBBF8\uC9C0\uAC00 {0}\uC7A5\uBFD0\uC785\uB2C8\uB2E4. \uBAA8\uB378 \uAD50\uCCB4 \uC804\uC5D0 \uCD5C\uC18C {1}\uC7A5\uAE4C\uC9C0 \uD655\uBCF4\uD558\uC138\uC694.",
                         current,
                         minimum);
+            }
+
+            if (normalized.Contains("background segmentation images", StringComparison.Ordinal)
+                && normalized.Contains("background images", StringComparison.Ordinal))
+            {
+                MatchCollection numbers = Regex.Matches(trimmed, @"[-+]?\d+(?:\.\d+)?");
+                string current = numbers.Count > 0 ? numbers[0].Value : string.Empty;
+                string minimum = numbers.Count > 1 ? numbers[1].Value : string.Empty;
+                return string.IsNullOrWhiteSpace(current) || string.IsNullOrWhiteSpace(minimum)
+                    ? "\uCD5C\uC885 \uAC80\uC99D \uC815\uC0C1 \uC774\uBBF8\uC9C0\uAC00 \uAD50\uCCB4 \uD310\uB2E8\uC5D0 \uBD80\uC871\uD569\uB2C8\uB2E4."
+                    : string.Format(
+                        CultureInfo.CurrentCulture,
+                        "\uCD5C\uC885 \uAC80\uC99D \uC815\uC0C1 \uC774\uBBF8\uC9C0\uAC00 {0}\uC7A5\uBFD0\uC785\uB2C8\uB2E4. \uBAA8\uB378 \uAD50\uCCB4 \uC804\uC5D0 \uCD5C\uC18C {1}\uC7A5\uAE4C\uC9C0 \uD655\uBCF4\uD558\uC138\uC694.",
+                        current,
+                        minimum);
+            }
+
+            if (normalized.Contains("ui-threshold image evidence is incomplete", StringComparison.Ordinal))
+            {
+                return "UI \uC2E0\uB8B0\uB3C4 \uAE30\uC900\uC758 \uC591\uC131/\uC815\uC0C1 \uC774\uBBF8\uC9C0 \uAC80\uC99D\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uCD5C\uC885 \uAC80\uC99D \uBE44\uAD50\uB97C \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694.";
+            }
+
+            if (normalized.Contains("ui-threshold positive image coverage", StringComparison.Ordinal)
+                && normalized.Contains("below minimum", StringComparison.Ordinal))
+            {
+                MatchCollection numbers = Regex.Matches(trimmed, @"[-+]?\d+(?:\.\d+)?");
+                string detected = numbers.Count > 0 ? numbers[0].Value : string.Empty;
+                string total = numbers.Count > 1 ? numbers[1].Value : string.Empty;
+                string coverage = numbers.Count > 2 ? FormatReasonPercent(numbers[2].Value) : string.Empty;
+                string minimum = numbers.Count > 3 ? FormatReasonPercent(numbers[3].Value) : string.Empty;
+                string confidence = numbers.Count > 4 ? FormatReasonPercent(numbers[4].Value) : string.Empty;
+                return new[] { detected, total, coverage, minimum, confidence }.Any(string.IsNullOrWhiteSpace)
+                    ? "UI \uC2E0\uB8B0\uB3C4 \uAE30\uC900\uC758 \uC591\uC131 \uC774\uBBF8\uC9C0 \uAC80\uCD9C \uBC94\uC704\uAC00 \uCD5C\uC18C \uAE30\uC900\uBCF4\uB2E4 \uB0AE\uC2B5\uB2C8\uB2E4. \uB2E4\uC591\uD55C \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uCD94\uAC00\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694."
+                    : string.Format(
+                        CultureInfo.CurrentCulture,
+                        "\uC2E0\uB8B0\uB3C4 {4}\uC5D0\uC11C \uC591\uC131 \uC774\uBBF8\uC9C0 {1}\uC7A5 \uC911 {0}\uC7A5\uB9CC \uD6C4\uBCF4\uAC00 \uC788\uC2B5\uB2C8\uB2E4({2}, \uCD5C\uC18C {3}). \uB2E4\uC591\uD55C \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uCD94\uAC00\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694.",
+                        detected,
+                        total,
+                        coverage,
+                        minimum,
+                        confidence);
+            }
+
+            if (normalized.Contains("ui-threshold background candidate rate", StringComparison.Ordinal)
+                && normalized.Contains("exceeds maximum", StringComparison.Ordinal))
+            {
+                MatchCollection numbers = Regex.Matches(trimmed, @"[-+]?\d+(?:\.\d+)?");
+                string detected = numbers.Count > 0 ? numbers[0].Value : string.Empty;
+                string total = numbers.Count > 1 ? numbers[1].Value : string.Empty;
+                string rate = numbers.Count > 2 ? FormatReasonPercent(numbers[2].Value) : string.Empty;
+                string maximum = numbers.Count > 3 ? FormatReasonPercent(numbers[3].Value) : string.Empty;
+                string confidence = numbers.Count > 4 ? FormatReasonPercent(numbers[4].Value) : string.Empty;
+                return new[] { detected, total, rate, maximum, confidence }.Any(string.IsNullOrWhiteSpace)
+                    ? "UI \uC2E0\uB8B0\uB3C4 \uAE30\uC900\uC758 \uC815\uC0C1 \uC774\uBBF8\uC9C0 \uC624\uAC80\uCD9C\uB960\uC774 \uCD5C\uB300 \uAE30\uC900\uBCF4\uB2E4 \uB192\uC2B5\uB2C8\uB2E4. \uC815\uC0C1 \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uCD94\uAC00\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694."
+                    : string.Format(
+                        CultureInfo.CurrentCulture,
+                        "\uC2E0\uB8B0\uB3C4 {4}\uC5D0\uC11C \uC815\uC0C1 \uC774\uBBF8\uC9C0 {1}\uC7A5 \uC911 {0}\uC7A5\uC5D0 \uD6C4\uBCF4\uAC00 \uC0DD\uACBC\uC2B5\uB2C8\uB2E4({2}, \uCD5C\uB300 {3}). \uC815\uC0C1 \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uCD94\uAC00\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uAD50\uCCB4\uD558\uC138\uC694.",
+                        detected,
+                        total,
+                        rate,
+                        maximum,
+                        confidence);
             }
 
             return trimmed.All(c => c <= 127)
@@ -927,13 +1028,17 @@ namespace MvcVisionSystem
             string summaryText,
             string detailText,
             string sourcePath,
-            IReadOnlyList<WpfModelComparisonReviewExample> examples)
+            IReadOnlyList<WpfModelComparisonReviewExample> examples,
+            string promotionDecision = "",
+            string recommendationText = "")
         {
             HasComparison = hasComparison;
             SummaryText = summaryText ?? string.Empty;
             DetailText = detailText ?? string.Empty;
             SourcePath = sourcePath ?? string.Empty;
             Examples = examples ?? Array.Empty<WpfModelComparisonReviewExample>();
+            PromotionDecision = promotionDecision ?? string.Empty;
+            RecommendationText = recommendationText ?? string.Empty;
         }
 
         public bool HasComparison { get; }
@@ -945,6 +1050,10 @@ namespace MvcVisionSystem
         public string SourcePath { get; }
 
         public IReadOnlyList<WpfModelComparisonReviewExample> Examples { get; }
+
+        public string PromotionDecision { get; }
+
+        public string RecommendationText { get; }
     }
 
     public sealed class WpfModelComparisonReviewExample

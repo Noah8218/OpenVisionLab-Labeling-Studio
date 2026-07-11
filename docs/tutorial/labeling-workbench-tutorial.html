@@ -436,7 +436,7 @@
       <div class="section-body">
         <figure>
           <img src="images/annotated/04-saved-label-panel-1920-annotated.png" alt="번호와 화살표가 표시된 저장 라벨 확인 화면">
-          <figcaption>저장 라벨만 볼 때는 학습 데이터로 들어갈 실제 라벨만 확인합니다.</figcaption>
+          <figcaption>저장 라벨과 AI 후보를 구분하고, 객체탐지와 세그멘테이션에서는 저장 여부와 별도로 품질 검수 상태를 기록합니다.</figcaption>
         </figure>
         <figure>
           <img src="images/annotated/05-label-vs-ai-1920-annotated.png" alt="번호와 화살표가 표시된 저장 라벨과 AI 후보 비교 화면">
@@ -468,6 +468,35 @@
             </tr>
           </tbody>
         </table>
+        <h3>품질 검수 상태</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>상태</th>
+              <th>의미</th>
+              <th>다음 작업</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>미검토</td>
+              <td>라벨은 있을 수 있지만 아직 사람이 품질을 확인하지 않음</td>
+              <td>저장 라벨과 후보를 확인</td>
+            </tr>
+            <tr>
+              <td>수정 필요</td>
+              <td>라벨 오류를 발견해 다시 손봐야 함</td>
+              <td>이미지 큐의 수정 필요 필터로 모아 수정</td>
+            </tr>
+            <tr>
+              <td>검수 완료</td>
+              <td>저장된 라벨을 사람이 확인해 현재 기준으로 승인함</td>
+              <td>다음 미검토 이미지로 이동</td>
+            </tr>
+          </tbody>
+        </table>
+        <p><strong>검수 완료</strong>는 라벨 저장이 끝난 이미지에서만 선택할 수 있습니다. 검수 완료 뒤 라벨을 다시 편집하면 상태는 미검토로 돌아가며, 수정 필요 상태는 작업자가 다시 판정할 때까지 유지됩니다.</p>
+        <p>수정 사유를 한 줄로 입력한 뒤 <strong>수정 필요</strong>를 누르면 상태와 사유가 함께 저장됩니다. <strong>QA 보고서</strong>는 현재 검수 집계와 수정 필요 목록을 저장 폴더의 <code>label-quality-review.md</code>로 내보냅니다.</p>
       </div>
     </section>
 

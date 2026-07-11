@@ -900,6 +900,109 @@
                                LineHeight="13"
                                TextWrapping="Wrap"
                                TextTrimming="CharacterEllipsis" />
+                    <Expander x:Name="CurrentWorkbenchContextExpander"
+                              AutomationProperties.AutomationId="CurrentWorkbenchContextExpander"
+                              Header="&#xC791;&#xC5C5; &#xC138;&#xBD80; &#xBCF4;&#xAE30;"
+                              IsExpanded="False"
+                              Foreground="{DynamicResource SecondaryTextBrush}"
+                              Background="Transparent"
+                              BorderBrush="{DynamicResource BorderBrushDark}"
+                              Margin="0,8,0,0">
+                        <Grid x:Name="CurrentWorkbenchRoleGrid"
+                              AutomationProperties.AutomationId="CurrentWorkbenchRoleGrid"
+                              Margin="0,6,0,0">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                                <RowDefinition Height="Auto" />
+                            </Grid.RowDefinitions>
+                            <Grid x:Name="CurrentWorkbenchToolPanel"
+                                  AutomationProperties.AutomationId="CurrentWorkbenchToolPanel"
+                                  Margin="0,0,0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="52" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <iconPacks:PackIconMaterial Kind="Tune"
+                                                            Width="12"
+                                                            Height="12"
+                                                            Foreground="{DynamicResource SecondaryTextBrush}"
+                                                            VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1"
+                                           Text="&#xB3C4;&#xAD6C;"
+                                           Style="{StaticResource LearningWorkflowCaptionStyle}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock x:Name="CurrentWorkbenchToolText"
+                                           AutomationProperties.AutomationId="CurrentWorkbenchToolText"
+                                           Grid.Column="2"
+                                           Text="{Binding CurrentLabelingTaskToolText}"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="NoWrap"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                            <Grid x:Name="CurrentWorkbenchObjectsPanel"
+                                  AutomationProperties.AutomationId="CurrentWorkbenchObjectsPanel"
+                                  Grid.Row="1"
+                                  Margin="0,0,0,5">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="52" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <iconPacks:PackIconMaterial Kind="FormatListBulleted"
+                                                            Width="12"
+                                                            Height="12"
+                                                            Foreground="{DynamicResource SecondaryTextBrush}"
+                                                            VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1"
+                                           Text="&#xAC1D;&#xCCB4; / AI"
+                                           Style="{StaticResource LearningWorkflowCaptionStyle}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock x:Name="CurrentWorkbenchObjectsText"
+                                           AutomationProperties.AutomationId="CurrentWorkbenchObjectsText"
+                                           Grid.Column="2"
+                                           Text="&#xBAA9;&#xB85D;&#xC5D0;&#xC11C; &#xD655;&#xC778;"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="NoWrap"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                            <Grid x:Name="CurrentWorkbenchQualityPanel"
+                                  AutomationProperties.AutomationId="CurrentWorkbenchQualityPanel"
+                                  Grid.Row="2">
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="18" />
+                                    <ColumnDefinition Width="52" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <iconPacks:PackIconMaterial Kind="ChartBoxOutline"
+                                                            Width="12"
+                                                            Height="12"
+                                                            Foreground="{DynamicResource SecondaryTextBrush}"
+                                                            VerticalAlignment="Center" />
+                                <TextBlock Grid.Column="1"
+                                           Text="&#xD488;&#xC9C8;"
+                                           Style="{StaticResource LearningWorkflowCaptionStyle}"
+                                           VerticalAlignment="Center" />
+                                <TextBlock x:Name="CurrentWorkbenchQualityText"
+                                           AutomationProperties.AutomationId="CurrentWorkbenchQualityText"
+                                           Grid.Column="2"
+                                           Text="&#xAC80;&#xD1A0; / &#xD559;&#xC2B5; &#xC138;&#xBD80;"
+                                           Foreground="{DynamicResource PrimaryTextBrush}"
+                                           FontFamily="Segoe UI"
+                                           FontSize="10"
+                                           FontWeight="SemiBold"
+                                           TextWrapping="NoWrap"
+                                           TextTrimming="CharacterEllipsis" />
+                            </Grid>
+                        </Grid>
+                    </Expander>
                 </StackPanel>
             </Border>
             <Border x:Name="DatasetSetupActionPanel"

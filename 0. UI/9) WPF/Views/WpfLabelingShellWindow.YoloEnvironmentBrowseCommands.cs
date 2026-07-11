@@ -216,6 +216,14 @@ namespace MvcVisionSystem
                 SaveYoloEditorFields();
                 SaveTrainingEditorFields();
                 bool pendingWeightsRecipeSave = hasPendingTrainingWeightsRecipeSave;
+                if (pendingWeightsRecipeSave && CandidateReviewViewModel?.IsModelPromotionHeld == true)
+                {
+                    string status = WpfModelCandidateDecisionPresentationService.BuildHeldCandidateSaveBlockedStatus();
+                    SetYoloCommandStatus(status, isBusy: false);
+                    AppendLog(status);
+                    return;
+                }
+
                 if (pendingWeightsRecipeSave)
                 {
                     UpdateAppliedTrainingWeightsHistory(global.Data.ProjectSettings.PythonModel.WeightsPath, savedToRecipe: true);

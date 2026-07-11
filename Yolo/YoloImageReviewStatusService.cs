@@ -18,6 +18,13 @@ namespace MvcVisionSystem.Yolo
         Failed
     }
 
+    public enum YoloImageQualityReviewState
+    {
+        Unreviewed,
+        NeedsFix,
+        Reviewed
+    }
+
     public sealed class YoloImageReviewStatus
     {
         internal YoloImageReviewStatus(string imagePath)
@@ -28,6 +35,8 @@ namespace MvcVisionSystem.Yolo
             DetectionStatusOverride = string.Empty;
             LastDetectionMessage = string.Empty;
             ReviewState = YoloImageReviewState.Unreviewed;
+            QualityReviewState = YoloImageQualityReviewState.Unreviewed;
+            QualityReviewNote = string.Empty;
         }
 
         public string ImagePath { get; }
@@ -45,6 +54,10 @@ namespace MvcVisionSystem.Yolo
         public DateTime LastUpdatedUtc { get; internal set; }
 
         public YoloImageReviewState ReviewState { get; internal set; }
+
+        public YoloImageQualityReviewState QualityReviewState { get; internal set; }
+
+        public string QualityReviewNote { get; internal set; }
 
         internal string DetectionStatusOverride { get; set; }
 
@@ -101,6 +114,8 @@ namespace MvcVisionSystem.Yolo
 
     public sealed class YoloImageReviewStatusService
     {
+        public const int QualityReviewNoteMaxLength = 200;
+
         // Queue detail loading and delete-status refresh can run off the UI thread, so guard the shared status map.
         private readonly object syncRoot = new object();
         private readonly Dictionary<string, YoloImageReviewStatus> statuses = new Dictionary<string, YoloImageReviewStatus>(StringComparer.OrdinalIgnoreCase);
@@ -193,6 +208,12 @@ namespace MvcVisionSystem.Yolo
                         status.DetectionAttemptCount = Math.Max(0, persisted.DetectionAttemptCount);
                         status.LastDetectionMessage = persisted.LastDetectionMessage ?? string.Empty;
                         status.ReviewState = reviewState;
+                        status.QualityReviewState = TryResolveQualityReviewState(persisted, out YoloImageQualityReviewState qualityReviewState)
+                            ? qualityReviewState
+                            : YoloImageQualityReviewState.Unreviewed;
+                        status.QualityReviewNote = status.QualityReviewState == YoloImageQualityReviewState.NeedsFix
+                            ? NormalizeQualityReviewNote(persisted.QualityReviewNote)
+                            : string.Empty;
                         status.DetectionStatusOverride = string.Empty;
                         status.LastUpdatedUtc = persisted.LastUpdatedUtc;
                     }
@@ -216,7 +237,9 @@ namespace MvcVisionSystem.Yolo
             lock (syncRoot)
             {
                 persistedItems = statuses.Values
-                    .Where(status => status.ReviewState != YoloImageReviewState.Unreviewed)
+                    .Where(status => status.ReviewState != YoloImageReviewState.Unreviewed
+                        || status.QualityReviewState != YoloImageQualityReviewState.Unreviewed
+                        || !string.IsNullOrWhiteSpace(status.QualityReviewNote))
                     .Select(status => new PersistedReviewStatus
                     {
                         ImagePath = status.ImagePath,
@@ -226,6 +249,9 @@ namespace MvcVisionSystem.Yolo
                         LastDetectionMessage = status.LastDetectionMessage,
                         ReviewState = status.ReviewState,
                         ReviewStateName = status.ReviewState.ToString(),
+                        QualityReviewState = status.QualityReviewState,
+                        QualityReviewStateName = status.QualityReviewState.ToString(),
+                        QualityReviewNote = status.QualityReviewNote,
                         LastUpdatedUtc = status.LastUpdatedUtc
                     })
                     .OrderBy(item => item.ImagePath, StringComparer.OrdinalIgnoreCase)
@@ -400,6 +426,51 @@ namespace MvcVisionSystem.Yolo
             }
         }
 
+        public YoloImageReviewStatus MarkQualityNeedsFix(
+            string imagePath,
+            string imageName = "",
+            string qualityReviewNote = "")
+        {
+            lock (syncRoot)
+            {
+                return SetQualityReviewState(
+                    imagePath,
+                    imageName,
+                    YoloImageQualityReviewState.NeedsFix,
+                    qualityReviewNote);
+            }
+        }
+
+        public YoloImageReviewStatus MarkQualityReviewed(string imagePath, string imageName = "")
+        {
+            lock (syncRoot)
+            {
+                return SetQualityReviewState(imagePath, imageName, YoloImageQualityReviewState.Reviewed);
+            }
+        }
+
+        public YoloImageReviewStatus ClearQualityReview(string imagePath, string imageName = "")
+        {
+            lock (syncRoot)
+            {
+                return SetQualityReviewState(imagePath, imageName, YoloImageQualityReviewState.Unreviewed);
+            }
+        }
+
+        public YoloImageReviewStatus InvalidateQualityReviewAfterEdit(string imagePath, string imageName = "")
+        {
+            lock (syncRoot)
+            {
+                YoloImageReviewStatus status = FindByIdentity(imagePath, imageName);
+                if (status?.QualityReviewState != YoloImageQualityReviewState.Reviewed)
+                {
+                    return status;
+                }
+
+                return SetQualityReviewState(imagePath, imageName, YoloImageQualityReviewState.Unreviewed);
+            }
+        }
+
         public YoloImageReviewStatus ClearDetectionStatus(string imagePath)
         {
             return ClearDetectionStatus(imagePath, string.Empty);
@@ -488,7 +559,17 @@ namespace MvcVisionSystem.Yolo
 
         private static bool NeedsQueueReview(YoloImageReviewStatus status)
         {
-            if (status == null || status.IsLabeled)
+            if (status == null)
+            {
+                return false;
+            }
+
+            if (status.QualityReviewState == YoloImageQualityReviewState.NeedsFix)
+            {
+                return true;
+            }
+
+            if (status.IsLabeled)
             {
                 return false;
             }
@@ -542,6 +623,42 @@ namespace MvcVisionSystem.Yolo
             status.LastDetectionMessage = message ?? string.Empty;
             status.LastUpdatedUtc = DateTime.UtcNow;
             return status;
+        }
+
+        private YoloImageReviewStatus SetQualityReviewState(
+            string imagePath,
+            string imageName,
+            YoloImageQualityReviewState state,
+            string qualityReviewNote = "")
+        {
+            YoloImageReviewStatus status = FindByIdentity(imagePath, imageName);
+            if (status == null && !string.IsNullOrWhiteSpace(imagePath))
+            {
+                status = GetOrCreateCore(imagePath);
+            }
+
+            if (status == null)
+            {
+                return null;
+            }
+
+            status.QualityReviewState = state;
+            status.QualityReviewNote = state == YoloImageQualityReviewState.NeedsFix
+                ? NormalizeQualityReviewNote(qualityReviewNote)
+                : string.Empty;
+            status.LastUpdatedUtc = DateTime.UtcNow;
+            return status;
+        }
+
+        public static string NormalizeQualityReviewNote(string qualityReviewNote)
+        {
+            string normalized = (qualityReviewNote ?? string.Empty)
+                .Replace('\r', ' ')
+                .Replace('\n', ' ')
+                .Trim();
+            return normalized.Length <= QualityReviewNoteMaxLength
+                ? normalized
+                : normalized.Substring(0, QualityReviewNoteMaxLength);
         }
 
         private YoloImageReviewStatus FindByIdentity(string imagePath, string imageName)
@@ -624,6 +741,32 @@ namespace MvcVisionSystem.Yolo
             return true;
         }
 
+        private static bool TryResolveQualityReviewState(
+            PersistedReviewStatus persisted,
+            out YoloImageQualityReviewState qualityReviewState)
+        {
+            qualityReviewState = YoloImageQualityReviewState.Unreviewed;
+            if (persisted == null)
+            {
+                return false;
+            }
+
+            if (!string.IsNullOrWhiteSpace(persisted.QualityReviewStateName)
+                && Enum.TryParse(persisted.QualityReviewStateName, ignoreCase: true, out qualityReviewState)
+                && Enum.IsDefined(typeof(YoloImageQualityReviewState), qualityReviewState))
+            {
+                return true;
+            }
+
+            if (!Enum.IsDefined(typeof(YoloImageQualityReviewState), persisted.QualityReviewState))
+            {
+                return false;
+            }
+
+            qualityReviewState = persisted.QualityReviewState;
+            return true;
+        }
+
         private sealed class PersistedReviewStatus
         {
             public string ImagePath { get; set; } = string.Empty;
@@ -639,6 +782,12 @@ namespace MvcVisionSystem.Yolo
             public YoloImageReviewState ReviewState { get; set; }
 
             public string ReviewStateName { get; set; } = string.Empty;
+
+            public YoloImageQualityReviewState QualityReviewState { get; set; }
+
+            public string QualityReviewStateName { get; set; } = string.Empty;
+
+            public string QualityReviewNote { get; set; } = string.Empty;
 
             public DateTime LastUpdatedUtc { get; set; }
         }

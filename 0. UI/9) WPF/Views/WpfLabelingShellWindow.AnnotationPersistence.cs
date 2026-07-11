@@ -238,6 +238,7 @@ namespace MvcVisionSystem
 
         private void ApplyAnnotationDirtyPresentation()
         {
+            InvalidateActiveImageQualityReviewAfterEdit();
             StatusBarViewModel?.SetAnnotationSaveStatus(
                 isDirty: true,
                 text: "라벨 저장 필요",
@@ -251,6 +252,7 @@ namespace MvcVisionSystem
                 "\uC800\uC7A5 \uD544\uC694",
                 $"\uD30C\uC77C \uBBF8\uBC18\uC601: {annotationDirtyReason}");
             ApplyActiveImageQueueSaveRequiredStatus(annotationDirtyReason);
+            RefreshActiveImageQualityReviewPresentation();
             RefreshCanvasLayerVisibilityState();
             RefreshCanvasWorkflowContext();
             UpdateWorkflowProgressStatus();
@@ -295,6 +297,10 @@ namespace MvcVisionSystem
                 "Waiting",
                 "\uB77C\uBCA8 \uB300\uAE30",
                 "\uC774\uBBF8\uC9C0\uB97C \uC5F4\uBA74 \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4.");
+            ObjectReviewViewModel?.SetQualityReviewState(
+                YoloImageQualityReviewState.Unreviewed,
+                hasActiveImage: false,
+                canMarkReviewed: false);
             RefreshCanvasLayerVisibilityState();
             RefreshCanvasWorkflowContext();
             UpdateWorkflowProgressStatus();

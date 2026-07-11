@@ -1,6 +1,6 @@
 # Next Thread Handoff
 
-Last updated: 2026-07-08 KST
+Last updated: 2026-07-11 KST
 
 This is the current handoff for `C:\Git\Labelling_Application`. Treat older July 3-4 handoff notes as historical unless the current worktree or tracking docs prove the same item is still active.
 
@@ -17,7 +17,7 @@ This is the current handoff for `C:\Git\Labelling_Application`. Treat older July
 - Workspace: `C:\Git\Labelling_Application`
 - Branch at handoff: `main`
 - Tracking state at handoff: `main...origin/main`
-- Latest pushed commit at handoff: `36d63be3 fix: restore OpenCvSharp packages in CI`
+- Latest pushed commit at handoff: `d0967975 refine workflow guide panel scrollable blocks`
 - Expected worktree at handoff creation: dirty local continuation work for YOLOv8 SEG promotion guards, anomaly classification runtime/evaluation, docs, and tests. Trust `git status --short` and the current diff.
 - Do not run `git push` unless the user explicitly asks for `push`.
 - A request to `commit` means local commit only unless `push` is also explicitly requested.
@@ -30,7 +30,7 @@ Current priority order from the user conversation:
 
 1. Current user override: UI/UX first, especially simplifying the left workflow panels so beginners see the current task before detailed guides.
 2. YOLOv8 segmentation operation and model-quality workflow after the current UI/UX pass.
-3. YOLOv8 anomaly/classification real operator-data runtime/model smoke after segmentation workflow is stable.
+3. Extend the completed circular-defect YOLOv8 anomaly/classification smoke with independent production-camera/cross-session held-out evidence.
 4. YOLO11 only after the local Ultralytics runtime and weights actually support it.
 5. Dataset interoperability only when the model/runtime priority is paused or the user redirects.
 
@@ -85,6 +85,11 @@ Keep the existing MVVM direction. View code-behind may adapt WPF events and cont
 - A follow-up 80-epoch fine-tune wrote `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-40label-finetune-80ep-img160-20260708\weights\best.pt`.
 - `scripts\compare-yolo-models.ps1` was corrected for local Ultralytics YOLOv8 so metrics still come from `model.val`, but UI candidate counts and Candidate Review example labels come from a separate `model.predict` run. The corrected 40-label comparison wrote `artifacts\yolo-model-comparison\yolov8-seg-40label-baseline-vs-finetune80-20260708-predict-ui\20260708-215754\comparison-summary.json`: candidate precision `0.582`, recall `0.5`, mAP50 `0.683`, mAP50-95 `0.281`, UI candidates `2` at confidence `0.25`, and `promotion.recommendation=promote`.
 - Direct adapter sweep for the same 40-label candidate wrote `artifacts\yolo-tcp-smoke\yolov8-seg-40label-finetune80-conf025-20260708\summary.json`: at confidence `0.25`, 2 of 10 positive test images produced candidates, 0 of 6 OK test images produced candidates. At confidence `0.10`, recall improved but all 6 OK images produced candidates, so do not lower the default threshold without review.
+- The 2026-07-10 image-level operating gate supersedes the historical aggregate `promote` result above. The training run's Ultralytics `best.pt` remains `hold`: at `0.25` positive coverage is `2/10` with background candidates `0/6`, while at `0.10` coverage is `9/10` but background candidates are `6/6`.
+- The same run's `last.pt` has an operating gap. It was packaged byte-for-byte as `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-40label-operating-selected-conf020-20260711\weights\best.pt`, with source/hash/comparison metadata under `operating-selection`. SHA256 is `E659268ECD8BDCCE58E54E7C6A710421AD250BA1E18BC31820A79DE665B4D67F` for both source and package.
+- Full comparison for the packaged path is `artifacts\yolo-model-comparison\yolov8-seg-40label-operating-selected-conf020-20260711\20260711-220539\comparison-summary.json`: confidence `0.20`, precision `0.7748`, recall `0.6891`, mAP50 `0.6900`, mAP50-95 `0.1988`, positive coverage `6/10`, background candidates `0/6`, and `promotion.recommendation=promote`.
+- Adoption now couples comparison confidence to the current inspection confidence. Model Center blocks the package at `0.25` with no adoption-history record and saves it at validated confidence `0.20`; captures are `artifacts\ui\wpf-seg-operating-confidence-mismatch-after-20260711-1920.png` and `artifacts\ui\wpf-seg-operating-conf020-adopt-after-20260711-1920.png`.
+- Real TCP current-image smoke at `0.20` returned one `NG` polygon candidate on `025_NG.png` at `0.6266`, confirmed it, and wrote label text, segment JSON, mask PNG, and review status under `artifacts\real-yolo-smoke\40label-operating-selected-conf020-current-image-025-ng-20260711`. Direct adapter smoke returned zero candidates on `018_OK.png`.
 - Focused Model Center save/adoption smoke for the same 40-label candidate passed through `--wpf-model-center-real-candidate-save`, saved it as the current inspection model, and captured `artifacts\ui\wpf-model-center-real-40label-finetune-save-after-20260708-1920.png`.
 - Candidate Review visual smoke for the same 40-label summary captured `artifacts\ui\wpf-model-comparison-40label-promote-after-20260709-1920.png`, showing `차이 2개 이미지 / 예시 2개`, existing model `0`, new model `2`, confidence `25%`, and Korean promote guidance.
 - Real current-image TCP confirm/save smoke for the same 40-label candidate wrote `artifacts\real-yolo-smoke\40label-current-image-025-ng-20260709\summary.txt`: held-out `025_NG.png` returned one `NG` polygon candidate at confidence `0.3039`, confirmation saved YOLO label text, segment JSON, mask PNG, and review status `Confirmed`.
@@ -93,7 +98,7 @@ Keep the existing MVVM direction. View code-behind may adapt WPF events and cont
 - Current-image TCP workflow smoke for the same fine-tuned weight wrote `artifacts\real-yolo-smoke\finetune80-current-image-025-ng-20260707`: `025_NG` produced one `NG` polygon candidate at confidence `0.7682`, then confirmation saved YOLO label text, segment JSON, and mask PNG.
 - Latest current-image TCP recheck for the same fine-tuned weight wrote `artifacts\real-yolo-smoke\finetune80-current-image-025-ng-20260708-latest`: `025_NG` again produced one `NG` polygon candidate at confidence `0.7682`, and confirmation saved label text, segment JSON, and mask PNG. Latest Model Center save/adoption capture: `artifacts\ui\wpf-model-center-real-finetune-save-recheck-20260708-latest-1920.png`.
 
-Do not overstate this as broad production-ready accuracy. The circular SEG artifact now has a promotable candidate, direct adapter evidence, focused Model Center save/adoption evidence, and one current-image TCP workflow smoke, but real deployment still needs more operator data for other product/lighting/defect variation.
+Do not overstate this as broad production-ready accuracy. Training/inference, direct adapter, historical save/adoption, and current-image TCP paths work, but the current circular SEG candidate is held by the image-level operating gate and needs more varied product/lighting/defect data.
 
 ### Anomaly Workflow
 
@@ -106,6 +111,10 @@ Do not overstate this as broad production-ready accuracy. The circular SEG artif
 - WPF app-level YOLOv8 anomaly classification runtime smoke now calls the local adapter through `RunDetectionForImageAsync`, maps the returned top1 class through explicit anomaly settings, loads the candidate into Candidate Review, and persists the active image as `Abnormal`.
 - A no-download synthetic YOLOv8 normal/abnormal classification train smoke now produces `artifacts\yolov8-cls-training-smoke\normal-abnormal-fixture\runs\yolov8n-cls-normal-abnormal-smoke-e10\weights\best.pt`.
 - That trained fixture `best.pt` loads through the local adapter, preserves class names `abnormal`/`normal`, returns `abnormal` for `test\abnormal\abnormal-0.png` and `normal` for `test\normal\normal-0.png`, and passes the WPF mapped-inference smoke when pointed at the abnormal test image.
+- A non-tiny local circular-defect run now stages 100 unique source images (20 OK, 80 NG) into deterministic train/validation/test splits. The first unbalanced 15-epoch model stayed `hold` at 11/15 overall and 1/5 normal.
+- A second 20-epoch run repeats only the 10 original normal training images to balance train sampling at 60 normal / 60 abnormal; validation and test remain unchanged with zero cross-split duplicate hashes. Its weight is `artifacts\yolov8-cls-training-smoke\circular-defect-real-20260711\runs\yolov8n-cls-circular-defect-balanced-e20-img128-20260711\weights\best.pt`. Oversampling is not additional evidence.
+- Held-out evaluation at minimum confidence 0.8 returned `promotion.recommendation=adopt`, 15/15 correct, normal 5/5, abnormal 10/10, and zero low-confidence class matches. Summary: `artifacts\yolo-classification-evaluation\circular-defect-balanced-e20-minconf08-20260711\classification-evaluation-20260711-214135\classification-evaluation-summary.json`.
+- The WPF runtime smoke accepts expected class/state/image-size environment values and passed both held-out `003_OK.png` -> `Normal` and `033_NG.png` -> `Abnormal`; its original default abnormal behavior also still passes.
 - `AnomalyClassificationEvaluationService` now blocks adoption unless held-out normal/abnormal evidence has at least 10 total images, at least 5 per class, overall accuracy >= 0.9, per-class accuracy >= 0.8, and correct predictions meet the configured minimum confidence.
 - `scripts\evaluate-yolo-classification.ps1` now runs the local YOLOv8 adapter over a held-out normal/abnormal split and writes `classification-evaluation-summary.json`; the current synthetic fixture remains `hold` with `4/10` images, `2/5` per class, `0.75/0.9` accuracy, and `0.5/0.8` abnormal accuracy at the default confidence gate.
 - Minimum-confidence recheck artifact: `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260707-minconf08\classification-evaluation-20260707-232709\classification-evaluation-summary.json`; with `-MinimumConfidence 0.8`, the same fixture remains `hold` with `lowConfidenceClassMatchCount=2`, confidence-gated accuracy `0.25`, normal accuracy `0.5`, and abnormal accuracy `0`.
@@ -113,12 +122,12 @@ Do not overstate this as broad production-ready accuracy. The circular SEG artif
 - Parsed anomaly summaries fail closed: only explicit `promotion.recommendation=adopt` with no hold reasons is adoptable; empty, missing-promotion, or explicit-hold summaries remain non-adoptable.
 - Model Center now exposes that anomaly evaluation presentation through a visible conditional `YoloAnomalyEvaluationPanel`. For anomaly-detection datasets it also auto-loads a bounded summary from the active output root when `classification-evaluation-summary.json` exists at the root, direct `classification-evaluation\` child, or newest immediate `classification-evaluation-*` timestamp folder. The anomaly evaluation card keeps recommendation/metrics visible and defaults blocker detail/next action behind collapsed `YoloAnomalyEvaluationDetailExpander`. Current-source evidence: baseline/no-summary capture `artifacts\ui\wpf-model-center-anomaly-evaluation-baseline-no-summary-1920.png`; summary-loaded after capture `artifacts\ui\wpf-model-center-anomaly-evaluation-after-1920.png`; compact latest capture `artifacts\ui\wpf-model-center-anomaly-evaluation-compact-detail-after-20260708-1920.png`.
 - Model Center now also has explicit anomaly `평가 실행` and `평가 불러오기` actions. `평가 실행` exports a fresh classification-evaluation input split from reviewed normal/abnormal images and runs `scripts\evaluate-yolo-classification.ps1` through the local YOLOv8 adapter; `평가 불러오기` selects an existing `classification-evaluation-summary.json`. Latest capture `artifacts\ui\wpf-model-center-anomaly-evaluation-run-button-after-20260708-1920.png`. This adds the in-app generation/run path, but real operator normal/abnormal held-out data is still required before any accuracy/adoption claim.
-- Latest recheck artifact: `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260707-rerun\classification-evaluation-20260707-231654\classification-evaluation-summary.json`.
-- Latest 2026-07-08 runtime/evaluation recheck: adapter compile/self-test, `--wpf-yolov8-anomaly-classification-runtime-smoke`, evaluation script, `--anomaly-classification-evaluation`, and Model Center visual smoke passed. Summary `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-recheck\classification-evaluation-20260708-004229\classification-evaluation-summary.json` remains `hold` with 4 images, normal 1/2, abnormal 0/2, 25% confidence-gated accuracy. Capture `artifacts\ui\wpf-model-center-anomaly-evaluation-recheck-20260708-1920.png`.
-- Latest late evaluation script recheck: `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-late-recheck\classification-evaluation-20260708-011412\classification-evaluation-summary.json` remains `hold` with 4 images, normal 1/2, abnormal 0/2, 25% confidence-gated accuracy, and 2 low-confidence class matches. Latest Model Center captures: `artifacts\ui\wpf-model-center-anomaly-evaluation-late-recheck-20260708-1920.png`, `artifacts\ui\wpf-model-center-anomaly-evaluation-timestamp-lookup-after-20260708-1920.png`, and `artifacts\ui\wpf-model-center-anomaly-evaluation-compact-detail-after-20260708-1920.png`.
-- Latest explicit-adopt guard recheck: `--wpf-yolov8-anomaly-classification-runtime-smoke` passed, and `scripts\evaluate-yolo-classification.ps1 -MinimumConfidence 0.8` wrote `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-explicit-adopt-guard-recheck\classification-evaluation-20260708-014426\classification-evaluation-summary.json`; it remains `hold` with 4 images, normal 1/2, abnormal 0/2, 25% confidence-gated accuracy, and 2 low-confidence class matches.
+- Historical synthetic recheck artifact: `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260707-rerun\classification-evaluation-20260707-231654\classification-evaluation-summary.json`.
+- Historical 2026-07-08 synthetic runtime/evaluation recheck: adapter compile/self-test, `--wpf-yolov8-anomaly-classification-runtime-smoke`, evaluation script, `--anomaly-classification-evaluation`, and Model Center visual smoke passed. Summary `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-recheck\classification-evaluation-20260708-004229\classification-evaluation-summary.json` remains `hold` with 4 images, normal 1/2, abnormal 0/2, 25% confidence-gated accuracy. Capture `artifacts\ui\wpf-model-center-anomaly-evaluation-recheck-20260708-1920.png`.
+- Historical synthetic minimum-confidence recheck: `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-late-recheck\classification-evaluation-20260708-011412\classification-evaluation-summary.json` remains `hold` with 4 images, normal 1/2, abnormal 0/2, 25% confidence-gated accuracy, and 2 low-confidence class matches. Model Center captures: `artifacts\ui\wpf-model-center-anomaly-evaluation-late-recheck-20260708-1920.png`, `artifacts\ui\wpf-model-center-anomaly-evaluation-timestamp-lookup-after-20260708-1920.png`, and `artifacts\ui\wpf-model-center-anomaly-evaluation-compact-detail-after-20260708-1920.png`.
+- Historical synthetic explicit-adopt guard recheck: `--wpf-yolov8-anomaly-classification-runtime-smoke` passed, and `scripts\evaluate-yolo-classification.ps1 -MinimumConfidence 0.8` wrote `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-explicit-adopt-guard-recheck\classification-evaluation-20260708-014426\classification-evaluation-summary.json`; it remains `hold` with 4 images, normal 1/2, abnormal 0/2, 25% confidence-gated accuracy, and 2 low-confidence class matches.
 
-Missing: real operator normal/abnormal training data and held-out inference evidence that passes the adoption guard. Do not treat ImageNet pretrained `yolov8n-cls.pt` output or the tiny synthetic fixture `best.pt` as production anomaly accuracy.
+Missing: independent production-camera or cross-session normal/abnormal held-out evidence. The current adopt result is scoped to one circular-defect source family with only 5 normal / 10 abnormal test images; do not treat it, ImageNet `yolov8n-cls.pt`, or the tiny synthetic fixture as broad production anomaly accuracy.
 
 ### YOLO11 Runtime
 
@@ -204,7 +213,7 @@ Current priority is not more interoperability unless the user asks. The next lik
   - `dll\Lib.OpenCV.dll`
 - The app restores OpenCvSharp support through NuGet (`OpenCvSharp4` 4.4.0.20200915, `OpenCvSharp4.runtime.win` 4.5.5.20211231, and legacy support assemblies) and force-copies the restored DLLs into the EXE output, with existing local `packages` files used only as a fallback when present.
 - The focused docs smoke asserts the README/release/CI sections and the bundled DLL dependency contract.
-- GitHub Actions CI for pushed commit `36d63be3` was inspected via the GitHub REST API on 2026-07-08 KST. Run `28912003281` completed with `success`: https://github.com/Noah8218/OpenVisionLab-Labeling-Studio/actions/runs/28912003281
+- Last inspected GitHub Actions evidence is commit `36d63be3`: run `28912003281` completed with `success` on 2026-07-08 KST. The current pushed head `d0967975` was not rechecked in this local evidence pass: https://github.com/Noah8218/OpenVisionLab-Labeling-Studio/actions/runs/28912003281
 
 Latest verified commands for the DLL/CI/docs slice:
 
@@ -218,12 +227,12 @@ git diff --check
 
 ## Known Remaining Gaps
 
-- YOLOv8 SEG now has a first promotable circular-defect candidate by the local held-out comparison gate plus focused WPF save/adoption and current-image TCP smoke evidence, but broad production accuracy is not established.
-- Need the next operator loop: collect more varied train/valid/test labels for broader accuracy, or switch to anomaly classification real operator-data evaluation.
-- Anomaly classification has local YOLOv8 pretrained-seed runtime, WPF mapped-inference smoke, a synthetic trained-fixture `best.pt` smoke, and a core adoption evaluation guard, but still needs real normal/abnormal operator-data training and held-out inference evidence.
-- Anomaly classification now has an app-level Model Center `평가 실행` path for held-out evaluation summaries plus manual `평가 불러오기`. Auto-display still works from the active output-root direct, fixed child, or timestamped evaluation summary location. The remaining gap is real operator normal/abnormal data and a summary that passes the adoption guard.
+- YOLOv8 SEG runtime, workflow, confidence-coupled adoption, and the current circular-fixture operating candidate are proven at confidence `0.20`; broad production accuracy is not established outside the 10-positive/6-background held-out fixture.
+- Need the next operator loop: collect independently acquired and labeled SEG train/valid/test images for broader accuracy and collect an independent anomaly production-camera/cross-session test set.
+- Anomaly classification now has local YOLOv8 pretrained-seed runtime, WPF mapped-inference, a synthetic trained fixture, a core adoption guard, and a 100-image circular-defect run whose unchanged 15-image test split passes at minimum confidence 0.8. The remaining evidence gap is an independent production-camera/cross-session set; the current five-normal/ten-abnormal held-out result is not broad production readiness.
+- Anomaly classification has an app-level Model Center `평가 실행` path for held-out evaluation summaries plus manual `평가 불러오기`. Auto-display still works from the active output-root direct, fixed child, or timestamped evaluation summary location. The latest scoped adopt summary is `artifacts\yolo-classification-evaluation\circular-defect-balanced-e20-minconf08-20260711\classification-evaluation-20260711-214135\classification-evaluation-summary.json`.
 - YOLO11 remains blocked until a compatible local runtime and weights are verified.
-- Latest pushed CI is green for `36d63be3`; continue to inspect CI again after any future push.
+- Last inspected CI is green for `36d63be3`; current pushed head `d0967975` remains unverified here and should be checked separately when CI status is requested.
 - Updating `dll\Lib.Common.dll` or `dll\Lib.OpenCV.dll` now requires intentional binary refresh, EXE output-copy verification, and build verification.
 - Any new visible UI change needs fresh current-build capture evidence and tutorial/README image review.
 
@@ -231,8 +240,8 @@ git diff --check
 
 1. Re-orient with `git status --short`, current docs, and current diff.
 2. If the user asks to continue UI/UX, keep using the commercial-tool pattern: current task and primary controls first, secondary help/details behind explicit expanders, no all-in-one scrolling guide panels.
-3. Then continue YOLOv8 SEG operating quality: use the promotable fine-tune/adoption/current-image evidence as the circular-defect baseline, collect more varied real SEG labels, and rerun held-out comparison when data changes.
-4. Then do anomaly classification real operator-data training/evaluation when enough reviewed normal/abnormal images are available.
+3. Treat the circular-fixture SEG operating gate as complete at confidence `0.20`; collect more varied independently acquired SEG labels and rerun the same gate before any production claim.
+4. Then collect an independent production-camera/cross-session normal/abnormal set and rerun the unchanged anomaly evaluation guard; do not add more code unless that evidence exposes a workflow defect.
 5. Only after runtime/model workflow is stable, return to lower-priority interoperability or documentation polish.
 
 ## Useful Verification Commands
@@ -245,6 +254,7 @@ dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplicat
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-review-service
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-heldout
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-run-service
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-center-real-candidate-save --yolo-root C:\Git\yolov8 --data-yaml .\artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260708_213227\dataset\data.yaml --baseline-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt --candidate-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-40label-operating-selected-conf020-20260711\weights\best.pt --candidate-confidence 0.20
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-polygon-training-flow
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-readiness-purpose

@@ -8,6 +8,14 @@ namespace MvcVisionSystem
     {
         private void ExecuteSaveModelCandidateCommand()
         {
+            if (CandidateReviewViewModel?.IsModelPromotionHeld == true)
+            {
+                string status = WpfModelCandidateDecisionPresentationService.BuildHeldCandidateSaveBlockedStatus();
+                SetYoloCommandStatus(status, isBusy: false);
+                AppendLog(status);
+                return;
+            }
+
             ExecuteSaveYoloSettingsCommand();
         }
 
@@ -90,10 +98,14 @@ namespace MvcVisionSystem
             if (hasPendingCandidate)
             {
                 ApplyModelCandidateDecisionPresentation(
-                    WpfModelCandidateDecisionPresentationService.BuildPendingCandidate(
-                        currentWeightsPath,
-                        baselineWeightsPath,
-                        canReject));
+                    CandidateReviewViewModel.IsModelPromotionHeld
+                        ? WpfModelCandidateDecisionPresentationService.BuildHeldCandidate(
+                            currentWeightsPath,
+                            canReject)
+                        : WpfModelCandidateDecisionPresentationService.BuildPendingCandidate(
+                            currentWeightsPath,
+                            baselineWeightsPath,
+                            canReject));
                 return;
             }
 
