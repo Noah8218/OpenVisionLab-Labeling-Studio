@@ -1389,8 +1389,9 @@
             <Grid Margin="16,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
                 <StackPanel Orientation="Horizontal"
@@ -1409,10 +1410,9 @@
                                FontWeight="SemiBold"
                                VerticalAlignment="Center" />
                 </StackPanel>
-                <StackPanel Grid.Column="1"
-                            Orientation="Horizontal"
-                            VerticalAlignment="Center"
-                            Margin="0,0,14,0">
+                <Grid Grid.Column="1"
+                      VerticalAlignment="Center"
+                      Margin="0,0,14,0">
                     <TextBlock x:Name="CurrentDatasetNameText"
                                AutomationProperties.AutomationId="CurrentDatasetNameText"
                                Text="{Binding ShellViewModel.CurrentDatasetName, ElementName=ShellWindow}"
@@ -1420,26 +1420,9 @@
                                FontFamily="Segoe UI"
                                FontSize="13"
                                FontWeight="SemiBold"
-                               MaxWidth="220"
                                TextTrimming="CharacterEllipsis"
                                VerticalAlignment="Center" />
-                    <Border Background="{DynamicResource ToolbarButtonBrush}"
-                            BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
-                            BorderThickness="1"
-                            CornerRadius="3"
-                            Padding="6,2"
-                            Margin="8,0,0,0"
-                            VerticalAlignment="Center">
-                        <TextBlock x:Name="CurrentDatasetPurposeText"
-                                   AutomationProperties.AutomationId="CurrentDatasetPurposeText"
-                                   Text="{Binding ShellViewModel.CurrentDatasetPurposeText, ElementName=ShellWindow}"
-                                   Foreground="{DynamicResource PrimaryTextBrush}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="10"
-                                   FontWeight="SemiBold"
-                                   TextTrimming="CharacterEllipsis" />
-                    </Border>
-                </StackPanel>
+                </Grid>
                 <Grid Grid.Column="2"
                       VerticalAlignment="Center"
                       Margin="0,0,12,0">
@@ -1526,7 +1509,26 @@
                         </StackPanel>
                     </Border>
                 </Grid>
-                <StackPanel Grid.Column="3"
+                <Border x:Name="CurrentDatasetPurposeBadge"
+                        Grid.Column="3"
+                        Background="{DynamicResource ToolbarButtonBrush}"
+                        BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="3"
+                        Padding="6,2"
+                        Margin="0,0,12,0"
+                        HorizontalAlignment="Right"
+                        VerticalAlignment="Center">
+                    <TextBlock x:Name="CurrentDatasetPurposeText"
+                               AutomationProperties.AutomationId="CurrentDatasetPurposeText"
+                               Text="{Binding ShellViewModel.CurrentDatasetPurposeText, ElementName=ShellWindow}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
+                </Border>
+                <StackPanel Grid.Column="4"
                             Orientation="Horizontal"
                             VerticalAlignment="Center"
                             Margin="0">
@@ -1580,11 +1582,16 @@
         <Grid x:Name="MainWorkspaceGrid" Margin="10">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="RightWorkflowColumn"
-                                  Width="{Binding ShellViewModel.RightWorkflowPaneGridLength, ElementName=ShellWindow}" />
+                                  Width="{Binding ShellViewModel.RightWorkflowPaneGridLength, ElementName=ShellWindow}"
+                                  MinWidth="72"
+                                  MaxWidth="640" />
                 <ColumnDefinition Width="10" />
-                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="*" MinWidth="420" />
                 <ColumnDefinition Width="10" />
-                <ColumnDefinition Width="320" />
+                <ColumnDefinition x:Name="ImageQueueColumn"
+                                  Width="320"
+                                  MinWidth="260"
+                                  MaxWidth="640" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
                 <RowDefinition Height="*" />
@@ -1599,6 +1606,32 @@
                                       Grid.RowSpan="3" />
 
             <local:WpfCanvasPanel x:Name="CanvasPanelControl" Grid.Column="2" />
+
+            <GridSplitter x:Name="LeftWorkspaceSplitter"
+                          Grid.Column="1"
+                          AutomationProperties.AutomationId="LeftWorkspaceSplitter"
+                          AutomationProperties.Name="작업 패널 너비 조절"
+                          ToolTip="드래그하여 작업 패널과 캔버스 너비를 조절합니다."
+                          Background="{DynamicResource BorderBrushDark}"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          ResizeDirection="Columns"
+                          ResizeBehavior="PreviousAndNext"
+                          ShowsPreview="True"
+                          IsEnabled="{Binding ShellViewModel.IsRightWorkflowDockExpanded, ElementName=ShellWindow}"
+                          DragCompleted="LeftWorkspaceSplitter_DragCompleted" />
+
+            <GridSplitter x:Name="RightWorkspaceSplitter"
+                          Grid.Column="3"
+                          AutomationProperties.AutomationId="RightWorkspaceSplitter"
+                          AutomationProperties.Name="이미지 큐 너비 조절"
+                          ToolTip="드래그하여 캔버스와 이미지 큐 너비를 조절합니다."
+                          Background="{DynamicResource BorderBrushDark}"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          ResizeDirection="Columns"
+                          ResizeBehavior="PreviousAndNext"
+                          ShowsPreview="True" />
 
             <Border x:Name="RightWorkflowDockPanel"
                     Grid.Column="0"

@@ -49,6 +49,10 @@ namespace MvcVisionSystem
             {
                 AppLog.ABNORMAL("Ex ==> {0}", Desc.Message);
             }
+            finally
+            {
+                CGlobal.Inst.StopPythonModelClientConnection();
+            }
         }
     }
 }

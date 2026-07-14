@@ -6,11 +6,15 @@ using System.Drawing;
 using System.Drawing.Imaging;
 using System.IO;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace MvcVisionSystem.Yolo
 {
     public static class YoloSegmentationAnnotationService
     {
+        private const string PolygonGeometryType = "Polygon";
+        private const string RasterMaskGeometryType = "RasterMask";
+
         private static readonly string[] DatasetModes =
         {
             YoloDatasetSplitService.TrainMode,
@@ -91,7 +95,11 @@ namespace MvcVisionSystem.Yolo
             {
                 if (File.Exists(segmentPath))
                 {
-                    return LoadSegmentationObjects(segmentPath, classes, imageSize);
+                    return LoadSegmentationObjects(
+                        segmentPath,
+                        ResolveSiblingMaskPath(segmentPath),
+                        classes,
+                        imageSize);
                 }
             }
 
@@ -112,6 +120,13 @@ namespace MvcVisionSystem.Yolo
 
         public static IReadOnlyDictionary<string, List<LabelingSegmentationObject>> LoadSegmentationObjects(
             string segmentPath,
+            IReadOnlyList<CClassItem> classes,
+            Size imageSize)
+            => LoadSegmentationObjects(segmentPath, string.Empty, classes, imageSize);
+
+        public static IReadOnlyDictionary<string, List<LabelingSegmentationObject>> LoadSegmentationObjects(
+            string segmentPath,
+            string maskPath,
             IReadOnlyList<CClassItem> classes,
             Size imageSize)
         {
@@ -139,6 +154,7 @@ namespace MvcVisionSystem.Yolo
             Size targetSize = imageSize.Width > 0 && imageSize.Height > 0
                 ? imageSize
                 : new Size(Math.Max(1, annotation.ImageWidth), Math.Max(1, annotation.ImageHeight));
+            TryLoadMaskClassValues(maskPath, targetSize, out byte[] maskClassValues);
 
             foreach (SegmentationPolygonRecord record in annotation.Polygons)
             {
@@ -163,6 +179,12 @@ namespace MvcVisionSystem.Yolo
                 }
 
                 CClassItem classItem = ResolveClassItem(className, classes);
+                if (TryBuildRasterMaskSegment(record, points, classItem, targetSize, maskClassValues, out LabelingSegmentationObject rasterSegment))
+                {
+                    result[className].Add(rasterSegment);
+                    continue;
+                }
+
                 var segment = new LabelingSegmentationObject(points, classItem)
                 {
                     ClassName = className
@@ -208,11 +230,7 @@ namespace MvcVisionSystem.Yolo
                 {
                     if (segment.IsRasterMask)
                     {
-                        SegmentationPolygonRecord maskRecord = BuildRasterMaskPolygonRecord(segment, classIndex, className, imageSize);
-                        if (maskRecord != null)
-                        {
-                            records.Add(maskRecord);
-                        }
+                        records.AddRange(BuildRasterMaskPolygonRecords(segment, classIndex, className, imageSize));
 
                         continue;
                     }
@@ -227,6 +245,7 @@ namespace MvcVisionSystem.Yolo
                     {
                         ClassIndex = classIndex,
                         ClassName = className,
+                        GeometryType = PolygonGeometryType,
                         Points = points.Select(point => new SegmentationPointRecord { X = point.X, Y = point.Y }).ToList(),
                         Cutouts = NormalizeCutouts(segment.CutoutPolygons, imageSize)
                             .Select(cutout => cutout.Select(point => new SegmentationPointRecord { X = point.X, Y = point.Y }).ToList())
@@ -238,7 +257,7 @@ namespace MvcVisionSystem.Yolo
             return records;
         }
 
-        private static SegmentationPolygonRecord BuildRasterMaskPolygonRecord(
+        private static IReadOnlyList<SegmentationPolygonRecord> BuildRasterMaskPolygonRecords(
             LabelingSegmentationObject segment,
             int classIndex,
             string className,
@@ -247,22 +266,218 @@ namespace MvcVisionSystem.Yolo
             Rectangle bounds = segment?.Bounds ?? Rectangle.Empty;
             if (bounds.IsEmpty)
             {
-                return null;
+                return Array.Empty<SegmentationPolygonRecord>();
             }
 
-            List<Point> points = SegmentationGeometry.RectangleToPolygon(bounds, imageSize);
-            if (points.Count < 3)
+            List<SegmentationGeometry.SegmentationMaskRegion> regions = RasterMaskPolygonService.BuildRegions(
+                segment.MaskData,
+                segment.MaskSize,
+                imageSize).ToList();
+            if (regions.Count == 0)
             {
-                return null;
+                List<Point> fallback = SegmentationGeometry.RectangleToPolygon(bounds, imageSize);
+                if (fallback.Count < 3)
+                {
+                    return Array.Empty<SegmentationPolygonRecord>();
+                }
+
+                regions.Add(new SegmentationGeometry.SegmentationMaskRegion { Points = fallback });
             }
 
-            return new SegmentationPolygonRecord
+            return regions
+                .Where(region => region?.Points?.Count >= 3)
+                .Select(region => new SegmentationPolygonRecord
+                {
+                    ClassIndex = classIndex,
+                    ClassName = className,
+                    GeometryType = RasterMaskGeometryType,
+                    Points = region.Points
+                        .Select(point => new SegmentationPointRecord { X = point.X, Y = point.Y })
+                        .ToList(),
+                    Cutouts = NormalizeCutouts(region.Cutouts, imageSize)
+                        .Select(cutout => cutout.Select(point => new SegmentationPointRecord { X = point.X, Y = point.Y }).ToList())
+                        .ToList()
+                })
+                .ToList();
+        }
+
+        private static bool TryBuildRasterMaskSegment(
+            SegmentationPolygonRecord record,
+            IReadOnlyList<Point> points,
+            CClassItem classItem,
+            Size imageSize,
+            byte[] maskClassValues,
+            out LabelingSegmentationObject segment)
+        {
+            segment = null;
+            bool isExplicitRaster = string.Equals(record?.GeometryType, RasterMaskGeometryType, StringComparison.OrdinalIgnoreCase);
+            bool isLegacyRasterCandidate = string.IsNullOrWhiteSpace(record?.GeometryType)
+                && (record?.Cutouts == null || record.Cutouts.Count == 0)
+                && IsAxisAlignedRectangle(points);
+            if ((!isExplicitRaster && !isLegacyRasterCandidate)
+                || maskClassValues == null
+                || maskClassValues.Length != imageSize.Width * imageSize.Height)
             {
-                ClassIndex = classIndex,
-                ClassName = className,
-                Points = points.Select(point => new SegmentationPointRecord { X = point.X, Y = point.Y }).ToList(),
-                Cutouts = new List<List<SegmentationPointRecord>>()
+                return false;
+            }
+
+            Rectangle bounds = Rectangle.Intersect(
+                SegmentationGeometry.GetBounds(points),
+                new Rectangle(Point.Empty, imageSize));
+            if (bounds.IsEmpty)
+            {
+                return false;
+            }
+
+            int classValue = Math.Clamp((record?.ClassIndex ?? 0) + 1, 1, 255);
+            var maskData = new byte[imageSize.Width * imageSize.Height];
+            int left = imageSize.Width;
+            int top = imageSize.Height;
+            int right = -1;
+            int bottom = -1;
+            int pixelCount = 0;
+            for (int y = bounds.Top; y < bounds.Bottom; y++)
+            {
+                int rowOffset = y * imageSize.Width;
+                for (int x = bounds.Left; x < bounds.Right; x++)
+                {
+                    int index = rowOffset + x;
+                    if (maskClassValues[index] != classValue)
+                    {
+                        continue;
+                    }
+
+                    maskData[index] = 255;
+                    left = Math.Min(left, x);
+                    top = Math.Min(top, y);
+                    right = Math.Max(right, x);
+                    bottom = Math.Max(bottom, y);
+                    pixelCount++;
+                }
+            }
+
+            if (pixelCount == 0)
+            {
+                return false;
+            }
+
+            Rectangle maskBounds = Rectangle.FromLTRB(left, top, right + 1, bottom + 1);
+            // Version 1 did not record geometry type. When its sibling class-index mask
+            // exists, that mask is authoritative even when it is a solid rectangle;
+            // otherwise adding another class can change the same label from polygon to mask.
+
+            segment = new LabelingSegmentationObject
+            {
+                ClassItem = classItem,
+                ClassName = classItem?.Text ?? record?.ClassName ?? string.Empty,
+                MaskData = maskData,
+                MaskSize = imageSize,
+                MaskBounds = maskBounds
             };
+            return true;
+        }
+
+        private static bool IsAxisAlignedRectangle(IReadOnlyList<Point> points)
+        {
+            if (points == null || points.Count != 4)
+            {
+                return false;
+            }
+
+            int left = points.Min(point => point.X);
+            int right = points.Max(point => point.X);
+            int top = points.Min(point => point.Y);
+            int bottom = points.Max(point => point.Y);
+            var corners = new HashSet<Point>(points);
+            return left < right
+                && top < bottom
+                && corners.SetEquals(new[]
+                {
+                    new Point(left, top),
+                    new Point(right, top),
+                    new Point(right, bottom),
+                    new Point(left, bottom)
+                });
+        }
+
+        private static bool TryLoadMaskClassValues(string maskPath, Size imageSize, out byte[] classValues)
+        {
+            classValues = null;
+            if (string.IsNullOrWhiteSpace(maskPath)
+                || !File.Exists(maskPath)
+                || imageSize.Width <= 0
+                || imageSize.Height <= 0)
+            {
+                return false;
+            }
+
+            try
+            {
+                using var source = new Bitmap(maskPath);
+                if (source.Size != imageSize)
+                {
+                    return false;
+                }
+
+                Rectangle bounds = new Rectangle(Point.Empty, imageSize);
+                using Bitmap normalized = source.Clone(bounds, PixelFormat.Format24bppRgb);
+                BitmapData bitmapData = normalized.LockBits(bounds, ImageLockMode.ReadOnly, PixelFormat.Format24bppRgb);
+                try
+                {
+                    int stride = Math.Abs(bitmapData.Stride);
+                    var pixels = new byte[stride * imageSize.Height];
+                    Marshal.Copy(bitmapData.Scan0, pixels, 0, pixels.Length);
+                    classValues = new byte[imageSize.Width * imageSize.Height];
+                    for (int y = 0; y < imageSize.Height; y++)
+                    {
+                        int sourceRow = bitmapData.Stride >= 0 ? y : imageSize.Height - 1 - y;
+                        int sourceOffset = sourceRow * stride;
+                        int targetOffset = y * imageSize.Width;
+                        for (int x = 0; x < imageSize.Width; x++)
+                        {
+                            classValues[targetOffset + x] = pixels[sourceOffset + (x * 3)];
+                        }
+                    }
+                }
+                finally
+                {
+                    normalized.UnlockBits(bitmapData);
+                }
+
+                return true;
+            }
+            catch (ArgumentException)
+            {
+                return false;
+            }
+            catch (ExternalException)
+            {
+                return false;
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false;
+            }
+        }
+
+        private static string ResolveSiblingMaskPath(string segmentPath)
+        {
+            DirectoryInfo segmentDirectory = Directory.GetParent(segmentPath ?? string.Empty);
+            if (segmentDirectory == null
+                || !string.Equals(segmentDirectory.Name, "segments", StringComparison.OrdinalIgnoreCase)
+                || segmentDirectory.Parent == null)
+            {
+                return string.Empty;
+            }
+
+            string fileStem = Path.GetFileNameWithoutExtension(segmentPath);
+            return string.IsNullOrWhiteSpace(fileStem)
+                ? string.Empty
+                : Path.Combine(segmentDirectory.Parent.FullName, "masks", $"{fileStem}.png");
         }
 
         public static IEnumerable<string> GetCandidateSegmentPaths(string imagePath, CData data)
@@ -548,6 +763,7 @@ namespace MvcVisionSystem.Yolo
     {
         public int ClassIndex { get; set; }
         public string ClassName { get; set; } = "";
+        public string GeometryType { get; set; } = "";
         public List<SegmentationPointRecord> Points { get; set; } = new List<SegmentationPointRecord>();
         public List<List<SegmentationPointRecord>> Cutouts { get; set; } = new List<List<SegmentationPointRecord>>();
     }

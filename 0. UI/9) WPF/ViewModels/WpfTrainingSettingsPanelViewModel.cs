@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Windows.Input;
 using OpenVisionLab.Mvvm;
@@ -18,6 +19,8 @@ namespace MvcVisionSystem
         private string validationPercentText = string.Empty;
         private string testPercentText = string.Empty;
         private string splitSeedText = string.Empty;
+        private string modelEngine = PythonModelSettings.EngineYoloV5;
+        private LabelingDatasetPurpose datasetPurpose = LabelingDatasetPurpose.ObjectDetection;
         private string trainingReadinessText = "학습 상태 미확인";
         private string trainingProgressText = "학습 대기";
         private string trainingEpochStatusText = string.Empty;
@@ -32,6 +35,7 @@ namespace MvcVisionSystem
         private bool isApplyFastRecommendationEnabled = true;
         private bool isReviewTrainedModelEnabled;
         private bool isConfirmTrainedModelEnabled;
+        private bool isRunYoloEngineComparisonEnabled = true;
         private bool canRunPostTrainingReviewCommands = true;
         private bool canRunPostTrainingConfirmCommands = true;
         private bool isReviewTrainedModelAvailable;
@@ -48,6 +52,7 @@ namespace MvcVisionSystem
         private ICommand stopTrainingCommand = new RelayCommand(NoOpCommand);
         private ICommand reviewTrainedModelCommand = new RelayCommand(NoOpCommand);
         private ICommand confirmTrainedModelCommand = new RelayCommand(NoOpCommand);
+        private ICommand runYoloEngineComparisonCommand = new RelayCommand(NoOpCommand);
 
         public WpfTrainingSettingsPanelViewModel()
         {
@@ -59,7 +64,7 @@ namespace MvcVisionSystem
         public string TrainingRecommendationTitleText => "추천 시작값";
 
         public string TrainingRecommendationText =>
-            "빠른 첫 학습은 이미지 320, 배치 4, 에폭 50, 모델 yolov5s, 검증 20%, 최종 검증 0%로 시작합니다. CPU에서는 이 값으로 먼저 성공 여부를 확인하고, GPU가 있거나 여유가 있으면 배치를 8/16으로 올립니다.";
+            $"빠른 첫 학습은 이미지 320, 배치 4, 에폭 50, 모델 {TrainingModelDisplayText}, 검증 20%, 최종 검증 0%로 시작합니다. CPU에서는 먼저 성공 여부를 확인하고, GPU가 있거나 여유가 있으면 배치를 8/16으로 올립니다.";
 
         public string ImageSizeGuideText =>
             "추천 320: 빠르게 되는지 확인합니다. 작은 결함이나 얇은 부품은 640을 사용합니다.";
@@ -70,8 +75,9 @@ namespace MvcVisionSystem
         public string EpochGuideText =>
             "추천 50: 전체 데이터를 반복 학습하는 횟수입니다. 결과가 흔들리면 100까지 늘립니다.";
 
-        public string CfgGuideText =>
-            "추천 yolov5s: 빠른 기준 모델입니다. 정확도가 우선이면 m/l/x로 올리며 학습 시간은 늘어납니다.";
+        public string CfgGuideText => IsLegacyYoloV5TrainingSelection
+            ? "추천 yolov5s: 빠른 기준 모델입니다. 정확도가 우선이면 m/l/x로 올리며 학습 시간은 늘어납니다."
+            : $"현재 모델 엔진과 데이터셋 용도에 맞춰 {TrainingModelDisplayText}을 사용합니다.";
 
         public string WeightGuideText =>
             "학습 시작 가중치입니다. 공개 가중치에서 시작하면 적은 데이터에서도 더 안정적으로 학습됩니다.";
@@ -90,12 +96,69 @@ namespace MvcVisionSystem
 
         public string TrainingSettingsSummaryTitleText => "\uD604\uC7AC \uD559\uC2B5 \uC124\uC815";
 
+        public bool IsLegacyYoloV5TrainingSelection
+            => string.Equals(modelEngine, PythonModelSettings.EngineYoloV5, StringComparison.Ordinal);
+
+        public bool IsTrainingModelSelectionEnabled => IsLegacyYoloV5TrainingSelection;
+
+        public IReadOnlyList<string> TrainingModelOptions
+            => IsLegacyYoloV5TrainingSelection
+                ? Enum.GetNames(typeof(CYolov5TrainingParam.Cfg))
+                : new[] { TrainingModelDisplayText };
+
+        public IReadOnlyList<string> TrainingWeightOptions
+            => IsLegacyYoloV5TrainingSelection
+                ? Enum.GetNames(typeof(CYolov5TrainingParam.Weight))
+                : new[] { TrainingStartWeightDisplayText };
+
+        public string SelectedTrainingModel
+        {
+            get => IsLegacyYoloV5TrainingSelection ? Cfg : TrainingModelDisplayText;
+            set
+            {
+                if (IsLegacyYoloV5TrainingSelection)
+                {
+                    Cfg = value;
+                }
+            }
+        }
+
+        public string SelectedTrainingWeight
+        {
+            get => IsLegacyYoloV5TrainingSelection ? Weight : TrainingStartWeightDisplayText;
+            set
+            {
+                if (IsLegacyYoloV5TrainingSelection)
+                {
+                    Weight = value;
+                }
+            }
+        }
+
+        public string TrainingModelDisplayText
+            => modelEngine switch
+            {
+                PythonModelSettings.EngineYoloV8 => datasetPurpose == LabelingDatasetPurpose.Segmentation ? "YOLOv8 SEG" : "YOLOv8 Detect",
+                PythonModelSettings.EngineYolo11 => datasetPurpose == LabelingDatasetPurpose.Segmentation ? "YOLO11 SEG" : "YOLO11 Detect",
+                PythonModelSettings.EngineOnnx => "ONNX (\uCD94\uB860 \uC804\uC6A9)",
+                _ => string.IsNullOrWhiteSpace(Cfg) ? "-" : Cfg
+            };
+
+        public string TrainingStartWeightDisplayText
+            => modelEngine switch
+            {
+                PythonModelSettings.EngineYoloV8 => datasetPurpose == LabelingDatasetPurpose.Segmentation ? "yolov8n-seg.pt" : "yolov8n.pt",
+                PythonModelSettings.EngineYolo11 => datasetPurpose == LabelingDatasetPurpose.Segmentation ? "yolo11n-seg.pt" : "yolo11n.pt",
+                PythonModelSettings.EngineOnnx => "\uD559\uC2B5 \uAC00\uC911\uCE58 \uC5C6\uC74C",
+                _ => string.IsNullOrWhiteSpace(Weight) ? "-" : Weight
+            };
+
         public string TrainingSettingsSummaryModelText
             => string.Format(
                 CultureInfo.CurrentCulture,
                 "\uBAA8\uB378: {0} / \uC2DC\uC791 \uAC00\uC911\uCE58: {1}",
-                string.IsNullOrWhiteSpace(Cfg) ? "-" : Cfg,
-                string.IsNullOrWhiteSpace(Weight) ? "-" : Weight);
+                TrainingModelDisplayText,
+                TrainingStartWeightDisplayText);
 
         public string TrainingSettingsSummaryRuntimeText
             => string.Format(
@@ -155,6 +218,12 @@ namespace MvcVisionSystem
         {
             get => confirmTrainedModelCommand;
             private set => SetProperty(ref confirmTrainedModelCommand, value);
+        }
+
+        public ICommand RunYoloEngineComparisonCommand
+        {
+            get => runYoloEngineComparisonCommand;
+            private set => SetProperty(ref runYoloEngineComparisonCommand, value);
         }
 
         public string ImageSizeText
@@ -337,6 +406,12 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isConfirmTrainedModelEnabled, value);
         }
 
+        public bool IsRunYoloEngineComparisonEnabled
+        {
+            get => isRunYoloEngineComparisonEnabled;
+            private set => SetProperty(ref isRunYoloEngineComparisonEnabled, value);
+        }
+
         public string PostTrainingModelStatusText
         {
             get => postTrainingModelStatusText;
@@ -373,12 +448,18 @@ namespace MvcVisionSystem
             private set => SetProperty(ref confirmTrainedModelToolTip, string.IsNullOrWhiteSpace(value) ? "\uC800\uC7A5\uD560 \uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378\uC774 \uC5C6\uC2B5\uB2C8\uB2E4." : value);
         }
 
+        public string RunYoloEngineComparisonActionText => "v5 vs v8 \uBD84\uC11D";
+
+        public string RunYoloEngineComparisonToolTipText =>
+            "\uB3D9\uC77C\uD55C \uAC1D\uCCB4\uD0D0\uC9C0 \uCD5C\uC885 \uAC80\uC99D \uB370\uC774\uD130\uC5D0\uC11C YOLOv5\uC640 YOLOv8\uC758 \uC815\uD655\uB3C4\uC640 \uBAA8\uB378 Takt\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4.";
+
         public void ConfigureCommands(
             Action refreshReadiness,
             Action startTraining,
             Action stopTraining,
             Action reviewTrainedModel = null,
-            Action confirmTrainedModel = null)
+            Action confirmTrainedModel = null,
+            Action runYoloEngineComparison = null)
         {
             // Training commands stay injected so long-running workflow logic remains outside the view.
             RefreshReadinessCommand = new RelayCommand(refreshReadiness ?? NoOpCommand);
@@ -386,15 +467,22 @@ namespace MvcVisionSystem
             StopTrainingCommand = new RelayCommand(stopTraining ?? NoOpCommand);
             ReviewTrainedModelCommand = new RelayCommand(reviewTrainedModel ?? NoOpCommand);
             ConfirmTrainedModelCommand = new RelayCommand(confirmTrainedModel ?? NoOpCommand);
+            RunYoloEngineComparisonCommand = new RelayCommand(runYoloEngineComparison ?? NoOpCommand);
         }
 
-        public void LoadFrom(TrainingSettings training, YoloDatasetSettings dataset)
+        public void LoadFrom(
+            TrainingSettings training,
+            YoloDatasetSettings dataset,
+            PythonModelSettings modelSettings = null,
+            LabelingDatasetPurpose purpose = LabelingDatasetPurpose.ObjectDetection)
         {
             if (training == null || dataset == null)
             {
                 return;
             }
 
+            modelEngine = PythonModelSettings.NormalizeModelEngine(modelSettings?.ModelEngine);
+            datasetPurpose = purpose;
             ImageSizeText = training.ImageSize.ToString(CultureInfo.InvariantCulture);
             BatchText = training.Batch.ToString(CultureInfo.InvariantCulture);
             EpochText = training.Epoch.ToString(CultureInfo.InvariantCulture);
@@ -403,6 +491,7 @@ namespace MvcVisionSystem
             ValidationPercentText = dataset.ValidationPercent.ToString(CultureInfo.InvariantCulture);
             TestPercentText = dataset.TestPercent.ToString(CultureInfo.InvariantCulture);
             SplitSeedText = dataset.SplitSeed.ToString(CultureInfo.InvariantCulture);
+            NotifyTrainingModelSelectionChanged();
         }
 
         private void ApplyFastRecommendation()
@@ -412,8 +501,11 @@ namespace MvcVisionSystem
             ImageSizeText = "320";
             BatchText = "4";
             EpochText = "50";
-            Cfg = "yolov5s";
-            Weight = "yolov5s";
+            if (IsLegacyYoloV5TrainingSelection)
+            {
+                Cfg = "yolov5s";
+                Weight = "yolov5s";
+            }
             ValidationPercentText = "20";
             TestPercentText = "0";
             SplitSeedText = "17";
@@ -515,6 +607,7 @@ namespace MvcVisionSystem
             IsStartTrainingEnabled = state?.CanStartTraining == true;
             StartTrainingToolTip = state?.StartTrainingToolTip;
             IsStopTrainingEnabled = state?.CanStopTraining == true;
+            IsRunYoloEngineComparisonEnabled = canRunGeneralCommands;
             canRunPostTrainingReviewCommands = canRunGeneralCommands;
             canRunPostTrainingConfirmCommands = state?.CanSaveProjectConfig == true;
             RefreshPostTrainingActionAvailability();
@@ -563,6 +656,21 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(TrainingSettingsSummaryModelText));
             OnPropertyChanged(nameof(TrainingSettingsSummaryRuntimeText));
             OnPropertyChanged(nameof(TrainingSettingsSummarySplitText));
+        }
+
+        private void NotifyTrainingModelSelectionChanged()
+        {
+            OnPropertyChanged(nameof(IsLegacyYoloV5TrainingSelection));
+            OnPropertyChanged(nameof(IsTrainingModelSelectionEnabled));
+            OnPropertyChanged(nameof(TrainingModelOptions));
+            OnPropertyChanged(nameof(TrainingWeightOptions));
+            OnPropertyChanged(nameof(SelectedTrainingModel));
+            OnPropertyChanged(nameof(SelectedTrainingWeight));
+            OnPropertyChanged(nameof(TrainingModelDisplayText));
+            OnPropertyChanged(nameof(TrainingStartWeightDisplayText));
+            OnPropertyChanged(nameof(TrainingRecommendationText));
+            OnPropertyChanged(nameof(CfgGuideText));
+            OnPropertyChanged(nameof(TrainingSettingsSummaryModelText));
         }
     }
 }

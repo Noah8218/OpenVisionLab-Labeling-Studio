@@ -252,6 +252,21 @@ namespace MvcVisionSystem
             return Math.Max(Math.Min(preferred, available), minimum);
         }
 
+        private void LeftWorkspaceSplitter_DragCompleted(
+            object sender,
+            System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+        {
+            ShellViewModel?.SetRightWorkflowExpandedPaneWidth(RightWorkflowColumn.ActualWidth);
+            BindingOperations.SetBinding(
+                RightWorkflowColumn,
+                ColumnDefinition.WidthProperty,
+                new System.Windows.Data.Binding("ShellViewModel.RightWorkflowPaneGridLength")
+                {
+                    Source = this,
+                    Mode = BindingMode.OneWay
+                });
+        }
+
 
         public ObservableCollection<WpfImageQueueItem> ImageQueueItems => imageQueueItems;
 

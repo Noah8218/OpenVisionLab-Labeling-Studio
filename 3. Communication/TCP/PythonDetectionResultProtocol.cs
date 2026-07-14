@@ -225,20 +225,36 @@ namespace MvcVisionSystem._3._Communication.TCP
             return defects
                 .Select((defect, index) => new { Defect = defect, CandidateIndex = index + 1 })
                 .Where(item => item.Defect.Width > 0 && item.Defect.Height > 0)
-                .Select(item => new DetectionOverlayItem
+                .Select(item =>
                 {
-                    CandidateIndex = item.CandidateIndex,
-                    ClassName = item.Defect.ClassName ?? string.Empty,
-                    Confidence = Truncate2(item.Defect.Confidence),
-                    Bounds = new RectangleF(
-                        Truncate2(item.Defect.X),
-                        Truncate2(item.Defect.Y),
-                        Truncate2(item.Defect.Width),
-                        Truncate2(item.Defect.Height)),
-                    Color = ResolveOverlayColor(item.Defect.ClassName, colorResolver),
-                    IsSelected = item.CandidateIndex == selectedCandidateIndex
+                    IReadOnlyList<PointF> contourPoints = BuildContourPoints(item.Defect.PolygonPoints);
+                    return new DetectionOverlayItem
+                    {
+                        CandidateIndex = item.CandidateIndex,
+                        ClassName = item.Defect.ClassName ?? string.Empty,
+                        Confidence = Truncate2(item.Defect.Confidence),
+                        Bounds = new RectangleF(
+                            Truncate2(item.Defect.X),
+                            Truncate2(item.Defect.Y),
+                            Truncate2(item.Defect.Width),
+                            Truncate2(item.Defect.Height)),
+                        ContourPoints = contourPoints,
+                        IsContourOnly = contourPoints.Count >= 3
+                            || string.Equals(item.Defect.SegmentationType, "polygon", StringComparison.OrdinalIgnoreCase),
+                        Color = ResolveOverlayColor(item.Defect.ClassName, colorResolver),
+                        IsSelected = item.CandidateIndex == selectedCandidateIndex
+                    };
                 })
                 .ToList();
+        }
+
+        private static IReadOnlyList<PointF> BuildContourPoints(IEnumerable<DetectionPolygonPoint> points)
+        {
+            List<PointF> contour = (points ?? Array.Empty<DetectionPolygonPoint>())
+                .Where(point => point != null && float.IsFinite(point.X) && float.IsFinite(point.Y))
+                .Select(point => new PointF(Truncate2(point.X), Truncate2(point.Y)))
+                .ToList();
+            return contour.Count >= 3 ? contour : Array.Empty<PointF>();
         }
 
         private static Color ResolveOverlayColor(string className, Func<string, Color?> colorResolver)

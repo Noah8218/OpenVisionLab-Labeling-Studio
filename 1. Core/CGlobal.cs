@@ -111,6 +111,9 @@ namespace MvcVisionSystem
 
         public bool EnsurePythonModelClientReady(int timeoutMilliseconds = 5000)
         {
+            Data ??= new CData();
+            Data.ProjectSettings ??= new LabelingProjectSettings();
+            Data.ProjectSettings.EnsureDefaults();
             DeepLearning.Start();
 
             bool autoStartClient = Data?.ProjectSettings?.PythonModel?.AutoStartClient != false;
@@ -119,17 +122,11 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            PythonCommunicationStatus currentStatus = GetPythonCommunicationStatusSnapshot();
             DateTime? requiredConnectionUtc = autoStartClient ? PythonClientProcess.LastStartedAtUtc : null;
-            bool currentConnectedAfterClientStart = !requiredConnectionUtc.HasValue
-                || (currentStatus.LastConnectedAtUtc.HasValue && currentStatus.LastConnectedAtUtc.Value >= requiredConnectionUtc.Value);
-            if (currentStatus.IsClientConnected && currentConnectedAfterClientStart)
-            {
-                return true;
-            }
-
             int safeTimeoutMilliseconds = Math.Max(0, timeoutMilliseconds);
             DateTime deadline = DateTime.UtcNow.AddMilliseconds(safeTimeoutMilliseconds);
+            string pendingStatusRequestId = "";
+            DateTime? probedConnectionUtc = null;
             while (DateTime.UtcNow <= deadline)
             {
                 PythonCommunicationStatus status = GetPythonCommunicationStatusSnapshot();
@@ -137,7 +134,35 @@ namespace MvcVisionSystem
                     || (status.LastConnectedAtUtc.HasValue && status.LastConnectedAtUtc.Value >= requiredConnectionUtc.Value);
                 if (status.IsClientConnected && connectedAfterClientStart)
                 {
-                    return true;
+                    if (!string.IsNullOrWhiteSpace(pendingStatusRequestId)
+                        && string.Equals(status.LastModelStatusRequestId, pendingStatusRequestId, StringComparison.Ordinal))
+                    {
+                        if (PythonModelIdentity.Matches(Data.ProjectSettings.PythonModel, status.LastModelEngine, status.LastModelWeightsPath))
+                        {
+                            return true;
+                        }
+
+                        string mismatch = $"Connected YOLO worker does not match the current model settings. Expected:{Data.ProjectSettings.PythonModel.ModelEngine} / {Data.ProjectSettings.PythonModel.WeightsPath}, Actual:{FirstNonEmpty(status.LastModelEngine, "unknown")} / {FirstNonEmpty(status.LastModelWeightsPath, "unknown")}";
+                        AppLog.ABNORMAL(mismatch);
+                        DeepLearning.DropActiveClient(mismatch);
+                        pendingStatusRequestId = "";
+                        probedConnectionUtc = null;
+                        Thread.Sleep(100);
+                        continue;
+                    }
+
+                    if (probedConnectionUtc != status.LastConnectedAtUtc)
+                    {
+                        pendingStatusRequestId = Guid.NewGuid().ToString("N");
+                        if (DeepLearning.SendModelStatus(pendingStatusRequestId, ensureLoaded: false))
+                        {
+                            probedConnectionUtc = status.LastConnectedAtUtc;
+                        }
+                        else
+                        {
+                            pendingStatusRequestId = "";
+                        }
+                    }
                 }
 
                 Thread.Sleep(100);
@@ -145,7 +170,7 @@ namespace MvcVisionSystem
 
             PythonCommunicationStatus finalStatus = GetPythonCommunicationStatusSnapshot();
             string error = FirstNonEmpty(finalStatus.LastError, PythonClientProcess.LastError, "none");
-            string message = $"YOLO Python client did not connect within {safeTimeoutMilliseconds}ms. Listener:{finalStatus.IsListening}, Client:{finalStatus.IsClientConnected}, ProcessRunning:{PythonClientProcess.IsRunning}, Error:{error}";
+            string message = $"YOLO Python client did not connect with the configured engine and weights within {safeTimeoutMilliseconds}ms. Listener:{finalStatus.IsListening}, Client:{finalStatus.IsClientConnected}, ProcessRunning:{PythonClientProcess.IsRunning}, Error:{error}";
             DeepLearning.SetLastError(message);
             AppLog.ABNORMAL(message);
             return false;

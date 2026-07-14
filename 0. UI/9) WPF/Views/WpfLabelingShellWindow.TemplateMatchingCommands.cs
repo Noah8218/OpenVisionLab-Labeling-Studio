@@ -238,7 +238,15 @@ namespace MvcVisionSystem
                 "\uD655\uC778");
         }
 
-        int IWpfTemplateMatchingAutoLabelHost.ApplyAutoLabelCandidates(IReadOnlyList<YoloWorkerSmokeCandidate> candidates, bool succeeded)
+        int IWpfTemplateMatchingAutoLabelHost.ApplyAutoLabelCandidates(
+            IReadOnlyList<YoloWorkerSmokeCandidate> candidates,
+            bool succeeded,
+            DrawingRectangle? sourceSegmentBounds,
+            IReadOnlyList<DrawingPoint> sourceSegmentPoints,
+            IReadOnlyList<IReadOnlyList<DrawingPoint>> sourceSegmentCutouts,
+            byte[] sourceMaskData,
+            System.Drawing.Size sourceMaskSize,
+            DrawingRectangle sourceMaskBounds)
         {
             IReadOnlyList<YoloWorkerSmokeCandidate> safeCandidates = candidates ?? Array.Empty<YoloWorkerSmokeCandidate>();
             if (!succeeded)
@@ -253,7 +261,14 @@ namespace MvcVisionSystem
                 return 0;
             }
 
-            return ApplyTemplateLabelCandidates(safeCandidates);
+            return ApplyTemplateLabelCandidates(
+                safeCandidates,
+                sourceSegmentBounds,
+                sourceSegmentPoints,
+                sourceSegmentCutouts,
+                sourceMaskData,
+                sourceMaskSize,
+                sourceMaskBounds);
         }
 
         void IWpfTemplateMatchingAutoLabelHost.SetAutoLabelPythonStatus(string text)
@@ -394,7 +409,14 @@ namespace MvcVisionSystem
             UpdateImageQueueStatusText();
         }
 
-        private int ApplyTemplateLabelCandidates(IReadOnlyList<YoloWorkerSmokeCandidate> candidates)
+        private int ApplyTemplateLabelCandidates(
+            IReadOnlyList<YoloWorkerSmokeCandidate> candidates,
+            DrawingRectangle? sourceSegmentBounds,
+            IReadOnlyList<DrawingPoint> sourceSegmentPoints,
+            IReadOnlyList<IReadOnlyList<DrawingPoint>> sourceSegmentCutouts,
+            byte[] sourceMaskData,
+            System.Drawing.Size sourceMaskSize,
+            DrawingRectangle sourceMaskBounds)
         {
             if (activeImageBitmap == null || activeImageSize.IsEmpty)
             {
@@ -421,14 +443,51 @@ namespace MvcVisionSystem
 
             RegisterAnnotationHistoryBeforeChange("Template label");
             candidateReviewState.LoadPendingCandidates(Array.Empty<YoloWorkerSmokeCandidate>(), clearConfirmed: true);
-            foreach ((YoloWorkerSmokeCandidate candidate, DrawingRectangle bounds) in labelsToAdd)
+            int addedCount;
+            if (IsSegmentationDatasetPurposeActive())
             {
-                string className = GetCandidateClassName(candidate);
-                EnsureClassItem(className);
-                manualRois.Add(bounds);
-                manualRoiClassNames.Add(className);
-                manualRoiShapeKinds.Add(CanvasRoiShapeKind.Rectangle);
-                manualRoiOverlayIds.Add(string.Empty);
+                string className = GetCandidateClassName(labelsToAdd[0].Candidate);
+                CClassItem classItem = EnsureClassItem(className);
+                IReadOnlyDictionary<string, List<LabelingSegmentationObject>> segmentsByClass =
+                    TemplateMatchingBatchAutoLabelService.BuildSegmentsByClass(
+                        classItem,
+                        className,
+                        labelsToAdd.Select(item => item.Candidate).ToList(),
+                        activeImageSize,
+                        sourceSegmentBounds,
+                        sourceSegmentPoints,
+                        sourceSegmentCutouts,
+                        sourceMaskData,
+                        sourceMaskSize,
+                        sourceMaskBounds);
+                List<LabelingSegmentationObject> transferredSegments = segmentsByClass
+                    .Values
+                    .Where(items => items != null)
+                    .SelectMany(items => items)
+                    .Where(segment => segment != null)
+                    .ToList();
+                manualSegments.AddRange(transferredSegments);
+                addedCount = transferredSegments.Count;
+            }
+            else
+            {
+                foreach ((YoloWorkerSmokeCandidate candidate, DrawingRectangle bounds) in labelsToAdd)
+                {
+                    string className = GetCandidateClassName(candidate);
+                    EnsureClassItem(className);
+                    manualRois.Add(bounds);
+                    manualRoiClassNames.Add(className);
+                    manualRoiShapeKinds.Add(CanvasRoiShapeKind.Rectangle);
+                    manualRoiOverlayIds.Add(string.Empty);
+                }
+
+                addedCount = labelsToAdd.Count;
+            }
+
+            if (addedCount == 0)
+            {
+                ApplyTemplateNoCandidateResult();
+                return 0;
             }
 
             ApplyCanvasDisplayMode(WpfCanvasDisplayMode.LabelsOnly, redraw: false, logChange: false);
@@ -437,12 +496,12 @@ namespace MvcVisionSystem
             RedrawReviewRois();
             PopulateClassList();
             ShowSavedLabelsWorkflowView();
-            SetModelStatus($"템플릿 라벨 초안 생성: {labelsToAdd.Count}개 / 위치 확인 후 라벨 저장");
-            AddCandidateReviewHistory($"템플릿 라벨 초안 생성: {labelsToAdd.Count}개 / 저장 전 초안");
-            AppendLog($"Template labels added: {labelsToAdd.Count}");
+            SetModelStatus($"템플릿 라벨 초안 생성: {addedCount}개 / 위치 확인 후 라벨 저장");
+            AddCandidateReviewHistory($"템플릿 라벨 초안 생성: {addedCount}개 / 저장 전 초안");
+            AppendLog($"Template labels added: {addedCount}");
             imageQueueView?.Refresh();
             UpdateImageQueueStatusText();
-            return labelsToAdd.Count;
+            return addedCount;
         }
 
         private bool IsTemplateLabelDuplicate(
@@ -463,6 +522,16 @@ namespace MvcVisionSystem
             {
                 if (string.Equals(ClassCatalogService.NormalizeClassName(GetManualRoiClassName(i)), normalizedClassName, StringComparison.OrdinalIgnoreCase)
                     && CalculateIntersectionOverUnion(bounds, manualRois[i]) >= 0.9D)
+                {
+                    return true;
+                }
+            }
+
+            foreach (LabelingSegmentationObject segment in manualSegments)
+            {
+                if (segment != null
+                    && string.Equals(ClassCatalogService.NormalizeClassName(GetManualSegmentClassName(segment)), normalizedClassName, StringComparison.OrdinalIgnoreCase)
+                    && CalculateIntersectionOverUnion(bounds, segment.Bounds) >= 0.9D)
                 {
                     return true;
                 }

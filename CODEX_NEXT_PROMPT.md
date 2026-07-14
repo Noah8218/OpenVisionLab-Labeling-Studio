@@ -16,8 +16,9 @@ Start order:
 Current checkpoint:
 
 - Branch expected at handoff: `main`
-- Latest pushed commit at handoff: `d0967975 refine workflow guide panel scrollable blocks`
-- Worktree is expected to be dirty with local YOLOv8 SEG promotion-guard, anomaly classification runtime/evaluation, test, and docs changes unless the previous thread committed them.
+- Latest pushed commit at handoff: `af643f7d feat: harden labeling QA and model adoption`
+- GitHub Actions run `29154340127` passed for `af643f7d`.
+- Worktree is expected to be dirty with local class-specific YOLOv8 SEG comparison, WPF request, focused test, and tracking-document changes unless the previous thread committed them.
 - Always trust `git status --short` and the current diff over this prompt.
 
 Rules:
@@ -38,10 +39,19 @@ Product direction:
 
 - OpenVisionLab Labeling Studio is a local Windows workstation for industrial image labeling and model workflow.
 - The user does not want cloud/team collaboration scope right now.
-- Current user override is UI/UX first: simplify the left workflow panels and make beginner operation feel closer to commercial labeling tools.
-- Next technical priority after the UI/UX pass is YOLOv8 segmentation model-quality work.
+- The beginner/current-work UI hierarchy pass is complete and should stay stable unless a specific UX defect is reproduced.
+- The 2026-07-13 commercial reassessment rates the focused local workflow at about `4.0/5`, the general commercial-suite comparison at about `3.1/5`, and enterprise/team breadth at about `1.2/5`. These are workflow-maturity estimates, not accuracy percentages.
+- Current technical priority is a read-only/dry-run remediation report for the 124 historical non-source SEG targets. Do not rewrite operator files without explicit approval. After approval, correct labels, retrain YOLOv8 SEG, and rerun the existing unchanged class-specific comparison.
 - The first non-tiny circular-defect anomaly classification smoke is complete; the next anomaly gate is independent production-camera/cross-session held-out evidence.
 - YOLO11 remains runtime-gated until the selected local Ultralytics runtime and weights actually support it.
+
+Latest runtime/training correction:
+
+- The SEG recipe already persisted YOLOv8 and the current trained `best.pt`; the training panel's `yolov5x` text was a stale presentation defect.
+- Training settings now derive engine/task/start weight and show `YOLOv8 SEG / yolov8n-seg.pt` for SEG.
+- Worker readiness verifies request ID, engine when reported, and normalized weight path. The listener keeps one active worker, and app/window shutdown stops the managed worker.
+- Real current-weight smoke evidence is `artifacts\real-yolo-smoke\20260713-current-seg-worker-identity\summary.txt`; it used confidence `0.001`, so do not treat it as production model-quality evidence.
+- Current 1920x1080 UI evidence is under `artifacts\ui\20260713-yolo-engine-worker-guard`.
 - Dataset interoperability is mostly covered and is not the current priority unless the user redirects.
 
 YOLOv8 local-source agreement:
@@ -61,6 +71,7 @@ Latest stable areas to avoid reworking:
 - EXE circular SEG operating path after DLL output fix: `circular_seg_exe_20260707_221147` passed `--label-count 20` with 10 train, 5 valid, and 5 test segment masks plus 20 OK/background labels, then completed YOLOv8 inference. Treat this as workflow/data-evidence coverage, not production accuracy.
 - Compact left-panel and image-queue layout passes.
 - Compact beginner labeling start view after dataset setup and top `2 라벨링`; class/tools panels remain available from the rail instead of opening first.
+- Optional AI Candidate Review empty state: Stage 3 reads `AI 후보(선택)`. With zero pending candidates, show only the optional-purpose guidance and label-save/next-image completion card; hide candidate summaries, role cards, selection/confidence controls, empty rows, and an unrun model-comparison dashboard. If candidates exist below the confidence filter, keep controls visible so confidence can be lowered. Latest evidence: `artifacts\ui\20260712-candidate-review-empty-ux\before-candidate-review-empty-1920.png`, `artifacts\ui\20260712-candidate-review-empty-ux\after-candidate-review-empty-final2-retry-1920.png`.
 - Compact guide/tools task-panel mode: labeling-stage guide now shows a current-task card first and keeps dataset setup/YOLO/tutorial/tool details behind onboarding or a collapsed details expander. The current-task card should distinguish real annotation tools from workflow modes, so current inspection or AI review does not show a stale brush/box tool label.
 - Labeling-stage guide naming: the guide/tools shortcut should read `작업`, use a clipboard/current-work icon, and the expanded panel title should read `현재 작업`. Keep this current-action wording unless a later UX pass replaces the whole navigation model. Latest before/after captures: `artifacts\ui\wpf-labeling-current-work-guide-rename-before-20260708-1920.png`, `artifacts\ui\wpf-labeling-current-work-guide-rename-after-20260708-1920.png`, and `artifacts\ui\wpf-labeling-current-work-icon-after-20260708-1920.png`; public tutorial 03 source/annotated PNGs and the standalone embedded image should show `작업`, not `도구`.
 - Labeling-stage guide secondary details: the collapsed optional section should read `필요할 때만: 학습·검사 세부` and stay collapsed by default, so the first read remains the current task rather than another broad help/tool bucket. Latest captures: `artifacts\ui\wpf-labeling-details-expander-header-before-20260708-1920.png`, `artifacts\ui\wpf-labeling-details-expander-header-after-20260708-1920.png`.
@@ -87,6 +98,11 @@ Latest stable areas to avoid reworking:
 - The 40-label training run's Ultralytics `best.pt` remains `hold` under the image-level operating gate, but the same run's `last.pt` has a valid operating gap and was packaged byte-for-byte as `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-40label-operating-selected-conf020-20260711\weights\best.pt` with a source/hash/comparison manifest.
 - The packaged candidate comparison `artifacts\yolo-model-comparison\yolov8-seg-40label-operating-selected-conf020-20260711\20260711-220539\comparison-summary.json` is `promote` at confidence `0.20`: precision `0.7748`, recall `0.6891`, mAP50 `0.6900`, mAP50-95 `0.1988`, positive coverage `6/10`, background candidates `0/6`.
 - Comparison confidence is now part of the adoption guard. Model Center blocks the candidate at confidence `0.25` and saves it at validated confidence `0.20`; real TCP smoke on `025_NG.png` confirms one polygon candidate at `0.6266` into label/segment/mask artifacts, while direct adapter smoke on `018_OK.png` returns zero candidates.
+- Multi-class SEG operating evidence is class-specific: `scripts\compare-yolo-models.ps1 -SegmentationPositiveClassName NG` uses only `NG` answer/prediction lines for defect coverage and background rate, and WPF chooses `NG`, then `Defect`, then a sole class. Keep the selected class id/name in summary/report output.
+- The combined circular+Teaching review candidate is `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-circular40-teaching125-multidomain-e60-img160-20260711\weights\best.pt`. At confidence `0.30`, fixed combined test evidence is precision `0.6671`, recall `1.0`, mAP50 `0.8799`, mAP50-95 `0.4385`, positive coverage `11/15`, backgrounds `0/27`, and `promotion.recommendation=review`; summary `artifacts\yolo-model-comparison\yolov8-seg-multidomain-best-combined-test-conf030-20260711\20260711-233546\comparison-summary.json`.
+- Teaching-only fine-tuning was rejected because it regressed on circular data. The train-only circular-background 4x follow-up was also rejected because combined mAP50/mAP50-95 decreased. Do not select either experiment.
+- Model Center saved the multi-domain candidate only inside a temporary smoke recipe at confidence `0.30`; capture `artifacts\ui\wpf-model-center-multidomain-best-review-conf030-20260711-1920.png`. Real TCP polygon-save evidence is under `artifacts\real-yolo-smoke\multidomain-best-conf030-current-image-024-ng-20260711`. The production/current user recipe was not changed.
+- `D:\LabelingData\Test01` and `Test02` are hash-identical copies and are not independent sessions. The next SEG input must come from a new production-camera or cross-session acquisition; keep the existing 42-image combined test fixed for regression.
 - Focused WPF Model Center adoption smoke for that 40-label candidate passed through `--wpf-model-center-real-candidate-save` and captured `artifacts\ui\wpf-model-center-real-40label-finetune-save-after-20260708-1920.png`.
 - Candidate Review visual smoke for that 40-label comparison captured `artifacts\ui\wpf-model-comparison-40label-promote-after-20260709-1920.png`; it shows `차이 2개 이미지 / 예시 2개`, existing model `0`, new model `2`, and Korean promote guidance.
 - Real current-image TCP smoke for that 40-label candidate wrote `artifacts\real-yolo-smoke\40label-current-image-025-ng-20260709\summary.txt`; `025_NG.png` returned one `NG` polygon candidate at confidence `0.3039`, then confirmation saved YOLO label text, segment JSON, mask PNG, and review status `Confirmed`.
@@ -110,23 +126,45 @@ Latest stable areas to avoid reworking:
 - Historical synthetic anomaly runtime/evaluation recheck wrote `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-recheck\classification-evaluation-20260708-004229\classification-evaluation-summary.json` and capture `artifacts\ui\wpf-model-center-anomaly-evaluation-recheck-20260708-1920.png`; runtime path passed, but the four-image synthetic fixture remained `hold`.
 - Historical synthetic minimum-confidence rechecks remain useful fail-closed evidence: `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-late-recheck\classification-evaluation-20260708-011412\classification-evaluation-summary.json` and `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-explicit-adopt-guard-recheck\classification-evaluation-20260708-014426\classification-evaluation-summary.json` both remain `hold` with 4 images, normal 1/2, abnormal 0/2, 25% confidence-gated accuracy, and 2 low-confidence class matches.
 - Latest focused regression sweep after the guide UX pass: `--wpf-model-comparison-heldout`, `--wpf-model-comparison-run-service`, `--wpf-candidate-polygon-training-flow`, `--wpf-segmentation-object-verification`, `--dataset-readiness-purpose`, `--wpf-image-queue-status`, `--wpf-candidate-review-panel`, `--wpf-model-comparison-review-service`, `--anomaly-classification-evaluation`, `--wpf-yolov8-anomaly-classification-runtime-smoke`, YOLOv8 adapter compile/self-test, PowerShell parser checks for the YOLO comparison/evaluation scripts, solution build, output-copy check for checked-in Noah/OpenCvSharp DLL dependencies, and `--wpf-responsive-layout --width 1920 --height 1080` passed on 2026-07-08 KST.
+- 2026-07-12 user-reported correction: expanded learning/template content now uses full-width wrapping rows and outer scrolling, and dataset-purpose badges use stable right-aligned columns. Real `Teaching_1001` inspection proved the brush mask PNG was preserved while legacy JSON/TXT used rectangles. Loading and the next YOLO export now recover managed contours from the mask, including concavities, cutouts, and disconnected regions. Current-build evidence is under `artifacts\ui\20260712-user-reported-ui-mask-regression`; operator files were not rewritten.
+- 2026-07-12 follow-up: deep YOLO report/history text now wraps under the outer scroll, and native splitters resize workflow/canvas/image-queue columns while keeping the canvas at least 420px. SEG current-image template application now preserves registered polygons or raster masks just like batch application. Actual 97-image queue-detail scan improved from 3555.8ms to 2474.0ms after eliminating per-row training/model completion refresh. Current-build evidence is under `artifacts\ui\20260712-queue-template-resize`; public tutorial images were reviewed and not replaced.
+- 2026-07-12 queue click regression fix: one row click previously called `imageQueueView.Refresh()` and reevaluated all 97 rows. Selection now opens the supplied item directly and the attached event fallback does not duplicate the bound ViewModel callback. Same-run instrumentation improved from 97 to 0 filter evaluations and 258.8ms to 36.1ms visible average; the fully detailed 125-image operator folder averages 35.5ms. No visible UI changed, so no screenshot/tutorial refresh was needed.
+- 2026-07-12 legacy rectangular SEG mask consistency: legacy untyped axis-aligned rectangle JSON now uses matching sibling class-index mask pixels even when they fill a solid rectangle. This keeps OK-only and OK+NG images on the same raster-mask rendering path; explicit `GeometryType=Polygon` remains polygon. Actual-dataset evidence is under `artifacts\ui\20260712-seg-ok-template-consistency`. An initial visual run refreshed `review-status.json`, so it was restored to SHA-256 `A93ED5757F8E3C3728B48D3A8639AA0C76EE7BB052EDBCD427D3D51B8B05AFC2`; subsequent ROI-only existing-dataset visual smoke uses a temporary sidecar copy and leaves the operator hash unchanged.
+- 2026-07-12 SEG mask class badge: visible committed raster masks now show compact `OK`/`NG` class badges without requiring selection and without adding rectangle bounds around unselected segmentation pixels. Selected masks keep their full edit marker. Current-build evidence is under `artifacts\ui\20260712-seg-mask-class-label`.
+- Existing-data audit: all 125 inspected segment files are Version 1 and all 139 JSON records are untyped rectangles. `Teaching_0` alone has the circular OK brush mask; 110 other OK-only masks are solid rectangles, while 14 OK+NG images have rectangular OK masks with NG pixels replacing part of them. Current template tests prove raster source-shape transfer; historical target correction requires a separately approved backup/dry-run migration.
 - Model candidate rejected-history guard and candidate decision presentation text.
 - README/release/CI skeleton, checked-in `dll\Lib.Common.dll` / `dll\Lib.OpenCV.dll` dependency/output-copy contract, and NuGet-restored OpenCvSharp support DLL output-copy contract with local `packages` fallback.
 
+Latest 2026-07-14 priority and implementation state:
+
+- The immediate product priority is same-data YOLOv5 versus YOLOv8 object-detection comparison. Independent anomaly classification runtime/model evidence is next; historical SEG remediation is deferred unless the user explicitly returns to it.
+- Training/Model now exposes `v5 vs v8 analysis` for object-detection recipes. It resolves separate local Python/source/weight settings for both engines, uses the same held-out `test` split, image size, and `batch=1`, and presents precision, recall, mAP50, mAP50-95, inference time, and model Takt in Candidate Review.
+- Model Takt means validation preprocess + inference + postprocess per image. It excludes WPF/TCP, camera, PLC, and full equipment-cycle time.
+- Cross-engine results are review-only because adoption must switch the engine runtime/profile and weight together. Model-task and label preflight fail closed.
+- Focused code/UI tests and current-build 1920x1080 fixture presentation passed. The fixture proves workflow and layout only, not real model quality.
+- `C:\Git\yolov8` currently has no YOLOv8 Detect weight. Do not download `yolov8n.pt`, upgrade dependencies, or claim measured v5/v8 readiness without explicit approval or an operator-provided compatible Detect weight.
+
 Known remaining gaps:
 
-- YOLOv8 SEG has a scoped circular-defect operating candidate that passes at confidence `0.20`, including Model Center adoption and real TCP polygon save. The remaining gap is independent product/camera/lighting/defect data; do not treat the 10-positive/6-background fixture as production accuracy.
+- YOLOv8 SEG has a scoped circular operating candidate at confidence `0.20` and a stronger multi-domain `review` candidate at confidence `0.30`. The latter covers `11/15` positives with `0/27` backgrounds on the combined test but is not automatic production adoption.
+- Existing SEG candidates were trained from the previous four-point exports. Keep their results as historical evidence until masks are re-exported as contours and training/held-out comparison is rerun.
+- The representation fix does not infer a circular contour from a rectangular template source. Shape-accurate OK transfer still requires a brush/polygon source annotation.
+- Do not bulk-rewrite the 124 historical template targets without explicit user approval. Preserve current operator files until a migration preview reports per-image old/new pixel counts and backup paths.
+- `D:\LabelingData\Test01` and `Test02` are duplicate copies, not independent evidence.
 - Anomaly classification has a scoped circular-defect `adopt` result, but it is only one source family with 5 normal / 10 abnormal held-out images. Train oversampling is not new evidence. Collect an independent production-camera/cross-session set before claiming broad production anomaly accuracy.
 - YOLO11 is still blocked until compatible runtime and weights are verified.
-- Last inspected GitHub Actions evidence is commit `36d63be3`, run `28912003281`, which completed with `success`. Current pushed head `d0967975` was not rechecked in this local evidence pass.
+- Workspace widths are remembered only for the current shell session. Queue detail refresh still takes about 2.5 seconds for the measured 97-image folder, while row switching is now verified at about 35ms visible average. Do not change Viewer/OpenGL without a new reproduced trace and focused evidence.
+- Latest inspected GitHub Actions evidence is commit `af643f7d`, run `29154340127`, which completed with `success`.
 - Updating bundled `Lib.Common.dll` or `Lib.OpenCV.dll` requires intentional binary refresh, EXE output-copy verification, and build verification.
 
 Recommended next work:
 
-1. Re-orient from current status/diff/docs.
-2. Continue the UI/UX review with the same commercial-tool pattern: stage-specific current-task panels first, secondary help/details behind explicit expanders, no all-in-one scrolling guide panels.
-3. Treat the current circular-fixture SEG gate as complete and move to independently acquired/labeled SEG data before further tuning or production claims.
-4. Then rerun the anomaly guard on an independent production-camera/cross-session normal/abnormal set; add code only if that evidence exposes a workflow defect.
+1. Obtain explicit approval to cache a compatible YOLOv8 Detect seed such as `yolov8n.pt`, or use an operator-provided local Detect weight. Do not spend model/runtime work until this prerequisite exists.
+2. Train YOLOv8 Detect on the same object-detection recipe and verify its `ObjectDetection` model-registry candidate and weight path.
+3. Run `v5 vs v8 analysis` on the same held-out test split and retain exact weights, test image count, image size, `batch=1`, device, metrics, inference time, and model Takt.
+4. Review detection examples and runtime-switch implications before choosing the engine; never use the UI fixture values as model evidence.
+5. Then rerun anomaly classification on an independent production-camera/cross-session normal/abnormal set.
+6. Keep completed SEG annotation, queue, splitter, and Viewer/OpenGL paths stable unless a reproduced defect requires focused work.
 
 Useful verification commands:
 

@@ -251,6 +251,7 @@ namespace MvcVisionSystem
         private TextBlock PostTrainingModelDetailText => TrainingSettingsPanelControl?.PostTrainingModelDetail;
         private Wpf.Ui.Controls.Button ReviewTrainedModelButton => TrainingSettingsPanelControl?.ReviewTrainedModel;
         private Wpf.Ui.Controls.Button ConfirmTrainedModelButton => TrainingSettingsPanelControl?.ConfirmTrainedModel;
+        private Wpf.Ui.Controls.Button RunYoloEngineComparisonButton => TrainingSettingsPanelControl?.RunYoloEngineComparison;
         private TextBox TrainingImageSizeBox => TrainingSettingsPanelControl?.ImageSizeBox;
         private TextBox TrainingBatchBox => TrainingSettingsPanelControl?.BatchBox;
         private TextBox TrainingEpochBox => TrainingSettingsPanelControl?.EpochBox;

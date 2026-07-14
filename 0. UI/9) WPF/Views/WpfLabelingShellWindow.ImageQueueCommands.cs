@@ -260,7 +260,19 @@ namespace MvcVisionSystem
 
         private void ImageQueueGrid_SelectionChanged(object sender, object selectedItem)
         {
-            ExecuteSelectedQueueItemChanged(selectedItem as WpfImageQueueItem);
+            WpfImageQueueItem item = selectedItem as WpfImageQueueItem;
+            if (ImageQueueViewModel == null)
+            {
+                ExecuteSelectedQueueItemChanged(item);
+                return;
+            }
+
+            // The SelectedItem binding normally updates the ViewModel first. The attached
+            // command is only a fallback for event-order edge cases and must not open twice.
+            if (!ReferenceEquals(ImageQueueViewModel.SelectedQueueItem, item))
+            {
+                ImageQueueViewModel.SelectedQueueItem = item;
+            }
         }
 
         private void ExecuteSelectedQueueItemChanged(WpfImageQueueItem item)
@@ -279,14 +291,7 @@ namespace MvcVisionSystem
             }
 
             UpdateSelectedQueueImageButton(selectedItem);
-            if (ReferenceEquals(selectedItem, ImageQueueGrid?.SelectedItem))
-            {
-                TryOpenSelectedQueueImage(skipIfAlreadyActive: true);
-            }
-            else
-            {
-                TryOpenSelectedQueueImage(selectedItem, skipIfAlreadyActive: true);
-            }
+            TryOpenSelectedQueueImage(selectedItem, skipIfAlreadyActive: true);
         }
 
         private void ImageQueueGrid_MouseDoubleClick(object sender)
@@ -317,8 +322,8 @@ namespace MvcVisionSystem
             {
                 // UIAutomation and keyboard focus can leave DataGrid.SelectedItem unset while
                 // a filtered single row is plainly visible. In that case the visible row is
-                // the operator's intended target for the Open action.
-                imageQueueView.Refresh();
+                // the operator's intended target for the Open action. Filter/search changes
+                // already refresh this view, so opening must not reevaluate the whole queue.
                 candidates.Add(WpfImageQueueFilterService.FindSingleItem(imageQueueView
                     .Cast<object>()
                     .OfType<WpfImageQueueItem>()));
@@ -383,7 +388,6 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            imageQueueView?.Refresh();
             IReadOnlyList<WpfImageQueueItem> visibleItems = GetVisibleQueueItems()
                 .Where(CanOpenQueueItem)
                 .ToList();
@@ -451,7 +455,6 @@ namespace MvcVisionSystem
                 return 0;
             }
 
-            imageQueueView.Refresh();
             return imageQueueView
                 .Cast<object>()
                 .OfType<WpfImageQueueItem>()

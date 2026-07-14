@@ -1,6 +1,6 @@
 # OpenVisionLab Labeling Studio Completeness Audit
 
-Date: 2026-07-11
+Date: 2026-07-13
 
 This audit answers one product question: when compared with established labeling tools, which parts of OpenVisionLab Labeling Studio are mature enough to stop revisiting, and which gaps should drive the next development work.
 
@@ -8,17 +8,24 @@ The score below is product completeness, not code quality. A lower score can sti
 
 ## Sources Checked
 
-Official competitor documentation checked on 2026-07-03:
+Official competitor documentation checked or rechecked on 2026-07-13:
 
 - CVAT overview: https://docs.cvat.ai/docs/getting_started/overview/
 - CVAT dataset formats: https://docs.cvat.ai/docs/dataset_management/formats/
+- CVAT quality control: https://docs.cvat.ai/docs/qa-analytics/quality-control/
+- CVAT automatic annotation: https://docs.cvat.ai/docs/manual/advanced/automatic-annotation/
 - Label Studio ML backend: https://labelstud.io/guide/ml
 - Label Studio pre-annotations: https://labelstud.io/guide/predictions
 - Label Studio export formats: https://labelstud.io/guide/export
+- Label Studio Enterprise features: https://labelstud.io/guide/enterprise_features
 - Roboflow AI Labeling: https://docs.roboflow.com/annotate/ai-labeling
 - Roboflow team collaboration: https://docs.roboflow.com/annotate/team-collaboration
+- Roboflow Annotation Insights: https://docs.roboflow.com/annotate/annotation-insights
 - Labelbox ontologies: https://docs.labelbox.com/docs/labelbox-ontology
 - Labelbox pre-label import: https://docs.labelbox.com/docs/import-prelabels
+- Supervisely overview: https://docs.supervisely.com/
+- Supervisely quality control: https://docs.supervisely.com/labeling/jobs/labeling-quality-control
+- Supervisely collaboration: https://docs.supervisely.com/collaboration
 
 Internal evidence checked:
 
@@ -28,11 +35,69 @@ Internal evidence checked:
 - `docs/STABLE_VERIFIED_AREAS.md`
 - `docs/WORK_TRACKING.md`
 
+## 2026-07-13 Commercial Reassessment And Work Disposition
+
+These are directional maturity estimates based on the verified local workflow and the official competitor capabilities above. They are not model-accuracy percentages.
+
+| Product scope | Maturity | Decision |
+| --- | ---: | --- |
+| Focused local single-operator industrial image workflow | 4.0/5, about 80% | Strong enough to use and stabilize. Stop repeating completed labeling, queue, local training/inference, and model-review implementation work. |
+| General commercial image-labeling suite | 3.1/5, about 62% | Competitive in the intended image workflow, but behind broad suites in smart annotation, object-level QA, modalities, extensibility, and team operations. |
+| Enterprise/team labeling platform | 1.2/5, about 24% | Intentionally outside the current product direction. Do not spend current-priority effort on workforce/cloud parity. |
+
+Current strengths:
+
+- One local Windows flow covers dataset setup, box/brush/polygon/template labeling, YOLOv8 local-source training, contour inference review, model comparison, and guarded adoption.
+- Local/offline operation fits workstation and restricted-network environments without requiring a hosted labeling server.
+- The product is specialized for industrial image work through template transfer, class-specific defect evaluation, explicit operating thresholds, and current/candidate/history separation.
+- Pending-save navigation, rejected-candidate guards, held-out evidence checks, confidence matching, and worker engine/weight identity reduce silent data or model mistakes.
+- Image interoperability is broad for the current scope: YOLO, COCO, Pascal VOC, Label Studio, and CVAT detection/segmentation paths are implemented.
+- Queue row switching, pane resizing, contour-only SEG overlays, raster/polygon persistence, and class badges have focused verification evidence.
+
+Current weaknesses:
+
+- The active operator SEG export contains 125 OK objects, of which 120 are four-point rectangles (96%). Current models trained from those labels can score well while learning the wrong target geometry; this is the immediate correctness blocker.
+- There is no SAM/SAM2/Grounding-DINO-style click/prompt mask assistance. Template matching and trained-model candidates are useful but are not equivalent.
+- QA is image-level. Commercial tools provide deeper object/geometry/class review, comments, decision history, reviewer identity, consensus, and analytics.
+- There is no multi-user assignment, role/workforce flow, general API/SDK, cloud connector, or hosted job dashboard.
+- Video tracking, keypoints, 3D, and volumetric annotation are absent and remain outside the current image-workstation scope.
+- Independent production-camera/cross-session SEG and anomaly evidence, production monitoring, and threshold calibration are still missing.
+
+Current work disposition:
+
+| Status | Areas |
+| --- | --- |
+| Complete and protected | Dataset/purpose setup; class catalog; box labeling; SEG brush/eraser/polygon persistence and export code; pending-save/reopen/navigation; queue click/keyboard/performance; valid-source template shape transfer; Candidate Review and contour rendering; local YOLOv8 training/inference plumbing; engine/task-aware training and worker identity; model comparison/adoption guards; current supported import/export formats; image-level QA/report; current-work/left-panel UX, splitters, and clipping fixes; public documentation/CI/DLL contracts. |
+| Open and prioritized | Read-only historical SEG remediation report; approved label correction and representative visual audit; retraining with corrected labels; unchanged held-out comparison at the intended UI threshold; exact close/reopen/first-inference EXE record; independent anomaly domain-shift evidence. |
+| Deferred or out of scope | YOLO11 until runtime and weights are proven; collaboration/workforce/cloud platform; video/tracking/keypoints/3D/volumetric; broad public API/platform; Labelbox NDJSON unless product direction changes; foundation-model assist until core SEG data/model correctness is restored. |
+
+Do not interpret the completed SEG annotation tooling as completed SEG model quality. Annotation mechanics remain 4.2/5; current operational SEG model-quality evidence is 2.8/5 because the historical ground truth is predominantly rectangular and independent evidence is absent.
+
+## 2026-07-13 SEG Inference Visualization Evidence
+
+The local YOLOv8 worker already exposed Ultralytics mask geometry as polygon points, but the application reduced those results to bounding boxes while adapting and drawing candidates. The WPF and legacy OpenGL paths now preserve the polygon and draw a closed, unfilled contour with its class/confidence badge. Object detection remains box-based. A real TCP smoke with the trained 40-label YOLOv8 SEG weight verified one polygon candidate and contour-only overlay state, while a current-source 1920x1080 WPF capture verifies the visible no-fill/no-box presentation.
+
+This closes a correctness and operator-review gap relative to commercial segmentation tools: an operator can now inspect the predicted boundary instead of only its extent. It does not change the segmentation score below because model accuracy, independent acquisition coverage, and production monitoring remain the limiting evidence.
+
 ## 2026-07-11 UX Evidence Update
 
 The labeling-stage current-work surface now shows only the current image/mode, immediate action, and completion flow by default. Tool, object/AI, and quality context remains available under a collapsed `작업 세부 보기` disclosure, and the duplicate nested next-action card was removed. Current-source 1920x1080 before/after captures and 1920x1080 plus 1366x768 responsive checks passed.
 
 The local Detection/Segmentation QA workflow now covers persisted `미검토 / 수정 필요 / 검수 완료` state, safe edit invalidation, an issue-only queue filter, a current short issue reason, and a local Markdown QA report with aggregate counts plus the needs-fix list. This closes the planned single-operator image-level QA slice and raises Quality control and audit metrics from 2.9 through 3.2 to 3.4. Per-label issues, immutable decision history, reviewer identity, consensus, comments, and measured operator usability evidence remain open.
+
+## 2026-07-12 Optional Candidate Review Evidence Update
+
+AI Candidate Review is now presented as an optional model-assistance step rather than a mandatory continuation after manual labeling. When no pending candidates exist, the panel removes the candidate metrics, role split, confidence/selection controls, empty rows, and unrun model-comparison dashboard; it keeps only the purpose, saved-label safety statement, and current save/next action. Filtered-but-pending candidates retain confidence recovery, and real comparison reports still expose model-quality evidence.
+
+This addresses a concrete beginner workflow-comprehension defect and aligns the local workstation more closely with the pre-label/AI-assist pattern already represented by the Label Studio and Roboflow references above: model assistance augments manual labeling rather than invalidating completed labels. It improves polish within the existing 4/5 local review workflow but does not change the completeness scores, model accuracy, collaboration scope, or production evidence.
+
+## 2026-07-11 SEG Multi-Domain Evidence Update
+
+The model-comparison path now evaluates a configured segmentation defect class consistently. This matters for commercial labeling quality because an app-saved image can contain an `OK` part-outline polygon and an `NG` defect polygon at the same time; counting all polygons as positive would make background rate and defect coverage invalid. WPF selects `NG`, then `Defect`, then a sole class, and the comparison artifact records the selected id/name.
+
+The first cross-domain local check used 125 confirmed Teaching images plus the existing circular fixture. The previous circular operating model covered only `1/14` Teaching defect images. A Teaching-only fine-tune covered `5/5` Teaching defects with `0/21` background candidates but catastrophically regressed on circular data, so it was rejected. A 60-epoch combined model preserved Teaching coverage and improved circular metrics. On the fixed combined 42-image test at confidence `0.30`, it covered `11/15` defect images with `0/27` background candidates, mAP50 `0.8799`, and mAP50-95 `0.4385`; the previous model covered `4/15` at the same threshold. The conservative comparison still returns `review`, not automatic `promote`, because aggregate precision is lower than the existing circular model.
+
+This improves scoped model-quality evidence but does not change the product scores below. Both datasets are still small local source families, and `D:\LabelingData\Test01`/`Test02` are hash-identical copies rather than independent sessions. The commercial gap is now less about missing local training/inference UI and more about representative acquisition coverage, repeatable cross-domain evaluation, and production monitoring data.
 
 ## Scoring Scale
 
@@ -45,11 +110,11 @@ The local Detection/Segmentation QA workflow now covers persisted `미검토 / �
 
 ## Executive Conclusion
 
-OpenVisionLab Labeling Studio is already strong as a local Windows workstation for industrial object-detection labeling, YOLOv5 training, current-image/batch inference review, and model-candidate decision work. That part is roughly 4/5, or about 80 percent of a focused single-operator product.
+OpenVisionLab Labeling Studio is already strong as a local Windows workstation for industrial image labeling, local YOLOv5/YOLOv8 training, current-image/batch inference review, and model-candidate decisions. That scope is roughly 4.0/5, or about 80 percent of a focused single-operator product.
 
-It is not yet a general CVAT/Label Studio/Roboflow/Labelbox replacement. Against full labeling-suite expectations, it is roughly 3.0/5, or about 60 percent. The main missing areas are import interoperability, collaboration/review operations, video/tracking/keypoints/3D, foundation-model assist, and production-grade anomaly workflow.
+It is not a general CVAT/Label Studio/Roboflow/Labelbox replacement. Against full image-labeling-suite expectations, it is roughly 3.1/5, or about 62 percent. Import/export breadth is no longer the primary gap; the main gaps are smart mask assistance, object-level QA/audit depth, collaboration operations, broader modalities, and independent production SEG/anomaly evidence.
 
-Against enterprise/cloud labeling platforms, it is intentionally much lower, roughly 1/5 to 1.5/5. The app currently has no multi-user assignment, role-based review, comments, consensus, cloud storage, hosted workforce workflow, API surface, or enterprise administration.
+Against enterprise/cloud labeling platforms, it is intentionally much lower, roughly 1.2/5, or about 24 percent. The app currently has no multi-user assignment, role-based review, comments, consensus, cloud storage, hosted workforce workflow, general API/SDK surface, or enterprise administration.
 
 ## Competitor Baseline
 
@@ -70,9 +135,10 @@ Labelbox sets an ontology and workforce baseline: reusable ontologies, projects,
 | Object-detection box labeling | 4.5 | Protected MVP. Real EXE smoke and save/reopen gates exist. Avoid changing ROI/viewer paths without rerunning focused gates. |
 | Image queue, completion, reopen | 4 | Verified and protected. Empty-normal completion is done for object-detection use. |
 | Object review and candidate review | 4 | Strong local review workflow. Continue only when tied to model comparison, anomaly, or export evidence. |
-| YOLOv5 training and current inference | 3.8 | Usable and verified for local workflow. Not multi-backend parity yet. |
+| Local YOLO training and current inference | 4.0 | YOLOv5 and local-source YOLOv8 task-aware training/inference are verified for the intended workstation workflow. YOLO11 remains runtime/weight gated and multi-backend parity is not claimed. |
 | Model registry/history/comparison | 3.8 | Strong local model-decision surface, including a YOLOv8/YOLO11 Ultralytics segmentation validation path, Candidate Review polygon examples, and fail-closed adoption guards for insufficient background evidence, low UI-threshold positive coverage, excessive background candidates, or incomplete image-level results. The current inspection confidence must now match the comparison summary confidence; a mismatch disables Model Center save and blocks recipe/adoption-history persistence. A circular-fixture operating-selected YOLOv8 candidate passes at confidence 0.20, but this remains a local artifact workflow rather than a general registry service for future backends. |
 | Segmentation annotation | 4.2 | Polygon/brush/eraser save/export foundations are present and verified, COCO, Label Studio, plus CVAT polygon exports/imports now exist, YOLOv8/YOLO11 segmentation inference polygons can be preserved by worker/protocol and explicit smoke-result parsing, and model polygons can be confirmed as saved segmentation labels. The local `C:\Git\yolov8` adapter now also preserves `result.masks.xy` as candidate polygon metadata, matching the bundled worker contract. The Ultralytics training request contract now sends segmentation datasets as `segment` training with task-specific `yolov8n-seg.pt` and `yolo11n-seg.pt` packet plus fake-worker training coverage, and app segment JSON polygons are now converted into Ultralytics YOLO segmentation `labels/*.txt` lines before training starts. The worker now prefers matching cached task weights from the model root, reports resolved training weights plus runtime-ready/runtime-blocked and download-required/runtime-blocked-missing task-weight cache inventory through status/detail diagnostics, blocks implicit training weight downloads without explicit request approval, verifies all explicit worker opt-in aliases through fake training only, focused C# packet tests verify no download approval flag is sent, reports YOLO11 only when the selected Ultralytics runtime supports it, and the bundled smoke-test CLI now reports unsupported adapter/runtime blockers such as missing YOLO11 `C3k2` before model load. The local YOLOv8 worker has now completed tiny 1-epoch segmentation training smokes, including one app-generated dataset fixture and the corrected `runs/segment/.../weights/best.pt` output path, loaded generated `best.pt` files through its inference smoke path, the app connection path now prefers trained `best.pt` over pretrained seed weights including the newest app-generated `runs/segment` smoke, post-training selection reads YOLOv8 `args.yaml` current-dataset metadata for segmentation runs, including an app-generated segmentation `data.yaml` staging fixture, a real TCP workflow smoke verifies app-fixture polygon candidate confirmation saves non-empty segment JSON plus mask PNG artifacts, the model comparison runner can now validate local Ultralytics segmentation candidates against a held-out split, and the real EXE parent-folder workflow now selects the operator `images` folder with `OK`/`NG` children, labels NG masks, includes OK empty-label background samples, trains YOLOv8 SEG, applies `best.pt`, restarts stale Python workers when weights change, and completes current-image inference with an `NG` candidate from the trained model. Production accuracy remains a separate gate. |
+| Operational SEG model quality | 2.8 | Runtime, contour transport, comparison, and adoption plumbing are present, but 120/125 current OK labels are four-point rectangles and there is no independent production-camera/cross-session evidence. Correct labels and rerun the unchanged held-out comparison before adoption claims. |
 | Template-assisted labeling | 3.5 | Useful local automation. It is not the same as foundation-model auto-labeling. |
 | Runtime/status presentation and MVVM boundaries | 4.1 | Many high-value status paths are now service-owned and test guarded, and the YOLO settings profile now reflects live YOLOv8/YOLO11 worker training capability when the connected worker reports it. Runtime warnings, segmentation/classification capability lists, resolved Ultralytics training weights, runtime-ready/runtime-blocked plus download-required/runtime-blocked-missing task-weight cache inventory, download-guard failures from the worker in YOLO settings, training progress/recovery, YOLOv8 segmentation training-history surfaces, current-image smoke unsupported-runtime blockers, and the local YOLOv8 source/venv connection state are preserved into status/detail surfaces with operator-readable labels. Continue only narrowly. |
 | Anomaly detection | 3.9 | Purpose/manifest/guide foundations exist, image-level normal/abnormal persistence is implemented, WPF normal-completion advances to the next unreviewed anomaly image, dashboard distribution is visible, YOLOv8/YOLO11 classification results are preserved as image-level runtime candidates, explicit class mappings persist in project settings with WPF configuration inputs, mapped classification results update anomaly review state after inference, reviewed images can be exported to an Ultralytics normal/abnormal classification dataset, anomaly training routes `task=classify` to that dataset with YOLOv8/YOLO11 task-specific classification packet coverage, and insufficient examples produce operator-facing readiness detail. Local YOLOv8 classification runtime/WPF mapped-inference smokes pass; the evaluation guard and runner fail closed below held-out count, accuracy, and confidence thresholds. A 100-image local circular-defect set now has a deterministic train/validation/test run whose unchanged 15-image held-out split passed the guard at minimum confidence 0.8 (15/15, normal 5/5, abnormal 10/10), and WPF app-path smokes mapped held-out normal and abnormal images correctly. This remains one-source-family evidence with only five held-out normal images; independent production-camera/domain-shift evidence is still required, and YOLO11 remains unverified. |
@@ -88,6 +154,11 @@ Labelbox sets an ontology and workforce baseline: reusable ontologies, projects,
 Do not spend more development time on these areas unless a specific defect is reproduced or a listed verification gate fails:
 
 - Object-detection MVP: dataset setup, queue, box drawing, save/reopen, empty-normal completion, dataset readiness.
+- Segmentation annotation mechanics: brush/eraser/polygon editing, raster/polygon persistence, contour export, class badges, and contour-only candidate rendering. Historical label correction and model quality are explicitly not closed.
+- Image queue row selection, keyboard navigation, measured click performance, and adjustable three-pane layout.
+- Local YOLOv8 source/venv/adapter training and inference plumbing, task-aware training presentation, worker engine/weight identity, and shutdown handling.
+- Current YOLO/COCO/Pascal VOC/Label Studio/CVAT detection and segmentation interoperability slices.
+- Single-operator image-level QA state/filter/reason/report slice.
 - Viewer/OpenGL/ROI/brush/eraser performance paths.
 - Candidate review current-image accept/skip and saved-label review flow.
 - Model center current/candidate/history decision surface.
@@ -97,6 +168,12 @@ Do not spend more development time on these areas unless a specific defect is re
 ## Development Required
 
 Priority order:
+
+2026-07-13 source-of-truth override: data correctness precedes more model tuning. First produce a read-only/dry-run remediation report for the 124 historical non-source SEG targets, including backup destination, per-image old/new geometry type, point count, mask-pixel count, and YOLO-label diff. Do not rewrite operator files without explicit approval. After approval, correct and visually audit representative OK-only, OK+NG, edge, and failure cases; regenerate YOLO labels; retrain YOLOv8 SEG; and rerun the unchanged class-specific held-out comparison at the intended UI confidence. Record a real EXE close/reopen/first-inference sequence after a corrected model is selected. Independent anomaly evidence follows when new production-camera/cross-session data exists.
+
+The dated entries below are evidence history, not permission to restart completed slices. The completion disposition near the top and the recommendation at the end are the current priority source of truth.
+
+2026-07-11 SEG multi-domain update: class-specific `NG` evidence is implemented and verified, so do not add another parallel comparison path. Keep the existing 42-image combined test fixed for regression. The multi-domain `best.pt` is reviewable at confidence 0.30 (`11/15` defects, `0/27` backgrounds) but is not an automatic production adoption. A train-only circular-background 4x sampling experiment removed threshold false positives but lowered mAP and was rejected. The next model task is new production-camera or cross-session SEG data, especially circular normal backgrounds and the four circular defects still below the operating threshold. Do not reuse the hash-identical `Test01`/`Test02` copies as independent evidence.
 
 2026-07-11 local QA update: the P2 image-level state/filter plus short-reason/report slices are complete and should not be reworked without a reproduced defect. Per-label issue state should wait until operator use shows image-level reasons are insufficient. Reviewer identity/history, consensus, and collaboration remain outside the current single-operator scope. That closure moved the active evidence work to the anomaly classification smoke recorded below; SEG production accuracy remains dependent on broader held-out data.
 
@@ -264,7 +341,7 @@ After the 2026-07-03 object-detection import/export slices, segmentation export 
 
 Current honest positioning:
 
-> OpenVisionLab Labeling Studio is a local Windows labeling and model-workflow workstation for industrial image datasets, strongest today for object detection with YOLOv5 training/inference review and model-candidate decisions.
+> OpenVisionLab Labeling Studio is a local Windows industrial image-labeling and model-workflow workstation, strongest in one-machine detection/segmentation labeling, local YOLOv5/YOLOv8 training and inference review, and guarded model-candidate decisions.
 
 Do not claim:
 
@@ -273,20 +350,20 @@ Do not claim:
 - Cloud labeling platform.
 - Team/workforce labeling product.
 - Complete anomaly detection product.
-- Broad import/export compatibility.
+- Production-ready SEG or anomaly model accuracy without corrected, independent held-out evidence.
 
 ## Next Development Recommendation
 
-Start with export/import interoperability if the goal is competitor parity. Start with anomaly image-level state if the goal is completing already visible product modes.
+The current recommendation is measured model selection for object detection, not another labeling-feature breadth pass:
 
-For the current codebase, the safer visible-mode implementation was anomaly image-level state because the purpose, guide, manifest, and missing gates were already documented. For market completeness, the higher-impact export slices were CVAT image task archive export, COCO segmentation export, Label Studio segmentation export, and CVAT segmentation archive export because COCO, Pascal VOC, Label Studio detection, and CVAT detection exports were already covered by focused gates.
+1. After explicit approval for a compatible local YOLOv8 Detect seed, train YOLOv8 Detect on the same object-detection recipe already used by YOLOv5.
+2. Run the built-in `v5 vs v8 analysis` against the same held-out test split, image size, and `batch=1`. Retain exact weight paths, split size, device, precision, recall, mAP50, mAP50-95, inference time, and model Takt.
+3. Review detection examples and the engine/runtime-switch cost before choosing the operating model. A metric-only win is not enough if the target classes regress visibly.
+4. Next, run the unchanged anomaly evaluation guard on an independent production-camera or cross-session normal/abnormal set.
+5. Keep completed SEG annotation mechanics stable. Historical SEG remediation remains deferred and still requires a read-only report plus explicit data-rewrite approval before any operator file is changed.
+6. After model correctness, consider a local runtime-agnostic SAM/SAM2-style click-to-mask assist. Do not add model downloads or dependency upgrades without explicit approval.
 
-The recommended sequence after the COCO/Pascal VOC/Label Studio/CVAT detection export/import slices, segmentation export slices, COCO/Label Studio/CVAT segmentation imports, anomaly image-level workflow, dataset quality-audit slices, and the first YOLOv8/YOLO11 segmentation/anomaly runtime contracts is:
-
-1. Continue YOLOv8 segmentation quality work on larger real labeled datasets and held-out comparisons; the tiny generated-fixture training smoke is now closed.
-2. Extend anomaly classification from the completed circular-defect fixture to an independent production-camera/cross-session held-out set; do not count train oversampling as new evidence.
-3. Implement Labelbox NDJSON detection import only after the runtime priority is paused or completed.
-4. Add a WPF save action for the existing Markdown audit export if reviewer handoff becomes the active priority.
+Collaboration/workforce, video/3D/keypoints, broad API/platform work, and Labelbox NDJSON remain deferred unless the product direction changes.
 
 ## Latest Verified UI Correction
 
@@ -307,3 +384,23 @@ The recommended sequence after the COCO/Pascal VOC/Label Studio/CVAT detection e
 2026-07-07: Candidate Review now has current-source evidence for that promotable comparison summary. The model-comparison detail translates the promote reason into Korean, keeps threshold-sweep counts visible, and the SEG parser no longer falls back to bbox parsing for malformed long segmentation rows. The current capture `artifacts\ui\wpf-model-comparison-finetune-promote-after-1920.png` shows the summary-aligned counts (`기존 모델 0개`, `새 모델 2개`) and two candidate-only examples. This is UI/review evidence only; actual model save/adoption and post-adoption inference remain the next gate.
 
 2026-07-07: The same fine-tuned YOLOv8 SEG weight also passed direct local adapter smokes on selected held-out images. `025_NG` and `024_NG` each returned one `NG` polygon candidate at confidence `0.25`, and `011_OK` returned zero candidates, with JSON artifacts under `artifacts\yolo-smoke\finetune80-20260707`. This supports the comparison result but still does not replace recipe-level model adoption and post-adoption WPF/EXE inference evidence.
+
+2026-07-12: A user-reported SEG reopen defect exposed an accuracy-critical persistence mismatch. The stored class-index mask PNG still preserved the original brush shape, while legacy segment JSON and YOLO export represented it as a four-point bounding rectangle. The app now restores raster geometry from the PNG and exports managed contours, including concavities, cutouts, and disconnected regions. This raises annotation reliability and prevents further rectangle-only exports, but it does not retroactively validate models trained from old exports. Existing SEG model results remain historical until labels are regenerated from masks and the unchanged held-out comparison is rerun.
+
+2026-07-12: Expanded current-work cards no longer compress progress/metric content into tiny fixed-width tiles or clip template steps behind non-scrolling height caps. Dataset-purpose badges now use stable right-side alignment in dataset selection and the shell header. Current-build 1920x1080 evidence is under `artifacts\ui\20260712-user-reported-ui-mask-regression`; responsive checks also pass at 1366x768. This is a focused usability correction, not a completeness-score increase.
+
+2026-07-12: A follow-up closes the remaining deep YOLO report/history clipping and adds bounded native splitters for the workflow, canvas, and image-queue columns. Current 1920x1080 screen evidence under `artifacts\ui\20260712-queue-template-resize` shows a widened 500px workflow pane and 420px queue without losing the center canvas. Widths are session-only, so this improves workstation adaptability but does not add cross-session workspace presets or change the completeness score.
+
+2026-07-12: SEG template behavior is now consistent between current-image and batch application. The match locates the target, while the source annotation supplies geometry: brush masks remain raster masks and polygons remain polygons, with rectangle fallback only when source SEG geometry is absent. This closes a labeling-correctness inconsistency but does not add rotated/deformable template matching or improve model accuracy.
+
+2026-07-12: The actual 97-image SEG queue-detail scan improved from 3555.8ms to 2474.0ms after removing per-row training/model completion recalculation. The 1200-item queue construction gate remains fast at 142.8ms. A later focused measurement below proved the remaining selection delay came from a click-triggered full filtered-view refresh rather than an unavoidable Viewer/OpenGL cost.
+
+2026-07-12: A user-reported row-selection regression was confirmed rather than treated as subjective latency: every click reevaluated the full 97-row filtered view. Selection now opens the supplied item directly and the duplicate event fallback no longer repeats work. Filter evaluations are `97 -> 0`; visible switching is `258.8ms -> 36.1ms` on the measured 97-item run, and averages `35.5ms` after all 125 real-folder detail rows load. This materially improves local workstation responsiveness without changing annotation, model, or completeness scope.
+
+2026-07-12: A second real-data SEG review found that legacy solid rectangular class masks were still displayed as polygon outlines when no overlapping class cut a hole in them. The loader now treats sibling class-index mask pixels as authoritative for legacy untyped axis-aligned rectangles whether the mask is irregular or solid, while explicit polygons remain polygons. This closes an OK-only versus OK+NG representation inconsistency and improves annotation reliability, but it does not raise the model-quality score or infer an object contour from a rectangular template source.
+
+2026-07-12: Raster-mask class identification was missing in the normal unselected canvas state even though class metadata was present. Compact `OK`/`NG` badges now remain visible for committed masks without drawing rectangle bounds, while selected masks retain their edit marker. The accompanying real-data audit found that all 125 segment files and 139 records are legacy untyped rectangles; `Teaching_0` alone preserves the circular OK brush source, 110 other OK-only masks are solid rectangles, and 14 OK+NG masks are rectangular OK regions with NG replacement pixels. This improves UI identification but does not change the completeness score. Historical data correction remains a separately approved migration because current template paths already preserve raster source shape.
+
+2026-07-13: A restart/runtime audit found that the recipe correctly persisted YOLOv8 and its trained `best.pt`, but the training panel still exposed legacy YOLOv5-only values and an older YOLOv8 worker could survive application exit and answer the first request with a stale weight. Training presentation is now engine/task aware, worker readiness verifies request-correlated engine/weight identity, the TCP listener prevents active-socket replacement, and shutdown stops the managed worker. A real current-weight YOLOv8 SEG smoke returned polygon candidates and saved segment/mask artifacts. This raises runtime safety and operator clarity, but it does not raise the model-quality score: the smoke used confidence `0.001`, and production-threshold/independent held-out evidence remains required.
+
+2026-07-14: The object-detection model workflow now supports a guarded YOLOv5-versus-YOLOv8 comparison on the same held-out split. The UI reports both engines' precision, recall, mAP50, mAP50-95, inference time, and model Takt, while the runner resolves separate local runtimes and rejects task/label mismatches. This improves the local model-experimentation and selection workflow, which is a product advantage over a labeling-only tool, but it does not raise the model-quality/readiness estimate yet. The current visual summary uses explicit fixture metrics, and `C:\Git\yolov8` has no YOLOv8 Detect weight. Real same-data accuracy and timing evidence remains the next gate.

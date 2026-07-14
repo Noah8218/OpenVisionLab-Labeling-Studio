@@ -80,6 +80,7 @@ namespace MvcVisionSystem.Yolo
         {
             string imageDirectory = Path.Combine(data.OutputRootPath, "data", mode, "images");
             string segmentDirectory = Path.Combine(data.OutputRootPath, "data", mode, "segments");
+            string maskDirectory = Path.Combine(data.OutputRootPath, "data", mode, "masks");
             string labelDirectory = Path.Combine(data.OutputRootPath, "data", mode, "labels");
             Directory.CreateDirectory(labelDirectory);
 
@@ -93,8 +94,9 @@ namespace MvcVisionSystem.Yolo
                 result.ImageCount++;
                 string fileStem = Path.GetFileNameWithoutExtension(imagePath);
                 string segmentPath = Path.Combine(segmentDirectory, $"{fileStem}.json");
+                string maskPath = Path.Combine(maskDirectory, $"{fileStem}.png");
                 string labelPath = Path.Combine(labelDirectory, $"{fileStem}.txt");
-                List<string> lines = BuildLabelLines(segmentPath, data.ClassNamedList, imagePath, mode, result);
+                List<string> lines = BuildLabelLines(segmentPath, maskPath, data.ClassNamedList, imagePath, mode, result);
                 if (lines.Count == 0)
                 {
                     if (!IsEmptyLabelFile(labelPath))
@@ -246,6 +248,7 @@ namespace MvcVisionSystem.Yolo
 
         private static List<string> BuildLabelLines(
             string segmentPath,
+            string maskPath,
             IReadOnlyList<CClassItem> classes,
             string imagePath,
             string mode,
@@ -275,14 +278,46 @@ namespace MvcVisionSystem.Yolo
                 return lines;
             }
 
-            foreach (SegmentationPolygonRecord record in annotation?.Polygons ?? new List<SegmentationPolygonRecord>())
+            IReadOnlyDictionary<string, List<LabelingSegmentationObject>> segmentsByClass =
+                YoloSegmentationAnnotationService.LoadSegmentationObjects(
+                    segmentPath,
+                    maskPath,
+                    classes,
+                    imageSize);
+            foreach (KeyValuePair<string, List<LabelingSegmentationObject>> classSegments in segmentsByClass)
             {
-                if (!TryBuildLabelLine(record, classes, imageSize, out string line))
+                int classIndex = ResolveClassIndex(classSegments.Key, classes);
+                if (classIndex < 0)
                 {
                     continue;
                 }
 
-                lines.Add(line);
+                foreach (LabelingSegmentationObject segment in classSegments.Value ?? new List<LabelingSegmentationObject>())
+                {
+                    IReadOnlyList<List<Point>> polygons;
+                    if (segment?.IsRasterMask == true)
+                    {
+                        List<SegmentationGeometry.SegmentationMaskRegion> regions = RasterMaskPolygonService.BuildRegions(
+                            segment.MaskData,
+                            segment.MaskSize,
+                            imageSize).ToList();
+                        polygons = regions.Count > 0
+                            ? regions.Select(region => region.Points).ToList()
+                            : new[] { SegmentationGeometry.RectangleToPolygon(segment.Bounds, imageSize) };
+                    }
+                    else
+                    {
+                        polygons = new[] { segment?.Points ?? new List<Point>() };
+                    }
+
+                    foreach (List<Point> polygon in polygons)
+                    {
+                        if (TryBuildLabelLine(classIndex, polygon, imageSize, out string line))
+                        {
+                            lines.Add(line);
+                        }
+                    }
+                }
             }
 
             return lines;
@@ -307,20 +342,19 @@ namespace MvcVisionSystem.Yolo
         }
 
         private static bool TryBuildLabelLine(
-            SegmentationPolygonRecord record,
-            IReadOnlyList<CClassItem> classes,
+            int classIndex,
+            IEnumerable<Point> sourcePoints,
             Size imageSize,
             out string line)
         {
             line = string.Empty;
-            int classIndex = ResolveClassIndex(record, classes);
-            if (classIndex < 0 || record?.Points == null)
+            if (classIndex < 0 || sourcePoints == null)
             {
                 return false;
             }
 
             List<Point> points = SegmentationGeometry.NormalizePolygon(
-                record.Points.Select(point => new Point(point.X, point.Y)),
+                sourcePoints,
                 imageSize,
                 minimumDistance: 1);
             if (points.Count < 3)
@@ -339,27 +373,22 @@ namespace MvcVisionSystem.Yolo
             return true;
         }
 
-        private static int ResolveClassIndex(SegmentationPolygonRecord record, IReadOnlyList<CClassItem> classes)
+        private static int ResolveClassIndex(string className, IReadOnlyList<CClassItem> classes)
         {
-            if (record == null)
+            if (string.IsNullOrWhiteSpace(className) || classes == null)
             {
                 return -1;
             }
 
-            if (!string.IsNullOrWhiteSpace(record.ClassName) && classes != null)
+            for (int index = 0; index < classes.Count; index++)
             {
-                for (int index = 0; index < classes.Count; index++)
+                if (string.Equals(classes[index]?.Text, className.Trim(), StringComparison.OrdinalIgnoreCase))
                 {
-                    if (string.Equals(classes[index]?.Text, record.ClassName.Trim(), StringComparison.OrdinalIgnoreCase))
-                    {
-                        return index;
-                    }
+                    return index;
                 }
             }
 
-            return classes != null && record.ClassIndex >= 0 && record.ClassIndex < classes.Count
-                ? record.ClassIndex
-                : -1;
+            return -1;
         }
 
         private static string FormatRatio(double value)

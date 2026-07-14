@@ -97,7 +97,7 @@ namespace MvcVisionSystem
                 maskOpacity,
                 segment.RenderVersion,
                 isSegmentSelected,
-                $"MASK {displayIndex} {className}",
+                $"SEG {displayIndex} {className}",
                 segment.RenderDirtyBounds,
                 (uploadedVersion, uploadedBounds) => ClearMaskRenderDirtyBounds(segment, uploadedVersion, uploadedBounds));
             return true;

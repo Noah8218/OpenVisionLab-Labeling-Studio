@@ -243,8 +243,6 @@ namespace MvcVisionSystem
         private void InitializeYoloEditorPanel()
         {
             EnsureProjectSettings();
-            TrainingCfgBox.ItemsSource = Enum.GetNames(typeof(CYolov5TrainingParam.Cfg));
-            TrainingWeightBox.ItemsSource = Enum.GetNames(typeof(CYolov5TrainingParam.Weight));
             PopulateProjectConfigPanelFields();
             PopulateYoloEditorFields();
             PopulateTrainingEditorFields();
@@ -262,7 +260,11 @@ namespace MvcVisionSystem
         private void PopulateTrainingEditorFields()
         {
             EnsureProjectSettings();
-            TrainingSettingsViewModel?.LoadFrom(global.Data.GetTrainingSettings(), global.Data.ProjectSettings.YoloDataset);
+            TrainingSettingsViewModel?.LoadFrom(
+                global.Data.GetTrainingSettings(),
+                global.Data.ProjectSettings.YoloDataset,
+                global.Data.ProjectSettings.PythonModel,
+                global.Data.ProjectSettings.DatasetPurpose);
         }
 
         private void ConfigureShellCommands()

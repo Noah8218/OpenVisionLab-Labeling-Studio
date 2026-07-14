@@ -596,7 +596,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			OpenGlDrawing.DrawRoiEditHandles(gl, GetOverlayRect(), _imageViewer.ZoomScale, System.Windows.Media.Brushes.DeepSkyBlue, _imageViewer.HandleSize);
 			if (!usedMaskPreview)
 			{
-				DrawSelectedMaskOverlayMarkers(gl);
+				DrawMaskOverlayMarkers(gl);
 			}
 			DrawBrushCursorPreview(gl);
 			if (ShowGroupNames)
@@ -692,11 +692,18 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 					continue;
 				}
 
+				List<PointF> screenContour = (overlay.ContourPoints ?? Array.Empty<PointF>())
+					.Select(GetScreenPointFromImagePixelPoint)
+					.Where(IsFiniteScreenPoint)
+					.ToList();
+
 				screenOverlays.Add(new DetectionScreenOverlay(
 					screenBounds,
 					string.IsNullOrWhiteSpace(overlay.Label) ? "AI" : overlay.Label,
 					overlay.Color,
-					overlay.IsSelected));
+					overlay.IsSelected,
+					drawBounds: !overlay.IsContourOnly,
+					contourPoints: screenContour));
 			}
 
 			DrawDetectionScreenOverlays(gl, textOptions, screenOverlays);
@@ -886,16 +893,19 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			ReleaseStaleMaskOverlayTextures(gl, _activeMaskOverlayKeys);
 		}
 
-		private void DrawSelectedMaskOverlayMarkers(OpenGL gl)
+		private void DrawMaskOverlayMarkers(OpenGL gl)
 		{
 			if (_maskOverlays.Count == 0 || _imageSize.IsEmpty)
 			{
 				return;
 			}
 
+			int[] viewport = new int[4];
+			gl.GetInteger(OpenGL.GL_VIEWPORT, viewport);
+			List<int> visibleOverlayIndices = GetVisibleMaskOverlayIndicesForRendering(viewport[2], viewport[3]);
 			OpenGlTextDrawOptions textOptions = _imageViewer.GetOpenGlTextDrawOptions();
 			var screenOverlays = new List<DetectionScreenOverlay>();
-			foreach (int overlayIndex in _selectedMaskOverlayIndices)
+			foreach (int overlayIndex in visibleOverlayIndices)
 			{
 				if (overlayIndex < 0 || overlayIndex >= _maskOverlays.Count)
 				{
@@ -903,7 +913,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				}
 
 				RoiImageCanvasMaskOverlay overlay = _maskOverlays[overlayIndex];
-				if (overlay?.IsValid != true || !overlay.IsSelected)
+				if (overlay?.IsValid != true)
 				{
 					continue;
 				}
@@ -918,9 +928,10 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 					new RectangleF(maskBounds.X, maskBounds.Y, maskBounds.Width, maskBounds.Height));
 				screenOverlays.Add(new DetectionScreenOverlay(
 					screenBounds,
-					string.IsNullOrWhiteSpace(overlay.Label) ? "MASK" : overlay.Label,
+					string.IsNullOrWhiteSpace(overlay.Label) ? "SEG" : overlay.Label,
 					overlay.Color,
-					isSelected: true));
+					overlay.IsSelected,
+					drawBounds: overlay.IsSelected));
 			}
 
 			DrawDetectionScreenOverlays(gl, textOptions, screenOverlays);
@@ -1816,6 +1827,15 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				(float)Math.Round(screenBounds.Top));
 		}
 
+		private PointF GetScreenPointFromImagePixelPoint(PointF imagePoint)
+		{
+			RectangleF screenBounds = _imageViewer.GetScreenRectFromImagePixelBounds(
+				new RectangleF(imagePoint.X, imagePoint.Y, 0F, 0F));
+			return new PointF(
+				(float)Math.Round(screenBounds.Left),
+				(float)Math.Round(screenBounds.Top));
+		}
+
 		private static bool IsFiniteScreenPoint(PointF point)
 		{
 			return !float.IsNaN(point.X)
@@ -1959,7 +1979,12 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 								continue;
 							}
 
-							DetectionScreenLabel label = DrawDetectionScreenMarker(gl, bounds, overlay.Label, overlay.Color, overlay.IsSelected, screenWidth, screenHeight, occupiedBadgeBounds);
+							if (overlay.ContourPoints.Count >= 3)
+							{
+								DrawDetectionScreenContour(gl, overlay.ContourPoints, overlay.Color, overlay.IsSelected);
+							}
+
+							DetectionScreenLabel label = DrawDetectionScreenMarker(gl, bounds, overlay.Label, overlay.Color, overlay.IsSelected, overlay.DrawBounds, screenWidth, screenHeight, occupiedBadgeBounds);
 							labels.Add(label);
 						}
 					}
@@ -1995,32 +2020,49 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			}
 		}
 
+		private static void DrawDetectionScreenContour(OpenGL gl, IReadOnlyList<PointF> points, System.Drawing.Color color, bool isSelected)
+		{
+			System.Drawing.Color lineColor = color.IsEmpty
+				? System.Drawing.Color.FromArgb(80, 180, 255)
+				: color;
+			DrawScreenPolyline(
+				gl,
+				points,
+				closed: true,
+				lineWidth: isSelected ? 6F : 5F,
+				color: System.Drawing.Color.FromArgb(150, 0, 0, 0));
+			DrawScreenPolyline(
+				gl,
+				points,
+				closed: true,
+				lineWidth: isSelected ? 3F : 2F,
+				color: System.Drawing.Color.FromArgb(isSelected ? 255 : 235, lineColor.R, lineColor.G, lineColor.B));
+		}
+
 		private static DetectionScreenLabel DrawDetectionScreenMarker(
 			OpenGL gl,
 			RectangleF bounds,
 			string label,
 			System.Drawing.Color color,
 			bool isSelected,
+			bool drawBounds,
 			float screenWidth,
 			float screenHeight,
 			IList<RectangleF> occupiedBadgeBounds)
 		{
-			float minSide = Math.Min(bounds.Width, bounds.Height);
-			float corner = isSelected
-				? Math.Max(10F, Math.Min(minSide * 0.22F, 24F))
-				: Math.Max(8F, Math.Min(minSide * 0.18F, 18F));
-			float lineWidth = isSelected ? 3F : 2F;
-			float haloWidth = lineWidth + 2F;
-			var haloColor = System.Drawing.Color.FromArgb(55, 0, 0, 0);
-			var fillColor = System.Drawing.Color.FromArgb(isSelected ? 14 : 7, color.R, color.G, color.B);
-			var outlineColor = System.Drawing.Color.FromArgb(isSelected ? 150 : 92, color.R, color.G, color.B);
-			var lineColor = System.Drawing.Color.FromArgb(isSelected ? 248 : 225, color.R, color.G, color.B);
-
 			bounds = SnapDetectionBounds(bounds);
-			DrawFilledScreenRect(gl, bounds, fillColor);
-			DrawScreenRectangle(gl, bounds, 1F, outlineColor);
-			DrawScreenCorners(gl, bounds, corner, haloWidth, haloColor);
-			DrawScreenCorners(gl, bounds, corner, lineWidth, lineColor);
+			if (drawBounds)
+			{
+				float minSide = Math.Min(bounds.Width, bounds.Height);
+				float corner = isSelected
+					? Math.Max(10F, Math.Min(minSide * 0.22F, 24F))
+					: Math.Max(8F, Math.Min(minSide * 0.18F, 18F));
+				float lineWidth = isSelected ? 3F : 2F;
+				DrawFilledScreenRect(gl, bounds, System.Drawing.Color.FromArgb(isSelected ? 14 : 7, color.R, color.G, color.B));
+				DrawScreenRectangle(gl, bounds, 1F, System.Drawing.Color.FromArgb(isSelected ? 150 : 92, color.R, color.G, color.B));
+				DrawScreenCorners(gl, bounds, corner, lineWidth + 2F, System.Drawing.Color.FromArgb(55, 0, 0, 0));
+				DrawScreenCorners(gl, bounds, corner, lineWidth, System.Drawing.Color.FromArgb(isSelected ? 248 : 225, color.R, color.G, color.B));
+			}
 
 			string displayText = isSelected ? BuildSelectedDetectionLabel(label) : BuildCompactDetectionLabel(label);
 			float badgeHeight = isSelected ? 21F : 17F;
@@ -2256,6 +2298,11 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			{
 				return "#" + parts[1] + " " + parts[2];
 			}
+			if (parts.Length >= 3 && string.Equals(parts[0], "SEG", StringComparison.OrdinalIgnoreCase))
+			{
+				string className = string.Join(" ", parts.Skip(2));
+				return className.Substring(0, Math.Min(className.Length, 8));
+			}
 
 			return parts.Length >= 2 && string.Equals(parts[0], "AI", StringComparison.OrdinalIgnoreCase)
 				? "#" + parts[1]
@@ -2281,18 +2328,28 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 		private sealed class DetectionScreenOverlay
 		{
-			public DetectionScreenOverlay(RectangleF bounds, string label, System.Drawing.Color color, bool isSelected)
+			public DetectionScreenOverlay(
+				RectangleF bounds,
+				string label,
+				System.Drawing.Color color,
+				bool isSelected,
+				bool drawBounds = true,
+				IReadOnlyList<PointF> contourPoints = null)
 			{
 				Bounds = bounds;
 				Label = label;
 				Color = color;
 				IsSelected = isSelected;
+				DrawBounds = drawBounds;
+				ContourPoints = contourPoints ?? Array.Empty<PointF>();
 			}
 
 			public RectangleF Bounds { get; }
 			public string Label { get; }
 			public System.Drawing.Color Color { get; }
 			public bool IsSelected { get; }
+			public bool DrawBounds { get; }
+			public IReadOnlyList<PointF> ContourPoints { get; }
 		}
 
 		private sealed class DetectionScreenLabel

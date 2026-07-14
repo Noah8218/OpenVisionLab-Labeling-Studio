@@ -74,25 +74,11 @@
                                             VerticalAlignment="Top"
                                             Margin="0,2,0,0" />
                 <StackPanel Grid.Column="1">
-                    <StackPanel Orientation="Horizontal">
-                        <TextBlock Text="{Binding RecipeName}"
-                                   FontFamily="Segoe UI"
-                                   FontSize="14"
-                                   FontWeight="SemiBold"
-                                   TextTrimming="CharacterEllipsis"
-                                   MaxWidth="340" />
-                        <Border Background="#303030"
-                                BorderBrush="#454545"
-                                BorderThickness="1"
-                                CornerRadius="3"
-                                Padding="6,2"
-                                Margin="8,0,0,0">
-                            <TextBlock Text="{Binding PurposeText}"
-                                       FontFamily="Segoe UI"
-                                       FontSize="10"
-                                       FontWeight="SemiBold" />
-                        </Border>
-                    </StackPanel>
+                    <TextBlock Text="{Binding RecipeName}"
+                               FontFamily="Segoe UI"
+                               FontSize="14"
+                               FontWeight="SemiBold"
+                               TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding StoragePathText}"
                                Foreground="{StaticResource SecondaryTextBrush}"
                                FontFamily="Segoe UI"
@@ -113,9 +99,22 @@
                                Margin="0,3,0,0" />
                 </StackPanel>
                 <StackPanel Grid.Column="2"
-                            MinWidth="112"
-                            Margin="12,0,0,0"
-                            VerticalAlignment="Center">
+                             MinWidth="112"
+                             Margin="12,0,0,0"
+                             VerticalAlignment="Center">
+                    <Border x:Name="DatasetPurposeBadge"
+                            Background="#303030"
+                            BorderBrush="#454545"
+                            BorderThickness="1"
+                            CornerRadius="3"
+                            Padding="6,2"
+                            HorizontalAlignment="Right"
+                            Margin="0,0,0,5">
+                        <TextBlock Text="{Binding PurposeText}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="10"
+                                   FontWeight="SemiBold" />
+                    </Border>
                     <TextBlock Text="{Binding StatusText}"
                                Foreground="#F3F4F6"
                                FontFamily="Segoe UI"

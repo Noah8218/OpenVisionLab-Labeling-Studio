@@ -17,6 +17,9 @@ namespace MvcVisionSystem._3._Communication.TCP
         public DateTime? LastDetectionStatusAtUtc { get; set; }
         public DateTime? LastHealthCheckAtUtc { get; set; }
         public DateTime? LastModelStatusAtUtc { get; set; }
+        public string LastModelStatusRequestId { get; set; } = "";
+        public string LastModelEngine { get; set; } = "";
+        public string LastModelWeightsPath { get; set; } = "";
         public string LastMessage { get; set; } = "";
         public string LastError { get; set; } = "";
         public string LastWorkerState { get; set; } = "";
@@ -63,6 +66,9 @@ namespace MvcVisionSystem._3._Communication.TCP
                 LastDetectionStatusAtUtc = LastDetectionStatusAtUtc,
                 LastHealthCheckAtUtc = LastHealthCheckAtUtc,
                 LastModelStatusAtUtc = LastModelStatusAtUtc,
+                LastModelStatusRequestId = LastModelStatusRequestId,
+                LastModelEngine = LastModelEngine,
+                LastModelWeightsPath = LastModelWeightsPath,
                 LastMessage = LastMessage,
                 LastError = LastError,
                 LastWorkerState = LastWorkerState,

@@ -919,34 +919,64 @@ namespace MvcVisionSystem
             gl.Enable(OpenGL.GL_BLEND);
             gl.BlendFunc(OpenGL.GL_SRC_ALPHA, OpenGL.GL_ONE_MINUS_SRC_ALPHA);
 
-            gl.Color(baseColor.R / 255f, baseColor.G / 255f, baseColor.B / 255f, overlay.IsSelected ? 0.22f : 0.08f);
-            gl.Begin(OpenGL.GL_QUADS);
-            gl.Vertex(rect.Left, rect.Top);
-            gl.Vertex(rect.Right, rect.Top);
-            gl.Vertex(rect.Right, rect.Bottom);
-            gl.Vertex(rect.Left, rect.Bottom);
-            gl.End();
-
-            gl.LineWidth(overlay.IsSelected ? 3.2f : 2.1f);
-            gl.Enable(OpenGL.GL_LINE_STIPPLE);
-            gl.LineStipple(1, overlay.IsSelected ? (ushort)0x0FFF : (ushort)0x00FF);
-            gl.Color(baseColor.R / 255f, baseColor.G / 255f, baseColor.B / 255f, 1f);
-            gl.Begin(OpenGL.GL_LINE_LOOP);
-            gl.Vertex(rect.Left, rect.Top);
-            gl.Vertex(rect.Right, rect.Top);
-            gl.Vertex(rect.Right, rect.Bottom);
-            gl.Vertex(rect.Left, rect.Bottom);
-            gl.End();
-            gl.Disable(OpenGL.GL_LINE_STIPPLE);
-
-            if (overlay.IsSelected)
+            if ((overlay.ContourPoints?.Count ?? 0) >= 3)
             {
-                DrawCandidateCornerMarkers(gl, rect, baseColor);
+                DrawDetectionContour(gl, overlay.ContourPoints, baseColor, overlay.IsSelected);
+            }
+            else if (!overlay.IsContourOnly)
+            {
+                gl.Color(baseColor.R / 255f, baseColor.G / 255f, baseColor.B / 255f, overlay.IsSelected ? 0.22f : 0.08f);
+                gl.Begin(OpenGL.GL_QUADS);
+                gl.Vertex(rect.Left, rect.Top);
+                gl.Vertex(rect.Right, rect.Top);
+                gl.Vertex(rect.Right, rect.Bottom);
+                gl.Vertex(rect.Left, rect.Bottom);
+                gl.End();
+
+                gl.LineWidth(overlay.IsSelected ? 3.2f : 2.1f);
+                gl.Enable(OpenGL.GL_LINE_STIPPLE);
+                gl.LineStipple(1, overlay.IsSelected ? (ushort)0x0FFF : (ushort)0x00FF);
+                gl.Color(baseColor.R / 255f, baseColor.G / 255f, baseColor.B / 255f, 1f);
+                gl.Begin(OpenGL.GL_LINE_LOOP);
+                gl.Vertex(rect.Left, rect.Top);
+                gl.Vertex(rect.Right, rect.Top);
+                gl.Vertex(rect.Right, rect.Bottom);
+                gl.Vertex(rect.Left, rect.Bottom);
+                gl.End();
+                gl.Disable(OpenGL.GL_LINE_STIPPLE);
+
+                if (overlay.IsSelected)
+                {
+                    DrawCandidateCornerMarkers(gl, rect, baseColor);
+                }
             }
 
             gl.PopAttrib();
 
             DrawLabel(gl, overlay.Label, new PointF(roi.Left, _currentImage.Height - roi.Top + 3), baseColor);
+        }
+
+        private void DrawDetectionContour(OpenGL gl, IReadOnlyList<PointF> points, Color color, bool isSelected)
+        {
+            gl.LineWidth(isSelected ? 5F : 4F);
+            gl.Color(0F, 0F, 0F, 0.55F);
+            gl.Begin(OpenGL.GL_LINE_LOOP);
+            foreach (PointF point in points)
+            {
+                PointF glPoint = ToOpenGlPoint(point);
+                gl.Vertex(glPoint.X, glPoint.Y);
+            }
+            gl.End();
+
+            gl.LineWidth(isSelected ? 3F : 2F);
+            gl.Color(color.R / 255f, color.G / 255f, color.B / 255f, isSelected ? 1F : 0.92F);
+            gl.Begin(OpenGL.GL_LINE_LOOP);
+            foreach (PointF point in points)
+            {
+                PointF glPoint = ToOpenGlPoint(point);
+                gl.Vertex(glPoint.X, glPoint.Y);
+            }
+            gl.End();
         }
 
         private static Color EnsureReadableOverlayColor(Color color)
@@ -1035,6 +1065,11 @@ namespace MvcVisionSystem
         private PointF ToOpenGlPoint(Point imagePoint)
         {
             return OpenGlImageGeometry.ToOpenGlPoint(imagePoint, _currentImage.Height);
+        }
+
+        private PointF ToOpenGlPoint(PointF imagePoint)
+        {
+            return new PointF(imagePoint.X, _currentImage.Height - imagePoint.Y);
         }
 
         private IEnumerable<Point> GetHandlePoints(Rectangle roi)

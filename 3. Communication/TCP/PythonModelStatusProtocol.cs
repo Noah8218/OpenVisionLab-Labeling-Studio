@@ -2,6 +2,7 @@ using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 
 namespace MvcVisionSystem._3._Communication.TCP
@@ -17,6 +18,7 @@ namespace MvcVisionSystem._3._Communication.TCP
     {
         public string Type { get; set; } = "";
         public int Version { get; set; } = 1;
+        public string RequestId { get; set; } = "";
         public string State { get; set; } = "";
         public string Message { get; set; } = "";
         public int? ProgressPercent { get; set; }
@@ -46,6 +48,8 @@ namespace MvcVisionSystem._3._Communication.TCP
         public List<string> RuntimeBlockedMissingTrainingWeights { get; set; } = new List<string>();
         public bool? Ok { get; set; }
         public bool? Loaded { get; set; }
+        public string ModelEngine { get; set; } = "";
+        public string ModelWeightsPath { get; set; } = "";
 
         public bool HasEmbeddedTrainingStatus
         {
@@ -246,11 +250,14 @@ namespace MvcVisionSystem._3._Communication.TCP
             {
                 Type = ModelStatusResultType,
                 Version = root["version"]?.Value<int?>() ?? 1,
+                RequestId = root["requestId"]?.Value<string>() ?? string.Empty,
                 State = string.IsNullOrWhiteSpace(state) ? (ok ? "ready" : "error") : state,
                 Message = !string.IsNullOrWhiteSpace(weights) ? $"weights: {weights}" : "model status",
                 Error = FormatError(root["error"] ?? model?["lastError"]),
                 Ok = ok,
                 Loaded = loaded,
+                ModelEngine = model?["engine"]?.Value<string>() ?? string.Empty,
+                ModelWeightsPath = weights ?? string.Empty,
                 EmbeddedTrainingState = training?["state"]?.Value<string>() ?? string.Empty,
                 EmbeddedTrainingMessage = training?["message"]?.Value<string>() ?? string.Empty,
                 EmbeddedTrainingProgressPercent = training?["progressPercent"]?.Value<int?>(),
@@ -593,6 +600,50 @@ namespace MvcVisionSystem._3._Communication.TCP
             return string.Equals(taskType, "TrainYolo", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(taskType, "Training", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(taskType, "Train", StringComparison.OrdinalIgnoreCase);
+        }
+    }
+
+    public static class PythonModelIdentity
+    {
+        public static bool Matches(PythonModelSettings settings, string actualEngine, string actualWeightsPath)
+        {
+            if (settings == null || string.IsNullOrWhiteSpace(actualWeightsPath))
+            {
+                return false;
+            }
+
+            string expectedEngine = PythonModelSettings.NormalizeModelEngine(settings.ModelEngine);
+            if (!string.IsNullOrWhiteSpace(actualEngine)
+                && !string.Equals(
+                    expectedEngine,
+                    PythonModelSettings.NormalizeModelEngine(actualEngine),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return string.Equals(
+                NormalizePath(settings.WeightsPath),
+                NormalizePath(actualWeightsPath),
+                StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static string NormalizePath(string path)
+        {
+            string value = (path ?? string.Empty).Trim().Trim('"');
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                return Path.GetFullPath(value).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
+            }
+            catch
+            {
+                return value.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+            }
         }
     }
 }

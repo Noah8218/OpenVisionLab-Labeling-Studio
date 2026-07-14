@@ -154,8 +154,8 @@
             <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
             <Setter Property="BorderThickness" Value="1" />
             <Setter Property="Padding" Value="3" />
-            <Setter Property="Width" Value="42" />
             <Setter Property="MinHeight" Value="36" />
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="Margin" Value="0,0,3,3" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="HorizontalContentAlignment" Value="Stretch" />
@@ -614,8 +614,8 @@
                     BorderThickness="1"
                     CornerRadius="4"
                     Padding="4,3"
-                    Width="86"
                     MinHeight="28"
+                    HorizontalAlignment="Stretch"
                     Margin="0,0,5,4"
                     Cursor="Hand"
                     mvvm:EventCommandBehavior.EventName="MouseLeftButtonUp"
@@ -647,9 +647,9 @@
                                    AutomationProperties.Name="{Binding Title}"
                                    Foreground="{DynamicResource PrimaryTextBrush}"
                                    FontFamily="Segoe UI"
-                                   FontSize="8.5"
+                                   FontSize="10"
                                    FontWeight="SemiBold"
-                                   TextTrimming="CharacterEllipsis"
+                                   TextWrapping="Wrap"
                                    VerticalAlignment="Center" />
                     <StackPanel Grid.Column="2"
                                 Orientation="Horizontal"
@@ -661,11 +661,11 @@
                                                      Margin="0,1,0,0"
                                                      Foreground="{DynamicResource SecondaryTextBrush}" />
                         <TextBlock Text="{Binding StateText}"
-                                   Visibility="Collapsed"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
                                    FontFamily="Segoe UI"
-                                   FontSize="8"
+                                   FontSize="9"
                                    FontWeight="SemiBold"
+                                   Margin="3,0,0,0"
                                    TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                 </Grid>
@@ -693,8 +693,13 @@
                     Command="{Binding DataContext.DatasetDashboardMetricCommand, RelativeSource={RelativeSource AncestorType=UserControl}}"
                     CommandParameter="{Binding .}"
                     ToolTip="{Binding Detail}">
-                <StackPanel>
-                    <StackPanel Orientation="Horizontal">
+                <Grid>
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
                         <iconPacks:PackIconMaterial Kind="{Binding IconKind}"
                                                     Width="9"
                                                     Height="9"
@@ -703,24 +708,29 @@
                         <TextBlock Text="{Binding Title}"
                                    Foreground="{DynamicResource SecondaryTextBrush}"
                                    FontFamily="Segoe UI"
-                                   FontSize="8"
+                                   FontSize="9"
                                    FontWeight="SemiBold"
                                    TextTrimming="CharacterEllipsis" />
                     </StackPanel>
                     <TextBlock Text="{Binding Value}"
+                               Grid.Column="1"
                                Foreground="{DynamicResource PrimaryTextBrush}"
                                FontFamily="Segoe UI"
-                                FontSize="11"
+                               FontSize="10"
                                FontWeight="SemiBold"
-                                Margin="0,1,0,0"
+                               VerticalAlignment="Center"
+                               Margin="8,0,0,0"
                                TextTrimming="CharacterEllipsis" />
                     <TextBlock Text="{Binding StateText}"
+                               Grid.Column="2"
                                Foreground="{DynamicResource SecondaryTextBrush}"
                                FontFamily="Segoe UI"
-                                FontSize="8"
+                               FontSize="9"
                                FontWeight="SemiBold"
+                               VerticalAlignment="Center"
+                               Margin="8,0,0,0"
                                TextTrimming="CharacterEllipsis" />
-                </StackPanel>
+                </Grid>
             </Button>
         </DataTemplate>
 
@@ -1297,8 +1307,7 @@
                                FontSize="9"
                                FontWeight="SemiBold"
                                Margin="0,1,0,0"
-                               TextWrapping="NoWrap"
-                               TextTrimming="CharacterEllipsis" />
+                               TextWrapping="Wrap" />
                     <TextBlock Text="&#xC644;&#xB8CC; &#xCCB4;&#xD06C;"
                                Style="{StaticResource LearningWorkflowCaptionStyle}"
                                Margin="0,3,0,2" />
@@ -1306,8 +1315,6 @@
                                   AutomationProperties.AutomationId="YoloCurrentTrainingProgressItemsControl"
                                   ItemsSource="{Binding YoloTrainingWorkflowSteps}"
                                   ItemTemplate="{StaticResource YoloTrainingProgressChipTemplate}"
-                                  MaxHeight="160"
-                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                   Margin="0,0,0,3">
                         <ItemsControl.ItemsPanel>
                             <ItemsPanelTemplate>
@@ -1335,8 +1342,7 @@
                                            FontFamily="Segoe UI"
                                            FontSize="9"
                                            FontWeight="SemiBold"
-                                           TextWrapping="NoWrap"
-                                           TextTrimming="CharacterEllipsis" />
+                                           TextWrapping="Wrap" />
                             </DockPanel>
                             <TextBlock x:Name="DatasetDashboardSummaryText"
                                        AutomationProperties.AutomationId="DatasetDashboardSummaryText"
@@ -1344,8 +1350,7 @@
                                        Foreground="{DynamicResource SecondaryTextBrush}"
                                        FontFamily="Segoe UI"
                                        FontSize="8"
-                                       TextWrapping="NoWrap"
-                                       TextTrimming="CharacterEllipsis"
+                                       TextWrapping="Wrap"
                                        Margin="0,0,0,2" />
                             <!-- Keep the immediate operator action above diagnostics so first-time object-labeling users do not have to infer the next step from metric cards. -->
                             <Border x:Name="DatasetDashboardPrimaryActionPanel"
@@ -1380,8 +1385,7 @@
                                                FontFamily="Segoe UI"
                                                FontSize="9"
                                                FontWeight="SemiBold"
-                                               TextWrapping="NoWrap"
-                                               TextTrimming="CharacterEllipsis" />
+                                               TextWrapping="Wrap" />
                                 </DockPanel>
                             </Border>
                             <StackPanel x:Name="ModelReplacementReadinessPanel"
@@ -1394,23 +1398,19 @@
                                            FontFamily="Segoe UI"
                                            FontSize="8"
                                            FontWeight="SemiBold"
-                                           TextWrapping="NoWrap"
-                                           TextTrimming="CharacterEllipsis" />
+                                           TextWrapping="Wrap" />
                                 <TextBlock x:Name="ModelReplacementDetailText"
                                            AutomationProperties.AutomationId="ModelReplacementDetailText"
                                            Text="{Binding ModelReplacementDetailText}"
                                            Foreground="{DynamicResource SecondaryTextBrush}"
                                            FontFamily="Segoe UI"
                                            FontSize="8"
-                                           TextWrapping="NoWrap"
-                                           TextTrimming="CharacterEllipsis" />
+                                           TextWrapping="Wrap" />
                             </StackPanel>
             <ItemsControl x:Name="DatasetDashboardMetricItemsControl"
                                            AutomationProperties.AutomationId="DatasetDashboardMetricItemsControl"
                                            ItemsSource="{Binding DatasetDashboardMetrics}"
-                                           ItemTemplate="{StaticResource DatasetDashboardMetricTemplate}"
-                                           MaxHeight="150"
-                                           ScrollViewer.VerticalScrollBarVisibility="Auto">
+                                           ItemTemplate="{StaticResource DatasetDashboardMetricTemplate}">
                                 <ItemsControl.ItemsPanel>
                                     <ItemsPanelTemplate>
                                         <StackPanel Orientation="Vertical" />
@@ -1419,17 +1419,14 @@
                             </ItemsControl>
                             <ItemsControl x:Name="DatasetDashboardIssueItemsControl"
                                           AutomationProperties.AutomationId="DatasetDashboardIssueItemsControl"
-                                          ItemsSource="{Binding DatasetDashboardIssueItems}"
-                                          MaxHeight="14"
-                                          ClipToBounds="True">
+                                          ItemsSource="{Binding DatasetDashboardIssueItems}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate>
                                         <TextBlock Text="{Binding}"
                                                    Foreground="{DynamicResource SecondaryTextBrush}"
                                                    FontFamily="Segoe UI"
                                                    FontSize="8"
-                                                   TextWrapping="NoWrap"
-                                                   TextTrimming="CharacterEllipsis"
+                                                   TextWrapping="Wrap"
                                                    Margin="0" />
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
@@ -1796,8 +1793,6 @@
                                                   AutomationProperties.AutomationId="TemplateWorkflowItemsControl"
                                                   ItemsSource="{Binding TemplateWorkflowSteps}"
                                                   ItemTemplate="{StaticResource TemplateWorkflowStepTemplate}"
-                                                  MaxHeight="140"
-                                                  ScrollViewer.VerticalScrollBarVisibility="Auto"
                                                   Margin="0,7,0,0">
                                         <ItemsControl.ItemsPanel>
                                             <ItemsPanelTemplate>
@@ -2059,8 +2054,6 @@
                                             <ItemsControl x:Name="YoloTrainingResultReportItemsControl"
                                                          AutomationProperties.AutomationId="YoloTrainingResultReportItemsControl"
                                                          ItemsSource="{Binding TrainingResultReportItems}"
-                                                         MaxHeight="110"
-                                                         ScrollViewer.VerticalScrollBarVisibility="Auto"
                                                          Margin="0,5,0,0">
                                                 <ItemsControl.ItemTemplate>
                                                     <DataTemplate>
@@ -2089,13 +2082,12 @@
                                                                            FontFamily="Segoe UI"
                                                                            FontSize="9"
                                                                            FontWeight="SemiBold"
-                                                                           TextTrimming="CharacterEllipsis" />
+                                                                           TextWrapping="Wrap" />
                                                                 <TextBlock Text="{Binding Detail}"
                                                                            Foreground="{DynamicResource SecondaryTextBrush}"
                                                                            FontFamily="Segoe UI"
                                                                            FontSize="8"
-                                                                           TextWrapping="NoWrap"
-                                                                           TextTrimming="CharacterEllipsis" />
+                                                                           TextWrapping="Wrap" />
                                                             </StackPanel>
                                                         </Grid>
                                                     </DataTemplate>
@@ -2127,8 +2119,6 @@
                                     </Border>
                                     <ItemsControl x:Name="YoloTrainingRunHistoryItemsControl"
                                                    ItemsSource="{Binding TrainingRunHistoryItems}"
-                                                   MaxHeight="110"
-                                                   ScrollViewer.VerticalScrollBarVisibility="Auto"
                                                    Margin="0,4,0,0">
                                         <ItemsControl.ItemTemplate>
                                             <DataTemplate>
@@ -2142,7 +2132,7 @@
                                                                Foreground="{DynamicResource SecondaryTextBrush}"
                                                                FontFamily="Segoe UI"
                                                                FontSize="10"
-                                                               TextTrimming="CharacterEllipsis" />
+                                                               TextWrapping="Wrap" />
                                                 </Border>
                                             </DataTemplate>
                                         </ItemsControl.ItemTemplate>

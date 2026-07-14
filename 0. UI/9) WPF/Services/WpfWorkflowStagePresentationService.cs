@@ -42,10 +42,10 @@ namespace MvcVisionSystem
 
                 WpfShellWorkflowStage.Inference => new WpfWorkflowStagePresentation(
                     stage,
-                    "3/4 AI 후보",
-                    "AI 후보 검토",
-                    "검사 모델이 만든 AI 후보를 저장 라벨로 확정하거나 후보만 숨깁니다.",
-                    "다음: 후보를 모두 확정/숨김한 뒤 다음 미완료 또는 학습/모델 센터"),
+                    "3/4 AI 후보(선택)",
+                    "AI 후보 검토(선택)",
+                    "모델이 만든 자동 라벨 후보가 있을 때만 맞는 후보를 저장 라벨로 확정합니다. 직접 라벨링만 할 때는 건너뜁니다.",
+                    "다음: 후보가 없으면 4 학습/모델, 있으면 확정 또는 숨김"),
 
                 WpfShellWorkflowStage.TrainingModel => new WpfWorkflowStagePresentation(
                     stage,

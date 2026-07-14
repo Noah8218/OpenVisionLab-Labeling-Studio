@@ -66,6 +66,8 @@ namespace MvcVisionSystem
                     UpdateImageQueueStatusText(loadedCount, imagePaths.Count);
                 }
             }
+
+            RefreshYoloTrainingStepCompletion();
         }
 
         private WpfImageQueueDetail BuildImageQueueDetail(string imagePath)
@@ -81,10 +83,18 @@ namespace MvcVisionSystem
             }
 
             item.Dimensions = WpfImageQueueDetailLoader.FormatImageSize(detail.ImageSize);
-            ApplyReviewStatusToItem(item, detail.ReviewStatus);
+            ApplyReviewStatusToItemCore(item, detail.ReviewStatus, refreshTrainingStepCompletion: false);
         }
 
         private void ApplyReviewStatusToItem(WpfImageQueueItem item, YoloImageReviewStatus status)
+        {
+            ApplyReviewStatusToItemCore(item, status, refreshTrainingStepCompletion: true);
+        }
+
+        private void ApplyReviewStatusToItemCore(
+            WpfImageQueueItem item,
+            YoloImageReviewStatus status,
+            bool refreshTrainingStepCompletion)
         {
             if (item == null || status == null)
             {
@@ -111,7 +121,10 @@ namespace MvcVisionSystem
 
             RefreshActiveImageQualityReviewPresentation(item, status);
 
-            RefreshYoloTrainingStepCompletion();
+            if (refreshTrainingStepCompletion)
+            {
+                RefreshYoloTrainingStepCompletion();
+            }
         }
     }
 }

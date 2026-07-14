@@ -50,8 +50,52 @@ namespace MvcVisionSystem
                 BatchSize = Math.Max(1, training.Batch),
                 Task = string.Equals(task, "val", StringComparison.OrdinalIgnoreCase) ? "val" : "test",
                 ModelTask = ResolveModelTask(data),
+                SegmentationPositiveClassName = ResolveSegmentationPositiveClassName(data),
                 UiConfidence = settings.MinimumDetectionConfidence,
                 OutputDirectory = Path.Combine(repositoryRoot, "artifacts", "yolo-model-comparison")
+            };
+        }
+
+        public WpfModelComparisonRunRequest BuildYoloV5YoloV8DetectionRequest(
+            CData data,
+            string task = "test")
+        {
+            data?.NormalizeOutputPaths();
+            data?.NormalizeTrainingSettings();
+            PythonModelSettings settings = data?.ProjectSettings?.PythonModel ?? new PythonModelSettings();
+            TrainingSettings training = data?.GetTrainingSettings() ?? new TrainingSettings();
+            ModelRegistrySettings registry = data?.ProjectSettings?.ModelRegistry;
+            EngineModelRuntime yoloV5 = ResolveEngineModelRuntime(
+                settings,
+                registry,
+                PythonModelSettings.EngineYoloV5);
+            EngineModelRuntime yoloV8 = ResolveEngineModelRuntime(
+                settings,
+                registry,
+                PythonModelSettings.EngineYoloV8);
+
+            return new WpfModelComparisonRunRequest
+            {
+                ScriptPath = Path.Combine(repositoryRoot, "scripts", "compare-yolo-models.ps1"),
+                PythonExecutablePath = yoloV5.PythonExecutablePath,
+                YoloProjectRootPath = yoloV5.ProjectRootPath,
+                YoloSourceRootPath = yoloV5.SourceRootPath,
+                DataYamlPath = data?.DataYamlFilePath ?? string.Empty,
+                BaselineWeightsPath = yoloV5.WeightsPath,
+                CandidateWeightsPath = yoloV8.WeightsPath,
+                BaselineModelEngine = PythonModelSettings.EngineYoloV5,
+                BaselinePythonExecutablePath = yoloV5.PythonExecutablePath,
+                BaselineYoloSourceRootPath = yoloV5.SourceRootPath,
+                CandidateModelEngine = PythonModelSettings.EngineYoloV8,
+                CandidatePythonExecutablePath = yoloV8.PythonExecutablePath,
+                CandidateYoloSourceRootPath = yoloV8.SourceRootPath,
+                ImageSize = Math.Max(1, training.ImageSize),
+                BatchSize = 1,
+                Task = string.Equals(task, "val", StringComparison.OrdinalIgnoreCase) ? "val" : "test",
+                ModelTask = "detect",
+                UiConfidence = settings.MinimumDetectionConfidence,
+                OutputDirectory = Path.Combine(repositoryRoot, "artifacts", "yolo-model-comparison"),
+                IsEngineComparison = true
             };
         }
 
@@ -65,12 +109,38 @@ namespace MvcVisionSystem
             }
 
             ValidateFile(request.ScriptPath, "\uBAA8\uB378 \uBE44\uAD50 \uC2E4\uD589 \uC2A4\uD06C\uB9BD\uD2B8", errors);
-            ValidateFile(request.PythonExecutablePath, "\uCD94\uB860 \uC2E4\uD589 \uD30C\uC77C", errors);
-            ValidateDirectory(request.YoloSourceRootPath, "\uBAA8\uB378 \uD504\uB85C\uC81D\uD2B8 \uD3F4\uB354", errors);
-            ValidateYoloValidationRuntime(request.YoloSourceRootPath, errors);
+            if (request.IsEngineComparison)
+            {
+                ValidateModelRuntime(
+                    request.BaselinePythonExecutablePath,
+                    request.BaselineYoloSourceRootPath,
+                    request.BaselineModelEngine,
+                    errors);
+                ValidateModelRuntime(
+                    request.CandidatePythonExecutablePath,
+                    request.CandidateYoloSourceRootPath,
+                    request.CandidateModelEngine,
+                    errors);
+            }
+            else
+            {
+                ValidateFile(request.PythonExecutablePath, "\uCD94\uB860 \uC2E4\uD589 \uD30C\uC77C", errors);
+                ValidateDirectory(request.YoloSourceRootPath, "\uBAA8\uB378 \uD504\uB85C\uC81D\uD2B8 \uD3F4\uB354", errors);
+                ValidateYoloValidationRuntime(request.YoloSourceRootPath, errors);
+            }
             ValidateFile(request.DataYamlPath, "\uD559\uC2B5 \uC124\uC815 \uD30C\uC77C", errors);
-            ValidateFile(request.BaselineWeightsPath, "\uAE30\uC874 \uBAA8\uB378 \uD30C\uC77C", errors);
-            ValidateFile(request.CandidateWeightsPath, "\uC0C8 \uBAA8\uB378 \uD30C\uC77C", errors);
+            ValidateFile(
+                request.BaselineWeightsPath,
+                request.IsEngineComparison ? "YOLOv5 \uAC1D\uCCB4\uD0D0\uC9C0 \uBAA8\uB378" : "\uAE30\uC874 \uBAA8\uB378 \uD30C\uC77C",
+                errors);
+            ValidateFile(
+                request.CandidateWeightsPath,
+                request.IsEngineComparison ? "YOLOv8 \uAC1D\uCCB4\uD0D0\uC9C0 \uBAA8\uB378" : "\uC0C8 \uBAA8\uB378 \uD30C\uC77C",
+                errors);
+            if (request.IsEngineComparison && !string.Equals(request.ModelTask, "detect", StringComparison.OrdinalIgnoreCase))
+            {
+                errors.Add("YOLOv5/YOLOv8 \uC5D4\uC9C4 \uBE44\uAD50\uB294 \uAC1D\uCCB4\uD0D0\uC9C0 \uB370\uC774\uD130\uC14B\uC5D0\uC11C\uB9CC \uC2E4\uD589\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
+            }
             ValidateDifferentWeights(request, errors);
             ValidateDataYamlSplitImages(request, errors);
             if (request.ImageSize <= 0)
@@ -185,7 +255,31 @@ namespace MvcVisionSystem
                 request.OutputDirectory
             };
 
+            if (!string.IsNullOrWhiteSpace(request.SegmentationPositiveClassName))
+            {
+                arguments.Add("-SegmentationPositiveClassName");
+                arguments.Add(request.SegmentationPositiveClassName);
+            }
+
+            AddOptionalArgument(arguments, "-BaselinePythonExe", request.BaselinePythonExecutablePath);
+            AddOptionalArgument(arguments, "-BaselineYoloSourceRoot", request.BaselineYoloSourceRootPath);
+            AddOptionalArgument(arguments, "-BaselineEngine", request.BaselineModelEngine);
+            AddOptionalArgument(arguments, "-CandidatePythonExe", request.CandidatePythonExecutablePath);
+            AddOptionalArgument(arguments, "-CandidateYoloSourceRoot", request.CandidateYoloSourceRootPath);
+            AddOptionalArgument(arguments, "-CandidateEngine", request.CandidateModelEngine);
+
             return arguments;
+        }
+
+        private static void AddOptionalArgument(List<string> arguments, string name, string value)
+        {
+            if (string.IsNullOrWhiteSpace(value))
+            {
+                return;
+            }
+
+            arguments.Add(name);
+            arguments.Add(value);
         }
 
         private static string ResolveBaselineWeightsPath(PythonModelSettings settings, string baselineWeightsOverride = "")
@@ -239,11 +333,120 @@ namespace MvcVisionSystem
             return nestedYoloV5;
         }
 
+        private static EngineModelRuntime ResolveEngineModelRuntime(
+            PythonModelSettings currentSettings,
+            ModelRegistrySettings registry,
+            string engine)
+        {
+            registry?.EnsureDefaults();
+            string normalizedEngine = PythonModelSettings.NormalizeModelEngine(engine);
+            Dictionary<string, ModelProfile> profiles = registry?.Profiles?
+                .Where(profile => profile != null
+                    && string.Equals(
+                        PythonModelSettings.NormalizeModelEngine(profile.ModelEngine),
+                        normalizedEngine,
+                        StringComparison.Ordinal)
+                    && string.Equals(
+                        profile.DatasetPurpose,
+                        LabelingDatasetPurpose.ObjectDetection.ToString(),
+                        StringComparison.Ordinal))
+                .GroupBy(profile => profile.ProfileId ?? string.Empty, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.First(), StringComparer.Ordinal)
+                ?? new Dictionary<string, ModelProfile>(StringComparer.Ordinal);
+            ModelCandidate candidate = registry?.Candidates?
+                .Where(item => item != null
+                    && profiles.ContainsKey(item.ProfileId ?? string.Empty)
+                    && !string.Equals(item.Decision, ModelRegistryService.CandidateDecisionRejected, StringComparison.Ordinal)
+                    && File.Exists(item.WeightsPath ?? string.Empty))
+                .OrderByDescending(item => ParseUtc(item.LastSeenUtc))
+                .FirstOrDefault();
+
+            if (candidate != null && profiles.TryGetValue(candidate.ProfileId ?? string.Empty, out ModelProfile profile))
+            {
+                return BuildEngineModelRuntime(normalizedEngine, profile.ProjectRootPath, candidate.WeightsPath, currentSettings);
+            }
+
+            if (currentSettings != null
+                && string.Equals(
+                    PythonModelSettings.NormalizeModelEngine(currentSettings.ModelEngine),
+                    normalizedEngine,
+                    StringComparison.Ordinal))
+            {
+                return BuildEngineModelRuntime(
+                    normalizedEngine,
+                    currentSettings.ProjectRootPath,
+                    currentSettings.WeightsPath,
+                    currentSettings);
+            }
+
+            ModelProfile latestProfile = profiles.Values
+                .OrderByDescending(profile => ParseUtc(profile.LastUsedUtc))
+                .FirstOrDefault();
+            return BuildEngineModelRuntime(normalizedEngine, latestProfile?.ProjectRootPath, string.Empty, currentSettings);
+        }
+
+        private static EngineModelRuntime BuildEngineModelRuntime(
+            string engine,
+            string projectRoot,
+            string weightsPath,
+            PythonModelSettings currentSettings)
+        {
+            string normalizedRoot = projectRoot?.Trim() ?? string.Empty;
+            bool useCurrentPython = currentSettings != null
+                && string.Equals(
+                    PythonModelSettings.NormalizeModelEngine(currentSettings.ModelEngine),
+                    engine,
+                    StringComparison.Ordinal)
+                && string.Equals(
+                    currentSettings.ProjectRootPath?.Trim(),
+                    normalizedRoot,
+                    StringComparison.OrdinalIgnoreCase);
+            string pythonPath = useCurrentPython
+                ? PythonModelSettingsValidator.ResolvePythonExecutable(currentSettings)
+                : string.IsNullOrWhiteSpace(normalizedRoot)
+                    ? string.Empty
+                    : Path.Combine(normalizedRoot, ".venv", "Scripts", "python.exe");
+            return new EngineModelRuntime
+            {
+                ProjectRootPath = normalizedRoot,
+                SourceRootPath = ResolveYoloSourceRoot(normalizedRoot),
+                PythonExecutablePath = pythonPath,
+                WeightsPath = weightsPath?.Trim() ?? string.Empty
+            };
+        }
+
+        private static DateTime ParseUtc(string value)
+        {
+            return DateTime.TryParse(
+                value,
+                CultureInfo.InvariantCulture,
+                DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                out DateTime parsed)
+                ? parsed
+                : DateTime.MinValue;
+        }
+
         private static string ResolveModelTask(CData data)
         {
             return data?.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.Segmentation
                 ? "segment"
                 : "detect";
+        }
+
+        private static string ResolveSegmentationPositiveClassName(CData data)
+        {
+            if (data?.ProjectSettings?.DatasetPurpose != LabelingDatasetPurpose.Segmentation)
+            {
+                return string.Empty;
+            }
+
+            List<string> names = data.ClassNamedList?
+                .Select(item => item?.Text?.Trim() ?? string.Empty)
+                .Where(name => !string.IsNullOrWhiteSpace(name))
+                .ToList() ?? new List<string>();
+            string preferred = names.FirstOrDefault(name => string.Equals(name, "NG", StringComparison.OrdinalIgnoreCase))
+                ?? names.FirstOrDefault(name => string.Equals(name, "Defect", StringComparison.OrdinalIgnoreCase));
+            return preferred ?? (names.Count == 1 ? names[0] : string.Empty);
         }
 
         private static void ValidateYoloValidationRuntime(string sourceRootPath, List<string> errors)
@@ -261,6 +464,23 @@ namespace MvcVisionSystem
             }
 
             errors.Add($"Model validation runtime not found: {sourceRootPath}");
+        }
+
+        private static void ValidateModelRuntime(
+            string pythonExecutablePath,
+            string sourceRootPath,
+            string engine,
+            List<string> errors)
+        {
+            string label = string.IsNullOrWhiteSpace(engine) ? "YOLO" : engine.Trim();
+            ValidateFile(pythonExecutablePath, $"{label} Python", errors);
+            ValidateDirectory(sourceRootPath, $"{label} \uB85C\uCEEC \uC18C\uC2A4", errors);
+            int errorCount = errors.Count;
+            ValidateYoloValidationRuntime(sourceRootPath, errors);
+            if (errors.Count > errorCount)
+            {
+                errors[errors.Count - 1] = $"{label} validation runtime not found: {sourceRootPath}";
+            }
         }
 
         private static void ValidateFile(string path, string name, List<string> errors)
@@ -601,6 +821,17 @@ namespace MvcVisionSystem
 
             return Directory.GetCurrentDirectory();
         }
+
+        private sealed class EngineModelRuntime
+        {
+            public string ProjectRootPath { get; set; } = string.Empty;
+
+            public string SourceRootPath { get; set; } = string.Empty;
+
+            public string PythonExecutablePath { get; set; } = string.Empty;
+
+            public string WeightsPath { get; set; } = string.Empty;
+        }
     }
 
     public sealed class WpfModelComparisonRunRequest
@@ -626,6 +857,22 @@ namespace MvcVisionSystem
         public string Task { get; set; } = "test";
 
         public string ModelTask { get; set; } = "detect";
+
+        public string SegmentationPositiveClassName { get; set; } = string.Empty;
+
+        public string BaselineModelEngine { get; set; } = string.Empty;
+
+        public string BaselinePythonExecutablePath { get; set; } = string.Empty;
+
+        public string BaselineYoloSourceRootPath { get; set; } = string.Empty;
+
+        public string CandidateModelEngine { get; set; } = string.Empty;
+
+        public string CandidatePythonExecutablePath { get; set; } = string.Empty;
+
+        public string CandidateYoloSourceRootPath { get; set; } = string.Empty;
+
+        public bool IsEngineComparison { get; set; }
 
         public double UiConfidence { get; set; } = 0.25D;
 

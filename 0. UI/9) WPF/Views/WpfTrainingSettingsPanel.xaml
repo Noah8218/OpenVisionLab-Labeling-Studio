@@ -2,7 +2,8 @@
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mvvm="clr-namespace:OpenVisionLab.Mvvm.Behaviors;assembly=OpenVisionLab.Mvvm"
-             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml">
+             xmlns:ui="http://schemas.lepo.co/wpfui/2022/xaml"
+             xmlns:iconPacks="http://metro.mahapps.com/winfx/xaml/iconpacks">
     <UserControl.Resources>
         <Style x:Key="TrainingLabelStyle" TargetType="TextBlock">
             <Setter Property="Foreground" Value="{DynamicResource SecondaryTextBrush}" />
@@ -284,7 +285,9 @@
                 <TextBlock Grid.Row="3" Text="&#xBAA8;&#xB378; &#xAD6C;&#xC870;" Style="{StaticResource TrainingLabelStyle}" />
                 <StackPanel Grid.Row="3" Grid.Column="1" Margin="0,4,0,5">
                     <ComboBox x:Name="TrainingCfgBox"
-                              SelectedItem="{Binding Cfg, Mode=TwoWay}"
+                              ItemsSource="{Binding TrainingModelOptions}"
+                              SelectedItem="{Binding SelectedTrainingModel, Mode=TwoWay}"
+                              IsEnabled="{Binding IsTrainingModelSelectionEnabled}"
                               Style="{StaticResource TrainingComboBoxStyle}"
                               ToolTip="{Binding CfgGuideText}" />
                     <TextBlock x:Name="TrainingCfgGuideText"
@@ -296,7 +299,9 @@
                 <TextBlock Grid.Row="4" Text="&#xD559;&#xC2B5; &#xC2DC;&#xC791; &#xAC00;&#xC911;&#xCE58;" Style="{StaticResource TrainingLabelStyle}" />
                 <StackPanel Grid.Row="4" Grid.Column="1" Margin="0,4,0,5">
                     <ComboBox x:Name="TrainingWeightBox"
-                              SelectedItem="{Binding Weight, Mode=TwoWay}"
+                              ItemsSource="{Binding TrainingWeightOptions}"
+                              SelectedItem="{Binding SelectedTrainingWeight, Mode=TwoWay}"
+                              IsEnabled="{Binding IsTrainingModelSelectionEnabled}"
                               Style="{StaticResource TrainingComboBoxStyle}"
                               ToolTip="{Binding WeightGuideText}" />
                     <TextBlock x:Name="TrainingWeightGuideText"
@@ -475,6 +480,24 @@
                             <TextBlock x:Name="ConfirmTrainedModelButtonText"
                                        Text="{Binding ConfirmTrainedModelActionText}"
                                        VerticalAlignment="Center" />
+                        </ui:Button>
+                        <ui:Button x:Name="RunYoloEngineComparisonButton"
+                                   AutomationProperties.AutomationId="RunYoloEngineComparisonButton"
+                                   AutomationProperties.Name="{Binding RunYoloEngineComparisonActionText}"
+                                   Style="{StaticResource TrainingCommandButtonStyle}"
+                                   IsEnabled="{Binding IsRunYoloEngineComparisonEnabled}"
+                                   MinWidth="112"
+                                   ToolTip="{Binding RunYoloEngineComparisonToolTipText}"
+                                   Command="{Binding RunYoloEngineComparisonCommand}">
+                            <StackPanel Orientation="Horizontal">
+                                <iconPacks:PackIconMaterial Kind="SwapHorizontal"
+                                                            Width="12"
+                                                            Height="12"
+                                                            Margin="0,0,4,0" />
+                                <TextBlock x:Name="RunYoloEngineComparisonButtonText"
+                                           Text="{Binding RunYoloEngineComparisonActionText}"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
                         </ui:Button>
                     </WrapPanel>
                 </StackPanel>

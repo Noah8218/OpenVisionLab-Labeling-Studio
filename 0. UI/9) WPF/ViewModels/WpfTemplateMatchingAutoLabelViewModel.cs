@@ -31,7 +31,15 @@ namespace MvcVisionSystem
         IReadOnlyList<WpfImageQueueItem> BuildAutoLabelBatchQueue(IEnumerable<WpfImageQueueItem> items);
         void AppendAutoLabelLog(string message);
         void ShowAutoLabelGuide(string title, string message);
-        int ApplyAutoLabelCandidates(IReadOnlyList<YoloWorkerSmokeCandidate> candidates, bool succeeded);
+        int ApplyAutoLabelCandidates(
+            IReadOnlyList<YoloWorkerSmokeCandidate> candidates,
+            bool succeeded,
+            Rectangle? sourceSegmentBounds = null,
+            IReadOnlyList<Point> sourceSegmentPoints = null,
+            IReadOnlyList<IReadOnlyList<Point>> sourceSegmentCutouts = null,
+            byte[] sourceMaskData = null,
+            Size sourceMaskSize = default,
+            Rectangle sourceMaskBounds = default);
         void SetAutoLabelPythonStatus(string text);
         void SetAutoLabelCommandStatus(string text, bool isBusy);
         void SetAutoLabelGlobalInferenceStatus(string text, bool isBusy, bool isWarning = false);
@@ -199,7 +207,15 @@ namespace MvcVisionSystem
                 return;
             }
 
-            int addedCount = currentHost.ApplyAutoLabelCandidates(result.Candidates, succeeded: true);
+            int addedCount = currentHost.ApplyAutoLabelCandidates(
+                result.Candidates,
+                succeeded: true,
+                registeredTemplateSourceBounds,
+                registeredTemplateSourceSegmentPoints,
+                registeredTemplateSourceSegmentCutouts,
+                registeredTemplateSourceMaskData,
+                registeredTemplateSourceMaskSize,
+                registeredTemplateSourceMaskBounds);
             string status = presentationService.BuildApplyResultStatus(addedCount, result.Candidates.Count);
             currentHost.SetAutoLabelGlobalInferenceStatus(status, isBusy: false, isWarning: addedCount == 0);
             currentHost.SetAutoLabelCommandStatus(status, isBusy: false);

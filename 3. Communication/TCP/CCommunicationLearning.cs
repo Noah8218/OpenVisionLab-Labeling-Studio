@@ -216,6 +216,21 @@ namespace MvcVisionSystem._3._Communication.TCP
             });
         }
 
+        public void DropActiveClient(string reason)
+        {
+            PythonComm.DropActiveClient();
+            UpdateStatus(item =>
+            {
+                item.IsClientConnected = false;
+                item.LastDisconnectedAtUtc = DateTime.UtcNow;
+                item.LastModelStatusRequestId = "";
+                item.LastModelEngine = "";
+                item.LastModelWeightsPath = "";
+                item.LastModelLoaded = false;
+                item.LastError = reason ?? "";
+            });
+        }
+
         public static List<DetectionOverlayItem> BuildDetectionOverlays(IEnumerable<DefectInfo> defects)
         {
             return PythonDetectionResultProtocol.BuildDetectionOverlays(defects);
@@ -374,6 +389,9 @@ namespace MvcVisionSystem._3._Communication.TCP
                 else if (string.Equals(statusMessage.Type, PythonModelStatusProtocol.ModelStatusResultType, StringComparison.OrdinalIgnoreCase))
                 {
                     item.LastModelStatusAtUtc = DateTime.UtcNow;
+                    item.LastModelStatusRequestId = statusMessage.RequestId ?? "";
+                    item.LastModelEngine = statusMessage.ModelEngine ?? "";
+                    item.LastModelWeightsPath = statusMessage.ModelWeightsPath ?? "";
                     item.LastModelState = statusMessage.State ?? "";
                     item.LastModelMessage = statusMessage.Message ?? "";
                     item.LastModelLoaded = statusMessage.Loaded == true;
@@ -463,6 +481,10 @@ namespace MvcVisionSystem._3._Communication.TCP
             {
                 item.IsClientConnected = true;
                 item.LastConnectedAtUtc = DateTime.UtcNow;
+                item.LastModelStatusRequestId = "";
+                item.LastModelEngine = "";
+                item.LastModelWeightsPath = "";
+                item.LastModelLoaded = false;
                 item.LastError = "";
             });
         }

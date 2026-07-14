@@ -49,6 +49,7 @@ namespace MvcVisionSystem
         private bool isRightWorkflowShortcutBarVisible = true;
         private bool isRightWorkflowDockExpanded = true;
         private bool isRightWorkflowDockRailVisible;
+        private double rightWorkflowExpandedPaneWidth = RightWorkflowExpandedPaneGridLengthValue.Value;
         private GridLength rightWorkflowPaneGridLength = RightWorkflowExpandedPaneGridLengthValue;
         private string rightWorkflowDockToggleText = "\uC811\uAE30";
         private string rightWorkflowDockToggleToolTip = "\uC624\uB978\uCABD \uC791\uC5C5 \uD328\uB110\uC744 \uC811\uC2B5\uB2C8\uB2E4.";
@@ -1132,7 +1133,7 @@ namespace MvcVisionSystem
 
             return stage switch
             {
-                WpfShellWorkflowStage.Inference => "AI \uD6C4\uBCF4\uB97C \uC800\uC7A5 \uB77C\uBCA8\uB85C \uD655\uC815\uD558\uAC70\uB098 \uC228\uAE41\uB2C8\uB2E4.",
+                WpfShellWorkflowStage.Inference => "\uBAA8\uB378 \uD6C4\uBCF4 \uAC80\uD1A0\uC6A9\uC785\uB2C8\uB2E4. \uC9C1\uC811 \uB77C\uBCA8\uB9C1\uB9CC \uD588\uB2E4\uBA74 \uAC74\uB108\uB701\uB2C8\uB2E4.",
                 WpfShellWorkflowStage.TrainingModel => "\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378\uACFC \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.",
                 _ => "\uB370\uC774\uD130\uC14B \uC900\uBE44\uC640 \uC774\uBBF8\uC9C0/\uD074\uB798\uC2A4 \uC0C1\uD0DC\uB97C \uD655\uC778\uD569\uB2C8\uB2E4."
             };
@@ -1217,12 +1218,26 @@ namespace MvcVisionSystem
             IsRightWorkflowDockExpanded = isExpanded;
             IsRightWorkflowDockRailVisible = !isExpanded;
             RightWorkflowPaneGridLength = isExpanded
-                ? RightWorkflowExpandedPaneGridLengthValue
+                ? new GridLength(rightWorkflowExpandedPaneWidth)
                 : RightWorkflowCollapsedPaneGridLengthValue;
             RightWorkflowDockToggleText = isExpanded ? "\uC811\uAE30" : "\uC5F4\uAE30";
             RightWorkflowDockToggleToolTip = isExpanded
                 ? "\uC624\uB978\uCABD \uC791\uC5C5 \uD328\uB110\uC744 \uC811\uACE0 \uCE94\uBC84\uC2A4 \uACF5\uAC04\uC744 \uB113\uD799\uB2C8\uB2E4."
                 : "\uC624\uB978\uCABD \uC791\uC5C5 \uD328\uB110\uC744 \uC5F4\uC5B4 \uB77C\uBCA8, \uB3C4\uAD6C, \uBAA8\uB378 \uC124\uC815\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.";
+        }
+
+        public void SetRightWorkflowExpandedPaneWidth(double width)
+        {
+            if (double.IsNaN(width) || double.IsInfinity(width))
+            {
+                return;
+            }
+
+            rightWorkflowExpandedPaneWidth = Math.Clamp(width, 280D, 640D);
+            if (IsRightWorkflowDockExpanded)
+            {
+                RightWorkflowPaneGridLength = new GridLength(rightWorkflowExpandedPaneWidth);
+            }
         }
 
         private void ToggleRightWorkflowDock()

@@ -5,12 +5,19 @@ param(
     [string]$DataYaml = "",
     [string]$BaselineWeights = "",
     [string]$CandidateWeights = "",
+    [string]$BaselinePythonExe = "",
+    [string]$BaselineYoloSourceRoot = "",
+    [string]$BaselineEngine = "",
+    [string]$CandidatePythonExe = "",
+    [string]$CandidateYoloSourceRoot = "",
+    [string]$CandidateEngine = "",
     [int]$ImageSize = 320,
     [int]$BatchSize = 16,
     [ValidateSet("val", "test")]
     [string]$Task = "val",
     [ValidateSet("detect", "segment")]
     [string]$ModelTask = "detect",
+    [string]$SegmentationPositiveClassName = "",
     [double]$UiConfidence = 0.25,
     [string]$OutputDirectory = "artifacts\yolo-model-comparison"
 )
@@ -23,6 +30,7 @@ $RecommendedSegmentationPositiveImageCount = 5
 $RecommendedSegmentationBackgroundImageCount = 5
 $MinimumSegmentationUiPositiveImageCoverage = 0.50
 $MaximumSegmentationUiBackgroundCandidateRate = 0.10
+$script:SegmentationPositiveClassId = $null
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptRoot
@@ -53,20 +61,32 @@ function Assert-Directory([string]$Path, [string]$Name) {
     }
 }
 
-function Test-YoloV5SourceRoot() {
-    return Test-Path -LiteralPath (Join-Path $YoloSourceRoot "val.py") -PathType Leaf
+function Test-YoloV5SourceRoot([string]$SourceRoot) {
+    return Test-Path -LiteralPath (Join-Path $SourceRoot "val.py") -PathType Leaf
 }
 
-function Test-UltralyticsSourceRoot() {
-    return Test-Path -LiteralPath (Join-Path $YoloSourceRoot "ultralytics") -PathType Container
+function Test-UltralyticsSourceRoot([string]$SourceRoot) {
+    return Test-Path -LiteralPath (Join-Path $SourceRoot "ultralytics") -PathType Container
 }
 
-function Assert-YoloValidationRuntime() {
-    if ((Test-YoloV5SourceRoot) -or (Test-UltralyticsSourceRoot)) {
+function Assert-YoloValidationRuntime([string]$SourceRoot, [string]$Name) {
+    if ((Test-YoloV5SourceRoot $SourceRoot) -or (Test-UltralyticsSourceRoot $SourceRoot)) {
         return
     }
 
-    throw "YOLO validation runtime not found: expected val.py or ultralytics package under $YoloSourceRoot"
+    throw "$Name validation runtime not found: expected val.py or ultralytics package under $SourceRoot"
+}
+
+function Resolve-EngineName([string]$Engine, [string]$SourceRoot) {
+    if (-not [string]::IsNullOrWhiteSpace($Engine)) {
+        return $Engine.Trim()
+    }
+
+    if (Test-YoloV5SourceRoot $SourceRoot) {
+        return "YOLOv5"
+    }
+
+    return "YOLOv8"
 }
 
 function Read-DataYamlClassCount([string]$Path) {
@@ -214,17 +234,37 @@ function Test-SegmentationLabelLine([string]$Line) {
     return $true
 }
 
-function New-ComparisonEvidence([string]$DataYamlPath, [string]$SplitName, [string]$ValidationTask) {
+function Test-YoloLabelLineClass([string]$Line, $ClassId) {
+    if ($null -eq $ClassId) {
+        return $true
+    }
+
+    $tokens = @($Line -split '\s+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    if ($tokens.Count -eq 0) {
+        return $false
+    }
+
+    $lineClassId = 0
+    return [int]::TryParse($tokens[0], [System.Globalization.NumberStyles]::Integer, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$lineClassId) `
+        -and $lineClassId -eq [int]$ClassId
+}
+
+function Test-SegmentationLabelLineForClass([string]$Line, $ClassId) {
+    return (Test-SegmentationLabelLine $Line) -and (Test-YoloLabelLineClass $Line $ClassId)
+}
+
+function New-ComparisonEvidence([string]$DataYamlPath, [string]$SplitName, [string]$ValidationTask, $PositiveClass) {
     $resolvedSplitPath = Resolve-DataYamlSplitPath $DataYamlPath $SplitName
     $imagePaths = @(Get-SplitImagePaths $resolvedSplitPath)
     $labelPaths = @($imagePaths |
         ForEach-Object { Resolve-LabelPathFromImagePath $_ } |
         Where-Object { Test-Path -LiteralPath $_ -PathType Leaf })
+    $positiveClassId = if ($null -eq $PositiveClass) { $null } else { [int]$PositiveClass.id }
     $positiveSegmentationLabelLineCount = if ($ValidationTask -ieq "segment") {
         @($labelPaths |
             ForEach-Object { Get-Content -LiteralPath $_ } |
             ForEach-Object { (Remove-YamlInlineComment $_).Trim() } |
-            Where-Object { Test-SegmentationLabelLine $_ }).Count
+            Where-Object { Test-SegmentationLabelLineForClass $_ $positiveClassId }).Count
     } else {
         $null
     }
@@ -234,7 +274,7 @@ function New-ComparisonEvidence([string]$DataYamlPath, [string]$SplitName, [stri
                 $labelPath = $_
                 @(Get-Content -LiteralPath $labelPath |
                     ForEach-Object { (Remove-YamlInlineComment $_).Trim() } |
-                    Where-Object { Test-SegmentationLabelLine $_ }).Count -gt 0
+                    Where-Object { Test-SegmentationLabelLineForClass $_ $positiveClassId }).Count -gt 0
             }).Count
     } else {
         $null
@@ -245,7 +285,7 @@ function New-ComparisonEvidence([string]$DataYamlPath, [string]$SplitName, [stri
         $null
     }
 
-    return [ordered]@{
+    $result = [ordered]@{
         split = $SplitName
         imagesPath = $resolvedSplitPath
         imageCount = $imagePaths.Count
@@ -256,6 +296,13 @@ function New-ComparisonEvidence([string]$DataYamlPath, [string]$SplitName, [stri
         backgroundSegmentationImageCount = $backgroundSegmentationImageCount
         recommendedLabelCount = $RecommendedPromotionLabelCount
     }
+
+    if ($null -ne $PositiveClass) {
+        $result["segmentationPositiveClassId"] = [int]$PositiveClass.id
+        $result["segmentationPositiveClassName"] = $PositiveClass.name
+    }
+
+    return $result
 }
 
 function Convert-YamlClassNameScalar([string]$Value) {
@@ -343,7 +390,34 @@ function Read-DataYamlClassInfo([string]$Path) {
     }
 }
 
-function Read-WeightsClassInfo([string]$WeightsPath, [string]$Name) {
+function Resolve-SegmentationPositiveClass($DataInfo, [string]$ClassName, [string]$ValidationTask) {
+    if ([string]::IsNullOrWhiteSpace($ClassName)) {
+        return $null
+    }
+
+    if ($ValidationTask -ine "segment") {
+        throw "Segmentation positive class can only be used with ModelTask=segment."
+    }
+
+    $names = @($DataInfo.names)
+    for ($index = 0; $index -lt $names.Count; $index++) {
+        if ([string]::Equals($names[$index], $ClassName.Trim(), [System.StringComparison]::OrdinalIgnoreCase)) {
+            return [pscustomobject]@{
+                id = $index
+                name = $names[$index]
+            }
+        }
+    }
+
+    throw "Model comparison cannot start: segmentation positive class '$ClassName' was not found in dataset labels=$(Format-ClassInfo $DataInfo)."
+}
+
+function Read-WeightsClassInfo(
+    [string]$WeightsPath,
+    [string]$Name,
+    [string]$RuntimePythonExe = $PythonExe,
+    [string]$RuntimeSourceRoot = $YoloSourceRoot
+) {
     $code = @'
 import sys
 import json
@@ -374,7 +448,20 @@ if class_count is None:
     raise RuntimeError("class count not found")
 if class_names is None:
     raise RuntimeError("class names not found")
-print(json.dumps({"count": int(class_count), "names": class_names}, ensure_ascii=False, separators=(",", ":")))
+
+task = getattr(model, "task", None)
+if task is None:
+    model_type = model.__class__.__name__.lower()
+    if "segment" in model_type:
+        task = "segment"
+    else:
+        try:
+            head_type = model.model[-1].__class__.__name__.lower()
+            task = "segment" if "segment" in head_type else "detect"
+        except Exception:
+            task = "detect"
+
+print(json.dumps({"count": int(class_count), "names": class_names, "task": str(task).lower()}, ensure_ascii=False, separators=(",", ":")))
 '@
 
     $previous = $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD
@@ -382,14 +469,14 @@ print(json.dumps({"count": int(class_count), "names": class_names}, ensure_ascii
     $previousErrorActionPreference = $ErrorActionPreference
     $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = "1"
     $env:PYTHONPATH = if ([string]::IsNullOrWhiteSpace($previousPythonPath)) {
-        $YoloSourceRoot
+        $RuntimeSourceRoot
     } else {
-        "$YoloSourceRoot;$previousPythonPath"
+        "$RuntimeSourceRoot;$previousPythonPath"
     }
-    Push-Location $YoloSourceRoot
+    Push-Location $RuntimeSourceRoot
     try {
         $ErrorActionPreference = "Continue"
-        $output = $code | & $PythonExe - $WeightsPath 2>&1
+        $output = $code | & $RuntimePythonExe - $WeightsPath 2>&1
         $exitCode = $LASTEXITCODE
         if ($exitCode -ne 0) {
             throw "Model comparison cannot read $Name label list: $($output -join ' ')"
@@ -404,6 +491,7 @@ print(json.dumps({"count": int(class_count), "names": class_names}, ensure_ascii
         return [pscustomobject]@{
             count = [int]$data.count
             names = @($data.names | ForEach-Object { $_.ToString() })
+            task = $data.task.ToString()
         }
     }
     finally {
@@ -414,8 +502,13 @@ print(json.dumps({"count": int(class_count), "names": class_names}, ensure_ascii
     }
 }
 
-function Read-WeightsClassCount([string]$WeightsPath, [string]$Name) {
-    return (Read-WeightsClassInfo $WeightsPath $Name).count
+function Read-WeightsClassCount(
+    [string]$WeightsPath,
+    [string]$Name,
+    [string]$RuntimePythonExe = $PythonExe,
+    [string]$RuntimeSourceRoot = $YoloSourceRoot
+) {
+    return (Read-WeightsClassInfo $WeightsPath $Name $RuntimePythonExe $RuntimeSourceRoot).count
 }
 
 function Format-ClassInfo($Info) {
@@ -443,8 +536,8 @@ function Assert-ModelClassCountsMatchData() {
     # Keep this preflight ahead of YOLO val.py so the app can show a clear
     # operator action instead of freezing and then failing deep in Python.
     $dataInfo = Read-DataYamlClassInfo $DataYaml
-    $baselineInfo = Read-WeightsClassInfo $BaselineWeights "baseline model"
-    $candidateInfo = Read-WeightsClassInfo $CandidateWeights "candidate model"
+    $baselineInfo = Read-WeightsClassInfo $BaselineWeights "baseline model" $BaselinePythonExe $BaselineYoloSourceRoot
+    $candidateInfo = Read-WeightsClassInfo $CandidateWeights "candidate model" $CandidatePythonExe $CandidateYoloSourceRoot
 
     $labelsMatch = $baselineInfo.count -eq $dataInfo.count `
         -and $candidateInfo.count -eq $dataInfo.count `
@@ -454,6 +547,12 @@ function Assert-ModelClassCountsMatchData() {
     if (-not $labelsMatch) {
         throw "Model comparison cannot start: dataset labels=$(Format-ClassInfo $dataInfo), baseline labels=$(Format-ClassInfo $baselineInfo), candidate labels=$(Format-ClassInfo $candidateInfo). Use models and verification data trained with the same label list."
     }
+
+    if ($baselineInfo.task -ine $ModelTask -or $candidateInfo.task -ine $ModelTask) {
+        throw "Model comparison cannot start: requested task=$ModelTask, baseline task=$($baselineInfo.task), candidate task=$($candidateInfo.task). Compare models trained for the same task."
+    }
+
+    return $dataInfo
 }
 
 function Find-LatestBestWeights([string]$ProjectRoot) {
@@ -471,13 +570,20 @@ function Find-LatestBestWeights([string]$ProjectRoot) {
     return $weights.FullName
 }
 
-function Invoke-YoloVal([string]$RunName, [string]$WeightsPath, [string]$RunOutputRoot) {
+function Invoke-YoloVal(
+    [string]$RunName,
+    [string]$WeightsPath,
+    [string]$RunOutputRoot,
+    [string]$RuntimePythonExe,
+    [string]$RuntimeSourceRoot,
+    [string]$Engine
+) {
     $logPath = Join-Path $RunOutputRoot "$RunName.log"
     $runProject = Join-Path $RunOutputRoot "runs"
     New-Item -ItemType Directory -Force -Path $runProject | Out-Null
 
     $arguments = @(
-        (Join-Path $YoloSourceRoot "val.py"),
+        (Join-Path $RuntimeSourceRoot "val.py"),
         "--weights", $WeightsPath,
         "--data", $DataYaml,
         "--img", $ImageSize.ToString(),
@@ -496,7 +602,7 @@ function Invoke-YoloVal([string]$RunName, [string]$WeightsPath, [string]$RunOutp
     $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = "1"
     try {
         $ErrorActionPreference = "Continue"
-        $output = & $PythonExe @arguments 2>&1
+        $output = & $RuntimePythonExe @arguments 2>&1
         $exitCode = $LASTEXITCODE
         $output | Set-Content -LiteralPath $logPath -Encoding UTF8
         if ($exitCode -ne 0) {
@@ -510,15 +616,24 @@ function Invoke-YoloVal([string]$RunName, [string]$WeightsPath, [string]$RunOutp
 
     return [ordered]@{
         name = $RunName
+        engine = $Engine
         weights = $WeightsPath
         logPath = $logPath
         labelsPath = Join-Path $runProject "$RunName\labels"
         metrics = Read-ValMetrics $logPath
-        confidence = Read-PredictionConfidenceSummary (Join-Path $runProject "$RunName\labels") $UiConfidence
+        benchmark = Read-ValBenchmark $logPath
+        confidence = Read-PredictionConfidenceSummary (Join-Path $runProject "$RunName\labels") $UiConfidence $script:SegmentationPositiveClassId
     }
 }
 
-function Invoke-UltralyticsVal([string]$RunName, [string]$WeightsPath, [string]$RunOutputRoot) {
+function Invoke-UltralyticsVal(
+    [string]$RunName,
+    [string]$WeightsPath,
+    [string]$RunOutputRoot,
+    [string]$RuntimePythonExe,
+    [string]$RuntimeSourceRoot,
+    [string]$Engine
+) {
     $logPath = Join-Path $RunOutputRoot "$RunName.log"
     $runProject = Join-Path $RunOutputRoot "runs"
     $predictSource = Resolve-DataYamlSplitPath $DataYaml $Task
@@ -586,6 +701,20 @@ payload = {
 }
 print("OPENVISIONLAB_METRICS_JSON=" + json.dumps(payload, separators=(",", ":")))
 
+speed = getattr(metrics, "speed", None) or {}
+preprocess_ms = speed.get("preprocess")
+inference_ms = speed.get("inference")
+postprocess_ms = speed.get("postprocess")
+parts = [value for value in (preprocess_ms, inference_ms, postprocess_ms) if value is not None]
+benchmark = {
+    "preprocessMs": float(preprocess_ms) if preprocess_ms is not None else None,
+    "inferenceMs": float(inference_ms) if inference_ms is not None else None,
+    "postprocessMs": float(postprocess_ms) if postprocess_ms is not None else None,
+    "taktMs": float(sum(parts)) if len(parts) == 3 else None,
+    "source": "native-validation-speed",
+}
+print("OPENVISIONLAB_BENCHMARK_JSON=" + json.dumps(benchmark, separators=(",", ":")))
+
 predict_name = run_name + "-predict"
 model.predict(
     source=predict_source,
@@ -620,15 +749,15 @@ print("OPENVISIONLAB_PREDICT_LABELS=" + str(Path(run_project) / predict_name / "
     $previousErrorActionPreference = $ErrorActionPreference
     $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = "1"
     $env:PYTHONPATH = if ([string]::IsNullOrWhiteSpace($previousPythonPath)) {
-        $YoloSourceRoot
+        $RuntimeSourceRoot
     } else {
-        "$YoloSourceRoot;$previousPythonPath"
+        "$RuntimeSourceRoot;$previousPythonPath"
     }
 
-    Push-Location $YoloSourceRoot
+    Push-Location $RuntimeSourceRoot
     try {
         $ErrorActionPreference = "Continue"
-        $output = $code | & $PythonExe @arguments 2>&1
+        $output = $code | & $RuntimePythonExe @arguments 2>&1
         $exitCode = $LASTEXITCODE
         $output | Set-Content -LiteralPath $logPath -Encoding UTF8
         if ($exitCode -ne 0) {
@@ -644,21 +773,30 @@ print("OPENVISIONLAB_PREDICT_LABELS=" + str(Path(run_project) / predict_name / "
 
     return [ordered]@{
         name = $RunName
+        engine = $Engine
         weights = $WeightsPath
         logPath = $logPath
         validationLabelsPath = Join-Path $runProject "$RunName\labels"
         labelsPath = Join-Path $runProject "$RunName-predict\labels"
         metrics = Read-UltralyticsMetrics $logPath
-        confidence = Read-PredictionConfidenceSummary (Join-Path $runProject "$RunName-predict\labels") $UiConfidence
+        benchmark = Read-UltralyticsBenchmark $logPath
+        confidence = Read-PredictionConfidenceSummary (Join-Path $runProject "$RunName-predict\labels") $UiConfidence $script:SegmentationPositiveClassId
     }
 }
 
-function Invoke-ModelVal([string]$RunName, [string]$WeightsPath, [string]$RunOutputRoot) {
-    if (Test-YoloV5SourceRoot) {
-        return Invoke-YoloVal $RunName $WeightsPath $RunOutputRoot
+function Invoke-ModelVal(
+    [string]$RunName,
+    [string]$WeightsPath,
+    [string]$RunOutputRoot,
+    [string]$RuntimePythonExe,
+    [string]$RuntimeSourceRoot,
+    [string]$Engine
+) {
+    if (Test-YoloV5SourceRoot $RuntimeSourceRoot) {
+        return Invoke-YoloVal $RunName $WeightsPath $RunOutputRoot $RuntimePythonExe $RuntimeSourceRoot $Engine
     }
 
-    return Invoke-UltralyticsVal $RunName $WeightsPath $RunOutputRoot
+    return Invoke-UltralyticsVal $RunName $WeightsPath $RunOutputRoot $RuntimePythonExe $RuntimeSourceRoot $Engine
 }
 
 function Read-ValMetrics([string]$LogPath) {
@@ -674,6 +812,26 @@ function Read-ValMetrics([string]$LogPath) {
         recall = [double]$match.Groups[2].Value
         map50 = [double]$match.Groups[3].Value
         map5095 = [double]$match.Groups[4].Value
+    }
+}
+
+function Read-ValBenchmark([string]$LogPath) {
+    $text = Get-Content -LiteralPath $LogPath -Raw
+    $pattern = '(?im)Speed:\s*([0-9.]+)ms\s+pre-process,\s*([0-9.]+)ms\s+inference,\s*([0-9.]+)ms\s+(?:NMS|postprocess)\s+per image'
+    $match = [regex]::Match($text, $pattern)
+    if (-not $match.Success) {
+        return [ordered]@{ preprocessMs = $null; inferenceMs = $null; postprocessMs = $null; taktMs = $null; source = "native-validation-speed" }
+    }
+
+    $preprocessMs = [double]$match.Groups[1].Value
+    $inferenceMs = [double]$match.Groups[2].Value
+    $postprocessMs = [double]$match.Groups[3].Value
+    return [ordered]@{
+        preprocessMs = $preprocessMs
+        inferenceMs = $inferenceMs
+        postprocessMs = $postprocessMs
+        taktMs = $preprocessMs + $inferenceMs + $postprocessMs
+        source = "native-validation-speed"
     }
 }
 
@@ -700,7 +858,31 @@ function Read-UltralyticsMetrics([string]$LogPath) {
     }
 }
 
-function Read-PredictionConfidenceSummary([string]$LabelsPath, [double]$Threshold) {
+function Read-UltralyticsBenchmark([string]$LogPath) {
+    $line = Get-Content -LiteralPath $LogPath |
+        Where-Object { $_ -like "OPENVISIONLAB_BENCHMARK_JSON=*" } |
+        Select-Object -Last 1
+    if ($null -eq $line) {
+        return [ordered]@{ preprocessMs = $null; inferenceMs = $null; postprocessMs = $null; taktMs = $null; source = "native-validation-speed" }
+    }
+
+    try {
+        $json = $line.ToString().Substring("OPENVISIONLAB_BENCHMARK_JSON=".Length)
+        $data = $json | ConvertFrom-Json
+        return [ordered]@{
+            preprocessMs = $data.preprocessMs
+            inferenceMs = $data.inferenceMs
+            postprocessMs = $data.postprocessMs
+            taktMs = $data.taktMs
+            source = $data.source
+        }
+    }
+    catch {
+        return [ordered]@{ preprocessMs = $null; inferenceMs = $null; postprocessMs = $null; taktMs = $null; source = "native-validation-speed" }
+    }
+}
+
+function Read-PredictionConfidenceSummary([string]$LabelsPath, [double]$Threshold, $PositiveClassId) {
     $total = 0
     $aboveThreshold = 0
     $maxConfidence = 0.0
@@ -708,7 +890,7 @@ function Read-PredictionConfidenceSummary([string]$LabelsPath, [double]$Threshol
         foreach ($file in Get-ChildItem -LiteralPath $LabelsPath -File -Filter "*.txt") {
             foreach ($line in Get-Content -LiteralPath $file.FullName) {
                 $parts = $line -split '\s+'
-                if ($parts.Length -lt 6) {
+                if ($parts.Length -lt 6 -or -not (Test-YoloLabelLineClass $line $PositiveClassId)) {
                     continue
                 }
 
@@ -730,18 +912,18 @@ function Read-PredictionConfidenceSummary([string]$LabelsPath, [double]$Threshol
         uiCandidateCount = $aboveThreshold
         uiConfidence = $Threshold
         maxConfidence = $maxConfidence
-        thresholdSweep = @(Read-PredictionThresholdSweep $LabelsPath $Threshold)
+        thresholdSweep = @(Read-PredictionThresholdSweep $LabelsPath $Threshold $PositiveClassId)
     }
 }
 
-function Test-PredictionFileAtThreshold([string]$Path, [double]$Threshold) {
+function Test-PredictionFileAtThreshold([string]$Path, [double]$Threshold, $PositiveClassId) {
     if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
         return $false
     }
 
     foreach ($line in Get-Content -LiteralPath $Path) {
         $parts = @($line -split '\s+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-        if ($parts.Count -lt 6) {
+        if ($parts.Count -lt 6 -or -not (Test-YoloLabelLineClass $line $PositiveClassId)) {
             continue
         }
 
@@ -759,6 +941,7 @@ function Read-SegmentationPredictionImageEvidence($Model, $Evidence, [double]$Th
     $positiveImagesWithCandidates = 0
     $backgroundImageCount = 0
     $backgroundImagesWithCandidates = 0
+    $positiveClassId = if ($Evidence.Contains("segmentationPositiveClassId")) { [int]$Evidence.segmentationPositiveClassId } else { $null }
 
     foreach ($imagePath in @(Get-SplitImagePaths $Evidence.imagesPath)) {
         $answerLabelPath = Resolve-LabelPathFromImagePath $imagePath
@@ -768,9 +951,9 @@ function Read-SegmentationPredictionImageEvidence($Model, $Evidence, [double]$Th
 
         $isPositive = @(Get-Content -LiteralPath $answerLabelPath |
             ForEach-Object { (Remove-YamlInlineComment $_).Trim() } |
-            Where-Object { Test-SegmentationLabelLine $_ }).Count -gt 0
+            Where-Object { Test-SegmentationLabelLineForClass $_ $positiveClassId }).Count -gt 0
         $predictionLabelPath = Join-Path $Model.labelsPath (([System.IO.Path]::GetFileNameWithoutExtension($imagePath)) + ".txt")
-        $hasUiCandidate = Test-PredictionFileAtThreshold $predictionLabelPath $Threshold
+        $hasUiCandidate = Test-PredictionFileAtThreshold $predictionLabelPath $Threshold $positiveClassId
         if ($isPositive) {
             $positiveImageCount++
             if ($hasUiCandidate) {
@@ -817,7 +1000,7 @@ function Get-ReviewConfidenceThresholds([double]$UiConfidence) {
     return @($thresholds | Sort-Object -Descending)
 }
 
-function Read-PredictionThresholdSweep([string]$LabelsPath, [double]$UiConfidence) {
+function Read-PredictionThresholdSweep([string]$LabelsPath, [double]$UiConfidence, $PositiveClassId) {
     $thresholds = Get-ReviewConfidenceThresholds $UiConfidence
     $counts = @{}
     foreach ($threshold in $thresholds) {
@@ -828,7 +1011,7 @@ function Read-PredictionThresholdSweep([string]$LabelsPath, [double]$UiConfidenc
         foreach ($file in Get-ChildItem -LiteralPath $LabelsPath -File -Filter "*.txt") {
             foreach ($line in Get-Content -LiteralPath $file.FullName) {
                 $parts = $line -split '\s+'
-                if ($parts.Length -lt 6) {
+                if ($parts.Length -lt 6 -or -not (Test-YoloLabelLineClass $line $PositiveClassId)) {
                     continue
                 }
 
@@ -875,6 +1058,14 @@ function Get-ModelMetric($Model, [string]$MetricName) {
     }
 
     return [double]$value
+}
+
+function Get-ModelBenchmarkValue($Model, [string]$ValueName) {
+    if ($null -eq $Model -or $null -eq $Model.benchmark) {
+        return $null
+    }
+
+    return $Model.benchmark.$ValueName
 }
 
 function Get-ModelConfidenceValue($Model, [string]$ValueName) {
@@ -965,8 +1156,9 @@ function New-PromotionRecommendation($Baseline, $Candidate, $Evidence, [double]$
     $candidateUiBackgroundImageCount = Get-ModelConfidenceValue $Candidate "uiBackgroundImageCount"
     $candidateUiBackgroundImagesWithCandidates = Get-ModelConfidenceValue $Candidate "uiBackgroundImagesWithCandidates"
     $candidateUiBackgroundCandidateRate = Get-ModelConfidenceValue $Candidate "uiBackgroundCandidateRate"
-    $segmentationOperatingEvidence = if ($null -ne $positiveSegmentationImageCount) {
-        [ordered]@{
+    $segmentationOperatingEvidence = $null
+    if ($null -ne $positiveSegmentationImageCount) {
+        $segmentationOperatingEvidence = [ordered]@{
             minimumBackgroundSegmentationImageCount = $RecommendedSegmentationBackgroundImageCount
             backgroundSegmentationImageCount = $backgroundSegmentationImageCount
             minimumUiPositiveImageCoverage = $MinimumSegmentationUiPositiveImageCoverage
@@ -978,8 +1170,11 @@ function New-PromotionRecommendation($Baseline, $Candidate, $Evidence, [double]$
             uiBackgroundImagesWithCandidates = $candidateUiBackgroundImagesWithCandidates
             uiBackgroundCandidateRate = $candidateUiBackgroundCandidateRate
         }
-    } else {
-        $null
+
+        if ($Evidence.Contains("segmentationPositiveClassId")) {
+            $segmentationOperatingEvidence["segmentationPositiveClassId"] = [int]$Evidence.segmentationPositiveClassId
+            $segmentationOperatingEvidence["segmentationPositiveClassName"] = $Evidence.segmentationPositiveClassName
+        }
     }
     $minimumUiCandidateCount = 1
     $baselinePrecision = Get-ModelMetric $Baseline "precision"
@@ -1070,21 +1265,28 @@ function Write-MarkdownReport($Summary, [string]$Path) {
     $lines.Add("- Data: ``$($Summary.dataYaml)``")
     $lines.Add("- Task: ``$($Summary.task)``")
     $lines.Add("- Model task: ``$($Summary.modelTask)``")
+    $lines.Add("- Image size: ``$($Summary.imageSize)``")
+    $lines.Add("- Validation batch: ``$($Summary.batchSize)``")
     $lines.Add("- UI confidence: ``$($Summary.uiConfidence)``")
     if ($null -ne $evidence) {
         $lines.Add("- Held-out evidence: ``$($evidence.comparisonLabelCount)`` labeled images / recommended ``$($evidence.recommendedLabelCount)``")
+        if ($null -ne $evidence.segmentationPositiveClassName) {
+            $lines.Add("- Segmentation positive class: ``$($evidence.segmentationPositiveClassName)`` (id ``$($evidence.segmentationPositiveClassId)``)")
+        }
         if ($null -ne $evidence.backgroundSegmentationImageCount) {
             $lines.Add("- Background segmentation images: ``$($evidence.backgroundSegmentationImageCount)``")
         }
     }
     $lines.Add("")
-    $lines.Add("| Model | Precision | Recall | mAP50 | mAP50-95 | UI candidates | Max confidence |")
-    $lines.Add("| --- | ---: | ---: | ---: | ---: | ---: | ---: |")
+    $lines.Add("| Model | Engine | Precision | Recall | mAP50 | mAP50-95 | Model Takt ms/image | Inference ms/image | UI candidates | Max confidence |")
+    $lines.Add("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
     foreach ($item in @($baseline, $candidate)) {
         $metrics = $item.metrics
         $confidence = $item.confidence
-        $lines.Add("| $($item.name) | $(Format-NullableNumber $metrics.precision) | $(Format-NullableNumber $metrics.recall) | $(Format-NullableNumber $metrics.map50) | $(Format-NullableNumber $metrics.map5095) | $($confidence.uiCandidateCount)/$($confidence.predictionCount) | $(Format-NullableNumber $confidence.maxConfidence) |")
+        $lines.Add("| $($item.name) | $($item.engine) | $(Format-NullableNumber $metrics.precision) | $(Format-NullableNumber $metrics.recall) | $(Format-NullableNumber $metrics.map50) | $(Format-NullableNumber $metrics.map5095) | $(Format-NullableNumber (Get-ModelBenchmarkValue $item 'taktMs')) | $(Format-NullableNumber (Get-ModelBenchmarkValue $item 'inferenceMs')) | $($confidence.uiCandidateCount)/$($confidence.predictionCount) | $(Format-NullableNumber $confidence.maxConfidence) |")
     }
+    $lines.Add("")
+    $lines.Add("- Model Takt is native validation preprocess + inference + postprocess per image. It does not include WPF, TCP, camera, PLC, or equipment cycle time.")
     if ($null -ne $candidate.confidence -and $null -ne $candidate.confidence.thresholdSweep) {
         $sweepItems = @()
         foreach ($item in $candidate.confidence.thresholdSweep) {
@@ -1166,30 +1368,45 @@ if ([string]::IsNullOrWhiteSpace($PythonExe)) { $PythonExe = Join-Path $YoloProj
 if ([string]::IsNullOrWhiteSpace($DataYaml)) { $DataYaml = Join-Path $repoRoot "artifacts\yolo_compare_data_20260622.yaml" }
 if ([string]::IsNullOrWhiteSpace($BaselineWeights)) { $BaselineWeights = Join-Path $YoloProjectRoot "best.pt" }
 if ([string]::IsNullOrWhiteSpace($CandidateWeights)) { $CandidateWeights = Find-LatestBestWeights $YoloProjectRoot }
+if ([string]::IsNullOrWhiteSpace($BaselinePythonExe)) { $BaselinePythonExe = $PythonExe }
+if ([string]::IsNullOrWhiteSpace($BaselineYoloSourceRoot)) { $BaselineYoloSourceRoot = $YoloSourceRoot }
+if ([string]::IsNullOrWhiteSpace($CandidatePythonExe)) { $CandidatePythonExe = $PythonExe }
+if ([string]::IsNullOrWhiteSpace($CandidateYoloSourceRoot)) { $CandidateYoloSourceRoot = $YoloSourceRoot }
 
 $PythonExe = Resolve-PathValue $PythonExe
 $YoloProjectRoot = Resolve-PathValue $YoloProjectRoot
 $YoloSourceRoot = Resolve-PathValue $YoloSourceRoot
+$BaselinePythonExe = Resolve-PathValue $BaselinePythonExe
+$BaselineYoloSourceRoot = Resolve-PathValue $BaselineYoloSourceRoot
+$CandidatePythonExe = Resolve-PathValue $CandidatePythonExe
+$CandidateYoloSourceRoot = Resolve-PathValue $CandidateYoloSourceRoot
 $DataYaml = Resolve-PathValue $DataYaml
 $BaselineWeights = Resolve-PathValue $BaselineWeights
 $CandidateWeights = Resolve-PathValue $CandidateWeights
 $OutputDirectory = Resolve-PathValue $OutputDirectory
 
-Assert-File $PythonExe "Python executable"
-Assert-Directory $YoloSourceRoot "YOLO source root"
-Assert-YoloValidationRuntime
+Assert-File $BaselinePythonExe "Baseline Python executable"
+Assert-Directory $BaselineYoloSourceRoot "Baseline YOLO source root"
+Assert-YoloValidationRuntime $BaselineYoloSourceRoot "Baseline YOLO"
+Assert-File $CandidatePythonExe "Candidate Python executable"
+Assert-Directory $CandidateYoloSourceRoot "Candidate YOLO source root"
+Assert-YoloValidationRuntime $CandidateYoloSourceRoot "Candidate YOLO"
 Assert-File $DataYaml "YOLO data.yaml"
 Assert-File $BaselineWeights "Baseline weights"
 Assert-File $CandidateWeights "Candidate weights"
-Assert-ModelClassCountsMatchData
+$BaselineEngine = Resolve-EngineName $BaselineEngine $BaselineYoloSourceRoot
+$CandidateEngine = Resolve-EngineName $CandidateEngine $CandidateYoloSourceRoot
+$dataClassInfo = Assert-ModelClassCountsMatchData
+$segmentationPositiveClass = Resolve-SegmentationPositiveClass $dataClassInfo $SegmentationPositiveClassName $ModelTask
+$script:SegmentationPositiveClassId = if ($null -eq $segmentationPositiveClass) { $null } else { [int]$segmentationPositiveClass.id }
 
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $runOutputRoot = Join-Path $OutputDirectory $stamp
 New-Item -ItemType Directory -Force -Path $runOutputRoot | Out-Null
 
-$baseline = Invoke-ModelVal "baseline" $BaselineWeights $runOutputRoot
-$candidate = Invoke-ModelVal "candidate" $CandidateWeights $runOutputRoot
-$evidence = New-ComparisonEvidence $DataYaml $Task $ModelTask
+$baseline = Invoke-ModelVal "baseline" $BaselineWeights $runOutputRoot $BaselinePythonExe $BaselineYoloSourceRoot $BaselineEngine
+$candidate = Invoke-ModelVal "candidate" $CandidateWeights $runOutputRoot $CandidatePythonExe $CandidateYoloSourceRoot $CandidateEngine
+$evidence = New-ComparisonEvidence $DataYaml $Task $ModelTask $segmentationPositiveClass
 if ($ModelTask -ieq "segment") {
     Add-SegmentationPredictionImageEvidence $baseline $evidence $UiConfidence
     Add-SegmentationPredictionImageEvidence $candidate $evidence $UiConfidence
@@ -1201,6 +1418,9 @@ $summary = [ordered]@{
     dataYaml = $DataYaml
     task = $Task
     modelTask = $ModelTask
+    comparisonKind = if ($BaselineEngine -ine $CandidateEngine) { "engine-benchmark" } else { "candidate-validation" }
+    imageSize = $ImageSize
+    batchSize = $BatchSize
     uiConfidence = $UiConfidence
     evidence = $evidence
     baseline = $baseline

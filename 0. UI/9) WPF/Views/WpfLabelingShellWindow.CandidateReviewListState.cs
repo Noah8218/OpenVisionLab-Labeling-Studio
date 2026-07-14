@@ -37,7 +37,8 @@ namespace MvcVisionSystem
             CandidateReviewViewModel.SetCandidates(
                 presentation.Rows,
                 presentation.Detail,
-                presentation.PreferredCandidate);
+                presentation.PreferredCandidate,
+                pendingDetectionCandidates.Count);
             YoloWorkerSmokeCandidate selected = GetSelectedCandidate();
             if (selected != null)
             {

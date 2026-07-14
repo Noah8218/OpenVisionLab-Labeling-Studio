@@ -250,6 +250,7 @@
                            Margin="0,3,0,0" />
                 <Grid x:Name="CandidateReviewWorkbenchSummaryGrid"
                       AutomationProperties.AutomationId="CandidateReviewWorkbenchSummaryGrid"
+                      Visibility="{Binding CandidateInteractionVisibility}"
                       Margin="0,6,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -377,6 +378,7 @@
                            Margin="0,2,0,0" />
                 <Grid x:Name="CandidateReviewRoleSplitPanel"
                       AutomationProperties.AutomationId="CandidateReviewRoleSplitPanel"
+                      Visibility="{Binding CandidateInteractionVisibility}"
                       Margin="0,6,0,0">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" />
@@ -486,6 +488,7 @@
         <Grid x:Name="CandidateConfidenceFilterPanel"
               Grid.Row="5"
               AutomationProperties.AutomationId="CandidateConfidenceFilterPanel"
+              Visibility="{Binding CandidateInteractionVisibility}"
               Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="72" />
@@ -516,6 +519,7 @@
                    Grid.Row="6"
                    Text="{Binding DetailText}"
                    ToolTip="{Binding DetailText}"
+                   Visibility="{Binding CandidateInteractionVisibility}"
                    Foreground="{DynamicResource SecondaryTextBrush}"
                    FontFamily="Segoe UI"
                    FontSize="12"
@@ -676,6 +680,30 @@
                         </StackPanel>
                     </Border>
                 </Grid>
+                <StackPanel x:Name="ModelComparisonBenchmarkPanel"
+                            AutomationProperties.AutomationId="ModelComparisonBenchmarkPanel"
+                            Visibility="{Binding ModelComparisonBenchmarkVisibility}"
+                            Margin="0,1,0,5">
+                    <Border Height="1"
+                            Background="{DynamicResource BorderBrushDark}"
+                            Margin="0,0,0,5" />
+                    <TextBlock Text="&#xC815;&#xD655;&#xB3C4; / &#xBAA8;&#xB378; Takt"
+                               Foreground="{DynamicResource DisabledTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="9"
+                               FontWeight="SemiBold"
+                               Margin="0,0,0,2" />
+                    <TextBlock x:Name="ModelComparisonBenchmarkText"
+                               AutomationProperties.AutomationId="ModelComparisonBenchmarkText"
+                               Text="{Binding ModelComparisonBenchmarkText}"
+                               ToolTip="{Binding ModelComparisonBenchmarkText}"
+                               Foreground="{DynamicResource PrimaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="9"
+                               FontWeight="SemiBold"
+                               LineHeight="12"
+                               TextWrapping="Wrap" />
+                </StackPanel>
                 <TextBlock x:Name="ModelComparisonSourceText"
                            AutomationProperties.AutomationId="ModelComparisonSourceText"
                            Text="{Binding ModelComparisonSourceText}"
@@ -833,6 +861,7 @@
         </Border>
         <Border x:Name="SelectedCandidateSummaryPanel"
                 Grid.Row="2"
+                Visibility="{Binding CandidateInteractionVisibility}"
                 Background="{DynamicResource ToolbarButtonBrush}"
                 BorderBrush="{DynamicResource ToolbarButtonBorderBrush}"
                 BorderThickness="1"
@@ -1148,6 +1177,7 @@
         </Border>
         <ListBox x:Name="CandidateListBox"
                  Grid.Row="8"
+                 Visibility="{Binding CandidateInteractionVisibility}"
                  Background="Transparent"
                  BorderThickness="0"
                  Foreground="{DynamicResource SecondaryTextBrush}"

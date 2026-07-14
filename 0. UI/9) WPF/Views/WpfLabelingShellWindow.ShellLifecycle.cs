@@ -30,6 +30,7 @@ namespace MvcVisionSystem
             batchDetectionCts?.Cancel();
             batchDetectionCts?.Dispose();
             batchDetectionCts = null;
+            global.StopPythonModelClientConnection();
             imageDecodeCacheService.Clear();
             activeImageBitmap?.Dispose();
             activeImageBitmap = null;

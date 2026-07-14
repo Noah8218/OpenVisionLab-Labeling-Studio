@@ -59,6 +59,11 @@ namespace MvcVisionSystem
             string promotionReason = summary.SelectToken("promotion.reason")?.Value<string>() ?? string.Empty;
             IReadOnlyList<string> promotionReasons = ReadPromotionReasons(summary.SelectToken("promotion.reasons"));
             string candidateConfidenceSweepText = BuildConfidenceSweepText(summary.SelectToken("candidate.confidence.thresholdSweep"));
+            string benchmarkText = BuildBenchmarkText(summary);
+            bool isEngineComparison = string.Equals(
+                summary.SelectToken("comparisonKind")?.Value<string>(),
+                "engine-benchmark",
+                StringComparison.OrdinalIgnoreCase);
             Func<string, string> resolveImagePath = BuildImagePathResolver(dataYamlPath, task);
             double? summaryConfidence = summary.SelectToken("uiConfidence")?.Value<double?>();
             double threshold = confidenceThreshold
@@ -91,7 +96,9 @@ namespace MvcVisionSystem
                 promotionDecision,
                 promotionReason,
                 promotionReasons,
-                candidateConfidenceSweepText);
+                candidateConfidenceSweepText,
+                benchmarkText,
+                isEngineComparison);
         }
 
         public WpfModelComparisonReviewReport BuildFromLabelDirectories(
@@ -106,7 +113,9 @@ namespace MvcVisionSystem
             string promotionDecision = "",
             string promotionReason = "",
             IReadOnlyList<string> promotionReasons = null,
-            string candidateConfidenceSweepText = "")
+            string candidateConfidenceSweepText = "",
+            string benchmarkText = "",
+            bool isEngineComparison = false)
         {
             string promotionDetail = BuildPromotionDetailText(promotionDecision, promotionReason, promotionReasons);
             if (!Directory.Exists(baselineLabelsPath) || !Directory.Exists(candidateLabelsPath))
@@ -118,7 +127,9 @@ namespace MvcVisionSystem
                     sourcePath: sourcePath,
                     examples: Array.Empty<WpfModelComparisonReviewExample>(),
                     promotionDecision: promotionDecision,
-                    recommendationText: promotionDetail);
+                    recommendationText: promotionDetail,
+                    benchmarkText: benchmarkText,
+                    isEngineComparison: isEngineComparison);
             }
 
             Dictionary<string, List<YoloLabelDetection>> baseline = ReadDetections(baselineLabelsPath, classNames, confidenceThreshold);
@@ -150,7 +161,68 @@ namespace MvcVisionSystem
                 sourcePath: sourcePath,
                 examples: examples,
                 promotionDecision: promotionDecision,
-                recommendationText: promotionDetail);
+                recommendationText: promotionDetail,
+                benchmarkText: benchmarkText,
+                isEngineComparison: isEngineComparison);
+        }
+
+        private static string BuildBenchmarkText(JObject summary)
+        {
+            if (summary == null)
+            {
+                return string.Empty;
+            }
+
+            string baseline = BuildBenchmarkLine(summary, "baseline", "YOLOv5");
+            string candidate = BuildBenchmarkLine(summary, "candidate", "YOLOv8");
+            if (string.IsNullOrWhiteSpace(baseline) && string.IsNullOrWhiteSpace(candidate))
+            {
+                return string.Empty;
+            }
+
+            int imageSize = summary.SelectToken("imageSize")?.Value<int?>() ?? 0;
+            int batchSize = summary.SelectToken("batchSize")?.Value<int?>() ?? 0;
+            string condition = $"\uBAA8\uB378 Takt=\uC804\uCC98\uB9AC+\uCD94\uB860+\uD6C4\uCC98\uB9AC / batch {(batchSize > 0 ? batchSize : 1)}";
+            if (imageSize > 0)
+            {
+                condition += $" / image {imageSize}";
+            }
+
+            return string.Join(
+                Environment.NewLine,
+                new[] { baseline, candidate, condition }.Where(line => !string.IsNullOrWhiteSpace(line)));
+        }
+
+        private static string BuildBenchmarkLine(JObject summary, string modelKey, string fallbackEngine)
+        {
+            JToken model = summary.SelectToken(modelKey);
+            if (model == null || model.SelectToken("benchmark.taktMs")?.Value<double?>() == null)
+            {
+                return string.Empty;
+            }
+
+            string engine = model.SelectToken("engine")?.Value<string>();
+            if (string.IsNullOrWhiteSpace(engine))
+            {
+                engine = fallbackEngine;
+            }
+
+            return string.Format(
+                CultureInfo.CurrentCulture,
+                "{0}  P {1} / R {2} / mAP50 {3} / mAP50-95 {4} / Takt {5:0.00} ms",
+                engine,
+                FormatMetricPercent(model.SelectToken("metrics.precision")?.Value<double?>()),
+                FormatMetricPercent(model.SelectToken("metrics.recall")?.Value<double?>()),
+                FormatMetricPercent(model.SelectToken("metrics.map50")?.Value<double?>()),
+                FormatMetricPercent(model.SelectToken("metrics.map5095")?.Value<double?>()),
+                model.SelectToken("benchmark.taktMs")?.Value<double?>() ?? 0D);
+        }
+
+        private static string FormatMetricPercent(double? value)
+        {
+            return value.HasValue
+                ? value.Value.ToString("P1", CultureInfo.CurrentCulture)
+                : "-";
         }
 
         private static IReadOnlyList<string> ReadPromotionReasons(JToken token)
@@ -1030,7 +1102,9 @@ namespace MvcVisionSystem
             string sourcePath,
             IReadOnlyList<WpfModelComparisonReviewExample> examples,
             string promotionDecision = "",
-            string recommendationText = "")
+            string recommendationText = "",
+            string benchmarkText = "",
+            bool isEngineComparison = false)
         {
             HasComparison = hasComparison;
             SummaryText = summaryText ?? string.Empty;
@@ -1039,6 +1113,8 @@ namespace MvcVisionSystem
             Examples = examples ?? Array.Empty<WpfModelComparisonReviewExample>();
             PromotionDecision = promotionDecision ?? string.Empty;
             RecommendationText = recommendationText ?? string.Empty;
+            BenchmarkText = benchmarkText ?? string.Empty;
+            IsEngineComparison = isEngineComparison;
         }
 
         public bool HasComparison { get; }
@@ -1054,6 +1130,10 @@ namespace MvcVisionSystem
         public string PromotionDecision { get; }
 
         public string RecommendationText { get; }
+
+        public string BenchmarkText { get; }
+
+        public bool IsEngineComparison { get; }
     }
 
     public sealed class WpfModelComparisonReviewExample

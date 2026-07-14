@@ -25,6 +25,7 @@ namespace MvcVisionSystem
         public TextBlock PostTrainingModelDetail => PostTrainingModelDetailText;
         public WpfUiButton ReviewTrainedModel => ReviewTrainedModelButton;
         public WpfUiButton ConfirmTrainedModel => ConfirmTrainedModelButton;
+        public WpfUiButton RunYoloEngineComparison => RunYoloEngineComparisonButton;
         public TextBox ImageSizeBox => TrainingImageSizeBox;
         public TextBox BatchBox => TrainingBatchBox;
         public TextBox EpochBox => TrainingEpochBox;

@@ -488,6 +488,20 @@ namespace MvcVisionSystem._3._Communication.TCP
             }
         }
 
+        public void DropActiveClient()
+        {
+            Socket client;
+            lock (socketLock)
+            {
+                client = socketClient;
+                socketClient = null;
+                bConnected = false;
+            }
+
+            evtConnectDone.Reset();
+            CloseSocketQuietly(client);
+        }
+
         private static void CloseSocketQuietly(Socket socket)
         {
             if (socket == null)
@@ -536,9 +550,28 @@ namespace MvcVisionSystem._3._Communication.TCP
                     return;
                 }
 
+                bool hasActiveClient;
                 lock (socketLock)
                 {
-                    socketClient = acceptedClient;
+                    hasActiveClient = socketClient != null;
+                    if (!hasActiveClient)
+                    {
+                        socketClient = acceptedClient;
+                    }
+                }
+
+                if (hasActiveClient)
+                {
+                    AppLog.COMM($"TCP client rejected because an active worker is already connected. ID:{nID}, Name:{sName}");
+                    CloseSocketQuietly(acceptedClient);
+                    acceptedClient = null;
+                    Socket retryServer = socketServer;
+                    if (!isClosing && isListenActive && retryServer != null && ReferenceEquals(retryServer, server))
+                    {
+                        retryServer.BeginAccept(fnAcceptHandle, this);
+                    }
+
+                    return;
                 }
 
                 acceptedClient.BeginReceive(byBuffer, 0, byBuffer.Length, 0, fnReceiveHandle, this);   // 수신 Callback 함수를 대입한다.

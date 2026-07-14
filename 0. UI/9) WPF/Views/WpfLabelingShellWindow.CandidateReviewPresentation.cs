@@ -5,6 +5,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using DrawingPointF = System.Drawing.PointF;
 using DrawingRectangle = System.Drawing.Rectangle;
 using DrawingRectangleF = System.Drawing.RectangleF;
 
@@ -18,17 +19,25 @@ namespace MvcVisionSystem
             YoloWorkerSmokeCandidate selectedCandidate = GetSelectedCandidate();
             return (candidates ?? Array.Empty<YoloWorkerSmokeCandidate>())
                 .Where(candidate => candidate != null)
-                .Select((candidate, index) => new RoiImageCanvasDetectionOverlay
+                .Select((candidate, index) =>
                 {
-                    Index = index,
-                    Bounds = GetClippedCandidateBounds(candidate),
-                    Label = BuildDetectionOverlayLabel(candidate, index + 1),
-                    IsSelected = ReferenceEquals(candidate, selectedCandidate),
-                    Color = ReferenceEquals(candidate, selectedCandidate)
-                        ? System.Drawing.Color.FromArgb(80, 180, 255)
-                        : IsCandidateConfirmable(candidate)
-                        ? System.Drawing.Color.FromArgb(36, 211, 102)
-                        : System.Drawing.Color.FromArgb(255, 193, 7)
+                    IReadOnlyList<DrawingPointF> contourPoints = GetCandidateContourPoints(candidate);
+                    bool isContourOnly = contourPoints.Count >= 3
+                        || string.Equals(candidate.SegmentationType, "polygon", StringComparison.OrdinalIgnoreCase);
+                    return new RoiImageCanvasDetectionOverlay
+                    {
+                        Index = index,
+                        Bounds = GetClippedCandidateBounds(candidate),
+                        ContourPoints = contourPoints,
+                        IsContourOnly = isContourOnly,
+                        Label = BuildDetectionOverlayLabel(candidate, index + 1),
+                        IsSelected = ReferenceEquals(candidate, selectedCandidate),
+                        Color = ReferenceEquals(candidate, selectedCandidate)
+                            ? System.Drawing.Color.FromArgb(80, 180, 255)
+                            : IsCandidateConfirmable(candidate)
+                            ? System.Drawing.Color.FromArgb(36, 211, 102)
+                            : System.Drawing.Color.FromArgb(255, 193, 7)
+                    };
                 })
                 .Where(overlay => !overlay.Bounds.IsEmpty)
                 .ToList();
@@ -94,6 +103,34 @@ namespace MvcVisionSystem
             return DrawingRectangle.Intersect(
                 bounds,
                 new DrawingRectangle(0, 0, activeImageSize.Width, activeImageSize.Height));
+        }
+
+        private IReadOnlyList<DrawingPointF> GetCandidateContourPoints(YoloWorkerSmokeCandidate candidate)
+        {
+            if (candidate == null || activeImageSize.IsEmpty)
+            {
+                return Array.Empty<DrawingPointF>();
+            }
+
+            IReadOnlyList<DetectionPolygonPoint> sourcePoints = candidate.PolygonPoints;
+            bool normalized = sourcePoints == null || sourcePoints.Count < 3;
+            if (normalized)
+            {
+                sourcePoints = candidate.NormalizedPolygonPoints;
+            }
+
+            if (sourcePoints == null || sourcePoints.Count < 3)
+            {
+                return Array.Empty<DrawingPointF>();
+            }
+
+            List<DrawingPointF> points = sourcePoints
+                .Where(point => point != null && float.IsFinite(point.X) && float.IsFinite(point.Y))
+                .Select(point => new DrawingPointF(
+                    Math.Clamp(normalized ? point.X * activeImageSize.Width : point.X, 0F, activeImageSize.Width - 1F),
+                    Math.Clamp(normalized ? point.Y * activeImageSize.Height : point.Y, 0F, activeImageSize.Height - 1F)))
+                .ToList();
+            return points.Count >= 3 ? points : Array.Empty<DrawingPointF>();
         }
 
 

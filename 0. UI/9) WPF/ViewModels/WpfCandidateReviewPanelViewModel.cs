@@ -20,6 +20,10 @@ namespace MvcVisionSystem
         private static readonly Action<object> NoOpSelectionCommand = _ => { };
         private static readonly Action<KeyInputCommandArgs> NoOpKeyCommand = _ => { };
         private static readonly Action<WpfModelComparisonReviewExample> NoOpModelComparisonExampleCommand = _ => { };
+        private string panelModeTitleText = "\uAC80\uD1A0\uD560 AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4";
+        private string panelModeBadgeText = "\uC120\uD0DD \uB2E8\uACC4";
+        private string panelModeScopeText = "AI \uC790\uB3D9 \uB77C\uBCA8\uC744 \uC0AC\uC6A9\uD560 \uB54C\uB9CC \uC704\uC758 \uD604\uC7AC \uAC80\uC0AC\uB97C \uC2E4\uD589\uD558\uC138\uC694. \uC9C1\uC811 \uB77C\uBCA8\uB9C1\uC744 \uB9C8\uCCE4\uB2E4\uBA74 4 \uD559\uC2B5/\uBAA8\uB378\uB85C \uC774\uB3D9\uD558\uC138\uC694. \uC800\uC7A5\uD55C \uB77C\uBCA8\uC740 \uADF8\uB300\uB85C \uC720\uC9C0\uB429\uB2C8\uB2E4.";
+        private Visibility candidateInteractionVisibility = Visibility.Collapsed;
         private string confidenceText = "0%";
         private string detailText = "AI \uD6C4\uBCF4 \uC5C6\uC74C";
         private string candidateCountSummaryText = "AI \uD6C4\uBCF4 0\uAC1C";
@@ -62,6 +66,8 @@ namespace MvcVisionSystem
         private string modelComparisonPromotionDecision = string.Empty;
         private string modelComparisonSourceText = DefaultModelComparisonSourceText;
         private string modelComparisonDetailText = "\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378 \uD6C4\uBCF4\uB97C \uAC80\uC99D\uD558\uBA74 \uC774\uACF3\uC5D0 \uAE30\uC874 \uBAA8\uB378\uACFC \uC0C8 \uBAA8\uB378\uC758 \uCC28\uC774\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+        private string modelComparisonBenchmarkText = string.Empty;
+        private Visibility modelComparisonBenchmarkVisibility = Visibility.Collapsed;
         private string modelComparisonActionText = "\uB2E4\uC74C: \uD6C4\uBCF4\uAC00 \uC788\uC73C\uBA74 \uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uC758 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB204\uB974\uACE0, \uAC80\uD1A0 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694.";
         private string modelCandidateDecisionStatusText = "\uD6C4\uBCF4 \uACB0\uC815: \uB300\uAE30";
         private string modelCandidateDecisionDetailText = "\uBE44\uAD50 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uAC70\uB098 \uD6C4\uBCF4\uB97C \uAC70\uC808\uD574 \uD604\uC7AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4.";
@@ -88,11 +94,23 @@ namespace MvcVisionSystem
 
         public string ViewName => nameof(WpfCandidateReviewPanel);
 
-        public string PanelModeTitleText => "\uD604\uC7AC \uC774\uBBF8\uC9C0 AI \uD6C4\uBCF4 \uD655\uC815";
+        public string PanelModeTitleText
+        {
+            get => panelModeTitleText;
+            private set => SetProperty(ref panelModeTitleText, value ?? string.Empty);
+        }
 
-        public string PanelModeBadgeText => "AI \uD6C4\uBCF4 \uAC80\uD1A0";
+        public string PanelModeBadgeText
+        {
+            get => panelModeBadgeText;
+            private set => SetProperty(ref panelModeBadgeText, value ?? string.Empty);
+        }
 
-        public string PanelModeScopeText => "\uD655\uC815 \uC804\uC5D0\uB294 \uC800\uC7A5 \uB77C\uBCA8 \uC544\uB2D8";
+        public string PanelModeScopeText
+        {
+            get => panelModeScopeText;
+            private set => SetProperty(ref panelModeScopeText, value ?? string.Empty);
+        }
 
         public string PanelModeDetailText => "\uC774 \uD328\uB110\uC740 \uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 AI \uD6C4\uBCF4\uB97C \uD655\uC778\uD569\uB2C8\uB2E4. \uD655\uC815\uD558\uBA74 \uC800\uC7A5 \uB77C\uBCA8\uC774 \uB418\uACE0, \uC2A4\uD0B5\uD558\uBA74 \uD6C4\uBCF4 \uD45C\uC2DC\uB9CC \uC228\uAE41\uB2C8\uB2E4.";
 
@@ -225,6 +243,12 @@ namespace MvcVisionSystem
         {
             get => candidateCountSummaryText;
             private set => SetProperty(ref candidateCountSummaryText, value ?? string.Empty);
+        }
+
+        public Visibility CandidateInteractionVisibility
+        {
+            get => candidateInteractionVisibility;
+            private set => SetProperty(ref candidateInteractionVisibility, value);
         }
 
         public string SelectedCandidateSummaryText
@@ -469,6 +493,26 @@ namespace MvcVisionSystem
             private set => SetProperty(ref modelComparisonDetailText, value ?? string.Empty);
         }
 
+        public string ModelComparisonBenchmarkText
+        {
+            get => modelComparisonBenchmarkText;
+            private set
+            {
+                if (SetProperty(ref modelComparisonBenchmarkText, value ?? string.Empty))
+                {
+                    ModelComparisonBenchmarkVisibility = string.IsNullOrWhiteSpace(modelComparisonBenchmarkText)
+                        ? Visibility.Collapsed
+                        : Visibility.Visible;
+                }
+            }
+        }
+
+        public Visibility ModelComparisonBenchmarkVisibility
+        {
+            get => modelComparisonBenchmarkVisibility;
+            private set => SetProperty(ref modelComparisonBenchmarkVisibility, value);
+        }
+
         public string ModelComparisonActionText
         {
             get => modelComparisonActionText;
@@ -550,13 +594,22 @@ namespace MvcVisionSystem
             RejectModelCandidateCommand = new RelayCommand(rejectModelCandidate ?? NoOpCommand);
         }
 
-        public void SetCandidates(IEnumerable<WpfCandidateReviewListItem> candidates, string detail, object preferredPayload = null)
+        public void SetCandidates(
+            IEnumerable<WpfCandidateReviewListItem> candidates,
+            string detail,
+            object preferredPayload = null,
+            int totalCandidateCount = -1)
         {
             SelectedCandidate = null;
             List<WpfCandidateReviewListItem> rows = (candidates ?? Array.Empty<WpfCandidateReviewListItem>()).ToList();
             Candidates.ReplaceAll(rows);
 
-            CandidateCountSummaryText = FormatCandidateCount(rows.Count(item => item?.IsEnabled == true));
+            int visibleCandidateCount = rows.Count(item => item?.IsEnabled == true);
+            int pendingCandidateCount = totalCandidateCount < 0
+                ? visibleCandidateCount
+                : Math.Max(totalCandidateCount, visibleCandidateCount);
+            CandidateCountSummaryText = FormatCandidateCount(visibleCandidateCount);
+            UpdateCandidateAvailabilityPresentation(visibleCandidateCount, pendingCandidateCount);
             SelectedCandidate = Candidates.FirstOrDefault(item => item.IsEnabled && ReferenceEquals(item.Payload, preferredPayload))
                 ?? Candidates.FirstOrDefault(item => item.IsEnabled);
             DetailText = detail;
@@ -675,6 +728,7 @@ namespace MvcVisionSystem
             ModelComparisonPromotionDecision = string.Empty;
             ModelComparisonSourceText = DefaultModelComparisonSourceText;
             ModelComparisonDetailText = "\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378 \uD6C4\uBCF4\uB97C \uAC80\uC99D\uD558\uBA74 \uC774\uACF3\uC5D0 \uAE30\uC874 \uBAA8\uB378\uACFC \uC0C8 \uBAA8\uB378\uC758 \uCC28\uC774\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+            ModelComparisonBenchmarkText = string.Empty;
             ModelComparisonActionText = "\uB2E4\uC74C: \uD6C4\uBCF4\uAC00 \uC788\uC73C\uBA74 \uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uC758 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB204\uB974\uACE0, \uAC80\uD1A0 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694.";
             ModelComparisonVisibility = Visibility.Collapsed;
             SetModelCandidateDecisionState(false, false, null, null, null, null);
@@ -697,25 +751,29 @@ namespace MvcVisionSystem
                 ModelComparisonStatusText = "\uBAA8\uB378 \uBE44\uAD50: \uC544\uC9C1 \uC2E4\uD589 \uC548 \uB428";
                 ModelComparisonDecisionText = "\uAD50\uCCB4 \uD310\uB2E8: \uBE44\uAD50 \uD544\uC694";
                 ModelComparisonPromotionDecision = string.Empty;
+                ModelComparisonBenchmarkText = string.Empty;
                 ModelComparisonDetailText = "\uBE44\uAD50 \uACB0\uACFC \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4. \uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uC5D0\uC11C \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB204\uB974\uAC70\uB098 Guide\uC5D0\uC11C \uBAA8\uB378 \uBE44\uAD50\uB97C \uC2E4\uD589\uD558\uC138\uC694.";
                 ModelComparisonActionText = "\uBAA8\uB378 \uD6C4\uBCF4\uB97C \uC801\uC6A9\uD558\uB824\uBA74 \uBE44\uAD50 \uACB0\uACFC\uB97C \uD655\uC778\uD55C \uB4A4 \uBAA8\uB378\uC13C\uD130\uC758 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5 \uBC84\uD2BC\uC744 \uB204\uB974\uC138\uC694.";
-                ModelComparisonVisibility = Visibility.Visible;
+                ModelComparisonVisibility = Visibility.Collapsed;
                 return;
             }
 
             ModelComparisonStatusText = report.SummaryText;
             ModelComparisonPromotionDecision = report.PromotionDecision;
+            ModelComparisonBenchmarkText = report.BenchmarkText;
             ModelComparisonDecisionText = string.IsNullOrWhiteSpace(report.RecommendationText)
                 ? "\uAD50\uCCB4 \uD310\uB2E8: \uC608\uC2DC \uAC80\uD1A0"
                 : report.RecommendationText;
             ModelComparisonDetailText = string.IsNullOrWhiteSpace(report.SourcePath)
                 ? report.DetailText
                 : $"{report.DetailText} / {System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(report.SourcePath) ?? report.SourcePath)}";
-            ModelComparisonActionText = string.Equals(report.PromotionDecision, "hold", StringComparison.OrdinalIgnoreCase)
-                ? "\uB2E4\uC74C: \uB2E4\uC591\uD55C \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694."
-                : (report.Examples?.Count ?? 0) > 0
-                    ? "\uB2E4\uC74C: \uC544\uB798 \uC608\uC2DC\uB97C \uD074\uB9AD\uD574 \uC774\uBBF8\uC9C0 \uC704\uCE58\uB97C \uD655\uC778\uD55C \uB4A4 Guide\uC758 \uAD50\uCCB4 \uD310\uB2E8\uC744 \uBCF4\uACE0, \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694."
-                    : "\uB2E4\uC74C: \uBAA8\uB378 \uCC28\uC774 \uC608\uC2DC\uAC00 \uC5C6\uC73C\uBA74 \uAC80\uC99D \uB370\uC774\uD130 \uC218\uC640 \uC9C0\uD45C\uB97C \uD655\uC778\uD55C \uB4A4 \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uAC70\uB098 \uD604\uC7AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD558\uC138\uC694.";
+            ModelComparisonActionText = report.IsEngineComparison
+                ? "\uB2E4\uC74C: \uC774\uBBF8\uC9C0\uBCC4 \uCC28\uC774\uC640 Takt\uB97C \uD655\uC778\uD558\uC138\uC694. \uC5D4\uC9C4 \uCC44\uD0DD\uC740 \uAC00\uC911\uCE58\uB9CC \uBC14\uAFB8\uC9C0 \uB9D0\uACE0 Python/\uB7F0\uD0C0\uC784 \uC124\uC815\uAE4C\uC9C0 \uD568\uAED8 \uC801\uC6A9\uD574\uC57C \uD569\uB2C8\uB2E4."
+                : string.Equals(report.PromotionDecision, "hold", StringComparison.OrdinalIgnoreCase)
+                    ? "\uB2E4\uC74C: \uB2E4\uC591\uD55C \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694."
+                    : (report.Examples?.Count ?? 0) > 0
+                        ? "\uB2E4\uC74C: \uC544\uB798 \uC608\uC2DC\uB97C \uD074\uB9AD\uD574 \uC774\uBBF8\uC9C0 \uC704\uCE58\uB97C \uD655\uC778\uD55C \uB4A4 Guide\uC758 \uAD50\uCCB4 \uD310\uB2E8\uC744 \uBCF4\uACE0, \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694."
+                        : "\uB2E4\uC74C: \uBAA8\uB378 \uCC28\uC774 \uC608\uC2DC\uAC00 \uC5C6\uC73C\uBA74 \uAC80\uC99D \uB370\uC774\uD130 \uC218\uC640 \uC9C0\uD45C\uB97C \uD655\uC778\uD55C \uB4A4 \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uAC70\uB098 \uD604\uC7AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD558\uC138\uC694.";
 
             foreach (WpfModelComparisonReviewExample example in report.Examples ?? Array.Empty<WpfModelComparisonReviewExample>())
             {
@@ -825,6 +883,33 @@ namespace MvcVisionSystem
             {
                 IsReviewHistoryExpanded = false;
             }
+        }
+
+        private void UpdateCandidateAvailabilityPresentation(int visibleCandidateCount, int pendingCandidateCount)
+        {
+            CandidateInteractionVisibility = pendingCandidateCount > 0
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+
+            if (visibleCandidateCount > 0)
+            {
+                PanelModeTitleText = "\uD604\uC7AC \uC774\uBBF8\uC9C0 AI \uD6C4\uBCF4 \uD655\uC778";
+                PanelModeBadgeText = "AI \uD6C4\uBCF4 \uAC80\uD1A0";
+                PanelModeScopeText = "\uB9DE\uB294 \uD6C4\uBCF4\uB9CC \uD655\uC815\uD558\uBA74 \uC800\uC7A5 \uB77C\uBCA8\uB85C \uCD94\uAC00\uB429\uB2C8\uB2E4. \uD6C4\uBCF4 \uC228\uAE40\uC740 \uC800\uC7A5 \uB77C\uBCA8\uC744 \uBC14\uAFB8\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+                return;
+            }
+
+            if (pendingCandidateCount > 0)
+            {
+                PanelModeTitleText = "\uD604\uC7AC \uC2E0\uB8B0\uB3C4 \uAE30\uC900\uC5D0 \uD45C\uC2DC\uB418\uB294 AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4";
+                PanelModeBadgeText = "AI \uD6C4\uBCF4 \uAC80\uD1A0";
+                PanelModeScopeText = "\uD6C4\uBCF4\uAC00 \uC2E0\uB8B0\uB3C4 \uAE30\uC900 \uC544\uB798\uC5D0 \uC788\uC2B5\uB2C8\uB2E4. \uC2E0\uB8B0\uB3C4\uB97C \uB0AE\uCD94\uBA74 \uB2E4\uC2DC \uD45C\uC2DC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
+                return;
+            }
+
+            PanelModeTitleText = "\uAC80\uD1A0\uD560 AI \uD6C4\uBCF4\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4";
+            PanelModeBadgeText = "\uC120\uD0DD \uB2E8\uACC4";
+            PanelModeScopeText = "AI \uC790\uB3D9 \uB77C\uBCA8\uC744 \uC0AC\uC6A9\uD560 \uB54C\uB9CC \uC704\uC758 \uD604\uC7AC \uAC80\uC0AC\uB97C \uC2E4\uD589\uD558\uC138\uC694. \uC9C1\uC811 \uB77C\uBCA8\uB9C1\uC744 \uB9C8\uCCE4\uB2E4\uBA74 4 \uD559\uC2B5/\uBAA8\uB378\uB85C \uC774\uB3D9\uD558\uC138\uC694. \uC800\uC7A5\uD55C \uB77C\uBCA8\uC740 \uADF8\uB300\uB85C \uC720\uC9C0\uB429\uB2C8\uB2E4.";
         }
 
         private static string FormatCandidateCount(int count)

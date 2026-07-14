@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
 
@@ -9,6 +11,8 @@ namespace MvcVisionSystem
         public string ClassName { get; set; } = string.Empty;
         public float Confidence { get; set; }
         public RectangleF Bounds { get; set; }
+        public IReadOnlyList<PointF> ContourPoints { get; set; } = Array.Empty<PointF>();
+        public bool IsContourOnly { get; set; }
         public Color Color { get; set; } = Color.Red;
         public bool IsSelected { get; set; }
 

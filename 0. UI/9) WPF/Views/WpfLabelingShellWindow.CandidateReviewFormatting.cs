@@ -23,7 +23,13 @@ namespace MvcVisionSystem
                 X = defect?.X ?? 0D,
                 Y = defect?.Y ?? 0D,
                 Width = defect?.Width ?? 0D,
-                Height = defect?.Height ?? 0D
+                Height = defect?.Height ?? 0D,
+                CandidateType = defect?.CandidateType ?? string.Empty,
+                PredictionType = defect?.PredictionType ?? string.Empty,
+                ImageLevel = defect?.ImageLevel == true,
+                SegmentationType = defect?.SegmentationType ?? string.Empty,
+                PolygonPoints = defect?.PolygonPoints?.ToArray() ?? Array.Empty<DetectionPolygonPoint>(),
+                NormalizedPolygonPoints = defect?.NormalizedPolygonPoints?.ToArray() ?? Array.Empty<DetectionPolygonPoint>()
             };
         }
 

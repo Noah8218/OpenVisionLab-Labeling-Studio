@@ -242,7 +242,7 @@ namespace MvcVisionSystem._1._Core
             };
         }
 
-        private static IReadOnlyDictionary<string, List<LabelingSegmentationObject>> BuildSegmentsByClass(
+        internal static IReadOnlyDictionary<string, List<LabelingSegmentationObject>> BuildSegmentsByClass(
             CClassItem classItem,
             string className,
             IReadOnlyList<YoloWorkerSmokeCandidate> candidates,
@@ -379,41 +379,19 @@ namespace MvcVisionSystem._1._Core
                 return Array.Empty<LabelingSegmentationObject>();
             }
 
-            List<SegmentationGeometry.SegmentationMaskRegion> regions =
-                SegmentationGeometry.RasterMaskToRegions(targetMask, imageSize, imageSize);
-            if (regions.Count == 0)
-            {
-                return new[]
+            Rectangle targetMaskBounds = SegmentationGeometry.GetMaskBounds(targetMask, imageSize);
+            return targetMaskBounds.IsEmpty
+                ? Array.Empty<LabelingSegmentationObject>()
+                : new[]
                 {
                     new LabelingSegmentationObject(Array.Empty<Point>(), classItem ?? new CClassItem { Text = className })
                     {
                         ClassName = className,
                         MaskData = targetMask,
                         MaskSize = imageSize,
-                        MaskBounds = SegmentationGeometry.GetMaskBounds(targetMask, imageSize)
+                        MaskBounds = targetMaskBounds
                     }
                 };
-            }
-
-            return regions
-                .Select(region =>
-                {
-                    var segment = new LabelingSegmentationObject(region.Points, classItem ?? new CClassItem { Text = className })
-                    {
-                        ClassName = className
-                    };
-                    foreach (List<Point> cutout in region.Cutouts ?? new List<List<Point>>())
-                    {
-                        if (cutout?.Count >= 3)
-                        {
-                            segment.CutoutPolygons.Add(cutout);
-                        }
-                    }
-
-                    return segment;
-                })
-                .Where(segment => segment.Points.Count >= 3)
-                .ToList();
         }
 
         private static LabelingSegmentationObject BuildTranslatedSourceSegment(
