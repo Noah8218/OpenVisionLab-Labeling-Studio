@@ -144,6 +144,8 @@ Latest 2026-07-14 priority and implementation state:
 - The approved `yolov8n.pt` seed was downloaded without dependency changes and trained for 100 epochs on the existing 97/28 split. The Detect `best.pt` is under `C:\Git\yolov8\runs\detect\openvisionlab-yolov8n-detect-test01-e100-img320-20260714\weights`.
 - Five controlled validation runs measured YOLOv5s `P 0.999 / R 0.500 / mAP50-95 0.464 / median Takt 74.6ms` and YOLOv8n `P 0.980 / R 1.000 / mAP50-95 0.921 / median Takt 47.946ms`. The validation set has 28 OK objects and only one NG object, so this is not adoption evidence.
 - YOLOv8 folder connection now selects Detect/SEG/Classification weights according to dataset purpose. Focused tests and real current-build 1920x1080 evidence under `artifacts\ui\20260714-yolov5-yolov8-real-validation` pass.
+- Object-detection saved-profile restart is now verified through the actual EXE. Generic settings save no longer overwrites authoritative dataset purpose from stale workflow presentation; an ObjectDetection recipe saved YOLOv8 and the new Detect `best.pt`, closed, reopened with the same visible engine/weight, and returned one `OK` candidate at confidence `0.982` on first inference. Evidence is under `artifacts\exe-yolov8-detect-restart-smoke\codex_yolov8_detect_restart_20260714_193745`.
+- Anomaly-classification saved-profile restart is now verified through the actual EXE. A new AnomalyDetection recipe starts with isolated model/image state, an empty image root clears the prior canvas, a queue root cannot reopen a stale image from another dataset, and the saved YOLOv8 classification profile reopens with the same weight/mapping. First inference returned one `abnormal 99.8%` candidate and persisted `Abnormal`. Evidence is under `artifacts\exe-yolov8-anomaly-restart-smoke\codex_yolov8_anomaly_restart_20260714_204940`.
 
 Known remaining gaps:
 
@@ -163,9 +165,8 @@ Recommended next work:
 
 1. Acquire and label an independent object-detection test set with enough NG examples; `Test02` is hash-identical and is not new evidence.
 2. Rerun `v5 vs v8 analysis` on test, review class-specific misses/examples, and retain repeated Takt median/range before adoption.
-3. Connect/save the object-detection recipe's `C:\Git\yolov8` runtime profile and smoke close/reopen/first inference with the new Detect `best.pt`.
-4. Then rerun anomaly classification on an independent production-camera/cross-session normal/abnormal set.
-5. Keep completed SEG annotation, queue, splitter, and Viewer/OpenGL paths stable unless a reproduced defect requires focused work.
+3. Then rerun anomaly classification on an independent production-camera/cross-session normal/abnormal set.
+4. Keep completed SEG annotation, queue, splitter, Viewer/OpenGL, and YOLOv8 Detect restart paths stable unless a reproduced defect requires focused work.
 
 Useful verification commands:
 
@@ -173,6 +174,9 @@ Useful verification commands:
 dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-yolov8-detect-restart-smoke
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-root-switch
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-yolov8-anomaly-restart-smoke
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-polygon-training-flow
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-center-real-candidate-save --yolo-root C:\Git\yolov8 --data-yaml .\artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260707_221147\dataset\data.yaml --baseline-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt --candidate-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-20label-finetune-80ep-img160-20260707\weights\best.pt --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-center-real-finetune-save-after-1920.png

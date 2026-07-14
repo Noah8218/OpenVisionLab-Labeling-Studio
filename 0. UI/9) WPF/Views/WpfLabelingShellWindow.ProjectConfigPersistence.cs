@@ -23,7 +23,6 @@ namespace MvcVisionSystem
             try
             {
                 CRecipe.InitDirectory(recipeName);
-                ApplyWorkflowDatasetPurposeToProjectSettings();
                 global.Data.SaveConfig(recipeName);
                 PopulateProjectConfigPanelFields();
                 string configPath = GetCurrentRecipeConfigPath();

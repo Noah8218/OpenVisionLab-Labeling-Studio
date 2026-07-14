@@ -157,7 +157,7 @@ internal static partial class Program
 
             if (!RecipeHasYoloV8SegmentationRuntime(recipeDirectory, imageRoot, yoloRoot, pythonPath, clientScriptPath, seedWeightsPath))
             {
-                ConfigureYoloV8SegmentationRuntimeThroughExe(
+                ConfigureYoloV8RuntimeThroughExe(
                     process,
                     handle,
                     imageRoot,
@@ -450,7 +450,7 @@ internal static partial class Program
         return closed;
     }
 
-    private static void ConfigureYoloV8SegmentationRuntimeThroughExe(
+    private static void ConfigureYoloV8RuntimeThroughExe(
         Process process,
         IntPtr stableHandle,
         string imageRoot,
@@ -458,7 +458,13 @@ internal static partial class Program
         string pythonPath,
         string clientScriptPath,
         string weightsPath,
-        string screenshotDirectory)
+        string screenshotDirectory,
+        string confidence = "0.01",
+        string timeoutSeconds = "300",
+        string inferenceImageSize = "128",
+        string anomalyNormalClasses = null,
+        string anomalyAbnormalClasses = null,
+        string anomalyMinimumConfidence = null)
     {
         var root = RefreshAutomationRoot(process, stableHandle);
         AssertTrue(
@@ -508,10 +514,25 @@ internal static partial class Program
         AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloClientScriptBox", clientScriptPath), "YOLOv8 client script was not editable");
         AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloWeightsPathBox", weightsPath), "YOLOv8 weights path was not editable");
         AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloImageRootBox", imageRoot), "YOLOv8 image root was not editable");
-        AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloConfidenceBox", "0.01"), "YOLO confidence was not editable");
-        AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloTimeoutBox", "300"), "YOLO timeout was not editable");
-        AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloInferenceImageSizeBox", "128"), "YOLO inference image size was not editable");
+        AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloConfidenceBox", confidence), "YOLO confidence was not editable");
+        AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloTimeoutBox", timeoutSeconds), "YOLO timeout was not editable");
+        AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloInferenceImageSizeBox", inferenceImageSize), "YOLO inference image size was not editable");
         AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloMaxCandidatesBox", "20"), "YOLO max candidates was not editable");
+        if (anomalyNormalClasses != null)
+        {
+            AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloAnomalyNormalClassesBox", anomalyNormalClasses), "anomaly normal classes were not editable");
+        }
+
+        if (anomalyAbnormalClasses != null)
+        {
+            AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloAnomalyAbnormalClassesBox", anomalyAbnormalClasses), "anomaly abnormal classes were not editable");
+        }
+
+        if (anomalyMinimumConfidence != null)
+        {
+            AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloAnomalyMinimumConfidenceBox", anomalyMinimumConfidence), "anomaly minimum confidence was not editable");
+        }
+
         CaptureWorkflowStep(RefreshAutomationRoot(process, stableHandle), screenshotDirectory, "04a_yolov8_fields_entered");
 
         AssertTrue(
@@ -525,25 +546,34 @@ internal static partial class Program
     {
         var root = RefreshAutomationRoot(process);
         string expectedImageMarker = FindImageQueueMarker(imageRoot);
-        System.Windows.Automation.AutomationElement loadButton = FindAutomationElementByAutomationId(root, "LoadConfiguredImageRootButton");
-        bool invoked = false;
-        if (loadButton != null)
+        bool invoked = TryInvokeAutomationButtonByAutomationId(root, "LoadConfiguredImageRootButton");
+        if (!invoked)
         {
-            NativeClick(GetAutomationCenter(loadButton));
-            invoked = true;
+            System.Windows.Automation.AutomationElement loadButton = FindAutomationElementByAutomationId(root, "LoadConfiguredImageRootButton");
+            if (loadButton != null)
+            {
+                NativeClick(GetAutomationCenter(loadButton));
+                invoked = true;
+            }
         }
 
         AssertTrue(
             invoked || TryInvokeAutomationButton(root, "\uC124\uC815 \uD3F4\uB354"),
             "configured image-root load button was not invokable");
-        AssertTrue(
-            WaitUntil(
+        bool loaded = WaitUntil(
                 () =>
                 {
                     var latestRoot = RefreshAutomationRoot(process, bringToFront: false);
                     return ImageRootAppearsLoaded(latestRoot, imageRoot, expectedImageMarker);
                 },
-                TimeSpan.FromSeconds(12)),
+                TimeSpan.FromSeconds(12));
+        if (!loaded)
+        {
+            CaptureWorkflowStep(RefreshAutomationRoot(process), screenshotDirectory, "05a_configured_image_root_load_failed");
+        }
+
+        AssertTrue(
+            loaded,
             "configured image root did not load into the EXE image queue");
         CaptureWorkflowStep(RefreshAutomationRoot(process), screenshotDirectory, "05a_configured_image_root_loaded");
     }
@@ -1340,9 +1370,25 @@ internal static partial class Program
         string automationId,
         string value)
     {
+        for (int attempt = 0; attempt < 3; attempt++)
+        {
+            System.Windows.Automation.AutomationElement directRoot = stableHandle == IntPtr.Zero
+                ? RefreshAutomationRoot(process, bringToFront: false)
+                : RefreshAutomationRoot(process, stableHandle, bringToFront: false);
+            if (TrySetExeAutomationValueByAutomationId(directRoot, automationId, value))
+            {
+                return true;
+            }
+
+            Thread.Sleep(150);
+        }
+
         if (!TryBringYoloSettingsElementIntoView(process, stableHandle, automationId))
         {
-            return false;
+            System.Windows.Automation.AutomationElement offscreenRoot = stableHandle == IntPtr.Zero
+                ? RefreshAutomationRoot(process, bringToFront: false)
+                : RefreshAutomationRoot(process, stableHandle, bringToFront: false);
+            return TrySetExeAutomationValueByAutomationId(offscreenRoot, automationId, value);
         }
 
         System.Windows.Automation.AutomationElement root = stableHandle == IntPtr.Zero

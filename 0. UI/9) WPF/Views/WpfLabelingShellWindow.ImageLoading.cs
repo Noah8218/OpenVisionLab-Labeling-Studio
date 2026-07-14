@@ -192,6 +192,40 @@ namespace MvcVisionSystem
             }
         }
 
+        private void ClearActiveImageAfterQueueReset()
+        {
+            activeImageBitmap?.Dispose();
+            activeImageBitmap = null;
+            activeImagePath = string.Empty;
+            activeImageSize = System.Drawing.Size.Empty;
+            global.Data.LastSelectImageName = string.Empty;
+            global.Data.LastSelectImagePath = string.Empty;
+            global.ImageWorkspace.SetActiveImage(string.Empty, string.Empty, null);
+            CDisplayManager.ImageSrc = null;
+
+            manualRois.Clear();
+            manualRoiClassNames.Clear();
+            manualRoiShapeKinds.Clear();
+            manualRoiOverlayIds.Clear();
+            manualSegments.Clear();
+            ClearQueuedMaskStrokeCommits();
+            polygonAnnotationService.Reset();
+            CancelMaskStrokePreviewCommitSwap();
+            lastMaskStrokePoint = null;
+            activeMaskStrokeInProgress = false;
+            activeMaskStrokeActionName = string.Empty;
+            activeMaskStrokeSegmentIndices.Clear();
+            ResetMaskStrokeCommitBuffer();
+            activeMaskStrokeNeedsFullObjectRefresh = false;
+            candidateReviewState.ClearAll();
+            ClearAnnotationHistory();
+
+            MainCanvasViewModel.ClearImage();
+            RefreshCandidateList();
+            RefreshObjectList();
+            SetAnnotationSaveStatusWaiting();
+        }
+
         private static bool ShouldDeferImageLoadReviewRefresh(
             bool populateQueue,
             bool refreshQueueDetails,

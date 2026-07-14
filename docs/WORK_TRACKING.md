@@ -1,6 +1,6 @@
 # Work Tracking
 
-Last updated: 2026-07-13
+Last updated: 2026-07-14
 
 ## 2026-07-13 YOLOv8 SEG contour-only inference rendering
 
@@ -12174,4 +12174,50 @@ Last updated: 2026-07-13
   - README/tutorial screenshots were reviewed and not replaced because the public default/tutorial layout did not change; this is a deep post-training evidence state.
 - Next work:
   - Collect an independent NG-rich object-detection test split, rerun the same comparison on test with repeated Takt evidence, and only then consider engine/model adoption.
-  - Save/reopen the object-detection YOLOv8 runtime profile and smoke first inference, then continue anomaly classification on an independent production-camera/cross-session set.
+  - Continue anomaly classification on an independent production-camera/cross-session set after the saved-profile restart gate below.
+
+## 2026-07-14 YOLOv8 Detect saved-profile restart inference
+
+- Goal:
+  - Prove that an object-detection recipe persists the local YOLOv8 runtime and trained Detect `best.pt`, then uses that same engine and weight for the first inference after the EXE is closed and reopened.
+- Defect and correction:
+  - The dataset wizard correctly created an `ObjectDetection` recipe, but a later generic project/model settings save copied a stale workflow presentation value back into `ProjectSettings.DatasetPurpose` and changed the saved purpose to `Segmentation`.
+  - Generic settings save no longer rewrites dataset purpose. Explicit dataset-purpose selection remains the owner of that setting, and a focused regression verifies that stale workflow presentation cannot overwrite the authoritative project purpose.
+- Actual EXE evidence:
+  - A temporary object-detection recipe saved the `C:\Git\yolov8` editable runtime, local `.venv` Python, `labeling_tcp_client.py`, confidence `0.25`, image size `320`, and `C:\Git\yolov8\runs\detect\openvisionlab-yolov8n-detect-test01-e100-img320-20260714\weights\best.pt`.
+  - After a full EXE close and restart through the saved recipe marker, the settings panel still showed YOLOv8 and the same Detect weight. The first current-image inference completed as `YOLOv8`, identified the saved run folder, and returned one UI-threshold `OK` candidate at confidence `0.982`.
+  - Evidence: `artifacts\exe-yolov8-detect-restart-smoke\codex_yolov8_detect_restart_20260714_193745\summary.txt` and `screenshots\04_first_inference_after_restart.png` below that folder.
+- Verification:
+  - Required isolated test build passed with 0 warnings and 0 errors.
+  - `--wpf-dataset-setup-request`, `--wpf-startup-dataset-restore`, `--wpf-labeling-shell`, and `--exe-yolov8-detect-restart-smoke` passed.
+  - The smoke restored the user's prior last-opened-recipe marker and left no app or Python worker process running.
+- UI evidence:
+  - The actual restart smoke produced a current-build 1920x1080 inference capture. No public layout, tutorial step, or visible service text changed, so README/tutorial screenshots were reviewed and not replaced.
+- Evidence boundary and next work:
+  - This closes runtime/profile persistence and restart behavior for the tested object-detection recipe. It uses one existing source image and one OK candidate, so it does not establish independent NG accuracy or authorize model adoption.
+  - Acquire an independent NG-rich object-detection test split and rerun the same v5/v8 comparison before adoption; then run the unchanged anomaly evaluation on independent production-camera/cross-session data.
+
+## 2026-07-14 YOLOv8 anomaly classification saved-profile restart inference
+
+- Goal:
+  - Prove that a new anomaly recipe is isolated from the previously open SEG recipe, persists the local YOLOv8 classification runtime/model/mapping, and uses that same profile for first inference after a full EXE close and restart.
+- Defects and corrections:
+  - New recipe creation previously renamed and saved the current `CData`, which cloned the prior model registry, weights, and image root. Blank recipe creation now starts from a fresh `CData` and persists its own train-image root.
+  - `LoadImageQueueFromRoot(...)` previously accepted any existing selected image path, even when it was outside the newly requested root. It now retains a selected image only when the path is present in the new queue.
+  - An empty new recipe previously left the old SEG image and overlay visible. Empty-root loading now clears the active bitmap/path, shared workspace/display image, canvas texture/overlays, labels, undo state, and AI candidate state. Switching to anomaly mode also moves Brush/Eraser back to Select.
+- Actual EXE evidence:
+  - A temporary anomaly recipe saved `C:\Git\yolov8`, local `.venv` Python, `labeling_tcp_client.py`, the circular-defect YOLOv8 classification `best.pt`, candidate confidence `0`, image size `128`, normal class `normal`, abnormal class `abnormal`, and mapping threshold `0.8`.
+  - After a full close and restart, the same engine, weight, image root, and mapping were present in both VISION and the visible settings UI. First inference returned one `abnormal 99.8%` candidate and persisted `AnomalyImageReviewState.Abnormal`.
+  - Saved versus reopened VISION differed only by the expected `LastDatasetCheckUtc` refresh; reopened-before-inference and inferred hashes were identical.
+  - Evidence: `artifacts\exe-yolov8-anomaly-restart-smoke\codex_yolov8_anomaly_restart_20260714_204940\summary.txt` and `screenshots\04_first_abnormal_inference_after_restart.png`.
+- Verification:
+  - Required isolated test build and current EXE solution build passed with 0 warnings and 0 errors.
+  - `--wpf-dataset-setup-request`, `--wpf-image-queue-root-switch`, `--wpf-learning-workflow-panel`, `--wpf-startup-dataset-restore`, `--wpf-labeling-shell`, `--wpf-segmentation-object-verification`, and `--exe-yolov8-anomaly-restart-smoke` passed.
+  - The smoke restored the user's prior last-opened-recipe marker and left no app or Python worker process running.
+- UI evidence:
+  - True before: `artifacts\exe-yolov8-anomaly-restart-smoke\codex_yolov8_anomaly_restart_20260714_203300\screenshots\04a_yolov8_fields_entered.png` shows the empty new recipe still displaying the prior SEG canvas.
+  - After: `artifacts\exe-yolov8-anomaly-restart-smoke\codex_yolov8_anomaly_restart_20260714_204940\screenshots\04a_yolov8_fields_entered.png` shows the empty image queue and cleared canvas; the same run's final inference capture is 1920x1080.
+  - README/tutorial screenshots were reviewed and not replaced because no public tutorial step or default layout changed.
+- Evidence boundary and next work:
+  - This closes new-recipe state isolation and saved-profile restart behavior for the tested anomaly classifier. It does not establish production accuracy because the smoke image and prior 15/15 evaluation are from the same deterministic circular-defect source.
+  - Collect independent production-camera or cross-session normal/abnormal images and rerun the unchanged evaluation guard before any anomaly-model adoption claim.

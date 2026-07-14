@@ -3774,6 +3774,24 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			CanvasImageLoader.UploadMatAsTexture(_imageViewer, mat, fileName, ref _imageSize, replaceExistingTextures: true);
 		}
 
+		public void ClearImage()
+		{
+			using (_imageViewer.SuppressRefresh())
+			{
+				_imageViewer.ClearTexture();
+				_imageSize = System.Drawing.Size.Empty;
+				ClearRois();
+				SetDetectionOverlays(Array.Empty<RoiImageCanvasDetectionOverlay>());
+				SetSegmentationOverlays(
+					Array.Empty<RoiImageCanvasPolygonOverlay>(),
+					Array.Empty<RoiImageCanvasMaskOverlay>());
+				ClearMaskStrokePreview(refresh: false, clearTexture: true);
+				ClearBrushCursorPreview();
+			}
+
+			_imageViewer.RefreshGL();
+		}
+
 		public int LoadedTextureGroupCount => _imageViewer.TextureAreas.Count;
 
 		public void ClearRois()

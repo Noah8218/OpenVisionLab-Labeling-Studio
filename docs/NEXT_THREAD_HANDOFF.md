@@ -313,6 +313,8 @@ git diff --check
 - Controlled YOLOv5s-versus-YOLOv8n validation used the same data, image size 320, `batch=1`, CPU, and confidence 0.25. Metrics were stable across five runs: YOLOv5s `P 0.999 / R 0.500 / mAP50 0.505 / mAP50-95 0.464`; YOLOv8n `P 0.980 / R 1.000 / mAP50 0.995 / mAP50-95 0.921`. Model-Takt medians were `74.6ms` and `47.946ms` respectively, a 35.7% reduction for YOLOv8n. The YOLOv8 range included one `87.83ms` CPU outlier.
 - The operating-reference YOLOv5m comparison measured `P 0.819 / R 1.000 / mAP50-95 0.692 / Takt 146.6ms` versus YOLOv8n `P 0.980 / R 1.000 / mAP50-95 0.921 / Takt 43.255ms`; this is not a controlled architecture comparison because the YOLOv5m training recipe and exact split differ.
 - Required isolated build and focused runtime-connection, comparison, Candidate Review, and shell tests pass. Real current-build 1920x1080 evidence is under `artifacts\ui\20260714-yolov5-yolov8-real-validation`.
+- The saved-profile restart gate is also complete. A generic settings save had overwritten an authoritative `ObjectDetection` purpose from stale workflow presentation; dataset purpose is now changed only by explicit purpose selection. The actual EXE saved YOLOv8 plus the new Detect `best.pt`, closed, reopened, showed the same engine/weight, and returned one `OK` candidate at confidence `0.982` on first inference. Evidence: `artifacts\exe-yolov8-detect-restart-smoke\codex_yolov8_detect_restart_20260714_193745`.
+- The anomaly-classification saved-profile restart gate is complete. New blank recipes no longer clone the previous recipe's model registry, weight, or image root; queue root switching only honors a selected image present in the new root; and an empty root clears the previous canvas/annotation state. The actual EXE saved YOLOv8 classification settings plus normal/abnormal mapping, closed, reopened, returned one `abnormal 99.8%` candidate on first inference, and persisted `Abnormal`. Evidence: `artifacts\exe-yolov8-anomaly-restart-smoke\codex_yolov8_anomaly_restart_20260714_204940`.
 
 ## Known Remaining Gaps
 
@@ -338,9 +340,8 @@ git diff --check
 
 1. Acquire and label an independent object-detection test set with enough NG examples; do not reuse hash-identical `Test02` as new evidence.
 2. Populate the test split, rerun `v5 vs v8 analysis`, review class-specific misses/examples, and record repeated Takt median/range before any engine/model adoption.
-3. In the object-detection recipe, connect and save the `C:\Git\yolov8` runtime/profile, verify it resolves the new `runs\detect\...\best.pt`, and smoke close/reopen/first inference.
-4. Then collect an independent production-camera or cross-session normal/abnormal set and rerun the unchanged anomaly classification evaluation guard.
-5. Keep completed SEG annotation, template-transfer, queue, splitter, and Viewer/OpenGL paths stable unless a specific defect is reproduced. Historical SEG remediation remains deferred pending explicit return to that work and data-rewrite approval.
+3. Then collect an independent production-camera or cross-session normal/abnormal set and rerun the unchanged anomaly classification evaluation guard.
+4. Keep completed SEG annotation, template-transfer, queue, splitter, Viewer/OpenGL, and YOLOv8 Detect restart paths stable unless a specific defect is reproduced. Historical SEG remediation remains deferred pending explicit return to that work and data-rewrite approval.
 
 ## Useful Verification Commands
 
@@ -352,6 +353,9 @@ dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplicat
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-review-service
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-heldout
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-run-service
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-yolov8-detect-restart-smoke
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-root-switch
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-yolov8-anomaly-restart-smoke
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-center-real-candidate-save --yolo-root C:\Git\yolov8 --data-yaml .\artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260708_213227\dataset\data.yaml --baseline-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt --candidate-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-40label-operating-selected-conf020-20260711\weights\best.pt --candidate-confidence 0.20
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-polygon-training-flow

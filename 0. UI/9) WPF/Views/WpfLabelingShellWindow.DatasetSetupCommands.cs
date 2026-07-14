@@ -178,6 +178,7 @@ namespace MvcVisionSystem
             }
 
             UpdateImageQueueStatusText();
+            ClearActiveImageAfterQueueReset();
             SetDatasetStatus(datasetSetupPresentationService.BuildMissingImageRootStatus());
             AppendLog(datasetSetupPresentationService.BuildMissingImageRootLog(imageRootPath));
             FocusDatasetOnboardingTab();
@@ -284,6 +285,7 @@ namespace MvcVisionSystem
             // Dataset setup is a low-frequency workflow action. Keep folder,
             // config, YAML, and manifest creation here instead of spreading it
             // across the purpose selector and drawing tool paths.
+            global.Data = new CData();
             global.Recipe.Name = recipeName;
             ApplyDatasetPurposeToCurrentProject(request.Purpose);
 
@@ -300,10 +302,17 @@ namespace MvcVisionSystem
                 return false;
             }
 
+            string setupImageRootPath;
             if (sampleResult?.Applied == true && Directory.Exists(sampleResult.ImageRootPath))
             {
-                global.Data.ProjectSettings.PythonModel.ImageRootPath = sampleResult.ImageRootPath;
+                setupImageRootPath = sampleResult.ImageRootPath;
             }
+            else
+            {
+                setupImageRootPath = global.Data.TrainImagesPath;
+            }
+
+            global.Data.ProjectSettings.PythonModel.ImageRootPath = setupImageRootPath;
 
             global.Data.SaveYoloDataYaml();
             global.Data.SaveConfig(recipeName);
@@ -316,9 +325,6 @@ namespace MvcVisionSystem
             RefreshTrainingReadinessPanel(refreshYaml: false);
             RefreshYoloTrainingStepCompletion();
             EnterLabelingWorkbenchStartView();
-            string setupImageRootPath = sampleResult?.Applied == true
-                ? sampleResult.ImageRootPath
-                : ResolveActiveDatasetImageRoot();
             if (Directory.Exists(setupImageRootPath))
             {
                 LoadImageQueueFromRoot(setupImageRootPath, string.Empty, loadFirstImage: true);

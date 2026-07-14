@@ -222,6 +222,16 @@ internal static partial class Program
             return RunExeCircularSegmentationWorkflow(args);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--exe-yolov8-detect-restart-smoke", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunExeYoloV8DetectRestartSmoke(args);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--exe-yolov8-anomaly-restart-smoke", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunExeYoloV8AnomalyRestartSmoke(args);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--wpf-yolo-training-session-smoke", StringComparison.OrdinalIgnoreCase)))
         {
             return RunWpfYoloTrainingSessionSmoke(args);
@@ -394,6 +404,11 @@ internal static partial class Program
         if (args.Any(arg => string.Equals(arg, "--wpf-image-queue-large-folder-performance", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("WPF image queue large folder keeps bulk and lazy thumbnail behavior", TestWpfImageQueueLargeFolderKeepsBulkAndLazyThumbnails);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--wpf-image-queue-root-switch", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF image queue root switch ignores a stale active image", TestWpfImageQueueLoadsSupportedFiles);
         }
 
         if (args.Any(arg => string.Equals(arg, "--yolo-image-review-status", StringComparison.OrdinalIgnoreCase)))
@@ -26733,6 +26748,7 @@ internal static partial class Program
         AssertEqual(LabelingDatasetPurpose.Segmentation, viewModel.GetSelectedDatasetPurpose());
         viewModel.SelectedDatasetPurposeMode = viewModel.DatasetPurposeModes.First(item => item.Mode == WpfLearningMode.AnomalyDetection);
         AssertEqual("Select,Rectangle,Brush,Eraser,PanZoom", string.Join(",", viewModel.SelectableAnnotationTools.Select(item => item.Tool)));
+        AssertEqual(WpfAnnotationTool.Select, viewModel.SelectedTool.Tool);
         AssertTrue(viewModel.DatasetPurposeToolSummaryText.Contains("\uACB0\uD568", StringComparison.Ordinal), "anomaly purpose should explain defect-region tools");
         AssertTrue(viewModel.DatasetSetupFirstActionText.Contains("\uC815\uC0C1/\uC774\uC0C1", StringComparison.Ordinal), "anomaly first-run cue should mention normal/abnormal images");
         AssertEqual("\uC0C8\uB85C \uB9CC\uB4E4\uAE30", viewModel.DatasetSetupActionText);
@@ -27638,6 +27654,13 @@ internal static partial class Program
             var learningPanel = (WpfLearningWorkflowPanel)window.FindName("LearningWorkflowPanelControl");
             AssertTrue(learningPanel != null, "learning workflow panel was not created");
 
+            string staleImageRoot = Path.Combine(existingOutputRoot, "stale-images");
+            Directory.CreateDirectory(staleImageRoot);
+            CGlobal.Inst.Data.ProjectSettings.PythonModel.ModelEngine = PythonModelSettings.EngineYoloV8;
+            CGlobal.Inst.Data.ProjectSettings.PythonModel.WeightsPath = "stale-segmentation-best.pt";
+            CGlobal.Inst.Data.ProjectSettings.PythonModel.ImageRootPath = staleImageRoot;
+            CGlobal.Inst.Data.ProjectSettings.ModelRegistry.CurrentInspectionModelId = "stale-segmentation-model";
+
             WpfLearningModeItem segmentationPurpose = learningPanel.ViewModel.DatasetPurposeModes.First(item => item.Mode == WpfLearningMode.Segmentation);
             learningPanel.ViewModel.SelectedDatasetPurposeMode = segmentationPurpose;
             learningPanel.DatasetPurposeList.SelectedItem = segmentationPurpose;
@@ -27680,6 +27703,10 @@ internal static partial class Program
             AssertTrue(Directory.Exists(Path.Combine(outputRoot, "data", "train", "images")), "dataset setup should create train image folder");
             AssertTrue(File.Exists(Path.Combine(outputRoot, "data.yaml")), "dataset setup should create data.yaml");
             AssertEqual(LabelingDatasetPurpose.Segmentation, CGlobal.Inst.Data.ProjectSettings.DatasetPurpose);
+            AssertPathEqual(CGlobal.Inst.Data.TrainImagesPath, CGlobal.Inst.Data.ProjectSettings.PythonModel.ImageRootPath, "new blank dataset should use its own empty image root");
+            AssertTrue(!string.Equals("stale-segmentation-best.pt", CGlobal.Inst.Data.ProjectSettings.PythonModel.WeightsPath, StringComparison.Ordinal), "new dataset should not inherit the previous recipe weight");
+            AssertTrue(string.IsNullOrWhiteSpace(CGlobal.Inst.Data.ProjectSettings.ModelRegistry.CurrentInspectionModelId), "new dataset should not inherit the previous inspection model");
+            AssertEqual(0, window.ImageQueueItems.Count);
             AssertTrue(learningPanel.ViewModel.DatasetSetupStatusText.Contains(recipeName, StringComparison.Ordinal), "dataset setup status should name the prepared recipe");
 
             LabelingDatasetManifest manifest = JsonConvert.DeserializeObject<LabelingDatasetManifest>(File.ReadAllText(manifestPath));
@@ -27688,11 +27715,20 @@ internal static partial class Program
             AssertEqual(LabelingDatasetPurpose.Segmentation.ToString(), manifest.DatasetPurpose);
             AssertEqual("mask-and-polygon", manifest.AnnotationProfile);
             AssertTrue(!string.IsNullOrWhiteSpace(manifest.ImageRootPath), "dataset setup manifest should include the active image folder path");
+            AssertPathEqual(CGlobal.Inst.Data.TrainImagesPath, manifest.ImageRootPath, "blank dataset manifest should not retain the previous recipe image root");
             AssertTrue(manifest.Classes.Contains("Scratch"), "dataset setup manifest should include wizard initial classes");
             AssertEqual(2, manifest.SchemaVersion);
             AssertTrue(!string.IsNullOrWhiteSpace(manifest.DatasetVersionId), "dataset setup manifest should include a dataset version id");
             AssertEqual("masks", manifest.ArtifactSummary.PrimaryLabelKind);
             AssertEqual(0, manifest.ArtifactSummary.PrimaryLabelCount);
+
+            CGlobal.Inst.Data.ProjectSettings.DatasetPurpose = LabelingDatasetPurpose.ObjectDetection;
+            AssertEqual(LabelingDatasetPurpose.Segmentation, learningPanel.ViewModel.GetSelectedDatasetPurpose());
+            AssertTrue(InvokePrivateResult<bool>(window, "SaveProjectConfigFromPanel"), "project settings save should succeed with a stale workflow selection");
+            AssertEqual(LabelingDatasetPurpose.ObjectDetection, CGlobal.Inst.Data.ProjectSettings.DatasetPurpose);
+            AssertEqual(
+                LabelingDatasetPurpose.ObjectDetection,
+                ReadRecipeData(Path.Combine(recipeDirectory, "VISION.xml")).ProjectSettings.DatasetPurpose);
         }
         finally
         {
@@ -34462,8 +34498,43 @@ internal static partial class Program
                 AssertTrue(openCurrentFolderButton != null && openCurrentFolderButton.IsEnabled,
                     "WPF image queue current-folder open button was not enabled after loading images");
 
-                AssertTrue(window.TryLoadImage(Path.Combine(root, "a.jpg")), "WPF shell did not load the selected queue image");
+                string activeImagePath = Path.Combine(root, "a.jpg");
+                AssertTrue(window.TryLoadImage(activeImagePath), "WPF shell did not load the selected queue image");
                 AssertEqual(System.Drawing.Imaging.PixelFormat.Format24bppRgb, CGlobal.Inst.ImageWorkspace.ActiveImage.PixelFormat);
+
+                string nextRoot = Path.Combine(root, "next-root");
+                string nextImagePath = Path.Combine(nextRoot, "next.png");
+                Directory.CreateDirectory(nextRoot);
+                using (Bitmap nextImage = new Bitmap(5, 4))
+                {
+                    nextImage.Save(nextImagePath, System.Drawing.Imaging.ImageFormat.Png);
+                }
+
+                int switchedCount = window.LoadImageQueueFromRoot(
+                    nextRoot,
+                    activeImagePath,
+                    loadFirstImage: true,
+                    refreshDetails: false);
+                AssertEqual(1, switchedCount);
+                AssertEqual(1, window.ImageQueueItems.Count);
+                AssertEqual(nextImagePath, window.ImageQueueItems[0].ImagePath);
+                AssertEqual(nextImagePath, GetPrivateField<string>(window, "activeImagePath"));
+                AssertEqual(nextRoot, window.ImageQueueViewModel.CurrentImageFolderPath);
+
+                string emptyRoot = Path.Combine(root, "empty-root");
+                Directory.CreateDirectory(emptyRoot);
+                int emptyCount = window.LoadImageQueueFromRoot(
+                    emptyRoot,
+                    nextImagePath,
+                    loadFirstImage: true,
+                    refreshDetails: false);
+                AssertEqual(0, emptyCount);
+                AssertEqual(0, window.ImageQueueItems.Count);
+                AssertEqual(string.Empty, GetPrivateField<string>(window, "activeImagePath"));
+                AssertEqual(System.Drawing.Size.Empty, GetPrivateField<System.Drawing.Size>(window, "activeImageSize"));
+                AssertEqual(0, window.MainCanvasViewModel.LoadedTextureGroupCount);
+                AssertTrue(CGlobal.Inst.ImageWorkspace.ActiveImage == null, "empty image root should clear the shared active image");
+                AssertTrue(CDisplayManager.ImageSrc.Empty(), "empty image root should clear the display-manager image");
 
                 CData previousData = CGlobal.Inst.Data;
                 try

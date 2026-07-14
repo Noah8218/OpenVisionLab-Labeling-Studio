@@ -56,12 +56,16 @@ namespace MvcVisionSystem
                 imageQueueDetailLoadTask = StartImageQueueDetailRefreshAsync(imagePaths, imageQueueDetailLoadCts.Token);
             }
 
-            string targetPath = !string.IsNullOrWhiteSpace(selectedImagePath) && File.Exists(selectedImagePath)
-                ? selectedImagePath
-                : imagePaths.FirstOrDefault();
+            string targetPath = imagePaths.FirstOrDefault(path =>
+                    string.Equals(path, selectedImagePath, StringComparison.OrdinalIgnoreCase))
+                ?? imagePaths.FirstOrDefault();
             if (loadFirstImage && !string.IsNullOrWhiteSpace(targetPath))
             {
                 TryLoadImage(targetPath);
+            }
+            else if (loadFirstImage)
+            {
+                ClearActiveImageAfterQueueReset();
             }
 
             return imagePaths.Count;

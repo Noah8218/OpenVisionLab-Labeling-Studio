@@ -776,7 +776,9 @@ namespace MvcVisionSystem
         }
 
         private static bool ShouldPreferModeDefaultTool(WpfLearningMode mode, WpfAnnotationTool currentTool)
-            => mode == WpfLearningMode.Segmentation && currentTool == WpfAnnotationTool.Select;
+            => (mode == WpfLearningMode.Segmentation && currentTool == WpfAnnotationTool.Select)
+                || (mode == WpfLearningMode.AnomalyDetection
+                    && (currentTool == WpfAnnotationTool.Brush || currentTool == WpfAnnotationTool.Eraser));
 
         public void ApplyDatasetPurpose(LabelingDatasetPurpose purpose)
         {
