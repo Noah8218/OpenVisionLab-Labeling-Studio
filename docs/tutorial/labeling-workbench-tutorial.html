@@ -574,7 +574,7 @@
           <li>이미지 수와 라벨 수가 맞는지 봅니다.</li>
           <li>train, valid, test 분할이 있는지 봅니다.</li>
           <li>클래스별 라벨 수가 너무 치우치지 않았는지 봅니다.</li>
-          <li>Python, YOLOv5 경로, client script 경로가 맞는지 봅니다.</li>
+          <li>Python, 선택한 YOLO 실행기, client script 경로가 맞는지 봅니다.</li>
           <li>학습 중에는 epoch 로그와 실패 사유를 패널에서 확인합니다.</li>
         </ul>
       </div>
@@ -623,6 +623,7 @@
             </tr>
           </tbody>
         </table>
+        <p>객체탐지 레시피에 YOLOv5와 YOLOv8 실행기/가중치가 모두 등록돼 있으면 <strong>v5 vs v8 분석</strong>으로 같은 분할의 정확도와 모델 Takt를 비교할 수 있습니다. <code>test</code>가 없을 때 표시되는 <code>val</code> 결과는 엔진 성능 참고용이며 검사 모델 교체 근거가 아닙니다.</p>
       </div>
     </section>
 

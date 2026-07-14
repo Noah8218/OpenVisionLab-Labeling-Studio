@@ -354,11 +354,11 @@ Do not claim:
 
 ## Next Development Recommendation
 
-The current recommendation is measured model selection for object detection, not another labeling-feature breadth pass:
+The current recommendation is independent model-selection evidence, not another labeling-feature breadth pass:
 
-1. After explicit approval for a compatible local YOLOv8 Detect seed, train YOLOv8 Detect on the same object-detection recipe already used by YOLOv5.
-2. Run the built-in `v5 vs v8 analysis` against the same held-out test split, image size, and `batch=1`. Retain exact weight paths, split size, device, precision, recall, mAP50, mAP50-95, inference time, and model Takt.
-3. Review detection examples and the engine/runtime-switch cost before choosing the operating model. A metric-only win is not enough if the target classes regress visibly.
+1. Acquire and label an independent object-detection test split with enough NG examples; the hash-identical `Test02` copy is not new evidence.
+2. Rerun built-in `v5 vs v8 analysis` on test, review class-specific misses/examples, and retain repeated model-Takt median/range before any engine/model adoption.
+3. Verify the object-detection recipe saves the YOLOv8 runtime/profile and reopens with the new Detect `best.pt` for first inference.
 4. Next, run the unchanged anomaly evaluation guard on an independent production-camera or cross-session normal/abnormal set.
 5. Keep completed SEG annotation mechanics stable. Historical SEG remediation remains deferred and still requires a read-only report plus explicit data-rewrite approval before any operator file is changed.
 6. After model correctness, consider a local runtime-agnostic SAM/SAM2-style click-to-mask assist. Do not add model downloads or dependency upgrades without explicit approval.
@@ -403,4 +403,4 @@ Collaboration/workforce, video/3D/keypoints, broad API/platform work, and Labelb
 
 2026-07-13: A restart/runtime audit found that the recipe correctly persisted YOLOv8 and its trained `best.pt`, but the training panel still exposed legacy YOLOv5-only values and an older YOLOv8 worker could survive application exit and answer the first request with a stale weight. Training presentation is now engine/task aware, worker readiness verifies request-correlated engine/weight identity, the TCP listener prevents active-socket replacement, and shutdown stops the managed worker. A real current-weight YOLOv8 SEG smoke returned polygon candidates and saved segment/mask artifacts. This raises runtime safety and operator clarity, but it does not raise the model-quality score: the smoke used confidence `0.001`, and production-threshold/independent held-out evidence remains required.
 
-2026-07-14: The object-detection model workflow now supports a guarded YOLOv5-versus-YOLOv8 comparison on the same held-out split. The UI reports both engines' precision, recall, mAP50, mAP50-95, inference time, and model Takt, while the runner resolves separate local runtimes and rejects task/label mismatches. This improves the local model-experimentation and selection workflow, which is a product advantage over a labeling-only tool, but it does not raise the model-quality/readiness estimate yet. The current visual summary uses explicit fixture metrics, and `C:\Git\yolov8` has no YOLOv8 Detect weight. Real same-data accuracy and timing evidence remains the next gate.
+2026-07-14: The object-detection workflow now has real YOLOv5-versus-YOLOv8 local evidence. An approved YOLOv8n Detect seed was trained for 100 epochs on the same 97/28 app split, and five controlled CPU validation runs measured YOLOv5s `P 0.999 / R 0.500 / mAP50-95 0.464 / median Takt 74.6ms` versus YOLOv8n `P 0.980 / R 1.000 / mAP50-95 0.921 / median Takt 47.946ms`. The UI and raw report now mark `val` fallback as engine analysis, not replacement evidence, and folder connection resolves task-specific YOLOv8 weights. This proves the local comparison workflow and gives a favorable preliminary YOLOv8 result, but it does not raise production model readiness: test is empty and validation contains 28 OK objects versus only one NG object.

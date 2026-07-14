@@ -58,7 +58,7 @@ namespace MvcVisionSystem
 
         public WpfModelComparisonRunRequest BuildYoloV5YoloV8DetectionRequest(
             CData data,
-            string task = "test")
+            string task = "")
         {
             data?.NormalizeOutputPaths();
             data?.NormalizeTrainingSettings();
@@ -91,7 +91,7 @@ namespace MvcVisionSystem
                 CandidateYoloSourceRootPath = yoloV8.SourceRootPath,
                 ImageSize = Math.Max(1, training.ImageSize),
                 BatchSize = 1,
-                Task = string.Equals(task, "val", StringComparison.OrdinalIgnoreCase) ? "val" : "test",
+                Task = ResolveEngineComparisonTask(data?.DataYamlFilePath, task),
                 ModelTask = "detect",
                 UiConfidence = settings.MinimumDetectionConfidence,
                 OutputDirectory = Path.Combine(repositoryRoot, "artifacts", "yolo-model-comparison"),
@@ -513,6 +513,34 @@ namespace MvcVisionSystem
             {
                 errors.Add("\uAE30\uC874 \uBAA8\uB378\uACFC \uC0C8 \uBAA8\uB378 \uD30C\uC77C\uC774 \uAC19\uC2B5\uB2C8\uB2E4. \uBE44\uAD50 \uC804 \uC0C8\uB85C \uD559\uC2B5\uD558\uAC70\uB098 \uB2E4\uB978 \uBAA8\uB378\uC744 \uC120\uD0DD\uD558\uC138\uC694.");
             }
+        }
+
+        private static string ResolveEngineComparisonTask(string dataYamlPath, string requestedTask)
+        {
+            if (string.Equals(requestedTask, "val", StringComparison.OrdinalIgnoreCase))
+            {
+                return "val";
+            }
+
+            if (string.Equals(requestedTask, "test", StringComparison.OrdinalIgnoreCase))
+            {
+                return "test";
+            }
+
+            if (string.IsNullOrWhiteSpace(dataYamlPath) || !File.Exists(dataYamlPath))
+            {
+                return "test";
+            }
+
+            Dictionary<string, string> values = ReadDataYamlScalarValues(dataYamlPath);
+            if (!values.TryGetValue("test", out string splitPath) || string.IsNullOrWhiteSpace(splitPath))
+            {
+                return "val";
+            }
+
+            string yamlRootPath = values.TryGetValue("path", out string rootPath) ? rootPath : string.Empty;
+            string resolved = ResolveDataYamlPath(dataYamlPath, yamlRootPath, splitPath);
+            return CountDataYamlImages(resolved) > 0 ? "test" : "val";
         }
 
         private static void ValidateDataYamlSplitImages(WpfModelComparisonRunRequest request, List<string> errors)

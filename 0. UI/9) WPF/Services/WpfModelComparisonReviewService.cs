@@ -83,6 +83,12 @@ namespace MvcVisionSystem
                     : "Model comparison confidence is missing; rerun model comparison at the current confidence before promotion.";
                 promotionReasons = new[] { promotionReason };
             }
+            else if (isEngineComparison && string.Equals(task, "val", StringComparison.OrdinalIgnoreCase))
+            {
+                promotionDecision = "benchmark";
+                promotionReason = "\uD559\uC2B5 \uAC80\uC99D(val) \uACB0\uACFC\uB294 \uC5D4\uC9C4 \uC131\uB2A5 \uBD84\uC11D\uC6A9\uC774\uBA70 \uAC80\uC0AC \uBAA8\uB378 \uAD50\uCCB4 \uADFC\uAC70\uAC00 \uC544\uB2D9\uB2C8\uB2E4.";
+                promotionReasons = new[] { promotionReason };
+            }
 
             return BuildFromLabelDirectories(
                 baselineLabelsPath,
@@ -188,9 +194,31 @@ namespace MvcVisionSystem
                 condition += $" / image {imageSize}";
             }
 
+            string comparisonBasis = BuildEngineComparisonBasisText(summary);
+
             return string.Join(
                 Environment.NewLine,
-                new[] { baseline, candidate, condition }.Where(line => !string.IsNullOrWhiteSpace(line)));
+                new[] { baseline, candidate, comparisonBasis, condition }.Where(line => !string.IsNullOrWhiteSpace(line)));
+        }
+
+        private static string BuildEngineComparisonBasisText(JObject summary)
+        {
+            if (!string.Equals(
+                    summary.SelectToken("comparisonKind")?.Value<string>(),
+                    "engine-benchmark",
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                return string.Empty;
+            }
+
+            string task = summary.SelectToken("task")?.Value<string>() ?? "val";
+            int comparisonCount = summary.SelectToken("evidence.comparisonLabelCount")?.Value<int?>()
+                ?? summary.SelectToken("evidence.imageCount")?.Value<int?>()
+                ?? 0;
+            string countText = comparisonCount > 0 ? $" {comparisonCount}\uC7A5" : string.Empty;
+            return string.Equals(task, "test", StringComparison.OrdinalIgnoreCase)
+                ? $"\uBE44\uAD50 \uAE30\uC900: test{countText} (\uB3C5\uB9BD \uCD5C\uC885 \uAC80\uC99D)"
+                : $"\uBE44\uAD50 \uAE30\uC900: val{countText} (\uD559\uC2B5 \uAC80\uC99D\uC14B, \uAD50\uCCB4 \uD310\uB2E8 \uC544\uB2D8)";
         }
 
         private static string BuildBenchmarkLine(JObject summary, string modelKey, string fallbackEngine)
@@ -258,6 +286,7 @@ namespace MvcVisionSystem
                 "promote" => "\uAD50\uCCB4 \uCD94\uCC9C",
                 "hold" => "\uAD50\uCCB4 \uBCF4\uB958",
                 "review" => "\uC608\uC2DC \uAC80\uD1A0",
+                "benchmark" => "\uC5D4\uC9C4 \uBD84\uC11D",
                 _ => "\uAD50\uCCB4 \uD310\uB2E8"
             };
             List<string> reasonTexts = (reasons ?? Array.Empty<string>())

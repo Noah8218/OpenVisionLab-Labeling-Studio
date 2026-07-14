@@ -451,7 +451,7 @@ namespace MvcVisionSystem
         public string RunYoloEngineComparisonActionText => "v5 vs v8 \uBD84\uC11D";
 
         public string RunYoloEngineComparisonToolTipText =>
-            "\uB3D9\uC77C\uD55C \uAC1D\uCCB4\uD0D0\uC9C0 \uCD5C\uC885 \uAC80\uC99D \uB370\uC774\uD130\uC5D0\uC11C YOLOv5\uC640 YOLOv8\uC758 \uC815\uD655\uB3C4\uC640 \uBAA8\uB378 Takt\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4.";
+            "\uB3D9\uC77C\uD55C \uAC1D\uCCB4\uD0D0\uC9C0 \uB370\uC774\uD130\uC5D0\uC11C YOLOv5\uC640 YOLOv8\uC758 \uC815\uD655\uB3C4\uC640 \uBAA8\uB378 Takt\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4. test\uAC00 \uC5C6\uC73C\uBA74 val\uC744 \uC131\uB2A5 \uCC38\uACE0\uC6A9\uC73C\uB85C \uC0AC\uC6A9\uD558\uBA70 \uAD50\uCCB4 \uADFC\uAC70\uB85C \uC0AC\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
 
         public void ConfigureCommands(
             Action refreshReadiness,

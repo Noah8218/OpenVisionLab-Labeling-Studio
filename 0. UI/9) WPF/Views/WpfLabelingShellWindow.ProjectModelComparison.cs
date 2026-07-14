@@ -116,7 +116,10 @@ namespace MvcVisionSystem
             }
 
             WpfModelComparisonRunRequest request = modelComparisonRunService
-                .BuildYoloV5YoloV8DetectionRequest(global.Data, task: "test");
+                .BuildYoloV5YoloV8DetectionRequest(global.Data);
+            string comparisonBasisText = string.Equals(request.Task, "val", StringComparison.OrdinalIgnoreCase)
+                ? "\uD559\uC2B5 \uAC80\uC99D(val, \uAD50\uCCB4 \uD310\uB2E8 \uC544\uB2D8)"
+                : "\uCD5C\uC885 \uAC80\uC99D(test)";
             IReadOnlyList<string> validationErrors = modelComparisonRunService.ValidateRequest(request);
             if (validationErrors.Count > 0)
             {
@@ -131,7 +134,7 @@ namespace MvcVisionSystem
             isModelComparisonRunning = true;
             UpdateYoloCommandButtons();
             LearningWorkflowViewModel.TrainingResultComparisonSummaryText = "YOLOv5 vs YOLOv8 \uAC1D\uCCB4\uD0D0\uC9C0 \uBD84\uC11D \uC911";
-            LearningWorkflowViewModel.TrainingResultComparisonText = "\uB3D9\uC77C\uD55C \uCD5C\uC885 \uAC80\uC99D \uC774\uBBF8\uC9C0\uC5D0\uC11C \uC815\uD655\uB3C4\uC640 \uBAA8\uB378 Takt\uB97C \uCE21\uC815\uD558\uB294 \uC911\uC785\uB2C8\uB2E4.";
+            LearningWorkflowViewModel.TrainingResultComparisonText = $"\uB3D9\uC77C\uD55C {comparisonBasisText} \uC774\uBBF8\uC9C0\uC5D0\uC11C \uC815\uD655\uB3C4\uC640 \uBAA8\uB378 Takt\uB97C \uCE21\uC815\uD558\uB294 \uC911\uC785\uB2C8\uB2E4.";
             LearningWorkflowViewModel.TrainingModelAdoptionDecisionText = "\uC5D4\uC9C4 \uBE44\uAD50: \uC2E4\uD589 \uC911";
             SetYoloCommandStatus("YOLOv5/YOLOv8 \uAC1D\uCCB4\uD0D0\uC9C0 \uBD84\uC11D \uC911...", isBusy: true);
             AppendLog($"YOLO \uC5D4\uC9C4 \uBE44\uAD50 \uC2DC\uC791: YOLOv5={Path.GetFileName(request.BaselineWeightsPath)}, YOLOv8={Path.GetFileName(request.CandidateWeightsPath)}, batch=1, task={request.Task}");
@@ -169,7 +172,7 @@ namespace MvcVisionSystem
                     return;
                 }
 
-                string sourceText = $"\uBE44\uAD50 \uB300\uC0C1: YOLOv5 / {Path.GetFileName(request.BaselineWeightsPath)} \u2194 YOLOv8 / {Path.GetFileName(request.CandidateWeightsPath)}";
+                string sourceText = $"\uBE44\uAD50 \uB300\uC0C1: YOLOv5 / {Path.GetFileName(request.BaselineWeightsPath)} \u2194 YOLOv8 / {Path.GetFileName(request.CandidateWeightsPath)} / \uAE30\uC900: {comparisonBasisText}";
                 CandidateReviewViewModel.SetModelComparisonSourceText(sourceText);
                 CandidateReviewViewModel.SetModelComparisonReview(report);
                 CandidateReviewViewModel.SetModelCandidateDecisionState(false, false, null, null, null, null);
@@ -181,7 +184,7 @@ namespace MvcVisionSystem
                     ? "\uC5D4\uC9C4 \uBE44\uAD50: \uC608\uC2DC \uD655\uC778 \uD544\uC694"
                     : report.RecommendationText;
 
-                string completeText = "YOLOv5/YOLOv8 \uAC1D\uCCB4\uD0D0\uC9C0 \uBD84\uC11D \uC644\uB8CC: Candidate Review\uC5D0\uC11C \uC815\uD655\uB3C4, \uBAA8\uB378 Takt, \uC774\uBBF8\uC9C0\uBCC4 \uCC28\uC774\uB97C \uD655\uC778\uD558\uC138\uC694.";
+                string completeText = $"YOLOv5/YOLOv8 \uAC1D\uCCB4\uD0D0\uC9C0 \uBD84\uC11D \uC644\uB8CC ({comparisonBasisText}): Candidate Review\uC5D0\uC11C \uC815\uD655\uB3C4, \uBAA8\uB378 Takt, \uC774\uBBF8\uC9C0\uBCC4 \uCC28\uC774\uB97C \uD655\uC778\uD558\uC138\uC694.";
                 CandidateReviewViewModel.AddReviewHistory(completeText);
                 ShowCandidateReviewWorkflowView();
                 SetYoloCommandStatus(completeText, isBusy: false);

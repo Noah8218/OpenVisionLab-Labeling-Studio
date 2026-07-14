@@ -128,10 +128,10 @@ GitHub Actions workflow는 `.github/workflows/ci.yml`에 있습니다.
 
 현재 로컬 산업용 워크스테이션 기준 우선순위:
 
-1. YOLOv8 세그멘테이션 학습/추론/모델 비교 운영 품질 강화
-2. 이상탐지 image-level 분류 학습/추론 smoke 보강
-3. 데이터셋 품질 감사와 리포트 저장 UX 보강
-4. 샘플 데이터와 튜토리얼을 실제 신규 사용자 기준으로 정리
+1. 독립 객체탐지 test 데이터로 YOLOv5/YOLOv8 정확도와 모델 Takt 재검증
+2. 이상탐지 image-level 분류의 독립 production/cross-session smoke 보강
+3. YOLOv8 세그멘테이션 데이터와 모델 품질 보강
+4. 데이터셋 품질 감사, 샘플 데이터, 튜토리얼 보강
 
 자세한 자체평가와 다음 개발 추천은 [docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md](docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md)를 봅니다.
 
@@ -139,6 +139,7 @@ GitHub Actions workflow는 `.github/workflows/ci.yml`에 있습니다.
 
 - 클라우드 라벨링 플랫폼이나 팀 협업 제품이 아닙니다.
 - 현재 방향은 로컬 단일 작업자용 산업 이미지 워크플로우입니다.
+- YOLOv5/YOLOv8 객체탐지 비교 흐름과 실제 validation 결과는 있지만, 현재 test 분할이 비어 있고 validation의 NG가 1개뿐이라 모델 교체 근거로 사용하지 않습니다.
 - YOLOv8 세그멘테이션 런타임 경로는 연결되어 있지만, 생산 정확도는 별도 held-out 평가가 필요합니다.
 - 이상탐지는 목적/상태/학습 흐름이 진행 중이며, 완료 제품으로 보지 않습니다.
 - `Lib.Common.dll`과 `Lib.OpenCV.dll`을 갱신할 때는 `dll` 폴더의 바이너리와 빌드 검증을 같이 갱신해야 합니다.

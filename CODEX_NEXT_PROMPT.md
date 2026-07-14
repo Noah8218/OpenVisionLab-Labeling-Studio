@@ -137,15 +137,17 @@ Latest stable areas to avoid reworking:
 
 Latest 2026-07-14 priority and implementation state:
 
-- The immediate product priority is same-data YOLOv5 versus YOLOv8 object-detection comparison. Independent anomaly classification runtime/model evidence is next; historical SEG remediation is deferred unless the user explicitly returns to it.
-- Training/Model now exposes `v5 vs v8 analysis` for object-detection recipes. It resolves separate local Python/source/weight settings for both engines, uses the same held-out `test` split, image size, and `batch=1`, and presents precision, recall, mAP50, mAP50-95, inference time, and model Takt in Candidate Review.
+- Real same-data YOLOv5 versus YOLOv8 object-detection validation is complete. The immediate model-quality priority is an independent class-balanced object-detection test split; independent anomaly classification runtime/model evidence follows. Historical SEG remediation is deferred unless the user explicitly returns to it.
+- Training/Model exposes `v5 vs v8 analysis`, prefers `test`, and falls back to `val` only as a clearly labeled engine benchmark that cannot recommend model replacement.
 - Model Takt means validation preprocess + inference + postprocess per image. It excludes WPF/TCP, camera, PLC, and full equipment-cycle time.
 - Cross-engine results are review-only because adoption must switch the engine runtime/profile and weight together. Model-task and label preflight fail closed.
-- Focused code/UI tests and current-build 1920x1080 fixture presentation passed. The fixture proves workflow and layout only, not real model quality.
-- `C:\Git\yolov8` currently has no YOLOv8 Detect weight. Do not download `yolov8n.pt`, upgrade dependencies, or claim measured v5/v8 readiness without explicit approval or an operator-provided compatible Detect weight.
+- The approved `yolov8n.pt` seed was downloaded without dependency changes and trained for 100 epochs on the existing 97/28 split. The Detect `best.pt` is under `C:\Git\yolov8\runs\detect\openvisionlab-yolov8n-detect-test01-e100-img320-20260714\weights`.
+- Five controlled validation runs measured YOLOv5s `P 0.999 / R 0.500 / mAP50-95 0.464 / median Takt 74.6ms` and YOLOv8n `P 0.980 / R 1.000 / mAP50-95 0.921 / median Takt 47.946ms`. The validation set has 28 OK objects and only one NG object, so this is not adoption evidence.
+- YOLOv8 folder connection now selects Detect/SEG/Classification weights according to dataset purpose. Focused tests and real current-build 1920x1080 evidence under `artifacts\ui\20260714-yolov5-yolov8-real-validation` pass.
 
 Known remaining gaps:
 
+- The object-detection test split is empty and validation has only one NG object. Collect independent NG-rich test evidence before model/engine adoption.
 - YOLOv8 SEG has a scoped circular operating candidate at confidence `0.20` and a stronger multi-domain `review` candidate at confidence `0.30`. The latter covers `11/15` positives with `0/27` backgrounds on the combined test but is not automatic production adoption.
 - Existing SEG candidates were trained from the previous four-point exports. Keep their results as historical evidence until masks are re-exported as contours and training/held-out comparison is rerun.
 - The representation fix does not infer a circular contour from a rectangular template source. Shape-accurate OK transfer still requires a brush/polygon source annotation.
@@ -159,12 +161,11 @@ Known remaining gaps:
 
 Recommended next work:
 
-1. Obtain explicit approval to cache a compatible YOLOv8 Detect seed such as `yolov8n.pt`, or use an operator-provided local Detect weight. Do not spend model/runtime work until this prerequisite exists.
-2. Train YOLOv8 Detect on the same object-detection recipe and verify its `ObjectDetection` model-registry candidate and weight path.
-3. Run `v5 vs v8 analysis` on the same held-out test split and retain exact weights, test image count, image size, `batch=1`, device, metrics, inference time, and model Takt.
-4. Review detection examples and runtime-switch implications before choosing the engine; never use the UI fixture values as model evidence.
-5. Then rerun anomaly classification on an independent production-camera/cross-session normal/abnormal set.
-6. Keep completed SEG annotation, queue, splitter, and Viewer/OpenGL paths stable unless a reproduced defect requires focused work.
+1. Acquire and label an independent object-detection test set with enough NG examples; `Test02` is hash-identical and is not new evidence.
+2. Rerun `v5 vs v8 analysis` on test, review class-specific misses/examples, and retain repeated Takt median/range before adoption.
+3. Connect/save the object-detection recipe's `C:\Git\yolov8` runtime profile and smoke close/reopen/first inference with the new Detect `best.pt`.
+4. Then rerun anomaly classification on an independent production-camera/cross-session normal/abnormal set.
+5. Keep completed SEG annotation, queue, splitter, and Viewer/OpenGL paths stable unless a reproduced defect requires focused work.
 
 Useful verification commands:
 

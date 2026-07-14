@@ -11631,6 +11631,7 @@ internal static partial class Program
             AssertTrue(weakEvidenceReport.BenchmarkText.Contains("YOLOv5", StringComparison.Ordinal) && weakEvidenceReport.BenchmarkText.Contains("YOLOv8", StringComparison.Ordinal), "cross-engine summary should identify both runtimes");
             AssertTrue(weakEvidenceReport.BenchmarkText.Contains("8.30", StringComparison.Ordinal) && weakEvidenceReport.BenchmarkText.Contains("6.20", StringComparison.Ordinal), "cross-engine summary should preserve per-model takt values");
             AssertTrue(weakEvidenceReport.BenchmarkText.Contains("batch 1", StringComparison.Ordinal), "cross-engine summary should disclose the batch-one timing condition");
+            AssertTrue(weakEvidenceReport.BenchmarkText.Contains("test", StringComparison.Ordinal), "cross-engine summary should identify an independent test comparison");
             var engineComparisonViewModel = new WpfCandidateReviewPanelViewModel();
             engineComparisonViewModel.SetModelComparisonReview(weakEvidenceReport);
             AssertEqual(System.Windows.Visibility.Visible, engineComparisonViewModel.ModelComparisonBenchmarkVisibility);
@@ -11639,6 +11640,53 @@ internal static partial class Program
             AssertTrue(weakEvidenceReport.DetailText.Contains("\uCD5C\uC885 \uAC80\uC99D", StringComparison.Ordinal), "model comparison report should translate weak held-out evidence reasons");
             AssertTrue(weakEvidenceReport.DetailText.Contains("9", StringComparison.Ordinal) && weakEvidenceReport.DetailText.Contains("10", StringComparison.Ordinal), "translated weak-evidence reason should preserve evidence counts");
             AssertTrue(!weakEvidenceReport.DetailText.Contains("Held-out comparison", StringComparison.Ordinal), "model comparison report should not expose raw held-out evidence reasons");
+            File.WriteAllText(
+                summaryPath,
+                JsonConvert.SerializeObject(new
+                {
+                    comparisonKind = "engine-benchmark",
+                    dataYaml = dataYamlPath,
+                    task = "val",
+                    uiConfidence = 0.25,
+                    imageSize = 320,
+                    batchSize = 1,
+                    evidence = new { split = "val", imageCount = 28, comparisonLabelCount = 28 },
+                    baseline = new
+                    {
+                        engine = "YOLOv5",
+                        labelsPath = baselineLabels,
+                        metrics = new { precision = 0.81, recall = 0.74, map50 = 0.79, map5095 = 0.52 },
+                        benchmark = new { taktMs = 8.3 }
+                    },
+                    candidate = new
+                    {
+                        engine = "YOLOv8",
+                        labelsPath = candidateLabels,
+                        metrics = new { precision = 0.84, recall = 0.78, map50 = 0.82, map5095 = 0.57 },
+                        benchmark = new { taktMs = 6.2 }
+                    },
+                    promotion = new
+                    {
+                        recommendation = "promote",
+                        reason = "Candidate improves mAP and does not regress precision or recall; review examples before saving it as the inspection model."
+                    }
+                }));
+            WpfModelComparisonReviewReport validationEngineReport = service.BuildFromSummaryFile(
+                summaryPath,
+                new[] { "OK", "NG" },
+                confidenceThreshold: null,
+                maxExamples: 10);
+            AssertTrue(validationEngineReport.BenchmarkText.Contains("val 28", StringComparison.Ordinal), "validation fallback should disclose its split and labeled image count");
+            AssertTrue(validationEngineReport.BenchmarkText.Contains("\uAD50\uCCB4 \uD310\uB2E8 \uC544\uB2D8", StringComparison.Ordinal), "validation fallback should disclose that it is not model-adoption evidence");
+            AssertTrue(validationEngineReport.RecommendationText.Contains("\uC5D4\uC9C4 \uBD84\uC11D", StringComparison.Ordinal), "validation fallback should be presented as an engine benchmark");
+            AssertTrue(!validationEngineReport.RecommendationText.Contains("\uAD50\uCCB4 \uCD94\uCC9C", StringComparison.Ordinal), "validation fallback must not recommend model promotion");
+            WpfModelComparisonReviewReport staleValidationEngineReport = service.BuildFromSummaryFile(
+                summaryPath,
+                new[] { "OK", "NG" },
+                confidenceThreshold: 0.20,
+                maxExamples: 10);
+            AssertTrue(staleValidationEngineReport.RecommendationText.Contains("\uAD50\uCCB4 \uBCF4\uB958", StringComparison.Ordinal), "validation engine benchmark should still reject a stale confidence basis");
+            AssertTrue(staleValidationEngineReport.RecommendationText.Contains("25.0", StringComparison.Ordinal) && staleValidationEngineReport.RecommendationText.Contains("20.0", StringComparison.Ordinal), "stale validation benchmark should disclose the compared and current confidence values");
             File.WriteAllText(
                 summaryPath,
                 JsonConvert.SerializeObject(new
@@ -11961,6 +12009,8 @@ internal static partial class Program
             AssertTrue(realScriptSource.Contains("$RunName-predict\\labels", StringComparison.Ordinal), "Ultralytics comparison should expose predict labels for Candidate Review examples");
             AssertTrue(realScriptSource.Contains("validationLabelsPath", StringComparison.Ordinal), "Ultralytics comparison should keep validation labels separate from UI review labels");
             AssertTrue(realScriptSource.Contains("ModelTask", StringComparison.Ordinal), "model comparison script should keep split task separate from detect/segment task");
+            AssertTrue(realScriptSource.Contains("Training validation (val) results are for engine performance analysis", StringComparison.Ordinal), "cross-engine validation reports should be benchmark-only before the summary is written");
+            AssertTrue(realScriptSource.Contains("not model-replacement evidence", StringComparison.Ordinal), "cross-engine validation markdown should disclose that val is not adoption evidence");
             AssertTrue(realScriptSource.Contains("New-PromotionRecommendation", StringComparison.Ordinal), "model comparison script should write a promotion recommendation");
             AssertTrue(realScriptSource.Contains("minimumPrecision", StringComparison.Ordinal), "model comparison recommendation should guard low-precision candidates");
             AssertTrue(realScriptSource.Contains("New-ComparisonEvidence", StringComparison.Ordinal), "model comparison script should count held-out evidence before writing a promotion recommendation");
@@ -12018,6 +12068,8 @@ internal static partial class Program
                 LastSeenUtc = DateTime.UtcNow.ToString("o")
             });
 
+            WpfModelComparisonRunRequest automaticTestEngineRequest = service.BuildYoloV5YoloV8DetectionRequest(data);
+            AssertEqual("test", automaticTestEngineRequest.Task);
             WpfModelComparisonRunRequest engineRequest = service.BuildYoloV5YoloV8DetectionRequest(data, task: "test");
             AssertTrue(engineRequest.IsEngineComparison, "YOLOv5/YOLOv8 comparison should be marked as a cross-engine benchmark");
             AssertEqual(PythonModelSettings.EngineYoloV5, engineRequest.BaselineModelEngine);
@@ -12115,6 +12167,14 @@ internal static partial class Program
             File.WriteAllText(Path.Combine(testLabelsPath, "heldout.txt"), "0 0.5 0.5 0.25 0.25" + Environment.NewLine);
             File.Delete(Path.Combine(data.TestImagesPath, "heldout.bmp"));
             AssertTrue(service.ValidateRequest(request).Any(error => error.Contains("test", StringComparison.OrdinalIgnoreCase) && error.Contains("\uC774\uBBF8\uC9C0\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4", StringComparison.OrdinalIgnoreCase)), "model comparison validation should reject an empty held-out test split");
+
+            string validLabelsPath = Path.Combine(Path.GetDirectoryName(data.ValidImagesPath) ?? outputRoot, "labels");
+            Directory.CreateDirectory(validLabelsPath);
+            File.WriteAllBytes(Path.Combine(data.ValidImagesPath, "validation.bmp"), new byte[] { 1, 2, 3 });
+            File.WriteAllText(Path.Combine(validLabelsPath, "validation.txt"), "0 0.5 0.5 0.25 0.25" + Environment.NewLine);
+            WpfModelComparisonRunRequest validationFallbackRequest = service.BuildYoloV5YoloV8DetectionRequest(data);
+            AssertEqual("val", validationFallbackRequest.Task);
+            AssertEqual(0, service.ValidateRequest(validationFallbackRequest).Count);
         }
         finally
         {
@@ -21369,18 +21429,24 @@ internal static partial class Program
             File.WriteAllText(yolo8ClientPath, "# YOLOv8 DetectImage local worker" + Environment.NewLine + "def handle_train_yolo(): return 'TrainYoloResult'");
             string yolo8WeightsPath = Path.Combine(yolo8Root, "yolov8n-seg.pt");
             File.WriteAllText(yolo8WeightsPath, "weights");
+            string yolo8DetectSeedPath = Path.Combine(yolo8Root, "yolov8n.pt");
+            File.WriteAllText(yolo8DetectSeedPath, "detect seed weights");
             string yolo8TrainedWeightsPath = Path.Combine(yolo8Root, "runs", "train", "openvisionlab-yolov8-seg-smoke", "weights", "best.pt");
             string yolo8SegmentTrainedWeightsPath = Path.Combine(yolo8Root, "runs", "segment", "openvisionlab-yolov8-seg-runs-segment-smoke", "weights", "best.pt");
             string yolo8AppFixtureTrainedWeightsPath = Path.Combine(yolo8Root, "runs", "segment", "openvisionlab-yolov8-app-seg-fixture-smoke", "weights", "best.pt");
+            string yolo8DetectTrainedWeightsPath = Path.Combine(yolo8Root, "runs", "detect", "openvisionlab-yolov8-detect-smoke", "weights", "best.pt");
             Directory.CreateDirectory(Path.GetDirectoryName(yolo8TrainedWeightsPath)!);
             Directory.CreateDirectory(Path.GetDirectoryName(yolo8SegmentTrainedWeightsPath)!);
             Directory.CreateDirectory(Path.GetDirectoryName(yolo8AppFixtureTrainedWeightsPath)!);
+            Directory.CreateDirectory(Path.GetDirectoryName(yolo8DetectTrainedWeightsPath)!);
             File.WriteAllText(yolo8TrainedWeightsPath, "trained weights");
             File.WriteAllText(yolo8SegmentTrainedWeightsPath, "segment trained weights");
             File.WriteAllText(yolo8AppFixtureTrainedWeightsPath, "app fixture segment trained weights");
+            File.WriteAllText(yolo8DetectTrainedWeightsPath, "detect trained weights");
             File.SetLastWriteTimeUtc(yolo8TrainedWeightsPath, DateTime.UtcNow.AddMinutes(1));
             File.SetLastWriteTimeUtc(yolo8SegmentTrainedWeightsPath, DateTime.UtcNow.AddMinutes(2));
             File.SetLastWriteTimeUtc(yolo8AppFixtureTrainedWeightsPath, DateTime.UtcNow.AddMinutes(3));
+            File.SetLastWriteTimeUtc(yolo8DetectTrainedWeightsPath, DateTime.UtcNow.AddMinutes(4));
             string yolo8ImageRoot = Path.Combine(yolo8Root, "data", "train", "images");
             Directory.CreateDirectory(yolo8ImageRoot);
 
@@ -21398,6 +21464,15 @@ internal static partial class Program
             AssertTrue(yolo8Result.SelfTestReport.CanInspect, "local YOLOv8 folder connection should enable inspection when worker, venv package, and segmentation weight exist");
             AssertTrue(yolo8Result.DetailText.Contains("segmentation weight", StringComparison.Ordinal), "YOLOv8 folder connection should explain that local weights are required");
             AssertTrue(PythonModelRuntimeInstallPlanService.BuildPlan(yolo8Result.Settings).IsAlreadyInstalled, "local YOLOv8 folder connection should check the selected venv for ultralytics");
+
+            PythonModelRuntimeConnectionResult yolo8DetectResult = PythonModelRuntimeConnectionService.BuildYoloV8FolderConnection(
+                current,
+                yolo8Root,
+                LabelingDatasetPurpose.ObjectDetection);
+            AssertEqual(yolo8DetectTrainedWeightsPath, yolo8DetectResult.Settings.WeightsPath);
+            AssertTrue(!string.Equals(yolo8DetectResult.Settings.WeightsPath, yolo8DetectSeedPath, StringComparison.OrdinalIgnoreCase), "object-detection folder connection should prefer runs/detect best.pt over the pretrained seed");
+            AssertTrue(!string.Equals(yolo8DetectResult.Settings.WeightsPath, yolo8AppFixtureTrainedWeightsPath, StringComparison.OrdinalIgnoreCase), "object-detection folder connection must not select segmentation best.pt");
+            AssertTrue(yolo8DetectResult.DetailText.Contains("object-detection weight", StringComparison.Ordinal), "object-detection folder connection should describe the selected task weight");
 
             string ultralyticsPath = Path.Combine(root, ".venv", "Lib", "site-packages", "ultralytics");
             Directory.CreateDirectory(ultralyticsPath);

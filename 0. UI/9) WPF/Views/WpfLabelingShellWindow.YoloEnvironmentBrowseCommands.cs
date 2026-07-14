@@ -163,7 +163,8 @@ namespace MvcVisionSystem
 
             PythonModelRuntimeConnectionResult result = PythonModelRuntimeConnectionService.BuildYoloV8FolderConnection(
                 CreateYoloModelSettingsSnapshot(),
-                selectedPath);
+                selectedPath,
+                global?.Data?.ProjectSettings?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection);
             YoloModelSettingsViewModel?.ApplyRuntimeConnectionResult(result);
             YoloProjectRootBox?.Focus();
             SetYoloCommandStatus($"{result.SummaryText}: {result.DetailText}", isBusy: false);

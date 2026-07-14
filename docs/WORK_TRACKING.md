@@ -12147,7 +12147,31 @@ Last updated: 2026-07-13
   - Current-build 1920x1080 evidence is under `artifacts\ui\20260714-yolov5-yolov8-detection-comparison`.
 - Evidence boundary:
   - The displayed comparison fixture values verify parsing, presentation, and layout only. They are not real YOLOv5/YOLOv8 model-quality evidence.
-  - `C:\Git\yolov8` currently has SEG and classification weights but no YOLOv8 Detect weight. No model was downloaded and no dependency was changed in this work.
+  - At that implementation stage, `C:\Git\yolov8` had no Detect weight and no model was downloaded. The real training and comparison follow-up below supersedes that prerequisite.
 - Next work:
-  - After explicit approval for a YOLOv8 Detect seed or an operator-provided compatible weight, train YOLOv8 Detect on the same recipe, run `v5 vs v8 analysis`, and retain the exact weights, split size, image size, batch, device, metrics, and model Takt as the first real comparison record.
-  - Then continue anomaly classification runtime/model evidence on an independent production-camera or cross-session set.
+  - Continue with the real same-data training/comparison follow-up below, then independent anomaly classification evidence.
+
+## 2026-07-14 real YOLOv8 Detect training and YOLOv5 comparison
+
+- Goal:
+  - Reuse the object-detection images from `D:\LabelingData\Test01` through the app's existing 97 train / 28 validation export, train YOLOv8 Detect, and measure it against YOLOv5 under the same validation condition.
+- Runtime and weights:
+  - Explicitly approved `yolov8n.pt` was downloaded through the existing editable local Ultralytics runtime. No pip/dependency upgrade was run. Seed SHA-256: `F59B3D833E2FF32E194B5BB8E08D211DC7C5BDF144B90D2C8412C47CCFC83B36`.
+  - YOLOv8n Detect trained for 100 epochs at image 320, batch 4, workers 0, seed 0, deterministic CPU execution. The generated `best.pt` SHA-256 is `92CBA615854EBCCC18449AD09CA67452386340C7673AEB627729FC9810553449`.
+  - YOLOv8 folder connection now resolves `runs\detect`, `runs\segment`, or `runs\classify` and matching seed names according to dataset purpose, so an object-detection recipe does not reconnect to a SEG weight.
+- Real evidence:
+  - Five controlled `val`, image 320, batch 1, CPU, confidence 0.25 runs compared YOLOv5s hash `9FE11F3BA15AE835575E93D0374D595C6EA71AE0C80BCC12492B27CA0669088F` and the new YOLOv8n weight.
+  - Metrics were stable: YOLOv5s `P 0.999 / R 0.500 / mAP50 0.505 / mAP50-95 0.464`; YOLOv8n `P 0.980 / R 1.000 / mAP50 0.995 / mAP50-95 0.921`.
+  - Model-Takt medians were YOLOv5s `74.6ms` (range `69.3-77.9`) and YOLOv8n `47.946ms` (range `45.104-87.83`), a 35.7% median reduction. One YOLOv8 CPU run was an `87.83ms` outlier.
+  - The operating-reference YOLOv5m hash `78D7482C6BFB8DEC1C70DBD8B48ABC3D3B2C3BB90CD7E3958F077C081F581FCE` was also compared separately; its different historical training settings mean that result is operational context, not a controlled architecture result.
+- Evidence boundary:
+  - The test split is empty. Validation has 28 OK objects and only one NG object. YOLOv5s missed that NG (`NG recall 0`), while YOLOv8n detected it, but one object cannot establish broad NG accuracy.
+  - Raw comparison JSON/Markdown and Candidate Review now classify cross-engine `val` as `benchmark` and explicitly state that it is not model-replacement evidence.
+- Verification:
+  - Local adapter `py_compile`, self-test, and real `best.pt` smoke pass; the smoke returned an `OK` candidate at confidence 0.982 on `Teaching_0.jpeg`.
+  - Required isolated build and focused runtime-connection, model-comparison, training-settings, Candidate Review, and shell tests pass.
+  - Current-build 1920x1080 evidence: `artifacts\ui\20260714-yolov5-yolov8-real-validation\after-real-validation-benchmark-left-420-1920.png`.
+  - README/tutorial screenshots were reviewed and not replaced because the public default/tutorial layout did not change; this is a deep post-training evidence state.
+- Next work:
+  - Collect an independent NG-rich object-detection test split, rerun the same comparison on test with repeated Takt evidence, and only then consider engine/model adoption.
+  - Save/reopen the object-detection YOLOv8 runtime profile and smoke first inference, then continue anomaly classification on an independent production-camera/cross-session set.

@@ -1269,7 +1269,12 @@ function Write-MarkdownReport($Summary, [string]$Path) {
     $lines.Add("- Validation batch: ``$($Summary.batchSize)``")
     $lines.Add("- UI confidence: ``$($Summary.uiConfidence)``")
     if ($null -ne $evidence) {
-        $lines.Add("- Held-out evidence: ``$($evidence.comparisonLabelCount)`` labeled images / recommended ``$($evidence.recommendedLabelCount)``")
+        if ($Summary.comparisonKind -ieq "engine-benchmark" -and $Summary.task -ieq "val") {
+            $lines.Add("- Comparison evidence: ``$($evidence.comparisonLabelCount)`` labeled images from training validation (val); not model-replacement evidence")
+        }
+        else {
+            $lines.Add("- Held-out evidence: ``$($evidence.comparisonLabelCount)`` labeled images / recommended ``$($evidence.recommendedLabelCount)``")
+        }
         if ($null -ne $evidence.segmentationPositiveClassName) {
             $lines.Add("- Segmentation positive class: ``$($evidence.segmentationPositiveClassName)`` (id ``$($evidence.segmentationPositiveClassId)``)")
         }
@@ -1306,7 +1311,8 @@ function Write-MarkdownReport($Summary, [string]$Path) {
     }
     $lines.Add("")
     if ($null -ne $promotion) {
-        $lines.Add("## Recommendation")
+        $isBenchmarkOnly = $promotion.recommendation -ieq "benchmark"
+        $lines.Add($(if ($isBenchmarkOnly) { "## Engine Analysis" } else { "## Recommendation" }))
         $lines.Add("")
         $lines.Add("- Decision: ``$($promotion.recommendation)``")
         $promotionReasons = @()
@@ -1330,25 +1336,27 @@ function Write-MarkdownReport($Summary, [string]$Path) {
                 $lines.Add("  - $reason")
             }
         }
-        $lines.Add("- Minimum precision: ``$(Format-NullableNumber $promotion.minimumPrecision)``")
-        $lines.Add("- Held-out labels: ``$($promotion.heldoutLabelCount)`` / required ``$($promotion.minimumHeldoutLabelCount)``")
-        if ($null -ne $promotion.positiveSegmentationLabelLineCount) {
-            $lines.Add("- Positive segmentation labels: ``$($promotion.positiveSegmentationLabelLineCount)`` / required ``$($promotion.minimumPositiveSegmentationLabelLineCount)``")
-        }
-        if ($null -ne $promotion.positiveSegmentationImageCount) {
-            $lines.Add("- Positive segmentation images: ``$($promotion.positiveSegmentationImageCount)`` / required ``$($promotion.minimumPositiveSegmentationImageCount)``")
-        }
-        if ($null -ne $promotion.backgroundSegmentationImageCount) {
-            $lines.Add("- Background segmentation images: ``$($promotion.backgroundSegmentationImageCount)`` / required ``$($promotion.minimumBackgroundSegmentationImageCount)``")
-        }
-        if ($null -ne $promotion.uiPositiveImageCoverage) {
-            $lines.Add("- UI positive-image coverage: ``$(Format-NullableNumber $promotion.uiPositiveImageCoverage)`` / required ``$(Format-NullableNumber $promotion.minimumUiPositiveImageCoverage)``")
-        }
-        if ($null -ne $promotion.uiBackgroundCandidateRate) {
-            $lines.Add("- UI background-candidate rate: ``$(Format-NullableNumber $promotion.uiBackgroundCandidateRate)`` / maximum ``$(Format-NullableNumber $promotion.maximumUiBackgroundCandidateRate)``")
-        }
-        if ($null -ne $promotion.uiCandidateCount) {
-            $lines.Add("- UI candidates: ``$($promotion.uiCandidateCount)`` / required ``$($promotion.minimumUiCandidateCount)``")
+        if (-not $isBenchmarkOnly) {
+            $lines.Add("- Minimum precision: ``$(Format-NullableNumber $promotion.minimumPrecision)``")
+            $lines.Add("- Held-out labels: ``$($promotion.heldoutLabelCount)`` / required ``$($promotion.minimumHeldoutLabelCount)``")
+            if ($null -ne $promotion.positiveSegmentationLabelLineCount) {
+                $lines.Add("- Positive segmentation labels: ``$($promotion.positiveSegmentationLabelLineCount)`` / required ``$($promotion.minimumPositiveSegmentationLabelLineCount)``")
+            }
+            if ($null -ne $promotion.positiveSegmentationImageCount) {
+                $lines.Add("- Positive segmentation images: ``$($promotion.positiveSegmentationImageCount)`` / required ``$($promotion.minimumPositiveSegmentationImageCount)``")
+            }
+            if ($null -ne $promotion.backgroundSegmentationImageCount) {
+                $lines.Add("- Background segmentation images: ``$($promotion.backgroundSegmentationImageCount)`` / required ``$($promotion.minimumBackgroundSegmentationImageCount)``")
+            }
+            if ($null -ne $promotion.uiPositiveImageCoverage) {
+                $lines.Add("- UI positive-image coverage: ``$(Format-NullableNumber $promotion.uiPositiveImageCoverage)`` / required ``$(Format-NullableNumber $promotion.minimumUiPositiveImageCoverage)``")
+            }
+            if ($null -ne $promotion.uiBackgroundCandidateRate) {
+                $lines.Add("- UI background-candidate rate: ``$(Format-NullableNumber $promotion.uiBackgroundCandidateRate)`` / maximum ``$(Format-NullableNumber $promotion.maximumUiBackgroundCandidateRate)``")
+            }
+            if ($null -ne $promotion.uiCandidateCount) {
+                $lines.Add("- UI candidates: ``$($promotion.uiCandidateCount)`` / required ``$($promotion.minimumUiCandidateCount)``")
+            }
         }
         $lines.Add("")
     }
@@ -1412,13 +1420,20 @@ if ($ModelTask -ieq "segment") {
     Add-SegmentationPredictionImageEvidence $candidate $evidence $UiConfidence
 }
 $promotion = New-PromotionRecommendation $baseline $candidate $evidence $UiConfidence
+$comparisonKind = if ($BaselineEngine -ine $CandidateEngine) { "engine-benchmark" } else { "candidate-validation" }
+if ($comparisonKind -ieq "engine-benchmark" -and $Task -ieq "val") {
+    $benchmarkReason = "Training validation (val) results are for engine performance analysis and are not model-replacement evidence."
+    $promotion["recommendation"] = "benchmark"
+    $promotion["reason"] = $benchmarkReason
+    $promotion["reasons"] = @($benchmarkReason)
+}
 
 $summary = [ordered]@{
     createdAt = (Get-Date).ToString("o")
     dataYaml = $DataYaml
     task = $Task
     modelTask = $ModelTask
-    comparisonKind = if ($BaselineEngine -ine $CandidateEngine) { "engine-benchmark" } else { "candidate-validation" }
+    comparisonKind = $comparisonKind
     imageSize = $ImageSize
     batchSize = $BatchSize
     uiConfidence = $UiConfidence
