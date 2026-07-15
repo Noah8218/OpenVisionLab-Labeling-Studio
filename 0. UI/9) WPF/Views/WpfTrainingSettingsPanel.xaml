@@ -207,17 +207,26 @@
                                Text="{Binding TrainingRecommendationText}"
                                Visibility="Collapsed"
                                Style="{StaticResource TrainingHelpTextStyle}" />
-                    <ui:Button x:Name="ApplyFastTrainingPresetButton"
-                               AutomationProperties.AutomationId="ApplyFastTrainingPresetButton"
-                               AutomationProperties.Name="&#xBE60;&#xB978; &#xCD94;&#xCC9C;&#xAC12; &#xC801;&#xC6A9;"
-                               Style="{StaticResource TrainingCommandButtonStyle}"
-                               IsEnabled="{Binding IsApplyFastRecommendationEnabled}"
-                               MinWidth="116"
-                               HorizontalAlignment="Left"
-                               Margin="0,7,0,0"
-                               Content="&#xBE60;&#xB978; &#xCD94;&#xCC9C; &#xC801;&#xC6A9;"
-                               ToolTip="{Binding TrainingRecommendationText}"
-                               Command="{Binding ApplyFastRecommendationCommand}" />
+                    <WrapPanel HorizontalAlignment="Left" Margin="0,7,0,0">
+                        <ui:Button x:Name="ApplyFastTrainingPresetButton"
+                                   AutomationProperties.AutomationId="ApplyFastTrainingPresetButton"
+                                   AutomationProperties.Name="&#xBE60;&#xB978; &#xCD94;&#xCC9C;&#xAC12; &#xC801;&#xC6A9;"
+                                   Style="{StaticResource TrainingCommandButtonStyle}"
+                                   IsEnabled="{Binding IsApplyFastRecommendationEnabled}"
+                                   MinWidth="116"
+                                   Content="&#xBE60;&#xB978; &#xCD94;&#xCC9C; &#xC801;&#xC6A9;"
+                                   ToolTip="{Binding TrainingRecommendationText}"
+                                   Command="{Binding ApplyFastRecommendationCommand}" />
+                        <ui:Button x:Name="ApplyFinalVerificationPresetButton"
+                                   AutomationProperties.AutomationId="ApplyFinalVerificationPresetButton"
+                                   AutomationProperties.Name="&#xCD5C;&#xC885; &#xAC80;&#xC99D; &#xC900;&#xBE44;"
+                                   Style="{StaticResource TrainingCommandButtonStyle}"
+                                   IsEnabled="{Binding IsApplyFinalVerificationPresetEnabled}"
+                                   MinWidth="116"
+                                   Content="{Binding FinalVerificationPresetActionText}"
+                                   ToolTip="{Binding FinalVerificationPresetToolTipText}"
+                                   Command="{Binding ApplyFinalVerificationPresetCommand}" />
+                    </WrapPanel>
                 </StackPanel>
             </Border>
 

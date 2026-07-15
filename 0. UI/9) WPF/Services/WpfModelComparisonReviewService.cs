@@ -194,6 +194,14 @@ namespace MvcVisionSystem
                 condition += $" / image {imageSize}";
             }
 
+            int repeatCount = summary.SelectToken("benchmarkRepeatCount")?.Value<int?>()
+                ?? summary.SelectToken("baseline.benchmark.repeatCount")?.Value<int?>()
+                ?? 1;
+            if (repeatCount > 1)
+            {
+                condition += $" / \uBC18\uBCF5 {repeatCount}\uD68C \uC911\uC559\uAC12";
+            }
+
             string comparisonBasis = BuildEngineComparisonBasisText(summary);
 
             return string.Join(
@@ -235,15 +243,30 @@ namespace MvcVisionSystem
                 engine = fallbackEngine;
             }
 
+            double taktMs = model.SelectToken("benchmark.taktMs")?.Value<double?>() ?? 0D;
+            double? taktMinMs = model.SelectToken("benchmark.taktMinMs")?.Value<double?>();
+            double? taktMaxMs = model.SelectToken("benchmark.taktMaxMs")?.Value<double?>();
+            int repeatCount = model.SelectToken("benchmark.repeatCount")?.Value<int?>() ?? 1;
+            string taktText = taktMs.ToString("0.00", CultureInfo.CurrentCulture) + " ms";
+            if (repeatCount > 1 && taktMinMs.HasValue && taktMaxMs.HasValue)
+            {
+                taktText += string.Format(
+                    CultureInfo.CurrentCulture,
+                    " ({0:0.00}-{1:0.00}, n={2})",
+                    taktMinMs.Value,
+                    taktMaxMs.Value,
+                    repeatCount);
+            }
+
             return string.Format(
                 CultureInfo.CurrentCulture,
-                "{0}  P {1} / R {2} / mAP50 {3} / mAP50-95 {4} / Takt {5:0.00} ms",
+                "{0}  P {1} / R {2} / mAP50 {3} / mAP50-95 {4} / Takt {5}",
                 engine,
                 FormatMetricPercent(model.SelectToken("metrics.precision")?.Value<double?>()),
                 FormatMetricPercent(model.SelectToken("metrics.recall")?.Value<double?>()),
                 FormatMetricPercent(model.SelectToken("metrics.map50")?.Value<double?>()),
                 FormatMetricPercent(model.SelectToken("metrics.map5095")?.Value<double?>()),
-                model.SelectToken("benchmark.taktMs")?.Value<double?>() ?? 0D);
+                taktText);
         }
 
         private static string FormatMetricPercent(double? value)

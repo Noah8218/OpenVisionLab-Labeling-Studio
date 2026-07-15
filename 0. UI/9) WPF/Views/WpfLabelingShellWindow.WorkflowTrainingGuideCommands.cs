@@ -54,6 +54,10 @@ namespace MvcVisionSystem
                     ExecuteYoloTrainingWorkflowStep(5, LearningWorkflowPanelControl);
                     break;
 
+                case WpfDatasetDashboardActionKind.ExportQualityAudit:
+                    ExecuteExportDatasetQualityAuditCommand();
+                    break;
+
                 case WpfDatasetDashboardActionKind.OpenDatasetSettings:
                     FocusYoloTrainingSettingsTab();
                     RefreshTrainingReadinessPanel(refreshYaml: true);
@@ -64,6 +68,29 @@ namespace MvcVisionSystem
                 default:
                     ExecuteYoloTrainingWorkflowStep(5, LearningWorkflowPanelControl);
                     break;
+            }
+        }
+
+        private void ExecuteExportDatasetQualityAuditCommand()
+        {
+            string outputPath = Yolo.YoloDatasetQualityAuditExportService.ResolveDefaultOutputPath(global.Data);
+            if (string.IsNullOrWhiteSpace(outputPath))
+            {
+                SetModelStatus("\uD488\uC9C8 \uBCF4\uACE0\uC11C \uC800\uC7A5 \uC2E4\uD328: \uB370\uC774\uD130\uC14B \uC800\uC7A5 \uD3F4\uB354\uB97C \uBA3C\uC800 \uC9C0\uC815\uD558\uC138\uC694.");
+                return;
+            }
+
+            try
+            {
+                Yolo.YoloDatasetQualityAuditReport report = Yolo.YoloDatasetQualityAuditService.Build(global.Data);
+                Yolo.YoloDatasetQualityAuditExportResult result = Yolo.YoloDatasetQualityAuditExportService.ExportMarkdown(report, outputPath);
+                SetModelStatus($"\uD488\uC9C8 \uBCF4\uACE0\uC11C \uC800\uC7A5: {Path.GetFileName(result.OutputPath)} / \uB204\uB77D {result.MissingLabelCount}\uC7A5 / \uD615\uC2DD \uC624\uB958 {result.InvalidLabelLineCount}\uC904");
+                AppendLog($"Dataset quality audit saved: {result.OutputPath} / missing {result.MissingLabelCount} / invalid {result.InvalidLabelLineCount}");
+            }
+            catch (Exception ex)
+            {
+                SetModelStatus($"\uD488\uC9C8 \uBCF4\uACE0\uC11C \uC800\uC7A5 \uC2E4\uD328: {ex.Message}");
+                AppendLog($"Dataset quality audit save failed: {ex.Message}");
             }
         }
 

@@ -8,6 +8,16 @@ namespace MvcVisionSystem.Yolo
 {
     public static class YoloDatasetQualityAuditExportService
     {
+        public const string DefaultFileName = "dataset-quality-audit.md";
+
+        public static string ResolveDefaultOutputPath(CData data)
+        {
+            string outputRootPath = data?.OutputRootPath;
+            return string.IsNullOrWhiteSpace(outputRootPath)
+                ? string.Empty
+                : Path.Combine(outputRootPath, DefaultFileName);
+        }
+
         public static YoloDatasetQualityAuditExportResult ExportMarkdown(
             YoloDatasetQualityAuditReport report,
             string outputPath)

@@ -1327,6 +1327,7 @@ internal static partial class Program
         bool expandLearningConcepts = HasArgument(args, "--expand-learning-concepts");
         bool focusTemplateWorkflow = HasArgument(args, "--focus-template-workflow");
         bool focusYoloValidationReport = HasArgument(args, "--focus-yolo-validation-report");
+        bool focusDatasetDashboard = HasArgument(args, "--focus-dataset-dashboard");
         bool expandLabelingDetails = HasArgument(args, "--expand-labeling-details");
         bool selectMaskObject = HasArgument(args, "--select-mask-object");
         bool openHeaderToolsMenu = HasArgument(args, "--open-header-tools-menu");
@@ -1543,7 +1544,7 @@ internal static partial class Program
 
                     SelectVisualSmokeReviewTab(window, reviewTab);
                     EnsureVisualSmokeRightWorkflowExpanded(window, expandRightWorkflow);
-                    PrepareVisualSmokeGuidePanel(window, reviewTab, expandLearningConcepts, focusTemplateWorkflow, expandLabelingDetails, focusYoloValidationReport);
+                    PrepareVisualSmokeGuidePanel(window, reviewTab, expandLearningConcepts, focusTemplateWorkflow, expandLabelingDetails, focusYoloValidationReport, focusDatasetDashboard);
                     if (showQualityNeedsFix)
                     {
                         const string visualQualityNote = "경계가 흐려 마스크 수정 필요";
@@ -1587,7 +1588,7 @@ internal static partial class Program
                     BringVisualSmokeWindowToFront(window);
                     SelectVisualSmokeReviewTab(window, reviewTab);
                     EnsureVisualSmokeRightWorkflowExpanded(window, expandRightWorkflow);
-                    PrepareVisualSmokeGuidePanel(window, reviewTab, expandLearningConcepts, focusTemplateWorkflow, expandLabelingDetails, focusYoloValidationReport);
+                    PrepareVisualSmokeGuidePanel(window, reviewTab, expandLearningConcepts, focusTemplateWorkflow, expandLabelingDetails, focusYoloValidationReport, focusDatasetDashboard);
                     PumpWpfDispatcher(TimeSpan.FromMilliseconds(350));
                     CloseAuxiliaryVisualSmokeWindows(window);
                     BringVisualSmokeWindowToFront(window);
@@ -1648,7 +1649,7 @@ internal static partial class Program
                     PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
                     SelectVisualSmokeReviewTab(window, reviewTab);
                     EnsureVisualSmokeRightWorkflowExpanded(window, expandRightWorkflow);
-                    PrepareVisualSmokeGuidePanel(window, reviewTab, expandLearningConcepts, focusTemplateWorkflow, expandLabelingDetails, focusYoloValidationReport);
+                    PrepareVisualSmokeGuidePanel(window, reviewTab, expandLearningConcepts, focusTemplateWorkflow, expandLabelingDetails, focusYoloValidationReport, focusDatasetDashboard);
                     PumpWpfDispatcher(TimeSpan.FromMilliseconds(150));
                     if (openHeaderToolsMenu)
                     {
@@ -1665,6 +1666,15 @@ internal static partial class Program
                     if (!string.IsNullOrWhiteSpace(modelComparisonSummaryPath))
                     {
                         ApplyVisualSmokeModelComparisonSummary(window, modelComparisonSummaryPath);
+                        if (string.Equals(reviewTab, "training", StringComparison.OrdinalIgnoreCase))
+                        {
+                            SelectVisualSmokeReviewTab(window, reviewTab);
+                            if (window.FindName("YoloSettingsScrollViewer") is System.Windows.Controls.ScrollViewer modelCenterScroller)
+                            {
+                                window.UpdateLayout();
+                                modelCenterScroller.ScrollToTop();
+                            }
+                        }
                         PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
                     }
 
@@ -10593,6 +10603,21 @@ internal static partial class Program
             window.UpdateLayout();
         }
 
+        if (window.FindName("YoloModelCenterTaskTabs") is System.Windows.Controls.TabControl modelCenterTaskTabs)
+        {
+            string taskTabName = tabKey == "training"
+                ? "YoloModelCenterTrainingTaskTab"
+                : tabKey is "model" or "yolo-model" or "yolo-model-anomaly"
+                    ? "YoloModelCenterRuntimeTaskTab"
+                    : "YoloModelCenterOverviewTaskTab";
+            if (window.FindName(taskTabName) is System.Windows.Controls.TabItem taskTab)
+            {
+                modelCenterTaskTabs.SelectedItem = taskTab;
+                taskTab.IsSelected = true;
+                window.UpdateLayout();
+            }
+        }
+
         if (tabKey is "model" or "yolo-model" or "yolo-model-anomaly"
             && window.FindName("YoloModelSettingsPanelControl") is WpfYoloModelSettingsPanel modelSettingsPanel)
         {
@@ -10728,10 +10753,11 @@ internal static partial class Program
         bool expandLearningConcepts,
         bool focusTemplateWorkflow = false,
         bool expandLabelingDetails = false,
-        bool focusYoloValidationReport = false)
+        bool focusYoloValidationReport = false,
+        bool focusDatasetDashboard = false)
     {
         if (window == null
-            || (!expandLearningConcepts && !focusTemplateWorkflow && !expandLabelingDetails && !focusYoloValidationReport)
+            || (!expandLearningConcepts && !focusTemplateWorkflow && !expandLabelingDetails && !focusYoloValidationReport && !focusDatasetDashboard)
             || string.IsNullOrWhiteSpace(reviewTab))
         {
             return;
@@ -10745,6 +10771,11 @@ internal static partial class Program
 
         WpfLearningWorkflowPanel workflowPanel = window.FindName("LearningWorkflowPanelControl") as WpfLearningWorkflowPanel;
         object FindGuideElement(string name) => workflowPanel?.FindName(name) ?? window.FindName(name);
+
+        if (focusDatasetDashboard)
+        {
+            window.LearningWorkflowViewModel?.ShowLabelingTask();
+        }
 
         if (expandLearningConcepts
             && FindGuideElement("LearningConceptsExpander") is System.Windows.Controls.Expander expander)
@@ -10799,7 +10830,19 @@ internal static partial class Program
         window.UpdateLayout();
         PumpWpfDispatcher(TimeSpan.FromMilliseconds(150));
 
-        if (FindGuideElement("AnnotationToolListBox") is System.Windows.FrameworkElement toolList)
+        if (focusDatasetDashboard && FindGuideElement("DatasetStatusDashboardPanel") is System.Windows.FrameworkElement datasetDashboard)
+        {
+            datasetDashboard.BringIntoView();
+            if (FindGuideElement("LearningWorkflowScrollViewer") is System.Windows.Controls.ScrollViewer workflowScrollViewer)
+            {
+                System.Windows.Point dashboardOrigin = datasetDashboard
+                    .TransformToAncestor(workflowScrollViewer)
+                    .Transform(new System.Windows.Point(0D, 0D));
+                workflowScrollViewer.ScrollToVerticalOffset(
+                    Math.Max(0D, workflowScrollViewer.VerticalOffset + dashboardOrigin.Y - 16D));
+            }
+        }
+        else if (FindGuideElement("AnnotationToolListBox") is System.Windows.FrameworkElement toolList)
         {
             toolList.BringIntoView();
         }
@@ -11617,19 +11660,20 @@ internal static partial class Program
                     uiConfidence = 0.25,
                     imageSize = 320,
                     batchSize = 1,
+                    benchmarkRepeatCount = 5,
                     baseline = new
                     {
                         engine = "YOLOv5",
                         labelsPath = baselineLabels,
                         metrics = new { precision = 0.81, recall = 0.74, map50 = 0.79, map5095 = 0.52 },
-                        benchmark = new { preprocessMs = 0.7, inferenceMs = 6.8, postprocessMs = 0.8, taktMs = 8.3 }
+                        benchmark = new { preprocessMs = 0.7, inferenceMs = 6.8, postprocessMs = 0.8, taktMs = 8.3, taktMinMs = 7.9, taktMaxMs = 9.1, repeatCount = 5 }
                     },
                     candidate = new
                     {
                         engine = "YOLOv8",
                         labelsPath = candidateLabels,
                         metrics = new { precision = 0.84, recall = 0.78, map50 = 0.82, map5095 = 0.57 },
-                        benchmark = new { preprocessMs = 0.5, inferenceMs = 5.1, postprocessMs = 0.6, taktMs = 6.2 }
+                        benchmark = new { preprocessMs = 0.5, inferenceMs = 5.1, postprocessMs = 0.6, taktMs = 6.2, taktMinMs = 5.8, taktMaxMs = 7.0, repeatCount = 5 }
                     },
                     promotion = new
                     {
@@ -11645,6 +11689,8 @@ internal static partial class Program
             AssertTrue(weakEvidenceReport.IsEngineComparison, "cross-engine summaries should be identified separately from candidate promotion comparisons");
             AssertTrue(weakEvidenceReport.BenchmarkText.Contains("YOLOv5", StringComparison.Ordinal) && weakEvidenceReport.BenchmarkText.Contains("YOLOv8", StringComparison.Ordinal), "cross-engine summary should identify both runtimes");
             AssertTrue(weakEvidenceReport.BenchmarkText.Contains("8.30", StringComparison.Ordinal) && weakEvidenceReport.BenchmarkText.Contains("6.20", StringComparison.Ordinal), "cross-engine summary should preserve per-model takt values");
+            AssertTrue(weakEvidenceReport.BenchmarkText.Contains("7.90-9.10", StringComparison.Ordinal) && weakEvidenceReport.BenchmarkText.Contains("n=5", StringComparison.Ordinal), "cross-engine summary should expose repeated takt range and sample count");
+            AssertTrue(weakEvidenceReport.BenchmarkText.Contains("\uBC18\uBCF5 5\uD68C \uC911\uC559\uAC12", StringComparison.Ordinal), "cross-engine summary should identify repeated takt values as medians");
             AssertTrue(weakEvidenceReport.BenchmarkText.Contains("batch 1", StringComparison.Ordinal), "cross-engine summary should disclose the batch-one timing condition");
             AssertTrue(weakEvidenceReport.BenchmarkText.Contains("test", StringComparison.Ordinal), "cross-engine summary should identify an independent test comparison");
             var engineComparisonViewModel = new WpfCandidateReviewPanelViewModel();
@@ -11990,15 +12036,20 @@ internal static partial class Program
             AssertEqual(candidateWeights, request.CandidateWeightsPath);
             AssertEqual(640, request.ImageSize);
             AssertEqual(4, request.BatchSize);
+            AssertEqual(1, request.BenchmarkRepeatCount);
             AssertEqual("test", request.Task);
             AssertEqual("detect", request.ModelTask);
             AssertTrue(Math.Abs(request.UiConfidence - 0.42D) < 0.0001D, "model comparison request should preserve UI confidence");
             AssertEqual(0, service.ValidateRequest(request).Count);
+            request.BenchmarkRepeatCount = 0;
+            AssertTrue(service.ValidateRequest(request).Any(error => error.Contains("1~10", StringComparison.Ordinal)), "model comparison should reject an invalid benchmark repeat count");
+            request.BenchmarkRepeatCount = 1;
 
             IReadOnlyList<string> arguments = service.BuildPowerShellArguments(request);
             AssertTrue(arguments.Contains("-Task"), "model comparison run should pass the task argument");
             AssertTrue(arguments.Contains("test"), "model comparison run should default to held-out test comparison");
             AssertTrue(arguments.Contains("-ModelTask"), "model comparison run should pass the model task argument");
+            AssertTrue(arguments.Contains("-BenchmarkRepeatCount") && arguments.Contains("1"), "candidate validation should keep a single native timing measurement by default");
             AssertTrue(arguments.Contains("detect"), "model comparison run should default object detection projects to detect validation");
             AssertTrue(arguments.Contains("-DataYaml"), "model comparison run should pass data.yaml explicitly");
             AssertTrue(arguments.Contains(data.DataYamlFilePath), "model comparison run should use the current project data.yaml");
@@ -12017,6 +12068,10 @@ internal static partial class Program
             AssertTrue(realScriptSource.Contains("OPENVISIONLAB_BENCHMARK_JSON", StringComparison.Ordinal), "Ultralytics validation should emit parseable native timing metrics");
             AssertTrue(realScriptSource.Contains("Read-ValBenchmark", StringComparison.Ordinal), "model comparison should normalize native YOLO validation timing");
             AssertTrue(realScriptSource.Contains("comparisonKind", StringComparison.Ordinal), "model comparison summary should distinguish engine benchmarks from candidate validation");
+            AssertTrue(realScriptSource.Contains("BenchmarkRepeatCount", StringComparison.Ordinal), "model comparison should support repeated native timing measurements");
+            AssertTrue(realScriptSource.Contains("native-validation-speed-median", StringComparison.Ordinal), "repeated model takt should be reported as a median");
+            AssertTrue(realScriptSource.Contains("taktSamplesMs", StringComparison.Ordinal), "model comparison summary should preserve the repeated native timing samples");
+            AssertTrue(realScriptSource.Contains("requested $RequestedRepeatCount timing samples", StringComparison.Ordinal), "repeated model takt should fail closed when any requested timing sample is missing");
             AssertTrue(realScriptSource.Contains("requested task=", StringComparison.Ordinal), "model comparison should reject detect/segment task mismatches before validation");
             AssertTrue(realScriptSource.Contains("Model Takt", StringComparison.Ordinal), "model comparison report should disclose native per-image model takt");
             AssertTrue(realScriptSource.Contains("BaselinePythonExe", StringComparison.Ordinal) && realScriptSource.Contains("CandidatePythonExe", StringComparison.Ordinal), "cross-engine comparison should use each engine's own Python runtime");
@@ -12096,6 +12151,7 @@ internal static partial class Program
             AssertEqual(baselineWeights, engineRequest.BaselineWeightsPath);
             AssertEqual(yolo8DetectWeightsPath, engineRequest.CandidateWeightsPath);
             AssertEqual(1, engineRequest.BatchSize);
+            AssertEqual(5, engineRequest.BenchmarkRepeatCount);
             AssertEqual("detect", engineRequest.ModelTask);
             AssertEqual(0, service.ValidateRequest(engineRequest).Count);
             IReadOnlyList<string> engineArguments = service.BuildPowerShellArguments(engineRequest);
@@ -12105,6 +12161,7 @@ internal static partial class Program
             AssertTrue(engineArguments.Contains("-CandidatePythonExe") && engineArguments.Contains(yolo8DetectPythonPath), "cross-engine comparison should pass the YOLOv8 Python runtime");
             AssertTrue(engineArguments.Contains("-CandidateYoloSourceRoot") && engineArguments.Contains(yolo8DetectSourceRoot), "cross-engine comparison should pass the YOLOv8 source root");
             AssertTrue(engineArguments.Contains("-CandidateEngine") && engineArguments.Contains(PythonModelSettings.EngineYoloV8), "cross-engine comparison should identify the YOLOv8 runtime");
+            AssertTrue(engineArguments.Contains("-BenchmarkRepeatCount") && engineArguments.Contains("5"), "cross-engine comparison should request five native timing measurements");
 
             string yolo8Root = Path.Combine(root, "yolov8");
             string ultralyticsRoot = Path.Combine(yolo8Root, "ultralyticsMaster");
@@ -13285,6 +13342,7 @@ internal static partial class Program
 
             YoloDatasetQualityAuditReport report = YoloDatasetQualityAuditService.Build(data);
             string outputPath = Path.Combine(root, "exports", "dataset-quality-audit.md");
+            AssertEqual(Path.Combine(root, YoloDatasetQualityAuditExportService.DefaultFileName), YoloDatasetQualityAuditExportService.ResolveDefaultOutputPath(data));
             YoloDatasetQualityAuditExportResult result = YoloDatasetQualityAuditExportService.ExportMarkdown(report, outputPath);
 
             AssertTrue(File.Exists(outputPath), "dataset quality audit markdown was not written");
@@ -14009,7 +14067,15 @@ internal static partial class Program
             AssertTrue(window.LearningWorkflowViewModel.DatasetDashboardMetrics.Count >= 8, "ready dataset dashboard should expose image, labeling progress, split, replacement, label, class, and duplicate metrics");
             AssertTrue(window.LearningWorkflowViewModel.DatasetDashboardMetrics.Any(item => item.Title.Contains("\uAD50\uCCB4", StringComparison.Ordinal) && item.IsWarning), "ready dataset without test split should mark replacement as a warning metric");
             AssertTrue(window.LearningWorkflowViewModel.DatasetDashboardMetrics.Any(item => item.Title.Contains("\uC9C4\uD589", StringComparison.Ordinal) && item.ActionKind == WpfDatasetDashboardActionKind.OpenLabelingProgress), "ready dataset dashboard should show labeling progress as a clickable tool shortcut");
-            AssertTrue(window.LearningWorkflowViewModel.DatasetDashboardMetrics.Any(item => item.Title.Contains("\uD488\uC9C8", StringComparison.Ordinal) && item.Value == "OK" && !item.IsProblem), "ready dataset dashboard should show a non-problem quality audit metric");
+            WpfDatasetDashboardMetricItem qualityMetric = window.LearningWorkflowViewModel.DatasetDashboardMetrics.First(item => item.Title.Contains("\uD488\uC9C8", StringComparison.Ordinal));
+            AssertEqual("\uD488\uC9C8 \uBCF4\uACE0\uC11C", qualityMetric.Title);
+            AssertEqual(WpfDatasetDashboardActionKind.ExportQualityAudit, qualityMetric.ActionKind);
+            AssertTrue(qualityMetric.Detail.Contains("Markdown", StringComparison.Ordinal), "quality audit metric should explain that clicking saves a Markdown report");
+            AssertTrue(qualityMetric.Value == "OK" && !qualityMetric.IsProblem, "ready dataset dashboard should show a non-problem quality audit metric");
+            window.LearningWorkflowViewModel.DatasetDashboardMetricCommand.Execute(qualityMetric);
+            string qualityAuditPath = YoloDatasetQualityAuditExportService.ResolveDefaultOutputPath(warningData);
+            AssertTrue(File.Exists(qualityAuditPath), "quality audit metric should save the current dataset report");
+            AssertTrue(File.ReadAllText(qualityAuditPath).Contains("# Dataset Quality Audit", StringComparison.Ordinal), "saved quality audit metric report should contain the audit title");
             AssertTrue(window.LearningWorkflowViewModel.DatasetDashboardSummaryText.Contains("quality missing 0", StringComparison.Ordinal), "ready dataset dashboard summary should include quality audit counts");
             AssertTrue(window.LearningWorkflowViewModel.DatasetDashboardIssueItems.First().Contains("\uB2E4\uC74C:", StringComparison.Ordinal), "ready dataset dashboard should begin with a learner-facing next action");
             AssertTrue(window.LearningWorkflowViewModel.DatasetDashboardIssueItems.First().Contains("\uCD5C\uC885 \uAC80\uC99D", StringComparison.Ordinal), "ready dataset next action should explain the final verification data before model replacement");
@@ -29238,6 +29304,19 @@ internal static partial class Program
             AssertTrue(window.FindName("ThemeToggleButton").GetType().FullName == "Wpf.Ui.Controls.Button", "WPF theme toggle should use WPF-UI button");
             AssertTrue(window.FindName("YoloCommandStatusText") != null, "WPF YOLO command status text was not created");
             AssertTrue(window.FindName("YoloSettingsScrollViewer") != null, "WPF YOLO settings scroll viewer was not created");
+            var modelCenterTaskTabs = window.FindName("YoloModelCenterTaskTabs") as System.Windows.Controls.TabControl;
+            var modelCenterOverviewTaskTab = window.FindName("YoloModelCenterOverviewTaskTab") as System.Windows.Controls.TabItem;
+            var modelCenterDataTaskTab = window.FindName("YoloModelCenterDataTaskTab") as System.Windows.Controls.TabItem;
+            var modelCenterTrainingTaskTab = window.FindName("YoloModelCenterTrainingTaskTab") as System.Windows.Controls.TabItem;
+            var modelCenterRuntimeTaskTab = window.FindName("YoloModelCenterRuntimeTaskTab") as System.Windows.Controls.TabItem;
+            var modelComparisonSummaryPanel = window.FindName("YoloModelComparisonSummaryPanel") as System.Windows.FrameworkElement;
+            AssertTrue(modelCenterTaskTabs != null, "WPF model center should expose a task selector");
+            AssertEqual(4, modelCenterTaskTabs.Items.Count);
+            AssertTrue(modelCenterOverviewTaskTab != null && modelCenterDataTaskTab != null && modelCenterTrainingTaskTab != null && modelCenterRuntimeTaskTab != null,
+                "WPF model center should declare overview, data, training/comparison, and runtime task tabs");
+            AssertTrue(ReferenceEquals(modelCenterOverviewTaskTab, modelCenterTaskTabs.SelectedItem), "WPF model center should open on the compact overview task");
+            AssertTrue(modelComparisonSummaryPanel != null, "WPF model center should expose a read-only model-comparison summary");
+            AssertEqual(System.Windows.Visibility.Collapsed, modelComparisonSummaryPanel.Visibility);
             AssertTrue(window.FindName("YoloModelSettingsPanelControl") != null, "WPF YOLO model settings user control was not created");
             AssertTrue(window.FindName("YoloModelSettingsPanelControl").GetType().FullName == "MvcVisionSystem.WpfYoloModelSettingsPanel", "WPF YOLO model settings should be hosted by a UserControl");
             AssertTrue(((WpfYoloModelSettingsPanel)window.FindName("YoloModelSettingsPanelControl")).ViewModel != null, "WPF YOLO model settings view model was not created");
@@ -29572,10 +29651,57 @@ internal static partial class Program
 
             window.FocusYoloSettingsTab();
             AssertTrue(window.FindName("YoloSettingsReviewTab") is System.Windows.Controls.TabItem yoloSettingsTab && yoloSettingsTab.IsSelected, "WPF shell should focus the model settings tab");
+            AssertTrue(ReferenceEquals(modelCenterOverviewTaskTab, modelCenterTaskTabs.SelectedItem), "WPF model center focus should return to the overview task");
+            AssertEqual(System.Windows.Visibility.Visible, ((System.Windows.FrameworkElement)window.FindName("YoloModelLifecycleDashboardPanel")).Visibility);
+            AssertEqual(System.Windows.Visibility.Collapsed, ((System.Windows.FrameworkElement)window.FindName("YoloDatasetReadinessQuickPanel")).Visibility);
+            AssertEqual(System.Windows.Visibility.Collapsed, ((System.Windows.FrameworkElement)window.FindName("TrainingSettingsPanelControl")).Visibility);
+            AssertEqual(System.Windows.Visibility.Collapsed, ((System.Windows.FrameworkElement)window.FindName("YoloModelSettingsPanelControl")).Visibility);
             AssertTrue(!((WpfYoloStatusPanel)window.FindName("YoloStatusPanelControl")).RuntimeDetailsExpander.IsExpanded, "WPF model overview should keep runtime details collapsed by default");
             AssertTrue(!((WpfProjectConfigPanel)window.FindName("ProjectConfigPanelControl")).SettingsExpander.IsExpanded, "WPF model overview should keep project settings collapsed by default");
             AssertTrue(!((WpfYoloModelSettingsPanel)window.FindName("YoloModelSettingsPanelControl")).SettingsExpander.IsExpanded, "WPF model overview should keep model settings collapsed by default");
             AssertTrue(!((WpfTrainingSettingsPanel)window.FindName("TrainingSettingsPanelControl")).SettingsExpander.IsExpanded, "WPF model overview should keep training settings collapsed by default");
+
+            modelCenterTaskTabs.SelectedItem = modelCenterDataTaskTab;
+            window.UpdateLayout();
+            AssertEqual(System.Windows.Visibility.Visible, ((System.Windows.FrameworkElement)window.FindName("YoloDatasetReadinessQuickPanel")).Visibility);
+            AssertEqual(System.Windows.Visibility.Visible, ((System.Windows.FrameworkElement)window.FindName("ProjectConfigPanelControl")).Visibility);
+            AssertTrue(((System.Windows.Controls.Expander)window.FindName("YoloDatasetReadinessQuickPanel")).IsExpanded,
+                "selecting the data task should reveal its readiness controls without another click");
+
+            InvokePrivate(window, "FocusYoloTrainingSettingsTab");
+            window.UpdateLayout();
+            AssertTrue(ReferenceEquals(modelCenterTrainingTaskTab, modelCenterTaskTabs.SelectedItem), "training navigation should select the training/comparison task");
+            AssertEqual(System.Windows.Visibility.Visible, ((System.Windows.FrameworkElement)window.FindName("TrainingSettingsPanelControl")).Visibility);
+            AssertTrue(((WpfTrainingSettingsPanel)window.FindName("TrainingSettingsPanelControl")).SettingsExpander.IsExpanded,
+                "selecting the training task should reveal training controls without another click");
+
+            const string comparisonDecision = "\uC5D4\uC9C4 \uBD84\uC11D: val \uACB0\uACFC\uB294 \uAD50\uCCB4 \uD310\uB2E8\uC774 \uC544\uB2D9\uB2C8\uB2E4.";
+            const string comparisonBenchmark = "YOLOv5 P 90.0% / mAP50 95.0% / Takt 10.00 ms (n=5)\nYOLOv8 P 92.0% / mAP50 96.0% / Takt 8.00 ms (n=5)\n\uBE44\uAD50 \uAE30\uC900: val 28\uC7A5";
+            window.CandidateReviewViewModel.SetModelComparisonReview(new WpfModelComparisonReviewReport(
+                hasComparison: true,
+                summaryText: "\uBAA8\uB378 \uCC28\uC774 \uC608\uC2DC: 2\uAC1C",
+                detailText: "\uBE44\uAD50 \uACB0\uACFC \uC0C1\uC138",
+                sourcePath: "comparison-summary.json",
+                examples: Array.Empty<WpfModelComparisonReviewExample>(),
+                promotionDecision: "benchmark",
+                recommendationText: comparisonDecision,
+                benchmarkText: comparisonBenchmark,
+                isEngineComparison: true));
+            window.UpdateLayout();
+            AssertEqual(System.Windows.Visibility.Visible, modelComparisonSummaryPanel.Visibility);
+            AssertEqual(comparisonDecision, ((System.Windows.Controls.TextBlock)window.FindName("YoloModelComparisonDecisionText")).Text);
+            AssertEqual(comparisonBenchmark, ((System.Windows.Controls.TextBlock)window.FindName("YoloModelComparisonBenchmarkText")).Text);
+
+            InvokePrivate(window, "FocusYoloModelSettingsTab");
+            window.UpdateLayout();
+            AssertTrue(ReferenceEquals(modelCenterRuntimeTaskTab, modelCenterTaskTabs.SelectedItem), "model settings navigation should select the runtime task");
+            AssertEqual(System.Windows.Visibility.Collapsed, modelComparisonSummaryPanel.Visibility);
+            AssertEqual(System.Windows.Visibility.Visible, ((System.Windows.FrameworkElement)window.FindName("YoloStatusPanelControl")).Visibility);
+            AssertEqual(System.Windows.Visibility.Visible, ((System.Windows.FrameworkElement)window.FindName("YoloModelSettingsPanelControl")).Visibility);
+            AssertTrue(((WpfYoloModelSettingsPanel)window.FindName("YoloModelSettingsPanelControl")).SettingsExpander.IsExpanded,
+                "selecting the runtime task should reveal model controls without another click");
+
+            window.FocusYoloSettingsTab();
 
             window.FocusClassCatalogTab();
             AssertTrue(window.FindName("ClassesReviewTab") is System.Windows.Controls.TabItem classesReviewTab && classesReviewTab.IsSelected, "WPF shell should focus the class catalog tab");
@@ -30175,12 +30301,17 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "StopTrainingButton", "Command", "StopTrainingCommand");
         AssertNamedXamlBinding(xaml, xName, "ApplyFastTrainingPresetButton", "Command", "ApplyFastRecommendationCommand");
         AssertNamedXamlBinding(xaml, xName, "ApplyFastTrainingPresetButton", "IsEnabled", "IsApplyFastRecommendationEnabled");
+        AssertNamedXamlBinding(xaml, xName, "ApplyFinalVerificationPresetButton", "Command", "ApplyFinalVerificationPresetCommand");
+        AssertNamedXamlBinding(xaml, xName, "ApplyFinalVerificationPresetButton", "IsEnabled", "IsApplyFinalVerificationPresetEnabled");
+        AssertNamedXamlBinding(xaml, xName, "ApplyFinalVerificationPresetButton", "Content", "FinalVerificationPresetActionText");
+        AssertNamedXamlBinding(xaml, xName, "ApplyFinalVerificationPresetButton", "ToolTip", "FinalVerificationPresetToolTipText");
         AssertNamedXamlBinding(xaml, xName, "RefreshTrainingReadinessButton", "IsEnabled", "IsRefreshReadinessEnabled");
         AssertNamedXamlBinding(xaml, xName, "StartTrainingButton", "IsEnabled", "IsStartTrainingEnabled");
         AssertNamedXamlBinding(xaml, xName, "StopTrainingButton", "IsEnabled", "IsStopTrainingEnabled");
         string trainingXamlSource = File.ReadAllText(xamlPath);
         AssertTrue(trainingXamlSource.Contains("AutomationProperties.AutomationId=\"StartTrainingButton\"", StringComparison.Ordinal), "WPF training start button should expose a stable AutomationId for real-EXE guide chip testing");
         AssertTrue(trainingXamlSource.Contains("AutomationProperties.AutomationId=\"ApplyFastTrainingPresetButton\"", StringComparison.Ordinal), "WPF training fast recommendation button should expose a stable AutomationId for real-EXE testing");
+        AssertTrue(trainingXamlSource.Contains("AutomationProperties.AutomationId=\"ApplyFinalVerificationPresetButton\"", StringComparison.Ordinal), "WPF final-verification preset should expose a stable AutomationId for real-EXE testing");
         AssertNamedXamlBinding(xaml, xName, "TrainingSettingsSummaryTitleText", "Text", "TrainingSettingsSummaryTitleText");
         AssertNamedXamlBinding(xaml, xName, "TrainingSettingsSummaryModelText", "Text", "TrainingSettingsSummaryModelText");
         AssertNamedXamlBinding(xaml, xName, "TrainingSettingsSummaryRuntimeText", "Text", "TrainingSettingsSummaryRuntimeText");
@@ -30267,6 +30398,20 @@ internal static partial class Program
         AssertTrue(trainingSummaryViewModel.TrainingSettingsSummaryRuntimeText.Contains("50", StringComparison.Ordinal), "training summary should show epoch count");
         AssertTrue(trainingSummaryViewModel.TrainingSettingsSummaryModelText.Contains("yolov5s", StringComparison.Ordinal), "training summary should show model architecture and starting weight");
         AssertTrue(trainingSummaryViewModel.TrainingSettingsSummarySplitText.Contains("20", StringComparison.Ordinal), "training summary should show validation split");
+        AssertTrue(trainingSummaryViewModel.ApplyFinalVerificationPresetCommand.CanExecute(null), "final-verification preset should be executable while idle");
+        trainingSummaryViewModel.ApplyFinalVerificationPresetCommand.Execute(null);
+        AssertEqual("0", trainingSummaryViewModel.ValidationPercentText);
+        AssertEqual("100", trainingSummaryViewModel.TestPercentText);
+        AssertTrue(trainingSummaryViewModel.TrainingReadinessText.Contains("test", StringComparison.Ordinal), "final-verification preset should explain the resulting test-only save mode");
+        var finalVerificationTraining = new TrainingSettings();
+        var finalVerificationDataset = new YoloDatasetSettings();
+        trainingSummaryViewModel.ApplyTo(finalVerificationTraining, finalVerificationDataset, new CYolov5TrainingParam());
+        AssertEqual(0, finalVerificationDataset.ValidationPercent);
+        AssertEqual(100, finalVerificationDataset.TestPercent);
+        AssertEqual(YoloDatasetSplitService.TestMode, YoloDatasetSplitService.SelectModesForImage("independent-ng", finalVerificationDataset).Single());
+        trainingSummaryViewModel.ApplyFastRecommendationCommand.Execute(null);
+        AssertEqual("20", trainingSummaryViewModel.ValidationPercentText);
+        AssertEqual("0", trainingSummaryViewModel.TestPercentText);
         var segmentationTrainingViewModel = new WpfTrainingSettingsPanelViewModel();
         segmentationTrainingViewModel.LoadFrom(
             new TrainingSettings { Cfg = "yolov5x", Weight = "yolov5x" },
@@ -30373,6 +30518,7 @@ internal static partial class Program
             AssertTrue(window.FindName("TrainingCfgBox") is System.Windows.Controls.ComboBox, "WPF training cfg proxy was not registered");
             AssertTrue(window.FindName("TrainingProgressBar") is System.Windows.Controls.ProgressBar, "WPF training progress proxy was not registered");
             AssertTrue(window.FindName("ApplyFastTrainingPresetButton").GetType().FullName == "Wpf.Ui.Controls.Button", "WPF training fast recommendation button should use WPF-UI button");
+            AssertTrue(trainingPanel.FindName("ApplyFinalVerificationPresetButton")?.GetType().FullName == "Wpf.Ui.Controls.Button", "WPF final-verification preset should use a WPF-UI button");
             AssertTrue(window.FindName("StartTrainingButton").GetType().FullName == "Wpf.Ui.Controls.Button", "WPF training start button should use WPF-UI button");
             AssertTrue(window.FindName("StopTrainingButton").GetType().FullName == "Wpf.Ui.Controls.Button", "WPF training stop button should use WPF-UI button");
             AssertTrue(window.FindName("RunYoloEngineComparisonButton").GetType().FullName == "Wpf.Ui.Controls.Button", "WPF training YOLOv5/YOLOv8 comparison button should use WPF-UI button");
@@ -33041,6 +33187,7 @@ internal static partial class Program
             isTrainingStopAvailable: false,
             hasCurrentRecipeName: true));
         AssertTrue(trainingViewModel.IsApplyFastRecommendationEnabled, "training fast recommendation should be enabled while idle");
+        AssertTrue(trainingViewModel.IsApplyFinalVerificationPresetEnabled, "training final-verification preset should be enabled while idle");
         AssertTrue(trainingViewModel.IsRefreshReadinessEnabled, "training refresh should be enabled while idle");
         AssertTrue(trainingViewModel.IsStartTrainingEnabled, "training start should be enabled while idle");
         AssertTrue(!trainingViewModel.IsStopTrainingEnabled, "training stop should be disabled while idle");
@@ -33053,6 +33200,7 @@ internal static partial class Program
             isTrainingStopAvailable: true,
             hasCurrentRecipeName: true));
         AssertTrue(!trainingViewModel.IsApplyFastRecommendationEnabled, "training fast recommendation should disable while training is running");
+        AssertTrue(!trainingViewModel.IsApplyFinalVerificationPresetEnabled, "training final-verification preset should disable while training is running");
         AssertTrue(!trainingViewModel.IsRefreshReadinessEnabled, "training refresh should disable while training is running");
         AssertTrue(!trainingViewModel.IsStartTrainingEnabled, "training start should disable while training is running");
         AssertTrue(trainingViewModel.IsStopTrainingEnabled, "training stop should enable while training is running");

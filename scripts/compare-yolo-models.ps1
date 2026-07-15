@@ -13,6 +13,8 @@ param(
     [string]$CandidateEngine = "",
     [int]$ImageSize = 320,
     [int]$BatchSize = 16,
+    [ValidateRange(1, 10)]
+    [int]$BenchmarkRepeatCount = 1,
     [ValidateSet("val", "test")]
     [string]$Task = "val",
     [ValidateSet("detect", "segment")]
@@ -576,7 +578,8 @@ function Invoke-YoloVal(
     [string]$RunOutputRoot,
     [string]$RuntimePythonExe,
     [string]$RuntimeSourceRoot,
-    [string]$Engine
+    [string]$Engine,
+    [bool]$IncludePredictions = $true
 ) {
     $logPath = Join-Path $RunOutputRoot "$RunName.log"
     $runProject = Join-Path $RunOutputRoot "runs"
@@ -592,10 +595,11 @@ function Invoke-YoloVal(
         "--workers", "0",
         "--project", $runProject,
         "--name", $RunName,
-        "--exist-ok",
-        "--save-txt",
-        "--save-conf"
+        "--exist-ok"
     )
+    if ($IncludePredictions) {
+        $arguments += @("--save-txt", "--save-conf")
+    }
 
     $previous = $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD
     $previousErrorActionPreference = $ErrorActionPreference
@@ -614,15 +618,16 @@ function Invoke-YoloVal(
         $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = $previous
     }
 
+    $labelsPath = Join-Path $runProject "$RunName\labels"
     return [ordered]@{
         name = $RunName
         engine = $Engine
         weights = $WeightsPath
         logPath = $logPath
-        labelsPath = Join-Path $runProject "$RunName\labels"
+        labelsPath = $labelsPath
         metrics = Read-ValMetrics $logPath
         benchmark = Read-ValBenchmark $logPath
-        confidence = Read-PredictionConfidenceSummary (Join-Path $runProject "$RunName\labels") $UiConfidence $script:SegmentationPositiveClassId
+        confidence = if ($IncludePredictions) { Read-PredictionConfidenceSummary $labelsPath $UiConfidence $script:SegmentationPositiveClassId } else { $null }
     }
 }
 
@@ -632,7 +637,8 @@ function Invoke-UltralyticsVal(
     [string]$RunOutputRoot,
     [string]$RuntimePythonExe,
     [string]$RuntimeSourceRoot,
-    [string]$Engine
+    [string]$Engine,
+    [bool]$IncludePredictions = $true
 ) {
     $logPath = Join-Path $RunOutputRoot "$RunName.log"
     $runProject = Join-Path $RunOutputRoot "runs"
@@ -659,6 +665,7 @@ batch_size = int(sys.argv[6])
 split_name = sys.argv[7]
 model_task = sys.argv[8]
 predict_source = sys.argv[9]
+include_predictions = sys.argv[10].lower() == "true"
 
 model = YOLO(weights_path)
 metrics = model.val(
@@ -669,8 +676,8 @@ metrics = model.val(
     project=run_project,
     name=run_name,
     exist_ok=True,
-    save_txt=True,
-    save_conf=True,
+    save_txt=include_predictions,
+    save_conf=include_predictions,
     workers=0,
     task=model_task,
     verbose=False,
@@ -715,20 +722,21 @@ benchmark = {
 }
 print("OPENVISIONLAB_BENCHMARK_JSON=" + json.dumps(benchmark, separators=(",", ":")))
 
-predict_name = run_name + "-predict"
-model.predict(
-    source=predict_source,
-    imgsz=image_size,
-    conf=0.001,
-    iou=0.7,
-    project=run_project,
-    name=predict_name,
-    exist_ok=True,
-    save_txt=True,
-    save_conf=True,
-    verbose=False,
-)
-print("OPENVISIONLAB_PREDICT_LABELS=" + str(Path(run_project) / predict_name / "labels"))
+if include_predictions:
+    predict_name = run_name + "-predict"
+    model.predict(
+        source=predict_source,
+        imgsz=image_size,
+        conf=0.001,
+        iou=0.7,
+        project=run_project,
+        name=predict_name,
+        exist_ok=True,
+        save_txt=True,
+        save_conf=True,
+        verbose=False,
+    )
+    print("OPENVISIONLAB_PREDICT_LABELS=" + str(Path(run_project) / predict_name / "labels"))
 '@
 
     $arguments = @(
@@ -741,7 +749,8 @@ print("OPENVISIONLAB_PREDICT_LABELS=" + str(Path(run_project) / predict_name / "
         $BatchSize.ToString(),
         $Task,
         $ModelTask,
-        $predictSource
+        $predictSource,
+        $IncludePredictions.ToString().ToLowerInvariant()
     )
 
     $previousPythonPath = $env:PYTHONPATH
@@ -771,16 +780,17 @@ print("OPENVISIONLAB_PREDICT_LABELS=" + str(Path(run_project) / predict_name / "
         $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = $previousNoWeightsOnly
     }
 
+    $predictLabelsPath = Join-Path $runProject "$RunName-predict\labels"
     return [ordered]@{
         name = $RunName
         engine = $Engine
         weights = $WeightsPath
         logPath = $logPath
         validationLabelsPath = Join-Path $runProject "$RunName\labels"
-        labelsPath = Join-Path $runProject "$RunName-predict\labels"
+        labelsPath = $predictLabelsPath
         metrics = Read-UltralyticsMetrics $logPath
         benchmark = Read-UltralyticsBenchmark $logPath
-        confidence = Read-PredictionConfidenceSummary (Join-Path $runProject "$RunName-predict\labels") $UiConfidence $script:SegmentationPositiveClassId
+        confidence = if ($IncludePredictions) { Read-PredictionConfidenceSummary $predictLabelsPath $UiConfidence $script:SegmentationPositiveClassId } else { $null }
     }
 }
 
@@ -790,13 +800,74 @@ function Invoke-ModelVal(
     [string]$RunOutputRoot,
     [string]$RuntimePythonExe,
     [string]$RuntimeSourceRoot,
-    [string]$Engine
+    [string]$Engine,
+    [bool]$IncludePredictions = $true
 ) {
     if (Test-YoloV5SourceRoot $RuntimeSourceRoot) {
-        return Invoke-YoloVal $RunName $WeightsPath $RunOutputRoot $RuntimePythonExe $RuntimeSourceRoot $Engine
+        return Invoke-YoloVal $RunName $WeightsPath $RunOutputRoot $RuntimePythonExe $RuntimeSourceRoot $Engine $IncludePredictions
     }
 
-    return Invoke-UltralyticsVal $RunName $WeightsPath $RunOutputRoot $RuntimePythonExe $RuntimeSourceRoot $Engine
+    return Invoke-UltralyticsVal $RunName $WeightsPath $RunOutputRoot $RuntimePythonExe $RuntimeSourceRoot $Engine $IncludePredictions
+}
+
+function Get-Median($Values) {
+    $numbers = @($Values | Where-Object { $null -ne $_ } | ForEach-Object { [double]$_ } | Sort-Object)
+    if ($numbers.Count -eq 0) {
+        return $null
+    }
+
+    $middle = [int][Math]::Floor($numbers.Count / 2)
+    if (($numbers.Count % 2) -eq 1) {
+        return $numbers[$middle]
+    }
+
+    return ($numbers[$middle - 1] + $numbers[$middle]) / 2
+}
+
+function New-AggregatedBenchmark($Benchmarks, [int]$RequestedRepeatCount) {
+    $valid = @($Benchmarks | Where-Object { $null -ne $_ -and $null -ne $_.taktMs })
+    if ($RequestedRepeatCount -gt 1 -and $valid.Count -ne $RequestedRepeatCount) {
+        throw "Model comparison benchmark failed: requested $RequestedRepeatCount timing samples but collected $($valid.Count)."
+    }
+
+    $taktSamples = @($valid | ForEach-Object { [double]$_.taktMs })
+    return [ordered]@{
+        preprocessMs = Get-Median @($valid | ForEach-Object { $_.preprocessMs })
+        inferenceMs = Get-Median @($valid | ForEach-Object { $_.inferenceMs })
+        postprocessMs = Get-Median @($valid | ForEach-Object { $_.postprocessMs })
+        taktMs = Get-Median $taktSamples
+        taktMinMs = if ($taktSamples.Count -gt 0) { ($taktSamples | Measure-Object -Minimum).Minimum } else { $null }
+        taktMaxMs = if ($taktSamples.Count -gt 0) { ($taktSamples | Measure-Object -Maximum).Maximum } else { $null }
+        repeatCount = $valid.Count
+        requestedRepeatCount = $RequestedRepeatCount
+        taktSamplesMs = $taktSamples
+        source = if ($RequestedRepeatCount -gt 1) { "native-validation-speed-median" } else { "native-validation-speed" }
+    }
+}
+
+function Invoke-ModelValWithBenchmarkRepeats(
+    [string]$RunName,
+    [string]$WeightsPath,
+    [string]$RunOutputRoot,
+    [string]$RuntimePythonExe,
+    [string]$RuntimeSourceRoot,
+    [string]$Engine,
+    [int]$RepeatCount
+) {
+    $result = Invoke-ModelVal $RunName $WeightsPath $RunOutputRoot $RuntimePythonExe $RuntimeSourceRoot $Engine $true
+    $benchmarks = @($result.benchmark)
+    $logPaths = @($result.logPath)
+    if ($RepeatCount -gt 1) {
+        for ($repeat = 2; $repeat -le $RepeatCount; $repeat++) {
+            $repeatResult = Invoke-ModelVal "$RunName-benchmark-$repeat" $WeightsPath $RunOutputRoot $RuntimePythonExe $RuntimeSourceRoot $Engine $false
+            $benchmarks += $repeatResult.benchmark
+            $logPaths += $repeatResult.logPath
+        }
+    }
+
+    $result["benchmark"] = New-AggregatedBenchmark $benchmarks $RepeatCount
+    $result["benchmarkLogPaths"] = $logPaths
+    return $result
 }
 
 function Read-ValMetrics([string]$LogPath) {
@@ -1267,6 +1338,7 @@ function Write-MarkdownReport($Summary, [string]$Path) {
     $lines.Add("- Model task: ``$($Summary.modelTask)``")
     $lines.Add("- Image size: ``$($Summary.imageSize)``")
     $lines.Add("- Validation batch: ``$($Summary.batchSize)``")
+    $lines.Add("- Benchmark repeats: ``$($Summary.benchmarkRepeatCount)``")
     $lines.Add("- UI confidence: ``$($Summary.uiConfidence)``")
     if ($null -ne $evidence) {
         if ($Summary.comparisonKind -ieq "engine-benchmark" -and $Summary.task -ieq "val") {
@@ -1283,15 +1355,16 @@ function Write-MarkdownReport($Summary, [string]$Path) {
         }
     }
     $lines.Add("")
-    $lines.Add("| Model | Engine | Precision | Recall | mAP50 | mAP50-95 | Model Takt ms/image | Inference ms/image | UI candidates | Max confidence |")
-    $lines.Add("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
+    $lines.Add("| Model | Engine | Precision | Recall | mAP50 | mAP50-95 | Model Takt median ms/image | Takt range ms/image | Inference median ms/image | UI candidates | Max confidence |")
+    $lines.Add("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
     foreach ($item in @($baseline, $candidate)) {
         $metrics = $item.metrics
         $confidence = $item.confidence
-        $lines.Add("| $($item.name) | $($item.engine) | $(Format-NullableNumber $metrics.precision) | $(Format-NullableNumber $metrics.recall) | $(Format-NullableNumber $metrics.map50) | $(Format-NullableNumber $metrics.map5095) | $(Format-NullableNumber (Get-ModelBenchmarkValue $item 'taktMs')) | $(Format-NullableNumber (Get-ModelBenchmarkValue $item 'inferenceMs')) | $($confidence.uiCandidateCount)/$($confidence.predictionCount) | $(Format-NullableNumber $confidence.maxConfidence) |")
+        $taktRange = "$(Format-NullableNumber (Get-ModelBenchmarkValue $item 'taktMinMs'))-$(Format-NullableNumber (Get-ModelBenchmarkValue $item 'taktMaxMs'))"
+        $lines.Add("| $($item.name) | $($item.engine) | $(Format-NullableNumber $metrics.precision) | $(Format-NullableNumber $metrics.recall) | $(Format-NullableNumber $metrics.map50) | $(Format-NullableNumber $metrics.map5095) | $(Format-NullableNumber (Get-ModelBenchmarkValue $item 'taktMs')) | $taktRange | $(Format-NullableNumber (Get-ModelBenchmarkValue $item 'inferenceMs')) | $($confidence.uiCandidateCount)/$($confidence.predictionCount) | $(Format-NullableNumber $confidence.maxConfidence) |")
     }
     $lines.Add("")
-    $lines.Add("- Model Takt is native validation preprocess + inference + postprocess per image. It does not include WPF, TCP, camera, PLC, or equipment cycle time.")
+    $lines.Add("- Model Takt is the median native validation preprocess + inference + postprocess per image across the requested repeats. It does not include WPF, TCP, camera, PLC, or equipment cycle time.")
     if ($null -ne $candidate.confidence -and $null -ne $candidate.confidence.thresholdSweep) {
         $sweepItems = @()
         foreach ($item in $candidate.confidence.thresholdSweep) {
@@ -1412,8 +1485,8 @@ $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $runOutputRoot = Join-Path $OutputDirectory $stamp
 New-Item -ItemType Directory -Force -Path $runOutputRoot | Out-Null
 
-$baseline = Invoke-ModelVal "baseline" $BaselineWeights $runOutputRoot $BaselinePythonExe $BaselineYoloSourceRoot $BaselineEngine
-$candidate = Invoke-ModelVal "candidate" $CandidateWeights $runOutputRoot $CandidatePythonExe $CandidateYoloSourceRoot $CandidateEngine
+$baseline = Invoke-ModelValWithBenchmarkRepeats "baseline" $BaselineWeights $runOutputRoot $BaselinePythonExe $BaselineYoloSourceRoot $BaselineEngine $BenchmarkRepeatCount
+$candidate = Invoke-ModelValWithBenchmarkRepeats "candidate" $CandidateWeights $runOutputRoot $CandidatePythonExe $CandidateYoloSourceRoot $CandidateEngine $BenchmarkRepeatCount
 $evidence = New-ComparisonEvidence $DataYaml $Task $ModelTask $segmentationPositiveClass
 if ($ModelTask -ieq "segment") {
     Add-SegmentationPredictionImageEvidence $baseline $evidence $UiConfidence
@@ -1436,6 +1509,7 @@ $summary = [ordered]@{
     comparisonKind = $comparisonKind
     imageSize = $ImageSize
     batchSize = $BatchSize
+    benchmarkRepeatCount = $BenchmarkRepeatCount
     uiConfidence = $UiConfidence
     evidence = $evidence
     baseline = $baseline

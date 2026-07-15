@@ -23,14 +23,14 @@ namespace MvcVisionSystem
                     : "\uD655\uC778";
 
             return new WpfDatasetDashboardMetricItem(
-                "\uD488\uC9C8",
+                "\uD488\uC9C8 \uBCF4\uACE0\uC11C",
                 value,
-                BuildQualityMetricDetail(report),
+                BuildQualityMetricDetail(report) + " / \uD074\uB9AD\uD558\uBA74 \uD604\uC7AC \uC0C1\uD0DC\uB97C Markdown \uBCF4\uACE0\uC11C\uB85C \uC800\uC7A5\uD569\uB2C8\uB2E4.",
                 status,
                 problemCount > 0 ? PackIconMaterialKind.AlertCircleOutline : PackIconMaterialKind.CheckCircleOutline,
                 isProblem: problemCount > 0,
                 isWarning: false,
-                actionKind: WpfDatasetDashboardActionKind.CheckDataset);
+                actionKind: WpfDatasetDashboardActionKind.ExportQualityAudit);
         }
 
         public static string BuildQualityIssue(YoloDatasetQualityAuditReport report)

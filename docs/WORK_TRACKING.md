@@ -1,6 +1,6 @@
 # Work Tracking
 
-Last updated: 2026-07-14
+Last updated: 2026-07-15
 
 ## 2026-07-13 YOLOv8 SEG contour-only inference rendering
 
@@ -12221,3 +12221,106 @@ Last updated: 2026-07-14
 - Evidence boundary and next work:
   - This closes new-recipe state isolation and saved-profile restart behavior for the tested anomaly classifier. It does not establish production accuracy because the smoke image and prior 15/15 evaluation are from the same deterministic circular-defect source.
   - Collect independent production-camera or cross-session normal/abnormal images and rerun the unchanged evaluation guard before any anomaly-model adoption claim.
+
+## 2026-07-14 repeated YOLOv5 versus YOLOv8 model-Takt evidence
+
+- Goal:
+  - Replace the single-run Takt shown by the built-in cross-engine analysis with repeatable median/range evidence while preserving the existing accuracy and Candidate Review outputs.
+- Changes:
+  - `v5 vs v8 analysis` now requests five native validation timing runs per engine. Same-engine candidate validation remains one run.
+  - The first run still produces metrics and review candidates. Runs 2-5 collect validation timing only, so repeated analysis does not create duplicate prediction candidates.
+  - Summary JSON keeps all Takt samples plus median, minimum, maximum, requested count, and collected count. Missing timing samples fail the repeated benchmark instead of silently reducing `n`.
+  - Candidate Review shows each median with range and sample count and states `repeat 5 median`; Markdown exposes the same condition and values.
+- Real current-data evidence:
+  - The final-source five-repeat `val`, image 320, batch 1 run is under `artifacts\yolo-model-comparison\real-test01-controlled-v5s-v8n-app-repeat5-final-20260714\20260714-220448`.
+  - YOLOv5s: median `85.20ms`, range `72.50-95.80`; YOLOv8n: median `64.811ms`, range `53.278-76.380`, a same-run median reduction of about 23.9%.
+  - Precision/recall/mAP remained `0.999/0.500/0.505/0.464` for YOLOv5s and `0.980/1.000/0.995/0.921` for YOLOv8n.
+  - Absolute Takt differs from the earlier manual five-run set. Treat Takt as machine/load-sensitive and compare same-condition medians and ranges rather than quoting one universal latency.
+- Verification:
+  - Required isolated build passed with 0 warnings and 0 errors.
+  - PowerShell parsing, `--wpf-model-comparison-run-service`, `--wpf-model-comparison-review-service`, `--wpf-candidate-review-panel`, and `--wpf-labeling-shell` passed.
+  - True before: `artifacts\ui\20260714-yolo-engine-repeat-takt\before-single-run-1920.png`.
+  - Current-build after: `artifacts\ui\20260714-yolo-engine-repeat-takt\after-repeat5-median-range-final-v2-1920.png`.
+  - README/tutorial screenshots were reviewed and not replaced because this changes a deep model-analysis detail state, not the public tutorial sequence or default layout.
+- Evidence boundary and next work:
+  - Validation still has 28 OK objects and only one NG object, and test remains empty. This completes benchmark repeatability, not engine/model adoption evidence.
+  - Populate an independent NG-rich test split and rerun the same built-in five-repeat comparison; then run anomaly classification on independent production-camera/cross-session data.
+
+## 2026-07-15 WPF dataset quality report save action
+
+- Goal:
+  - Close the remaining local dataset-audit usability gap without adding another report implementation or touching annotation hot paths.
+- Changes:
+  - The existing dashboard quality card is now named `품질 보고서` and keeps its current problem count and state.
+  - Clicking the card builds a fresh `YoloDatasetQualityAuditReport` and writes `dataset-quality-audit.md` under the active dataset root through the existing export service.
+  - Success and failure use the existing shell status/log path. Images, labels, split settings, training, and model state are unchanged.
+- Verification:
+  - Required isolated build passed with 0 warnings and 0 errors.
+  - `--dataset-quality-audit-export`, `--wpf-training-dashboard-quality`, and `--wpf-labeling-shell` passed. The WPF focused gate executed the card command and verified the Markdown file and title.
+  - True before: `artifacts\ui\20260715-dataset-quality-report-action\before-quality-card-export-final4-1920.png`.
+  - Current-build after: `artifacts\ui\20260715-dataset-quality-report-action\after-quality-report-card-final2-1920.png`.
+  - README/tutorial screenshots were searched and not replaced because their public walkthrough does not show this collapsed diagnostic detail state and no default layout changed.
+- Completion disposition and next work:
+  - Local single-operator dataset quality reporting/export is complete. Reviewer assignment/status remains deferred collaboration scope.
+  - The model-evidence priority remains an independently acquired NG-rich object-detection test split, followed by the built-in five-repeat YOLOv5/YOLOv8 comparison, then independent anomaly held-out evidence.
+
+## 2026-07-15 independent final-verification split preset
+
+- Goal:
+  - Make the existing independent `test`-split preparation path explicit for operators without changing annotation-save ownership or the verified split algorithm.
+- Changes:
+  - Training settings now expose `최종 검증 준비` beside `빠른 추천 적용`.
+  - The command changes only the editable split fields to validation `0%` and final verification `100%`; it does not immediately move, rewrite, or delete any existing image or label.
+  - After the normal settings apply/save path, newly saved independent images select only `test`. `빠른 추천 적용` restores the normal `20%` validation and `0%` final-verification recommendation.
+  - The command is disabled while training or another general settings command is busy.
+- Verification:
+  - Required isolated build passed with 0 warnings and 0 errors.
+  - `--wpf-training-settings-panel`, `--mvvm-infra`, `--wpf-settings-viewmodels`, `--wpf-labeling-shell`, and the 1366x768 training responsive-layout gate passed.
+  - True before: `artifacts\ui\20260715-final-verification-preset\before-training-preset-1920.png`.
+  - Current-build after: `artifacts\ui\20260715-final-verification-preset\after-training-preset-final2-1920.png`.
+  - Public tutorial image 09 source/annotation and the standalone embedded tutorial were refreshed from the current build; README has no matching embedded panel screenshot to replace.
+- Evidence boundary and next work:
+  - This completes the operator preparation path only. The object-detection `test` split is still empty, `Test02` remains hash-identical to `Test01`, and no model-quality or adoption claim changes.
+  - Acquire and label independent NG-rich images, save them through this preset, then run the unchanged built-in five-repeat YOLOv5/YOLOv8 comparison.
+
+## 2026-07-15 Training/Model task navigation
+
+- Goal:
+  - Replace the long mixed Training/Model scroll with task-oriented navigation that a beginner can scan before reading detail text.
+- Commercial UX basis:
+  - Label Studio documents collapsible, movable, and resizable labeling panels; CVAT separates workspace modes and groups controls by task. The local workstation applies the same contextual-disclosure principle without copying cloud/team scope.
+- Changes:
+  - The left Training/Model panel now keeps a fixed four-choice selector: `현황`, `데이터`, `학습/비교`, and `실행기`.
+  - Each choice reuses the existing controls and shows only its relevant group. No training, inference, dataset, model-comparison, or persistence service was duplicated or changed.
+  - Existing focus routes select the matching task automatically: model-center entry opens `현황`, training entry opens `학습/비교`, and model/runtime settings entry opens `실행기`.
+  - The selected task scrolls to the top and opens only the first useful detail for that task.
+- Verification:
+  - Required isolated build passed with 0 warnings and 0 errors.
+  - `--wpf-labeling-shell`, `--wpf-training-settings-panel`, `--wpf-yolo-model-settings-panel`, and responsive layout checks at 1366x768 and 1920x1080 passed.
+  - True before: `artifacts\ui\20260715-training-subtask-navigation\before-long-model-center-1920.png`.
+  - Current-build after: `after-overview-task-tabs-1920.png`, `after-training-comparison-current-1920.png`, and `after-runtime-tab-1920.png` in the same folder.
+  - Public tutorial image 09 source/annotation and the standalone embedded tutorial were refreshed; README has no matching embedded screenshot to replace.
+- Completion disposition and next work:
+  - Treat the Training/Model task grouping as complete. Reopen it only for reproduced clipping, unclear routing, or operator feedback on a specific task.
+  - The focused local-workstation maturity estimate remains `4.0/5`: this improves approachability but adds no independent model evidence or accuracy.
+  - While independent data acquisition is unavailable, the next useful slice is a compact read-only comparison summary built from existing comparison artifacts. Independent NG-rich test acquisition and anomaly domain-shift evaluation remain prerequisite-blocked, not completed.
+
+## 2026-07-15 compact Training/Model comparison summary
+
+- Goal:
+  - Let an operator read the latest YOLOv5/YOLOv8 comparison without entering the deep Candidate Review detail or adding another long instruction stack.
+- Changes:
+  - `Training/Model > Training/Comparison` conditionally shows the existing matching comparison report above the training controls.
+  - The compact panel reuses `WpfModelComparisonReviewService` and `WpfCandidateReviewPanelViewModel`; it does not add another JSON parser or comparison state.
+  - It keeps the explicit adoption boundary, both engines' precision/recall/mAP/Takt, the evidence split/count, image/batch/repeat conditions, and the disagreement count visible. `Difference examples` opens the existing Candidate Review drill-down.
+  - On the first Training/Comparison entry after restart, the shell attempts to restore the latest report matching the current baseline/candidate weights. A missing or malformed external artifact leaves the panel hidden and writes a log entry instead of blocking the tab.
+- Verification:
+  - Required isolated build passed with 0 warnings and 0 errors.
+  - `--wpf-labeling-shell`, `--wpf-model-comparison-review-service`, and responsive layout checks at 1366x768 and 1920x1080 passed.
+  - The actual five-repeat summary visual smoke passed with `val 28`, YOLOv5s `85.20ms (72.50-95.80, n=5)`, and YOLOv8n `64.81ms (53.28-76.38, n=5)` visible.
+  - True before: `artifacts\ui\20260715-model-comparison-summary\before-training-comparison-no-summary-1920.png`.
+  - Current-build after: `artifacts\ui\20260715-model-comparison-summary\after-training-comparison-summary-1920.png`.
+  - README/tutorial screenshots were reviewed and not replaced: tutorial image 09 intentionally documents the pre-comparison training state, while this panel appears only when a matching comparison artifact exists.
+- Completion disposition and next work:
+  - Treat the compact read-only summary and its Candidate Review drill-down as complete. Reopen it only for a reproduced clipping/routing defect or concrete operator feedback.
+  - This adds no model evidence. The empty object-detection `test` split and one-NG `val` still block adoption; independent NG-rich test acquisition remains next, followed by independent anomaly domain-shift evaluation.

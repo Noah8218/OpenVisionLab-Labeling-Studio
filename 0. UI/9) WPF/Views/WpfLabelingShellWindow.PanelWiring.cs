@@ -137,6 +137,10 @@ namespace MvcVisionSystem
         public void FocusYoloSettingsTab()
         {
             ShowYoloModelCenterWorkflowView();
+            if (YoloModelCenterTaskTabs != null)
+            {
+                YoloModelCenterTaskTabs.SelectedItem = YoloModelCenterOverviewTaskTab;
+            }
             CollapseYoloAdvancedSettingsForOverview();
             UpdateLayout();
             YoloSettingsScrollViewer?.ScrollToTop();
@@ -145,6 +149,10 @@ namespace MvcVisionSystem
         private void FocusYoloModelSettingsTab()
         {
             ShowYoloModelCenterWorkflowView();
+            if (YoloModelCenterTaskTabs != null)
+            {
+                YoloModelCenterTaskTabs.SelectedItem = YoloModelCenterRuntimeTaskTab;
+            }
             CollapseYoloAdvancedSettingsForOverview();
             YoloModelSettingsPanelControl?.SettingsExpander?.SetCurrentValue(Expander.IsExpandedProperty, true);
             UpdateLayout();
@@ -154,10 +162,52 @@ namespace MvcVisionSystem
         private void FocusYoloTrainingSettingsTab()
         {
             ShowYoloModelCenterWorkflowView();
+            if (YoloModelCenterTaskTabs != null)
+            {
+                YoloModelCenterTaskTabs.SelectedItem = YoloModelCenterTrainingTaskTab;
+            }
             CollapseYoloAdvancedSettingsForOverview();
             TrainingSettingsPanelControl?.SettingsExpander?.SetCurrentValue(Expander.IsExpandedProperty, true);
             UpdateLayout();
             TrainingSettingsPanelControl?.BringIntoView();
+        }
+
+        private void YoloModelCenterTaskTabs_SelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (!ReferenceEquals(e.OriginalSource, YoloModelCenterTaskTabs))
+            {
+                return;
+            }
+
+            YoloSettingsScrollViewer?.ScrollToTop();
+            if (YoloModelCenterOverviewTaskTab?.IsSelected == true)
+            {
+                CollapseYoloAdvancedSettingsForOverview();
+                YoloDatasetReadinessQuickPanel?.SetCurrentValue(Expander.IsExpandedProperty, false);
+            }
+            else if (YoloModelCenterDataTaskTab?.IsSelected == true)
+            {
+                YoloDatasetReadinessQuickPanel?.SetCurrentValue(Expander.IsExpandedProperty, true);
+            }
+            else if (YoloModelCenterTrainingTaskTab?.IsSelected == true)
+            {
+                if (CandidateReviewViewModel?.ModelComparisonVisibility != Visibility.Visible)
+                {
+                    try
+                    {
+                        UpdateTrainingComparisonViewModel(BuildCurrentTrainingWeightsComparison());
+                    }
+                    catch (Exception ex)
+                    {
+                        AppendLog($"\uBAA8\uB378 \uBE44\uAD50 \uC694\uC57D \uBD88\uB7EC\uC624\uAE30 \uC2E4\uD328: {ex.Message}");
+                    }
+                }
+                TrainingSettingsPanelControl?.SettingsExpander?.SetCurrentValue(Expander.IsExpandedProperty, true);
+            }
+            else if (YoloModelCenterRuntimeTaskTab?.IsSelected == true)
+            {
+                YoloModelSettingsPanelControl?.SettingsExpander?.SetCurrentValue(Expander.IsExpandedProperty, true);
+            }
         }
 
         private void CollapseYoloAdvancedSettingsForOverview()

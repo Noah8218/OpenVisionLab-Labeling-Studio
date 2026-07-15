@@ -327,7 +327,8 @@ After the 2026-07-03 object-detection import/export slices, segmentation export 
    - Second completed slice: WPF guide/dashboard shows a quality metric and next-action issue from the same audit report and is covered by `--wpf-training-dashboard-quality` plus a 1920x1080 visual smoke capture.
    - Third completed slice: `YoloDatasetQualityAuditExportService` writes a Markdown audit report and is covered by `--dataset-quality-audit-export`.
    - Fourth completed slice: YOLOv8 SEG readiness diagnostics warn when train/valid positive mask coverage is too small or OK/background empty labels dominate positives, covered by `--dataset-readiness-purpose`, `--wpf-training-readiness-presentation`, and `--wpf-training-dashboard-quality`.
-   - Next slice: add reviewer-facing issue status or a WPF save action for the existing Markdown export without changing annotation hot paths.
+   - Fifth completed slice: the WPF `품질 보고서` dashboard card saves the current audit to `dataset-quality-audit.md` in the dataset root, reports success/failure through the existing shell status/log path, and is covered by `--dataset-quality-audit-export`, `--wpf-training-dashboard-quality`, `--wpf-labeling-shell`, and current 1920x1080 before/after evidence.
+   - Completion disposition: local single-operator dataset quality reporting and export are complete. Reviewer assignment/status belongs to the deferred collaboration/workforce scope and should not be added without a product-direction change.
 
 4. Foundation-model assisted labeling.
    - Why: Roboflow/CVAT/Label Studio now set user expectations around SAM or prompt-based assistance.
@@ -354,17 +355,19 @@ Do not claim:
 
 ## Next Development Recommendation
 
-The current recommendation is independent model-selection evidence, not another labeling-feature breadth pass:
+The blocked-period evidence-reading UI is now complete. Do not add more permanent text or controls to the left panel without reproduced operator friction:
 
-1. Acquire and label an independent object-detection test split with enough NG examples; the hash-identical `Test02` copy is not new evidence.
-2. Rerun built-in `v5 vs v8 analysis` on test, review class-specific misses/examples, and retain repeated model-Takt median/range before any engine/model adoption.
-3. Next, run the unchanged anomaly evaluation guard on an independent production-camera or cross-session normal/abnormal set.
-4. Keep completed SEG annotation mechanics stable. Historical SEG remediation remains deferred and still requires a read-only report plus explicit data-rewrite approval before any operator file is changed.
+1. When independent data becomes available, acquire and label an NG-rich object-detection test split; the hash-identical `Test02` copy is not new evidence.
+2. Rerun the built-in five-repeat `v5 vs v8 analysis` on test before any engine/model adoption.
+3. Collect an independent production-camera or cross-session normal/abnormal set and run the unchanged anomaly evaluation guard.
+4. Keep completed Training/Model navigation, comparison summary, SEG annotation mechanics, and queue/runtime paths stable. Historical SEG remediation still requires a read-only report plus explicit data-rewrite approval.
 5. After model correctness, consider a local runtime-agnostic SAM/SAM2-style click-to-mask assist. Do not add model downloads or dependency upgrades without explicit approval.
 
 Collaboration/workforce, video/3D/keypoints, broad API/platform work, and Labelbox NDJSON remain deferred unless the product direction changes.
 
 ## Latest Verified UI Correction
+
+2026-07-15: Training/Comparison now conditionally presents the latest matching comparison artifact as a compact read-only summary. The existing service/ViewModel owns all text and state; the new surface shows the adoption boundary, engine accuracy, five-run Takt median/range/count, evidence scope, and disagreement count, with image/class differences left behind the existing Candidate Review drill-down. Current-build evidence is under `artifacts\ui\20260715-model-comparison-summary`. This closes the planned comparison-readability slice but does not change the `4.0/5` focused-workstation estimate: `test` remains empty and `val` still has only one NG object.
 
 2026-07-04: The segmentation-purpose labeling UI now refreshes its purpose-dependent tool scope when a SEG dataset/purpose is applied. The verified contract is brush-first segmentation tools (`Brush`, `Eraser`, `Polygon`, `Select`, `PanZoom`) in the guide and canvas toolbar, with `Brush` selected by default when entering segmentation from select mode. This was verified by the isolated WPF test build, `--wpf-learning-workflow-panel`, `--wpf-segmentation-object-verification`, `--wpf-labeling-shell`, and a 1920x1080 visual smoke capture at `artifacts\ui\wpf-seg-purpose-brush-1920.png`.
 
@@ -407,3 +410,11 @@ Collaboration/workforce, video/3D/keypoints, broad API/platform work, and Labelb
 2026-07-14: The object-detection YOLOv8 saved-profile restart gate is complete. An actual current-build EXE created an ObjectDetection recipe, saved the local editable YOLOv8 runtime and trained Detect `best.pt`, closed, reopened with the same visible engine and weight, and returned one `OK` candidate at confidence `0.982` on first inference. The run also exposed and fixed a persistence bug where generic settings save could overwrite authoritative dataset purpose from stale workflow presentation. This improves runtime reliability but does not change the completeness or production-readiness estimate because the smoke used one existing OK image; independent NG-rich test evidence is still required.
 
 2026-07-14: The anomaly-classification YOLOv8 saved-profile restart gate is complete. The actual EXE created an isolated AnomalyDetection recipe, saved the local editable YOLOv8 runtime, classification `best.pt`, normal/abnormal mapping, and threshold 0.8, then closed and reopened before first inference. It returned one `abnormal 99.8%` candidate and persisted `Abnormal`. The gate exposed and fixed three state-isolation defects: new recipes cloned the previous model/image state, queue root switching could reopen a stale active image outside the requested root, and an empty recipe left the previous SEG canvas visible. This raises workflow reliability and operator trust, but it does not raise production model readiness: the model/evaluation data still comes from the same deterministic circular-defect source, so independent production-camera or cross-session normal/abnormal evidence remains required.
+
+2026-07-14: Built-in YOLOv5-versus-YOLOv8 model-Takt analysis now collects five native validation timing samples per engine and presents median, range, and sample count instead of one timing value. Accuracy and Candidate Review candidates still come from the first run; later runs do not duplicate predictions, and missing samples fail closed. The final-source integrated CPU run measured YOLOv5s `85.20ms` (`72.50-95.80`) versus YOLOv8n `64.811ms` (`53.278-76.380`). This closes a commercial-style benchmark repeatability gap but does not change the completeness score or authorize model adoption: absolute CPU timing varied from the earlier manual run, test is empty, and validation has only one NG object.
+
+2026-07-15: Independent final-verification preparation is now explicit in Training/Model. `최종 검증 준비` sets the editable split recommendation to validation `0%` and final verification `100%`, while deliberately leaving existing files untouched until the operator uses the normal settings and label-save flow. Focused tests prove the resulting split selects only `test`, and the public tutorial image/standalone guide were refreshed from the current build. This closes a workflow-discoverability gap but does not change the completeness percentages or model-readiness assessment: the object-detection test split remains empty and independent NG-rich evidence is still required.
+
+2026-07-15: Dataset quality reporting now has an in-app completion path. The existing quality dashboard card is explicitly named `품질 보고서`; clicking it writes the current `YoloDatasetQualityAuditReport` to `dataset-quality-audit.md` under the active dataset root and reports the result through the shell status/log path. This closes the local WPF save-action gap without changing labels, split assignment, training, model runtime, or annotation hot paths. It does not add reviewer assignment or collaboration scope and does not change the completeness percentages.
+
+2026-07-15: Training/Model now uses four fixed task choices, `현황`, `데이터`, `학습/비교`, and `실행기`, instead of exposing every control in one mixed scroll. The controls and services are reused, and existing workflow focus routes open the matching task automatically. This follows the contextual-panel lesson from Label Studio and the workspace/tool-grouping lesson from CVAT while keeping OpenVisionLab's local single-operator scope. Current-build 1920x1080 evidence is under `artifacts\ui\20260715-training-subtask-navigation`, and public tutorial image 09/standalone HTML were refreshed. This improves first-use clarity but does not change the `4.0/5` focused-workstation estimate or any model-readiness score.

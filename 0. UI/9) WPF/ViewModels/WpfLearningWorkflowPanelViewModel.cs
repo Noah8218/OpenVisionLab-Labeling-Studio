@@ -1697,6 +1697,7 @@ namespace MvcVisionSystem
         OpenLabelingProgress,
         OpenLabelingTool,
         CheckDataset,
+        ExportQualityAudit,
         OpenDatasetSettings
     }
 

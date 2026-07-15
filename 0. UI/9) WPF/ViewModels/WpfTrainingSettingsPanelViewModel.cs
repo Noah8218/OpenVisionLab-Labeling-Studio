@@ -33,6 +33,7 @@ namespace MvcVisionSystem
         private string startTrainingToolTip = "\uD604\uC7AC \uC124\uC815\uC73C\uB85C \uD559\uC2B5\uC744 \uC2DC\uC791\uD569\uB2C8\uB2E4.";
         private bool isStopTrainingEnabled;
         private bool isApplyFastRecommendationEnabled = true;
+        private bool isApplyFinalVerificationPresetEnabled = true;
         private bool isReviewTrainedModelEnabled;
         private bool isConfirmTrainedModelEnabled;
         private bool isRunYoloEngineComparisonEnabled = true;
@@ -47,6 +48,7 @@ namespace MvcVisionSystem
         private string confirmTrainedModelActionText = "\uD6C4\uBCF4 \uC5C6\uC74C";
         private string confirmTrainedModelToolTip = "\uC800\uC7A5\uD560 \uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.";
         private ICommand applyFastRecommendationCommand;
+        private ICommand applyFinalVerificationPresetCommand;
         private ICommand refreshReadinessCommand = new RelayCommand(NoOpCommand);
         private ICommand startTrainingCommand = new RelayCommand(NoOpCommand);
         private ICommand stopTrainingCommand = new RelayCommand(NoOpCommand);
@@ -57,6 +59,7 @@ namespace MvcVisionSystem
         public WpfTrainingSettingsPanelViewModel()
         {
             ApplyFastRecommendationCommand = new RelayCommand(ApplyFastRecommendation);
+            ApplyFinalVerificationPresetCommand = new RelayCommand(ApplyFinalVerificationPreset);
         }
 
         public string ViewName => nameof(WpfTrainingSettingsPanel);
@@ -65,6 +68,11 @@ namespace MvcVisionSystem
 
         public string TrainingRecommendationText =>
             $"빠른 첫 학습은 이미지 320, 배치 4, 에폭 50, 모델 {TrainingModelDisplayText}, 검증 20%, 최종 검증 0%로 시작합니다. CPU에서는 먼저 성공 여부를 확인하고, GPU가 있거나 여유가 있으면 배치를 8/16으로 올립니다.";
+
+        public string FinalVerificationPresetActionText => "\uCD5C\uC885 \uAC80\uC99D \uC900\uBE44";
+
+        public string FinalVerificationPresetToolTipText =>
+            "\uC0C8\uB85C \uC800\uC7A5\uD558\uB294 \uC774\uBBF8\uC9C0\uB97C \uCD5C\uC885 \uAC80\uC99D(test)\uC5D0\uB9CC \uB123\uB3C4\uB85D \uAC80\uC99D 0%, \uCD5C\uC885 \uAC80\uC99D 100%\uB97C \uC124\uC815\uD569\uB2C8\uB2E4. \uAE30\uC874 \uB370\uC774\uD130\uB294 \uBC14\uB85C \uBCC0\uACBD\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
 
         public string ImageSizeGuideText =>
             "추천 320: 빠르게 되는지 확인합니다. 작은 결함이나 얇은 부품은 640을 사용합니다.";
@@ -188,6 +196,12 @@ namespace MvcVisionSystem
         {
             get => applyFastRecommendationCommand;
             private set => SetProperty(ref applyFastRecommendationCommand, value);
+        }
+
+        public ICommand ApplyFinalVerificationPresetCommand
+        {
+            get => applyFinalVerificationPresetCommand;
+            private set => SetProperty(ref applyFinalVerificationPresetCommand, value);
         }
 
         public ICommand RefreshReadinessCommand
@@ -394,6 +408,12 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isApplyFastRecommendationEnabled, value);
         }
 
+        public bool IsApplyFinalVerificationPresetEnabled
+        {
+            get => isApplyFinalVerificationPresetEnabled;
+            private set => SetProperty(ref isApplyFinalVerificationPresetEnabled, value);
+        }
+
         public bool IsReviewTrainedModelEnabled
         {
             get => isReviewTrainedModelEnabled;
@@ -512,6 +532,13 @@ namespace MvcVisionSystem
             TrainingReadinessText = "빠른 추천값을 적용했습니다. 새로고침으로 데이터셋 상태를 확인한 뒤 시작하세요.";
         }
 
+        private void ApplyFinalVerificationPreset()
+        {
+            ValidationPercentText = "0";
+            TestPercentText = "100";
+            TrainingReadinessText = "\uCD5C\uC885 \uAC80\uC99D \uC900\uBE44: \uC0C8\uB85C \uC800\uC7A5\uD558\uB294 \uC774\uBBF8\uC9C0\uB294 test\uC5D0\uB9CC \uC800\uC7A5\uB429\uB2C8\uB2E4. \uB3C5\uB9BD \uC774\uBBF8\uC9C0\uB97C \uBD88\uB7EC\uC640 \uB77C\uBCA8\uC744 \uC800\uC7A5\uD55C \uB4A4 \uBE60\uB978 \uCD94\uCC9C \uC801\uC6A9\uC73C\uB85C \uD559\uC2B5 \uBD84\uD560\uC5D0 \uB3CC\uC544\uC624\uC138\uC694.";
+        }
+
         public void ApplyTo(TrainingSettings training, YoloDatasetSettings dataset, CYolov5TrainingParam trainingParam)
         {
             if (training == null)
@@ -603,6 +630,7 @@ namespace MvcVisionSystem
         {
             bool canRunGeneralCommands = state?.CanRunGeneralCommands == true;
             IsApplyFastRecommendationEnabled = canRunGeneralCommands;
+            IsApplyFinalVerificationPresetEnabled = canRunGeneralCommands;
             IsRefreshReadinessEnabled = canRunGeneralCommands;
             IsStartTrainingEnabled = state?.CanStartTraining == true;
             StartTrainingToolTip = state?.StartTrainingToolTip;

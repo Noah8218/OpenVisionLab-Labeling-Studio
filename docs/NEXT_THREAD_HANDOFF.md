@@ -1,6 +1,6 @@
 # Next Thread Handoff
 
-Last updated: 2026-07-13 KST
+Last updated: 2026-07-15 KST
 
 This is the current handoff for `C:\Git\Labelling_Application`. Treat older July 3-4 handoff notes as historical unless the current worktree or tracking docs prove the same item is still active.
 
@@ -17,9 +17,9 @@ This is the current handoff for `C:\Git\Labelling_Application`. Treat older July
 - Workspace: `C:\Git\Labelling_Application`
 - Branch at handoff: `main`
 - Tracking state at handoff: `main...origin/main`
-- Latest pushed commit at handoff: `af643f7d feat: harden labeling QA and model adoption`
-- GitHub Actions run `29154340127` passed for `af643f7d`.
-- Expected worktree at handoff creation: dirty local continuation work for class-specific YOLOv8 SEG comparison evidence, its WPF request path, focused tests, and tracking docs. Trust `git status --short` and the current diff.
+- Latest pushed commit at handoff: `9c40aba fix: isolate YOLOv8 restart workflows`
+- Latest inspected GitHub Actions evidence remains run `29154340127`, which passed for older commit `af643f7d`; CI for `9c40aba` was not inspected in this handoff.
+- Expected worktree at handoff creation: dirty local continuation work for five-repeat YOLOv5/YOLOv8 model-Takt comparison, the WPF dataset-quality report save action, and the independent final-verification split preset, with focused tests, UI/tutorial evidence, and tracking docs. Trust `git status --short` and the current diff.
 - Do not run `git push` unless the user explicitly asks for `push`.
 - A request to `commit` means local commit only unless `push` is also explicitly requested.
 
@@ -31,12 +31,18 @@ The 2026-07-13 commercial reassessment rates the focused single-operator workflo
 
 Current priority order from the user conversation:
 
-1. Keep the completed beginner/current-work and optional AI Candidate Review empty-state hierarchy stable unless a specific UX defect is reproduced.
-2. Produce a read-only/dry-run remediation report for the 124 historical non-source SEG targets. Report backup path and per-image old/new geometry, point, mask-pixel, and YOLO-label differences; do not rewrite operator files without explicit approval.
-3. After approval, correct and visually audit representative labels, regenerate YOLO labels, retrain YOLOv8 SEG, and rerun the unchanged class-specific held-out comparison at the intended UI confidence.
-4. Add independently acquired production-camera or cross-session YOLOv8 SEG evidence, especially circular normal backgrounds and currently missed circular defects.
-5. Extend the completed circular-defect YOLOv8 anomaly/classification smoke with independent production-camera/cross-session held-out evidence.
-6. YOLO11 only after the local Ultralytics runtime and weights actually support it. Dataset interoperability is not the current priority.
+1. Acquire and label an independent NG-rich object-detection test split; `D:\LabelingData\Test02` is hash-identical to `Test01` and is not new evidence.
+2. Rerun the built-in five-repeat YOLOv5/YOLOv8 analysis on that test split and review class-specific misses/examples before adoption.
+3. Run the unchanged anomaly evaluation guard on independent production-camera or cross-session normal/abnormal data.
+4. Keep completed SEG annotation, beginner/current-work UI, queue, splitter, Viewer/OpenGL, restart, and local dataset-audit paths stable unless a specific defect is reproduced. Historical SEG remediation stays deferred and still requires explicit data-rewrite approval.
+5. YOLO11 only after the local Ultralytics runtime and weights actually support it. Dataset interoperability is not the current priority.
+
+Latest independent final-verification preparation:
+
+- Training settings now expose `최종 검증 준비`, which sets the editable split fields to validation `0%` and final verification `100%` without immediately moving or rewriting existing data.
+- The normal settings apply/save path remains authoritative; focused coverage proves a subsequently saved independent image selects only `test`. `빠른 추천 적용` restores `20%` validation and `0%` final verification.
+- Current-build evidence is under `artifacts\ui\20260715-final-verification-preset`. Public tutorial image 09 source/annotation and the standalone embedded tutorial were refreshed.
+- This is preparation UX only. The object-detection `test` split is still empty, `Test02` is still duplicate evidence, and independent NG acquisition remains priority 1.
 
 Latest YOLOv8 engine/worker correction:
 
@@ -200,6 +206,7 @@ Treat these as protected contracts. If a future request touches them, run focuse
   - class setup
   - training settings
   - model center
+- Training/Model now has a fixed task selector above the existing controls: `현황`, `데이터`, `학습/비교`, and `실행기`. Each choice reveals only the existing relevant control group, and existing focus routes select the matching task automatically. Keep this grouping stable unless a concrete clipping/routing issue or operator feedback is reproduced. Current-build evidence is under `artifacts\ui\20260715-training-subtask-navigation`; tutorial image 09 and standalone HTML are current.
 - The guide/tools panel now has a labeling-stage current-task mode: dataset setup/purpose/storage structure stays in onboarding, while YOLO/tutorial/tool details sit behind a collapsed `필요할 때만: 학습·검사 세부` expander. The current-task card distinguishes real annotation tools from workflow modes, so non-labeling actions such as current inspection or AI review should not show a stale brush/box tool label.
 - In the labeling stage, the guide/tools shortcut is now presented to operators as `작업` / `현재 작업` with a clipboard/current-work icon, so the first read is the current action, not a broad tool/manual area.
 - The labeling-stage current-task guide keeps secondary training/inspection details behind the collapsed `필요할 때만: 학습·검사 세부` expander.
@@ -311,15 +318,25 @@ git diff --check
 - Task and label preflight fail closed so a YOLOv8 SEG weight cannot be used as the YOLOv8 Detect side. Cross-engine save/reject controls stay hidden because engine adoption requires changing the runtime/profile as well as the weight. YOLOv8 folder connection is now dataset-purpose aware and resolves `runs\detect`, `runs\segment`, or `runs\classify` weights without crossing tasks.
 - Approved seed `C:\Git\yolov8\yolov8n.pt` (SHA-256 `F59B3D833E2FF32E194B5BB8E08D211DC7C5BDF144B90D2C8412C47CCFC83B36`) was downloaded without a dependency upgrade. A 100-epoch CPU Detect run on the app's 97 train / 28 validation split produced `best.pt` SHA-256 `92CBA615854EBCCC18449AD09CA67452386340C7673AEB627729FC9810553449` under `C:\Git\yolov8\runs\detect\openvisionlab-yolov8n-detect-test01-e100-img320-20260714`.
 - Controlled YOLOv5s-versus-YOLOv8n validation used the same data, image size 320, `batch=1`, CPU, and confidence 0.25. Metrics were stable across five runs: YOLOv5s `P 0.999 / R 0.500 / mAP50 0.505 / mAP50-95 0.464`; YOLOv8n `P 0.980 / R 1.000 / mAP50 0.995 / mAP50-95 0.921`. Model-Takt medians were `74.6ms` and `47.946ms` respectively, a 35.7% reduction for YOLOv8n. The YOLOv8 range included one `87.83ms` CPU outlier.
+- Built-in `v5 vs v8 analysis` now performs five timing runs per engine, keeps candidate generation on the first run, stores every Takt sample plus median/range/count, and fails if any requested timing sample is missing. The final-source integrated run measured YOLOv5s `85.20ms` (`72.50-95.80`) and YOLOv8n `64.811ms` (`53.278-76.380`), a same-run 23.9% median reduction. The difference from the earlier manual set confirms that absolute CPU Takt is load-sensitive; retain same-run conditions and ranges.
+- The dataset dashboard `품질 보고서` card now saves a fresh `dataset-quality-audit.md` under the active dataset root through the existing export service. Focused export/dashboard/shell gates pass; current 1920x1080 before/after evidence is under `artifacts\ui\20260715-dataset-quality-report-action`. Local single-operator quality reporting/export is complete; reviewer assignment remains deferred collaboration scope.
 - The operating-reference YOLOv5m comparison measured `P 0.819 / R 1.000 / mAP50-95 0.692 / Takt 146.6ms` versus YOLOv8n `P 0.980 / R 1.000 / mAP50-95 0.921 / Takt 43.255ms`; this is not a controlled architecture comparison because the YOLOv5m training recipe and exact split differ.
 - Required isolated build and focused runtime-connection, comparison, Candidate Review, and shell tests pass. Real current-build 1920x1080 evidence is under `artifacts\ui\20260714-yolov5-yolov8-real-validation`.
 - The saved-profile restart gate is also complete. A generic settings save had overwritten an authoritative `ObjectDetection` purpose from stale workflow presentation; dataset purpose is now changed only by explicit purpose selection. The actual EXE saved YOLOv8 plus the new Detect `best.pt`, closed, reopened, showed the same engine/weight, and returned one `OK` candidate at confidence `0.982` on first inference. Evidence: `artifacts\exe-yolov8-detect-restart-smoke\codex_yolov8_detect_restart_20260714_193745`.
 - The anomaly-classification saved-profile restart gate is complete. New blank recipes no longer clone the previous recipe's model registry, weight, or image root; queue root switching only honors a selected image present in the new root; and an empty root clears the previous canvas/annotation state. The actual EXE saved YOLOv8 classification settings plus normal/abnormal mapping, closed, reopened, returned one `abnormal 99.8%` candidate on first inference, and persisted `Abnormal`. Evidence: `artifacts\exe-yolov8-anomaly-restart-smoke\codex_yolov8_anomaly_restart_20260714_204940`.
 
+## 2026-07-15 Compact Model-Comparison Summary
+
+- Training/Comparison now conditionally shows the latest comparison artifact matching the current baseline/candidate weights above the existing training controls.
+- The panel reuses `WpfModelComparisonReviewService` and `WpfCandidateReviewPanelViewModel`; it shows the adoption boundary, YOLOv5/YOLOv8 accuracy, five-run Takt median/range/count, evidence scope, and disagreement count without adding another parser or state owner.
+- `Difference examples` opens the existing Candidate Review drill-down for image/class-level differences. First tab entry restores a matching artifact when available; malformed external artifacts log and leave the panel hidden instead of blocking navigation.
+- Required build, shell, comparison-service, 1366x768/1920x1080 responsive gates, and the actual summary visual smoke pass. Before/after evidence is under `artifacts\ui\20260715-model-comparison-summary`.
+- This closes comparison-result readability only. It does not change the empty object-detection test split, one-NG validation limitation, or model-adoption boundary.
+
 ## Known Remaining Gaps
 
 - The object-detection dataset has no test images. Validation contains 28 OK objects and only one NG object, so NG recall changes between 0% and 100% on one result. The measured comparison is useful engine evidence but cannot authorize model adoption or broad accuracy claims.
-- Takt is currently presented from one native validation run in the UI. Five manual controlled repeats established the first median/range evidence; a repeat-count/median UI option is a future reliability improvement if operators need formal benchmark reports.
+- Built-in cross-engine Takt repeatability is complete: Candidate Review and Markdown show five-run median/range evidence. Hardware/process-load metadata and full equipment-cycle timing remain outside this model-only benchmark.
 - YOLOv8 SEG has a scoped circular operating candidate at confidence `0.20` and a stronger cross-domain review candidate at confidence `0.30`. The latter covers `11/15` positives with `0/27` backgrounds on the combined test but is still `review`, not automatic `promote`.
 - Those model results used the then-current four-point SEG exports. Treat them as historical operating evidence until the preserved masks are re-exported as contours, the candidate is retrained, and the unchanged held-out comparison is rerun.
 - Legacy solid rectangular class masks now reopen consistently as raster masks even without an overlapping NG class. Existing sidecars are not bulk rewritten; explicit geometry metadata is added on the next normal save.
@@ -338,10 +355,9 @@ git diff --check
 
 ## Recommended Next Work
 
-1. Acquire and label an independent object-detection test set with enough NG examples; do not reuse hash-identical `Test02` as new evidence.
-2. Populate the test split, rerun `v5 vs v8 analysis`, review class-specific misses/examples, and record repeated Takt median/range before any engine/model adoption.
-3. Then collect an independent production-camera or cross-session normal/abnormal set and rerun the unchanged anomaly classification evaluation guard.
-4. Keep completed SEG annotation, template-transfer, queue, splitter, Viewer/OpenGL, and YOLOv8 Detect restart paths stable unless a specific defect is reproduced. Historical SEG remediation remains deferred pending explicit return to that work and data-rewrite approval.
+1. When new data becomes available, acquire and label an independent NG-rich object-detection test set, populate `test`, and rerun the built-in five-repeat `v5 vs v8 analysis` before adoption. Do not reuse hash-identical `Test02` as new evidence.
+2. Then collect an independent production-camera or cross-session normal/abnormal set and rerun the unchanged anomaly classification evaluation guard.
+3. Keep completed Training/Model navigation, comparison summary, SEG annotation, template-transfer, queue, splitter, Viewer/OpenGL, and YOLOv8 Detect restart paths stable unless a specific defect is reproduced. Historical SEG remediation remains deferred pending explicit return to that work and data-rewrite approval.
 
 ## Useful Verification Commands
 

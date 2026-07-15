@@ -91,6 +91,7 @@ namespace MvcVisionSystem
                 CandidateYoloSourceRootPath = yoloV8.SourceRootPath,
                 ImageSize = Math.Max(1, training.ImageSize),
                 BatchSize = 1,
+                BenchmarkRepeatCount = 5,
                 Task = ResolveEngineComparisonTask(data?.DataYamlFilePath, task),
                 ModelTask = "detect",
                 UiConfidence = settings.MinimumDetectionConfidence,
@@ -151,6 +152,11 @@ namespace MvcVisionSystem
             if (request.BatchSize <= 0)
             {
                 errors.Add("\uBE44\uAD50 \uBC30\uCE58 \uD06C\uAE30\uB294 0\uBCF4\uB2E4 \uCEE4\uC57C \uD569\uB2C8\uB2E4.");
+            }
+
+            if (request.BenchmarkRepeatCount < 1 || request.BenchmarkRepeatCount > 10)
+            {
+                errors.Add("\uBE44\uAD50 \uBC18\uBCF5 \uD69F\uC218\uB294 1~10\uD68C\uC5EC\uC57C \uD569\uB2C8\uB2E4.");
             }
 
             return errors;
@@ -245,6 +251,8 @@ namespace MvcVisionSystem
                 request.ImageSize.ToString(CultureInfo.InvariantCulture),
                 "-BatchSize",
                 request.BatchSize.ToString(CultureInfo.InvariantCulture),
+                "-BenchmarkRepeatCount",
+                request.BenchmarkRepeatCount.ToString(CultureInfo.InvariantCulture),
                 "-Task",
                 request.Task,
                 "-ModelTask",
@@ -881,6 +889,8 @@ namespace MvcVisionSystem
         public int ImageSize { get; set; } = 320;
 
         public int BatchSize { get; set; } = 16;
+
+        public int BenchmarkRepeatCount { get; set; } = 1;
 
         public string Task { get; set; } = "test";
 
