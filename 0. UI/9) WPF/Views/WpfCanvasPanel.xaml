@@ -133,14 +133,15 @@
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled" />
             <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Disabled" />
-            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="VerticalAlignment" Value="Top" />
         </Style>
 
         <Style x:Key="CanvasAnnotationToolItemStyle" TargetType="ListBoxItem">
-            <Setter Property="Width" Value="60" />
-            <Setter Property="Height" Value="27" />
+            <Setter Property="Width" Value="38" />
+            <Setter Property="Height" Value="38" />
             <Setter Property="Padding" Value="0" />
-            <Setter Property="Margin" Value="0,0,4,0" />
+            <Setter Property="Margin" Value="0,0,0,4" />
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />
             <Setter Property="Background" Value="{DynamicResource ToolbarButtonBrush}" />
             <Setter Property="BorderBrush" Value="{DynamicResource ToolbarButtonBorderBrush}" />
@@ -178,35 +179,25 @@
         </Style>
 
         <DataTemplate x:Key="CanvasAnnotationToolItemTemplate">
-            <Grid Width="58"
-                  Height="25"
+            <Grid Width="36"
+                  Height="36"
                   mvvm:EventCommandBehavior.EventName="MouseLeftButtonUp"
                   mvvm:EventCommandBehavior.Command="{Binding DataContext.AnnotationToolSelectionChangedCommand, RelativeSource={RelativeSource AncestorType=ListBox}}"
                   mvvm:EventCommandBehavior.CommandParameter="{Binding}"
+                  AutomationProperties.Name="{Binding Text}"
+                  AutomationProperties.HelpText="{Binding ToolTip}"
                   ToolTip="{Binding ToolTip}">
-                <StackPanel Orientation="Horizontal"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Center">
-                    <iconPacks:PackIconMaterial x:Name="ToolIcon"
-                                                Kind="{Binding IconKind}"
-                                                Width="13"
-                                                Height="13"
-                                                Margin="0,0,4,0"
-                                                VerticalAlignment="Center" />
-                    <TextBlock x:Name="CanvasToolNameText"
-                               Text="{Binding Text}"
-                               Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"
-                               FontFamily="Segoe UI"
-                               FontSize="11"
-                               FontWeight="SemiBold"
-                               MaxWidth="36"
-                               TextAlignment="Center"
-                               TextTrimming="CharacterEllipsis"
-                               VerticalAlignment="Center" />
-                </StackPanel>
+                <iconPacks:PackIconMaterial x:Name="ToolIcon"
+                                            Kind="{Binding IconKind}"
+                                            Width="18"
+                                            Height="18"
+                                            Foreground="{Binding RelativeSource={RelativeSource AncestorType=ListBoxItem}, Path=Foreground}"
+                                            HorizontalAlignment="Center"
+                                            VerticalAlignment="Center" />
                 <Ellipse x:Name="PendingBadge"
                          Width="5"
                          Height="5"
+                         Margin="0,4,4,0"
                          HorizontalAlignment="Right"
                          VerticalAlignment="Top"
                          Fill="#F5C542"
@@ -215,12 +206,10 @@
             <DataTemplate.Triggers>
                 <DataTrigger Binding="{Binding IsConnected}" Value="False">
                     <Setter TargetName="ToolIcon" Property="Opacity" Value="0.62" />
-                    <Setter TargetName="CanvasToolNameText" Property="Opacity" Value="0.72" />
                     <Setter TargetName="PendingBadge" Property="Visibility" Value="Visible" />
                 </DataTrigger>
                 <DataTrigger Binding="{Binding IsActionEnabled}" Value="False">
                     <Setter TargetName="ToolIcon" Property="Opacity" Value="0.55" />
-                    <Setter TargetName="CanvasToolNameText" Property="Opacity" Value="0.66" />
                 </DataTrigger>
             </DataTemplate.Triggers>
         </DataTemplate>
@@ -655,19 +644,6 @@
                                Margin="0,0,8,0"
                                VerticalAlignment="Center"
                                Visibility="Collapsed" />
-                    <ListBox x:Name="CanvasAnnotationToolListBox"
-                             Style="{StaticResource CanvasAnnotationToolListBoxStyle}"
-                             ItemContainerStyle="{StaticResource CanvasAnnotationToolItemStyle}"
-                             ItemTemplate="{StaticResource CanvasAnnotationToolItemTemplate}"
-                             ItemsSource="{Binding AnnotationTools}"
-                             SelectedItem="{Binding SelectedAnnotationTool, Mode=TwoWay}"
-                             mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding AnnotationToolSelectionChangedCommand}">
-                        <ListBox.ItemsPanel>
-                            <ItemsPanelTemplate>
-                                <StackPanel Orientation="Horizontal" />
-                            </ItemsPanelTemplate>
-                        </ListBox.ItemsPanel>
-                    </ListBox>
                         <Border x:Name="CanvasBrushSizeControl"
                                 Visibility="{Binding MaskBrushControlVisibility}"
                                 Background="{DynamicResource CanvasBrush}"
@@ -905,27 +881,6 @@
                                            VerticalAlignment="Center" />
                             </StackPanel>
                         </Border>
-                        <ui:Button x:Name="CanvasUndoAnnotationButton"
-                                   Style="{StaticResource CanvasAnnotationCommandButtonStyle}"
-                                   ToolTip="{Binding UndoAnnotationTool.ToolTip}"
-                                   IsEnabled="{Binding UndoAnnotationTool.IsActionEnabled}"
-                                   Command="{Binding UndoAnnotationCommand}">
-                            <iconPacks:PackIconMaterial Kind="Refresh" Width="14" Height="14" />
-                        </ui:Button>
-                        <ui:Button x:Name="CanvasRedoAnnotationButton"
-                                   Style="{StaticResource CanvasAnnotationCommandButtonStyle}"
-                                   ToolTip="{Binding RedoAnnotationTool.ToolTip}"
-                                   IsEnabled="{Binding RedoAnnotationTool.IsActionEnabled}"
-                                   Command="{Binding RedoAnnotationCommand}">
-                            <iconPacks:PackIconMaterial Kind="Reload" Width="14" Height="14" />
-                        </ui:Button>
-                        <ui:Button x:Name="CanvasDeleteAnnotationButton"
-                                   Style="{StaticResource CanvasAnnotationCommandButtonStyle}"
-                                   ToolTip="{Binding DeleteAnnotationTool.ToolTip}"
-                                   IsEnabled="{Binding DeleteAnnotationTool.IsActionEnabled}"
-                                   Command="{Binding DeleteAnnotationCommand}">
-                            <iconPacks:PackIconMaterial Kind="TrashCanOutline" Width="14" Height="14" />
-                        </ui:Button>
                 </WrapPanel>
             </Border>
             <Border x:Name="DetectionResultOverlay"
@@ -1070,7 +1025,72 @@
                     </Grid>
                 </Border>
             <Grid Grid.Row="5">
-                <canvas:RoiImageCanvasView x:Name="MainCanvasView" />
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="46" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Border x:Name="CanvasAnnotationToolRail"
+                        Grid.Column="0"
+                        Background="{DynamicResource FrameBrush}"
+                        BorderBrush="{DynamicResource BorderBrushDark}"
+                        BorderThickness="0,0,1,0"
+                        Padding="4,6"
+                        AutomationProperties.Name="&#xB77C;&#xBCA8;&#xB9C1; &#xB3C4;&#xAD6C;">
+                    <StackPanel>
+                        <ListBox x:Name="CanvasAnnotationToolListBox"
+                                 Style="{StaticResource CanvasAnnotationToolListBoxStyle}"
+                                 ItemContainerStyle="{StaticResource CanvasAnnotationToolItemStyle}"
+                                 ItemTemplate="{StaticResource CanvasAnnotationToolItemTemplate}"
+                                 ItemsSource="{Binding AnnotationTools}"
+                                 SelectedItem="{Binding SelectedAnnotationTool, Mode=TwoWay}"
+                                 mvvm:InputCommandBehaviors.SelectedItemChangedCommand="{Binding AnnotationToolSelectionChangedCommand}">
+                            <ListBox.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Vertical" />
+                                </ItemsPanelTemplate>
+                            </ListBox.ItemsPanel>
+                        </ListBox>
+                        <Border Height="1"
+                                Background="{DynamicResource ToolbarButtonBorderBrush}"
+                                Margin="3,2,3,6" />
+                        <ui:Button x:Name="CanvasUndoAnnotationButton"
+                                   Style="{StaticResource CanvasAnnotationCommandButtonStyle}"
+                                   Width="38"
+                                   Height="34"
+                                   Margin="0,0,0,4"
+                                   AutomationProperties.Name="&#xB418;&#xB3CC;&#xB9AC;&#xAE30;"
+                                   ToolTip="{Binding UndoAnnotationTool.ToolTip}"
+                                   IsEnabled="{Binding UndoAnnotationTool.IsActionEnabled}"
+                                   Command="{Binding UndoAnnotationCommand}">
+                            <iconPacks:PackIconMaterial Kind="Refresh" Width="15" Height="15" />
+                        </ui:Button>
+                        <ui:Button x:Name="CanvasRedoAnnotationButton"
+                                   Style="{StaticResource CanvasAnnotationCommandButtonStyle}"
+                                   Width="38"
+                                   Height="34"
+                                   Margin="0,0,0,4"
+                                   AutomationProperties.Name="&#xB2E4;&#xC2DC; &#xC801;&#xC6A9;"
+                                   ToolTip="{Binding RedoAnnotationTool.ToolTip}"
+                                   IsEnabled="{Binding RedoAnnotationTool.IsActionEnabled}"
+                                   Command="{Binding RedoAnnotationCommand}">
+                            <iconPacks:PackIconMaterial Kind="Reload" Width="15" Height="15" />
+                        </ui:Button>
+                        <ui:Button x:Name="CanvasDeleteAnnotationButton"
+                                   Style="{StaticResource CanvasAnnotationCommandButtonStyle}"
+                                   Width="38"
+                                   Height="34"
+                                   Margin="0"
+                                   AutomationProperties.Name="&#xC120;&#xD0DD; &#xB77C;&#xBCA8; &#xC0AD;&#xC81C;"
+                                   ToolTip="{Binding DeleteAnnotationTool.ToolTip}"
+                                   IsEnabled="{Binding DeleteAnnotationTool.IsActionEnabled}"
+                                   Command="{Binding DeleteAnnotationCommand}">
+                            <iconPacks:PackIconMaterial Kind="TrashCanOutline" Width="15" Height="15" />
+                        </ui:Button>
+                    </StackPanel>
+                </Border>
+                <canvas:RoiImageCanvasView x:Name="MainCanvasView"
+                                           Grid.Column="1"
+                                           IsViewerToolBarVisible="False" />
             </Grid>
         </Grid>
     </Border>

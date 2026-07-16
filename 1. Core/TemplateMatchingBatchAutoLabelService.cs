@@ -314,7 +314,8 @@ namespace MvcVisionSystem._1._Core
             };
         }
 
-        private static IReadOnlyList<LabelingSegmentationObject> BuildTranslatedSourceMaskSegments(
+        // Shared by the approved historical migration so it uses the same contour transfer as new template labeling.
+        internal static IReadOnlyList<LabelingSegmentationObject> BuildTranslatedSourceMaskSegments(
             CClassItem classItem,
             string className,
             Rectangle targetBounds,

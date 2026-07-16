@@ -60,7 +60,8 @@ namespace MvcVisionSystem
                 ExecuteCompleteImageAndNextCommand,
                 ExecuteOpenModelComparisonExampleCommand,
                 ExecuteSaveModelCandidateCommand,
-                ExecuteRejectModelCandidateCommand);
+                ExecuteRejectModelCandidateCommand,
+                ExecuteModelComparisonHistorySelectionChangedCommand);
             RefreshAttachedCommandBindings(CandidateConfidenceSlider, InputCommandBehaviors.ValueInputCommandProperty);
             RefreshAttachedCommandBindings(
                 CandidateListBox,

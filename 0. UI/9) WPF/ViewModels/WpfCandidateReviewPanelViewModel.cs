@@ -68,6 +68,9 @@ namespace MvcVisionSystem
         private string modelComparisonDetailText = "\uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378 \uD6C4\uBCF4\uB97C \uAC80\uC99D\uD558\uBA74 \uC774\uACF3\uC5D0 \uAE30\uC874 \uBAA8\uB378\uACFC \uC0C8 \uBAA8\uB378\uC758 \uCC28\uC774\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
         private string modelComparisonBenchmarkText = string.Empty;
         private Visibility modelComparisonBenchmarkVisibility = Visibility.Collapsed;
+        private Visibility modelComparisonHistoryVisibility = Visibility.Collapsed;
+        private WpfModelComparisonHistoryItem selectedModelComparisonHistoryItem;
+        private bool isHistoricalModelComparisonSelection;
         private string modelComparisonActionText = "\uB2E4\uC74C: \uD6C4\uBCF4\uAC00 \uC788\uC73C\uBA74 \uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uC758 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB204\uB974\uACE0, \uAC80\uD1A0 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uC138\uC694.";
         private string modelCandidateDecisionStatusText = "\uD6C4\uBCF4 \uACB0\uC815: \uB300\uAE30";
         private string modelCandidateDecisionDetailText = "\uBE44\uAD50 \uD6C4 \uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5\uD558\uAC70\uB098 \uD6C4\uBCF4\uB97C \uAC70\uC808\uD574 \uD604\uC7AC \uBAA8\uB378\uC744 \uC720\uC9C0\uD569\uB2C8\uB2E4.";
@@ -87,6 +90,7 @@ namespace MvcVisionSystem
         private ICommand focusCurrentLabelCommand = new RelayCommand(NoOpCommand);
         private ICommand completeImageAndNextCommand = new RelayCommand(NoOpCommand);
         private ICommand modelComparisonExampleCommand = new RelayCommand<WpfModelComparisonReviewExample>(NoOpModelComparisonExampleCommand);
+        private ICommand modelComparisonHistorySelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand saveModelCandidateCommand = new RelayCommand(NoOpCommand);
         private ICommand rejectModelCandidateCommand = new RelayCommand(NoOpCommand);
         private ICommand candidateSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
@@ -137,6 +141,8 @@ namespace MvcVisionSystem
         public ObservableCollection<string> ReviewHistory { get; } = new ObservableCollection<string>();
 
         public ObservableCollection<WpfModelComparisonReviewExample> ModelComparisonExamples { get; } = new ObservableCollection<WpfModelComparisonReviewExample>();
+
+        public ObservableCollection<WpfModelComparisonHistoryItem> ModelComparisonHistoryItems { get; } = new ObservableCollection<WpfModelComparisonHistoryItem>();
 
         public WpfCandidateReviewPanelViewModel()
         {
@@ -201,6 +207,12 @@ namespace MvcVisionSystem
         {
             get => modelComparisonExampleCommand;
             private set => SetProperty(ref modelComparisonExampleCommand, value);
+        }
+
+        public ICommand ModelComparisonHistorySelectionChangedCommand
+        {
+            get => modelComparisonHistorySelectionChangedCommand;
+            private set => SetProperty(ref modelComparisonHistorySelectionChangedCommand, value);
         }
 
         public ICommand SaveModelCandidateCommand
@@ -443,6 +455,30 @@ namespace MvcVisionSystem
             private set => SetProperty(ref modelComparisonExampleListVisibility, value);
         }
 
+        public Visibility ModelComparisonHistoryVisibility
+        {
+            get => modelComparisonHistoryVisibility;
+            private set => SetProperty(ref modelComparisonHistoryVisibility, value);
+        }
+
+        public WpfModelComparisonHistoryItem SelectedModelComparisonHistoryItem
+        {
+            get => selectedModelComparisonHistoryItem;
+            set => SetProperty(ref selectedModelComparisonHistoryItem, value);
+        }
+
+        public bool IsHistoricalModelComparisonSelection
+        {
+            get => isHistoricalModelComparisonSelection;
+            private set
+            {
+                if (SetProperty(ref isHistoricalModelComparisonSelection, value))
+                {
+                    OnPropertyChanged(nameof(IsModelPromotionHeld));
+                }
+            }
+        }
+
         public bool IsModelComparisonExamplesExpanded
         {
             get => isModelComparisonExamplesExpanded;
@@ -476,10 +512,17 @@ namespace MvcVisionSystem
         public string ModelComparisonPromotionDecision
         {
             get => modelComparisonPromotionDecision;
-            private set => SetProperty(ref modelComparisonPromotionDecision, value ?? string.Empty);
+            private set
+            {
+                if (SetProperty(ref modelComparisonPromotionDecision, value ?? string.Empty))
+                {
+                    OnPropertyChanged(nameof(IsModelPromotionHeld));
+                }
+            }
         }
 
-        public bool IsModelPromotionHeld => string.Equals(ModelComparisonPromotionDecision, "hold", StringComparison.OrdinalIgnoreCase);
+        public bool IsModelPromotionHeld => IsHistoricalModelComparisonSelection
+            || string.Equals(ModelComparisonPromotionDecision, "hold", StringComparison.OrdinalIgnoreCase);
 
         public string ModelComparisonSourceText
         {
@@ -575,7 +618,8 @@ namespace MvcVisionSystem
             Action completeImageAndNext = null,
             Action<WpfModelComparisonReviewExample> openModelComparisonExample = null,
             Action saveModelCandidate = null,
-            Action rejectModelCandidate = null)
+            Action rejectModelCandidate = null,
+            Action<object> modelComparisonHistorySelectionChanged = null)
         {
             // Candidate review stays virtualized; commands keep the view declarative while shell owns workflow state.
             ConfidenceChangedCommand = new RelayCommand<double>(confidenceChanged ?? NoOpValueCommand);
@@ -590,6 +634,7 @@ namespace MvcVisionSystem
             CandidatePreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(candidatePreviewKeyDown ?? NoOpKeyCommand);
             CompleteImageAndNextCommand = new RelayCommand(completeImageAndNext ?? NoOpCommand);
             ModelComparisonExampleCommand = new RelayCommand<WpfModelComparisonReviewExample>(openModelComparisonExample ?? NoOpModelComparisonExampleCommand);
+            ModelComparisonHistorySelectionChangedCommand = new RelayCommand<object>(modelComparisonHistorySelectionChanged ?? NoOpSelectionCommand);
             SaveModelCandidateCommand = new RelayCommand(saveModelCandidate ?? NoOpCommand);
             RejectModelCandidateCommand = new RelayCommand(rejectModelCandidate ?? NoOpCommand);
         }
@@ -721,6 +766,10 @@ namespace MvcVisionSystem
         public void ClearModelComparisonReview()
         {
             ModelComparisonExamples.Clear();
+            ModelComparisonHistoryItems.Clear();
+            SelectedModelComparisonHistoryItem = null;
+            ModelComparisonHistoryVisibility = Visibility.Collapsed;
+            IsHistoricalModelComparisonSelection = false;
             IsModelComparisonExamplesExpanded = false;
             UpdateModelComparisonExampleDisclosure();
             ModelComparisonStatusText = "\uBAA8\uB378 \uBE44\uAD50: \uB300\uAE30";
@@ -741,9 +790,36 @@ namespace MvcVisionSystem
                 : sourceText.Trim();
         }
 
-        public void SetModelComparisonReview(WpfModelComparisonReviewReport report)
+        public void SetModelComparisonHistory(
+            IEnumerable<WpfModelComparisonHistoryItem> items,
+            string selectedSourcePath = "")
+        {
+            List<WpfModelComparisonHistoryItem> rows = (items ?? Array.Empty<WpfModelComparisonHistoryItem>())
+                .Where(item => item != null && !string.IsNullOrWhiteSpace(item.SourcePath))
+                .GroupBy(item => item.SourcePath, StringComparer.OrdinalIgnoreCase)
+                .Select(group => group.First())
+                .ToList();
+            ModelComparisonHistoryItems.Clear();
+            foreach (WpfModelComparisonHistoryItem row in rows)
+            {
+                ModelComparisonHistoryItems.Add(row);
+            }
+
+            SelectedModelComparisonHistoryItem = rows.FirstOrDefault(item =>
+                    !string.IsNullOrWhiteSpace(selectedSourcePath)
+                    && string.Equals(item.SourcePath, selectedSourcePath, StringComparison.OrdinalIgnoreCase))
+                ?? rows.FirstOrDefault();
+            ModelComparisonHistoryVisibility = rows.Count > 0
+                ? Visibility.Visible
+                : Visibility.Collapsed;
+        }
+
+        public void SetModelComparisonReview(
+            WpfModelComparisonReviewReport report,
+            bool isHistoricalSelection = false)
         {
             ModelComparisonExamples.Clear();
+            IsHistoricalModelComparisonSelection = report?.HasComparison == true && isHistoricalSelection;
             if (report?.HasComparison != true)
             {
                 IsModelComparisonExamplesExpanded = false;
@@ -761,14 +837,18 @@ namespace MvcVisionSystem
             ModelComparisonStatusText = report.SummaryText;
             ModelComparisonPromotionDecision = report.PromotionDecision;
             ModelComparisonBenchmarkText = report.BenchmarkText;
-            ModelComparisonDecisionText = string.IsNullOrWhiteSpace(report.RecommendationText)
-                ? "\uAD50\uCCB4 \uD310\uB2E8: \uC608\uC2DC \uAC80\uD1A0"
-                : report.RecommendationText;
+            ModelComparisonDecisionText = IsHistoricalModelComparisonSelection
+                ? "\uACFC\uAC70 \uC2E4\uD589 \uBCF4\uAE30: \uCC38\uACE0\uC6A9 - \uBAA8\uB378 \uCC44\uD0DD \uD310\uB2E8 \uC544\uB2D8"
+                : string.IsNullOrWhiteSpace(report.RecommendationText)
+                    ? "\uAD50\uCCB4 \uD310\uB2E8: \uC608\uC2DC \uAC80\uD1A0"
+                    : report.RecommendationText;
             ModelComparisonDetailText = string.IsNullOrWhiteSpace(report.SourcePath)
                 ? report.DetailText
                 : $"{report.DetailText} / {System.IO.Path.GetFileName(System.IO.Path.GetDirectoryName(report.SourcePath) ?? report.SourcePath)}";
-            ModelComparisonActionText = report.IsEngineComparison
-                ? "\uB2E4\uC74C: \uC774\uBBF8\uC9C0\uBCC4 \uCC28\uC774\uC640 Takt\uB97C \uD655\uC778\uD558\uC138\uC694. \uC5D4\uC9C4 \uCC44\uD0DD\uC740 \uAC00\uC911\uCE58\uB9CC \uBC14\uAFB8\uC9C0 \uB9D0\uACE0 Python/\uB7F0\uD0C0\uC784 \uC124\uC815\uAE4C\uC9C0 \uD568\uAED8 \uC801\uC6A9\uD574\uC57C \uD569\uB2C8\uB2E4."
+            ModelComparisonActionText = IsHistoricalModelComparisonSelection
+                ? "\uB2E4\uC74C: \uACFC\uAC70 \uACB0\uACFC\uB294 \uBE44\uAD50 \uCC38\uACE0\uC6A9\uC785\uB2C8\uB2E4. \uBAA8\uB378 \uCC44\uD0DD\uC740 \uCD5C\uC2E0 \uC2E4\uD589\uC73C\uB85C \uB3CC\uC544\uAC00 \uD310\uB2E8\uD558\uC138\uC694."
+                : report.IsEngineComparison
+                    ? "\uB2E4\uC74C: \uC774\uBBF8\uC9C0\uBCC4 \uCC28\uC774\uC640 Takt\uB97C \uD655\uC778\uD558\uC138\uC694. \uC5D4\uC9C4 \uCC44\uD0DD\uC740 \uAC00\uC911\uCE58\uB9CC \uBC14\uAFB8\uC9C0 \uB9D0\uACE0 Python/\uB7F0\uD0C0\uC784 \uC124\uC815\uAE4C\uC9C0 \uD568\uAED8 \uC801\uC6A9\uD574\uC57C \uD569\uB2C8\uB2E4."
                 : string.Equals(report.PromotionDecision, "hold", StringComparison.OrdinalIgnoreCase)
                     ? "\uB2E4\uC74C: \uB2E4\uC591\uD55C \uD559\uC2B5 \uB370\uC774\uD130\uB97C \uBCF4\uAC15\uD558\uAC70\uB098 \uBAA8\uB378\uC744 \uC870\uC815\uD55C \uB4A4 \uD6C4\uBCF4 \uAC80\uC99D\uC744 \uB2E4\uC2DC \uC2E4\uD589\uD558\uC138\uC694."
                     : (report.Examples?.Count ?? 0) > 0

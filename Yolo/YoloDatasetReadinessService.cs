@@ -57,7 +57,7 @@ namespace MvcVisionSystem.Yolo
                 LabelingDatasetPurpose.Segmentation =>
                     $"Segmentation uses segment JSON/mask PNG annotations as primary labels. SegmentObjects:{statistics.TotalSegmentationObjectCount}, SegmentFiles:{statistics.TotalSegmentFileCount}, MaskFiles:{statistics.TotalMaskFileCount}, BoxLabelsAuxiliary:{statistics.TotalObjectCount}",
                 LabelingDatasetPurpose.AnomalyDetection =>
-                    $"AnomalyDetection uses rectangle defect regions for the current training flow. BoxLabels:{statistics.TotalObjectCount}, SegmentArtifactsAuxiliary:{statistics.TotalSegmentationArtifactFileCount}",
+                    "AnomalyDetection uses reviewed normal/abnormal images for the current image-level classification training flow.",
                 _ =>
                     $"ObjectDetection uses YOLO box .txt labels. BoxLabels:{statistics.TotalObjectCount}, SegmentationArtifactsExcluded:{statistics.TotalSegmentationArtifactFileCount}"
             };

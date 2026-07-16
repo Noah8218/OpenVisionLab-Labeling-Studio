@@ -20,13 +20,11 @@
       <HintPath>..\..\dll\OpenVisionLab.ImageCanvas.dll</HintPath>
       <Private>True</Private>
     </Reference>
-    <Reference Include="OpenCvSharp">
-      <HintPath>$(OpenVisionLabSourceRoot)\dll\OpenCVSharp\OpenCvSharp.dll</HintPath>
-      <Private>True</Private>
-    </Reference>
   </ItemGroup>
 
   <ItemGroup>
     <ProjectReference Include="..\..\OpenVisionLab\Library\OpenVisionLab.Mvvm\OpenVisionLab.Mvvm.csproj" />
+    <PackageReference Include="OpenCvSharp4" Version="$(OpenCvSharpVersion)" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="$(OpenCvSharpVersion)" />
   </ItemGroup>
 </Project>

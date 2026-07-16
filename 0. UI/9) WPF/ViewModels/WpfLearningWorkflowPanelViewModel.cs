@@ -46,6 +46,9 @@ namespace MvcVisionSystem
         private string datasetDashboardStatusText = "\uB370\uC774\uD130\uC14B \uC0C1\uD0DC: \uC810\uAC80 \uC804";
         private string datasetDashboardSummaryText = "\uB370\uC774\uD130\uC14B \uC810\uAC80\uC744 \uC2E4\uD589\uD558\uBA74 \uC774\uBBF8\uC9C0, \uB77C\uBCA8, \uBD84\uD560, \uD074\uB798\uC2A4 \uC0C1\uD0DC\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
         private string datasetDashboardActionText = "\uBA3C\uC800 \uB77C\uBCA8\uC744 \uC800\uC7A5\uD55C \uB4A4 \uB370\uC774\uD130\uC14B \uC810\uAC80\uC744 \uB204\uB974\uC138\uC694.";
+        private string externalEvaluationDataAuditStatusText = "\uC678\uBD80 \uD3C9\uAC00 \uD3F4\uB354\uB97C \uB300\uC870\uD558\uBA74 \uD559\uC2B5 \uB370\uC774\uD130\uC640\uC758 \uC911\uBCF5\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.";
+        private string externalEvaluationDataAuditDetailText = string.Empty;
+        private string externalEvaluationDataAuditPathText = string.Empty;
         private string objectDetectionMvpNextActionText = "\uAC1D\uCCB4\uD0D0\uC9C0 MVP: \uB370\uC774\uD130\uC14B \uC810\uAC80 \uC804";
         private string modelReplacementStatusText = "\uBAA8\uB378 \uAD50\uCCB4: \uB370\uC774\uD130\uC14B \uC810\uAC80 \uC804";
         private string modelReplacementDetailText = "\uD559\uC2B5 \uD6C4 \uCD5C\uC885 \uAC80\uC99D \uC774\uBBF8\uC9C0 \uACB0\uACFC\uB85C \uAE30\uC874 \uBAA8\uB378 \uAD50\uCCB4 \uC5EC\uBD80\uB97C \uD310\uB2E8\uD569\uB2C8\uB2E4.";
@@ -85,6 +88,7 @@ namespace MvcVisionSystem
         private ICommand yoloFixLabelsCommand = new RelayCommand(NoOpCommand);
         private ICommand yoloFixDatasetCommand = new RelayCommand(NoOpCommand);
         private ICommand runModelComparisonCommand = new RelayCommand(NoOpCommand);
+        private ICommand externalEvaluationDataAuditCommand = new RelayCommand(NoOpCommand);
         private ICommand templateCurrentImageCommand = new RelayCommand(NoOpCommand);
         private ICommand templateBatchCommand = new RelayCommand(NoOpCommand);
 
@@ -101,13 +105,13 @@ namespace MvcVisionSystem
             DatasetPurposeModes.Add(LearningModes.First(item => item.Mode == WpfLearningMode.Segmentation));
             DatasetPurposeModes.Add(LearningModes.First(item => item.Mode == WpfLearningMode.AnomalyDetection));
 
-            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Select, "\uC120\uD0DD", PackIconMaterialKind.Tune, "\uAC1D\uCCB4 \uC120\uD0DD\uACFC \uD3B8\uC9D1"));
-            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Rectangle, "\uBC15\uC2A4", PackIconMaterialKind.ShapeSquareRoundedPlus, "\uAC1D\uCCB4 \uBC15\uC2A4 \uC601\uC5ED"));
-            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Ellipse, "\uC6D0/\uD0C0\uC6D0", PackIconMaterialKind.ShapeSquareRoundedPlus, "\uC6D0\uD615 \uD639\uC740 \uD0C0\uC6D0 \uC601\uC5ED"));
-            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Polygon, "\uD3F4\uB9AC\uACE4", PackIconMaterialKind.ViewListOutline, "\uB2E4\uAC01\uD615 \uC138\uADF8\uBA58\uD14C\uC774\uC158"));
-            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Brush, "\uBE0C\uB7EC\uC2DC", PackIconMaterialKind.Tune, "\uBE0C\uB7EC\uC2DC \uB9C8\uC2A4\uD06C \uD3B8\uC9D1"));
-            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Eraser, "\uC9C0\uC6B0\uAC1C", PackIconMaterialKind.TrashCanOutline, "\uB9C8\uC2A4\uD06C\uB098 \uC601\uC5ED \uC9C0\uC6B0\uAE30"));
-            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.PanZoom, "\uC774\uB3D9", PackIconMaterialKind.Magnify, "\uD654\uBA74 \uC774\uB3D9\uACFC \uD655\uB300"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Select, "\uC120\uD0DD", PackIconMaterialKind.CursorDefaultOutline, "\uAC1D\uCCB4 \uC120\uD0DD\uACFC \uD3B8\uC9D1"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Rectangle, "\uBC15\uC2A4", PackIconMaterialKind.VectorRectangle, "\uAC1D\uCCB4 \uBC15\uC2A4 \uC601\uC5ED"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Ellipse, "\uC6D0/\uD0C0\uC6D0", PackIconMaterialKind.VectorEllipse, "\uC6D0\uD615 \uD639\uC740 \uD0C0\uC6D0 \uC601\uC5ED"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Polygon, "\uD3F4\uB9AC\uACE4", PackIconMaterialKind.VectorPolygon, "\uB2E4\uAC01\uD615 \uC138\uADF8\uBA58\uD14C\uC774\uC158"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Brush, "\uBE0C\uB7EC\uC2DC", PackIconMaterialKind.BrushVariant, "\uBE0C\uB7EC\uC2DC \uB9C8\uC2A4\uD06C \uD3B8\uC9D1"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Eraser, "\uC9C0\uC6B0\uAC1C", PackIconMaterialKind.EraserVariant, "\uB9C8\uC2A4\uD06C\uB098 \uC601\uC5ED \uC9C0\uC6B0\uAE30"));
+            RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.PanZoom, "\uC774\uB3D9", PackIconMaterialKind.CursorMove, "\uD654\uBA74 \uC774\uB3D9\uACFC \uD655\uB300"));
             RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Undo, "\uB418\uB3CC\uB9AC\uAE30", PackIconMaterialKind.Refresh, "\uB9C8\uC9C0\uB9C9 \uD3B8\uC9D1 \uB418\uB3CC\uB9AC\uAE30"));
             RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Redo, "\uB2E4\uC2DC \uC801\uC6A9", PackIconMaterialKind.Reload, "\uB418\uB3CC\uB9B0 \uD3B8\uC9D1 \uB2E4\uC2DC \uC801\uC6A9"));
             RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Delete, "\uC0AD\uC81C", PackIconMaterialKind.TrashCanOutline, "\uC120\uD0DD \uB77C\uBCA8 \uC0AD\uC81C"));
@@ -378,6 +382,12 @@ namespace MvcVisionSystem
             private set => SetProperty(ref runModelComparisonCommand, value);
         }
 
+        public ICommand ExternalEvaluationDataAuditCommand
+        {
+            get => externalEvaluationDataAuditCommand;
+            private set => SetProperty(ref externalEvaluationDataAuditCommand, value);
+        }
+
         public ICommand TemplateCurrentImageCommand
         {
             get => templateCurrentImageCommand;
@@ -508,6 +518,24 @@ namespace MvcVisionSystem
         {
             get => datasetDashboardActionText;
             set => SetProperty(ref datasetDashboardActionText, value ?? string.Empty);
+        }
+
+        public string ExternalEvaluationDataAuditStatusText
+        {
+            get => externalEvaluationDataAuditStatusText;
+            private set => SetProperty(ref externalEvaluationDataAuditStatusText, value ?? string.Empty);
+        }
+
+        public string ExternalEvaluationDataAuditDetailText
+        {
+            get => externalEvaluationDataAuditDetailText;
+            private set => SetProperty(ref externalEvaluationDataAuditDetailText, value ?? string.Empty);
+        }
+
+        public string ExternalEvaluationDataAuditPathText
+        {
+            get => externalEvaluationDataAuditPathText;
+            private set => SetProperty(ref externalEvaluationDataAuditPathText, value ?? string.Empty);
         }
 
         public string ObjectDetectionMvpNextActionText
@@ -826,7 +854,8 @@ namespace MvcVisionSystem
             Action datasetOpenExisting = null,
             Action<WpfFirstRunChecklistItem> firstRunSamplePathSelected = null,
             Action runTemplateCurrentImage = null,
-            Action runTemplateBatch = null)
+            Action runTemplateBatch = null,
+            Action runExternalEvaluationDataAudit = null)
         {
             // Dataset purpose is a project setting; learning mode is only guide/navigation.
             // Keep both command paths separate so task-specific tools do not change when the operator browses lesson concepts.
@@ -844,6 +873,7 @@ namespace MvcVisionSystem
             YoloFixLabelsCommand = new RelayCommand(yoloFixLabels ?? NoOpCommand);
             YoloFixDatasetCommand = new RelayCommand(yoloFixDataset ?? NoOpCommand);
             RunModelComparisonCommand = new RelayCommand(runModelComparison ?? NoOpCommand);
+            ExternalEvaluationDataAuditCommand = new RelayCommand(runExternalEvaluationDataAudit ?? NoOpCommand);
             TemplateCurrentImageCommand = new RelayCommand(runTemplateCurrentImage ?? NoOpCommand);
             TemplateBatchCommand = new RelayCommand(runTemplateBatch ?? NoOpCommand);
         }
@@ -961,6 +991,15 @@ namespace MvcVisionSystem
             {
                 DatasetDashboardIssueItems.Add("\uBB38\uC81C \uC5C6\uC74C: \uB2E4\uC74C \uB2E8\uACC4\uB85C \uC774\uB3D9\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
             }
+        }
+
+        public void SetExternalEvaluationDataAuditResult(string statusText, string detailText, string pathText)
+        {
+            ExternalEvaluationDataAuditStatusText = string.IsNullOrWhiteSpace(statusText)
+                ? "\uC678\uBD80 \uD3C9\uAC00 \uB300\uC870: \uC810\uAC80 \uC804"
+                : statusText;
+            ExternalEvaluationDataAuditDetailText = detailText ?? string.Empty;
+            ExternalEvaluationDataAuditPathText = pathText ?? string.Empty;
         }
 
         private static string BuildObjectDetectionMvpNextActionText(string actionText)
@@ -1698,6 +1737,7 @@ namespace MvcVisionSystem
         OpenLabelingTool,
         CheckDataset,
         ExportQualityAudit,
+        ExportHistoricalSegmentationRemediationAudit,
         OpenDatasetSettings
     }
 

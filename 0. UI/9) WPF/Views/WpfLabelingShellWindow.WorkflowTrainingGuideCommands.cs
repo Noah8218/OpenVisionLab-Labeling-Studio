@@ -58,6 +58,10 @@ namespace MvcVisionSystem
                     ExecuteExportDatasetQualityAuditCommand();
                     break;
 
+                case WpfDatasetDashboardActionKind.ExportHistoricalSegmentationRemediationAudit:
+                    ExecuteHistoricalSegmentationRemediationAuditCommand();
+                    break;
+
                 case WpfDatasetDashboardActionKind.OpenDatasetSettings:
                     FocusYoloTrainingSettingsTab();
                     RefreshTrainingReadinessPanel(refreshYaml: true);

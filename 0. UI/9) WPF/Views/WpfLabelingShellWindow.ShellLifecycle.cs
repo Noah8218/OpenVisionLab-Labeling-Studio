@@ -21,6 +21,8 @@ namespace MvcVisionSystem
 
         private void ExecuteClosedCommand()
         {
+            SaveWorkspaceLayoutSettings();
+            CloseModelBenchmarkWindow();
             StopInferenceStatusPulse();
             inferenceStatusPulseTimer.Tick -= InferenceStatusPulseTimer_Tick;
             StopTrainingStatusPolling();

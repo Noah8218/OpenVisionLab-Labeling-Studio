@@ -212,14 +212,20 @@ namespace MvcVisionSystem
                     global.Data?.ProjectSettings?.PythonModel,
                     comparison?.CurrentWeightsPath,
                     comparison?.LatestWeightsPath));
-            // Candidate Review shows visual disagreement examples from the latest model-comparison artifact.
-            // This keeps final best.pt adoption tied to held-out examples, not only aggregate metrics.
-            WpfModelComparisonReviewReport report = modelComparisonReviewService.BuildLatestReport(
-                classNames,
-                confidence,
-                baselineWeightsPath: comparison?.CurrentWeightsPath,
-                candidateWeightsPath: comparison?.LatestWeightsPath);
-            CandidateReviewViewModel.SetModelComparisonReview(report);
+            // The latest matching artifact remains authoritative; older matching runs are read-only history.
+            WpfModelComparisonHistoryItem historyItem = RefreshModelComparisonHistoryItems(
+                comparison?.CurrentWeightsPath,
+                comparison?.LatestWeightsPath);
+            WpfModelComparisonReviewReport report = historyItem == null
+                ? WpfModelComparisonReviewReport.Empty
+                : modelComparisonReviewService.BuildFromSummaryFile(
+                    historyItem.SourcePath,
+                    classNames,
+                    confidence,
+                    maxExamples: 5);
+            CandidateReviewViewModel.SetModelComparisonReview(
+                report,
+                isHistoricalSelection: historyItem?.IsLatest == false);
             UpdateCandidateModelDecisionPanel(comparison);
         }
 

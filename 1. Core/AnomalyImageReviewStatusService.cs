@@ -49,6 +49,21 @@ namespace MvcVisionSystem
         public int UnreviewedImageCount { get; set; }
     }
 
+    public sealed class AnomalyImageReviewFolderImportResult
+    {
+        public int NormalImageCount { get; internal set; }
+
+        public int AbnormalImageCount { get; internal set; }
+
+        public int ExistingReviewCount { get; internal set; }
+
+        public int UnmatchedImageCount { get; internal set; }
+
+        public int ImportedImageCount => NormalImageCount + AbnormalImageCount;
+
+        public bool HasChanges => ImportedImageCount > 0;
+    }
+
     public sealed class AnomalyImageReviewStatusService
     {
         public const string FileName = "anomaly-review-status.json";
@@ -198,6 +213,41 @@ namespace MvcVisionSystem
             {
                 return SetReviewState(imagePath, imageName, AnomalyImageReviewState.Unreviewed);
             }
+        }
+
+        public AnomalyImageReviewFolderImportResult ImportUnreviewedStatesFromParentFolders()
+        {
+            var result = new AnomalyImageReviewFolderImportResult();
+            lock (syncRoot)
+            {
+                foreach (AnomalyImageReviewStatus status in statuses.Values)
+                {
+                    if (status.IsReviewed)
+                    {
+                        result.ExistingReviewCount++;
+                        continue;
+                    }
+
+                    if (!TryResolveParentFolderReviewState(status.ImagePath, out AnomalyImageReviewState reviewState))
+                    {
+                        result.UnmatchedImageCount++;
+                        continue;
+                    }
+
+                    status.ReviewState = reviewState;
+                    status.LastUpdatedUtc = DateTime.UtcNow;
+                    if (reviewState == AnomalyImageReviewState.Normal)
+                    {
+                        result.NormalImageCount++;
+                    }
+                    else
+                    {
+                        result.AbnormalImageCount++;
+                    }
+                }
+            }
+
+            return result;
         }
 
         public bool TryFindNextUnreviewed(IReadOnlyList<string> orderedImagePaths, string currentImagePath, out string nextImagePath)
@@ -451,6 +501,41 @@ namespace MvcVisionSystem
             }
 
             return persisted.ImageName ?? string.Empty;
+        }
+
+        private static bool TryResolveParentFolderReviewState(string imagePath, out AnomalyImageReviewState reviewState)
+        {
+            reviewState = AnomalyImageReviewState.Unreviewed;
+            if (string.IsNullOrWhiteSpace(imagePath))
+            {
+                return false;
+            }
+
+            string parentFolderName;
+            try
+            {
+                parentFolderName = Path.GetFileName(Path.GetDirectoryName(imagePath) ?? string.Empty);
+            }
+            catch
+            {
+                return false;
+            }
+
+            if (string.Equals(parentFolderName, "OK", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(parentFolderName, "normal", StringComparison.OrdinalIgnoreCase))
+            {
+                reviewState = AnomalyImageReviewState.Normal;
+                return true;
+            }
+
+            if (string.Equals(parentFolderName, "NG", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(parentFolderName, "abnormal", StringComparison.OrdinalIgnoreCase))
+            {
+                reviewState = AnomalyImageReviewState.Abnormal;
+                return true;
+            }
+
+            return false;
         }
 
         private static string NormalizeKey(string path)

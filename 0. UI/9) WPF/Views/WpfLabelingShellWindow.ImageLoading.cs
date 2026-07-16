@@ -17,6 +17,11 @@ namespace MvcVisionSystem
 
         public bool TryLoadStartupSampleImage()
         {
+            if (activeImageBitmap != null || !string.IsNullOrWhiteSpace(activeImagePath))
+            {
+                return true;
+            }
+
             EnsureProjectSettings();
             string imagePath = YoloWorkerSmokeTestService.ResolveSmokeImagePath(global.Data.ProjectSettings.PythonModel);
             if (string.IsNullOrWhiteSpace(imagePath))

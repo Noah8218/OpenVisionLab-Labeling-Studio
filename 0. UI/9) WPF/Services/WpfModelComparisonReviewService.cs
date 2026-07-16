@@ -22,21 +22,59 @@ namespace MvcVisionSystem
             string baselineWeightsPath = "",
             string candidateWeightsPath = "")
         {
+            WpfModelComparisonHistoryItem latest = BuildHistory(
+                    baselineWeightsPath,
+                    candidateWeightsPath,
+                    maxItems: 1)
+                .FirstOrDefault();
+            return latest == null
+                ? WpfModelComparisonReviewReport.Empty
+                : BuildFromSummaryFile(latest.SourcePath, classNames, confidenceThreshold, maxExamples);
+        }
+
+        public IReadOnlyList<WpfModelComparisonHistoryItem> BuildHistory(
+            string baselineWeightsPath = "",
+            string candidateWeightsPath = "",
+            int maxItems = 8)
+        {
             string artifactsRoot = Path.Combine(FindRepositoryRoot(), "artifacts", "yolo-model-comparison");
             if (!Directory.Exists(artifactsRoot))
             {
-                return WpfModelComparisonReviewReport.Empty;
+                return Array.Empty<WpfModelComparisonHistoryItem>();
             }
 
-            string[] summaryPaths = Directory
-                .EnumerateFiles(artifactsRoot, "comparison-summary.json", SearchOption.AllDirectories)
-                .OrderByDescending(File.GetLastWriteTimeUtc)
-                .ToArray();
-            string summaryPath = summaryPaths.FirstOrDefault(path =>
-                SummaryWeightsMatch(path, baselineWeightsPath, candidateWeightsPath));
-            return string.IsNullOrWhiteSpace(summaryPath)
-                ? WpfModelComparisonReviewReport.Empty
-                : BuildFromSummaryFile(summaryPath, classNames, confidenceThreshold, maxExamples);
+            try
+            {
+                int limit = Math.Clamp(maxItems, 1, 20);
+                var items = new List<WpfModelComparisonHistoryItem>(limit);
+                foreach (string summaryPath in Directory
+                    .EnumerateFiles(artifactsRoot, "comparison-summary.json", SearchOption.AllDirectories)
+                    .OrderByDescending(File.GetLastWriteTimeUtc)
+                    .ThenByDescending(path => path, StringComparer.OrdinalIgnoreCase))
+                {
+                    if (!TryBuildHistoryItem(
+                            summaryPath,
+                            baselineWeightsPath,
+                            candidateWeightsPath,
+                            isLatest: items.Count == 0,
+                            out WpfModelComparisonHistoryItem item))
+                    {
+                        continue;
+                    }
+
+                    items.Add(item);
+                    if (items.Count >= limit)
+                    {
+                        break;
+                    }
+                }
+
+                return items;
+            }
+            catch
+            {
+                return Array.Empty<WpfModelComparisonHistoryItem>();
+            }
         }
 
         public WpfModelComparisonReviewReport BuildFromSummaryFile(
@@ -545,7 +583,56 @@ namespace MvcVisionSystem
                 : "\uAC80\uD1A0 \uAE30\uC900\uBCC4 \uD6C4\uBCF4: " + string.Join(" / ", items);
         }
 
+        private static bool TryBuildHistoryItem(
+            string summaryJsonPath,
+            string baselineWeightsPath,
+            string candidateWeightsPath,
+            bool isLatest,
+            out WpfModelComparisonHistoryItem item)
+        {
+            item = null;
+            try
+            {
+                JObject summary = JObject.Parse(File.ReadAllText(summaryJsonPath));
+                if (!SummaryWeightsMatch(summary, summaryJsonPath, baselineWeightsPath, candidateWeightsPath))
+                {
+                    return false;
+                }
+
+                bool isEngineComparison = string.Equals(
+                    summary.SelectToken("comparisonKind")?.Value<string>(),
+                    "engine-benchmark",
+                    StringComparison.OrdinalIgnoreCase);
+                string baselineEngine = summary.SelectToken("baseline.engine")?.Value<string>()?.Trim();
+                string candidateEngine = summary.SelectToken("candidate.engine")?.Value<string>()?.Trim();
+                baselineEngine = string.IsNullOrWhiteSpace(baselineEngine) ? "\uAE30\uC874" : baselineEngine;
+                candidateEngine = string.IsNullOrWhiteSpace(candidateEngine) ? "\uD6C4\uBCF4" : candidateEngine;
+                string task = summary.SelectToken("task")?.Value<string>()?.Trim() ?? "val";
+                string basisText = task.ToLowerInvariant() switch
+                {
+                    "test" => "\uCD5C\uC885 \uAC80\uC99D(test)",
+                    "val" => "\uD559\uC2B5 \uAC80\uC99D(val)",
+                    _ => task
+                };
+                string kindText = isEngineComparison ? "\uC5D4\uC9C4 \uBE44\uAD50" : "\uBAA8\uB378 \uD6C4\uBCF4 \uBE44\uAD50";
+                DateTime timestamp = File.GetLastWriteTime(summaryJsonPath);
+                string latestPrefix = isLatest ? "\uCD5C\uC2E0 \u00B7 " : string.Empty;
+                item = new WpfModelComparisonHistoryItem(
+                    summaryJsonPath,
+                    $"{latestPrefix}{timestamp:MM/dd HH:mm} \u00B7 {baselineEngine} \u2194 {candidateEngine}",
+                    $"{basisText} \u00B7 {kindText}",
+                    timestamp,
+                    isLatest);
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
         private static bool SummaryWeightsMatch(
+            JObject summary,
             string summaryJsonPath,
             string baselineWeightsPath,
             string candidateWeightsPath)
@@ -559,22 +646,14 @@ namespace MvcVisionSystem
                 return true;
             }
 
-            try
-            {
-                JObject summary = JObject.Parse(File.ReadAllText(summaryJsonPath));
-                string actualBaseline = NormalizeFullPath(ResolveSummaryPath(
-                    summaryJsonPath,
-                    summary.SelectToken("baseline.weights")?.Value<string>()));
-                string actualCandidate = NormalizeFullPath(ResolveSummaryPath(
-                    summaryJsonPath,
-                    summary.SelectToken("candidate.weights")?.Value<string>()));
-                return (!requireBaseline || PathsEqual(actualBaseline, expectedBaseline))
-                    && (!requireCandidate || PathsEqual(actualCandidate, expectedCandidate));
-            }
-            catch
-            {
-                return false;
-            }
+            string actualBaseline = NormalizeFullPath(ResolveSummaryPath(
+                summaryJsonPath,
+                summary.SelectToken("baseline.weights")?.Value<string>()));
+            string actualCandidate = NormalizeFullPath(ResolveSummaryPath(
+                summaryJsonPath,
+                summary.SelectToken("candidate.weights")?.Value<string>()));
+            return (!requireBaseline || PathsEqual(actualBaseline, expectedBaseline))
+                && (!requireCandidate || PathsEqual(actualCandidate, expectedCandidate));
         }
 
         private static List<WpfModelComparisonReviewExample> BuildExamples(
@@ -1136,6 +1215,33 @@ namespace MvcVisionSystem
 
             public double Area => Math.Max(0D, Right - Left) * Math.Max(0D, Bottom - Top);
         }
+    }
+
+    public sealed class WpfModelComparisonHistoryItem
+    {
+        public WpfModelComparisonHistoryItem(
+            string sourcePath,
+            string displayText,
+            string detailText,
+            DateTime timestamp,
+            bool isLatest)
+        {
+            SourcePath = sourcePath ?? string.Empty;
+            DisplayText = displayText ?? string.Empty;
+            DetailText = detailText ?? string.Empty;
+            Timestamp = timestamp;
+            IsLatest = isLatest;
+        }
+
+        public string SourcePath { get; }
+
+        public string DisplayText { get; }
+
+        public string DetailText { get; }
+
+        public DateTime Timestamp { get; }
+
+        public bool IsLatest { get; }
     }
 
     public sealed class WpfModelComparisonReviewReport

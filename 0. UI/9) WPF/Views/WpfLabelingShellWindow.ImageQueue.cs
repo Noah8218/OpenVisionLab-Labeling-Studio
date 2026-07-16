@@ -37,6 +37,11 @@ namespace MvcVisionSystem
             imageReviewStatus.LoadReviewStatus(global.Data, imagePaths);
             anomalyImageReviewStatus.SetImages(imagePaths);
             anomalyImageReviewStatus.LoadReviewStatus(global.Data, imagePaths);
+            if (IsAnomalyDatasetPurpose()
+                && anomalyImageReviewStatus.ImportUnreviewedStatesFromParentFolders().HasChanges)
+            {
+                anomalyImageReviewStatus.SaveReviewStatus(global.Data);
+            }
 
             suppressImageQueueSelection = true;
             try

@@ -258,6 +258,7 @@ namespace MvcVisionSystem
                 Background = backgroundBrush;
             }
 
+            RefreshModelBenchmarkWindowTheme();
             UpdateWorkflowModeUi();
             UpdateQueueQuickFilterButtons();
         }

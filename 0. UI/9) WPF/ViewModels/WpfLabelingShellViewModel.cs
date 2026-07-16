@@ -28,7 +28,7 @@ namespace MvcVisionSystem
         private static readonly Action NoOpCommand = () => { };
         private static readonly Action<KeyInputCommandArgs> NoOpKeyCommand = _ => { };
         private const string ModelCenterActionRouteText = "\uC2E4\uD589: \uD6C4\uBCF4 \uAC80\uC99D=\uD559\uC2B5 \uD6C4\uBCF4 \uD0ED \uC5F4\uAE30, \uD604\uC7AC \uAC80\uC0AC=\uAC80\uC0AC \uBAA8\uB378+\uD604\uC7AC \uC774\uBBF8\uC9C0 -> AI \uD6C4\uBCF4/\uCE94\uBC84\uC2A4";
-        private static readonly GridLength RightWorkflowExpandedPaneGridLengthValue = new GridLength(340D);
+        private static readonly GridLength RightWorkflowExpandedPaneGridLengthValue = new GridLength(WpfWorkspaceLayoutSettings.DefaultWorkflowPaneWidth);
         private static readonly GridLength RightWorkflowCollapsedPaneGridLengthValue = new GridLength(72D);
         private WpfShellWorkflowStage currentWorkflowStage = WpfShellWorkflowStage.Dataset;
 
@@ -155,10 +155,12 @@ namespace MvcVisionSystem
         private ICommand promoteSelectedModelHistoryCommand = new RelayCommand(NoOpCommand);
         private ICommand runAnomalyEvaluationCommand = new RelayCommand(NoOpCommand);
         private ICommand loadAnomalyEvaluationSummaryCommand = new RelayCommand(NoOpCommand);
+        private ICommand openModelBenchmarkCommand = new RelayCommand(NoOpCommand);
         private ICommand showSavedLabelsViewCommand = new RelayCommand(NoOpCommand);
         private ICommand showLabelingGuideViewCommand = new RelayCommand(NoOpCommand);
         private ICommand showClassCatalogViewCommand = new RelayCommand(NoOpCommand);
         private ICommand toggleRightWorkflowDockCommand;
+        private ICommand resetWorkspaceLayoutCommand = new RelayCommand(NoOpCommand);
         private ICommand checkYoloCommand = new RelayCommand(NoOpCommand);
         private ICommand detectCurrentImageCommand = new RelayCommand(NoOpCommand);
         private ICommand runTemplateMatchingCommand = new RelayCommand(NoOpCommand);
@@ -277,6 +279,8 @@ namespace MvcVisionSystem
             get => rightWorkflowPaneGridLength;
             private set => SetProperty(ref rightWorkflowPaneGridLength, value);
         }
+
+        public double RightWorkflowExpandedPaneWidth => rightWorkflowExpandedPaneWidth;
 
         public string RightWorkflowDockToggleText
         {
@@ -880,6 +884,12 @@ namespace MvcVisionSystem
             private set => SetProperty(ref loadAnomalyEvaluationSummaryCommand, value);
         }
 
+        public ICommand OpenModelBenchmarkCommand
+        {
+            get => openModelBenchmarkCommand;
+            private set => SetProperty(ref openModelBenchmarkCommand, value);
+        }
+
         public ICommand ShowSavedLabelsViewCommand
         {
             get => showSavedLabelsViewCommand;
@@ -909,6 +919,12 @@ namespace MvcVisionSystem
 
                 return toggleRightWorkflowDockCommand;
             }
+        }
+
+        public ICommand ResetWorkspaceLayoutCommand
+        {
+            get => resetWorkspaceLayoutCommand;
+            private set => SetProperty(ref resetWorkspaceLayoutCommand, value);
         }
 
         public ICommand CheckYoloCommand
@@ -973,7 +989,9 @@ namespace MvcVisionSystem
             Action showClassCatalogView = null,
             Action promoteSelectedModelHistory = null,
             Action runAnomalyEvaluation = null,
-            Action loadAnomalyEvaluationSummary = null)
+            Action loadAnomalyEvaluationSummary = null,
+            Action resetWorkspaceLayout = null,
+            Action openModelBenchmark = null)
         {
             // Shell lifecycle and toolbar commands are injected; key commands use a DTO so this ViewModel avoids WPF EventArgs.
             ToggleThemeCommand = new RelayCommand(toggleTheme ?? NoOpCommand);
@@ -990,6 +1008,7 @@ namespace MvcVisionSystem
             PromoteSelectedModelHistoryCommand = new RelayCommand(promoteSelectedModelHistory ?? NoOpCommand);
             RunAnomalyEvaluationCommand = new RelayCommand(runAnomalyEvaluation ?? NoOpCommand);
             LoadAnomalyEvaluationSummaryCommand = new RelayCommand(loadAnomalyEvaluationSummary ?? NoOpCommand);
+            OpenModelBenchmarkCommand = new RelayCommand(openModelBenchmark ?? NoOpCommand);
             ShowSavedLabelsViewCommand = new RelayCommand(showSavedLabelsView ?? labelingMode ?? NoOpCommand);
             ShowLabelingGuideViewCommand = new RelayCommand(showLabelingGuideView ?? labelingMode ?? NoOpCommand);
             ShowClassCatalogViewCommand = new RelayCommand(showClassCatalogView ?? labelingMode ?? NoOpCommand);
@@ -999,6 +1018,7 @@ namespace MvcVisionSystem
             ChangeDatasetCommand = new RelayCommand(changeDataset ?? NoOpCommand);
             OpenDatasetFolderCommand = new RelayCommand(openDatasetFolder ?? NoOpCommand);
             ChangeImageFolderCommand = new RelayCommand(changeImageFolder ?? NoOpCommand);
+            ResetWorkspaceLayoutCommand = new RelayCommand(resetWorkspaceLayout ?? NoOpCommand);
             LoadedCommand = new RelayCommand(loaded ?? NoOpCommand);
             ClosedCommand = new RelayCommand(closed ?? NoOpCommand);
             PreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(previewKeyDown ?? NoOpKeyCommand);

@@ -33,6 +33,8 @@ internal static partial class Program
             string yoloRoot = Path.GetFullPath(GetArgumentValue(args, "--yolov8-root", @"C:\Git\yolov8"));
             string weightsPath = Path.GetFullPath(GetArgumentValue(args, "--weights", YoloV8AnomalyDefaultWeights));
             string sourceImagePath = Path.GetFullPath(GetArgumentValue(args, "--image", YoloV8AnomalyDefaultImage));
+            string expectedWeightsRunName = Path.GetFileName(
+                Path.GetDirectoryName(Path.GetDirectoryName(weightsPath) ?? string.Empty) ?? string.Empty);
             string artifactRoot = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--artifact-root",
@@ -49,6 +51,7 @@ internal static partial class Program
             AssertTrue(File.Exists(pythonPath), "YOLOv8 Python was not found: " + pythonPath);
             AssertTrue(File.Exists(clientScriptPath), "YOLOv8 TCP adapter was not found: " + clientScriptPath);
             AssertTrue(File.Exists(weightsPath), "YOLOv8 classification weights were not found: " + weightsPath);
+            AssertTrue(!string.IsNullOrWhiteSpace(expectedWeightsRunName), "YOLOv8 classification weight run name could not be resolved: " + weightsPath);
             AssertTrue(File.Exists(sourceImagePath), "YOLOv8 anomaly smoke image was not found: " + sourceImagePath);
 
             string exeDirectory = Path.GetDirectoryName(exePath) ?? AppContext.BaseDirectory;
@@ -164,8 +167,8 @@ internal static partial class Program
             AssertTrue(!IsExeTrainedInferenceFailure(inferenceStatus), "first YOLOv8 anomaly inference failed after restart: " + inferenceStatus);
             AssertTrue(inferenceStatus.Contains("YOLOv8", StringComparison.OrdinalIgnoreCase), "anomaly inference status did not identify YOLOv8: " + inferenceStatus);
             AssertTrue(
-                inferenceStatus.Contains("yolov8n-cls-circular-defect-balanced-e20-img128-20260711", StringComparison.OrdinalIgnoreCase),
-                "anomaly inference status did not identify the saved classification best.pt: " + inferenceStatus);
+                inferenceStatus.Contains(expectedWeightsRunName, StringComparison.OrdinalIgnoreCase),
+                "anomaly inference status did not identify the saved classification best.pt run: " + expectedWeightsRunName + " / " + inferenceStatus);
             AssertTrue(inferenceStatus.Contains("\uD6C4\uBCF4", StringComparison.Ordinal), "anomaly inference status did not report a candidate count: " + inferenceStatus);
             AssertTrue(!inferenceStatus.Contains("\uD6C4\uBCF4 0", StringComparison.Ordinal), "YOLOv8 anomaly smoke returned no classification candidate: " + inferenceStatus);
 

@@ -46,6 +46,38 @@ function Assert-Directory([string]$Path, [string]$Name) {
     }
 }
 
+function Get-FileSha256([string]$Path) {
+    $stream = [System.IO.File]::OpenRead($Path)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($sha256.ComputeHash($stream))).Replace("-", "").ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
+}
+
+function Get-TextLinesSha256([string[]]$Lines) {
+    $text = [string]::Join("`n", @($Lines))
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($sha256.ComputeHash($bytes))).Replace("-", "").ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+    }
+}
+
+function Get-ClassificationEvidenceFingerprint($NormalImages, $AbnormalImages) {
+    $entries = @(
+        @($NormalImages | ForEach-Object { "normal|$(Get-FileSha256 $_)" })
+        @($AbnormalImages | ForEach-Object { "abnormal|$(Get-FileSha256 $_)" })
+    ) | Sort-Object
+    return Get-TextLinesSha256 $entries
+}
+
 function Test-SupportedImagePath([string]$Path) {
     $extension = [System.IO.Path]::GetExtension($Path)
     return @(".bmp", ".jpg", ".jpeg", ".png", ".tif", ".tiff") -contains $extension.ToLowerInvariant()
@@ -241,8 +273,13 @@ $recommendation = if ($holdReasons.Count -eq 0) { "adopt" } else { "hold" }
 $summary = [ordered]@{
     generatedUtc = (Get-Date).ToUniversalTime().ToString("o")
     weightsPath = $Weights
+    weightsSha256 = Get-FileSha256 $Weights
     datasetRoot = $DatasetRoot
     split = $Split
+    evidence = [ordered]@{
+        fingerprintAlgorithm = "sha256-class-image-pairs-v1"
+        fingerprintSha256 = Get-ClassificationEvidenceFingerprint $normalImages $abnormalImages
+    }
     thresholds = [ordered]@{
         minimumTotalImageCount = $MinimumTotalImageCount
         minimumPerClassImageCount = $MinimumPerClassImageCount

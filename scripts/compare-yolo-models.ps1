@@ -21,6 +21,8 @@ param(
     [string]$ModelTask = "detect",
     [string]$SegmentationPositiveClassName = "",
     [double]$UiConfidence = 0.25,
+    [ValidateRange(0.0, 1.0)]
+    [double]$UiNmsIou = 0.45,
     [string]$OutputDirectory = "artifacts\yolo-model-comparison"
 )
 
@@ -32,7 +34,10 @@ $RecommendedSegmentationPositiveImageCount = 5
 $RecommendedSegmentationBackgroundImageCount = 5
 $MinimumSegmentationUiPositiveImageCoverage = 0.50
 $MaximumSegmentationUiBackgroundCandidateRate = 0.10
+$GroundTruthReviewIouThreshold = 0.50
+$MaximumGroundTruthErrorExamples = 40
 $script:SegmentationPositiveClassId = $null
+$script:ComparisonClassNames = @()
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptRoot
@@ -60,6 +65,30 @@ function Assert-File([string]$Path, [string]$Name) {
 function Assert-Directory([string]$Path, [string]$Name) {
     if ([string]::IsNullOrWhiteSpace($Path) -or -not (Test-Path -LiteralPath $Path -PathType Container)) {
         throw "$Name not found: $Path"
+    }
+}
+
+function Get-FileSha256([string]$Path) {
+    $stream = [System.IO.File]::OpenRead($Path)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($sha256.ComputeHash($stream))).Replace("-", "").ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
+        $stream.Dispose()
+    }
+}
+
+function Get-TextLinesSha256([string[]]$Lines) {
+    $text = [string]::Join("`n", @($Lines))
+    $bytes = [System.Text.Encoding]::UTF8.GetBytes($text)
+    $sha256 = [System.Security.Cryptography.SHA256]::Create()
+    try {
+        return ([System.BitConverter]::ToString($sha256.ComputeHash($bytes))).Replace("-", "").ToLowerInvariant()
+    }
+    finally {
+        $sha256.Dispose()
     }
 }
 
@@ -185,6 +214,23 @@ function Resolve-LabelPathFromImagePath([string]$ImagePath) {
     return Join-Path $labelsDirectory ([System.IO.Path]::GetFileNameWithoutExtension($ImagePath) + ".txt")
 }
 
+function Get-EvidenceFingerprint($ImagePaths) {
+    $entries = @($ImagePaths |
+        ForEach-Object {
+            $imagePath = $_
+            $labelPath = Resolve-LabelPathFromImagePath $imagePath
+            $labelHash = if (Test-Path -LiteralPath $labelPath -PathType Leaf) {
+                Get-FileSha256 $labelPath
+            } else {
+                "missing-label"
+            }
+
+            "$(Get-FileSha256 $imagePath)|$labelHash"
+        } |
+        Sort-Object)
+    return Get-TextLinesSha256 $entries
+}
+
 function Get-SplitImagePaths([string]$ResolvedPath) {
     if ([string]::IsNullOrWhiteSpace($ResolvedPath)) {
         return @()
@@ -217,6 +263,41 @@ function Resolve-DataYamlSplitPath([string]$DataYamlPath, [string]$SplitName) {
     }
 
     return Resolve-DataYamlValuePath $DataYamlPath $yamlRootPath $splitPath
+}
+
+function Clear-StaleYoloV5LabelCacheArtifacts([string]$DataYamlPath, [string]$SplitName) {
+    $splitPath = Resolve-DataYamlSplitPath $DataYamlPath $SplitName
+    if ([string]::IsNullOrWhiteSpace($splitPath)) {
+        return @()
+    }
+
+    $labelDirectories = @(Get-SplitImagePaths $splitPath |
+        ForEach-Object { Split-Path -Parent (Resolve-LabelPathFromImagePath $_) } |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        Sort-Object -Unique)
+    $removedPaths = New-Object System.Collections.Generic.List[string]
+    foreach ($labelDirectory in $labelDirectories) {
+        # YOLOv5 writes the sidecar before renaming it over labels.cache on Windows.
+        $cachePath = [System.IO.Path]::ChangeExtension($labelDirectory, ".cache")
+        $cacheSidecarPath = $cachePath + ".npy"
+        if (-not (Test-Path -LiteralPath $cacheSidecarPath -PathType Leaf)) {
+            continue
+        }
+
+        try {
+            foreach ($cacheArtifactPath in @($cacheSidecarPath, $cachePath)) {
+                if (Test-Path -LiteralPath $cacheArtifactPath -PathType Leaf) {
+                    Remove-Item -LiteralPath $cacheArtifactPath -Force -ErrorAction Stop
+                    $removedPaths.Add([System.IO.Path]::GetFullPath($cacheArtifactPath))
+                }
+            }
+        }
+        catch {
+            throw "Model comparison cannot clear stale YOLOv5 label-cache artifacts for '$labelDirectory': $($_.Exception.Message)"
+        }
+    }
+
+    return $removedPaths.ToArray()
 }
 
 function Test-SegmentationLabelLine([string]$Line) {
@@ -290,6 +371,9 @@ function New-ComparisonEvidence([string]$DataYamlPath, [string]$SplitName, [stri
     $result = [ordered]@{
         split = $SplitName
         imagesPath = $resolvedSplitPath
+        dataYamlSha256 = Get-FileSha256 $DataYamlPath
+        fingerprintAlgorithm = "sha256-image-label-pairs-v1"
+        fingerprintSha256 = Get-EvidenceFingerprint $imagePaths
         imageCount = $imagePaths.Count
         labelFileCount = $labelPaths.Count
         comparisonLabelCount = [System.Math]::Min($imagePaths.Count, $labelPaths.Count)
@@ -597,7 +681,7 @@ function Invoke-YoloVal(
         "--name", $RunName,
         "--exist-ok"
     )
-    if ($IncludePredictions) {
+    if ($IncludePredictions -and $ModelTask -ine "detect") {
         $arguments += @("--save-txt", "--save-conf")
     }
 
@@ -618,14 +702,64 @@ function Invoke-YoloVal(
         $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = $previous
     }
 
+    $predictionLogPath = ""
     $labelsPath = Join-Path $runProject "$RunName\labels"
+    if ($IncludePredictions -and $ModelTask -ieq "detect") {
+        $predictSource = Resolve-DataYamlSplitPath $DataYaml $Task
+        if ([string]::IsNullOrWhiteSpace($predictSource) -or -not (Test-Path -LiteralPath $predictSource)) {
+            throw "YOLO prediction source not found for $Task split: $predictSource"
+        }
+
+        $detectScript = Join-Path $RuntimeSourceRoot "detect.py"
+        Assert-File $detectScript "YOLOv5 detection runtime"
+        $predictName = "$RunName-predict"
+        $predictionLogPath = Join-Path $RunOutputRoot "$predictName.log"
+        $predictArguments = @(
+            $detectScript,
+            "--weights", $WeightsPath,
+            "--source", $predictSource,
+            "--data", $DataYaml,
+            "--imgsz", $ImageSize.ToString(),
+            "--conf-thres", "0.001",
+            "--iou-thres", $UiNmsIou.ToString([System.Globalization.CultureInfo]::InvariantCulture),
+            "--save-txt",
+            "--save-conf",
+            "--nosave",
+            "--project", $runProject,
+            "--name", $predictName,
+            "--exist-ok"
+        )
+
+        $previous = $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD
+        $previousErrorActionPreference = $ErrorActionPreference
+        $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = "1"
+        try {
+            $ErrorActionPreference = "Continue"
+            $predictionOutput = & $RuntimePythonExe @predictArguments 2>&1
+            $exitCode = $LASTEXITCODE
+            $predictionOutput | Set-Content -LiteralPath $predictionLogPath -Encoding UTF8
+            if ($exitCode -ne 0) {
+                throw "YOLO prediction failed for $RunName. See $predictionLogPath"
+            }
+        }
+        finally {
+            $ErrorActionPreference = $previousErrorActionPreference
+            $env:TORCH_FORCE_NO_WEIGHTS_ONLY_LOAD = $previous
+        }
+
+        $labelsPath = Join-Path $runProject "$predictName\labels"
+    }
+
     return [ordered]@{
         name = $RunName
         engine = $Engine
         weights = $WeightsPath
         logPath = $logPath
+        predictionLogPath = $predictionLogPath
         labelsPath = $labelsPath
+        predictionNmsIouThreshold = if ($IncludePredictions -and $ModelTask -ieq "detect") { $UiNmsIou } else { $null }
         metrics = Read-ValMetrics $logPath
+        classMetrics = @(Read-ValClassMetrics $logPath $script:ComparisonClassNames)
         benchmark = Read-ValBenchmark $logPath
         confidence = if ($IncludePredictions) { Read-PredictionConfidenceSummary $labelsPath $UiConfidence $script:SegmentationPositiveClassId } else { $null }
     }
@@ -666,6 +800,7 @@ split_name = sys.argv[7]
 model_task = sys.argv[8]
 predict_source = sys.argv[9]
 include_predictions = sys.argv[10].lower() == "true"
+prediction_nms_iou = float(sys.argv[11])
 
 model = YOLO(weights_path)
 metrics = model.val(
@@ -706,6 +841,28 @@ payload = {
     "map50": scalar(metric_source, ("map50",)),
     "map5095": scalar(metric_source, ("map", "map5095")),
 }
+
+class_metrics = []
+raw_class_indexes = getattr(metric_source, "ap_class_index", [])
+class_indexes = list(raw_class_indexes) if raw_class_indexes is not None else []
+class_names = getattr(metrics, "names", None) or getattr(model, "names", {}) or {}
+image_counts = getattr(metrics, "nt_per_image", None)
+instance_counts = getattr(metrics, "nt_per_class", None)
+for metric_index, raw_class_id in enumerate(class_indexes):
+    class_id = int(raw_class_id)
+    precision, recall, map50, map5095 = metric_source.class_result(metric_index)
+    class_name = class_names.get(class_id, str(class_id)) if hasattr(class_names, "get") else class_names[class_id]
+    class_metrics.append({
+        "classId": class_id,
+        "className": str(class_name),
+        "imageCount": int(image_counts[class_id]) if image_counts is not None else 0,
+        "instanceCount": int(instance_counts[class_id]) if instance_counts is not None else 0,
+        "precision": float(precision),
+        "recall": float(recall),
+        "map50": float(map50),
+        "map5095": float(map5095),
+    })
+payload["perClass"] = class_metrics
 print("OPENVISIONLAB_METRICS_JSON=" + json.dumps(payload, separators=(",", ":")))
 
 speed = getattr(metrics, "speed", None) or {}
@@ -728,7 +885,7 @@ if include_predictions:
         source=predict_source,
         imgsz=image_size,
         conf=0.001,
-        iou=0.7,
+        iou=prediction_nms_iou,
         project=run_project,
         name=predict_name,
         exist_ok=True,
@@ -750,7 +907,8 @@ if include_predictions:
         $Task,
         $ModelTask,
         $predictSource,
-        $IncludePredictions.ToString().ToLowerInvariant()
+        $IncludePredictions.ToString().ToLowerInvariant(),
+        $UiNmsIou.ToString([System.Globalization.CultureInfo]::InvariantCulture)
     )
 
     $previousPythonPath = $env:PYTHONPATH
@@ -781,6 +939,7 @@ if include_predictions:
     }
 
     $predictLabelsPath = Join-Path $runProject "$RunName-predict\labels"
+    $metricPayload = Read-UltralyticsMetrics $logPath
     return [ordered]@{
         name = $RunName
         engine = $Engine
@@ -788,7 +947,14 @@ if include_predictions:
         logPath = $logPath
         validationLabelsPath = Join-Path $runProject "$RunName\labels"
         labelsPath = $predictLabelsPath
-        metrics = Read-UltralyticsMetrics $logPath
+        predictionNmsIouThreshold = if ($IncludePredictions -and $ModelTask -ieq "detect") { $UiNmsIou } else { $null }
+        metrics = [ordered]@{
+            precision = $metricPayload.precision
+            recall = $metricPayload.recall
+            map50 = $metricPayload.map50
+            map5095 = $metricPayload.map5095
+        }
+        classMetrics = @($metricPayload.perClass)
         benchmark = Read-UltralyticsBenchmark $logPath
         confidence = if ($IncludePredictions) { Read-PredictionConfidenceSummary $predictLabelsPath $UiConfidence $script:SegmentationPositiveClassId } else { $null }
     }
@@ -867,6 +1033,7 @@ function Invoke-ModelValWithBenchmarkRepeats(
 
     $result["benchmark"] = New-AggregatedBenchmark $benchmarks $RepeatCount
     $result["benchmarkLogPaths"] = $logPaths
+    $result["weightsSha256"] = Get-FileSha256 $WeightsPath
     return $result
 }
 
@@ -883,6 +1050,30 @@ function Read-ValMetrics([string]$LogPath) {
         recall = [double]$match.Groups[2].Value
         map50 = [double]$match.Groups[3].Value
         map5095 = [double]$match.Groups[4].Value
+    }
+}
+
+function Read-ValClassMetrics([string]$LogPath, [string[]]$ClassNames) {
+    $text = Get-Content -LiteralPath $LogPath -Raw
+    $number = '[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?'
+    for ($classId = 0; $classId -lt $ClassNames.Count; $classId++) {
+        $className = $ClassNames[$classId]
+        $pattern = '(?m)^\s*' + [regex]::Escape($className) + '\s+(\d+)\s+(\d+)\s+(' + $number + ')\s+(' + $number + ')\s+(' + $number + ')\s+(' + $number + ')\s*$'
+        $match = [regex]::Match($text, $pattern)
+        if (-not $match.Success) {
+            continue
+        }
+
+        [ordered]@{
+            classId = $classId
+            className = $className
+            imageCount = [int]$match.Groups[1].Value
+            instanceCount = [int]$match.Groups[2].Value
+            precision = [double]::Parse($match.Groups[3].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+            recall = [double]::Parse($match.Groups[4].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+            map50 = [double]::Parse($match.Groups[5].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+            map5095 = [double]::Parse($match.Groups[6].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+        }
     }
 }
 
@@ -911,7 +1102,7 @@ function Read-UltralyticsMetrics([string]$LogPath) {
         Where-Object { $_ -like "OPENVISIONLAB_METRICS_JSON=*" } |
         Select-Object -Last 1
     if ($null -eq $line) {
-        return [ordered]@{ precision = $null; recall = $null; map50 = $null; map5095 = $null }
+        return [ordered]@{ precision = $null; recall = $null; map50 = $null; map5095 = $null; perClass = @() }
     }
 
     try {
@@ -922,10 +1113,11 @@ function Read-UltralyticsMetrics([string]$LogPath) {
             recall = $data.recall
             map50 = $data.map50
             map5095 = $data.map5095
+            perClass = @($data.perClass)
         }
     }
     catch {
-        return [ordered]@{ precision = $null; recall = $null; map50 = $null; map5095 = $null }
+        return [ordered]@{ precision = $null; recall = $null; map50 = $null; map5095 = $null; perClass = @() }
     }
 }
 
@@ -1104,6 +1296,295 @@ function Read-PredictionThresholdSweep([string]$LabelsPath, [double]$UiConfidenc
             uiCandidateCount = [int]$counts[$key]
         }
     }
+}
+
+function ConvertTo-YoloDetectionBox([string]$Line, [bool]$HasConfidence, [double]$MinimumConfidence) {
+    $parts = @($Line -split '\s+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
+    $expectedCount = if ($HasConfidence) { 6 } else { 5 }
+    if ($parts.Count -ne $expectedCount) {
+        return $null
+    }
+
+    $classId = 0
+    if (-not [int]::TryParse($parts[0], [System.Globalization.NumberStyles]::Integer, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$classId)) {
+        return $null
+    }
+
+    $values = New-Object double[] 4
+    for ($index = 0; $index -lt 4; $index++) {
+        $parsedValue = 0.0
+        if (-not [double]::TryParse($parts[$index + 1], [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$parsedValue)) {
+            return $null
+        }
+
+        $values[$index] = $parsedValue
+    }
+
+    $confidence = 1.0
+    if ($HasConfidence -and (-not [double]::TryParse($parts[5], [System.Globalization.NumberStyles]::Float, [System.Globalization.CultureInfo]::InvariantCulture, [ref]$confidence) -or $confidence -lt $MinimumConfidence)) {
+        return $null
+    }
+
+    return [ordered]@{
+        classId = $classId
+        xMin = [Math]::Max(0.0, $values[0] - ($values[2] / 2.0))
+        yMin = [Math]::Max(0.0, $values[1] - ($values[3] / 2.0))
+        xMax = [Math]::Min(1.0, $values[0] + ($values[2] / 2.0))
+        yMax = [Math]::Min(1.0, $values[1] + ($values[3] / 2.0))
+        confidence = $confidence
+    }
+}
+
+function Read-YoloDetectionBoxes([string]$Path, [bool]$HasConfidence, [double]$MinimumConfidence) {
+    if (-not (Test-Path -LiteralPath $Path -PathType Leaf)) {
+        return @()
+    }
+
+    $boxes = New-Object System.Collections.Generic.List[object]
+    foreach ($line in Get-Content -LiteralPath $Path) {
+        $box = ConvertTo-YoloDetectionBox $line $HasConfidence $MinimumConfidence
+        if ($null -ne $box) {
+            $boxes.Add($box)
+        }
+    }
+
+    return $boxes.ToArray()
+}
+
+function Get-DetectionBoxIou($First, $Second) {
+    $intersectionWidth = [Math]::Max(0.0, [Math]::Min($First.xMax, $Second.xMax) - [Math]::Max($First.xMin, $Second.xMin))
+    $intersectionHeight = [Math]::Max(0.0, [Math]::Min($First.yMax, $Second.yMax) - [Math]::Max($First.yMin, $Second.yMin))
+    $intersection = $intersectionWidth * $intersectionHeight
+    $firstArea = [Math]::Max(0.0, $First.xMax - $First.xMin) * [Math]::Max(0.0, $First.yMax - $First.yMin)
+    $secondArea = [Math]::Max(0.0, $Second.xMax - $Second.xMin) * [Math]::Max(0.0, $Second.yMax - $Second.yMin)
+    $union = $firstArea + $secondArea - $intersection
+    if ($union -le 0.0) {
+        return 0.0
+    }
+
+    return $intersection / $union
+}
+
+function ConvertTo-GroundTruthReviewBox($Box, [bool]$IncludeConfidence) {
+    if ($null -eq $Box) {
+        return $null
+    }
+
+    $reviewBox = [ordered]@{
+        classId = [int]$Box.classId
+        xMin = [double]$Box.xMin
+        yMin = [double]$Box.yMin
+        xMax = [double]$Box.xMax
+        yMax = [double]$Box.yMax
+    }
+    if ($IncludeConfidence) {
+        $reviewBox["confidence"] = [double]$Box.confidence
+    }
+
+    return $reviewBox
+}
+
+function Get-GroundTruthReviewRate([int]$Numerator, [int]$Denominator) {
+    if ($Denominator -le 0) {
+        return $null
+    }
+
+    return [double]$Numerator / [double]$Denominator
+}
+
+function New-GroundTruthReview(
+    $Model,
+    $Evidence,
+    [string[]]$ClassNames,
+    [double]$ConfidenceThreshold,
+    [double]$IouThreshold,
+    [bool]$IncludeExamples = $true,
+    [bool]$IncludeThresholdSweep = $true) {
+    $classStats = @{}
+    for ($classId = 0; $classId -lt $ClassNames.Count; $classId++) {
+        $classStats[$classId] = [ordered]@{
+            classId = $classId
+            className = $ClassNames[$classId]
+            groundTruthCount = 0
+            predictionCount = 0
+            truePositiveCount = 0
+            falsePositiveCount = 0
+            falseNegativeCount = 0
+        }
+    }
+
+    $falseNegativeExamples = New-Object System.Collections.Generic.List[object]
+    $falsePositiveExamples = New-Object System.Collections.Generic.List[object]
+    $imageCount = 0
+    foreach ($imagePath in @(Get-SplitImagePaths $Evidence.imagesPath)) {
+        $imageCount++
+        $groundTruth = @(Read-YoloDetectionBoxes (Resolve-LabelPathFromImagePath $imagePath) $false 0.0)
+        $predictionPath = Join-Path $Model.labelsPath (([System.IO.Path]::GetFileNameWithoutExtension($imagePath)) + ".txt")
+        $predictions = @(Read-YoloDetectionBoxes $predictionPath $true $ConfidenceThreshold | Sort-Object confidence -Descending)
+        $matchedGroundTruth = New-Object 'System.Collections.Generic.HashSet[int]'
+
+        foreach ($answer in $groundTruth) {
+            if ($classStats.ContainsKey([int]$answer.classId)) {
+                $stats = $classStats[[int]$answer.classId]
+                $stats["groundTruthCount"] = [int]$stats["groundTruthCount"] + 1
+            }
+        }
+
+        foreach ($prediction in $predictions) {
+            if (-not $classStats.ContainsKey([int]$prediction.classId)) {
+                continue
+            }
+
+            $stats = $classStats[[int]$prediction.classId]
+            $stats["predictionCount"] = [int]$stats["predictionCount"] + 1
+            $bestUnmatchedIndex = -1
+            $bestUnmatchedIou = 0.0
+            $bestAnyIou = 0.0
+            $bestAnyIndex = -1
+            for ($answerIndex = 0; $answerIndex -lt $groundTruth.Count; $answerIndex++) {
+                $answer = $groundTruth[$answerIndex]
+                if ([int]$answer.classId -ne [int]$prediction.classId) {
+                    continue
+                }
+
+                $iou = Get-DetectionBoxIou $prediction $answer
+                if ($bestAnyIndex -lt 0 -or $iou -ge $bestAnyIou) {
+                    $bestAnyIou = $iou
+                    $bestAnyIndex = $answerIndex
+                }
+                if (-not $matchedGroundTruth.Contains($answerIndex) -and $iou -gt $bestUnmatchedIou) {
+                    $bestUnmatchedIndex = $answerIndex
+                    $bestUnmatchedIou = $iou
+                }
+            }
+
+            if ($bestUnmatchedIndex -ge 0 -and $bestUnmatchedIou -ge $IouThreshold) {
+                [void]$matchedGroundTruth.Add($bestUnmatchedIndex)
+                $stats["truePositiveCount"] = [int]$stats["truePositiveCount"] + 1
+                continue
+            }
+
+            $stats["falsePositiveCount"] = [int]$stats["falsePositiveCount"] + 1
+            if ($IncludeExamples) {
+                $falsePositiveExamples.Add([ordered]@{
+                    imagePath = $imagePath
+                    imageName = [System.IO.Path]::GetFileName($imagePath)
+                    errorType = "false-positive"
+                    classId = [int]$prediction.classId
+                    className = $ClassNames[[int]$prediction.classId]
+                    confidence = [double]$prediction.confidence
+                    bestIou = $bestAnyIou
+                    predictionBox = ConvertTo-GroundTruthReviewBox $prediction $true
+                    groundTruthBox = if ($bestAnyIndex -ge 0) { ConvertTo-GroundTruthReviewBox $groundTruth[$bestAnyIndex] $false } else { $null }
+                })
+            }
+        }
+
+        for ($answerIndex = 0; $answerIndex -lt $groundTruth.Count; $answerIndex++) {
+            if ($matchedGroundTruth.Contains($answerIndex)) {
+                continue
+            }
+
+            $answer = $groundTruth[$answerIndex]
+            if (-not $classStats.ContainsKey([int]$answer.classId)) {
+                continue
+            }
+
+            $stats = $classStats[[int]$answer.classId]
+            $stats["falseNegativeCount"] = [int]$stats["falseNegativeCount"] + 1
+            $bestIou = 0.0
+            $bestPrediction = $null
+            foreach ($prediction in $predictions) {
+                if ([int]$prediction.classId -eq [int]$answer.classId) {
+                    $iou = Get-DetectionBoxIou $prediction $answer
+                    if ($null -eq $bestPrediction -or $iou -ge $bestIou) {
+                        $bestIou = $iou
+                        $bestPrediction = $prediction
+                    }
+                }
+            }
+
+            if ($IncludeExamples) {
+                $falseNegativeExamples.Add([ordered]@{
+                    imagePath = $imagePath
+                    imageName = [System.IO.Path]::GetFileName($imagePath)
+                    errorType = "false-negative"
+                    classId = [int]$answer.classId
+                    className = $ClassNames[[int]$answer.classId]
+                    confidence = $null
+                    bestIou = $bestIou
+                    predictionBox = ConvertTo-GroundTruthReviewBox $bestPrediction $true
+                    groundTruthBox = ConvertTo-GroundTruthReviewBox $answer $false
+                })
+            }
+        }
+    }
+
+    $perClass = @($classStats.Values | Sort-Object classId)
+    [object[]]$examples = if ($IncludeExamples) {
+        @(($falseNegativeExamples.ToArray() + $falsePositiveExamples.ToArray()) | Select-Object -First $MaximumGroundTruthErrorExamples)
+    }
+    else {
+        @()
+    }
+    $truePositiveCount = 0
+    $falsePositiveCount = 0
+    $falseNegativeCount = 0
+    foreach ($stats in $perClass) {
+        $truePositiveCount += [int]$stats.truePositiveCount
+        $falsePositiveCount += [int]$stats.falsePositiveCount
+        $falseNegativeCount += [int]$stats.falseNegativeCount
+    }
+
+    $review = [ordered]@{
+        schemaVersion = 2
+        schema = "detection-ground-truth-review-v2"
+        geometryCoordinateSystem = "normalized-xyxy-v1"
+        confidence = $ConfidenceThreshold
+        predictionNmsIouThreshold = $Model.predictionNmsIouThreshold
+        iouThreshold = $IouThreshold
+        imageCount = $imageCount
+        truePositiveCount = $truePositiveCount
+        falsePositiveCount = $falsePositiveCount
+        falseNegativeCount = $falseNegativeCount
+        perClass = $perClass
+        examples = $examples
+        maximumExampleCount = $MaximumGroundTruthErrorExamples
+    }
+
+    if ($IncludeThresholdSweep) {
+        $thresholdSweep = New-Object System.Collections.Generic.List[object]
+        foreach ($threshold in @(Get-ReviewConfidenceThresholds $ConfidenceThreshold)) {
+            $thresholdReview = New-GroundTruthReview $Model $Evidence $ClassNames $threshold $IouThreshold $false $false
+            $precision = Get-GroundTruthReviewRate $thresholdReview.truePositiveCount ($thresholdReview.truePositiveCount + $thresholdReview.falsePositiveCount)
+            $recall = Get-GroundTruthReviewRate $thresholdReview.truePositiveCount ($thresholdReview.truePositiveCount + $thresholdReview.falseNegativeCount)
+            $f1 = if ($null -eq $precision -or $null -eq $recall -or ($precision + $recall) -le 0.0) {
+                $null
+            }
+            else {
+                (2.0 * $precision * $recall) / ($precision + $recall)
+            }
+
+            $thresholdSweep.Add([ordered]@{
+                confidence = $threshold
+                groundTruthCount = [int]$thresholdReview.truePositiveCount + [int]$thresholdReview.falseNegativeCount
+                predictionCount = [int]$thresholdReview.truePositiveCount + [int]$thresholdReview.falsePositiveCount
+                truePositiveCount = [int]$thresholdReview.truePositiveCount
+                falsePositiveCount = [int]$thresholdReview.falsePositiveCount
+                falseNegativeCount = [int]$thresholdReview.falseNegativeCount
+                precision = $precision
+                recall = $recall
+                f1 = $f1
+            })
+        }
+
+        $review["thresholdSweep"] = $thresholdSweep.ToArray()
+    }
+    else {
+        $review["thresholdSweep"] = @()
+    }
+
+    return $review
 }
 
 function Format-NullableNumber($Value) {
@@ -1340,7 +1821,12 @@ function Write-MarkdownReport($Summary, [string]$Path) {
     $lines.Add("- Validation batch: ``$($Summary.batchSize)``")
     $lines.Add("- Benchmark repeats: ``$($Summary.benchmarkRepeatCount)``")
     $lines.Add("- UI confidence: ``$($Summary.uiConfidence)``")
+    if ($null -ne $Summary.runtimePreflight -and @($Summary.runtimePreflight.yoloV5StaleLabelCacheArtifactsRemoved).Count -gt 0) {
+        $lines.Add("- YOLOv5 cache preflight: removed ``$(@($Summary.runtimePreflight.yoloV5StaleLabelCacheArtifactsRemoved).Count)`` stale ``labels.cache`` artifact(s) before validation.")
+    }
     if ($null -ne $evidence) {
+        $lines.Add("- Data YAML SHA-256: ``$($evidence.dataYamlSha256)``")
+        $lines.Add("- Evaluation evidence SHA-256: ``$($evidence.fingerprintSha256)`` (``$($evidence.fingerprintAlgorithm)``)")
         if ($Summary.comparisonKind -ieq "engine-benchmark" -and $Summary.task -ieq "val") {
             $lines.Add("- Comparison evidence: ``$($evidence.comparisonLabelCount)`` labeled images from training validation (val); not model-replacement evidence")
         }
@@ -1354,6 +1840,8 @@ function Write-MarkdownReport($Summary, [string]$Path) {
             $lines.Add("- Background segmentation images: ``$($evidence.backgroundSegmentationImageCount)``")
         }
     }
+    $lines.Add("- Baseline weights SHA-256: ``$($baseline.weightsSha256)``")
+    $lines.Add("- Candidate weights SHA-256: ``$($candidate.weightsSha256)``")
     $lines.Add("")
     $lines.Add("| Model | Engine | Precision | Recall | mAP50 | mAP50-95 | Model Takt median ms/image | Takt range ms/image | Inference median ms/image | UI candidates | Max confidence |")
     $lines.Add("| --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
@@ -1365,6 +1853,31 @@ function Write-MarkdownReport($Summary, [string]$Path) {
     }
     $lines.Add("")
     $lines.Add("- Model Takt is the median native validation preprocess + inference + postprocess per image across the requested repeats. It does not include WPF, TCP, camera, PLC, or equipment cycle time.")
+    if (@($baseline.classMetrics).Count -gt 0 -or @($candidate.classMetrics).Count -gt 0) {
+        $lines.Add("")
+        $lines.Add("## Per-Class Metrics")
+        $lines.Add("")
+        $lines.Add("| Model | Class | Instances | Precision | Recall | mAP50 | mAP50-95 |")
+        $lines.Add("| --- | --- | ---: | ---: | ---: | ---: | ---: |")
+        foreach ($item in @($baseline, $candidate)) {
+            foreach ($classMetric in @($item.classMetrics)) {
+                $lines.Add("| $($item.name) | $($classMetric.className) | $($classMetric.instanceCount) | $(Format-NullableNumber $classMetric.precision) | $(Format-NullableNumber $classMetric.recall) | $(Format-NullableNumber $classMetric.map50) | $(Format-NullableNumber $classMetric.map5095) |")
+            }
+        }
+    }
+    if ($null -ne $baseline.groundTruthReview -or $null -ne $candidate.groundTruthReview) {
+        $lines.Add("")
+        $lines.Add("## UI-Threshold Ground-Truth Review")
+        $lines.Add("")
+        $lines.Add("| Model | Confidence | Prediction NMS IoU | Match IoU | TP | FP | FN | Stored error examples |")
+        $lines.Add("| --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |")
+        foreach ($item in @($baseline, $candidate)) {
+            $review = $item.groundTruthReview
+            if ($null -ne $review) {
+                $lines.Add("| $($item.name) | $(Format-NullableNumber $review.confidence) | $(Format-NullableNumber $review.predictionNmsIouThreshold) | $(Format-NullableNumber $review.iouThreshold) | $($review.truePositiveCount) | $($review.falsePositiveCount) | $($review.falseNegativeCount) | $(@($review.examples).Count) |")
+            }
+        }
+    }
     if ($null -ne $candidate.confidence -and $null -ne $candidate.confidence.thresholdSweep) {
         $sweepItems = @()
         foreach ($item in $candidate.confidence.thresholdSweep) {
@@ -1478,8 +1991,16 @@ Assert-File $CandidateWeights "Candidate weights"
 $BaselineEngine = Resolve-EngineName $BaselineEngine $BaselineYoloSourceRoot
 $CandidateEngine = Resolve-EngineName $CandidateEngine $CandidateYoloSourceRoot
 $dataClassInfo = Assert-ModelClassCountsMatchData
+$script:ComparisonClassNames = @($dataClassInfo.names)
 $segmentationPositiveClass = Resolve-SegmentationPositiveClass $dataClassInfo $SegmentationPositiveClassName $ModelTask
 $script:SegmentationPositiveClassId = if ($null -eq $segmentationPositiveClass) { $null } else { [int]$segmentationPositiveClass.id }
+$yoloV5StaleLabelCacheArtifactsRemoved = @()
+if ((Test-YoloV5SourceRoot $BaselineYoloSourceRoot) -or (Test-YoloV5SourceRoot $CandidateYoloSourceRoot)) {
+    $yoloV5StaleLabelCacheArtifactsRemoved = @(Clear-StaleYoloV5LabelCacheArtifacts $DataYaml $Task)
+    if ($yoloV5StaleLabelCacheArtifactsRemoved.Count -gt 0) {
+        Write-Host "[INFO] Cleared $($yoloV5StaleLabelCacheArtifactsRemoved.Count) stale YOLOv5 labels.cache artifact(s) before validation."
+    }
+}
 
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $runOutputRoot = Join-Path $OutputDirectory $stamp
@@ -1488,7 +2009,11 @@ New-Item -ItemType Directory -Force -Path $runOutputRoot | Out-Null
 $baseline = Invoke-ModelValWithBenchmarkRepeats "baseline" $BaselineWeights $runOutputRoot $BaselinePythonExe $BaselineYoloSourceRoot $BaselineEngine $BenchmarkRepeatCount
 $candidate = Invoke-ModelValWithBenchmarkRepeats "candidate" $CandidateWeights $runOutputRoot $CandidatePythonExe $CandidateYoloSourceRoot $CandidateEngine $BenchmarkRepeatCount
 $evidence = New-ComparisonEvidence $DataYaml $Task $ModelTask $segmentationPositiveClass
-if ($ModelTask -ieq "segment") {
+if ($ModelTask -ieq "detect") {
+    $baseline["groundTruthReview"] = New-GroundTruthReview $baseline $evidence $script:ComparisonClassNames $UiConfidence $GroundTruthReviewIouThreshold
+    $candidate["groundTruthReview"] = New-GroundTruthReview $candidate $evidence $script:ComparisonClassNames $UiConfidence $GroundTruthReviewIouThreshold
+}
+else {
     Add-SegmentationPredictionImageEvidence $baseline $evidence $UiConfidence
     Add-SegmentationPredictionImageEvidence $candidate $evidence $UiConfidence
 }
@@ -1511,6 +2036,10 @@ $summary = [ordered]@{
     batchSize = $BatchSize
     benchmarkRepeatCount = $BenchmarkRepeatCount
     uiConfidence = $UiConfidence
+    uiNmsIou = $UiNmsIou
+    runtimePreflight = [ordered]@{
+        yoloV5StaleLabelCacheArtifactsRemoved = @($yoloV5StaleLabelCacheArtifactsRemoved)
+    }
     evidence = $evidence
     baseline = $baseline
     candidate = $candidate
@@ -1519,7 +2048,7 @@ $summary = [ordered]@{
 
 $jsonPath = Join-Path $runOutputRoot "comparison-summary.json"
 $markdownPath = Join-Path $runOutputRoot "comparison-report.md"
-$summary | ConvertTo-Json -Depth 8 | Set-Content -LiteralPath $jsonPath -Encoding UTF8
+$summary | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $jsonPath -Encoding UTF8
 Write-MarkdownReport $summary $markdownPath
 
 Write-Host "[OK] YOLO comparison complete"

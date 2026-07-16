@@ -110,8 +110,8 @@
     <PackageReference Include="log4net" Version="3.3.1" />
     <PackageReference Include="MahApps.Metro.IconPacks.Material" Version="6.2.1" />
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-    <PackageReference Include="OpenCvSharp4" Version="4.4.0.20200915" />
-    <PackageReference Include="OpenCvSharp4.runtime.win" Version="4.5.5.20211231" />
+    <PackageReference Include="OpenCvSharp4" Version="$(OpenCvSharpVersion)" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="$(OpenCvSharpVersion)" />
     <PackageReference Include="System.Buffers" Version="4.5.1" />
     <PackageReference Include="System.Configuration.ConfigurationManager" Version="10.0.8" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.27" />
@@ -183,24 +183,16 @@
           SkipUnchangedFiles="false" />
   </Target>
 
-  <Target Name="CopyOpenCvSharpPackageLibrariesToOutput" AfterTargets="CopyFilesToOutputDirectory">
+  <Target Name="CopyOpenCvSharpPackageLibrariesToOutput" AfterTargets="Build">
     <ItemGroup>
-      <OpenCvSharpPackageLibrary Include="$(NuGetPackageRoot)opencvsharp4\4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.dll"
-                                 Condition="Exists('$(NuGetPackageRoot)opencvsharp4\4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.dll')" />
-      <OpenCvSharpPackageLibrary Include="$(NuGetPackageRoot)opencvsharp4\4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.Extensions.dll"
-                                 Condition="Exists('$(NuGetPackageRoot)opencvsharp4\4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.Extensions.dll')" />
-      <OpenCvSharpPackageLibrary Include="$(NuGetPackageRoot)opencvsharp4.runtime.win\4.5.5.20211231\runtimes\win-x64\native\OpenCvSharpExtern.dll"
-                                 Condition="Exists('$(NuGetPackageRoot)opencvsharp4.runtime.win\4.5.5.20211231\runtimes\win-x64\native\OpenCvSharpExtern.dll')" />
-      <OpenCvSharpPackageLibrary Include="$(NuGetPackageRoot)opencvsharp4.runtime.win\4.5.5.20211231\runtimes\win-x64\native\opencv_videoio_ffmpeg455_64.dll"
-                                 Condition="Exists('$(NuGetPackageRoot)opencvsharp4.runtime.win\4.5.5.20211231\runtimes\win-x64\native\opencv_videoio_ffmpeg455_64.dll')" />
-      <OpenCvSharpPackageLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.dll"
-                                 Condition="Exists('$(MSBuildProjectDirectory)\packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.dll')" />
-      <OpenCvSharpPackageLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.Extensions.dll"
-                                 Condition="Exists('$(MSBuildProjectDirectory)\packages\OpenCvSharp4.4.4.0.20200915\lib\netstandard2.0\OpenCvSharp.Extensions.dll')" />
-      <OpenCvSharpPackageLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.4.5.5.20211231\runtimes\win-x64\native\OpenCvSharpExtern.dll"
-                                 Condition="Exists('$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.4.5.5.20211231\runtimes\win-x64\native\OpenCvSharpExtern.dll')" />
-      <OpenCvSharpPackageLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.4.5.5.20211231\runtimes\win-x64\native\opencv_videoio_ffmpeg455_64.dll"
-                                 Condition="Exists('$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.4.5.5.20211231\runtimes\win-x64\native\opencv_videoio_ffmpeg455_64.dll')" />
+      <OpenCvSharpPackageLibrary Include="$(NuGetPackageRoot)opencvsharp4.runtime.win\$(OpenCvSharpVersion)\runtimes\win-x64\native\OpenCvSharpExtern.dll"
+                                 Condition="Exists('$(NuGetPackageRoot)opencvsharp4.runtime.win\$(OpenCvSharpVersion)\runtimes\win-x64\native\OpenCvSharpExtern.dll')" />
+      <OpenCvSharpPackageLibrary Include="$(NuGetPackageRoot)opencvsharp4.runtime.win\$(OpenCvSharpVersion)\runtimes\win-x64\native\opencv_videoio_ffmpeg455_64.dll"
+                                 Condition="Exists('$(NuGetPackageRoot)opencvsharp4.runtime.win\$(OpenCvSharpVersion)\runtimes\win-x64\native\opencv_videoio_ffmpeg455_64.dll')" />
+      <OpenCvSharpPackageLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.$(OpenCvSharpVersion)\runtimes\win-x64\native\OpenCvSharpExtern.dll"
+                                 Condition="Exists('$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.$(OpenCvSharpVersion)\runtimes\win-x64\native\OpenCvSharpExtern.dll')" />
+      <OpenCvSharpPackageLibrary Include="$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.$(OpenCvSharpVersion)\runtimes\win-x64\native\opencv_videoio_ffmpeg455_64.dll"
+                                 Condition="Exists('$(MSBuildProjectDirectory)\packages\OpenCvSharp4.runtime.win.$(OpenCvSharpVersion)\runtimes\win-x64\native\opencv_videoio_ffmpeg455_64.dll')" />
     </ItemGroup>
     <Copy SourceFiles="@(OpenCvSharpPackageLibrary)"
           DestinationFolder="$(OutDir)"

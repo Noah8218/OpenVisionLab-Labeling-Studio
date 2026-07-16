@@ -113,6 +113,8 @@ namespace MvcVisionSystem
 
         private bool HasRegisteredTemplate => registeredTemplateImage != null && !string.IsNullOrWhiteSpace(registeredTemplateClassName);
 
+        public string RegisteredTemplateSourceImagePath => registeredTemplateSourceImagePath ?? string.Empty;
+
         public void ConfigureHost(IWpfTemplateMatchingAutoLabelHost host)
         {
             this.host = host;

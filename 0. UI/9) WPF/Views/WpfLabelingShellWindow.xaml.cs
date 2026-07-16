@@ -98,6 +98,7 @@ namespace MvcVisionSystem
         private readonly WpfModelComparisonReviewService modelComparisonReviewService = new WpfModelComparisonReviewService();
         private readonly WpfModelComparisonRunService modelComparisonRunService = new WpfModelComparisonRunService();
         private readonly WpfAnomalyClassificationEvaluationRunService anomalyClassificationEvaluationRunService = new WpfAnomalyClassificationEvaluationRunService();
+        private readonly WpfWorkspaceLayoutSettingsService workspaceLayoutSettingsService = new WpfWorkspaceLayoutSettingsService();
         private readonly WpfTrainingGuideHistoryService trainingGuideHistoryService = new WpfTrainingGuideHistoryService();
         private readonly WpfMaskEditStateService maskEditStateService = new WpfMaskEditStateService();
         private readonly WpfMaskStrokeHistoryDraftService maskStrokeHistoryDraftService = new WpfMaskStrokeHistoryDraftService();
@@ -190,6 +191,7 @@ namespace MvcVisionSystem
             };
             maskStrokeCommitQueueTimer.Tick += MaskStrokeCommitQueueTimer_Tick;
             DataContext = viewModels;
+            RestoreWorkspaceLayoutSettings();
             TemplateMatchingAutoLabelViewModel.ConfigureHost(this);
             ComposePanelViewModels();
             LearningWorkflowViewModel.PropertyChanged += LearningWorkflowViewModel_PropertyChanged;
@@ -251,22 +253,6 @@ namespace MvcVisionSystem
 
             return Math.Max(Math.Min(preferred, available), minimum);
         }
-
-        private void LeftWorkspaceSplitter_DragCompleted(
-            object sender,
-            System.Windows.Controls.Primitives.DragCompletedEventArgs e)
-        {
-            ShellViewModel?.SetRightWorkflowExpandedPaneWidth(RightWorkflowColumn.ActualWidth);
-            BindingOperations.SetBinding(
-                RightWorkflowColumn,
-                ColumnDefinition.WidthProperty,
-                new System.Windows.Data.Binding("ShellViewModel.RightWorkflowPaneGridLength")
-                {
-                    Source = this,
-                    Mode = BindingMode.OneWay
-                });
-        }
-
 
         public ObservableCollection<WpfImageQueueItem> ImageQueueItems => imageQueueItems;
 

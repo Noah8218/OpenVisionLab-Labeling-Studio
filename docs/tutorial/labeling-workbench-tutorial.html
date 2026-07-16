@@ -344,6 +344,7 @@
               <li>저장 폴더가 오늘 작업 폴더인지 확인합니다.</li>
               <li>오른쪽 이미지 큐에서 저장 필요, 저장됨, AI 후보 수를 봅니다.</li>
               <li>왼쪽 작업 패널에서 지금 처리할 일을 확인합니다.</li>
+              <li>패널을 펼친 뒤 제목 아래 탭에서 현재 단계의 세부 화면을 바꿉니다.</li>
             </ul>
           </div>
           <div class="panel">
@@ -415,8 +416,8 @@
         </figure>
         <ol>
           <li>상단에서 <strong>2 라벨링</strong>을 선택합니다. 기본 화면은 왼쪽 작업 패널을 접고 캔버스와 이미지 큐를 먼저 보여줍니다.</li>
-          <li>저장 라벨 목록, 현재 작업, 클래스 정보를 넓게 확인해야 하면 왼쪽 레일의 해당 버튼(<strong>열기</strong>, <strong>라벨</strong>, <strong>작업</strong>, <strong>클래스</strong>)을 누릅니다.</li>
-          <li>툴바에서 <strong>박스</strong>를 선택합니다.</li>
+          <li>저장 라벨 목록, 현재 작업, 클래스 정보를 확인해야 하면 왼쪽 작업 패널을 연 뒤, 제목 아래의 <strong>라벨</strong>, <strong>작업</strong>, <strong>클래스</strong> 탭을 선택합니다.</li>
+          <li>캔버스 왼쪽 도구 레일에서 <strong>박스</strong>를 선택합니다.</li>
           <li>대상 영역을 드래그합니다.</li>
           <li>캔버스와 작업 패널에서 클래스와 크기를 확인합니다.</li>
           <li>필요하면 클래스를 바꾸고 <strong>적용</strong>을 누릅니다.</li>
@@ -623,7 +624,7 @@
             </tr>
           </tbody>
         </table>
-        <p>객체탐지 레시피에 YOLOv5와 YOLOv8 실행기/가중치가 모두 등록돼 있으면 <strong>v5 vs v8 분석</strong>으로 같은 분할의 정확도와 모델 Takt를 비교할 수 있습니다. <code>test</code>가 없을 때 표시되는 <code>val</code> 결과는 엔진 성능 참고용이며 검사 모델 교체 근거가 아닙니다.</p>
+        <p>객체탐지 레시피에 YOLOv5와 YOLOv8 실행기/가중치가 모두 등록돼 있으면 <strong>v5 vs v8 분석</strong>으로 같은 분할의 정확도와 모델 Takt 보고서를 만들 수 있습니다. 보고서는 <strong>학습/비교</strong>의 <strong>성능 비교 열기</strong>에서 확인합니다. <code>test</code>가 없을 때 표시되는 <code>val</code> 결과는 엔진 성능 참고용이며 검사 모델 교체 근거가 아닙니다.</p>
       </div>
     </section>
 
@@ -662,6 +663,7 @@
         </div>
       </div>
       <div class="section-body">
+        <p><strong>성능 비교 열기</strong>는 별도 창에서 객체 탐지, 세그멘테이션, 이상 분류 실행을 모아 보여줍니다. 최대 6개 실행을 선택하고 그중 하나를 기준으로 지정할 수 있습니다. 작업 종류, 평가 데이터, 분할, 이미지 수 또는 Takt 측정 조건이 다르면 우열을 계산하지 않고 조건 차이를 먼저 표시합니다.</p>
         <figure>
           <img src="images/annotated/13-model-decision-1920-annotated.png" alt="번호와 화살표가 표시된 후보 모델 결정 화면">
           <figcaption>후보 모델을 현재 검사 모델로 바꿀지 판단하는 화면입니다.</figcaption>
@@ -671,9 +673,12 @@
           <figcaption>성능 지표와 실제 후보 결과를 보고 기존 모델을 유지할지 새 모델을 적용할지 결정합니다.</figcaption>
         </figure>
         <ul>
+          <li>작업 필터로 같은 목적의 실행을 찾고 비교할 실행과 기준 모델을 선택합니다.</li>
           <li>같은 test split으로 비교합니다.</li>
           <li>같은 클래스 목록과 라벨 기준으로 비교합니다.</li>
           <li>precision, recall, 놓침, 과검출을 같이 봅니다.</li>
+          <li>모델 Takt는 같은 이미지 크기, 배치, 반복 조건에서만 비교합니다.</li>
+          <li>이상 분류처럼 Takt가 기록되지 않은 결과는 정확도 근거만 확인합니다.</li>
           <li>근거가 부족하면 기존 검사 모델을 유지합니다.</li>
           <li>적용 후에는 상단 `추론 상태`에서 모델명이 바뀌었는지 확인합니다.</li>
         </ul>

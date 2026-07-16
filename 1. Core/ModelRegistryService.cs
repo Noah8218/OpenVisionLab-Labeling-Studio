@@ -164,6 +164,99 @@ namespace MvcVisionSystem
             return candidate;
         }
 
+        public static ModelCandidate RecordConfiguredInspectionModel(
+            ModelRegistrySettings registry,
+            PythonModelSettings settings,
+            LabelingDatasetPurpose datasetPurpose,
+            string previousWeightsPath = "",
+            string decisionSummary = "")
+        {
+            if (registry == null)
+            {
+                return null;
+            }
+
+            registry.EnsureDefaults();
+            ModelProfile profile = EnsureProfile(registry, settings, datasetPurpose);
+            string weightsPath = NormalizePath(settings?.WeightsPath);
+            if (string.IsNullOrWhiteSpace(weightsPath))
+            {
+                return null;
+            }
+
+            string now = UtcNowText();
+            string candidateId = BuildStableId("candidate", weightsPath);
+            ModelCandidate previous = FindCurrentInspectionModel(registry);
+            string previousPath = NormalizePath(previousWeightsPath);
+            if (string.IsNullOrWhiteSpace(previousPath)
+                && previous != null
+                && !string.Equals(previous.CandidateId, candidateId, StringComparison.Ordinal))
+            {
+                previousPath = NormalizePath(previous.WeightsPath);
+            }
+
+            ModelCandidate candidate = registry.Candidates
+                .FirstOrDefault(item => string.Equals(item.CandidateId, candidateId, StringComparison.Ordinal));
+            if (candidate == null)
+            {
+                candidate = new ModelCandidate
+                {
+                    CandidateId = candidateId,
+                    CreatedUtc = now
+                };
+                registry.Candidates.Add(candidate);
+            }
+
+            string storedBaselinePath = NormalizePath(candidate.BaselineWeightsPath);
+            if ((string.IsNullOrWhiteSpace(previousPath)
+                    || string.Equals(previousPath, weightsPath, StringComparison.OrdinalIgnoreCase))
+                && !string.IsNullOrWhiteSpace(storedBaselinePath)
+                && !string.Equals(storedBaselinePath, weightsPath, StringComparison.OrdinalIgnoreCase))
+            {
+                previousPath = storedBaselinePath;
+            }
+            else if (string.Equals(previousPath, weightsPath, StringComparison.OrdinalIgnoreCase))
+            {
+                previousPath = string.Empty;
+            }
+
+            bool changedCurrentModel = previous == null
+                || !string.Equals(previous.CandidateId, candidate.CandidateId, StringComparison.Ordinal);
+            string summary = string.IsNullOrWhiteSpace(decisionSummary)
+                ? "모델 프로필 설정에서 검사 모델로 저장됨"
+                : decisionSummary.Trim();
+
+            candidate.ProfileId = profile?.ProfileId ?? string.Empty;
+            candidate.WeightsPath = weightsPath;
+            candidate.BaselineWeightsPath = previousPath;
+            candidate.LastSeenUtc = now;
+            SetCandidateDecisionState(candidate, CandidateDecisionAdopted, summary, now, savedToRecipe: true);
+            MarkCurrentInspectionModel(registry, candidate);
+            registry.LatestCandidateId = candidate.CandidateId;
+
+            if (changedCurrentModel)
+            {
+                UpsertCandidateDecision(
+                    registry,
+                    profile,
+                    candidate,
+                    previousPath,
+                    CandidateDecisionAdopted,
+                    candidate.MetricsSummary,
+                    summary,
+                    savedToRecipe: true,
+                    now);
+                if (!string.IsNullOrWhiteSpace(previousPath)
+                    && !string.Equals(previousPath, weightsPath, StringComparison.OrdinalIgnoreCase))
+                {
+                    UpsertAdoption(registry, profile, candidate, previousPath, summary, now);
+                }
+            }
+
+            TrimRegistry(registry);
+            return candidate;
+        }
+
         public static ModelProfile EnsureProfile(
             ModelRegistrySettings registry,
             PythonModelSettings settings,

@@ -7,6 +7,12 @@ namespace OpenVisionLab.ImageCanvas.Views
 {
 	public partial class RoiImageCanvasView : UserControl
 	{
+		public static readonly DependencyProperty IsViewerToolBarVisibleProperty = DependencyProperty.Register(
+			nameof(IsViewerToolBarVisible),
+			typeof(bool),
+			typeof(RoiImageCanvasView),
+			new PropertyMetadata(true));
+
 		public RoiImageCanvasView()
 		{
 			InitializeComponent();
@@ -14,6 +20,12 @@ namespace OpenVisionLab.ImageCanvas.Views
 			Loaded += ImageCanvasView_Loaded;
 			PreviewKeyDown += ImageCanvasView_PreviewKeyDown;
 			KeyUp += ImageCanvasView_KeyUp;
+		}
+
+		public bool IsViewerToolBarVisible
+		{
+			get => (bool)GetValue(IsViewerToolBarVisibleProperty);
+			set => SetValue(IsViewerToolBarVisibleProperty, value);
 		}
 
 		private void ImageCanvasView_Loaded(object sender, RoutedEventArgs e)

@@ -315,7 +315,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 				return string.Format(
 					System.Globalization.CultureInfo.InvariantCulture,
-					"Overlay ROI: {0:N0}+",
+					"표시 ROI: {0:N0}+",
 					_imageViewer.VisibleOverlayShapeLimit);
 			}
 		}

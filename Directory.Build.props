@@ -10,5 +10,6 @@
     <RepositoryUrl>https://github.com/Noah8218/OpenVisionLab-Labeling-Studio</RepositoryUrl>
     <RepositoryType>git</RepositoryType>
     <PackageRequireLicenseAcceptance>false</PackageRequireLicenseAcceptance>
+    <OpenCvSharpVersion>4.5.5.20211231</OpenCvSharpVersion>
   </PropertyGroup>
 </Project>

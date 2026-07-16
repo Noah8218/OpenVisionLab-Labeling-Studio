@@ -173,16 +173,18 @@ namespace MvcVisionSystem
                     isWarning: false,
                     actionKind: WpfDatasetDashboardActionKind.OpenLabelingTool),
                 new WpfDatasetDashboardMetricItem(
-                    "\uB77C\uBCA8 \uD30C\uC77C",
+                    needsBoxLabels ? "\uB77C\uBCA8 \uD30C\uC77C" : "SEG \uAC80\uD1A0",
                     artifactFileCount.ToString(),
                     needsBoxLabels
                         ? $"\uD559\uC2B5 {statistics.TrainLabelCount}\uAC1C, \uAC80\uC99D {statistics.ValidLabelCount}\uAC1C, \uCD5C\uC885 {statistics.TestLabelCount}\uAC1C"
-                        : $"\uC138\uADF8\uBA58\uD2B8 \uD30C\uC77C {statistics.TotalSegmentFileCount}\uAC1C, \uB9C8\uC2A4\uD06C {statistics.TotalMaskFileCount}\uAC1C",
-                    artifactFileCount > 0 ? "\uC788\uC74C" : "\uD544\uC694",
+                        : $"\uC138\uADF8\uBA58\uD2B8 {statistics.TotalSegmentFileCount}\uAC1C, \uB9C8\uC2A4\uD06C {statistics.TotalMaskFileCount}\uAC1C / \uD074\uB9AD: \uAE30\uC874 \uB9C8\uC2A4\uD06C \uBCF4\uC815 \uB4DC\uB77C\uC774\uB7F0 \uBCF4\uACE0\uC11C",
+                    artifactFileCount > 0 ? needsBoxLabels ? "\uC788\uC74C" : "\uAC80\uD1A0" : "\uD544\uC694",
                     PackIconMaterialKind.FileDocumentOutline,
                     isProblem: artifactFileCount == 0,
                     isWarning: false,
-                    actionKind: WpfDatasetDashboardActionKind.CheckDataset),
+                    actionKind: needsBoxLabels
+                        ? WpfDatasetDashboardActionKind.CheckDataset
+                        : WpfDatasetDashboardActionKind.ExportHistoricalSegmentationRemediationAudit),
                 new WpfDatasetDashboardMetricItem(
                     "\uD074\uB798\uC2A4",
                     classCount.ToString(),

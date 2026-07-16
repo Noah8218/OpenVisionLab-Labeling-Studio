@@ -360,6 +360,16 @@ internal static partial class Program
         AssertEqual(320, settings.InferenceImageSize);
         AssertTrue(Math.Abs(settings.MinimumDetectionConfidence - 0.25F) < 0.0001F, "saved YOLOv8 confidence should be 0.25");
         AssertTrue(settings.AutoStartClient, "saved YOLOv8 runtime should auto-start after restart");
+
+        ModelRegistrySettings registry = data.ProjectSettings.ModelRegistry;
+        AssertTrue(
+            registry.Profiles.Exists(profile => string.Equals(profile.ModelEngine, PythonModelSettings.EngineYoloV8, StringComparison.Ordinal)
+                && string.Equals(profile.DatasetPurpose, LabelingDatasetPurpose.ObjectDetection.ToString(), StringComparison.Ordinal)),
+            "saved YOLOv8 Detect settings should register an ObjectDetection model profile");
+        ModelCandidate currentModel = ModelRegistryService.FindCurrentInspectionModel(registry);
+        AssertTrue(currentModel != null, "saved YOLOv8 Detect settings should register the current inspection model");
+        AssertPathEqual(weightsPath, currentModel.WeightsPath, "saved YOLOv8 Detect registry weights mismatch");
+        AssertEqual(0, registry.TrainingRuns.Count);
     }
 
     private static void VerifyYoloV8SettingsVisibleAfterRestart(Process process, IntPtr stableHandle, string weightsPath)

@@ -345,7 +345,9 @@ namespace MvcVisionSystem
                 FocusClassCatalogTab,
                 ExecutePromoteSelectedModelHistoryCommand,
                 ExecuteRunAnomalyEvaluationCommand,
-                ExecuteLoadAnomalyEvaluationSummaryCommand);
+                ExecuteLoadAnomalyEvaluationSummaryCommand,
+                ExecuteResetWorkspaceLayoutCommand,
+                ExecuteOpenModelBenchmarkCommand);
             RefreshAttachedCommandBindings(
                 this,
                 WindowLifecycleCommandBehavior.LoadedCommandProperty,

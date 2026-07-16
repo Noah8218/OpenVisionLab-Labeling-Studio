@@ -9,10 +9,7 @@
     <ProjectReference Include="..\OpenVisionLab.ImageSpace.Core\OpenVisionLab.ImageSpace.Core.csproj" />
 
     <PackageReference Include="System.Drawing.Common" Version="8.0.27" />
-
-    <Reference Include="OpenCvSharp">
-      <HintPath>..\..\dll\OpenCVSharp\OpenCvSharp.dll</HintPath>
-      <Private>false</Private>
-    </Reference>
+    <PackageReference Include="OpenCvSharp4" Version="$(OpenCvSharpVersion)" />
+    <PackageReference Include="OpenCvSharp4.runtime.win" Version="$(OpenCvSharpVersion)" />
   </ItemGroup>
 </Project>

@@ -207,6 +207,59 @@ namespace MvcVisionSystem.Yolo
             return result;
         }
 
+        // Kept internal so dry-run audits use the same legacy-mask compatibility rule as reopening and training export.
+        internal static bool IsLegacyRasterMaskCandidate(SegmentationPolygonRecord record, Size imageSize)
+        {
+            if (record == null
+                || imageSize.Width <= 0
+                || imageSize.Height <= 0
+                || !string.IsNullOrWhiteSpace(record.GeometryType)
+                || (record.Cutouts != null && record.Cutouts.Count > 0)
+                || record.Points == null)
+            {
+                return false;
+            }
+
+            List<Point> points = SegmentationGeometry.NormalizePolygon(
+                record.Points.Select(point => new Point(point.X, point.Y)),
+                imageSize,
+                minimumDistance: 1);
+            return IsAxisAlignedRectangle(points);
+        }
+
+        internal static bool TryBuildLegacyRasterMaskSegment(
+            SegmentationPolygonRecord record,
+            string maskPath,
+            IReadOnlyList<CClassItem> classes,
+            Size imageSize,
+            out LabelingSegmentationObject segment)
+        {
+            segment = null;
+            if (!IsLegacyRasterMaskCandidate(record, imageSize)
+                || !TryLoadMaskClassValues(maskPath, imageSize, out byte[] maskClassValues))
+            {
+                return false;
+            }
+
+            string className = ResolveClassName(record, classes);
+            if (string.IsNullOrWhiteSpace(className))
+            {
+                return false;
+            }
+
+            List<Point> points = SegmentationGeometry.NormalizePolygon(
+                record.Points.Select(point => new Point(point.X, point.Y)),
+                imageSize,
+                minimumDistance: 1);
+            return TryBuildRasterMaskSegment(
+                record,
+                points,
+                ResolveClassItem(className, classes),
+                imageSize,
+                maskClassValues,
+                out segment);
+        }
+
         public static IReadOnlyList<SegmentationPolygonRecord> BuildPolygonRecords(
             IReadOnlyDictionary<string, List<LabelingSegmentationObject>> segmentsByClass,
             IReadOnlyList<CClassItem> classes,

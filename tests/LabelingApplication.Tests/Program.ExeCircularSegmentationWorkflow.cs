@@ -1695,6 +1695,22 @@ internal static partial class Program
             System.Windows.Automation.AutomationElement root = stableHandle == IntPtr.Zero
                 ? RefreshAutomationRoot(process, bringToFront: false)
                 : RefreshAutomationRoot(process, stableHandle, bringToFront: false);
+            string taskAutomationId = string.Equals(sectionAutomationId, "YoloModelSettingsExpander", StringComparison.Ordinal)
+                ? "YoloModelCenterRuntimeTaskTab"
+                : "YoloModelCenterTrainingTaskTab";
+            string taskName = string.Equals(sectionAutomationId, "YoloModelSettingsExpander", StringComparison.Ordinal)
+                ? "실행기"
+                : "학습/비교";
+            if (FindAutomationElementByAutomationId(root, expectedAutomationId) == null
+                && FindAutomationElementByAutomationId(root, sectionAutomationId) == null
+                && (SelectAutomationTabByAutomationId(root, taskAutomationId) || SelectTabItemByName(root, taskName)))
+            {
+                Thread.Sleep(250);
+                root = stableHandle == IntPtr.Zero
+                    ? RefreshAutomationRoot(process, bringToFront: false)
+                    : RefreshAutomationRoot(process, stableHandle, bringToFront: false);
+            }
+
             if (FindAutomationElementByAutomationId(root, expectedAutomationId) != null)
             {
                 return true;

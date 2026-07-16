@@ -24,7 +24,8 @@ namespace MvcVisionSystem
                 ExecuteChangeDatasetCommand,
                 ExecuteFirstRunSamplePathCommand,
                 TemplateMatchingAutoLabelViewModel.RunCurrentImage,
-                TemplateMatchingAutoLabelViewModel.RunBatch);
+                TemplateMatchingAutoLabelViewModel.RunBatch,
+                ExecuteExternalEvaluationDataAuditCommand);
             RefreshAttachedCommandBindings(DatasetPurposeListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
             RefreshAttachedCommandBindings(LearningModeListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
             RefreshAttachedCommandBindings(AnnotationToolListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
@@ -76,6 +77,9 @@ namespace MvcVisionSystem
             RegisterLearningWorkflowName(nameof(YoloFixClassesButton), YoloFixClassesButton);
             RegisterLearningWorkflowName(nameof(YoloFixLabelsButton), YoloFixLabelsButton);
             RegisterLearningWorkflowName(nameof(YoloFixDatasetButton), YoloFixDatasetButton);
+            RegisterLearningWorkflowName(nameof(YoloExternalEvaluationAuditButton), YoloExternalEvaluationAuditButton);
+            RegisterLearningWorkflowName(nameof(YoloExternalEvaluationAuditStatusText), YoloExternalEvaluationAuditStatusText);
+            RegisterLearningWorkflowName(nameof(YoloExternalEvaluationAuditDetailText), YoloExternalEvaluationAuditDetailText);
         }
 
         private void RegisterLearningWorkflowName(string name, FrameworkElement element)

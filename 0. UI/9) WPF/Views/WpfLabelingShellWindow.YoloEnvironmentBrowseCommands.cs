@@ -214,6 +214,18 @@ namespace MvcVisionSystem
         {
             try
             {
+                EnsureProjectSettings();
+                PythonModelSettings previousModelSettings = new PythonModelSettings
+                {
+                    ModelEngine = global.Data.ProjectSettings.PythonModel.ModelEngine,
+                    ProjectRootPath = global.Data.ProjectSettings.PythonModel.ProjectRootPath,
+                    WeightsPath = global.Data.ProjectSettings.PythonModel.WeightsPath
+                };
+                ModelRegistryService.RecordConfiguredInspectionModel(
+                    global.Data.ProjectSettings.ModelRegistry,
+                    previousModelSettings,
+                    global.Data.ProjectSettings.DatasetPurpose);
+
                 SaveYoloEditorFields();
                 SaveTrainingEditorFields();
                 bool pendingWeightsRecipeSave = hasPendingTrainingWeightsRecipeSave;
@@ -228,6 +240,14 @@ namespace MvcVisionSystem
                 if (pendingWeightsRecipeSave)
                 {
                     UpdateAppliedTrainingWeightsHistory(global.Data.ProjectSettings.PythonModel.WeightsPath, savedToRecipe: true);
+                }
+                else
+                {
+                    ModelRegistryService.RecordConfiguredInspectionModel(
+                        global.Data.ProjectSettings.ModelRegistry,
+                        global.Data.ProjectSettings.PythonModel,
+                        global.Data.ProjectSettings.DatasetPurpose,
+                        previousModelSettings.WeightsPath);
                 }
 
                 bool configSaved = SaveProjectConfigFromPanel();

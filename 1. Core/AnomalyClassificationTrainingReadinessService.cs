@@ -69,6 +69,7 @@ namespace MvcVisionSystem._1._Core
 
             var reviewStatus = new AnomalyImageReviewStatusService();
             reviewStatus.LoadReviewStatus(data, sourceImagePaths);
+            reviewStatus.ImportUnreviewedStatesFromParentFolders();
             AnomalyImageReviewSummary summary = reviewStatus.BuildSummary();
             int trainNormalCount = 0;
             int trainAbnormalCount = 0;
@@ -128,7 +129,7 @@ namespace MvcVisionSystem._1._Core
 
             return roots
                 .Where(path => !string.IsNullOrWhiteSpace(path) && Directory.Exists(path))
-                .SelectMany(path => Directory.EnumerateFiles(path))
+                .SelectMany(path => Directory.EnumerateFiles(path, "*", SearchOption.AllDirectories))
                 .Where(IsImageFile)
                 .Distinct(StringComparer.OrdinalIgnoreCase)
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase);

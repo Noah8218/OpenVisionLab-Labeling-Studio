@@ -2,7 +2,7 @@
 
 산업용 비전 검사 데이터를 라벨링하고, 학습하고, 학습된 모델로 다시 검사해보는 Windows 기반 작업 프로그램입니다.
 
-![OpenVisionLab Labeling Studio workflow](docs/tutorial/images/annotated/readme-current-workflow-20260703.png)
+![OpenVisionLab Labeling Studio workflow](docs/tutorial/images/annotated/readme-current-workflow-20260715.png)
 
 데이터셋 만들기, 이미지 큐 확인, 클래스 설정, 라벨링, 학습 결과 확인, 현재 검사 실행까지 이어지는 과정은 [docs/tutorial/README.md](docs/tutorial/README.md)에 정리했습니다.
 

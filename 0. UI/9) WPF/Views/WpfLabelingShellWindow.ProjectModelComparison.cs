@@ -173,8 +173,14 @@ namespace MvcVisionSystem
                 }
 
                 string sourceText = $"\uBE44\uAD50 \uB300\uC0C1: YOLOv5 / {Path.GetFileName(request.BaselineWeightsPath)} \u2194 YOLOv8 / {Path.GetFileName(request.CandidateWeightsPath)} / \uAE30\uC900: {comparisonBasisText}";
+                WpfModelComparisonHistoryItem historyItem = RefreshModelComparisonHistoryItems(
+                    request.BaselineWeightsPath,
+                    request.CandidateWeightsPath,
+                    result.SummaryPath);
                 CandidateReviewViewModel.SetModelComparisonSourceText(sourceText);
-                CandidateReviewViewModel.SetModelComparisonReview(report);
+                CandidateReviewViewModel.SetModelComparisonReview(
+                    report,
+                    isHistoricalSelection: historyItem?.IsLatest == false);
                 CandidateReviewViewModel.SetModelCandidateDecisionState(false, false, null, null, null, null);
                 LearningWorkflowViewModel.TrainingResultComparisonSummaryText = "YOLOv5 vs YOLOv8 \uAC1D\uCCB4\uD0D0\uC9C0 \uBD84\uC11D \uC644\uB8CC";
                 LearningWorkflowViewModel.TrainingResultComparisonText = string.IsNullOrWhiteSpace(report.BenchmarkText)

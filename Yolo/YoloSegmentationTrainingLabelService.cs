@@ -76,6 +76,20 @@ namespace MvcVisionSystem.Yolo
             return result;
         }
 
+        // The historical remediation audit must compare the exact conversion used for YOLO training without writing labels.
+        internal static IReadOnlyList<string> BuildReadOnlyLabelLines(
+            string segmentPath,
+            string maskPath,
+            IReadOnlyList<CClassItem> classes,
+            string imagePath,
+            out IReadOnlyList<string> errors)
+        {
+            var result = new YoloSegmentationTrainingLabelExportResult();
+            List<string> lines = BuildLabelLines(segmentPath, maskPath, classes, imagePath, "audit", result);
+            errors = result.Errors.ToList();
+            return lines;
+        }
+
         private static void ExportMode(CData data, string mode, YoloSegmentationTrainingLabelExportResult result)
         {
             string imageDirectory = Path.Combine(data.OutputRootPath, "data", mode, "images");

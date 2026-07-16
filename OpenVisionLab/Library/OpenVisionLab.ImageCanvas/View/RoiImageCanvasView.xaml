@@ -103,7 +103,7 @@
 
         <Grid.ColumnDefinitions>
             <ColumnDefinition Width="1*" />
-            <ColumnDefinition Width="35" />
+            <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
 
         <Grid.RowDefinitions>
@@ -210,11 +210,14 @@
 
         <!--  툴바  -->
         <ToolBarTray
+            x:Name="ViewerToolBarTray"
             Grid.Row="0"
             Grid.Column="1"
+            Width="35"
             Background="#262626"
             IsLocked="True"
-            Orientation="Vertical">
+            Orientation="Vertical"
+            Visibility="{Binding IsViewerToolBarVisible, RelativeSource={RelativeSource AncestorType={x:Type UserControl}}, Converter={StaticResource BooleanToVisibilityConverter}}">
             <ToolBar
                 Background="#262626"
                 Foreground="White"
