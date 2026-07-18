@@ -172,6 +172,7 @@ namespace MvcVisionSystem
         private ICommand runAnomalyEvaluationCommand = new RelayCommand(NoOpCommand);
         private ICommand loadAnomalyEvaluationSummaryCommand = new RelayCommand(NoOpCommand);
         private ICommand openModelBenchmarkCommand = new RelayCommand(NoOpCommand);
+        private ICommand openDatasetHealthCommand = new RelayCommand(NoOpCommand);
         private ICommand showSavedLabelsViewCommand = new RelayCommand(NoOpCommand);
         private ICommand showLabelingGuideViewCommand = new RelayCommand(NoOpCommand);
         private ICommand showClassCatalogViewCommand = new RelayCommand(NoOpCommand);
@@ -980,6 +981,12 @@ namespace MvcVisionSystem
             private set => SetProperty(ref openModelBenchmarkCommand, value);
         }
 
+        public ICommand OpenDatasetHealthCommand
+        {
+            get => openDatasetHealthCommand;
+            private set => SetProperty(ref openDatasetHealthCommand, value);
+        }
+
         public ICommand ShowSavedLabelsViewCommand
         {
             get => showSavedLabelsViewCommand;
@@ -1081,7 +1088,8 @@ namespace MvcVisionSystem
             Action runAnomalyEvaluation = null,
             Action loadAnomalyEvaluationSummary = null,
             Action resetWorkspaceLayout = null,
-            Action openModelBenchmark = null)
+            Action openModelBenchmark = null,
+            Action openDatasetHealth = null)
         {
             // Shell lifecycle and toolbar commands are injected; key commands use a DTO so this ViewModel avoids WPF EventArgs.
             ToggleThemeCommand = new RelayCommand(toggleTheme ?? NoOpCommand);
@@ -1099,6 +1107,7 @@ namespace MvcVisionSystem
             RunAnomalyEvaluationCommand = new RelayCommand(runAnomalyEvaluation ?? NoOpCommand);
             LoadAnomalyEvaluationSummaryCommand = new RelayCommand(loadAnomalyEvaluationSummary ?? NoOpCommand);
             OpenModelBenchmarkCommand = new RelayCommand(openModelBenchmark ?? NoOpCommand);
+            OpenDatasetHealthCommand = new RelayCommand(openDatasetHealth ?? NoOpCommand);
             ShowSavedLabelsViewCommand = new RelayCommand(showSavedLabelsView ?? labelingMode ?? NoOpCommand);
             ShowLabelingGuideViewCommand = new RelayCommand(showLabelingGuideView ?? labelingMode ?? NoOpCommand);
             ShowClassCatalogViewCommand = new RelayCommand(showClassCatalogView ?? labelingMode ?? NoOpCommand);

@@ -347,7 +347,8 @@ namespace MvcVisionSystem
                 ExecuteRunAnomalyEvaluationCommand,
                 ExecuteLoadAnomalyEvaluationSummaryCommand,
                 ExecuteResetWorkspaceLayoutCommand,
-                ExecuteOpenModelBenchmarkCommand);
+                ExecuteOpenModelBenchmarkCommand,
+                ExecuteOpenDatasetHealthCommand);
             RefreshAttachedCommandBindings(
                 this,
                 WindowLifecycleCommandBehavior.LoadedCommandProperty,

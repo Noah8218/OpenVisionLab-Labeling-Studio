@@ -2867,20 +2867,39 @@
                                                                    Margin="0,2,0,0"
                                                                    TextWrapping="Wrap" />
                                                     </StackPanel>
-                                                    <ui:Button x:Name="YoloDatasetQuickRefreshButton"
-                                                               Grid.Column="1"
-                                                               Width="28"
-                                                               Height="28"
-                                                               Padding="0"
-                                                               Style="{StaticResource WpfUiToolbarButtonStyle}"
-                                                               AutomationProperties.AutomationId="YoloDatasetQuickRefreshButton"
-                                                               AutomationProperties.Name="&#xD559;&#xC2B5; &#xB370;&#xC774;&#xD130;&#xC14B; &#xC0C8;&#xB85C;&#xACE0;&#xCE68;"
-                                                               ToolTip="&#xC800;&#xC7A5;&#xB41C; &#xB77C;&#xBCA8;&#xACFC; &#xD559;&#xC2B5; &#xC124;&#xC815; &#xC900;&#xBE44; &#xC0C1;&#xD0DC; &#xC810;&#xAC80;"
-                                                               Command="{Binding TrainingSettingsViewModel.RefreshReadinessCommand}">
-                                                        <iconPacks:PackIconMaterial Kind="Refresh"
-                                                                                    Width="14"
-                                                                                    Height="14" />
-                                                    </ui:Button>
+                                                    <StackPanel Grid.Column="1" Orientation="Horizontal">
+                                                        <ui:Button x:Name="OpenDatasetHealthWindowButton"
+                                                                   Height="28"
+                                                                   MinWidth="60"
+                                                                   Padding="7,2"
+                                                                   Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                                   AutomationProperties.AutomationId="OpenDatasetHealthWindowButton"
+                                                                   AutomationProperties.Name="&#xB370;&#xC774;&#xD130;&#xC14B; &#xC0C1;&#xD0DC; &#xBD84;&#xC11D; &#xC5F4;&#xAE30;"
+                                                                   ToolTip="&#xC800;&#xC7A5;&#xB41C; &#xB370;&#xC774;&#xD130;&#xC758; &#xBD84;&#xD560;, &#xB77C;&#xBCA8; &#xD488;&#xC9C8;, &#xD074;&#xB798;&#xC2A4; &#xBD84;&#xD3EC;&#xB97C; &#xBCC4;&#xB3C4; &#xCC3D;&#xC5D0;&#xC11C; &#xD655;&#xC778;"
+                                                                   Command="{Binding ShellViewModel.OpenDatasetHealthCommand, ElementName=ShellWindow}">
+                                                            <StackPanel Orientation="Horizontal">
+                                                                <iconPacks:PackIconMaterial Kind="ChartBoxOutline"
+                                                                                            Width="13"
+                                                                                            Height="13"
+                                                                                            Margin="0,0,4,0" />
+                                                                <TextBlock Text="&#xBD84;&#xC11D;" VerticalAlignment="Center" />
+                                                            </StackPanel>
+                                                        </ui:Button>
+                                                        <ui:Button x:Name="YoloDatasetQuickRefreshButton"
+                                                                   Width="28"
+                                                                   Height="28"
+                                                                   Padding="0"
+                                                                   Margin="4,0,0,0"
+                                                                   Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                                   AutomationProperties.AutomationId="YoloDatasetQuickRefreshButton"
+                                                                   AutomationProperties.Name="&#xD559;&#xC2B5; &#xB370;&#xC774;&#xD130;&#xC14B; &#xC0C8;&#xB85C;&#xACE0;&#xCE68;"
+                                                                   ToolTip="&#xC800;&#xC7A5;&#xB41C; &#xB77C;&#xBCA8;&#xACFC; &#xD559;&#xC2B5; &#xC124;&#xC815; &#xC900;&#xBE44; &#xC0C1;&#xD0DC; &#xC810;&#xAC80;"
+                                                                   Command="{Binding TrainingSettingsViewModel.RefreshReadinessCommand}">
+                                                            <iconPacks:PackIconMaterial Kind="Refresh"
+                                                                                        Width="14"
+                                                                                        Height="14" />
+                                                        </ui:Button>
+                                                    </StackPanel>
                                                 </Grid>
                                                 <Border Background="{DynamicResource PanelBrush}"
                                                         BorderBrush="{DynamicResource BorderBrushDark}"

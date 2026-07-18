@@ -465,6 +465,16 @@ internal static partial class Program
             return RunSingleSmoke("YOLO dataset quality audit reports labels, missing files, empty labels, and class distribution", TestYoloDatasetQualityAuditReport);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--dataset-health", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("Dataset Health summarizes detection, segmentation, and anomaly data without changing labels", TestYoloDatasetHealthReport);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--wpf-dataset-health-window", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF Dataset Health opens as a separate data-analysis window", TestWpfDatasetHealthWindow);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--external-evaluation-data-audit", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("YOLO external evaluation data audit rejects duplicate content", TestYoloExternalEvaluationDataAuditService);
@@ -941,6 +951,8 @@ internal static partial class Program
             ("YOLO dataset readiness keeps statistics when duplicate split blocks training", TestYoloDatasetReadinessStatisticsOnDuplicateSplit),
             ("WPF YOLO training checklist separates warnings from blocking errors", TestWpfYoloTrainingChecklistDatasetQualityPresentation),
             ("YOLO dataset quality audit reports labels, missing files, empty labels, and class distribution", TestYoloDatasetQualityAuditReport),
+            ("Dataset Health summarizes detection, segmentation, and anomaly data without changing labels", TestYoloDatasetHealthReport),
+            ("WPF Dataset Health opens as a separate data-analysis window", TestWpfDatasetHealthWindow),
             ("YOLO dataset quality audit exports markdown report", TestYoloDatasetQualityAuditMarkdownExport),
             ("WPF model comparison button requires held-out test split", TestWpfModelComparisonButtonRequiresHeldOutTestSplit),
             ("YOLO dataset readiness explains segmentation-only labels", TestYoloDatasetReadinessSegmentationOnlyPolicy),
@@ -1426,6 +1438,7 @@ internal static partial class Program
         bool qualityDashboard = HasArgument(args, "--quality-dashboard");
         bool showQualityNeedsFix = HasArgument(args, "--show-quality-needs-fix");
         bool openModelBenchmark = HasArgument(args, "--open-model-benchmark");
+        bool openDatasetHealth = HasArgument(args, "--open-dataset-health");
         bool includeAnomalyInModelBenchmark = HasArgument(args, "--model-benchmark-include-anomaly");
         bool showModelBenchmarkConditions = HasArgument(args, "--model-benchmark-conditions");
         bool showModelBenchmarkClassErrors = HasArgument(args, "--model-benchmark-class-errors");
@@ -1866,6 +1879,7 @@ internal static partial class Program
                     PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
 
                     WpfModelBenchmarkWindow modelBenchmarkWindow = null;
+                    WpfDatasetHealthWindow datasetHealthWindow = null;
                     if (openModelBenchmark)
                     {
                         window.ShellViewModel.OpenModelBenchmarkCommand.Execute(null);
@@ -1907,7 +1921,28 @@ internal static partial class Program
                         PumpWpfDispatcher(TimeSpan.FromMilliseconds(500));
                     }
 
-                    System.Windows.Window captureTarget = (System.Windows.Window)modelBenchmarkWindow ?? window;
+                    if (openDatasetHealth)
+                    {
+                        window.ShellViewModel.OpenDatasetHealthCommand.Execute(null);
+                        PumpWpfDispatcher(TimeSpan.FromMilliseconds(500));
+                        datasetHealthWindow = System.Windows.Application.Current.Windows
+                            .OfType<WpfDatasetHealthWindow>()
+                            .FirstOrDefault(candidate => ReferenceEquals(candidate.Owner, window));
+                        AssertTrue(datasetHealthWindow != null, "WPF visual smoke did not open the Dataset Health window");
+                        datasetHealthWindow.Width = Math.Max(980, windowWidth);
+                        datasetHealthWindow.Height = Math.Max(650, windowHeight);
+                        datasetHealthWindow.Left = screenCapture ? 0 : 24;
+                        datasetHealthWindow.Top = screenCapture ? 0 : 24;
+                        datasetHealthWindow.WindowStartupLocation = System.Windows.WindowStartupLocation.Manual;
+                        datasetHealthWindow.Topmost = true;
+                        datasetHealthWindow.UpdateLayout();
+                        datasetHealthWindow.Activate();
+                        PumpWpfDispatcher(TimeSpan.FromMilliseconds(500));
+                    }
+
+                    System.Windows.Window captureTarget = (System.Windows.Window)datasetHealthWindow
+                        ?? (System.Windows.Window)modelBenchmarkWindow
+                        ?? window;
                     if (screenCapture)
                     {
                         CaptureWindowFromScreen(captureTarget, outputPath);

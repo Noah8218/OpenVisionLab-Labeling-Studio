@@ -23,6 +23,7 @@ namespace MvcVisionSystem
         {
             SaveWorkspaceLayoutSettings();
             CloseModelBenchmarkWindow();
+            CloseDatasetHealthWindow();
             StopInferenceStatusPulse();
             inferenceStatusPulseTimer.Tick -= InferenceStatusPulseTimer_Tick;
             StopTrainingStatusPolling();
