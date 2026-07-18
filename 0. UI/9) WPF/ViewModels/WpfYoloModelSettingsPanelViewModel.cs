@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Input;
 using OpenVisionLab.Mvvm;
 using MvcVisionSystem._1._Core;
+using MvcVisionSystem.Yolo;
 
 namespace MvcVisionSystem
 {
@@ -78,6 +79,11 @@ namespace MvcVisionSystem
         public ObservableCollection<PythonModelRuntimeProfile> RuntimeProfileItems { get; } = new ObservableCollection<PythonModelRuntimeProfile>();
 
         public ObservableCollection<PythonModelRuntimeSelfTestItem> RuntimeSelfTestItems { get; } = new ObservableCollection<PythonModelRuntimeSelfTestItem>();
+
+        public ObservableCollection<ModelAdapterCatalogItem> ModelAdapterCatalogItems { get; } = new ObservableCollection<ModelAdapterCatalogItem>();
+
+        public string ModelAdapterCatalogBoundaryText
+            => "레시피는 기준 원본입니다. 표시된 포맷 또는 런타임은 선언된 작업·데이터·실행기·근거 계약 안에서만 사용할 수 있습니다.";
 
         public ICommand BrowsePythonCommand
         {
@@ -779,7 +785,17 @@ namespace MvcVisionSystem
                 RuntimeProfileItems.Add(profile);
             }
 
+            RefreshModelAdapterCatalog();
             RefreshRuntimeSelfTest(settings);
+        }
+
+        private void RefreshModelAdapterCatalog()
+        {
+            ModelAdapterCatalogItems.Clear();
+            foreach (ModelAdapterCatalogItem item in ModelAdapterCatalogService.BuildCatalog())
+            {
+                ModelAdapterCatalogItems.Add(item);
+            }
         }
 
         private void RefreshRuntimeSelfTest(PythonModelSettings settings)

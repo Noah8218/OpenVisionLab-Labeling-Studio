@@ -156,6 +156,138 @@
                 </StackPanel>
             </Border>
 
+            <Expander x:Name="ModelAdapterCatalogExpander"
+                      AutomationProperties.AutomationId="ModelAdapterCatalogExpander"
+                      Header="&#xBAA8;&#xB378; &#xC5B4;&#xB311;&#xD130; &#xCE74;&#xD0C8;&#xB85C;&#xADF8;"
+                      Foreground="{DynamicResource PrimaryTextBrush}"
+                      IsExpanded="True"
+                      Margin="0,0,0,8">
+                <StackPanel Margin="0,7,0,0">
+                    <TextBlock x:Name="ModelAdapterCatalogBoundaryText"
+                               AutomationProperties.AutomationId="ModelAdapterCatalogBoundaryText"
+                               Text="{Binding ModelAdapterCatalogBoundaryText}"
+                               Foreground="{DynamicResource SecondaryTextBrush}"
+                               FontFamily="Segoe UI"
+                               FontSize="10"
+                               TextWrapping="Wrap"
+                               Margin="0,0,0,6" />
+                    <ItemsControl x:Name="ModelAdapterCatalogItems"
+                                  AutomationProperties.AutomationId="ModelAdapterCatalogItems"
+                                  ItemsSource="{Binding ModelAdapterCatalogItems}">
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate>
+                                <Border Background="{DynamicResource CanvasBrush}"
+                                        BorderBrush="{DynamicResource InputBorderBrush}"
+                                        BorderThickness="1"
+                                        CornerRadius="3"
+                                        Padding="7"
+                                        Margin="0,0,0,5">
+                                    <Grid>
+                                        <Grid.RowDefinitions>
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                            <RowDefinition Height="Auto" />
+                                        </Grid.RowDefinitions>
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="90" />
+                                            <ColumnDefinition Width="*" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBlock Text="{Binding DisplayName}"
+                                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="11"
+                                                   FontWeight="SemiBold"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Grid.Column="1"
+                                                   Text="{Binding AvailabilityText}"
+                                                   Foreground="{DynamicResource AccentBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="10"
+                                                   FontWeight="SemiBold"
+                                                   TextWrapping="Wrap" />
+                                        <TextBlock Grid.Row="1"
+                                                   Text="작업"
+                                                   Foreground="{DynamicResource DisabledTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="9"
+                                                   Margin="0,4,4,0" />
+                                        <TextBlock Grid.Row="1"
+                                                   Grid.Column="1"
+                                                   Text="{Binding TaskContractText}"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="9.5"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,4,0,0" />
+                                        <TextBlock Grid.Row="2"
+                                                   Text="데이터"
+                                                   Foreground="{DynamicResource DisabledTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="9"
+                                                   Margin="0,3,4,0" />
+                                        <TextBlock Grid.Row="2"
+                                                   Grid.Column="1"
+                                                   Text="{Binding DataContractText}"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="9.5"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,3,0,0" />
+                                        <TextBlock Grid.Row="3"
+                                                   Text="실행기"
+                                                   Foreground="{DynamicResource DisabledTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="9"
+                                                   Margin="0,3,4,0" />
+                                        <TextBlock Grid.Row="3"
+                                                   Grid.Column="1"
+                                                   Text="{Binding RuntimeContractText}"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="9.5"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,3,0,0" />
+                                        <TextBlock Grid.Row="4"
+                                                   Text="근거"
+                                                   Foreground="{DynamicResource DisabledTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="9"
+                                                   Margin="0,3,4,0" />
+                                        <TextBlock Grid.Row="4"
+                                                   Grid.Column="1"
+                                                   Text="{Binding EvidenceContractText}"
+                                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="9.5"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,3,0,0" />
+                                        <TextBlock Grid.Row="5"
+                                                   Text="다음"
+                                                   Foreground="{DynamicResource DisabledTextBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="9"
+                                                   Margin="0,3,4,0" />
+                                        <TextBlock Grid.Row="5"
+                                                   Grid.Column="1"
+                                                   Text="{Binding NextActionText}"
+                                                   Foreground="{DynamicResource AccentBrush}"
+                                                   FontFamily="Segoe UI"
+                                                   FontSize="9.5"
+                                                   FontWeight="SemiBold"
+                                                   TextWrapping="Wrap"
+                                                   Margin="0,3,0,0" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </StackPanel>
+            </Expander>
+
             <Border x:Name="YoloRuntimeProfilePanel"
                     AutomationProperties.AutomationId="YoloRuntimeProfilePanel"
                     Background="{DynamicResource CanvasBrush}"

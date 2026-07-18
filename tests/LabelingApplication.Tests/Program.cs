@@ -794,6 +794,11 @@ internal static partial class Program
             return RunSingleSmoke("WPF YOLO model settings panel declares path editors", TestWpfYoloModelSettingsPanelDeclaresPathEditors);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--model-adapter-catalog", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("Model adapter catalog keeps explicit runtime and evidence contracts", TestModelAdapterCatalog);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--python-model-runtime-self-test", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("Python model runtime self-test reports actionable checks", TestPythonModelRuntimeSelfTest);
@@ -31303,6 +31308,9 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "YoloModelSettingsSummaryRuntimeText", "Text", "SettingsSummaryRuntimeText");
         AssertNamedXamlBinding(xaml, xName, "YoloModelSettingsSummaryPathText", "Text", "SettingsSummaryPathText");
         AssertNamedXamlBinding(xaml, xName, "YoloModelSettingsSummaryActionText", "Text", "SettingsSummaryActionText");
+        AssertNamedXamlElement(xaml, xName, "Expander", "ModelAdapterCatalogExpander");
+        AssertNamedXamlBinding(xaml, xName, "ModelAdapterCatalogBoundaryText", "Text", "ModelAdapterCatalogBoundaryText");
+        AssertNamedXamlBinding(xaml, xName, "ModelAdapterCatalogItems", "ItemsSource", "ModelAdapterCatalogItems");
         AssertNamedXamlBinding(xaml, xName, "YoloRuntimeProfileHeaderText", "Text", "RuntimeProfileHeaderText");
         AssertNamedXamlBinding(xaml, xName, "YoloRuntimeProfileItems", "ItemsSource", "RuntimeProfileItems");
         AssertNamedXamlBinding(xaml, xName, "RuntimeProfileActionButton", "Content", "PrimaryActionText");

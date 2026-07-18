@@ -12911,3 +12911,19 @@ Last updated: 2026-07-16
   - True before / current-build after / responsive after: `artifacts\ui\model-workspace-20260718\before-model-center-1920.png`, `after-model-workspace-1920.png`, and `after-model-workspace-1366.png`.
 - Completion disposition:
   - Complete for the stage-4 layout scope. Reopen only for a reproduced state-loss, saved-pane-width, clipping, or responsive-layout defect. The next approved product priority is the model adapter catalog/contract; this layout change does not add a new model runtime or alter model-quality evidence.
+
+## 2026-07-18 Model adapter catalog and contract
+
+- Goal:
+  - Make the existing recipe-to-model boundary visible in the full-width Model Center so an operator can distinguish a supported data conversion from a runnable model adapter, and can see what evidence is still required before model use or adoption.
+- Changes:
+  - `ModelAdapterCatalogService` defines five explicit, read-only contracts: recipe interchange formats, YOLOv5 object detection, the local YOLOv8 worker, ONNX inference-only use, and blocked YOLO11.
+  - Every card declares its task, data, runtime, evidence, and next-action contract. The catalog uses `DatasetExportCapabilityService` for its implemented format inventory, so the display cannot silently promise an unimplemented interchange format.
+  - `WpfYoloModelSettingsPanelViewModel` exposes the catalog and refreshes it with the existing runtime-profile state. The WPF Model Center shows the Korean catalog in a default-expanded section; it does not download a model, connect a new runtime, change a recipe, train, infer, register a weight, or make an adoption decision.
+- Verification and evidence:
+  - Required isolated build passed with 0 warnings / 0 errors.
+  - `--model-adapter-catalog`, `--wpf-yolo-model-settings-panel`, `--wpf-labeling-shell`, and `--wpf-responsive-layout` passed.
+  - Current-source captures: `artifacts\ui\model-adapter-catalog-20260718\after-model-adapter-catalog-1920.png` and `after-model-adapter-catalog-1366.png`. The closest reproducible pre-catalog Model Center baseline is `artifacts\ui\model-workspace-20260718\after-model-workspace-1920.png`; a catalog-specific runtime-tab before capture was not available because the presentation binding had already been added before capture.
+  - README and tutorial guidance were reviewed. They already state the canonical-recipe and explicit-adapter product boundary; their high-level Model Center images were retained because this is a detailed runtime-contract surface rather than a changed public walkthrough step.
+- Completion disposition and boundary:
+  - Complete for the catalog/contract slice. Reopen only for a missing/incorrect declared contract, a stale format inventory, a binding failure, or a reproduced clipping defect. This does not claim generic GitHub-model support, model quality, model adoption, ONNX training, or YOLO11 readiness.
