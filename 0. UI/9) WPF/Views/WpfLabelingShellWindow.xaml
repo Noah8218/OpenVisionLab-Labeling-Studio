@@ -2955,12 +2955,114 @@
                                                                                             Width="13"
                                                                                             Height="13"
                                                                                             Margin="0,0,4,0" />
-                                                                <TextBlock Text="&#xB300;&#xC870;" VerticalAlignment="Center" />
-                                                            </StackPanel>
-                                                        </ui:Button>
-                                                    </Grid>
-                                                </Border>
-                                            </StackPanel>
+                                                                 <TextBlock Text="&#xB300;&#xC870;" VerticalAlignment="Center" />
+                                                             </StackPanel>
+                                                         </ui:Button>
+                                                     </Grid>
+                                                 </Border>
+                                                 <Border Background="{DynamicResource PanelBrush}"
+                                                         BorderBrush="{DynamicResource BorderBrushDark}"
+                                                         BorderThickness="1"
+                                                         CornerRadius="4"
+                                                         Padding="6"
+                                                         Margin="0,7,0,0">
+                                                     <StackPanel>
+                                                         <DockPanel LastChildFill="False">
+                                                             <TextBlock Text="외부 YOLO data.yaml"
+                                                                        Foreground="{DynamicResource PrimaryTextBrush}"
+                                                                        FontFamily="Segoe UI"
+                                                                        FontSize="10"
+                                                                        FontWeight="SemiBold"
+                                                                        VerticalAlignment="Center" />
+                                                             <ComboBox x:Name="YoloExternalYoloDatasetPurposeComboBox"
+                                                                       DockPanel.Dock="Right"
+                                                                       Width="104"
+                                                                       Margin="8,0,0,0"
+                                                                       ItemsSource="{Binding LearningWorkflowViewModel.ExternalYoloDatasetPurposeModes, ElementName=ShellWindow}"
+                                                                       SelectedItem="{Binding LearningWorkflowViewModel.SelectedExternalYoloDatasetPurposeMode, ElementName=ShellWindow, Mode=TwoWay}"
+                                                                       DisplayMemberPath="Text"
+                                                                       ToolTip="외부 data.yaml의 라벨 형식을 선택" />
+                                                         </DockPanel>
+                                                         <Grid Margin="0,6,0,0">
+                                                             <Grid.ColumnDefinitions>
+                                                                 <ColumnDefinition Width="*" />
+                                                                 <ColumnDefinition Width="Auto" />
+                                                             </Grid.ColumnDefinitions>
+                                                             <StackPanel Grid.Column="0"
+                                                                         MinWidth="0"
+                                                                         Margin="0,0,7,0">
+                                                                 <TextBlock x:Name="YoloExternalYoloDatasetStatusText"
+                                                                            Text="{Binding LearningWorkflowViewModel.ExternalYoloDatasetIntakeStatusText, ElementName=ShellWindow}"
+                                                                            Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                            FontFamily="Segoe UI"
+                                                                            FontSize="9.5"
+                                                                            TextWrapping="Wrap" />
+                                                                 <TextBlock x:Name="YoloExternalYoloDatasetDetailText"
+                                                                            Text="{Binding LearningWorkflowViewModel.ExternalYoloDatasetIntakeDetailText, ElementName=ShellWindow}"
+                                                                            Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                            FontFamily="Segoe UI"
+                                                                            FontSize="9"
+                                                                            Margin="0,2,0,0"
+                                                                            TextWrapping="Wrap" />
+                                                                 <TextBlock x:Name="YoloExternalYoloDatasetPathText"
+                                                                            Text="{Binding LearningWorkflowViewModel.ExternalYoloDatasetIntakePathText, ElementName=ShellWindow}"
+                                                                            ToolTip="{Binding LearningWorkflowViewModel.ExternalYoloDatasetIntakePathText, ElementName=ShellWindow}"
+                                                                            Foreground="{DynamicResource SecondaryTextBrush}"
+                                                                            FontFamily="Segoe UI"
+                                                                            FontSize="8.5"
+                                                                            Margin="0,2,0,0"
+                                                                            Opacity="0.85"
+                                                                            TextTrimming="CharacterEllipsis" />
+                                                             </StackPanel>
+                                                             <ui:Button x:Name="YoloExternalYoloDatasetSelectButton"
+                                                                        Grid.Column="1"
+                                                                        Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                                        AutomationProperties.AutomationId="YoloExternalYoloDatasetSelectButton"
+                                                                        AutomationProperties.Name="외부 YOLO data.yaml 선택"
+                                                                        ToolTip="외부 Ultralytics data.yaml을 읽기 전용으로 검증"
+                                                                        Command="{Binding LearningWorkflowViewModel.SelectExternalYoloDatasetCommand, ElementName=ShellWindow}">
+                                                                 <StackPanel Orientation="Horizontal">
+                                                                     <iconPacks:PackIconMaterial Kind="FolderImage"
+                                                                                                 Width="13"
+                                                                                                 Height="13"
+                                                                                                 Margin="0,0,4,0" />
+                                                                     <TextBlock Text="선택" VerticalAlignment="Center" />
+                                                                 </StackPanel>
+                                                             </ui:Button>
+                                                         </Grid>
+                                                         <WrapPanel Margin="0,6,0,0">
+                                                             <ui:Button x:Name="YoloExternalYoloDatasetActivateButton"
+                                                                        Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                                        AutomationProperties.AutomationId="YoloExternalYoloDatasetActivateButton"
+                                                                        AutomationProperties.Name="외부 YOLO data.yaml 다음 학습 사용"
+                                                                        ToolTip="검증된 외부 data.yaml을 다음 학습에만 사용"
+                                                                        Command="{Binding LearningWorkflowViewModel.ActivateExternalYoloDatasetCommand, ElementName=ShellWindow}">
+                                                                 <StackPanel Orientation="Horizontal">
+                                                                     <iconPacks:PackIconMaterial Kind="Check"
+                                                                                                 Width="13"
+                                                                                                 Height="13"
+                                                                                                 Margin="0,0,4,0" />
+                                                                     <TextBlock Text="다음 학습 사용" VerticalAlignment="Center" />
+                                                                 </StackPanel>
+                                                             </ui:Button>
+                                                             <ui:Button x:Name="YoloExternalYoloDatasetClearButton"
+                                                                        Width="28"
+                                                                        Height="28"
+                                                                        Padding="0"
+                                                                        Margin="5,0,0,0"
+                                                                        Style="{StaticResource WpfUiToolbarButtonStyle}"
+                                                                        AutomationProperties.AutomationId="YoloExternalYoloDatasetClearButton"
+                                                                        AutomationProperties.Name="외부 YOLO data.yaml 해제"
+                                                                        ToolTip="외부 data.yaml 선택과 다음 학습 사용을 해제"
+                                                                        Command="{Binding LearningWorkflowViewModel.ClearExternalYoloDatasetCommand, ElementName=ShellWindow}">
+                                                                 <iconPacks:PackIconMaterial Kind="Close"
+                                                                                             Width="13"
+                                                                                             Height="13" />
+                                                             </ui:Button>
+                                                         </WrapPanel>
+                                                     </StackPanel>
+                                                 </Border>
+                                             </StackPanel>
                                         </Border>
                                     </Expander>
                                     <local:WpfYoloStatusPanel x:Name="YoloStatusPanelControl"

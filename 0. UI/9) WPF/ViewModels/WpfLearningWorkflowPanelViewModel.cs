@@ -49,6 +49,10 @@ namespace MvcVisionSystem
         private string externalEvaluationDataAuditStatusText = "\uC678\uBD80 \uD3C9\uAC00 \uD3F4\uB354\uB97C \uB300\uC870\uD558\uBA74 \uD559\uC2B5 \uB370\uC774\uD130\uC640\uC758 \uC911\uBCF5\uC744 \uD655\uC778\uD569\uB2C8\uB2E4.";
         private string externalEvaluationDataAuditDetailText = string.Empty;
         private string externalEvaluationDataAuditPathText = string.Empty;
+        private WpfLearningModeItem selectedExternalYoloDatasetPurposeMode;
+        private string externalYoloDatasetIntakeStatusText = "\uC678\uBD80 YOLO data.yaml: \uC120\uD0DD \uC548 \uD568";
+        private string externalYoloDatasetIntakeDetailText = "\uB0B4\uBD80 \uB77C\uBCA8\uB9C1 \uB370\uC774\uD130\uC640 \uBD84\uB9AC\uB41C \uC6D0\uBCF8 YOLO \uB370\uC774\uD130\uC14B\uC744 \uAC80\uC99D\uD55C \uB4A4 \uB2E4\uC74C \uD559\uC2B5\uC5D0\uB9CC \uC0AC\uC6A9\uD569\uB2C8\uB2E4.";
+        private string externalYoloDatasetIntakePathText = string.Empty;
         private string objectDetectionMvpNextActionText = "\uAC1D\uCCB4\uD0D0\uC9C0 MVP: \uB370\uC774\uD130\uC14B \uC810\uAC80 \uC804";
         private string modelReplacementStatusText = "\uBAA8\uB378 \uAD50\uCCB4: \uB370\uC774\uD130\uC14B \uC810\uAC80 \uC804";
         private string modelReplacementDetailText = "\uD559\uC2B5 \uD6C4 \uCD5C\uC885 \uAC80\uC99D \uC774\uBBF8\uC9C0 \uACB0\uACFC\uB85C \uAE30\uC874 \uBAA8\uB378 \uAD50\uCCB4 \uC5EC\uBD80\uB97C \uD310\uB2E8\uD569\uB2C8\uB2E4.";
@@ -89,6 +93,9 @@ namespace MvcVisionSystem
         private ICommand yoloFixDatasetCommand = new RelayCommand(NoOpCommand);
         private ICommand runModelComparisonCommand = new RelayCommand(NoOpCommand);
         private ICommand externalEvaluationDataAuditCommand = new RelayCommand(NoOpCommand);
+        private ICommand selectExternalYoloDatasetCommand = new RelayCommand(NoOpCommand);
+        private ICommand activateExternalYoloDatasetCommand = new RelayCommand(NoOpCommand);
+        private ICommand clearExternalYoloDatasetCommand = new RelayCommand(NoOpCommand);
         private ICommand templateCurrentImageCommand = new RelayCommand(NoOpCommand);
         private ICommand templateBatchCommand = new RelayCommand(NoOpCommand);
 
@@ -104,6 +111,9 @@ namespace MvcVisionSystem
             DatasetPurposeModes.Add(LearningModes.First(item => item.Mode == WpfLearningMode.ObjectDetection));
             DatasetPurposeModes.Add(LearningModes.First(item => item.Mode == WpfLearningMode.Segmentation));
             DatasetPurposeModes.Add(LearningModes.First(item => item.Mode == WpfLearningMode.AnomalyDetection));
+            ExternalYoloDatasetPurposeModes.Add(DatasetPurposeModes.First(item => item.Mode == WpfLearningMode.ObjectDetection));
+            ExternalYoloDatasetPurposeModes.Add(DatasetPurposeModes.First(item => item.Mode == WpfLearningMode.Segmentation));
+            SelectedExternalYoloDatasetPurposeMode = ExternalYoloDatasetPurposeModes.FirstOrDefault();
 
             RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Select, "\uC120\uD0DD", PackIconMaterialKind.CursorDefaultOutline, "\uAC1D\uCCB4 \uC120\uD0DD\uACFC \uD3B8\uC9D1"));
             RegisterAnnotationTool(new WpfAnnotationToolItem(WpfAnnotationTool.Rectangle, "\uBC15\uC2A4", PackIconMaterialKind.VectorRectangle, "\uAC1D\uCCB4 \uBC15\uC2A4 \uC601\uC5ED"));
@@ -388,6 +398,24 @@ namespace MvcVisionSystem
             private set => SetProperty(ref externalEvaluationDataAuditCommand, value);
         }
 
+        public ICommand SelectExternalYoloDatasetCommand
+        {
+            get => selectExternalYoloDatasetCommand;
+            private set => SetProperty(ref selectExternalYoloDatasetCommand, value);
+        }
+
+        public ICommand ActivateExternalYoloDatasetCommand
+        {
+            get => activateExternalYoloDatasetCommand;
+            private set => SetProperty(ref activateExternalYoloDatasetCommand, value);
+        }
+
+        public ICommand ClearExternalYoloDatasetCommand
+        {
+            get => clearExternalYoloDatasetCommand;
+            private set => SetProperty(ref clearExternalYoloDatasetCommand, value);
+        }
+
         public ICommand TemplateCurrentImageCommand
         {
             get => templateCurrentImageCommand;
@@ -403,6 +431,8 @@ namespace MvcVisionSystem
         public ObservableCollection<WpfLearningModeItem> LearningModes { get; } = new ObservableCollection<WpfLearningModeItem>();
 
         public ObservableCollection<WpfLearningModeItem> DatasetPurposeModes { get; } = new ObservableCollection<WpfLearningModeItem>();
+
+        public ObservableCollection<WpfLearningModeItem> ExternalYoloDatasetPurposeModes { get; } = new ObservableCollection<WpfLearningModeItem>();
 
         public ObservableCollection<WpfAnnotationToolItem> AnnotationTools { get; } = new ObservableCollection<WpfAnnotationToolItem>();
 
@@ -536,6 +566,24 @@ namespace MvcVisionSystem
         {
             get => externalEvaluationDataAuditPathText;
             private set => SetProperty(ref externalEvaluationDataAuditPathText, value ?? string.Empty);
+        }
+
+        public string ExternalYoloDatasetIntakeStatusText
+        {
+            get => externalYoloDatasetIntakeStatusText;
+            private set => SetProperty(ref externalYoloDatasetIntakeStatusText, value ?? string.Empty);
+        }
+
+        public string ExternalYoloDatasetIntakeDetailText
+        {
+            get => externalYoloDatasetIntakeDetailText;
+            private set => SetProperty(ref externalYoloDatasetIntakeDetailText, value ?? string.Empty);
+        }
+
+        public string ExternalYoloDatasetIntakePathText
+        {
+            get => externalYoloDatasetIntakePathText;
+            private set => SetProperty(ref externalYoloDatasetIntakePathText, value ?? string.Empty);
         }
 
         public string ObjectDetectionMvpNextActionText
@@ -855,7 +903,10 @@ namespace MvcVisionSystem
             Action<WpfFirstRunChecklistItem> firstRunSamplePathSelected = null,
             Action runTemplateCurrentImage = null,
             Action runTemplateBatch = null,
-            Action runExternalEvaluationDataAudit = null)
+            Action runExternalEvaluationDataAudit = null,
+            Action selectExternalYoloDataset = null,
+            Action activateExternalYoloDataset = null,
+            Action clearExternalYoloDataset = null)
         {
             // Dataset purpose is a project setting; learning mode is only guide/navigation.
             // Keep both command paths separate so task-specific tools do not change when the operator browses lesson concepts.
@@ -874,6 +925,9 @@ namespace MvcVisionSystem
             YoloFixDatasetCommand = new RelayCommand(yoloFixDataset ?? NoOpCommand);
             RunModelComparisonCommand = new RelayCommand(runModelComparison ?? NoOpCommand);
             ExternalEvaluationDataAuditCommand = new RelayCommand(runExternalEvaluationDataAudit ?? NoOpCommand);
+            SelectExternalYoloDatasetCommand = new RelayCommand(selectExternalYoloDataset ?? NoOpCommand);
+            ActivateExternalYoloDatasetCommand = new RelayCommand(activateExternalYoloDataset ?? NoOpCommand);
+            ClearExternalYoloDatasetCommand = new RelayCommand(clearExternalYoloDataset ?? NoOpCommand);
             TemplateCurrentImageCommand = new RelayCommand(runTemplateCurrentImage ?? NoOpCommand);
             TemplateBatchCommand = new RelayCommand(runTemplateBatch ?? NoOpCommand);
         }
@@ -1000,6 +1054,25 @@ namespace MvcVisionSystem
                 : statusText;
             ExternalEvaluationDataAuditDetailText = detailText ?? string.Empty;
             ExternalEvaluationDataAuditPathText = pathText ?? string.Empty;
+        }
+
+        public LabelingDatasetPurpose GetSelectedExternalYoloDatasetPurpose()
+            => ToDatasetPurpose(SelectedExternalYoloDatasetPurposeMode?.Mode ?? WpfLearningMode.ObjectDetection);
+
+        public void SetExternalYoloDatasetIntakeResult(
+            LabelingDatasetPurpose purpose,
+            string statusText,
+            string detailText,
+            string pathText)
+        {
+            WpfLearningMode mode = ToLearningMode(purpose);
+            SelectedExternalYoloDatasetPurposeMode = ExternalYoloDatasetPurposeModes.FirstOrDefault(item => item.Mode == mode)
+                ?? ExternalYoloDatasetPurposeModes.FirstOrDefault();
+            ExternalYoloDatasetIntakeStatusText = string.IsNullOrWhiteSpace(statusText)
+                ? "\uC678\uBD80 YOLO data.yaml: \uC120\uD0DD \uC548 \uD568"
+                : statusText;
+            ExternalYoloDatasetIntakeDetailText = detailText ?? string.Empty;
+            ExternalYoloDatasetIntakePathText = pathText ?? string.Empty;
         }
 
         private static string BuildObjectDetectionMvpNextActionText(string actionText)
@@ -1379,6 +1452,12 @@ namespace MvcVisionSystem
                     RefreshLessonText();
                 }
             }
+        }
+
+        public WpfLearningModeItem SelectedExternalYoloDatasetPurposeMode
+        {
+            get => selectedExternalYoloDatasetPurposeMode;
+            set => SetProperty(ref selectedExternalYoloDatasetPurposeMode, value);
         }
 
         public WpfLearningModeItem SelectedMode

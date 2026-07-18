@@ -9,7 +9,7 @@ namespace MvcVisionSystem._1._Core
     {
         public string LastPreparationFailureMessage { get; private set; } = string.Empty;
 
-        public bool TryStartTraining(CData data, CCommunicationLearning communication)
+        public bool TryStartTraining(CData data, CCommunicationLearning communication, string runName = "")
         {
             if (!TryPrepareTrainingDataset(data, out TrainingDatasetRequest trainingRequest))
             {
@@ -34,11 +34,23 @@ namespace MvcVisionSystem._1._Core
                 weightFile,
                 trainingRequest.DataPath,
                 model,
-                trainingRequest.Task);
+                trainingRequest.Task,
+                runName);
 
             if (!sent)
             {
                 AppLog.ABNORMAL("Python 모델 클라이언트가 연결되지 않아 학습 시작 명령을 보내지 못했습니다.");
+            }
+            else if (trainingRequest.IsExternalSource)
+            {
+                YoloExternalDatasetIntakeService.RecordTrainingRequest(
+                    data?.ProjectSettings?.ExternalYoloDataset,
+                    data?.ProjectSettings?.PythonModel,
+                    model,
+                    trainingRequest.Task,
+                    weightFile,
+                    runName,
+                    trainingRequest.SourceFingerprintSha256);
             }
 
             return sent;
@@ -76,6 +88,21 @@ namespace MvcVisionSystem._1._Core
             };
 
             data?.ProjectSettings?.EnsureDefaults();
+            ExternalYoloDatasetSettings externalDataset = data?.ProjectSettings?.ExternalYoloDataset;
+            if (externalDataset?.RequiresExplicitReactivation == true)
+            {
+                LastPreparationFailureMessage = string.IsNullOrWhiteSpace(externalDataset.LastValidationSummary)
+                    ? "External YOLO data.yaml requires explicit revalidation and activation before training."
+                    : externalDataset.LastValidationSummary;
+                AppLog.ABNORMAL($"External YOLO training dataset requires explicit reactivation: {LastPreparationFailureMessage}");
+                return false;
+            }
+
+            if (externalDataset?.UseForTraining == true)
+            {
+                return TryPrepareExternalYoloTrainingDataset(externalDataset, out trainingRequest);
+            }
+
             if (data?.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection)
             {
                 return TryPrepareAnomalyClassificationTrainingDataset(data, out trainingRequest);
@@ -119,6 +146,49 @@ namespace MvcVisionSystem._1._Core
                 AppLog.NORMAL($"YOLO segmentation labels ready. Images:{segmentationExportResult.ImageCount}, LabelFiles:{segmentationExportResult.LabelFileCount}, Polygons:{segmentationExportResult.PolygonCount}, Backgrounds:{segmentationExportResult.BackgroundImageCount}");
             }
 
+            return true;
+        }
+
+        private bool TryPrepareExternalYoloTrainingDataset(
+            ExternalYoloDatasetSettings externalDataset,
+            out TrainingDatasetRequest trainingRequest)
+        {
+            YoloExternalDatasetIntakeReport report = YoloExternalDatasetIntakeService.Build(
+                externalDataset?.DataYamlFilePath,
+                externalDataset?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection);
+            if (!report.IsReady)
+            {
+                YoloExternalDatasetIntakeService.ApplyValidation(externalDataset, report);
+                LastPreparationFailureMessage = string.Join(Environment.NewLine, report.Errors);
+                foreach (string error in report.Errors)
+                {
+                    AppLog.ABNORMAL($"External YOLO training dataset validation failed: {error}");
+                }
+
+                trainingRequest = new TrainingDatasetRequest();
+                return false;
+            }
+
+            if (!YoloExternalDatasetIntakeService.HasCurrentSourceIdentity(externalDataset, report, out string identityError))
+            {
+                YoloExternalDatasetIntakeService.ApplyValidation(externalDataset, report);
+                YoloExternalDatasetIntakeService.MarkSourceIdentityRequiresReactivation(externalDataset, identityError);
+                LastPreparationFailureMessage = identityError;
+                AppLog.ABNORMAL($"External YOLO training dataset source identity changed: {identityError}");
+                trainingRequest = new TrainingDatasetRequest();
+                return false;
+            }
+
+            YoloExternalDatasetIntakeService.ApplyValidation(externalDataset, report);
+
+            trainingRequest = new TrainingDatasetRequest
+            {
+                DataPath = report.DataYamlFilePath,
+                Task = ResolveTrainingTask(report.Purpose),
+                IsExternalSource = true,
+                SourceFingerprintSha256 = report.SourceFingerprintSha256
+            };
+            AppLog.NORMAL($"External native YOLO dataset ready. {report.Summary} / Path:{report.DataYamlFilePath}");
             return true;
         }
 
@@ -204,6 +274,10 @@ namespace MvcVisionSystem._1._Core
             public string DataPath { get; set; } = string.Empty;
 
             public string Task { get; set; } = "detect";
+
+            public bool IsExternalSource { get; set; }
+
+            public string SourceFingerprintSha256 { get; set; } = string.Empty;
         }
     }
 }

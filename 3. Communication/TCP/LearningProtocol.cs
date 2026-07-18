@@ -20,7 +20,8 @@ namespace MvcVisionSystem._3._Communication.TCP
             string weight,
             string dataYaml,
             string model = "yolov5",
-            string task = "detect")
+            string task = "detect",
+            string runName = "")
         {
             var request = new YoloTrainingRequest
             {
@@ -31,7 +32,8 @@ namespace MvcVisionSystem._3._Communication.TCP
                 weight = NormalizeProtocolPath(weight),
                 dataYaml = NormalizeProtocolPath(dataYaml),
                 model = string.IsNullOrWhiteSpace(model) ? "yolov5" : model,
-                task = string.IsNullOrWhiteSpace(task) ? "detect" : task
+                task = string.IsNullOrWhiteSpace(task) ? "detect" : task,
+                runName = (runName ?? string.Empty).Trim()
             };
 
             string json = JsonConvert.SerializeObject(request);
@@ -181,6 +183,7 @@ namespace MvcVisionSystem._3._Communication.TCP
         public string dataYaml { get; set; } = "";
         public string model { get; set; } = "yolov5";
         public string task { get; set; } = "detect";
+        public string runName { get; set; } = "";
     }
 
     public class PythonWorkerRequest

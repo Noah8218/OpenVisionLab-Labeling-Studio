@@ -9,6 +9,7 @@ switch model adapters without silently falling back to YOLOv5.
 from __future__ import annotations
 
 import argparse
+from contextlib import contextmanager
 import importlib.util
 import json
 import os
@@ -93,6 +94,38 @@ def as_bool(value: Any) -> bool:
     if isinstance(value, str):
         return value.strip().lower() in {"1", "true", "yes", "y", "on"}
     return bool(value)
+
+
+@contextmanager
+def data_yaml_working_directory(data_path: Path):
+    """Resolve native YAML-relative paths from the YAML's directory without changing source files."""
+    if not data_path.is_file():
+        yield
+        return
+
+    previous = Path.cwd()
+    os.chdir(data_path.parent)
+    try:
+        yield
+    finally:
+        os.chdir(previous)
+
+
+@contextmanager
+def label_cache_directory():
+    """Keep transient Ultralytics label caches out of source datasets."""
+    environment_name = "OPENVISIONLAB_ULTRALYTICS_LABEL_CACHE_DIR"
+    previous = os.environ.get(environment_name)
+    directory = Path(tempfile.mkdtemp(prefix="openvisionlab-ultralytics-label-cache-"))
+    os.environ[environment_name] = str(directory)
+    try:
+        yield directory
+    finally:
+        if previous is None:
+            os.environ.pop(environment_name, None)
+        else:
+            os.environ[environment_name] = previous
+        shutil.rmtree(directory, ignore_errors=True)
 
 
 def normalize_model(value: Any) -> str:
@@ -806,17 +839,18 @@ class LabelingUltralyticsWorker:
             if hasattr(model, "add_callback"):
                 model.add_callback("on_train_epoch_end", on_train_epoch_end)
 
-            result = model.train(
-                data=str(data_yaml),
-                task=task,
-                epochs=epochs,
-                imgsz=image_size,
-                batch=batch,
-                project=str(project_path),
-                name=run_name,
-                exist_ok=True,
-                device=self.detector.device or None,
-            )
+            with data_yaml_working_directory(data_yaml), label_cache_directory():
+                result = model.train(
+                    data=str(data_yaml),
+                    task=task,
+                    epochs=epochs,
+                    imgsz=image_size,
+                    batch=batch,
+                    project=str(project_path),
+                    name=run_name,
+                    exist_ok=True,
+                    device=self.detector.device or None,
+                )
             save_dir = str(getattr(result, "save_dir", "") or "")
             send_status("completed", f"Ultralytics {model_name} {task} training completed. {save_dir}".strip(), progress=100, epoch=epochs)
         except Exception as exc:
@@ -1230,6 +1264,26 @@ def run_smoke_test(args: argparse.Namespace) -> int:
 
 
 def run_self_test() -> int:
+    original_working_directory = Path.cwd()
+    source_file = Path(__file__).resolve()
+    with data_yaml_working_directory(source_file):
+        assert Path.cwd() == source_file.parent
+    assert Path.cwd() == original_working_directory
+    with data_yaml_working_directory(source_file.parent):
+        assert Path.cwd() == original_working_directory
+
+    cache_environment_name = "OPENVISIONLAB_ULTRALYTICS_LABEL_CACHE_DIR"
+    previous_cache_directory = os.environ.get(cache_environment_name)
+    with label_cache_directory() as temporary_cache_directory:
+        assert temporary_cache_directory.is_dir()
+        assert os.environ.get(cache_environment_name) == str(temporary_cache_directory)
+        (temporary_cache_directory / "labels.cache").write_text("cache", encoding="utf-8")
+    assert not temporary_cache_directory.exists()
+    if previous_cache_directory is None:
+        assert cache_environment_name not in os.environ
+    else:
+        assert os.environ.get(cache_environment_name) == previous_cache_directory
+
     buffer = bytearray(
         b'{"type":"HealthCheck","requestId":"req-health"}\n'
         b'{"type":"ModelStatus","requestId":"req-model","ensureLoaded":false}\n'
@@ -1384,6 +1438,7 @@ def run_self_test() -> int:
     detector.device = ""
     sent_statuses: list[dict[str, Any]] = []
     captured_train_kwargs: dict[str, Any] = {}
+    captured_training_working_directories: list[Path] = []
     captured_model_weights: list[str] = []
     callbacks: dict[str, Any] = {}
 
@@ -1401,6 +1456,7 @@ def run_self_test() -> int:
 
         def train(self, **kwargs: Any) -> Any:
             captured_train_kwargs.update(kwargs)
+            captured_training_working_directories.append(Path.cwd())
 
             class FakeTrainer:
                 epoch = 0
@@ -1464,6 +1520,8 @@ def run_self_test() -> int:
             assert not worker.training_thread.is_alive()
             assert captured_model_weights[-1] == "yolov8n-seg.pt"
             assert captured_train_kwargs["task"] == "segment"
+            assert captured_training_working_directories[-1] == Path(__file__).resolve().parent
+            assert Path.cwd() == original_working_directory
             assert any(item["state"] == "completed" for item in sent_statuses)
     finally:
         if previous_ultralytics is None:
@@ -1512,6 +1570,9 @@ def run_self_test() -> int:
             expected_run_kind = "segment" if task_name == "segment" else "classify" if task_name == "classify" else "train"
             assert Path(captured_train_kwargs["project"]).name == expected_run_kind
             assert captured_model_weights[-1] == expected_weight
+            expected_working_directory = Path(data_path).resolve().parent if Path(data_path).is_file() else original_working_directory
+            assert captured_training_working_directories[-1] == expected_working_directory
+            assert Path.cwd() == original_working_directory
             assert sent_statuses[0]["state"] == "running"
             assert sent_statuses[0]["trainingWeights"] == expected_weight
             assert any(

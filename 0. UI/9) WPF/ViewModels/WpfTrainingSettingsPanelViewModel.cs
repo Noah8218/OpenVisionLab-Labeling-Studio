@@ -21,6 +21,7 @@ namespace MvcVisionSystem
         private string splitSeedText = string.Empty;
         private string modelEngine = PythonModelSettings.EngineYoloV5;
         private LabelingDatasetPurpose datasetPurpose = LabelingDatasetPurpose.ObjectDetection;
+        private bool usesExternalYoloDataset;
         private string trainingReadinessText = "학습 상태 미확인";
         private string trainingProgressText = "학습 대기";
         private string trainingEpochStatusText = string.Empty;
@@ -177,15 +178,19 @@ namespace MvcVisionSystem
                 string.IsNullOrWhiteSpace(EpochText) ? "-" : EpochText);
 
         public string TrainingSettingsSummarySplitText
-            => string.Format(
-                CultureInfo.CurrentCulture,
-                "\uAC80\uC99D {0}% / \uCD5C\uC885 \uAC80\uC99D {1}% / \uBD84\uD560 \uAE30\uC900 {2}",
-                string.IsNullOrWhiteSpace(ValidationPercentText) ? "-" : ValidationPercentText,
-                string.IsNullOrWhiteSpace(TestPercentText) ? "-" : TestPercentText,
-                string.IsNullOrWhiteSpace(SplitSeedText) ? "-" : SplitSeedText);
+            => usesExternalYoloDataset
+                ? "외부 data.yaml의 train/val/test 분할 사용"
+                : string.Format(
+                    CultureInfo.CurrentCulture,
+                    "\uAC80\uC99D {0}% / \uCD5C\uC885 \uAC80\uC99D {1}% / \uBD84\uD560 \uAE30\uC900 {2}",
+                    string.IsNullOrWhiteSpace(ValidationPercentText) ? "-" : ValidationPercentText,
+                    string.IsNullOrWhiteSpace(TestPercentText) ? "-" : TestPercentText,
+                    string.IsNullOrWhiteSpace(SplitSeedText) ? "-" : SplitSeedText);
 
         public string TrainingSettingsSummaryActionText
-            => "\uCC98\uC74C\uC5D0\uB294 \uBE60\uB978 \uCD94\uCC9C\uAC12\uC744 \uC801\uC6A9\uD55C \uB4A4 \uC0C8\uB85C\uACE0\uCE68\uC73C\uB85C \uB370\uC774\uD130\uC14B\uC744 \uC810\uAC80\uD558\uACE0, \uC900\uBE44\uAC00 \uB418\uBA74 \uC2DC\uC791\uD558\uC138\uC694.";
+            => usesExternalYoloDataset
+                ? "외부 data.yaml의 분할을 그대로 사용합니다. 데이터 탭에서 해제하기 전까지 내부 레시피 데이터로 바뀌지 않습니다."
+                : "\uCC98\uC74C\uC5D0\uB294 \uBE60\uB978 \uCD94\uCC9C\uAC12\uC744 \uC801\uC6A9\uD55C \uB4A4 \uC0C8\uB85C\uACE0\uCE68\uC73C\uB85C \uB370\uC774\uD130\uC14B\uC744 \uC810\uAC80\uD558\uACE0, \uC900\uBE44\uAC00 \uB418\uBA74 \uC2DC\uC791\uD558\uC138\uC694.";
 
         public string PostTrainingModelActionTitleText => "\uD559\uC2B5 \uC644\uB8CC \uD6C4 \uC791\uC5C5";
 
@@ -494,7 +499,8 @@ namespace MvcVisionSystem
             TrainingSettings training,
             YoloDatasetSettings dataset,
             PythonModelSettings modelSettings = null,
-            LabelingDatasetPurpose purpose = LabelingDatasetPurpose.ObjectDetection)
+            LabelingDatasetPurpose purpose = LabelingDatasetPurpose.ObjectDetection,
+            ExternalYoloDatasetSettings externalDataset = null)
         {
             if (training == null || dataset == null)
             {
@@ -502,7 +508,9 @@ namespace MvcVisionSystem
             }
 
             modelEngine = PythonModelSettings.NormalizeModelEngine(modelSettings?.ModelEngine);
-            datasetPurpose = purpose;
+            usesExternalYoloDataset = externalDataset?.UseForTraining == true
+                && !string.IsNullOrWhiteSpace(externalDataset.DataYamlFilePath);
+            datasetPurpose = usesExternalYoloDataset ? externalDataset.DatasetPurpose : purpose;
             ImageSizeText = training.ImageSize.ToString(CultureInfo.InvariantCulture);
             BatchText = training.Batch.ToString(CultureInfo.InvariantCulture);
             EpochText = training.Epoch.ToString(CultureInfo.InvariantCulture);
@@ -512,6 +520,7 @@ namespace MvcVisionSystem
             TestPercentText = dataset.TestPercent.ToString(CultureInfo.InvariantCulture);
             SplitSeedText = dataset.SplitSeed.ToString(CultureInfo.InvariantCulture);
             NotifyTrainingModelSelectionChanged();
+            NotifyTrainingSettingsSummaryChanged();
         }
 
         private void ApplyFastRecommendation()
@@ -684,6 +693,7 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(TrainingSettingsSummaryModelText));
             OnPropertyChanged(nameof(TrainingSettingsSummaryRuntimeText));
             OnPropertyChanged(nameof(TrainingSettingsSummarySplitText));
+            OnPropertyChanged(nameof(TrainingSettingsSummaryActionText));
         }
 
         private void NotifyTrainingModelSelectionChanged()

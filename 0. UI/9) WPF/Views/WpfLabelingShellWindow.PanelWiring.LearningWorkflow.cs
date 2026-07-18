@@ -25,7 +25,10 @@ namespace MvcVisionSystem
                 ExecuteFirstRunSamplePathCommand,
                 TemplateMatchingAutoLabelViewModel.RunCurrentImage,
                 TemplateMatchingAutoLabelViewModel.RunBatch,
-                ExecuteExternalEvaluationDataAuditCommand);
+                ExecuteExternalEvaluationDataAuditCommand,
+                ExecuteSelectExternalYoloDatasetCommand,
+                ExecuteActivateExternalYoloDatasetCommand,
+                ExecuteClearExternalYoloDatasetCommand);
             RefreshAttachedCommandBindings(DatasetPurposeListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
             RefreshAttachedCommandBindings(LearningModeListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
             RefreshAttachedCommandBindings(AnnotationToolListBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
@@ -80,6 +83,11 @@ namespace MvcVisionSystem
             RegisterLearningWorkflowName(nameof(YoloExternalEvaluationAuditButton), YoloExternalEvaluationAuditButton);
             RegisterLearningWorkflowName(nameof(YoloExternalEvaluationAuditStatusText), YoloExternalEvaluationAuditStatusText);
             RegisterLearningWorkflowName(nameof(YoloExternalEvaluationAuditDetailText), YoloExternalEvaluationAuditDetailText);
+            RegisterLearningWorkflowName(nameof(YoloExternalYoloDatasetSelectButton), YoloExternalYoloDatasetSelectButton);
+            RegisterLearningWorkflowName(nameof(YoloExternalYoloDatasetActivateButton), YoloExternalYoloDatasetActivateButton);
+            RegisterLearningWorkflowName(nameof(YoloExternalYoloDatasetClearButton), YoloExternalYoloDatasetClearButton);
+            RegisterLearningWorkflowName(nameof(YoloExternalYoloDatasetStatusText), YoloExternalYoloDatasetStatusText);
+            RegisterLearningWorkflowName(nameof(YoloExternalYoloDatasetDetailText), YoloExternalYoloDatasetDetailText);
         }
 
         private void RegisterLearningWorkflowName(string name, FrameworkElement element)

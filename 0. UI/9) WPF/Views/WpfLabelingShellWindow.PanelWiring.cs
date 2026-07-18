@@ -314,7 +314,9 @@ namespace MvcVisionSystem
                 global.Data.GetTrainingSettings(),
                 global.Data.ProjectSettings.YoloDataset,
                 global.Data.ProjectSettings.PythonModel,
-                global.Data.ProjectSettings.DatasetPurpose);
+                global.Data.ProjectSettings.DatasetPurpose,
+                global.Data.ProjectSettings.ExternalYoloDataset);
+            RefreshExternalYoloDatasetIntakePresentation();
         }
 
         private void ConfigureShellCommands()

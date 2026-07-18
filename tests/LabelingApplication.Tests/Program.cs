@@ -266,6 +266,11 @@ internal static partial class Program
             return RunRealYoloV8AnomalyFolderTraining(args);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--real-external-yolo-dataset-training", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunRealExternalYoloDatasetTraining(args);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--wpf-yolo-training-session-smoke", StringComparison.OrdinalIgnoreCase)))
         {
             return RunWpfYoloTrainingSessionSmoke(args);
@@ -588,6 +593,11 @@ internal static partial class Program
         if (args.Any(arg => string.Equals(arg, "--anomaly-classification-training-workflow", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("Anomaly classification training workflow sends classify dataset", TestAnomalyClassificationTrainingWorkflow);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--external-yolo-dataset-intake", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("External native YOLO data.yaml stays separate from recipe exports", TestExternalYoloDatasetIntake);
         }
 
         if (args.Any(arg => string.Equals(arg, "--anomaly-classification-evaluation", StringComparison.OrdinalIgnoreCase)))
@@ -944,6 +954,7 @@ internal static partial class Program
             ("YOLO dataset validator rejects stale data.yaml contracts", TestYoloDatasetValidatorRejectsStaleDataYamlContract),
             ("YOLO dataset validator rejects duplicate train and valid images", TestYoloDatasetValidatorRejectsTrainValidDuplicates),
             ("YOLO external evaluation data audit rejects duplicate content", TestYoloExternalEvaluationDataAuditService),
+            ("External native YOLO data.yaml stays separate from recipe exports", TestExternalYoloDatasetIntake),
             ("YOLO dataset validator rejects invalid label file contents", TestYoloDatasetValidatorInvalidLabels),
             ("YOLO dataset validator reports saved dataset statistics", TestYoloDatasetStatistics),
             ("YOLO dataset readiness report combines validation and statistics", TestYoloDatasetReadinessReport),
@@ -30551,6 +30562,25 @@ internal static partial class Program
         AssertNamedXamlElement(shellXaml, xName, "TextBlock", "YoloExternalEvaluationAuditLimitText");
         AssertNamedXamlBinding(shellXaml, xName, "YoloExternalEvaluationAuditButton", "Command", "LearningWorkflowViewModel.ExternalEvaluationDataAuditCommand");
         AssertNamedXamlBinding(shellXaml, xName, "YoloExternalEvaluationAuditStatusText", "Text", "LearningWorkflowViewModel.ExternalEvaluationDataAuditStatusText");
+        AssertNamedXamlElement(shellXaml, xName, "ComboBox", "YoloExternalYoloDatasetPurposeComboBox");
+        AssertNamedXamlElement(shellXaml, xName, "Button", "YoloExternalYoloDatasetSelectButton");
+        AssertNamedXamlElement(shellXaml, xName, "Button", "YoloExternalYoloDatasetActivateButton");
+        AssertNamedXamlElement(shellXaml, xName, "Button", "YoloExternalYoloDatasetClearButton");
+        AssertNamedXamlElement(shellXaml, xName, "TextBlock", "YoloExternalYoloDatasetStatusText");
+        AssertNamedXamlElement(shellXaml, xName, "TextBlock", "YoloExternalYoloDatasetDetailText");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloExternalYoloDatasetPurposeComboBox", "ItemsSource", "LearningWorkflowViewModel.ExternalYoloDatasetPurposeModes");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloExternalYoloDatasetPurposeComboBox", "SelectedItem", "LearningWorkflowViewModel.SelectedExternalYoloDatasetPurposeMode");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloExternalYoloDatasetSelectButton", "Command", "LearningWorkflowViewModel.SelectExternalYoloDatasetCommand");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloExternalYoloDatasetActivateButton", "Command", "LearningWorkflowViewModel.ActivateExternalYoloDatasetCommand");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloExternalYoloDatasetClearButton", "Command", "LearningWorkflowViewModel.ClearExternalYoloDatasetCommand");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloExternalYoloDatasetStatusText", "Text", "LearningWorkflowViewModel.ExternalYoloDatasetIntakeStatusText");
+        AssertNamedXamlBinding(shellXaml, xName, "YoloExternalYoloDatasetDetailText", "Text", "LearningWorkflowViewModel.ExternalYoloDatasetIntakeDetailText");
+        int externalYoloDatasetCardStart = shellXamlSource.IndexOf("x:Name=\"YoloExternalYoloDatasetPurposeComboBox\"", StringComparison.Ordinal);
+        int externalYoloDatasetCardEnd = shellXamlSource.IndexOf("<local:WpfYoloStatusPanel", StringComparison.Ordinal);
+        AssertTrue(
+            externalYoloDatasetCardStart > adoptionDecisionEnd
+            && externalYoloDatasetCardStart < externalYoloDatasetCardEnd,
+            "external YOLO data.yaml intake should stay in the model-center data evidence panel");
         XElement externalEvaluationLimitText = shellXaml.Descendants()
             .FirstOrDefault(element => string.Equals((string)element.Attribute(xName), "YoloExternalEvaluationAuditLimitText", StringComparison.Ordinal));
         AssertTrue(
@@ -30558,6 +30588,8 @@ internal static partial class Program
             && ((string)externalEvaluationLimitText?.Attribute("Text") ?? string.Empty).Contains("\uBAA8\uB378 \uCC44\uD0DD", StringComparison.Ordinal),
             "evaluation data evidence should distinguish image independence from model adoption evidence");
         AssertTrue(shellSource.Contains("ExecuteExternalEvaluationDataAuditCommand", StringComparison.Ordinal), "external evaluation folder browsing should stay in the shell UI adapter");
+        AssertTrue(shellSource.Contains("ExecuteSelectExternalYoloDatasetCommand", StringComparison.Ordinal), "external YOLO data.yaml selection should stay in the shell UI adapter");
+        AssertTrue(shellSource.Contains("YoloExternalDatasetIntakeService.Build", StringComparison.Ordinal), "external YOLO data.yaml parsing should stay in the intake service");
         AssertTrue(shellViewModelSource.Contains("ReviewCandidateModelCommand", StringComparison.Ordinal), "shell ViewModel should expose a model-center candidate review command");
         AssertTrue(shellViewModelSource.Contains("SetModelCenterCandidateReviewState", StringComparison.Ordinal), "shell ViewModel should own model-center candidate review button state");
         AssertTrue(shellViewModelSource.Contains("IsModelCenterReviewCandidateEnabled", StringComparison.Ordinal), "shell ViewModel should own model-center candidate review enablement");
@@ -31161,6 +31193,7 @@ internal static partial class Program
             var evaluationPurposeText = window.FindName("YoloEvaluationDataPurposeText") as System.Windows.Controls.TextBlock;
             var evaluationReadinessText = window.FindName("YoloDatasetQuickReadinessText") as System.Windows.Controls.TextBlock;
             var evaluationLimitText = window.FindName("YoloExternalEvaluationAuditLimitText") as System.Windows.Controls.TextBlock;
+            var externalYoloDatasetStatusText = window.FindName("YoloExternalYoloDatasetStatusText") as System.Windows.Controls.TextBlock;
             AssertTrue(evaluationPurposeText != null && !string.IsNullOrWhiteSpace(evaluationPurposeText.Text),
                 "data task should show the active dataset purpose next to its evidence");
             AssertTrue(evaluationReadinessText != null
@@ -31172,12 +31205,28 @@ internal static partial class Program
                 && evaluationLimitText.Text.Contains("SHA-256", StringComparison.Ordinal)
                 && evaluationLimitText.Text.Contains("\uBAA8\uB378 \uCC44\uD0DD", StringComparison.Ordinal),
                 "data task should state that an independent image folder is not model-adoption evidence");
+            AssertTrue(externalYoloDatasetStatusText != null
+                && externalYoloDatasetStatusText.Text.Contains("data.yaml", StringComparison.Ordinal),
+                "data task should state the separate native YOLO data.yaml intake state");
             AssertTrue(window.LearningWorkflowViewModel.ExternalEvaluationDataAuditCommand != null,
                 "external evaluation audit should be configured on the learning workflow ViewModel");
             AssertTrue(ReferenceEquals(
                     GetRuntimeButtonCommand(window.FindName("YoloExternalEvaluationAuditButton")),
                     window.LearningWorkflowViewModel.ExternalEvaluationDataAuditCommand),
                 "data task should expose the learning-workflow external evaluation audit command");
+            AssertEqual(2, window.LearningWorkflowViewModel.ExternalYoloDatasetPurposeModes.Count);
+            AssertTrue(window.LearningWorkflowViewModel.SelectExternalYoloDatasetCommand != null
+                && window.LearningWorkflowViewModel.ActivateExternalYoloDatasetCommand != null
+                && window.LearningWorkflowViewModel.ClearExternalYoloDatasetCommand != null,
+                "external YOLO data.yaml actions should be configured on the learning workflow ViewModel");
+            AssertTrue(ReferenceEquals(
+                    GetRuntimeButtonCommand(window.FindName("YoloExternalYoloDatasetSelectButton")),
+                    window.LearningWorkflowViewModel.SelectExternalYoloDatasetCommand),
+                "data task should expose the external YOLO data.yaml selection command");
+            AssertTrue(ReferenceEquals(
+                    GetRuntimeButtonCommand(window.FindName("YoloExternalYoloDatasetActivateButton")),
+                    window.LearningWorkflowViewModel.ActivateExternalYoloDatasetCommand),
+                "data task should expose the explicit external YOLO next-training command");
 
             InvokePrivate(window, "FocusYoloTrainingSettingsTab");
             window.UpdateLayout();
@@ -31924,6 +31973,21 @@ internal static partial class Program
         segmentationTrainingViewModel.ApplyFastRecommendationCommand.Execute(null);
         AssertEqual("yolov5x", segmentationTrainingViewModel.Cfg);
         AssertEqual("yolov5x", segmentationTrainingViewModel.Weight);
+        var externalSegmentationTrainingViewModel = new WpfTrainingSettingsPanelViewModel();
+        externalSegmentationTrainingViewModel.LoadFrom(
+            new TrainingSettings { Cfg = "yolov5s", Weight = "yolov5s" },
+            new YoloDatasetSettings(),
+            new PythonModelSettings { ModelEngine = PythonModelSettings.EngineYoloV8 },
+            LabelingDatasetPurpose.ObjectDetection,
+            new ExternalYoloDatasetSettings
+            {
+                DataYamlFilePath = @"D:\external\segment\data.yaml",
+                DatasetPurpose = LabelingDatasetPurpose.Segmentation,
+                UseForTraining = true
+            });
+        AssertEqual("YOLOv8 SEG", externalSegmentationTrainingViewModel.SelectedTrainingModel);
+        AssertTrue(externalSegmentationTrainingViewModel.TrainingSettingsSummarySplitText.Contains("외부 data.yaml", StringComparison.Ordinal), "external native data.yaml should replace internal split wording in training summary");
+        AssertTrue(externalSegmentationTrainingViewModel.TrainingSettingsSummaryActionText.Contains("외부 data.yaml", StringComparison.Ordinal), "external native data.yaml should state that its split stays selected until explicitly cleared");
         var yolo8DetectionTrainingViewModel = new WpfTrainingSettingsPanelViewModel();
         yolo8DetectionTrainingViewModel.LoadFrom(
             new TrainingSettings { Cfg = "yolov5s", Weight = "yolov5s" },

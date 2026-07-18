@@ -55,6 +55,10 @@ namespace MvcVisionSystem
                 }
 
                 bool started = global.TrainingWorkflow.TryStartTraining(global.Data, global.DeepLearning);
+                if (global?.Data?.ProjectSettings?.ExternalYoloDataset?.HasSelection == true)
+                {
+                    TrySaveExternalYoloDatasetSettings();
+                }
                 string startText = WpfTrainingCommandPresentationService.BuildStartCommandResultStatus(
                     started,
                     global.TrainingWorkflow.LastPreparationFailureMessage);

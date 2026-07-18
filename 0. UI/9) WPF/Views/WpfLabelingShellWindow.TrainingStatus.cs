@@ -203,6 +203,32 @@ namespace MvcVisionSystem
         private void RefreshTrainingReadinessPanel(bool refreshYaml)
         {
             EnsureProjectSettings();
+            ExternalYoloDatasetSettings externalDataset = global.Data.ProjectSettings.ExternalYoloDataset;
+            if (externalDataset?.UseForTraining == true)
+            {
+                // A normal UI refresh uses the persisted snapshot. The explicit refresh action and training start still scan the source again.
+                YoloExternalDatasetIntakeReport externalReport = null;
+                if (refreshYaml)
+                {
+                    externalReport = YoloExternalDatasetIntakeService.Build(
+                        externalDataset.DataYamlFilePath,
+                        externalDataset.DatasetPurpose);
+                    if (externalReport.IsReady
+                        && !YoloExternalDatasetIntakeService.HasCurrentSourceIdentity(externalDataset, externalReport, out string identityError))
+                    {
+                        YoloExternalDatasetIntakeService.ApplyValidation(externalDataset, externalReport);
+                        YoloExternalDatasetIntakeService.MarkSourceIdentityRequiresReactivation(externalDataset, identityError);
+                    }
+                    else
+                    {
+                        YoloExternalDatasetIntakeService.ApplyValidation(externalDataset, externalReport);
+                    }
+                }
+
+                RefreshExternalTrainingReadinessPanel(externalReport);
+                return;
+            }
+
             YoloDatasetReadinessReport report = YoloDatasetReadinessService.Build(global.Data, refreshYaml);
             string readinessText;
             if (report.IsReady)
@@ -229,6 +255,45 @@ namespace MvcVisionSystem
             readinessText = WpfTrainingReadinessPresentationService.BuildStatusText(global.Data, report);
             SetTrainingReadinessStatus(readinessText);
             UpdateYoloTrainingChecklist(report, recordHistory: refreshYaml);
+            UpdateTrainingProgressFromWorker();
+        }
+
+        private void RefreshExternalTrainingReadinessPanel(YoloExternalDatasetIntakeReport externalReport)
+        {
+            RefreshExternalYoloDatasetIntakePresentation();
+            ExternalYoloDatasetSettings settings = global?.Data?.ProjectSettings?.ExternalYoloDataset;
+            bool isReady = settings?.LastValidationSucceeded == true;
+            LabelingDatasetPurpose purpose = externalReport?.Purpose ?? settings?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection;
+            int trainCount = externalReport?.Train.ImageCount ?? settings?.TrainImageCount ?? 0;
+            int validCount = externalReport?.Valid.ImageCount ?? settings?.ValidImageCount ?? 0;
+            int testCount = externalReport?.Test.ImageCount ?? settings?.TestImageCount ?? 0;
+            int annotationCount = externalReport?.TotalAnnotationCount ?? settings?.AnnotationCount ?? 0;
+            int classCount = externalReport?.ClassNames.Count ?? settings?.ClassCount ?? 0;
+            string validationDetail = isReady && externalReport?.IsReady == true
+                ? externalReport.Summary
+                : externalReport != null && !externalReport.IsReady
+                    ? string.Join(" ", externalReport.Errors.Take(2))
+                    : settings?.LastValidationSummary ?? string.Empty;
+            string statusPrefix = externalReport == null ? "외부 YOLO data.yaml 마지막 검증" : "외부 YOLO data.yaml 준비";
+            string externalReadinessText = isReady
+                ? $"{statusPrefix} 완료: {YoloExternalDatasetIntakeService.FormatPurpose(purpose)} / 학습 {trainCount} / 검증 {validCount} / 테스트 {testCount} / 객체 {annotationCount} / 클래스 {classCount}"
+                : "외부 YOLO data.yaml 확인 필요: " + (string.IsNullOrWhiteSpace(validationDetail) ? "원인을 확인하세요." : validationDetail);
+            SetTrainingReadinessStatus(externalReadinessText);
+            if (LearningWorkflowViewModel != null)
+            {
+                LearningWorkflowViewModel.TrainingChecklistStatusText = isReady
+                    ? externalReport == null
+                        ? "데이터셋: 외부 YOLO data.yaml 마지막 검증 통과"
+                        : "데이터셋: 외부 YOLO data.yaml 준비 완료"
+                    : "데이터셋: 외부 YOLO data.yaml 확인 필요";
+                LearningWorkflowViewModel.TrainingChecklistDetailText = validationDetail;
+                LearningWorkflowViewModel.TrainingChecklistActionText = isReady
+                    ? externalReport == null
+                        ? "다음: 학습 시작 시 원본 외부 data.yaml을 다시 검증합니다."
+                        : "다음: 학습/모델 탭에서 시작합니다. 원본 외부 데이터는 변경하지 않습니다."
+                    : "다음: data.yaml 경로, train/val 분할, names와 라벨 형식을 수정한 뒤 다시 확인합니다.";
+            }
+
             UpdateTrainingProgressFromWorker();
         }
 
