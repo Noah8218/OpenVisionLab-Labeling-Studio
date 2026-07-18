@@ -17172,21 +17172,28 @@ internal static partial class Program
             string sourceRoot = Path.Combine(root, "images");
             string normalRoot = Path.Combine(sourceRoot, "OK");
             string abnormalRoot = Path.Combine(sourceRoot, "NG");
+            string nestedNormalRoot = Path.Combine(normalRoot, "circular");
+            string nestedAbnormalRoot = Path.Combine(abnormalRoot, "circular");
             string unmatchedRoot = Path.Combine(sourceRoot, "pending");
             Directory.CreateDirectory(normalRoot);
             Directory.CreateDirectory(abnormalRoot);
+            Directory.CreateDirectory(nestedNormalRoot);
+            Directory.CreateDirectory(nestedAbnormalRoot);
             Directory.CreateDirectory(unmatchedRoot);
 
             string normalImagePath = Path.Combine(normalRoot, "normal.png");
+            string nestedNormalImagePath = Path.Combine(nestedNormalRoot, "nested-normal.png");
             string manualOverrideImagePath = Path.Combine(normalRoot, "manual-override.png");
-            string abnormalImagePath = Path.Combine(abnormalRoot, "abnormal.png");
+            string abnormalImagePath = Path.Combine(nestedAbnormalRoot, "abnormal.png");
             string unmatchedImagePath = Path.Combine(unmatchedRoot, "unmatched.png");
             using (Bitmap normalImage = CreateSolidBitmap(16, 12, Color.White))
+            using (Bitmap nestedNormalImage = CreateSolidBitmap(16, 12, Color.WhiteSmoke))
             using (Bitmap manualOverrideImage = CreateSolidBitmap(16, 12, Color.LightGray))
             using (Bitmap abnormalImage = CreateSolidBitmap(16, 12, Color.Black))
             using (Bitmap unmatchedImage = CreateSolidBitmap(16, 12, Color.Gray))
             {
                 normalImage.Save(normalImagePath);
+                nestedNormalImage.Save(nestedNormalImagePath);
                 manualOverrideImage.Save(manualOverrideImagePath);
                 abnormalImage.Save(abnormalImagePath);
                 unmatchedImage.Save(unmatchedImagePath);
@@ -17202,6 +17209,7 @@ internal static partial class Program
             string[] sourceImagePaths =
             {
                 normalImagePath,
+                nestedNormalImagePath,
                 manualOverrideImagePath,
                 abnormalImagePath,
                 unmatchedImagePath
@@ -17215,13 +17223,14 @@ internal static partial class Program
             var importedReviewStatus = new AnomalyImageReviewStatusService();
             importedReviewStatus.LoadReviewStatus(data, sourceImagePaths);
             AnomalyImageReviewFolderImportResult importResult = importedReviewStatus.ImportUnreviewedStatesFromParentFolders();
-            AssertEqual(1, importResult.NormalImageCount);
+            AssertEqual(2, importResult.NormalImageCount);
             AssertEqual(1, importResult.AbnormalImageCount);
             AssertEqual(1, importResult.ExistingReviewCount);
             AssertEqual(1, importResult.UnmatchedImageCount);
             Dictionary<string, AnomalyImageReviewStatus> importedItems = importedReviewStatus.GetItems()
                 .ToDictionary(item => item.ImagePath, StringComparer.OrdinalIgnoreCase);
             AssertEqual(AnomalyImageReviewState.Normal, importedItems[normalImagePath].ReviewState);
+            AssertEqual(AnomalyImageReviewState.Normal, importedItems[nestedNormalImagePath].ReviewState);
             AssertEqual(AnomalyImageReviewState.Abnormal, importedItems[abnormalImagePath].ReviewState);
             AssertEqual(AnomalyImageReviewState.Abnormal, importedItems[manualOverrideImagePath].ReviewState);
             AssertEqual(AnomalyImageReviewState.Unreviewed, importedItems[unmatchedImagePath].ReviewState);
@@ -17229,20 +17238,22 @@ internal static partial class Program
             AnomalyClassificationTrainingReadinessReport readiness =
                 AnomalyClassificationTrainingReadinessService.Build(data);
             AssertTrue(readiness.IsReady, "OK/NG child folders should satisfy anomaly classification readiness without manual review of every image");
-            AssertEqual(4, readiness.SourceImageCount);
-            AssertEqual(1, readiness.NormalImageCount);
+            AssertEqual(5, readiness.SourceImageCount);
+            AssertEqual(2, readiness.NormalImageCount);
             AssertEqual(2, readiness.AbnormalImageCount);
             AssertEqual(1, readiness.UnreviewedImageCount);
-            AssertEqual(1, readiness.TrainNormalImageCount);
+            AssertEqual(2, readiness.TrainNormalImageCount);
             AssertEqual(2, readiness.TrainAbnormalImageCount);
 
             AnomalyClassificationDatasetExportResult exportResult =
                 new AnomalyClassificationDatasetExportService().Export(data, readiness.SourceImagePaths);
-            AssertEqual(1, exportResult.NormalImageCount);
+            AssertEqual(2, exportResult.NormalImageCount);
             AssertEqual(2, exportResult.AbnormalImageCount);
             AssertEqual(1, exportResult.SkippedImageCount);
             AssertTrue(File.Exists(Path.Combine(exportResult.DatasetRootPath, "train", "normal", "normal.png")),
                 "OK-folder image should export as a normal classification sample");
+            AssertTrue(File.Exists(Path.Combine(exportResult.DatasetRootPath, "train", "normal", "nested-normal.png")),
+                "nested OK-folder image should export as a normal classification sample");
             AssertTrue(File.Exists(Path.Combine(exportResult.DatasetRootPath, "train", "abnormal", "abnormal.png")),
                 "NG-folder image should export as an abnormal classification sample");
             AssertTrue(File.Exists(Path.Combine(exportResult.DatasetRootPath, "train", "abnormal", "manual-override.png")),
@@ -17252,12 +17263,13 @@ internal static partial class Program
             WpfLabelingShellWindow window = new WpfLabelingShellWindow();
             try
             {
-                AssertEqual(4, window.LoadImageQueueFromRoot(sourceRoot, loadFirstImage: false, refreshDetails: false));
+                AssertEqual(5, window.LoadImageQueueFromRoot(sourceRoot, loadFirstImage: false, refreshDetails: false));
                 var persistedReviewStatus = new AnomalyImageReviewStatusService();
                 persistedReviewStatus.LoadReviewStatus(data, sourceImagePaths);
                 Dictionary<string, AnomalyImageReviewStatus> persistedItems = persistedReviewStatus.GetItems()
                     .ToDictionary(item => item.ImagePath, StringComparer.OrdinalIgnoreCase);
                 AssertEqual(AnomalyImageReviewState.Normal, persistedItems[normalImagePath].ReviewState);
+                AssertEqual(AnomalyImageReviewState.Normal, persistedItems[nestedNormalImagePath].ReviewState);
                 AssertEqual(AnomalyImageReviewState.Abnormal, persistedItems[abnormalImagePath].ReviewState);
                 AssertEqual(AnomalyImageReviewState.Abnormal, persistedItems[manualOverrideImagePath].ReviewState);
                 AssertEqual(AnomalyImageReviewState.Unreviewed, persistedItems[unmatchedImagePath].ReviewState);
@@ -17726,13 +17738,14 @@ internal static partial class Program
                     AssertEqual("yolov8", request.model);
                     AssertEqual("classify", request.task);
                     AssertEqual("yolov8n-cls.pt", request.weight);
+                    AssertEqual("workflow-anomaly-yolov8", request.runName);
                     AssertTrue(request.dataYaml.Replace("\\", "/").EndsWith("/classification", StringComparison.Ordinal), "YOLOv8 anomaly training should send the classification dataset root as data path");
                     AssertTrue(File.Exists(Path.Combine(request.dataYaml, "train", "normal", "normal-train.png")), "YOLOv8 normal classification training image was not exported before StartTraining");
                     AssertTrue(File.Exists(Path.Combine(request.dataYaml, "train", "abnormal", "abnormal-train.png")), "YOLOv8 abnormal classification training image was not exported before StartTraining");
                 }));
             AssertTrue(WaitUntil(() => yolo8Communication.GetStatusSnapshot().IsClientConnected, TimeSpan.FromSeconds(5)), "mock YOLOv8 anomaly training client did not connect");
 
-            AssertTrue(workflow.TryStartTraining(data, yolo8Communication), "YOLOv8 anomaly classification workflow should send StartTraining when normal and abnormal examples exist");
+            AssertTrue(workflow.TryStartTraining(data, yolo8Communication, "workflow-anomaly-yolov8"), "YOLOv8 anomaly classification workflow should send StartTraining when normal and abnormal examples exist");
             AssertTrue(yolo8RequestReceived.Wait(TimeSpan.FromSeconds(5)), "mock YOLOv8 anomaly training client did not receive StartTraining");
             AssertTrue(yolo8MockClient.Wait(TimeSpan.FromSeconds(5)), "mock YOLOv8 anomaly training client did not finish");
             if (yolo8MockClient.IsFaulted && yolo8MockClient.Exception != null)
@@ -21995,9 +22008,11 @@ internal static partial class Program
             "best.pt",
             "data.yaml",
             "yolo11",
-            "segment")).Trim();
+            "segment",
+            "protocol-run")).Trim();
         AssertTrue(yolo11TrainingJson.Contains("\"model\":\"yolo11\""), "training packet should carry the selected model engine");
         AssertTrue(yolo11TrainingJson.Contains("\"task\":\"segment\""), "training packet should carry the selected Ultralytics task");
+        AssertTrue(yolo11TrainingJson.Contains("\"runName\":\"protocol-run\""), "training packet should carry an explicit training run name");
         AssertEqual("C:/??⑥щ턄??data.yaml", request.dataYaml);
     }
 
@@ -22991,6 +23006,7 @@ internal static partial class Program
             && source.Contains("allowModelDownload", StringComparison.Ordinal),
             "Ultralytics worker should block implicit model downloads unless explicitly allowed");
         AssertTrue(source.Contains("model.train(", StringComparison.Ordinal), "Ultralytics worker should route training through the Ultralytics API");
+        AssertTrue(source.Contains("plots=False", StringComparison.Ordinal), "Ultralytics worker should skip optional training plots so completion status is not delayed by plot generation");
         AssertTrue(source.Contains("_resolve_cached_training_weight", StringComparison.Ordinal), "Ultralytics worker should prefer cached task-specific training weights from the model root when present");
         AssertTrue(source.Contains("yolov8n-seg.pt", StringComparison.Ordinal)
             && source.Contains("yolov8n-cls.pt", StringComparison.Ordinal)

@@ -850,6 +850,7 @@ class LabelingUltralyticsWorker:
                     name=run_name,
                     exist_ok=True,
                     device=self.detector.device or None,
+                    plots=False,
                 )
             save_dir = str(getattr(result, "save_dir", "") or "")
             send_status("completed", f"Ultralytics {model_name} {task} training completed. {save_dir}".strip(), progress=100, epoch=epochs)

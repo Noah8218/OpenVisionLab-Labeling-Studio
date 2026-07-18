@@ -511,28 +511,34 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            string parentFolderName;
+            DirectoryInfo parentFolder;
             try
             {
-                parentFolderName = Path.GetFileName(Path.GetDirectoryName(imagePath) ?? string.Empty);
+                string parentFolderPath = Path.GetDirectoryName(imagePath);
+                parentFolder = string.IsNullOrWhiteSpace(parentFolderPath)
+                    ? null
+                    : new DirectoryInfo(parentFolderPath);
             }
             catch
             {
                 return false;
             }
 
-            if (string.Equals(parentFolderName, "OK", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(parentFolderName, "normal", StringComparison.OrdinalIgnoreCase))
+            for (; parentFolder != null; parentFolder = parentFolder.Parent)
             {
-                reviewState = AnomalyImageReviewState.Normal;
-                return true;
-            }
+                if (string.Equals(parentFolder.Name, "OK", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(parentFolder.Name, "normal", StringComparison.OrdinalIgnoreCase))
+                {
+                    reviewState = AnomalyImageReviewState.Normal;
+                    return true;
+                }
 
-            if (string.Equals(parentFolderName, "NG", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(parentFolderName, "abnormal", StringComparison.OrdinalIgnoreCase))
-            {
-                reviewState = AnomalyImageReviewState.Abnormal;
-                return true;
+                if (string.Equals(parentFolder.Name, "NG", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(parentFolder.Name, "abnormal", StringComparison.OrdinalIgnoreCase))
+                {
+                    reviewState = AnomalyImageReviewState.Abnormal;
+                    return true;
+                }
             }
 
             return false;

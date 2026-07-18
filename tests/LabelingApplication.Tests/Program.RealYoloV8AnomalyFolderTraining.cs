@@ -36,7 +36,10 @@ internal static partial class Program
             int imageSize = GetPositiveArgument(args, "--image-size", 128);
             int batchSize = GetPositiveArgument(args, "--batch", 4);
             int timeoutSeconds = GetPositiveArgument(args, "--timeout-seconds", 900);
-            string runName = "openvisionlab-yolov8-classify";
+            string runName = GetArgumentValue(
+                args,
+                "--run-name",
+                "openvisionlab-yolov8-classify-" + DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture));
             string runDirectory = Path.Combine(yoloRoot, "runs", "classify", runName);
             artifactRoot = Path.GetFullPath(GetArgumentValue(
                 args,
@@ -48,6 +51,7 @@ internal static partial class Program
             AssertTrue(File.Exists(pythonPath), "YOLOv8 Python was not found: " + pythonPath);
             AssertTrue(File.Exists(clientScriptPath), "YOLOv8 TCP adapter was not found: " + clientScriptPath);
             AssertTrue(File.Exists(seedWeightsPath), "YOLOv8 classification seed was not found: " + seedWeightsPath);
+            AssertTrue(!string.IsNullOrWhiteSpace(runName) && string.Equals(runName, Path.GetFileName(runName), StringComparison.Ordinal), "run name must be a single folder name: " + runName);
             AssertTrue(!Directory.Exists(runDirectory), "refusing to overwrite an existing YOLOv8 classification run: " + runDirectory);
             AssertTrue(!Directory.Exists(artifactRoot), "artifact root already exists: " + artifactRoot);
 
@@ -111,7 +115,7 @@ internal static partial class Program
 
             var workflow = new YoloTrainingWorkflowService();
             AssertTrue(
-                workflow.TryStartTraining(data, communication),
+                workflow.TryStartTraining(data, communication, runName),
                 BuildRealYoloSmokeFailure("YOLOv8 anomaly training request was not sent: " + workflow.LastPreparationFailureMessage, stdout, stderr));
 
             string classificationRoot = Path.Combine(outputRoot, AnomalyClassificationDatasetExportService.DefaultFolderName);
@@ -152,6 +156,7 @@ internal static partial class Program
                 "epochs=" + epochCount.ToString(CultureInfo.InvariantCulture),
                 "imageSize=" + imageSize.ToString(CultureInfo.InvariantCulture),
                 "batch=" + batchSize.ToString(CultureInfo.InvariantCulture),
+                "runName=" + runName,
                 "workerTrainingState=" + finalStatus.LastTrainingState,
                 "workerTrainingMessage=" + finalStatus.LastTrainingMessage,
                 "bestWeights=" + bestWeightsPath,
