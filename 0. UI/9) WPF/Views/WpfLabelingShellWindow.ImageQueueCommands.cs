@@ -30,7 +30,7 @@ namespace MvcVisionSystem
                 SaveCurrentImageRootToRecipe(imageRootPath);
             }
 
-            LoadImageQueueFromRoot(imageRootPath, activeImagePath, loadFirstImage: true);
+            _ = LoadImageQueueFromRootAsync(imageRootPath, activeImagePath, loadFirstImage: true);
         }
 
         private void ExecuteBrowseImageFolderCommand()
@@ -44,7 +44,7 @@ namespace MvcVisionSystem
             EnsureProjectSettings();
             global.Data.ProjectSettings.PythonModel.ImageRootPath = selectedPath;
             SaveCurrentImageRootToRecipe(selectedPath);
-            LoadImageQueueFromRoot(selectedPath, string.Empty, loadFirstImage: true);
+            _ = LoadImageQueueFromRootAsync(selectedPath, string.Empty, loadFirstImage: true);
             RefreshShellDatasetContext();
         }
 
@@ -103,7 +103,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            LoadImageQueueFromRoot(root, activeImagePath, loadFirstImage: imageQueueItems.Count == 0);
+            _ = LoadImageQueueFromRootAsync(root, activeImagePath, loadFirstImage: imageQueueItems.Count == 0);
         }
 
         private void ExecuteNextUnlabeledQueueCommand()

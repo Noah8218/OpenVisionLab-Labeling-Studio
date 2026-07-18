@@ -46,6 +46,46 @@ namespace MvcVisionSystem
 {
     public partial class WpfLabelingShellWindow
     {
+        private void CancelImageQueueCatalogLoad(bool waitForCompletion)
+        {
+            CancellationTokenSource cts = imageQueueCatalogLoadCts;
+            Task catalogTask = imageQueueCatalogLoadTask;
+            if (cts == null)
+            {
+                return;
+            }
+
+            imageQueueCatalogLoadVersion++;
+            cts.Cancel();
+            if (waitForCompletion)
+            {
+                WaitForImageQueueDetailRefresh(catalogTask);
+            }
+
+            if (catalogTask == null || catalogTask.IsCompleted)
+            {
+                cts.Dispose();
+            }
+            else
+            {
+                catalogTask.ContinueWith(
+                    _ => cts.Dispose(),
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+            }
+
+            if (ReferenceEquals(cts, imageQueueCatalogLoadCts))
+            {
+                imageQueueCatalogLoadCts = null;
+            }
+
+            if (ReferenceEquals(catalogTask, imageQueueCatalogLoadTask))
+            {
+                imageQueueCatalogLoadTask = Task.CompletedTask;
+            }
+        }
+
         // Queue detail cancellation is lifecycle plumbing; it should not obscure shell composition.
         private void CancelImageQueueDetailRefresh(bool waitForCompletion)
         {

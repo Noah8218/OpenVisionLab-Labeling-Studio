@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Threading;
 using MvcVisionSystem.Yolo;
 
 namespace MvcVisionSystem
@@ -21,34 +22,101 @@ namespace MvcVisionSystem
 
         public List<string> EnumerateImageFiles(string imageRoot)
         {
+            return EnumerateImageFiles(imageRoot, CancellationToken.None);
+        }
+
+        public bool HasImageFiles(string imageRoot)
+        {
+            if (string.IsNullOrWhiteSpace(imageRoot) || !Directory.Exists(imageRoot))
+            {
+                return false;
+            }
+
+            return Directory.EnumerateFiles(imageRoot, "*", SearchOption.TopDirectoryOnly).Any(HasSupportedExtension)
+                || Directory.EnumerateFiles(imageRoot, "*", SearchOption.AllDirectories).Any(HasSupportedExtension);
+        }
+
+        public List<string> EnumerateImageFiles(string imageRoot, CancellationToken cancellationToken)
+        {
             if (string.IsNullOrWhiteSpace(imageRoot) || !Directory.Exists(imageRoot))
             {
                 return new List<string>();
             }
 
-            List<string> directImages = EnumerateImageFiles(imageRoot, SearchOption.TopDirectoryOnly);
+            List<string> directImages = EnumerateImageFiles(imageRoot, SearchOption.TopDirectoryOnly, cancellationToken);
             return (directImages.Count > 0
                     ? directImages
-                    : EnumerateImageFiles(imageRoot, SearchOption.AllDirectories))
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+                    : EnumerateImageFiles(imageRoot, SearchOption.AllDirectories, cancellationToken));
         }
 
-        private List<string> EnumerateImageFiles(string imageRoot, SearchOption searchOption)
+        private List<string> EnumerateImageFiles(
+            string imageRoot,
+            SearchOption searchOption,
+            CancellationToken cancellationToken)
         {
-            return Directory
-                .EnumerateFiles(imageRoot, "*", searchOption)
-                .Where(HasSupportedExtension)
-                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                .ToList();
+            var imagePaths = new List<string>();
+            foreach (string imagePath in Directory.EnumerateFiles(imageRoot, "*", searchOption))
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (HasSupportedExtension(imagePath))
+                {
+                    imagePaths.Add(imagePath);
+                }
+            }
+
+            imagePaths.Sort(StringComparer.OrdinalIgnoreCase);
+            return imagePaths;
         }
 
         public IReadOnlyList<WpfImageQueueItem> CreateShellItems(IEnumerable<string> imagePaths)
         {
-            return (imagePaths ?? Array.Empty<string>())
-                .Where(path => !string.IsNullOrWhiteSpace(path))
+            return CreateShellItems(imagePaths, CancellationToken.None);
+        }
+
+        public IReadOnlyList<WpfImageQueueItem> CreateShellItems(
+            IEnumerable<string> imagePaths,
+            CancellationToken cancellationToken)
+        {
+            return CreateCatalogEntries(imagePaths, cancellationToken)
                 .Select(WpfImageQueueItem.CreateShell)
                 .ToList();
+        }
+
+        public IReadOnlyList<WpfImageQueueCatalogEntry> CreateCatalogEntries(
+            IEnumerable<string> imagePaths,
+            CancellationToken cancellationToken)
+        {
+            var entries = new List<WpfImageQueueCatalogEntry>();
+            foreach (string imagePath in imagePaths ?? Array.Empty<string>())
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!string.IsNullOrWhiteSpace(imagePath))
+                {
+                    entries.Add(WpfImageQueueCatalogEntry.Create(imagePath));
+                }
+            }
+
+            return entries;
+        }
+
+        public IReadOnlyList<WpfImageQueueCatalogEntry> CreateCatalogEntries(IEnumerable<string> imagePaths)
+        {
+            return CreateCatalogEntries(imagePaths, CancellationToken.None);
+        }
+
+        public IReadOnlyList<WpfImageQueueItem> CreateShellItemsFromCatalog(
+            IEnumerable<WpfImageQueueCatalogEntry> entries)
+        {
+            var items = new List<WpfImageQueueItem>();
+            foreach (WpfImageQueueCatalogEntry entry in entries ?? Array.Empty<WpfImageQueueCatalogEntry>())
+            {
+                if (entry != null)
+                {
+                    items.Add(WpfImageQueueItem.CreateShell(entry));
+                }
+            }
+
+            return items;
         }
 
         public WpfImageQueueItem FindItem(IEnumerable<WpfImageQueueItem> items, string imagePath)

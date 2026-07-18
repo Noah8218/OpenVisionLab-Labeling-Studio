@@ -29,6 +29,7 @@ namespace MvcVisionSystem
             StopTrainingStatusPolling();
             trainingStatusPollTimer.Tick -= TrainingStatusPollTimer_Tick;
             imageDecodePreloadService.CancelAndWait(TimeSpan.FromSeconds(2));
+            CancelImageQueueCatalogLoad(waitForCompletion: true);
             CancelImageQueueDetailRefresh(waitForCompletion: true);
             batchDetectionCts?.Cancel();
             batchDetectionCts?.Dispose();

@@ -135,7 +135,7 @@ namespace MvcVisionSystem
             string imageRootPath = ResolveActiveDatasetImageRoot();
             if (Directory.Exists(imageRootPath))
             {
-                LoadImageQueueFromRoot(imageRootPath, string.Empty, loadFirstImage: true);
+                _ = LoadImageQueueFromRootAsync(imageRootPath, string.Empty, loadFirstImage: true);
             }
             else
             {
@@ -157,19 +157,21 @@ namespace MvcVisionSystem
         {
             return !string.IsNullOrWhiteSpace(imageRoot)
                 && Directory.Exists(imageRoot)
-                && imageQueueSelectionService.EnumerateImageFiles(imageRoot).Count > 0;
+                && imageQueueSelectionService.HasImageFiles(imageRoot);
         }
 
         private void ClearImageQueueAfterDatasetSwitch(string imageRootPath)
         {
             currentImageRoot = imageRootPath ?? string.Empty;
             ImageQueueViewModel?.SetCurrentImageFolder(currentImageRoot, canOpenFolder: false);
+            CancelImageQueueCatalogLoad(waitForCompletion: false);
             CancelImageQueueDetailRefresh(waitForCompletion: false);
             imageReviewStatus.SetImages(Array.Empty<string>());
             suppressImageQueueSelection = true;
             try
             {
                 imageQueueItems.Clear();
+                imageQueueItemsByPath.Clear();
                 imageQueueView?.Refresh();
             }
             finally
@@ -327,7 +329,7 @@ namespace MvcVisionSystem
             EnterLabelingWorkbenchStartView();
             if (Directory.Exists(setupImageRootPath))
             {
-                LoadImageQueueFromRoot(setupImageRootPath, string.Empty, loadFirstImage: true);
+                _ = LoadImageQueueFromRootAsync(setupImageRootPath, string.Empty, loadFirstImage: true);
             }
             else
             {

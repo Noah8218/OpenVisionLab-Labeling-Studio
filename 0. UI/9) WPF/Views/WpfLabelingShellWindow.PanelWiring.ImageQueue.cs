@@ -1,4 +1,5 @@
 using OpenVisionLab.Mvvm.Behaviors;
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Data;
 
@@ -14,8 +15,26 @@ namespace MvcVisionSystem
             ImageQueueFilterBox.SelectedIndex = 0;
             imageQueueView = CollectionViewSource.GetDefaultView(imageQueueItems);
             imageQueueView.Filter = item => ShouldShowImageQueueItem(item as WpfImageQueueItem);
+            ConfigureImageQueueLiveFiltering();
             ImageQueueGrid.ItemsSource = imageQueueView;
             UpdateQueueQuickFilterButtons();
+        }
+
+        private void ConfigureImageQueueLiveFiltering()
+        {
+            if (!(imageQueueView is ICollectionViewLiveShaping liveShaping)
+                || !liveShaping.CanChangeLiveFiltering)
+            {
+                return;
+            }
+
+            liveShaping.LiveFilteringProperties.Clear();
+            liveShaping.LiveFilteringProperties.Add(nameof(WpfImageQueueItem.FileName));
+            liveShaping.LiveFilteringProperties.Add(nameof(WpfImageQueueItem.IsLabeled));
+            liveShaping.LiveFilteringProperties.Add(nameof(WpfImageQueueItem.IsSaveRequired));
+            liveShaping.LiveFilteringProperties.Add(nameof(WpfImageQueueItem.ReviewState));
+            liveShaping.LiveFilteringProperties.Add(nameof(WpfImageQueueItem.QualityReviewState));
+            liveShaping.IsLiveFiltering = true;
         }
 
         private void ConfigureImageQueuePanelCommands()

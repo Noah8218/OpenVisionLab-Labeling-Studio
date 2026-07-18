@@ -55,8 +55,9 @@ namespace MvcVisionSystem
         private const double PreferredInitialShellHeight = 1080D;
         private readonly CGlobal global = CGlobal.Inst;
         private readonly WpfBulkObservableCollection<WpfImageQueueItem> imageQueueItems = new WpfBulkObservableCollection<WpfImageQueueItem>();
-        private readonly YoloImageReviewStatusService imageReviewStatus = new YoloImageReviewStatusService();
-        private readonly AnomalyImageReviewStatusService anomalyImageReviewStatus = new AnomalyImageReviewStatusService();
+        private readonly Dictionary<string, WpfImageQueueItem> imageQueueItemsByPath = new Dictionary<string, WpfImageQueueItem>(StringComparer.OrdinalIgnoreCase);
+        private YoloImageReviewStatusService imageReviewStatus = new YoloImageReviewStatusService();
+        private AnomalyImageReviewStatusService anomalyImageReviewStatus = new AnomalyImageReviewStatusService();
         private int queuedActiveImageQueueStatusRefreshVersion;
         private readonly WpfImageQueueSelectionService imageQueueSelectionService = new WpfImageQueueSelectionService();
         private readonly WpfDatasetImageRootResolver datasetImageRootResolver = new WpfDatasetImageRootResolver();
@@ -65,6 +66,9 @@ namespace MvcVisionSystem
         private readonly WpfImageDecodePreloadService imageDecodePreloadService = new WpfImageDecodePreloadService();
         private WpfImageLoadDiagnostics lastImageLoadDiagnostics = WpfImageLoadDiagnostics.Empty;
         private ICollectionView imageQueueView;
+        private CancellationTokenSource imageQueueCatalogLoadCts;
+        private Task imageQueueCatalogLoadTask = Task.CompletedTask;
+        private int imageQueueCatalogLoadVersion;
         private CancellationTokenSource imageQueueDetailLoadCts;
         private Task imageQueueDetailLoadTask = Task.CompletedTask;
         private CancellationTokenSource batchDetectionCts;

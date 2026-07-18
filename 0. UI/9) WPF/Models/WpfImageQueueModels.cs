@@ -16,6 +16,61 @@ using DrawingSize = System.Drawing.Size;
 
 namespace MvcVisionSystem
 {
+    public sealed class WpfImageQueueCatalogEntry
+    {
+        private WpfImageQueueCatalogEntry(
+            string imagePath,
+            string fileName,
+            string folderName,
+            string fileSize,
+            string modified)
+        {
+            ImagePath = imagePath ?? string.Empty;
+            FileName = fileName ?? string.Empty;
+            FolderName = folderName ?? string.Empty;
+            FileSize = fileSize ?? string.Empty;
+            Modified = modified ?? string.Empty;
+        }
+
+        public string ImagePath { get; }
+
+        public string FileName { get; }
+
+        public string FolderName { get; }
+
+        public string FileSize { get; }
+
+        public string Modified { get; }
+
+        public static WpfImageQueueCatalogEntry Create(string imagePath)
+        {
+            FileInfo fileInfo = new FileInfo(imagePath ?? string.Empty);
+            return new WpfImageQueueCatalogEntry(
+                imagePath,
+                Path.GetFileName(imagePath),
+                fileInfo.Directory?.Name,
+                FormatFileSize(fileInfo.Exists ? fileInfo.Length : 0),
+                fileInfo.Exists
+                    ? fileInfo.LastWriteTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture)
+                    : string.Empty);
+        }
+
+        private static string FormatFileSize(long bytes)
+        {
+            if (bytes >= 1024 * 1024)
+            {
+                return $"{bytes / 1024D / 1024D:0.#} MB";
+            }
+
+            if (bytes >= 1024)
+            {
+                return $"{bytes / 1024D:0.#} KB";
+            }
+
+            return $"{Math.Max(0, bytes)} B";
+        }
+    }
+
     public sealed class WpfImageQueueItem : INotifyPropertyChanged
     {
         internal static readonly Brush ErrorBrush = CreateFrozenBrush("#FF5A5F");
@@ -163,14 +218,18 @@ namespace MvcVisionSystem
 
         public static WpfImageQueueItem CreateShell(string imagePath)
         {
-            FileInfo fileInfo = new FileInfo(imagePath);
+            return CreateShell(WpfImageQueueCatalogEntry.Create(imagePath));
+        }
+
+        public static WpfImageQueueItem CreateShell(WpfImageQueueCatalogEntry entry)
+        {
             return new WpfImageQueueItem
             {
-                ImagePath = imagePath ?? string.Empty,
-                FileName = Path.GetFileName(imagePath),
-                FolderName = fileInfo.Directory?.Name ?? string.Empty,
-                FileSize = FormatFileSize(fileInfo.Exists ? fileInfo.Length : 0),
-                Modified = fileInfo.Exists ? fileInfo.LastWriteTime.ToString("yyyy-MM-dd HH:mm", CultureInfo.InvariantCulture) : string.Empty
+                ImagePath = entry?.ImagePath ?? string.Empty,
+                FileName = entry?.FileName ?? string.Empty,
+                FolderName = entry?.FolderName ?? string.Empty,
+                FileSize = entry?.FileSize ?? string.Empty,
+                Modified = entry?.Modified ?? string.Empty
             };
         }
 
@@ -248,21 +307,6 @@ namespace MvcVisionSystem
                 || string.Equals(propertyName, nameof(Detail), StringComparison.Ordinal)
                 || string.Equals(propertyName, nameof(QueueStatusSummary), StringComparison.Ordinal)
                 || string.Equals(propertyName, nameof(QualityReviewState), StringComparison.Ordinal);
-        }
-
-        private static string FormatFileSize(long bytes)
-        {
-            if (bytes >= 1024 * 1024)
-            {
-                return $"{bytes / 1024D / 1024D:0.#} MB";
-            }
-
-            if (bytes >= 1024)
-            {
-                return $"{bytes / 1024D:0.#} KB";
-            }
-
-            return $"{Math.Max(0, bytes)} B";
         }
 
         private static ImageSource CreateThumbnailSource(string imagePath)

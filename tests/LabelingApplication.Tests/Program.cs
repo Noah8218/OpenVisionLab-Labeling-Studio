@@ -450,6 +450,21 @@ internal static partial class Program
             return RunSingleSmoke("WPF image queue large folder keeps bulk and lazy thumbnail behavior", TestWpfImageQueueLargeFolderKeepsBulkAndLazyThumbnails);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--wpf-image-queue-10k-responsive", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF image queue 10K catalog stays responsive and rejects stale loads", TestWpfImageQueueTenThousandAsyncCatalogLoad);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--wpf-image-queue-10k-detail-responsive", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF image queue 10K detail refresh keeps dispatcher responsive", TestWpfImageQueueTenThousandDetailRefreshKeepsDispatcherResponsive);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--wpf-image-queue-operator-profile", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF image queue profiles a read-only operator folder", () => TestWpfImageQueueOperatorFolderProfile(args));
+        }
+
         if (args.Any(arg => string.Equals(arg, "--wpf-image-queue-root-switch", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("WPF image queue root switch ignores a stale active image", TestWpfImageQueueLoadsSupportedFiles);
@@ -1142,6 +1157,7 @@ internal static partial class Program
             ("WPF image queue click loads canvas", TestWpfImageQueueClickLoadsCanvas),
             ("WPF image queue arrow keys load adjacent images", TestWpfImageQueueArrowKeysLoadAdjacentImages),
             ("WPF image queue large folder keeps bulk and lazy thumbnail behavior", TestWpfImageQueueLargeFolderKeepsBulkAndLazyThumbnails),
+            ("WPF image queue 10K catalog stays responsive and rejects stale loads", TestWpfImageQueueTenThousandAsyncCatalogLoad),
             ("WPF detection candidates render as detection overlays", TestWpfDetectionCandidatesRenderAsDetectionOverlays),
             ("WPF model comparison example click focuses difference", TestWpfModelComparisonExampleClickFocusesDifference),
             ("WPF current-image smoke detection preserves manual labels", TestWpfCurrentImageSmokeDetectionPreservesManualLabels),
@@ -36387,6 +36403,186 @@ internal static partial class Program
         }
         finally
         {
+            DeleteTempRoot(root);
+        }
+    }
+
+    private static void TestWpfImageQueueTenThousandAsyncCatalogLoad()
+    {
+        if (System.Windows.Application.Current == null)
+        {
+            _ = new System.Windows.Application
+            {
+                ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown
+            };
+        }
+
+        const int imageCount = 10_000;
+        string root = CreateTempRoot();
+        string replacementRoot = CreateTempRoot();
+        CData previousData = CGlobal.Inst.Data;
+        try
+        {
+            var data = new CData();
+            data.ConfigureOutputRoot(Path.Combine(root, "output"));
+            CGlobal.Inst.Data = data;
+            for (int index = 0; index < imageCount; index++)
+            {
+                File.WriteAllText(Path.Combine(root, FormattableString.Invariant($"queue-{index:00000}.jpg")), string.Empty);
+            }
+
+            for (int index = 0; index < 3; index++)
+            {
+                File.WriteAllText(Path.Combine(replacementRoot, FormattableString.Invariant($"replacement-{index:00}.jpg")), string.Empty);
+            }
+
+            WpfLabelingShellWindow window = new WpfLabelingShellWindow();
+            try
+            {
+                var collectionActions = new List<NotifyCollectionChangedAction>();
+                ((INotifyCollectionChanged)window.ImageQueueItems).CollectionChanged += (_, args) => collectionActions.Add(args.Action);
+
+                Stopwatch startStopwatch = Stopwatch.StartNew();
+                Task<int> loadTask = window.LoadImageQueueFromRootAsync(root, loadFirstImage: false, refreshDetails: false);
+                startStopwatch.Stop();
+                AssertTrue(startStopwatch.Elapsed < TimeSpan.FromMilliseconds(250),
+                    "10K queue command should return to the dispatcher before catalog enumeration completes");
+
+                bool inputProbeRan = false;
+                window.Dispatcher.BeginInvoke(
+                    System.Windows.Threading.DispatcherPriority.Input,
+                    new Action(() => inputProbeRan = true));
+                AssertTrue(WaitUntilWpf(() => inputProbeRan, TimeSpan.FromSeconds(2)),
+                    "dispatcher input should run while the 10K catalog is loading");
+                AssertTrue(WaitUntilWpf(() => loadTask.IsCompleted, TimeSpan.FromSeconds(30)),
+                    "10K image queue catalog did not complete");
+
+                AssertEqual(imageCount, loadTask.GetAwaiter().GetResult());
+                AssertEqual(imageCount, window.ImageQueueItems.Count);
+                AssertEqual(1, collectionActions.Count);
+                AssertEqual(NotifyCollectionChangedAction.Reset, collectionActions[0]);
+
+                FieldInfo thumbnailAttemptedField = typeof(WpfImageQueueItem).GetField(
+                    "thumbnailLoadAttempted",
+                    BindingFlags.Instance | BindingFlags.NonPublic);
+                AssertTrue(thumbnailAttemptedField != null, "WPF image queue thumbnail lazy flag was not found");
+                AssertTrue(window.ImageQueueItems.All(item => !(bool)thumbnailAttemptedField.GetValue(item)),
+                    "10K catalog loading should not decode thumbnails before rows are realized");
+
+                Task<int> supersededTask = window.LoadImageQueueFromRootAsync(root, loadFirstImage: false, refreshDetails: false);
+                Task<int> replacementTask = window.LoadImageQueueFromRootAsync(replacementRoot, loadFirstImage: false, refreshDetails: false);
+                AssertTrue(WaitUntilWpf(() => replacementTask.IsCompleted, TimeSpan.FromSeconds(30)),
+                    "replacement image queue catalog did not complete");
+                AssertTrue(WaitUntilWpf(() => supersededTask.IsCompleted, TimeSpan.FromSeconds(30)),
+                    "superseded image queue catalog did not finish after cancellation");
+
+                AssertEqual(3, replacementTask.GetAwaiter().GetResult());
+                AssertEqual(3, window.ImageQueueItems.Count);
+                AssertTrue(window.ImageQueueItems.All(item => item.ImagePath.StartsWith(replacementRoot, StringComparison.OrdinalIgnoreCase)),
+                    "a superseded catalog result must not overwrite the replacement queue");
+
+                Console.WriteLine($"ASYNC_10K_QUEUE_START_MS={startStopwatch.Elapsed.TotalMilliseconds:0.0}; ITEMS={imageCount}; REPLACEMENT_ITEMS={window.ImageQueueItems.Count}");
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            CGlobal.Inst.Data = previousData;
+            DeleteTempRoot(root);
+            DeleteTempRoot(replacementRoot);
+        }
+    }
+
+    private static void TestWpfImageQueueTenThousandDetailRefreshKeepsDispatcherResponsive()
+    {
+        if (System.Windows.Application.Current == null)
+        {
+            _ = new System.Windows.Application
+            {
+                ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown
+            };
+        }
+
+        const int imageCount = 10_000;
+        string root = CreateTempRoot();
+        CData previousData = CGlobal.Inst.Data;
+        try
+        {
+            string seedImagePath = Path.Combine(root, "detail-00000.jpg");
+            using (Bitmap image = new Bitmap(4, 3))
+            {
+                image.Save(seedImagePath, System.Drawing.Imaging.ImageFormat.Jpeg);
+            }
+
+            for (int index = 1; index < imageCount; index++)
+            {
+                File.Copy(seedImagePath, Path.Combine(root, FormattableString.Invariant($"detail-{index:00000}.jpg")));
+            }
+
+            var data = new CData();
+            data.ConfigureOutputRoot(Path.Combine(root, "output"));
+            CGlobal.Inst.Data = data;
+
+            WpfLabelingShellWindow window = new WpfLabelingShellWindow();
+            try
+            {
+                Stopwatch totalScanStopwatch = Stopwatch.StartNew();
+                Task<int> catalogTask = window.LoadImageQueueFromRootAsync(root, loadFirstImage: false, refreshDetails: true);
+                AssertTrue(WaitUntilWpf(() => catalogTask.IsCompleted, TimeSpan.FromSeconds(30)),
+                    "10K image queue catalog did not complete before detail responsiveness verification");
+                AssertEqual(imageCount, catalogTask.GetAwaiter().GetResult());
+
+                Task detailTask = GetPrivateField<Task>(window, "imageQueueDetailLoadTask");
+                AssertTrue(detailTask != null, "10K image queue detail refresh task was not started");
+                AssertTrue(WaitUntilWpf(
+                        () => window.StatusBarViewModel.DatasetStatusText.Contains("\uC0C1\uD0DC \uD655\uC778", StringComparison.Ordinal),
+                        TimeSpan.FromSeconds(10)),
+                    "10K detail refresh should show its progress in the visible dataset status");
+
+                ICollectionView queueView = GetPrivateField<ICollectionView>(window, "imageQueueView");
+                Predicate<object> originalQueueFilter = queueView.Filter;
+                int filterEvaluationCount = 0;
+                queueView.Filter = value =>
+                {
+                    filterEvaluationCount++;
+                    return originalQueueFilter?.Invoke(value) ?? true;
+                };
+                PumpWpfDispatcher(TimeSpan.FromMilliseconds(100));
+                filterEvaluationCount = 0;
+
+                bool detailWasRunningAtProbe = !detailTask.IsCompleted;
+                bool inputProbeRan = false;
+                Stopwatch inputStopwatch = Stopwatch.StartNew();
+                window.Dispatcher.BeginInvoke(
+                    System.Windows.Threading.DispatcherPriority.Input,
+                    new Action(() => inputProbeRan = true));
+                AssertTrue(WaitUntilWpf(() => inputProbeRan, TimeSpan.FromSeconds(2)),
+                    "dispatcher input did not run while the 10K detail refresh was active");
+                inputStopwatch.Stop();
+                AssertTrue(inputStopwatch.Elapsed < TimeSpan.FromSeconds(2),
+                    "10K detail refresh delayed dispatcher input unexpectedly");
+
+                AssertTrue(WaitUntilWpf(() => detailTask.IsCompleted, TimeSpan.FromSeconds(120)),
+                    "10K image queue detail refresh did not complete");
+                AssertTrue(filterEvaluationCount <= imageCount * 12,
+                    "10K detail refresh should not repeatedly re-evaluate the full filtered view");
+                AssertTrue(window.ImageQueueItems.All(item => string.Equals(item.Dimensions, "4x3", StringComparison.Ordinal)),
+                    "10K detail refresh did not apply image dimensions to every queue row");
+
+                totalScanStopwatch.Stop();
+                Console.WriteLine($"DETAIL_10K_TOTAL_MS={totalScanStopwatch.Elapsed.TotalMilliseconds:0.0}; DETAIL_10K_INPUT_MS={inputStopwatch.Elapsed.TotalMilliseconds:0.0}; DETAIL_RUNNING_AT_PROBE={detailWasRunningAtProbe}; FILTER_EVALUATIONS={filterEvaluationCount}; ITEMS={imageCount}");
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            CGlobal.Inst.Data = previousData;
             DeleteTempRoot(root);
         }
     }

@@ -46,6 +46,12 @@ namespace MvcVisionSystem
 
         private WpfImageQueueItem FindImageQueueItem(string imagePath)
         {
+            if (!string.IsNullOrWhiteSpace(imagePath)
+                && imageQueueItemsByPath.TryGetValue(imagePath, out WpfImageQueueItem indexedItem))
+            {
+                return indexedItem;
+            }
+
             return imageQueueSelectionService.FindItem(imageQueueItems, imagePath);
         }
 
