@@ -1588,14 +1588,18 @@
             <Grid.ColumnDefinitions>
                 <ColumnDefinition x:Name="RightWorkflowColumn"
                                   Width="{Binding ShellViewModel.RightWorkflowPaneGridLength, ElementName=ShellWindow}"
-                                  MinWidth="72"
-                                  MaxWidth="640" />
-                <ColumnDefinition Width="10" />
-                <ColumnDefinition Width="*" MinWidth="420" />
-                <ColumnDefinition Width="10" />
+                                  MinWidth="{Binding ShellViewModel.RightWorkflowPaneMinWidth, ElementName=ShellWindow}"
+                                  MaxWidth="{Binding ShellViewModel.RightWorkflowPaneMaxWidth, ElementName=ShellWindow}" />
+                <ColumnDefinition x:Name="LeftWorkspaceSplitterColumn"
+                                  Width="{Binding ShellViewModel.WorkspaceSplitterPaneGridLength, ElementName=ShellWindow}" />
+                <ColumnDefinition x:Name="CanvasWorkspaceColumn"
+                                  Width="{Binding ShellViewModel.CanvasWorkspacePaneGridLength, ElementName=ShellWindow}"
+                                  MinWidth="{Binding ShellViewModel.CanvasWorkspacePaneMinWidth, ElementName=ShellWindow}" />
+                <ColumnDefinition x:Name="RightWorkspaceSplitterColumn"
+                                  Width="{Binding ShellViewModel.WorkspaceSplitterPaneGridLength, ElementName=ShellWindow}" />
                 <ColumnDefinition x:Name="ImageQueueColumn"
-                                  Width="320"
-                                  MinWidth="260"
+                                  Width="{Binding ShellViewModel.ImageQueuePaneGridLength, ElementName=ShellWindow}"
+                                  MinWidth="{Binding ShellViewModel.ImageQueuePaneMinWidth, ElementName=ShellWindow}"
                                   MaxWidth="640" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
@@ -1608,9 +1612,12 @@
 
             <local:WpfImageQueuePanel x:Name="ImageQueuePanelControl"
                                       Grid.Column="4"
-                                      Grid.RowSpan="3" />
+                                      Grid.RowSpan="3"
+                                      Visibility="{Binding ShellViewModel.IsImageQueueWorkspaceVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
-            <local:WpfCanvasPanel x:Name="CanvasPanelControl" Grid.Column="2" />
+            <local:WpfCanvasPanel x:Name="CanvasPanelControl"
+                                  Grid.Column="2"
+                                  Visibility="{Binding ShellViewModel.IsCanvasWorkspaceVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}" />
 
             <GridSplitter x:Name="LeftWorkspaceSplitter"
                           Grid.Column="1"
@@ -1624,6 +1631,7 @@
                           ResizeBehavior="PreviousAndNext"
                           ShowsPreview="True"
                           IsEnabled="{Binding ShellViewModel.IsRightWorkflowDockExpanded, ElementName=ShellWindow}"
+                          Visibility="{Binding ShellViewModel.IsWorkspaceSplitterVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
                           DragCompleted="LeftWorkspaceSplitter_DragCompleted" />
 
             <GridSplitter x:Name="RightWorkspaceSplitter"
@@ -1637,6 +1645,7 @@
                           ResizeDirection="Columns"
                           ResizeBehavior="PreviousAndNext"
                           ShowsPreview="True"
+                          Visibility="{Binding ShellViewModel.IsWorkspaceSplitterVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
                           DragCompleted="RightWorkspaceSplitter_DragCompleted" />
 
             <Border x:Name="RightWorkflowDockPanel"
@@ -1670,6 +1679,7 @@
                                     ToolTip="{Binding ShellViewModel.RightWorkflowDockToggleToolTip, ElementName=ShellWindow}"
                                     Command="{Binding ShellViewModel.ToggleRightWorkflowDockCommand, ElementName=ShellWindow}"
                                     Style="{StaticResource RightWorkflowDockButtonStyle}"
+                                    Visibility="{Binding ShellViewModel.IsRightWorkflowDockToggleVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
                                     Margin="0,0,8,0"
                                     VerticalAlignment="Center">
                                 <iconPacks:PackIconMaterial Kind="ChevronLeft" Width="14" Height="14" />

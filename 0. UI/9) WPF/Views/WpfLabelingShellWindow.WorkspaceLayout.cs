@@ -23,6 +23,15 @@ namespace MvcVisionSystem
 
         private void RightWorkspaceSplitter_DragCompleted(object sender, DragCompletedEventArgs e)
         {
+            ShellViewModel?.SetImageQueueExpandedPaneWidth(ImageQueueColumn.ActualWidth);
+            BindingOperations.SetBinding(
+                ImageQueueColumn,
+                ColumnDefinition.WidthProperty,
+                new System.Windows.Data.Binding("ShellViewModel.ImageQueuePaneGridLength")
+                {
+                    Source = this,
+                    Mode = BindingMode.OneWay
+                });
             SaveWorkspaceLayoutSettings();
         }
 
@@ -43,14 +52,15 @@ namespace MvcVisionSystem
         {
             WpfWorkspaceLayoutSettings normalized = WpfWorkspaceLayoutSettings.Normalize(settings);
             ShellViewModel?.SetRightWorkflowExpandedPaneWidth(normalized.WorkflowPaneWidth);
-            ImageQueueColumn.Width = new GridLength(normalized.ImageQueuePaneWidth);
+            ShellViewModel?.SetImageQueueExpandedPaneWidth(normalized.ImageQueuePaneWidth);
         }
 
         private void SaveWorkspaceLayoutSettings()
         {
-            double queueWidth = ImageQueueColumn.Width.IsAbsolute
+            double queueWidth = ShellViewModel?.ImageQueueExpandedPaneWidth
+                ?? (ImageQueueColumn.Width.IsAbsolute
                 ? ImageQueueColumn.Width.Value
-                : ImageQueueColumn.ActualWidth;
+                : ImageQueueColumn.ActualWidth);
             var settings = new WpfWorkspaceLayoutSettings
             {
                 WorkflowPaneWidth = ShellViewModel?.RightWorkflowExpandedPaneWidth

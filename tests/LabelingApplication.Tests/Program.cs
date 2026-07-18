@@ -10948,6 +10948,20 @@ internal static partial class Program
             throw new InvalidOperationException("ImageQueuePanelControl was not found for responsive layout verification");
         }
 
+        if (window.ShellViewModel?.IsModelWorkspaceActive == true)
+        {
+            if (window.FindName("RightWorkflowDockPanel") is not System.Windows.FrameworkElement modelWorkspacePanel)
+            {
+                throw new InvalidOperationException("RightWorkflowDockPanel was not found for model workspace verification");
+            }
+
+            AssertEqual(System.Windows.Visibility.Collapsed, canvasPanel.Visibility);
+            AssertEqual(System.Windows.Visibility.Collapsed, imageQueuePanel.Visibility);
+            AssertTrue(modelWorkspacePanel.ActualWidth >= 640D,
+                FormattableString.Invariant($"model workspace did not use the available width on {reviewTab}: width={modelWorkspacePanel.ActualWidth:0.0}"));
+            return;
+        }
+
         bool isRightWorkflowExpanded = window.ShellViewModel?.IsRightWorkflowDockExpanded == true;
         System.Windows.FrameworkElement reviewTarget = reviewTabs;
         string reviewTargetName = "left workflow panel";
@@ -30009,6 +30023,15 @@ internal static partial class Program
             "right workflow selected tab should be visible as an app-themed active state, not a white selected tab");
         AssertTrue(shellXamlSource.Contains("ShellViewModel.IsRightWorkflowSubNavigationVisible", StringComparison.Ordinal), "right workflow subnavigation should collapse when the active stage has a single view");
         AssertNamedXamlBinding(shellXaml, xName, "RightWorkflowColumn", "Width", "ShellViewModel.RightWorkflowPaneGridLength");
+        AssertNamedXamlBinding(shellXaml, xName, "RightWorkflowColumn", "MinWidth", "ShellViewModel.RightWorkflowPaneMinWidth");
+        AssertNamedXamlBinding(shellXaml, xName, "RightWorkflowColumn", "MaxWidth", "ShellViewModel.RightWorkflowPaneMaxWidth");
+        AssertNamedXamlElement(shellXaml, xName, "ColumnDefinition", "CanvasWorkspaceColumn");
+        AssertNamedXamlBinding(shellXaml, xName, "CanvasWorkspaceColumn", "Width", "ShellViewModel.CanvasWorkspacePaneGridLength");
+        AssertNamedXamlBinding(shellXaml, xName, "CanvasWorkspaceColumn", "MinWidth", "ShellViewModel.CanvasWorkspacePaneMinWidth");
+        AssertNamedXamlElement(shellXaml, xName, "ColumnDefinition", "LeftWorkspaceSplitterColumn");
+        AssertNamedXamlBinding(shellXaml, xName, "LeftWorkspaceSplitterColumn", "Width", "ShellViewModel.WorkspaceSplitterPaneGridLength");
+        AssertNamedXamlElement(shellXaml, xName, "ColumnDefinition", "RightWorkspaceSplitterColumn");
+        AssertNamedXamlBinding(shellXaml, xName, "RightWorkspaceSplitterColumn", "Width", "ShellViewModel.WorkspaceSplitterPaneGridLength");
         AssertNamedXamlElement(shellXaml, xName, "GridSplitter", "LeftWorkspaceSplitter");
         AssertNamedXamlElement(shellXaml, xName, "GridSplitter", "RightWorkspaceSplitter");
         AssertNamedXamlValue(shellXaml, xName, "LeftWorkspaceSplitter", "ResizeBehavior", "PreviousAndNext");
@@ -30016,7 +30039,12 @@ internal static partial class Program
         AssertNamedXamlValue(shellXaml, xName, "LeftWorkspaceSplitter", "ShowsPreview", "True");
         AssertNamedXamlValue(shellXaml, xName, "RightWorkspaceSplitter", "ShowsPreview", "True");
         AssertNamedXamlElement(shellXaml, xName, "ColumnDefinition", "ImageQueueColumn");
-        AssertNamedXamlValue(shellXaml, xName, "ImageQueueColumn", "MinWidth", "260");
+        AssertNamedXamlBinding(shellXaml, xName, "ImageQueueColumn", "Width", "ShellViewModel.ImageQueuePaneGridLength");
+        AssertNamedXamlBinding(shellXaml, xName, "ImageQueueColumn", "MinWidth", "ShellViewModel.ImageQueuePaneMinWidth");
+        AssertNamedXamlBinding(shellXaml, xName, "CanvasPanelControl", "Visibility", "ShellViewModel.IsCanvasWorkspaceVisible");
+        AssertNamedXamlBinding(shellXaml, xName, "ImageQueuePanelControl", "Visibility", "ShellViewModel.IsImageQueueWorkspaceVisible");
+        AssertNamedXamlBinding(shellXaml, xName, "LeftWorkspaceSplitter", "Visibility", "ShellViewModel.IsWorkspaceSplitterVisible");
+        AssertNamedXamlBinding(shellXaml, xName, "RightWorkspaceSplitter", "Visibility", "ShellViewModel.IsWorkspaceSplitterVisible");
         AssertTrue(shellXamlSource.Contains("LeftWorkspaceSplitter_DragCompleted", StringComparison.Ordinal), "left workspace resize should preserve the dock width binding after dragging");
         AssertTrue(shellXamlSource.Contains("RightWorkspaceSplitter_DragCompleted", StringComparison.Ordinal), "image queue resize should persist after dragging");
         AssertNamedXamlElement(shellXaml, xName, "Button", "ResetWorkspaceLayoutButton");
@@ -30024,6 +30052,7 @@ internal static partial class Program
         AssertNamedXamlBinding(shellXaml, xName, "RightWorkflowExpandedContent", "Visibility", "ShellViewModel.IsRightWorkflowDockExpanded");
         AssertNamedXamlBinding(shellXaml, xName, "RightWorkflowCollapsedRail", "Visibility", "ShellViewModel.IsRightWorkflowDockRailVisible");
         AssertNamedXamlBinding(shellXaml, xName, "RightWorkflowDockToggleButton", "Command", "ShellViewModel.ToggleRightWorkflowDockCommand");
+        AssertNamedXamlBinding(shellXaml, xName, "RightWorkflowDockToggleButton", "Visibility", "ShellViewModel.IsRightWorkflowDockToggleVisible");
         AssertNamedXamlElement(shellXaml, xName, "Border", "WorkflowStageSubNavigationRail");
         AssertNamedXamlBinding(shellXaml, xName, "WorkflowStageSubNavigationRail", "Visibility", "ShellViewModel.IsRightWorkflowShortcutBarVisible");
         XElement workflowStageSubNavigationRailXaml = shellXaml.Descendants()
@@ -30788,11 +30817,17 @@ internal static partial class Program
             var rightWorkflowCollapsedRail = (System.Windows.FrameworkElement)window.FindName("RightWorkflowCollapsedRail");
             var rightWorkflowDockToggleButton = (System.Windows.Controls.Button)window.FindName("RightWorkflowDockToggleButton");
             var rightWorkflowRailOpenButton = (System.Windows.Controls.Button)window.FindName("RightWorkflowRailOpenButton");
+            var modelWorkspaceCanvasPanel = (System.Windows.FrameworkElement)window.FindName("CanvasPanelControl");
+            var modelWorkspaceImageQueuePanel = (System.Windows.FrameworkElement)window.FindName("ImageQueuePanelControl");
+            var modelWorkspaceImageQueueColumn = (System.Windows.Controls.ColumnDefinition)window.FindName("ImageQueueColumn");
             AssertTrue(rightWorkflowColumn != null, "WPF right workflow column should be named for responsive layout checks");
             AssertTrue(rightWorkflowExpandedContent != null, "WPF right workflow expanded content was not created");
             AssertTrue(rightWorkflowCollapsedRail != null, "WPF right workflow collapsed rail was not created");
             AssertTrue(rightWorkflowDockToggleButton != null, "WPF right workflow dock toggle was not created");
             AssertTrue(rightWorkflowRailOpenButton != null, "WPF right workflow rail open button was not created");
+            AssertTrue(modelWorkspaceCanvasPanel != null, "WPF model workspace canvas panel was not created");
+            AssertTrue(modelWorkspaceImageQueuePanel != null, "WPF model workspace image queue panel was not created");
+            AssertTrue(modelWorkspaceImageQueueColumn != null, "WPF model workspace image queue column was not created");
             AssertTrue(ReferenceEquals(GetRuntimeButtonCommand(rightWorkflowDockToggleButton), window.ShellViewModel.ToggleRightWorkflowDockCommand), "WPF right workflow dock toggle should bind to the shell dock command");
             AssertTrue(ReferenceEquals(GetRuntimeButtonCommand(rightWorkflowRailOpenButton), window.ShellViewModel.ToggleRightWorkflowDockCommand), "WPF right workflow rail open button should bind to the shell dock command");
             var datasetHomeShortcutButton = (System.Windows.Controls.Button)window.FindName("RightWorkflowDatasetHomeButton");
@@ -30899,12 +30934,20 @@ internal static partial class Program
             AssertEqual(System.Windows.Visibility.Collapsed, classCatalogReviewTab.Visibility);
             AssertEqual(System.Windows.Visibility.Collapsed, yoloModelCenterReviewTab.Visibility);
             AssertEqual(System.Windows.Visibility.Collapsed, workflowStageModelActionPanel.Visibility);
+            window.ShellViewModel.SetImageQueueExpandedPaneWidth(420D);
+            window.UpdateLayout();
+            AssertEqual(420D, modelWorkspaceImageQueueColumn.Width.Value);
             window.ShellViewModel.SetWorkflowStage(WpfShellWorkflowStage.TrainingModel);
             window.UpdateLayout();
             AssertTrue(window.ShellViewModel.IsRightWorkflowDockExpanded, "training/model stage should keep the model center expanded");
             AssertEqual(System.Windows.Visibility.Visible, rightWorkflowExpandedContent.Visibility);
             AssertEqual(System.Windows.Visibility.Collapsed, rightWorkflowCollapsedRail.Visibility);
-            AssertEqual(340D, rightWorkflowColumn.Width.Value);
+            AssertTrue(window.ShellViewModel.IsModelWorkspaceActive, "training/model stage should activate the dedicated model workspace");
+            AssertEqual(System.Windows.GridUnitType.Star, rightWorkflowColumn.Width.GridUnitType);
+            AssertEqual(System.Windows.Visibility.Collapsed, modelWorkspaceCanvasPanel.Visibility);
+            AssertEqual(System.Windows.Visibility.Collapsed, modelWorkspaceImageQueuePanel.Visibility);
+            AssertEqual(System.Windows.Visibility.Collapsed, rightWorkflowDockToggleButton.Visibility);
+            AssertEqual(0D, modelWorkspaceImageQueueColumn.Width.Value);
             AssertEqual(System.Windows.Visibility.Visible, workflowStageSubNavigationRail.Visibility);
             AssertEqual(System.Windows.Visibility.Visible, rightWorkflowShortcutBar.Visibility);
             AssertEqual(System.Windows.Visibility.Collapsed, datasetHomeShortcutButton.Visibility);
@@ -30925,6 +30968,11 @@ internal static partial class Program
             AssertEqual(System.Windows.Visibility.Collapsed, workflowStageModelActionPanel.Visibility);
             window.ShellViewModel.SetWorkflowStage(WpfShellWorkflowStage.Dataset);
             window.UpdateLayout();
+            AssertTrue(!window.ShellViewModel.IsModelWorkspaceActive, "leaving the model center should restore the labeling workspace");
+            AssertEqual(System.Windows.Visibility.Visible, modelWorkspaceCanvasPanel.Visibility);
+            AssertEqual(System.Windows.Visibility.Visible, modelWorkspaceImageQueuePanel.Visibility);
+            AssertEqual(System.Windows.Visibility.Visible, rightWorkflowDockToggleButton.Visibility);
+            AssertEqual(420D, modelWorkspaceImageQueueColumn.Width.Value);
             var currentDatasetContextBarElement = (System.Windows.FrameworkElement)window.FindName("CurrentDatasetContextBar");
             AssertTrue(currentDatasetContextBarElement != null, "WPF current dataset context bar was not created");
             AssertEqual(34D, currentDatasetContextBarElement.Height);
@@ -35467,7 +35515,13 @@ internal static partial class Program
         AssertTrue(shellViewModel.IsRightWorkflowShortcutBarVisible, "training/model stage should show the top workflow subnavigation");
         AssertTrue(shellViewModel.IsRightWorkflowDockExpanded, "training/model stage should expand the right workflow panel for model center");
         AssertTrue(!shellViewModel.IsRightWorkflowDockRailVisible, "training/model stage should hide the collapsed right workflow rail");
-        AssertEqual(340D, shellViewModel.RightWorkflowPaneGridLength.Value);
+        AssertTrue(shellViewModel.IsModelWorkspaceActive, "training/model stage should activate the dedicated model workspace");
+        AssertEqual(System.Windows.GridUnitType.Star, shellViewModel.RightWorkflowPaneGridLength.GridUnitType);
+        AssertTrue(!shellViewModel.IsCanvasWorkspaceVisible, "training/model stage should hide the annotation canvas");
+        AssertTrue(!shellViewModel.IsImageQueueWorkspaceVisible, "training/model stage should hide the image queue");
+        AssertTrue(!shellViewModel.IsWorkspaceSplitterVisible, "training/model stage should hide unused workspace splitters");
+        AssertTrue(!shellViewModel.IsRightWorkflowDockToggleVisible, "training/model stage should not offer a dock toggle that cannot apply");
+        AssertEqual(0D, shellViewModel.ImageQueuePaneGridLength.Value);
         AssertEqual("4/4 학습/모델", shellViewModel.WorkflowStageProgressText);
         AssertEqual("\uBAA8\uB378", shellViewModel.RightWorkflowRailCurrentViewText);
         AssertTrue(shellViewModel.WorkflowStageDetailText.Contains("best.pt", StringComparison.Ordinal), "training/model workflow stage should mention model candidate checking");

@@ -30,6 +30,9 @@ namespace MvcVisionSystem
         private const string ModelCenterActionRouteText = "\uC2E4\uD589: \uD6C4\uBCF4 \uAC80\uC99D=\uD559\uC2B5 \uD6C4\uBCF4 \uD0ED \uC5F4\uAE30, \uD604\uC7AC \uAC80\uC0AC=\uAC80\uC0AC \uBAA8\uB378+\uD604\uC7AC \uC774\uBBF8\uC9C0 -> AI \uD6C4\uBCF4/\uCE94\uBC84\uC2A4";
         private static readonly GridLength RightWorkflowExpandedPaneGridLengthValue = new GridLength(WpfWorkspaceLayoutSettings.DefaultWorkflowPaneWidth);
         private static readonly GridLength RightWorkflowCollapsedPaneGridLengthValue = new GridLength(72D);
+        private static readonly GridLength WorkspaceCanvasPaneGridLengthValue = new GridLength(1D, GridUnitType.Star);
+        private static readonly GridLength WorkspaceSplitterPaneGridLengthValue = new GridLength(10D);
+        private static readonly GridLength WorkspaceHiddenPaneGridLengthValue = new GridLength(0D);
         private WpfShellWorkflowStage currentWorkflowStage = WpfShellWorkflowStage.Dataset;
 
         private bool isCurrentImageDetectionEnabled;
@@ -51,6 +54,19 @@ namespace MvcVisionSystem
         private bool isRightWorkflowDockRailVisible;
         private double rightWorkflowExpandedPaneWidth = RightWorkflowExpandedPaneGridLengthValue.Value;
         private GridLength rightWorkflowPaneGridLength = RightWorkflowExpandedPaneGridLengthValue;
+        private double rightWorkflowPaneMinWidth = 72D;
+        private double rightWorkflowPaneMaxWidth = 640D;
+        private bool isModelWorkspaceActive;
+        private bool isCanvasWorkspaceVisible = true;
+        private bool isImageQueueWorkspaceVisible = true;
+        private bool isWorkspaceSplitterVisible = true;
+        private bool isRightWorkflowDockToggleVisible = true;
+        private GridLength canvasWorkspacePaneGridLength = WorkspaceCanvasPaneGridLengthValue;
+        private GridLength imageQueuePaneGridLength = new GridLength(WpfWorkspaceLayoutSettings.DefaultImageQueuePaneWidth);
+        private GridLength workspaceSplitterPaneGridLength = WorkspaceSplitterPaneGridLengthValue;
+        private double canvasWorkspacePaneMinWidth = 420D;
+        private double imageQueuePaneMinWidth = 260D;
+        private double imageQueueExpandedPaneWidth = WpfWorkspaceLayoutSettings.DefaultImageQueuePaneWidth;
         private string rightWorkflowDockToggleText = "\uC811\uAE30";
         private string rightWorkflowDockToggleToolTip = "\uC624\uB978\uCABD \uC791\uC5C5 \uD328\uB110\uC744 \uC811\uC2B5\uB2C8\uB2E4.";
         private string rightWorkflowViewTitleText = "\uB370\uC774\uD130\uC14B \uD648";
@@ -279,6 +295,80 @@ namespace MvcVisionSystem
             get => rightWorkflowPaneGridLength;
             private set => SetProperty(ref rightWorkflowPaneGridLength, value);
         }
+
+        public double RightWorkflowPaneMinWidth
+        {
+            get => rightWorkflowPaneMinWidth;
+            private set => SetProperty(ref rightWorkflowPaneMinWidth, value);
+        }
+
+        public double RightWorkflowPaneMaxWidth
+        {
+            get => rightWorkflowPaneMaxWidth;
+            private set => SetProperty(ref rightWorkflowPaneMaxWidth, value);
+        }
+
+        public bool IsModelWorkspaceActive
+        {
+            get => isModelWorkspaceActive;
+            private set => SetProperty(ref isModelWorkspaceActive, value);
+        }
+
+        public bool IsCanvasWorkspaceVisible
+        {
+            get => isCanvasWorkspaceVisible;
+            private set => SetProperty(ref isCanvasWorkspaceVisible, value);
+        }
+
+        public bool IsImageQueueWorkspaceVisible
+        {
+            get => isImageQueueWorkspaceVisible;
+            private set => SetProperty(ref isImageQueueWorkspaceVisible, value);
+        }
+
+        public bool IsWorkspaceSplitterVisible
+        {
+            get => isWorkspaceSplitterVisible;
+            private set => SetProperty(ref isWorkspaceSplitterVisible, value);
+        }
+
+        public bool IsRightWorkflowDockToggleVisible
+        {
+            get => isRightWorkflowDockToggleVisible;
+            private set => SetProperty(ref isRightWorkflowDockToggleVisible, value);
+        }
+
+        public GridLength CanvasWorkspacePaneGridLength
+        {
+            get => canvasWorkspacePaneGridLength;
+            private set => SetProperty(ref canvasWorkspacePaneGridLength, value);
+        }
+
+        public GridLength ImageQueuePaneGridLength
+        {
+            get => imageQueuePaneGridLength;
+            private set => SetProperty(ref imageQueuePaneGridLength, value);
+        }
+
+        public GridLength WorkspaceSplitterPaneGridLength
+        {
+            get => workspaceSplitterPaneGridLength;
+            private set => SetProperty(ref workspaceSplitterPaneGridLength, value);
+        }
+
+        public double CanvasWorkspacePaneMinWidth
+        {
+            get => canvasWorkspacePaneMinWidth;
+            private set => SetProperty(ref canvasWorkspacePaneMinWidth, value);
+        }
+
+        public double ImageQueuePaneMinWidth
+        {
+            get => imageQueuePaneMinWidth;
+            private set => SetProperty(ref imageQueuePaneMinWidth, value);
+        }
+
+        public double ImageQueueExpandedPaneWidth => imageQueueExpandedPaneWidth;
 
         public double RightWorkflowExpandedPaneWidth => rightWorkflowExpandedPaneWidth;
 
@@ -1052,6 +1142,7 @@ namespace MvcVisionSystem
             IsLabelingStageActive = stage == WpfShellWorkflowStage.Labeling;
             IsInferenceStageActive = stage == WpfShellWorkflowStage.Inference;
             IsTrainingModelStageActive = stage == WpfShellWorkflowStage.TrainingModel;
+            ApplyWorkspaceStageLayout(stage);
             ApplyWorkflowStageViewVisibility(stage);
             RefreshWorkflowStageModelActionPanelVisibility();
             ApplyWorkflowStageShortcutState(stage);
@@ -1235,6 +1326,16 @@ namespace MvcVisionSystem
 
         public void SetRightWorkflowDockExpanded(bool isExpanded)
         {
+            if (IsModelWorkspaceActive)
+            {
+                IsRightWorkflowDockExpanded = true;
+                IsRightWorkflowDockRailVisible = false;
+                RightWorkflowPaneGridLength = WorkspaceCanvasPaneGridLengthValue;
+                RightWorkflowDockToggleText = "\uC811\uAE30";
+                RightWorkflowDockToggleToolTip = "\uD559\uC2B5/\uBAA8\uB378 \uC13C\uD130\uB294 \uD604\uC7AC \uD654\uBA74 \uC804\uCCB4 \uB108\uBE44\uB85C \uD45C\uC2DC\uB429\uB2C8\uB2E4.";
+                return;
+            }
+
             IsRightWorkflowDockExpanded = isExpanded;
             IsRightWorkflowDockRailVisible = !isExpanded;
             RightWorkflowPaneGridLength = isExpanded
@@ -1260,6 +1361,20 @@ namespace MvcVisionSystem
             }
         }
 
+        public void SetImageQueueExpandedPaneWidth(double width)
+        {
+            if (double.IsNaN(width) || double.IsInfinity(width))
+            {
+                return;
+            }
+
+            imageQueueExpandedPaneWidth = Math.Clamp(width, 260D, 640D);
+            if (!IsModelWorkspaceActive)
+            {
+                ImageQueuePaneGridLength = new GridLength(imageQueueExpandedPaneWidth);
+            }
+        }
+
         private void ToggleRightWorkflowDock()
         {
             SetRightWorkflowDockExpanded(!IsRightWorkflowDockExpanded);
@@ -1268,6 +1383,34 @@ namespace MvcVisionSystem
         private void ApplyRightWorkflowDockPreset(WpfShellWorkflowStage stage)
         {
             SetRightWorkflowDockExpanded(stage != WpfShellWorkflowStage.Labeling);
+        }
+
+        private void ApplyWorkspaceStageLayout(WpfShellWorkflowStage stage)
+        {
+            bool isModelWorkspace = stage == WpfShellWorkflowStage.TrainingModel;
+            IsModelWorkspaceActive = isModelWorkspace;
+            IsCanvasWorkspaceVisible = !isModelWorkspace;
+            IsImageQueueWorkspaceVisible = !isModelWorkspace;
+            IsWorkspaceSplitterVisible = !isModelWorkspace;
+            IsRightWorkflowDockToggleVisible = !isModelWorkspace;
+            RightWorkflowPaneMinWidth = isModelWorkspace ? 420D : 72D;
+            RightWorkflowPaneMaxWidth = isModelWorkspace ? double.PositiveInfinity : 640D;
+            CanvasWorkspacePaneMinWidth = isModelWorkspace ? 0D : 420D;
+            ImageQueuePaneMinWidth = isModelWorkspace ? 0D : 260D;
+            CanvasWorkspacePaneGridLength = isModelWorkspace
+                ? WorkspaceHiddenPaneGridLengthValue
+                : WorkspaceCanvasPaneGridLengthValue;
+            ImageQueuePaneGridLength = isModelWorkspace
+                ? WorkspaceHiddenPaneGridLengthValue
+                : new GridLength(imageQueueExpandedPaneWidth);
+            WorkspaceSplitterPaneGridLength = isModelWorkspace
+                ? WorkspaceHiddenPaneGridLengthValue
+                : WorkspaceSplitterPaneGridLengthValue;
+
+            if (isModelWorkspace)
+            {
+                RightWorkflowPaneGridLength = WorkspaceCanvasPaneGridLengthValue;
+            }
         }
 
         public void SetModelCenterTrainingState(string statusText, string detailText)

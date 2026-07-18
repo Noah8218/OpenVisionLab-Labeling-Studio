@@ -12898,3 +12898,16 @@ Last updated: 2026-07-16
 - Completion disposition and boundary:
   - Treat this as completed data-readiness UX only. A no-overlap SHA-256 result still requires label-quality, NG-coverage, and actual held-out model evidence before any adoption decision.
   - Do not add a second review/rework persistence surface until operator use shows that the existing image-level review state is insufficient.
+## 2026-07-18 Model Center dedicated workspace
+
+- Goal:
+  - Remove the inactive canvas and image queue from the Learning/Model stage so model readiness, training settings, and comparison evidence use the complete workspace width without changing labeling-state ownership.
+- Changes:
+  - `WpfLabelingShellViewModel` now makes stage 4 a dedicated model workspace: its Model Center occupies the star-width column, while the canvas, image queue, splitters, and inapplicable dock-collapse control are hidden only for that stage.
+  - The previous image-queue width remains in the workspace-layout settings and is restored on every return to Dataset, Labeling, or AI Candidate Review. No recipe, label, model profile, runtime, training, inference, candidate, or adoption state changes during the layout transition.
+- Verification and evidence:
+  - Required isolated build passed with 0 warnings / 0 errors.
+  - `--wpf-labeling-shell`, `--wpf-responsive-layout` (1366x768, including `yolo` and `training`), and `--wpf-training-settings-panel` passed.
+  - True before / current-build after / responsive after: `artifacts\ui\model-workspace-20260718\before-model-center-1920.png`, `after-model-workspace-1920.png`, and `after-model-workspace-1366.png`.
+- Completion disposition:
+  - Complete for the stage-4 layout scope. Reopen only for a reproduced state-loss, saved-pane-width, clipping, or responsive-layout defect. The next approved product priority is the model adapter catalog/contract; this layout change does not add a new model runtime or alter model-quality evidence.
