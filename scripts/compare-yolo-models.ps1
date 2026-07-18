@@ -38,6 +38,7 @@ $GroundTruthReviewIouThreshold = 0.50
 $MaximumGroundTruthErrorExamples = 40
 $script:SegmentationPositiveClassId = $null
 $script:ComparisonClassNames = @()
+$script:RuntimeDataYaml = ""
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptRoot
@@ -123,11 +124,11 @@ function Resolve-EngineName([string]$Engine, [string]$SourceRoot) {
 function Read-DataYamlClassCount([string]$Path) {
     $text = Get-Content -LiteralPath $Path -Raw
     $match = [regex]::Match($text, '(?m)^\s*nc\s*:\s*(\d+)\s*$')
-    if (-not $match.Success) {
-        throw "Model comparison cannot start: label count was not found in the dataset settings."
+    if ($match.Success) {
+        return [int]$match.Groups[1].Value
     }
 
-    return [int]$match.Groups[1].Value
+    return @((Read-DataYamlClassNames $Path)).Count
 }
 
 function Remove-YamlInlineComment([string]$Value) {
@@ -202,16 +203,30 @@ function Resolve-ListImagePath([string]$ListDirectory, [string]$ImagePath) {
 }
 
 function Resolve-LabelPathFromImagePath([string]$ImagePath) {
-    $directory = Split-Path -Parent $ImagePath
-    $directoryName = Split-Path -Leaf $directory
-    $parent = Split-Path -Parent $directory
-    $labelsDirectory = if ($directoryName -ieq "images" -and -not [string]::IsNullOrWhiteSpace($parent)) {
-        Join-Path $parent "labels"
-    } else {
-        Join-Path $directory "labels"
+    $fileName = [System.IO.Path]::GetFileNameWithoutExtension($ImagePath) + ".txt"
+    $directory = [System.IO.Path]::GetDirectoryName([System.IO.Path]::GetFullPath($ImagePath))
+    $currentDirectory = $directory
+    while (-not [string]::IsNullOrWhiteSpace($currentDirectory)) {
+        if ([string]::Equals((Split-Path -Leaf $currentDirectory), "images", [System.StringComparison]::OrdinalIgnoreCase)) {
+            $datasetRoot = Split-Path -Parent $currentDirectory
+            $relativeDirectory = $directory.Substring($currentDirectory.Length).TrimStart([char[]]@('\', '/'))
+            $labelsDirectory = Join-Path $datasetRoot "labels"
+            if (-not [string]::IsNullOrWhiteSpace($relativeDirectory)) {
+                $labelsDirectory = Join-Path $labelsDirectory $relativeDirectory
+            }
+
+            return Join-Path $labelsDirectory $fileName
+        }
+
+        $parentDirectory = Split-Path -Parent $currentDirectory
+        if ([string]::Equals($parentDirectory, $currentDirectory, [System.StringComparison]::OrdinalIgnoreCase)) {
+            break
+        }
+
+        $currentDirectory = $parentDirectory
     }
 
-    return Join-Path $labelsDirectory ([System.IO.Path]::GetFileNameWithoutExtension($ImagePath) + ".txt")
+    return Join-Path (Join-Path $directory "labels") $fileName
 }
 
 function Get-EvidenceFingerprint($ImagePaths) {
@@ -237,7 +252,7 @@ function Get-SplitImagePaths([string]$ResolvedPath) {
     }
 
     if (Test-Path -LiteralPath $ResolvedPath -PathType Container) {
-        return @(Get-ChildItem -LiteralPath $ResolvedPath -File -ErrorAction SilentlyContinue |
+        return @(Get-ChildItem -LiteralPath $ResolvedPath -Recurse -File -ErrorAction SilentlyContinue |
             Where-Object { Test-SupportedImagePath $_.FullName } |
             ForEach-Object { $_.FullName })
     }
@@ -254,6 +269,25 @@ function Get-SplitImagePaths([string]$ResolvedPath) {
     return @()
 }
 
+function New-PredictionSourceManifest([string]$ResolvedPath, [string]$RunOutputRoot, [string]$RunName) {
+    $imagePaths = @((Get-SplitImagePaths $ResolvedPath) | Sort-Object)
+    if ($imagePaths.Count -eq 0) {
+        throw "YOLO prediction source has no supported images: $ResolvedPath"
+    }
+
+    $duplicateStem = @($imagePaths |
+        Group-Object { [System.IO.Path]::GetFileNameWithoutExtension($_) } |
+        Where-Object { $_.Count -gt 1 } |
+        Select-Object -First 1)
+    if ($duplicateStem.Count -gt 0) {
+        throw "YOLO prediction source has duplicate image stem '$($duplicateStem[0].Name)'; use unique image names before generating a flat prediction-label review."
+    }
+
+    $manifestPath = Join-Path $RunOutputRoot "$RunName-predict-source.txt"
+    [System.IO.File]::WriteAllLines($manifestPath, [string[]]$imagePaths, [System.Text.UTF8Encoding]::new($false))
+    return $manifestPath
+}
+
 function Resolve-DataYamlSplitPath([string]$DataYamlPath, [string]$SplitName) {
     $values = Read-DataYamlScalarValues $DataYamlPath
     $splitPath = if ($values.ContainsKey($SplitName)) { $values[$SplitName] } else { "" }
@@ -263,6 +297,42 @@ function Resolve-DataYamlSplitPath([string]$DataYamlPath, [string]$SplitName) {
     }
 
     return Resolve-DataYamlValuePath $DataYamlPath $yamlRootPath $splitPath
+}
+
+function New-ComparisonRuntimeDataYaml([string]$SourceDataYamlPath, [string]$RunOutputRoot) {
+    # Native YOLO packages commonly use path: . which is intentionally relative to
+    # their data.yaml. YOLOv5 and Ultralytics resolve that path from their runtime
+    # working directory, so give each engine an artifact-local YAML with an absolute
+    # root while leaving the supplied dataset YAML untouched.
+    $values = Read-DataYamlScalarValues $SourceDataYamlPath
+    $sourceRootValue = if ($values.ContainsKey("path")) { $values["path"] } else { "" }
+    $sourceYamlDirectory = Split-Path -Parent $SourceDataYamlPath
+    $resolvedSourceRoot = if ([string]::IsNullOrWhiteSpace($sourceRootValue)) {
+        [System.IO.Path]::GetFullPath($sourceYamlDirectory)
+    }
+    else {
+        Resolve-DataYamlValuePath $SourceDataYamlPath "" $sourceRootValue
+    }
+    $yamlPathValue = $resolvedSourceRoot.Replace("\", "/")
+    $runtimeLines = New-Object System.Collections.Generic.List[string]
+    $replacedPath = $false
+    foreach ($line in Get-Content -LiteralPath $SourceDataYamlPath) {
+        if ($line -match '^\s*path\s*:') {
+            $runtimeLines.Add("path: $yamlPathValue")
+            $replacedPath = $true
+            continue
+        }
+
+        $runtimeLines.Add($line)
+    }
+
+    if (-not $replacedPath) {
+        $runtimeLines.Insert(0, "path: $yamlPathValue")
+    }
+
+    $runtimePath = Join-Path $RunOutputRoot "comparison-runtime-data.yaml"
+    [System.IO.File]::WriteAllLines($runtimePath, [string[]]$runtimeLines, [System.Text.UTF8Encoding]::new($false))
+    return $runtimePath
 }
 
 function Clear-StaleYoloV5LabelCacheArtifacts([string]$DataYamlPath, [string]$SplitName) {
@@ -672,7 +742,7 @@ function Invoke-YoloVal(
     $arguments = @(
         (Join-Path $RuntimeSourceRoot "val.py"),
         "--weights", $WeightsPath,
-        "--data", $DataYaml,
+        "--data", $script:RuntimeDataYaml,
         "--img", $ImageSize.ToString(),
         "--batch-size", $BatchSize.ToString(),
         "--task", $Task,
@@ -705,10 +775,12 @@ function Invoke-YoloVal(
     $predictionLogPath = ""
     $labelsPath = Join-Path $runProject "$RunName\labels"
     if ($IncludePredictions -and $ModelTask -ieq "detect") {
-        $predictSource = Resolve-DataYamlSplitPath $DataYaml $Task
-        if ([string]::IsNullOrWhiteSpace($predictSource) -or -not (Test-Path -LiteralPath $predictSource)) {
-            throw "YOLO prediction source not found for $Task split: $predictSource"
+        $resolvedPredictSource = Resolve-DataYamlSplitPath $DataYaml $Task
+        if ([string]::IsNullOrWhiteSpace($resolvedPredictSource) -or -not (Test-Path -LiteralPath $resolvedPredictSource)) {
+            throw "YOLO prediction source not found for $Task split: $resolvedPredictSource"
         }
+
+        $predictSource = New-PredictionSourceManifest $resolvedPredictSource $RunOutputRoot $RunName
 
         $detectScript = Join-Path $RuntimeSourceRoot "detect.py"
         Assert-File $detectScript "YOLOv5 detection runtime"
@@ -718,7 +790,7 @@ function Invoke-YoloVal(
             $detectScript,
             "--weights", $WeightsPath,
             "--source", $predictSource,
-            "--data", $DataYaml,
+            "--data", $script:RuntimeDataYaml,
             "--imgsz", $ImageSize.ToString(),
             "--conf-thres", "0.001",
             "--iou-thres", $UiNmsIou.ToString([System.Globalization.CultureInfo]::InvariantCulture),
@@ -776,10 +848,12 @@ function Invoke-UltralyticsVal(
 ) {
     $logPath = Join-Path $RunOutputRoot "$RunName.log"
     $runProject = Join-Path $RunOutputRoot "runs"
-    $predictSource = Resolve-DataYamlSplitPath $DataYaml $Task
-    if ([string]::IsNullOrWhiteSpace($predictSource) -or -not (Test-Path -LiteralPath $predictSource)) {
-        throw "YOLO prediction source not found for $Task split: $predictSource"
+    $resolvedPredictSource = Resolve-DataYamlSplitPath $DataYaml $Task
+    if ([string]::IsNullOrWhiteSpace($resolvedPredictSource) -or -not (Test-Path -LiteralPath $resolvedPredictSource)) {
+        throw "YOLO prediction source not found for $Task split: $resolvedPredictSource"
     }
+
+    $predictSource = New-PredictionSourceManifest $resolvedPredictSource $RunOutputRoot $RunName
 
     New-Item -ItemType Directory -Force -Path $runProject | Out-Null
 
@@ -801,6 +875,12 @@ model_task = sys.argv[8]
 predict_source = sys.argv[9]
 include_predictions = sys.argv[10].lower() == "true"
 prediction_nms_iou = float(sys.argv[11])
+
+predict_source_items = None
+predict_source_path = Path(predict_source)
+if predict_source_path.suffix.lower() == ".txt":
+    predict_source_items = [line.strip() for line in predict_source_path.read_text(encoding="utf-8-sig").splitlines() if line.strip()]
+    predict_source = predict_source_items
 
 model = YOLO(weights_path)
 metrics = model.val(
@@ -893,13 +973,23 @@ if include_predictions:
         save_conf=True,
         verbose=False,
     )
+    if predict_source_items is not None:
+        # Ultralytics writes image0.txt for a list source. Restore the manifest stem so review labels join the answer image.
+        labels_path = Path(run_project) / predict_name / "labels"
+        for index, image_path in enumerate(predict_source_items):
+            generated_label_path = labels_path / f"image{index}.txt"
+            destination_label_path = labels_path / f"{Path(image_path).stem}.txt"
+            if generated_label_path.exists():
+                if destination_label_path.exists():
+                    raise RuntimeError("prediction label collision: " + str(destination_label_path))
+                generated_label_path.replace(destination_label_path)
     print("OPENVISIONLAB_PREDICT_LABELS=" + str(Path(run_project) / predict_name / "labels"))
 '@
 
     $arguments = @(
         "-",
         $WeightsPath,
-        $DataYaml,
+        $script:RuntimeDataYaml,
         $runProject,
         $RunName,
         $ImageSize.ToString(),
@@ -1039,17 +1129,18 @@ function Invoke-ModelValWithBenchmarkRepeats(
 
 function Read-ValMetrics([string]$LogPath) {
     $text = Get-Content -LiteralPath $LogPath -Raw
-    $pattern = '(?m)^\s*all\s+\d+\s+\d+\s+([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)\s+([0-9.]+)'
+    $number = '[+-]?(?:\d+(?:\.\d*)?|\.\d+)(?:[eE][+-]?\d+)?'
+    $pattern = '(?m)^\s*all\s+\d+\s+\d+\s+(' + $number + ')\s+(' + $number + ')\s+(' + $number + ')\s+(' + $number + ')'
     $match = [regex]::Match($text, $pattern)
     if (-not $match.Success) {
         return [ordered]@{ precision = $null; recall = $null; map50 = $null; map5095 = $null }
     }
 
     return [ordered]@{
-        precision = [double]$match.Groups[1].Value
-        recall = [double]$match.Groups[2].Value
-        map50 = [double]$match.Groups[3].Value
-        map5095 = [double]$match.Groups[4].Value
+        precision = [double]::Parse($match.Groups[1].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+        recall = [double]::Parse($match.Groups[2].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+        map50 = [double]::Parse($match.Groups[3].Value, [System.Globalization.CultureInfo]::InvariantCulture)
+        map5095 = [double]::Parse($match.Groups[4].Value, [System.Globalization.CultureInfo]::InvariantCulture)
     }
 }
 
@@ -1815,6 +1906,7 @@ function Write-MarkdownReport($Summary, [string]$Path) {
     $lines.Add("# YOLO Model Comparison")
     $lines.Add("")
     $lines.Add("- Data: ``$($Summary.dataYaml)``")
+    $lines.Add("- Runtime data YAML: ``$($Summary.runtimeDataYaml)`` (artifact copy with an absolute dataset root; source YAML unchanged)")
     $lines.Add("- Task: ``$($Summary.task)``")
     $lines.Add("- Model task: ``$($Summary.modelTask)``")
     $lines.Add("- Image size: ``$($Summary.imageSize)``")
@@ -2005,6 +2097,7 @@ if ((Test-YoloV5SourceRoot $BaselineYoloSourceRoot) -or (Test-YoloV5SourceRoot $
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $runOutputRoot = Join-Path $OutputDirectory $stamp
 New-Item -ItemType Directory -Force -Path $runOutputRoot | Out-Null
+$script:RuntimeDataYaml = New-ComparisonRuntimeDataYaml $DataYaml $runOutputRoot
 
 $baseline = Invoke-ModelValWithBenchmarkRepeats "baseline" $BaselineWeights $runOutputRoot $BaselinePythonExe $BaselineYoloSourceRoot $BaselineEngine $BenchmarkRepeatCount
 $candidate = Invoke-ModelValWithBenchmarkRepeats "candidate" $CandidateWeights $runOutputRoot $CandidatePythonExe $CandidateYoloSourceRoot $CandidateEngine $BenchmarkRepeatCount
@@ -2029,6 +2122,7 @@ if ($comparisonKind -ieq "engine-benchmark" -and $Task -ieq "val") {
 $summary = [ordered]@{
     createdAt = (Get-Date).ToString("o")
     dataYaml = $DataYaml
+    runtimeDataYaml = $script:RuntimeDataYaml
     task = $Task
     modelTask = $ModelTask
     comparisonKind = $comparisonKind

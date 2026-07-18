@@ -12833,6 +12833,7 @@ internal static partial class Program
                 "YOLOv5 comparison should remove only stale label-cache artifacts and retain that runtime preflight in the report");
             AssertTrue(realScriptSource.Contains("Read-WeightsClassCount", StringComparison.Ordinal), "model comparison script should read each weights file label count before YOLO val");
             AssertTrue(realScriptSource.Contains("Read-DataYamlClassNames", StringComparison.Ordinal), "model comparison script should read data.yaml class names before YOLO val");
+            AssertTrue(realScriptSource.Contains("return @((Read-DataYamlClassNames $Path)).Count", StringComparison.Ordinal), "model comparison script should accept valid names-only data.yaml files without an nc field");
             AssertTrue(realScriptSource.Contains("Read-WeightsClassInfo", StringComparison.Ordinal), "model comparison script should read each weights file label names before YOLO val");
             AssertTrue(realScriptSource.Contains("Test-ClassNamesEqual", StringComparison.Ordinal), "model comparison script should reject same-count but different-name label lists");
             AssertTrue(realScriptSource.Contains("dataset labels=", StringComparison.Ordinal), "model comparison preflight should explain label-count mismatch clearly");
@@ -12849,6 +12850,18 @@ internal static partial class Program
             AssertTrue(realScriptSource.Contains("Model Takt", StringComparison.Ordinal), "model comparison report should disclose native per-image model takt");
             AssertTrue(realScriptSource.Contains("BaselinePythonExe", StringComparison.Ordinal) && realScriptSource.Contains("CandidatePythonExe", StringComparison.Ordinal), "cross-engine comparison should use each engine's own Python runtime");
             AssertTrue(realScriptSource.Contains("model.predict", StringComparison.Ordinal), "Ultralytics comparison should count UI candidates from predict labels, not validation labels");
+            AssertTrue(realScriptSource.Contains("New-PredictionSourceManifest", StringComparison.Ordinal)
+                && realScriptSource.Contains("Get-ChildItem -LiteralPath $ResolvedPath -Recurse -File", StringComparison.Ordinal)
+                && realScriptSource.Contains("predict_source_path.suffix.lower() == \".txt\"", StringComparison.Ordinal),
+                "cross-engine comparison should recurse nested split folders and pass their image list to each prediction runtime");
+            AssertTrue(realScriptSource.Contains("New-ComparisonRuntimeDataYaml", StringComparison.Ordinal)
+                && realScriptSource.Contains("$script:RuntimeDataYaml", StringComparison.Ordinal)
+                && realScriptSource.Contains("runtimeDataYaml", StringComparison.Ordinal),
+                "native relative data.yaml roots should be rewritten only in an artifact-local runtime YAML and recorded in comparison provenance");
+            AssertTrue(realScriptSource.Contains("duplicate image stem", StringComparison.Ordinal)
+                && realScriptSource.Contains("generated_label_path = labels_path / f\"image{index}.txt\"", StringComparison.Ordinal)
+                && realScriptSource.Contains("generated_label_path.replace(destination_label_path)", StringComparison.Ordinal),
+                "Ultralytics list-source prediction labels should be restored to unique source stems before ground-truth review");
             AssertTrue(realScriptSource.Contains("$RunName-predict\\labels", StringComparison.Ordinal), "Ultralytics comparison should expose predict labels for Candidate Review examples");
             AssertTrue(realScriptSource.Contains("validationLabelsPath", StringComparison.Ordinal), "Ultralytics comparison should keep validation labels separate from UI review labels");
             AssertTrue(realScriptSource.Contains("ModelTask", StringComparison.Ordinal), "model comparison script should keep split task separate from detect/segment task");
