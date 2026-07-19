@@ -44,6 +44,12 @@ This file defines how Codex should work in this repository.
 - Keep a clear next step in the final response.
 - When completing priority-driven work, explicitly state any remaining next-priority work in the final response instead of leaving the next step implicit.
 
+## Priority Communication
+
+- A compact priority label is never sufficient by itself. Whenever reporting or proposing a priority, explain in plain language before acting: why it is next, the concrete outcome, included and excluded scope, completion evidence, and any prerequisite or safety boundary.
+- Keep `Recommended model` and `Reasoning effort` as metadata after that explanation; do not let those two fields replace the explanation.
+- If the priority is blocked by data, credentials, hardware, or an explicit user decision, name that prerequisite first and do not imply that more implementation alone will complete it.
+
 ## Reasoning Effort
 
 - Low effort: typo fixes, formatting, simple text edits, one-line test expectation updates.

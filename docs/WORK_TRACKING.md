@@ -1,6 +1,337 @@
 # Work Tracking
 
-Last updated: 2026-07-16
+Last updated: 2026-07-19
+
+## 2026-07-19 documentation checkpoint reconciliation
+
+- Status: `Complete`
+- Scope:
+  - Reconcile the current handoff, next-chat prompt, stable contracts, work tracking, product positioning, and project agent priority rules after the reviewed feature slices were independently committed.
+  - Preserve historical evidence entries and the unrelated indentation-only WPF XAML hunk; do not change code, runtime, model, data, or adoption state.
+- Acceptance criteria and result:
+  - Current checkpoint names the committed code baseline through `85d91e9`, origin/main at `2df6b3c`, and the single excluded XAML residual instead of describing committed source as dirty/untracked: passed.
+  - Current anomaly documentation consistently uses `N장 일괄 판정` and `이미지별 확인`, preserves manual decisions, and keeps folder names as an explicit proposal: passed.
+  - Next priorities do not repeat completed feature-slice reviews and remain blocked on new independent production data or a reproduced requirement: passed.
+- Verification:
+  - `--priority-workflow-docs` and `git diff --check` passed against the documentation-only staged scope.
+- Boundary:
+  - This is a documentation checkpoint only. It does not prove CI, model quality, production readiness, or that the unrelated XAML hunk should be committed or reverted.
+
+## 2026-07-19 anomaly OK/NG image-review workspace
+
+- Status: `Complete`
+- Scope:
+  - Present anomaly labeling as image-level `정상(OK) / 이상(NG)` review instead of object drawing.
+  - Reuse the existing `anomaly-review-status.json` persistence and training/export contract; do not add a second state file or create YOLO box/mask labels from the dedicated buttons.
+  - Keep the existing optional `OK`/`NG` folder-name consent, but rename its choices to the explicit `N장 일괄 판정` and `이미지별 확인` actions.
+- Acceptance criteria and result:
+  - Anomaly purpose hides the global/canvas label-save action, saved-object/class views, annotation toolbars/rail, label-layer strip, and queue detection/batch controls: passed.
+  - The current-image card explains that no defect location is drawn and exposes `정상(OK) → 다음`, `이상(NG) → 다음`, and `미판정으로 되돌리기`: passed.
+  - One decision saves immediately, refreshes the queue badge/`판정`/`상태` columns, and advances to the next unreviewed image; revisiting an image can overwrite or clear the decision: passed.
+  - Reload restores the saved image-level state; folder-name bulk review changes only unreviewed images and preserves manual decisions: passed.
+  - Switching away from anomaly purpose restores the standard annotation workspace; switching back restores the OK/NG queue presentation: passed.
+- Verification:
+  - Required isolated test build passed with 0 warnings and 0 errors.
+  - `--anomaly-folder-auto-review` passed the dedicated command, next-unreviewed, override, clear, persistence, folder-consent, selected-root, and purpose-switch assertions.
+  - `--wpf-anomaly-purpose-flow` passed the existing persistence/manifest/training-consumer contract.
+  - Exact staged-tree 1920x1080 evidence for local commit `85d91e9`: `artifacts\ui\anomaly-ok-ng-review-20260719\before-anomaly-review-1920.png` and `artifacts\ui\anomaly-ok-ng-review-20260719\after-staged-slice-1920.png`.
+  - README/tutorial relevance check: the public walkthrough does not document an anomaly labeling screen, so no public image was replaced; current UI evidence remains in `artifacts\ui`.
+- Boundary:
+  - This completes manual image-level review UX and its persisted state contract. It does not prove anomaly-model accuracy, automatically trust folder names, change source images, or adopt an inference model.
+
+## 2026-07-19 anomaly nested image-root retention
+
+- Status: `Complete`
+- Scope:
+  - Fix the reproduced Image Queue defect where opening the first file from `images\\NG` after selecting `images` replaced the operator-selected queue root with `images\\NG`.
+  - Preserve the existing recursive intake, top-level `NG`/`OK` interleaving, explicit folder-name consent, review states, source files, labels, and training behavior.
+- Acceptance criteria and result:
+  - Selecting `images` with nested `NG` and `OK` files and automatically opening its first nested file keeps `images` as the queue root and retains all rows: passed.
+  - Clicking an `OK` queue row after that automatic open keeps `images` as the queue root and retains all rows: passed.
+- Verification:
+  - Required isolated test build completed from the changed source.
+  - `--anomaly-folder-auto-review` passed. Its fixture contains `images\\NG`, `images\\OK`, and an unmatched child folder; it asserts the automatic first nested open plus subsequent `OK` selection against the five-row selected root.
+  - Current-source 1920x1080 WPF shell capture: `artifacts\\ui\\anomaly-image-root-retention-20260719\\after-root-retention-1920.png`; it checks layout only. The nested-root behavior is proven by the focused fixture assertion, not inferred from this general shell capture.
+  - README/tutorial relevance check: no public tutorial image changed because this corrects queue-root state without changing the documented controls or layout.
+- Boundary:
+  - This is a queue-root preservation fix. It does not auto-classify `NG`, alter the source directory, or add a separate `OK`/`NG` filter.
+
+## 2026-07-18 anomaly child-folder queue clarity
+
+- Status: `Complete`
+- Scope:
+  - Correct the visible Image Queue behavior when an anomaly operator selects an `images` root with no direct files and `OK`/`NG` child folders.
+  - Keep recursive image intake, review-state consent, source files, labels, and training behavior unchanged.
+- Acceptance criteria and result:
+  - The temporary consent card identifies that nested images are included and displays their total count: passed.
+  - The anomaly queue interleaves the top-level child-folder paths, so a 50-image `NG` block no longer hides the `OK` images at the top of the list: passed.
+  - Direct-image roots and non-anomaly queues remain outside this ordering change: the call site invokes it only for anomaly queue loads, and direct-image roots do not enumerate child paths.
+- Verification:
+  - Required isolated test build and `dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug -p:Platform='Any CPU' /nr:false -m:1 /p:UseSharedCompilation=false` completed from the changed source. The updated Debug executable is `artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe`.
+  - `--anomaly-folder-auto-review` and `--wpf-anomaly-purpose-flow` passed; the former asserts both the visible total and the first interleaved child-folder sequence.
+  - `--priority-workflow-docs` and `git diff --check` passed (the latter reported only existing LF-to-CRLF warnings).
+  - Current-source 1920x1080 before/after WPF render captures: `artifacts\ui\anomaly-folder-queue-balance-20260718\before-queue-balance-1920.png` and `artifacts\ui\anomaly-folder-queue-balance-20260718\after-queue-balance-1920.png`.
+- Boundary:
+  - This is queue presentation/order only. It does not treat `NG` as an automatic abnormal review state; the explicit `N장 일괄 판정` decision remains required.
+
+## 2026-07-18 anomaly folder-name review consent
+
+- Status: `Complete`
+- Scope:
+  - Change only the existing image-level anomaly folder intake. A detected `OK`/`normal` or `NG`/`abnormal` ancestor is now a non-mutating review suggestion, not an automatic label.
+  - Show the temporary consent card inside Image Queue only. No permanent top-header buttons, no source-image changes, no label-file changes, and no training/model/adoption work are included.
+- Acceptance criteria and result:
+  - Opening a matching anomaly folder keeps unreviewed images unreviewed and preserves a saved manual Normal/Abnormal decision: passed.
+  - `이미지별 확인` hides the proposal for the same image-root session without persistence; a new session may offer it again: passed.
+  - `N장 일괄 판정` applies only the proposed states for still-unreviewed images, saves them, and never overwrites a manual state: passed.
+  - Training readiness and classification export consume only saved/explicitly approved states; they no longer import parent folder names as a side effect: passed.
+- Verification:
+  - Current-source isolated test build produced `tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll` from the changed source.
+  - `--anomaly-folder-auto-review`, `--wpf-anomaly-purpose-flow`, `--anomaly-classification-dataset-export`, `--anomaly-classification-training-workflow`, `--wpf-labeling-shell`, and `--priority-workflow-docs` passed.
+  - Current-source WPF before/after 1920x1080 render captures: `artifacts\ui\anomaly-folder-status-consent-20260718\before-anomaly-folder-auto-1920.png` and `artifacts\ui\anomaly-folder-status-consent-20260718\after-anomaly-folder-suggestion-1920.png`.
+  - README/tutorial relevance check: the consent card appears only after a matching anomaly folder is opened and does not change the public default workflow or header, so no public screenshot was replaced.
+- Boundary / next dependency:
+  - The suggestion recognizes only the established `OK`/`normal` and `NG`/`abnormal` names for the image-level anomaly workflow. It does not infer an object-detection class schema, create bounding boxes/masks, or provide model-quality evidence.
+
+## 2026-07-18 `D:\라벨테스트` labeled-data contract and cross-product evidence
+
+- Status: `Complete` for the three user-authorized evidence steps; neither evaluated model is adopted.
+- Scope and input contract:
+  - Read the available multi-industry EasyMatch packages and select `EasyMatch_Switch_Housing_500` because its native object-detection YAML has the same five ordered classes as the existing Die Array YOLOv5s/YOLOv8n weights.
+  - Preserve the original source. The object source (1,004 files, zero `.cache`) equals the clean staged copy after excluding only the staged YOLOv5 label cache; the anomaly source's 300 image-content hashes equal the 50-normal/250-abnormal evaluation copy after its artifact-only filename mapping.
+  - The package README declares synthetic test data. It is valid for adapter/input-contract and cross-product regression evidence, not for a production-camera quality claim.
+- Authorized results:
+  - Object detection: five-repeat YOLOv5s versus YOLOv8n test comparison on the staged Switch Housing 60-image native test split; artifact `artifacts\cross-domain-switch-object-detection-20260718-002742\comparison\20260718-003624\comparison-summary.json`. The absolute-root runtime YAML is artifact-only; original YAML stays unchanged. YOLOv5s mAP50/Takt `0.325/64.4ms`; YOLOv8n `0.258/36.608ms`; candidate `hold` because mAP50 declined and UI-threshold false positives increased (`312` vs `206`).
+  - Anomaly classification: existing Washer YOLOv8 classification weight evaluated on all 300 staged Switch Housing images (50 normal / 250 abnormal) at confidence 0.8; artifact `artifacts\cross-domain-switch-anomaly-20260718-002743\evaluation\classification-evaluation-20260718-010859\classification-evaluation-summary.json`. Result `1/300` correct, normal `1/50`, abnormal `0/250`; promotion `hold`.
+- Verification and boundary:
+  - Actual five-repeat report stores the 60-image object evidence fingerprint and both weight SHA-256 values. Actual anomaly report stores the 300-image SHA-256 class/image fingerprint and the Washer weight SHA-256.
+  - Earlier console-only aggregate source hashes have no retained manifest and did not reproduce under the current canonical aggregation; they are not asserted as a before/after proof. The per-run preservation evidence is the clean staged-copy equality, source file/image counts, zero source cache files, and artifact provenance above.
+  - Do not retrain, tune, register, or adopt either model from these synthetic cross-product results. The next quality gate remains independent production-camera/cross-session object and anomaly data.
+
+## 2026-07-18 independent object-detection evidence preflight
+
+- Status: `Blocked`
+- Scope:
+  - The operator removed the unavailable nonduplicated camera/network Image Queue profile from active priorities and directed work to the next model-evidence gate.
+  - Perform a read-only local candidate search only; do not relabel, split, copy, train, evaluate, register, or adopt a model.
+- Acceptance criteria:
+  - Identify whether a local source already has the native YAML and object-detection annotations required for an independent held-out comparison: completed.
+  - Reject image-level `OK`/`NG` folders as bounding-box evidence unless an operator supplies an object schema and labels: completed.
+- Verification / evidence:
+  - `D:\LabelingData` contains only the already-known Test01/Test02 folders; documentation records them as hash-identical and not independent evidence.
+  - `D:\data` contains two JPEGs and two text files without a YAML; `D:\원본 이미지 2존` contains one BMP without annotations.
+  - `D:\기타이미지\2022.11.16_SIT 이미지` contains exactly 10,447 files, all JPEGs: 5,950 under `OK` and 4,497 under `NG`, with zero `.txt`, `.json`, `.xml`, `.yaml`, or `.yml` files.
+- Boundary / next dependency:
+  - The 10,447-image folder may become a useful object-detection labeling source, but its current folder names are image-level states, not bounding boxes. The operator must confirm it as the intended source and define the object classes/bounding-box rules. After labeling, build a provenance-recorded held-out split with no content overlap before authorizing a five-repeat YOLOv5/YOLOv8 comparison.
+  - It may alternatively suit anomaly evaluation, but no automatic task reassignment is permitted; anomaly use requires a separate explicit operator decision.
+
+## 2026-07-18 `D:\라벨테스트` full candidate inventory
+
+- Status: `Blocked`
+- Scope and acceptance:
+  - Read only the complete supplied root. Do not copy, relabel, alter a split, train, evaluate, register, or adopt a model: passed.
+  - Determine whether any supplied top-level package is independent production-camera/cross-session evidence rather than a pipeline regression source: completed.
+- Verification / evidence:
+  - All 21 top-level packages have a README declaration that they are synthetic or generated test data. This includes the circular, seven EasyMatch, MultiIndustry, v2/v3 multi-shape, and Washer families.
+  - The inventory found 37 YAML files, including native object-detection/segmentation declarations. Those files make the packages valuable for input-contract, format-adapter, and regression tests, but do not change their documented synthetic provenance.
+  - Representative source declarations: EasyMatch says NG defects are procedurally synthesized and are not real-data model-performance evidence; MultiIndustry says it is procedurally generated synthetic data; Washer says it is synthetic pipeline/training-code test data; circular and multi-shape packages explicitly forbid using them as production-performance benchmarks.
+- Boundary / next dependency:
+  - Do not rerun the already-recorded synthetic comparisons or use these packages to claim field accuracy. To open the object-detection gate, supply a separately acquired source with a native `data.yaml`, YOLO bounding-box labels and class schema, and provenance that permits a content-disjoint held-out split.
+  - To open the anomaly gate instead, supply production-camera or cross-session normal/abnormal images with the evaluation policy. Either path requires an explicit authorization before a five-repeat comparison consumes runtime/data resources.
+
+## 2026-07-18 model/anomaly comparison focused completion review
+
+- Status: `Complete`
+- Scope:
+  - Review only the nested anomaly input/run-isolation and cross-engine comparison-manifest slices. No source images, labels, splits, weights, recipes, profiles, registration, adoption state, training job, or five-repeat benchmark was changed or rerun.
+  - Correct the review inventory to include `CCommunicationLearning.cs` and `LearningProtocol.cs`, because the supplied anomaly run name crosses that TCP boundary before the worker receives it.
+- Acceptance criteria and result:
+  - Nested `OK`/`NG` inference retains saved manual decisions; classification export and the `classify` request remain correct: passed.
+  - The unique single-folder run name is forwarded through service/TCP, and an existing run directory is rejected: passed.
+  - The worker retains `plots=False` without changing model/adoption policy: passed.
+  - Names-only YAML, nested label mapping, deterministic manifest, duplicate-stem fail-closed behavior, generated-label restoration, report fingerprint/provenance, and no automatic adoption are asserted by the comparison contract: passed.
+- Verification:
+  - Required isolated build passed with 0 warnings / 0 errors.
+  - `--anomaly-folder-auto-review`, `--anomaly-classification-training-workflow`, `--wpf-yolov8-anomaly-classification-runtime-smoke`, `--anomaly-classification-evaluation`, `--python-ultralytics-worker`, and `--wpf-model-comparison-run-service` all passed.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile C:\Git\yolov8\labeling_tcp_client.py Runtime\Python\openvisionlab_ultralytics_worker.py` passed; adapter `--self-test` reported `self-test passed`; the PowerShell parser accepted `scripts\compare-yolo-models.ps1`.
+- Evidence boundary / next dependency:
+  - The recorded Washer candidate remains `hold` (`0/60` circular and `14/75` MultiIndustry synthetic evaluation); the recorded EasyMatch engine comparison remains synthetic benchmark evidence. Neither supports retraining, tuning, registration, or adoption.
+  - Quality decisions still require new independently acquired NG-rich object-detection and balanced production-camera/cross-session anomaly data. A real five-repeat comparison is intentionally deferred until explicit user authorization with documented held-out provenance.
+
+## 2026-07-17 Dataset Health separate analysis window
+
+- Goal and scope:
+  - Make Recipe-owned data readiness, label integrity, split overlap, and class-distribution evidence visible without adding more text or controls to the left workflow panel.
+  - The new read-only `데이터셋 상태 분석` window opens from `Model Center > 데이터 > 분석`. It aggregates the existing readiness, quality-audit, diagnostics, and anomaly-readiness services only when the operator opens or refreshes the window.
+- Completed behavior:
+  - `개요`, `분할 / 라벨`, and `클래스 분포` tabs separate the four compact summary metrics from detailed tables. Object detection reports YOLO box labels, segmentation reports saved segment/mask artifacts, and anomaly classification reports normal/abnormal review states without pretending that it has YOLO box splits.
+  - The window is owned by the shell, refreshes through its ViewModel, follows the shell theme, and closes with the shell. It does not modify queues, labels, masks, recipes, model profiles, worker state, candidate history, or adoption state.
+  - External native YOLO `data.yaml` is intentionally outside this aggregate. Its explicit intake/validation card remains the source of truth for external training input.
+- Verification and UI evidence:
+  - Required isolated build passed with 0 warnings / 0 errors. `--dataset-health`, `--wpf-dataset-health-window`, `--wpf-labeling-shell`, `--dataset-quality-audit`, and `--dataset-readiness-purpose` passed.
+  - True pre-change Model Center Data baseline: `artifacts\ui\dataset-health-20260717\before-model-center-data-1920.png`.
+  - Current-build normal-state evidence: `artifacts\ui\dataset-health-20260717\after-dataset-health-populated-ready-1920.png`. A disposable copy of the existing SEG fixture was used only for the capture; the original fixture and user data were not modified. The overview shows 5 stored images, 5 primary labels, normal label quality, and no split-content overlap without clipping at 1920x1080.
+  - Focused current-source recheck: an isolated build passed with 0 warnings / 0 errors; `--dataset-health`, `--wpf-dataset-health-window`, `--dataset-readiness-purpose`, `--dataset-quality-audit`, and `--wpf-labeling-shell` all passed. Fresh no-data visual evidence is `artifacts\ui\dataset-health-20260717-current-review\dataset-health-current-1920.png`; it shows `라벨 품질: 미확인`, not `정상`, without clipping at 1920x1080. The existing corrupt-SEG fixture test continues to assert a numeric problem state rather than false normal.
+  - README/tutorial screenshots were reviewed and retained. The public walkthrough does not show this separate Model Center analysis window or a changed default shell layout; the current UI evidence remains under `artifacts\ui`.
+- Completion disposition and boundary:
+  - Treat purpose-aware Dataset Health visibility as complete for the current local report schema. It is a data-structure and label-state check, not a training run, a production-quality measurement, or a model-adoption decision.
+  - A very large dataset can still take perceptible time when the operator explicitly refreshes because the existing audit scans stored files. That work remains on-demand and intentionally does not run on image-queue navigation.
+
+## 2026-07-17 MultiIndustry synthetic anomaly cross-domain evaluation
+
+- Goal and data boundary:
+  - Use the user-supplied `D:\라벨테스트\MultiIndustry_500_Images_OK_NG` package only as a preserved external synthetic regression set for the existing Washer YOLOv8 classification weight. Its README explicitly calls the 500 `512x512` images procedural test data, not production-camera evidence.
+  - The package's declared native `test` partition contains 75 images: 44 `OK`/normal and 31 `NG`/abnormal. SHA-256 inventory found zero image overlap with all 300 Washer source images, 201 historical circular-source images, and 100 complete-circular images.
+  - Only those 75 test images were copied into `artifacts\external-anomaly-evaluation\multiindustry-vs-washer-native-test-20260717\dataset\test\normal|abnormal`. The 75-row source/copy manifest has zero hash mismatches; its reconstructed evidence fingerprint matches the generated evaluation summary exactly.
+- Evaluation result:
+  - Weight: `C:\Git\yolov8\runs\classify\openvisionlab-yolov8-classify-washer300-completed-20260717\weights\best.pt`, SHA-256 `1A1003635756E1052B7361DCB116EC807F5B16BC555E114138F7AE595B8D2D9F`.
+  - CPU image-size `128`, worker confidence `0.0`, and the existing adoption confidence gate `0.8` produced `hold`: 14/75 confidence-gated correct (`0.187`), normal 14/44 (`0.318`), abnormal 0/31 (`0.000`), and 29 class-matching predictions below the confidence gate. All 31 abnormal images were predicted as normal.
+  - Evidence summary: `artifacts\external-anomaly-evaluation\multiindustry-vs-washer-native-test-20260717\evaluation\classification-evaluation-20260717-185132\classification-evaluation-summary.json`, fingerprint `44a9a0f28d609dc1631f39a9305542f4df12412c34496a9120e765494d34fc31`.
+- Verification and UI boundary:
+  - One exact-weight worker smoke passed before the full evaluation. The external summary has 75 samples matching the 75-row input manifest; no evaluator process remains after completion.
+  - `--anomaly-classification-evaluation` passed. Current-source Model Center summary presentation also loaded this exact `hold` artifact: `artifacts\ui\priority-reassessment-20260717\multiindustry-washer-anomaly-evaluation-1920.png`.
+  - No product UI source, tutorial flow, source image, label, recipe, model profile, model registration, or adoption state changed. The screenshot is runtime evidence only, so README/tutorial screenshots were not replaced.
+- Completion disposition and next work:
+  - This proves that the current Washer candidate does not generalize to this separate synthetic multi-industry test. It must remain unadopted, and this test set must remain outside training and tuning.
+  - The remaining anomaly-quality gate is balanced real production-camera or cross-session normal/abnormal data. This synthetic result does not prove or disprove field performance.
+
+## 2026-07-17 Nested anomaly OK/NG folder intake
+
+- Scope and data boundary:
+  - The inspected `MultiIndustry_500_Images_OK_NG` source is explicitly synthetic and stores samples under `images\\OK\\<product>` and `images\\NG\\<product>`. It remains pipeline-only data, not production-camera or model-adoption evidence.
+  - No source image, label, dataset split, training run, weight, recipe, or adoption state changed.
+- Completed behavior:
+  - Anomaly auto-review now walks from an image's parent toward the root and uses the nearest matching `OK`/`normal` or `NG`/`abnormal` folder. Direct child folders retain their prior behavior, and saved manual Normal/Abnormal decisions remain authoritative.
+  - The existing recursive image-queue fallback already loads this package layout when the selected root has no direct images; it required no performance-path change.
+- Verification and UI boundary:
+  - The isolated test build passed. `--anomaly-folder-auto-review` now proves direct and nested folder mapping, manual-state preservation, classification export, and WPF queue reload. `--anomaly-classification-training-workflow` and `--anomaly-classification-evaluation` also passed.
+  - No visible UI, layout, or public tutorial workflow changed, so no screenshot or README/tutorial image update was required.
+- Next evidence gate:
+  - Independent production-camera or cross-session normal/abnormal images remain required before anomaly candidate evaluation or adoption. Do not train or tune against the preserved external circular regression set.
+
+## 2026-07-17 YOLOv8 Washer anomaly candidate: external hold-out and restart runtime
+
+- Goal and data boundary:
+  - Keep the completed Washer `images\\OK` / `images\\NG` classification candidate separate from the preserved circular-defect external regression set. No external image was added to training, no weight was registered/adopted, and no source image or label was changed.
+  - Candidate weight: `C:\\Git\\yolov8\\runs\\classify\\openvisionlab-yolov8-classify-washer300-completed-20260717\\weights\\best.pt`, SHA-256 `1A1003635756E1052B7361DCB116EC807F5B16BC555E114138F7AE595B8D2D9F`.
+- External quality result:
+  - The preserved circular 60-image test (`10 normal / 50 abnormal`) retained its existing content fingerprint `a8b1f30a616a70462b2e58ffef59868fccba1b7aedf34459fb665ade98728fa4` and was evaluated through the local YOLOv8 adapter at image size `128` and minimum confidence `0.8`.
+  - Result: `0/60` confidence-gated correct, normal `0/10`, abnormal `0/50`, with 11 class-matching predictions below the confidence gate. The report is `hold`; it is external synthetic regression evidence, not production-camera/cross-session evidence.
+  - Evidence: `artifacts\\external-anomaly-evaluation\\washer300-vs-circular-holdout-20260717\\classification-evaluation-20260717-152409\\classification-evaluation-summary.json`.
+- Actual current-build restart result:
+  - The current Debug EXE saved, closed, reopened, and inferred with the exact Washer weight. Using the copied high-confidence internal held-out `NG_0001.png` (source/copy SHA-256 `1A66FC14FA22068B4825D7DEB2908F83D2877AD138102C680075306AD8F4A19D`), it displayed `YOLOv8 / openvisionlab-yolov8-classify-washer300-completed-20260717\\best.pt / candidate 1` and persisted `AnomalyImageReviewState.Abnormal`.
+  - Evidence: `artifacts\\exe-yolov8-anomaly-restart-smoke\\washer300-candidate-runtime-20260717\\summary.txt`; runtime capture: `screenshots\\04_first_abnormal_inference_after_restart.png`.
+- Verification and next work:
+  - Current EXE build, isolated test build, `--anomaly-classification-training-workflow`, `--anomaly-classification-evaluation`, `--wpf-yolov8-anomaly-classification-runtime-smoke`, `--wpf-labeling-shell`, local adapter and bundled worker compile/self-test all passed.
+  - Runtime/profile persistence is verified for this candidate. Its quality remains `hold`; do not tune against the preserved circular test. The next anomaly gate is independent production-camera or cross-session normal/abnormal evidence.
+
+## 2026-07-17 Controlled YOLOv5s versus YOLOv8n native detection benchmark
+
+- Completed controlled run:
+  - The supplied EasyMatch Die Array native object-detection package was copied once into the ASCII artifact staging root, preserving the declared `360/80/60` train/validation/test split, five classes, and source image/label content fingerprint `f0b328efc51d01c2b04a7201040401a42acfe633ddba07613c507e0ef7811038`.
+  - The app service, local TCP adapter, and local source runtimes completed two new CPU candidates with matching settings: YOLOv5s and YOLOv8n, seed `0`, 20 epochs, image size `320`, batch `4`. The saved weights are `F770C1E1655CE7C374C72FB38F6E3CC5CC7A8B2080DBAE35705894EA700FB039` and `61B457DC46FF6605982DA99FA7DE4B72A05BC1CABBA3D13744DA502C356265BF` respectively.
+  - The final five-repeat held-out report is `artifacts\\yolo-model-comparison\\easy-match-die-array-500-v5s-v8n-e20-mapped-20260717\\20260717-145639\\comparison-summary.json`. It records the same 60-image/60-label `test` fingerprint `d123814a642523953cd0edec9592c923bd972e1a22e1442f891717675a27328e` for both engines.
+- Measured benchmark result:
+  - YOLOv5s: precision `0.709`, recall `0.588`, mAP50 `0.575`, mAP50-95 `0.346`, five-run median model Takt `74.0ms/image` (`73.5-77.7`). At UI confidence `0.25`, the saved-label review is TP/FP/FN `20/4/18`.
+  - YOLOv8n: precision `0.768`, recall `0.885`, mAP50 `0.832`, mAP50-95 `0.619`, five-run median model Takt `48.960ms/image` (`47.246-51.391`). At UI confidence `0.25`, the saved-label review is TP/FP/FN `30/6/8` from 36 UI-threshold candidates.
+- Comparison reliability correction:
+  - Native YAML files that declare `names` without `nc` are now accepted. Nested split folders are scanned recursively and their matching label paths retain the nested relative directory.
+  - The comparison passes a deterministic image manifest to each engine. Ultralytics emits `imageN.txt` for Python-list prediction sources, so the script now restores each saved label to the manifest's unique source stem before ground-truth review. Duplicate source stems fail closed rather than silently pairing an answer with the wrong prediction.
+  - A first generated report with un-restored `imageN.txt` labels was removed from the standard comparison catalog after the mismatch was detected. Only the corrected report above remains under `artifacts\\yolo-model-comparison`.
+- Boundary and next work:
+  - The report's computed `promote` recommendation is an engine-comparison result only. It did not register, adopt, or replace an inspection profile, and must not be treated as production-camera or cross-session accuracy evidence because this package is synthetic.
+  - The separate anomaly runtime/model smoke is recorded above. Independent production/cross-session object-detection and anomaly evidence remain required before operational adoption.
+
+## 2026-07-17 Diverse external YOLOv5/YOLOv8 detection smoke with source protection
+
+- Data inventory and intended use:
+  - The newly supplied `D:\라벨테스트` packages include six 500-image EasyMatch product datasets with native five-class object-detection and segmentation YAMLs (`360/80/60` train/validation/test), plus synthetic multishape data with list-file splits.
+  - `MultiIndustry_500_Images_OK_NG` currently has 500 images but no on-disk detection labels, segmentation labels, or masks, despite its README. It is suitable only as an external anomaly-folder source until labels are supplied; it must not be presented as an object/SEG training package.
+  - The first controlled two-engine runtime target is the native EasyMatch Die Array object-detection package: 500 synthetic images, five classes, and the declared `360/80/60` split. It is a plumbing/comparison corpus, not production-quality evidence.
+- Runtime protection:
+  - The local `C:\Git\yolov5\labeling_tcp_client.py` materializes a relative native YAML into a temporary training directory. When its resolved source root contains non-ASCII characters, it copies only `images` and `labels` to an ASCII temporary dataset root because the installed OpenCV build cannot read the original Windows Unicode path.
+  - YOLOv5 label-cache writes are redirected to that temporary root, and terminal task cleanup runs before the completed/failed status is returned so an embedding host cannot leave the staged data behind by stopping the worker immediately after its terminal response.
+  - The local `C:\Git\yolov8\ultralyticsMaster` resolves its normal YOLO label cache through `OPENVISIONLAB_ULTRALYTICS_LABEL_CACHE_DIR` when set. The local YOLOv8 adapter creates that directory only for `model.train`, then restores the environment and removes it. This avoids writing `labels\\*.cache` into an externally selected source.
+  - The external-data training verifier now matches the local YOLOv8 detect worker's actual output convention (`runs\\train`, not `runs\\detect`), so a completed worker state is accepted only when the matching `best.pt` exists.
+  - The native source YAML, images, and labels remain read-only; this does not register, adopt, or replace a model.
+- Verification:
+  - `C:\Git\yolov5\.venv\Scripts\python.exe -m py_compile C:\Git\yolov5\labeling_tcp_client.py` and `--self-test` passed. The self-test covers relative YAML materialization, Unicode source staging, source-file preservation, cache cleanup, and terminal-directory cleanup.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile C:\Git\yolov8\labeling_tcp_client.py C:\Git\yolov8\ultralyticsMaster\ultralytics\data\dataset.py` and `--self-test` passed. The self-test covers temporary cache environment restoration and cleanup.
+  - `--real-external-yolo-dataset-training --engine yolov5 --purpose detection --epochs 1 --image-size 320 --batch 4` completed twice through `YoloTrainingWorkflowService` and the local TCP adapter. The cleanup-proof run wrote `C:\Git\yolov5\yolov5Master\runs\train\openvisionlab-yolov5-detect-external-yaml-e1-20260717-100835\weights\best.pt` (SHA-256 `5378FD3877BA5A26E07DD7FA3AF54A23A679D20CBB2D254528276CBA058681BF`); evidence: `artifacts\real-external-yolo-dataset-training\20260717-100835\summary.txt`.
+  - `--real-external-yolo-dataset-training --engine yolov8 --purpose detection --epochs 1 --image-size 320 --batch 4` completed through the same service/TCP path and wrote `C:\Git\yolov8\runs\train\openvisionlab-yolov8-detect-external-yaml-e1-20260717-102109\weights\best.pt` (SHA-256 `06ECA366BDC9AD0AA924B2E3A59B62D7341746DAA3C4482B9226C1CBA595A170`); evidence: `artifacts\real-external-yolo-dataset-training\20260717-102109\summary.txt`.
+  - Before/after both cleanup-proof runs, the source has 1,004 files, tree SHA-256 `4adea22d806390a706d0c70b82704916606d75285c09218b355bf59e3c84986b`, zero source `.cache` files, zero `openvisionlab-yolov5-training-*` directories, and zero `openvisionlab-ultralytics-label-cache-*` directories.
+- Scope limit and next work:
+  - This is CPU 1-epoch execution evidence only. It proves the same external source can reach both local engines but does not measure a useful candidate, produce a quality/timing comparison, or establish production-camera accuracy.
+  - Next: train/evaluate YOLOv5 and YOLOv8 against the same untouched native split with identical recorded conditions, then load the resulting quality/timing reports in the existing model-neutral comparison workspace. Keep production-camera and cross-session data as the adoption gate.
+
+## 2026-07-17 External native YOLO data.yaml intake
+
+- Goal and scope:
+  - Let an operator explicitly select a native Ultralytics `data.yaml` for the next local YOLOv8 object-detection or segmentation training run without importing, copying, or overwriting the recipe-owned labeling dataset.
+- Protected workflow:
+  - The external profile is stored separately from the recipe export settings. Selecting a YAML validates it but does not activate it; `Use for next training` is a separate explicit action, and clearing the profile returns the next run to the recipe-owned dataset.
+  - Validation resolves `path: .` from the YAML directory, requires directory-based `train` and `val` splits, accepts an optional `test` split, supports indexed or list-form `names`, validates label geometry/class ranges, and rejects literal image overlap between splits.
+  - An activated profile is validated again immediately before training. A valid profile sends its original YAML path and matching `detect` or `segment` task to the local worker. An invalid profile blocks that run instead of silently falling back to the internal export path.
+  - The profile persists a SHA-256 identity of the YAML plus referenced images/labels. A source that remains syntactically valid but changes after activation is still blocked before sending; its external-input flag is cleared and the same start request cannot silently fall back to the internal recipe dataset until the operator explicitly revalidates and activates it again (or clears the external profile). Sent requests retain source/YAML/model/task/run/weight/Python/worker-script provenance in the profile.
+  - Ordinary WPF status refreshes display the persisted validation snapshot instead of rescanning the full external source. An explicit refresh and training start still perform a fresh source validation.
+  - The local `C:\Git\yolov8\labeling_tcp_client.py` and bundled worker now run a YAML file from its parent directory only for the `model.train` call, then restore the worker directory. This makes native `path: .` datasets resolve from their YAML rather than the Ultralytics source checkout; directory-based classification inputs keep their previous behavior.
+  - Native source images, labels, and YAML remain read-only. This slice neither registers/adopts a trained weight nor changes candidate-quality guards.
+- Verification:
+  - The required isolated build completed with 0 warnings and 0 errors.
+  - `--external-yolo-dataset-intake`, `--wpf-labeling-shell`, `--wpf-training-settings-panel`, and `--learning-protocol` passed.
+  - Both local and bundled worker `py_compile` and `--self-test` commands passed, including the temporary YAML-directory and working-directory restoration assertions.
+  - `--real-external-yolo-dataset-training --epochs 1 --image-size 320 --batch 4` completed through `YoloTrainingWorkflowService`, the real local TCP adapter, and the supplied EasyMatch segmentation YAML. The worker reported `completed` and wrote `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-easymatch300-external-yaml-e1-20260717-092737\weights\best.pt` (SHA-256 `77DF0161E843F95DB42B353C0F5B0B3078D473486C41E445DEBDE5A6F6A7A317`). Evidence: `artifacts\real-external-yolo-dataset-training\20260717-092737\summary.txt`.
+  - The supplied segmentation source stayed byte-identical before and after the real run: 1,207 files, tree SHA-256 `303B34798D66F2CB6D5D1EC9D0B4A2D27863F9F9750F0C43755A9D78C27A7BAA`.
+  - The existing 50-epoch candidate was reevaluated against its original native 36-image test split with the YAML-parent execution context. It reproduced box P/R/mAP50/mAP50-95 `0.627214/0.667712/0.681778/0.483449` and mask `0.611111/0.643332/0.660015/0.393066`; evidence: `artifacts\external-yolo-evaluation\easymatch300-yolov8n-seg-e50-native-test-20260717-092422`.
+  - Current-source 1920x1080 evidence: `artifacts\ui\external-yolo-dataset-intake-20260717\before-model-center-data.png` and `artifacts\ui\external-yolo-dataset-intake-20260717\after-model-center-data.png`. The external selector card is visible in Model Center `Data`; no clipping or overlap was observed.
+- Scope limit and next work:
+  - This accepts folder-based detection/segmentation YAML splits only. List-file split syntax and external anomaly-classification YAML are intentionally not interpreted in this slice.
+  - The 1-epoch real run proves plumbing only; it is not a quality candidate. The supplied 50-epoch candidate remains unregistered/unadopted because the package is synthetic and the source test is not independent production-camera evidence. YOLO11 readiness remains unclaimed.
+  - Next: preserve this native test split, obtain independent camera/session SEG images, and compare a newly trained candidate only against that untouched set before any adoption decision.
+
+## 2026-07-17 External synthetic anomaly hold-out evaluation
+
+- Goal and scope:
+  - Use the user-provided complete circular-defect package only as an untouched external anomaly-classification evaluation set for the existing app-trained YOLOv8 weight. Do not merge it into the previous training/export data.
+- Data analysis:
+  - Package root `D:\라벨테스트\circular_defect_labeling_dataset_v1_complete\circular_defect_labeling_dataset_v1` contains 50 `OK` and 50 `NG` 512x512 grayscale PNGs, 82 defect annotations, object-detection/segmentation labels and masks, and declares `synthetic: true` with seed `20260716`.
+  - The provided `verify_dataset.py` passed (`OK=50`, `NG=50`, `annotations=82`). SHA-256 inspection found zero byte-identical images against the previous 100-image anomaly source and zero duplicates inside the new 100 images.
+  - Evaluation used only the package's `anomaly_test_ok.txt` 10-image list and `anomaly_test_ng.txt` 50-image list. Artifact-local copies have a 60-entry source/copy SHA-256 manifest with zero mismatches.
+- Evaluation result:
+  - Existing weight: `C:\Git\yolov8\runs\classify\openvisionlab-yolov8-classify\weights\best.pt`, SHA-256 `DE847F3646A637B664D7D5C0CF65409BF24243BDEDBC124C8E178F6978EC106C`.
+  - At the existing minimum confidence `0.8`, the external result is `hold`: 35/60 overall (`0.583`), normal 0/10, abnormal 35/50, and 15 class-matching predictions below the confidence gate.
+  - The result is useful cross-dataset synthetic evidence: the existing model is not generalizing reliably, especially on normal images. It is not production-camera or cross-session evidence because the supplied package is explicitly synthetic.
+- Evidence and boundary:
+  - Input manifest: `artifacts\external-anomaly-evaluation\circular-defect-v1-complete-20260717\input-manifest.json`.
+  - Evaluation summary: `artifacts\external-anomaly-evaluation\circular-defect-v1-complete-20260717\evaluation\classification-evaluation-20260717-004535\classification-evaluation-summary.json`.
+  - No application UI, public tutorial, README, source image, source label, model, recipe, or adoption state changed.
+- Next work:
+  - Keep all 60 selected images untouched as an external regression set. Do not tune or retrain against them.
+  - Acquire a separate balanced normal/abnormal training set or explicitly approve a new training split; then evaluate only against this preserved external set before considering adoption.
+
+## 2026-07-17 Supplied Washer and EasyMatch YOLOv8 candidate training
+
+- Scope and data separation:
+  - The user-supplied Washer and EasyMatch packages were inspected before training. Each contains 300 unique images and neither shares a SHA-256 image hash with the prior circular-defect sources or with the other supplied package.
+  - Keep the three product families separate. The Washer run is image-level normal/abnormal classification; the EasyMatch run is five-class defect segmentation. Neither replaces the existing circular SEG or anomaly candidates.
+- Washer anomaly-classification result:
+  - The app service and local `labeling_tcp_client.py` worker completed a 20-epoch YOLOv8 classification run from the Washer `images\\OK` / `images\\NG` source: 111 normal plus 100 abnormal train images, 26 plus 33 validation images, and 13 plus 17 untouched test images.
+  - Candidate: `artifacts\\real-yolov8-anomaly-folder-training\\washer300-completed-20260717\\best.pt`, SHA-256 `1A1003635756E1052B7361DCB116EC807F5B16BC555E114138F7AE595B8D2D9F`.
+  - The held-out classification evaluation is `hold`: 11/30 confidence-gated correct (`0.367`), normal 0/13, abnormal 11/17, and six class-matching predictions below confidence `0.8`. It is not adoptable.
+- EasyMatch native segmentation result:
+  - The preserved source split has 216 train, 48 validation, and 36 test images. Its five defect classes have native YOLO polygon labels; the 18 OK images in the test split remain background images rather than being relabeled as defects.
+  - A separate local `yolov8n-seg.pt` candidate trained for 50 epochs at image size 320, batch 4, CPU. Training used the source segmentation directory as the process working directory because the supplied `data.yaml` deliberately declares `path: .`; no source image or label was changed.
+  - Candidate: `C:\\Git\\yolov8\\runs\\segment\\openvisionlab-yolov8-seg-easymatch300-e50-img320-20260717-r2\\weights\\best.pt`, SHA-256 `E50B5DDF284ADE73AE6B44FACEA060718CC33CFAA510267ACA5FF9F289AF75FB`.
+  - Independent source-test result: box precision/recall/mAP50/mAP50-95 `0.627/0.668/0.682/0.483`; mask `0.611/0.643/0.660/0.393`. A local TCP smoke loaded that exact weight on a test NG image and returned named polygon candidates, including `scratch_crack` at `0.9994` and `missing_material` at `0.8728`.
+- Training reliability and boundaries:
+  - The app protocol now carries a caller-selected run name, avoiding accidental reuse of the default YOLOv8 run folder. The local TCP adapter also clears the connect-only socket timeout before its long receive loop, so a training job longer than 60 seconds can return its terminal `completed` status on the original connection.
+  - Both supplied sets declare synthetic/procedural imagery. The results prove local training, saved weights, test measurement, and polygon transport; they do not establish production-camera accuracy, promote either candidate, or alter YOLO11 readiness.
+- Verification:
+  - The real Washer app/TCP run completed with `workerTrainingState=completed`, and its evaluation summary is `artifacts\\real-yolov8-anomaly-folder-training\\washer300-completed-20260717\\evaluation\\classification-evaluation-20260717-014732\\classification-evaluation-summary.json`.
+  - EasyMatch training and original `test` validation completed with no corrupt images. The source run folder retains `args.yaml`, `results.csv`, `best.pt`, and `last.pt`.
+- Next work:
+  - Preserve the Washer test set as evidence and collect representative real normal images before changing its classification recipe.
+  - The explicit app-owned external-native YOLO dataset intake is completed above. Do not silently register or adopt the direct EasyMatch candidate.
 
 ## 2026-07-16 App-managed YOLOv8 anomaly folder training and restart evidence
 
@@ -12897,7 +13228,76 @@ Last updated: 2026-07-16
   - README and tutorial image 09 were reviewed and retained. The public image documents the separate Training/Comparison task, not the Model Center > Data detail surface changed here.
 - Completion disposition and boundary:
   - Treat this as completed data-readiness UX only. A no-overlap SHA-256 result still requires label-quality, NG-coverage, and actual held-out model evidence before any adoption decision.
-  - Do not add a second review/rework persistence surface until operator use shows that the existing image-level review state is insufficient.
+ - Do not add a second review/rework persistence surface until operator use shows that the existing image-level review state is insufficient.
+
+## 2026-07-17 image queue 10K background catalog and detail indexing
+
+- Completed:
+  - User-initiated image-root, recipe-root, and refresh commands now use a cancellable asynchronous catalog path. Enumeration, file metadata collection, and persisted review-state loading run before one UI-side queue replacement; a path index prevents per-row linear lookup during later detail application.
+  - A newer root request cancels and invalidates both the prior catalog and its detail scan, so a late result cannot replace the newly selected folder.
+  - Image dimensions and review state now scan on four background workers and apply to the WPF queue in 64-row dispatcher batches. WPF live filtering handles row-property changes; one final full view refresh reconciles the active filter after the scan instead of refreshing the whole queue after each small batch.
+  - The visible dataset status reports `status check loaded/total` while the detail scan is active. The existing synchronous entry point remains only for deterministic internal callers and focused tests; folder commands do not use it.
+- Current-source verification:
+  - Required isolated build passed with 0 warnings / 0 errors.
+  - `--wpf-image-queue-10k-responsive`: 10,000 empty catalog paths returned control in `13.8ms`, created one collection reset, did not preload thumbnails, and a superseding 3-image root remained authoritative.
+  - `--wpf-image-queue-10k-detail-responsive`: 10,000 valid 4x3 JPEG rows completed detail indexing in `63,772.2ms` on the local temporary disk; the input dispatcher probe completed in `65.8ms` while indexing was still active, the visible progress state appeared, and the filtered view evaluated `10,000` rows rather than repeatedly rescanning all rows.
+  - `--wpf-image-queue-status`, `--wpf-image-queue-keyboard-navigation`, `--wpf-image-queue-root-switch`, `--wpf-image-queue-selection-service`, `--wpf-image-queue-large-folder-performance`, `--wpf-queue-click-perf --count 125 --measure-detail-refresh --settle-ms 60`, and `--wpf-labeling-shell` passed. The 1,200-item lazy-thumbnail shell load was `481.7ms`; the 125-image visible click average was `28.0ms`.
+  - True before / current-build after captures are `artifacts\\ui\\image-queue-10k-20260717\\before-1920.png` and `after-1920.png`; no clipping or panel-layout regression was observed at 1920x1080. README/tutorial images remain unchanged because the public layout and tutorial workflow did not change.
+  - Latest review-slice recheck on the same synthetic 10K fixture: catalog return `16.1ms`; detail indexing `70,504.7ms`; input-dispatcher probe `78.9ms` while indexing was active; one final 10,000-row filter evaluation. The elapsed full scan is environment-sensitive and not a throughput target.
+- Boundary and next evidence:
+  - The 63.8-second total is a local synthetic full-detail scan, not a network-share or production-image throughput guarantee. During that scan the queue remains usable, while final exact filter counts settle at completion.
+  - The follow-up current-source warm-cache profile used the user-provided mixed local `D:\라벨테스트` root: `50,081` images / `1,470,992,535` bytes; catalog return `13.9ms`, catalog completion `11,705.7ms`, catalog input `142.0ms`, DataGrid scroll dispatch `148.2ms`, middle/final selection `207.4ms`/`318.3ms`, detail input `84.9ms` while active, and detail completion `406,505.9ms` after catalog. All rows received dimensions; process working set was `167.3MB` before, `1,030.7MB` after catalog, and `1,036.8MB` after detail. Evidence: `artifacts\image-queue-operator-profile\20260717-225226-warm-cache\profile-summary.txt` and `stdout.txt`.
+  - The profile routed app output to a temporary test root; the extension inventory before/after stayed at `50,081` images / `1,470,992,535` bytes. This is a count/byte check, not a full source-tree hash proof. The source is a mixed local synthetic-package collection, so it cannot establish network-share or production-camera throughput.
+  - An additional current-source local duplicate-file profile of `D:\새 폴더` used an explicit `--minimum-images 8000` override without changing the default 10K regression threshold. It completed `8,000` JPG paths / `476,177,088` bytes: catalog return `12.8ms`, catalog completion `2,264.8ms`, catalog/detail input `131.1ms`/`69.9ms`, DataGrid scroll dispatch `27.2ms`, middle/final selection `182.8ms`/`121.7ms`, detail completion `80,183.5ms` after catalog, zero empty dimensions, and process working set `167.4MB` -> `303.1MB` -> `365.3MB`. Before/after metadata manifest SHA-256 was unchanged: `072643A7ED96F109E245271AC6BDAF85D26A174BE9A1203D16B245CF462F76F9`. A complete content SHA-256 audit found `250` unique contents, each copied `32` times. Evidence: `artifacts\image-queue-operator-profile\20260717-231924-local-8k-production-sample\profile-summary.txt` and `stdout.txt`.
+  - This 8K source is fixed local duplicate-file storage, not an 8,000-image production-data proxy. Its before/after metadata manifest is not a content-tree hash, so the run does not establish network-share latency, image-diversity, or production-camera throughput.
+  - Do not add paging, a database, or another thumbnail cache from this one profile. Next, profile an operator-approved network-share or production-camera folder to separate storage latency from image/detail computation before considering sidecar-first indexing or cache tuning.
+
+## 2026-07-17 current handoff consolidation
+
+- Purpose:
+  - Replace the stale 2026-07-16 next-thread checkpoint with a current source-of-truth handoff that a new chat can use without replaying the historical conversation.
+- Current checkpoint:
+  - Branch is `main...origin/main`; current HEAD and latest pushed commit are `e1ebb94f feat: strengthen labeling model workflows`.
+  - The worktree is intentionally dirty and contains separate image-queue, Dataset Health, external native YOLO data.yaml intake, anomaly/model workflow, comparison-script, test, and documentation slices. It must not be staged, reverted, or committed as one feature.
+  - Current-head CI was not rechecked in this documentation pass.
+- Documentation changes:
+  - `docs/NEXT_THREAD_HANDOFF.md` became the concise handoff for that checkpoint: start sequence, product direction, protected areas, then-current dirty-worktree map, model-evidence boundaries, risks, priorities, and focused verification menu.
+  - `CODEX_NEXT_PROMPT.md` is now a compact execution prompt that directs the next chat to the handoff and current diff before it chooses work.
+- Confirmed current-session evidence:
+  - The image-queue 10K asynchronous catalog/detail slice is directly verified: catalog command return `13.8ms`; 10K synthetic local detail scan `63.8s` with input dispatcher `65.8ms` while active and a single 10K filtered-view evaluation. The build, queue regressions, documentation gate, and `git diff --check` passed before this consolidation.
+- Current product boundary:
+  - Focused single-operator workflow maturity remains `4.0/5`. Model-quality progression remains blocked by independent NG-rich object-detection data and independent production-camera/cross-session anomaly data. Synthetic, duplicate, validation-only, and same-source results remain regression/runtime evidence only.
+- Next work:
+  - First reconcile the current dirty worktree by feature slice, starting with the untracked Dataset Health and external native YOLO data.yaml intake code. Then profile a real 10K operator folder only when representative data is available; do not add speculative paging/database/cache infrastructure.
+
+## 2026-07-17 external native YOLO data.yaml one-epoch reproducibility proof
+
+- Goal:
+  - Prove that an explicitly activated external native YOLO source can complete a real one-epoch run without mutating the user-owned source tree, and retain enough profile provenance to reproduce the request.
+- Changes:
+  - The external profile now records both the protocol-requested weight name and the resolved local seed-weight path used for SHA-256 provenance. A relative worker request such as `yolov8n-seg.pt` therefore remains protocol-compatible while the hash identifies `C:\\Git\\yolov8\\yolov8n-seg.pt` unambiguously.
+  - The opt-in `--real-external-yolo-dataset-training` runner writes full pre/post source-tree manifests, asserts their exact match, asserts cache/temp-directory path stability, and saves the completed weight only in its artifact directory.
+- Real runtime evidence:
+  - `D:\\라벨테스트\\EasyMatch_Labeling_Dataset_300\\EasyMatch_Labeling_Dataset_300\\segmentation\\data.yaml` completed through the app service/TCP client with `yolov8`, `segment`, one epoch, image size `320`, batch `4`, and run `openvisionlab-yolov8-segment-external-yaml-e1-20260717-215833`.
+  - Artifact: `artifacts\\real-external-yolo-dataset-training\\20260717-215833`. It contains `summary.txt`, `source-tree-before.tsv`, `source-tree-after.tsv`, and an artifact-local `best.pt`; no `failure.txt` exists.
+  - The pre/post manifests match exactly: 1,207 source files and aggregate SHA-256 `B137A8EE8F2CAB265AA660874CC3B23C1BFA07D59CDBA0A2B74FD1DE26F98E2D`. The source retained its three existing `.cache` files and zero temporary training directories. No source YAML, image, label, cache, or trained weight was written.
+  - Recorded profile provenance includes the original YAML, source fingerprint `45BAF4F3562A96DC0FB36646E94A9BFBA73849112C82AB7285745B601B6771DB`, `yolov8`/`segment`, requested `yolov8n-seg.pt`, resolved seed path `C:\\Git\\yolov8\\yolov8n-seg.pt`, seed SHA-256 `A7CD8F929E1903D78A12A48EFECAB430209F18DC46CB96C3599A5980C63C423C`, and worker-script SHA-256 `69BDAB2898993E309939603728776A2D5E41DAFA240D095EEC08BC56D8EC2C46`.
+- Verification and boundary:
+  - Required isolated build passed with 0 warnings / 0 errors; `--external-yolo-dataset-intake` passed; the real opt-in runner completed as above.
+  - This is routing, source-immutability, and provenance evidence. It does not measure accuracy, license the supplied data, register/adopt the generated weight, or replace independent held-out evaluation.
+
+## 2026-07-17 external native YOLO intake focused completion review
+
+- Status: `Complete`
+- Scope and acceptance:
+  - Complete the review of native Detection/Segmentation YAML intake only: separate recipe/external settings, explicit activation, source fingerprint fail-closed behavior, training provenance, original-source preservation, and worker cache isolation.
+  - `--external-yolo-dataset-intake` passed the separate-profile persistence, unchanged-source mock request, source-change deactivation, no-silent-fallback, and explicit-reactivation criteria.
+  - `--wpf-labeling-shell` passed the Model Center Data UI wiring; current-source 1920×1080 evidence is `artifacts\ui\external-yolo-intake-20260717-current-review\external-yolo-intake-current-1920.png`.
+  - The isolated current-source build passed with 0 warnings / 0 errors. `C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile Runtime\Python\openvisionlab_ultralytics_worker.py` and worker `--self-test` passed.
+- Reused runtime evidence and boundary:
+  - The already-complete opt-in 1-epoch artifact `artifacts\real-external-yolo-dataset-training\20260717-215833` was checked for presence and matching 1,207-file before/after aggregate SHA-256. It was not rerun because neither its acceptance criteria nor its source contract changed.
+  - This marks the intake review complete, not source-data quality, independent accuracy, license suitability, model registration/adoption, or YOLO11 readiness.
+
 ## 2026-07-18 Model Center dedicated workspace
 
 - Goal:

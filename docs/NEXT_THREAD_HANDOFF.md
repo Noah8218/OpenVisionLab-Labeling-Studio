@@ -1,480 +1,391 @@
 # Next Thread Handoff
 
-Last updated: 2026-07-16 KST
+Last updated: 2026-07-19 KST
 
-This is the current handoff for `C:\Git\Labelling_Application`. Treat older July 3-4 handoff notes as historical unless the current worktree or tracking docs prove the same item is still active.
+This is the current operational handoff for C:\Git\Labelling_Application. It is intentionally shorter than the historical journal. Use it to choose the next task; use the linked records only for the detailed evidence behind a claim.
 
-## Start Here
+## 1. Mandatory Start Sequence
 
-1. Run `git status --short` first.
-2. Read `AGENTS.md`.
+1. Run git status --short before any other project command.
+2. Read AGENTS.md.
 3. Read this file.
-4. Read `CODEX_NEXT_PROMPT.md`, `docs/WORK_TRACKING.md`, `docs/STABLE_VERIFIED_AREAS.md`, and `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md`.
-5. Inspect the actual diff before selecting work. If the worktree is dirty, the diff is the source of truth.
+4. Read CODEX_NEXT_PROMPT.md, docs/WORK_TRACKING.md, docs/STABLE_VERIFIED_AREAS.md, and docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md.
+5. Inspect the current diff directly. The dirty worktree is more authoritative than this handoff.
+6. Before editing, state the immediate priority, remaining product priority, assumptions, and verification plan.
 
-## Repository Checkpoint
+There is no separate C:\AGENTS.md or C:\Git\AGENTS.md in this workstation snapshot. AGENTS.md in this repository is the available project instruction source.
 
-- Workspace: `C:\Git\Labelling_Application`
-- Branch at handoff: `main`
-- Tracking state at handoff: `main...origin/main`
-- Latest pushed commit at handoff: `9c40aba fix: isolate YOLOv8 restart workflows`
-- Latest inspected GitHub Actions evidence remains run `29154340127`, which passed for older commit `af643f7d`; CI for `9c40aba` was not inspected in this handoff.
-- Expected worktree at handoff creation: dirty local continuation work for the Training/Model task navigation, compact comparison summary/history, per-machine pane widths, and their focused tests/UI/tracking evidence. Trust `git status --short` and the current diff.
-- Do not run `git push` unless the user explicitly asks for `push`.
-- A request to `commit` means local commit only unless `push` is also explicitly requested.
+## 2. Repository Checkpoint
 
-## Product Direction
+- Workspace: C:\Git\Labelling_Application
+- Branch: main. The current origin/main reference is 2df6b3c feat: add model adapter catalog contracts.
+- All reviewed code feature slices through 85d91e9 feat: add anomaly ok-ng image review workflow are separate local commits. This documentation checkpoint follows that code baseline.
+- The only known non-document residual is a three-line indentation-only hunk in WpfLabelingShellWindow.xaml. It was deliberately excluded from the feature and documentation commits; inspect it before staging or reverting.
+- GitHub Actions has not been rechecked for the local commits after origin/main. Do not cite older CI evidence as current CI evidence.
+- The current focused passes directly verified Dataset Health, external native YOLO intake, model/anomaly comparison, the dedicated Model Center workspace, and the explicit model-adapter catalog slices. The image-queue slice also has a 50,081-image local warm-cache profile and a separate duplicate-file local 8K profile; neither is a network-share or production-camera result.
+- Never push unless the user explicitly says push. A commit request means local commit only.
 
-OpenVisionLab Labeling Studio is a local Windows workstation for industrial image labeling and model workflow. The current product shape is local-first, not cloud/team collaboration.
+## 3. Product Identity and Direction
 
-The 2026-07-13 commercial reassessment rates the focused single-operator workflow at about `4.0/5` (80%), a general commercial image-labeling suite comparison at about `3.1/5` (62%), and enterprise/team-platform breadth at about `1.2/5` (24%). These are directional workflow-maturity estimates, not model-accuracy percentages. The authoritative strengths, gaps, and completion disposition are in `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md`.
+OpenVisionLab Labeling Studio is a local Windows workstation for industrial image workflows:
 
-Current priority order from the user conversation:
+- create and review object-detection, segmentation, and anomaly-classification labels;
+- prepare data, train through local YOLO workers, run inference, review candidates, and compare models;
+- expose model quality, evidence identity, Takt, failure examples, and adoption guards to an operator;
+- keep the full workflow local and reproducible.
 
-1. Acquire and label an independent NG-rich object-detection test split; `D:\LabelingData\Test02` is hash-identical to `Test01` and is not new evidence.
-2. Rerun the built-in five-repeat YOLOv5/YOLOv8 analysis on that test split and review class-specific misses/examples before adoption.
-3. Run the unchanged anomaly evaluation guard on independent production-camera or cross-session normal/abnormal data.
-4. Keep completed SEG annotation, historical contour migration, beginner/current-work UI, queue, splitter, Viewer/OpenGL, restart, and local dataset-audit paths stable unless a specific defect is reproduced. Do not repeat the approved historical rewrite without a new source contour and explicit approval.
-5. YOLO11 only after the local Ultralytics runtime and weights actually support it. Dataset interoperability is not the current priority.
+Each recipe is the canonical source of image identity, class schema, annotations, splits, and evidence. Selected model adapters format that recipe data for their own input contracts, then normalize their results for the same candidate-review and evidence-comparison workflow.
 
-Historical SEG remediation baseline (pre-migration):
+"Multiple models" means verified adapters for explicitly supported local runtimes or repositories. It does not mean that every GitHub model is automatically compatible: a new adapter must define class, coordinate, split, training/inference, result, and evidence mappings before it is presented as supported.
 
-- Read-only active-data report: `artifacts\run\Debug\DATA\Segmentagtion_Dataset_ObjectDetection_20260704_065650\reports\segmentation-remediation-dry-run.md`.
-- With `Teaching_0` excluded, it found `124` candidate images / `138` legacy records, `0` unresolved records, and `0` proposed YOLO label differences. The complete data-root artifact hash set was unchanged apart from the new Markdown report.
-- The current labels already match the stored mask-derived export. Do not regenerate labels, retrain YOLOv8 SEG, or normalize JSON solely because the JSON is legacy/untyped.
-- At the time of this baseline, the remaining question was semantic: `120` OK masks were summarized as four-point rectangles while the `14` NG masks were irregular contours. The later approved migration below supersedes that decision state.
+The product is not currently a cloud collaboration, account, reviewer-assignment, deployment, fleet-management, or annotation-marketplace platform.
 
-Latest approved historical SEG contour migration:
+Current direction:
 
-- User-approved migration completed for all 124 actual OK rectangle targets. Manifest: artifacts\run\Debug\DATA\Segmentagtion_Dataset_ObjectDetection_20260704_065650\backups\segmentation-template-contour-migration-approved-20260716-124targets\migration-manifest.json with status Applied.
-- The source Teaching_0 image, JSON, mask, and YOLO label hashes are unchanged; 372 original target artifacts are backed up.
-- Every target now has explicit 118-point RasterMask OK geometry and a contour YOLO label. The 14 NG-containing images retain their NG records and mask pixels.
-- The corrected-data retrain is complete: local YOLOv8 SEG `epochs=50`, image 320, batch 4, CPU produced `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-contour124-retrain-20260716\weights\best.pt` SHA-256 `9A741059A4A19B0928BD9530D9DC9312ADB52268503D3420BE23BDA13E429A85`.
-- Five-repeat class-specific comparison against the same 28-image `val` split improved mAP50-95 `0.7436 -> 0.8562` and OK mAP50-95 `0.6912 -> 0.9163`, while median model Takt changed `60.924ms -> 88.014ms`. NG had one validation label/image, so the report remains `hold`; it is not independent held-out evidence and must not trigger adoption.
-- Current runtime evidence is `artifacts\real-yolo-smoke\contour124-retrain-valid-ng-20260716\summary.txt`: `Teaching_1077.jpeg` produced two polygon candidates and saved segment/mask artifacts at UI confidence 0.25. The active data artifact fingerprint stayed `BD5BADF40DE445DDA2D1DAF147413BD281D1D6C8B3C278A42A8A856EA66B3909` before/after training and smoke.
-- Next SEG quality work is data, not another rewrite: obtain an untouched cross-session/production-camera test split with at least five NG mask labels/images, rerun the same comparison, and only then consider a selected-model EXE close/reopen/first-inference record.
+1. Make labeling and the role of classes, annotations, splits, and evidence understandable for a single operator.
+2. Let one recipe's labeled data be reused across supported model formats instead of relabeling the same images per model.
+3. Make training/inference/model comparison evidence-based rather than claim a winner from one metric.
+4. Support local YOLOv5 and local-source YOLOv8 workflows without hiding runtime ownership, and add other model adapters only through explicit format and result contracts.
+5. Prefer read-only data/model analysis screens over adding more text to the main workflow panel.
+6. Keep current stable workflow areas intact unless a concrete defect is reproduced.
 
-Latest independent final-verification preparation:
+Commercial-product lessons already adopted:
 
-- Training settings now expose `최종 검증 준비`, which sets the editable split fields to validation `0%` and final verification `100%` without immediately moving or rewriting existing data.
-- The normal settings apply/save path remains authoritative; focused coverage proves a subsequently saved independent image selects only `test`. `빠른 추천 적용` restores `20%` validation and `0%` final verification.
-- Current-build evidence is under `artifacts\ui\20260715-final-verification-preset`. Public tutorial image 09 source/annotation and the standalone embedded tutorial were refreshed.
-- This is preparation UX only. The object-detection `test` split is still empty, `Test02` is still duplicate evidence, and independent NG acquisition remains priority 1.
+- use task-local panels and tabs rather than one long all-purpose control column;
+- keep image queue, canvas, current task, and model evidence visually distinct;
+- show data readiness and model comparability explicitly;
+- open dense analysis in separate windows rather than extending the left workflow panel;
+- do not copy cloud collaboration or enterprise governance scope without a product decision.
 
-Latest YOLOv8 engine/worker correction:
+The latest audit estimates focused single-operator workstation maturity at 4.0/5. This is a workflow-maturity estimate, not a model-accuracy percentage. General commercial-suite breadth and enterprise/team breadth remain materially lower. Source: docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md and docs/LABELING_STUDIO_COMMERCIAL_UX_GAP_REVIEW_20260710.md.
 
-- The current SEG recipe was already persisted as YOLOv8 with `openvisionlab-yolov8-seg-current-recipe-20260707\weights\best.pt`; the visible `yolov5x` values were stale legacy training presentation, not the actual training packet engine.
-- Training settings now show the selected engine/task/start weight (`YOLOv8 SEG / yolov8n-seg.pt`) and keep YOLOv5-only selectors editable only for YOLOv5.
-- Connection readiness now verifies a request-correlated model status engine/weight before training or inference. A single active TCP worker is retained, and WPF/process shutdown stops the managed worker.
-- The two observed orphan processes using the older `openvisionlab-yolov8-segment\weights\best.pt` were removed.
-- Real current-weight evidence: `artifacts\real-yolo-smoke\20260713-current-seg-worker-identity\summary.txt`. It proves YOLOv8 SEG polygon transport and artifact saving at diagnostic confidence `0.001`; it does not prove adoption quality at UI confidence.
-- UI evidence: `artifacts\ui\20260713-yolo-engine-worker-guard\before-yolov8-seg-training-settings-1920.png` and `after-engine-aware-seg-training-settings-1920.png`.
-- Tutorial images 09/10 remain valid YOLOv5 examples and were not replaced.
+## 4. Non-Negotiable Engineering Rules
 
-Latest Candidate Review UX evidence:
+- Preserve MVVM: code-behind is a WPF adapter; commands, workflow state, presentation decisions, and persistence rules belong in ViewModel or service code when practical.
+- Do not touch Viewer, OpenGL, ROI, brush, eraser, or overlay hot paths unless the user reports a specific defect. Add focused evidence when doing so.
+- Do not download model weights, run pip/package upgrades, or change dependencies without explicit approval.
+- Do not claim YOLO11 readiness. It remains blocked until a compatible installed runtime and real compatible weights are verified.
+- ONNX can support inference deployment, but does not replace local-source YOLOv8 training.
+- UI changes require current 1920x1080 evidence and a README/tutorial-image relevance check.
+- Completion requires a build when code changes, focused tests for the changed area, and git diff --check.
+- The public README/tutorial must not receive local private paths or conversation notes.
 
-- Stage 3 is explicitly `AI 후보(선택)`. With no pending candidates, the panel explains that manual-label-only work can move to `4 학습/모델`, preserves saved labels, and hides empty candidate/model diagnostic controls.
-- Pending candidates hidden only by confidence keep the confidence control and recovery guidance. A real model-comparison report still shows the model-quality dashboard.
-- Valid 1920x1080 before/after evidence: `artifacts\ui\20260712-candidate-review-empty-ux\before-candidate-review-empty-1920.png`, `artifacts\ui\20260712-candidate-review-empty-ux\after-candidate-review-empty-final2-retry-1920.png`.
-- Public tutorial 12 source/annotated images, tutorial wording, and standalone embedded image were refreshed from the current build.
+## 5. Local Runtime Contract
 
-Latest SEG inference contour evidence:
+YOLOv8 is local-source operated:
 
-- The local YOLOv8 adapter already returns `result.masks.xy` as polygon points. WPF candidate adaptation and both WPF/legacy overlay models now preserve that geometry.
-- SEG candidates render as closed, unfilled contours with class/confidence badges and no bounding rectangle; object-detection candidates still use boxes.
-- Real trained-model TCP evidence: `artifacts\real-yolo-smoke\seg-contour-render-20260713-verified\summary.txt` (`candidateCount=1`, `polygonCandidateCount=1`, segment/mask saved).
-- Current-source 1920x1080 evidence: `artifacts\ui\20260713-seg-inference-contour\before-seg-inference-box-1920.png` and `artifacts\ui\20260713-seg-inference-contour\after-seg-inference-contour-full-1920.png`.
-- Public tutorial image 12 and standalone embedded image now show contours instead of stale SEG boxes.
+- root: C:\Git\yolov8
+- source: ultralyticsMaster with the local ultralytics source checkout
+- Python: C:\Git\yolov8\.venv\Scripts\python.exe
+- adapter: C:\Git\yolov8\labeling_tcp_client.py
+- install mode: editable local install
+- pretrained seeds such as yolov8n-seg.pt and yolov8n-cls.pt are seeds only, never final production models.
 
-Keep the existing MVVM direction. View code-behind may adapt WPF events and controls, but workflow state, commands, presentation text, and status decisions should live in ViewModel or service classes where feasible.
+YOLOv5 remains a separately configured local runtime. Do not mix a weight, model engine, task, class list, or data.yaml across engines without explicit compatibility verification.
 
-## User Agreements Captured In This Thread
+## 6. Completed and Protected Product Areas
 
-- YOLOv8 should follow the existing YOLOv5-style local source workflow, not a hidden app-owned runtime cache.
-- The local YOLOv8 folder is `C:\Git\yolov8`.
-- `C:\Git\yolov8` should use a local `ultralytics/ultralytics` checkout, local `.venv`, editable install, and `labeling_tcp_client.py` TCP adapter.
-- ONNX is useful for inference-only deployment, but it does not replace the local Ultralytics source workflow for training.
-- Do not run model downloads, package upgrades, or dependency upgrades without explicit user approval.
-- `yolov8n-seg.pt` was downloaded earlier with explicit approval and should be treated as a pretrained seed, not a final production model.
-- `yolov8n-cls.pt` was downloaded with explicit approval on 2026-07-07 and should also be treated as a pretrained seed for runtime smoke, not a trained anomaly model.
-- The brush/eraser/Viewer/OpenGL/ROI performance path is protected. Touch it only for a specific bug and include focused tests or EXE evidence when requested.
-- Completion must be proven with build, focused tests, and `git diff --check`; do not claim completion from wording alone.
-- If UI layout or visible workflow changes, capture current 1920x1080 evidence and refresh public tutorial/README images when relevant.
-- If no UI visual/layout change happened, say screenshot is not needed.
-- Latest UI wording evidence: canvas/guide/onboarding workflow text now uses neutral `image queue` wording instead of `left image queue` or `left-side image queue`; captures `artifacts\ui\wpf-startup-image-queue-neutral-after-1920.png` and `artifacts\ui\wpf-startup-image-queue-neutral-guide-after-1920.png`.
-- Latest AI-candidate guidance evidence: pending AI candidates now resolve the guide/canvas current task as candidate review, not run-inspection. The compact guide checklist is now state-specific (`이미지/열기/라벨`, `그리기/저장/다음`, `검사/확인/검토`, or `확인/확정/스킵`); capture `artifacts\ui\wpf-labeling-guide-ai-candidate-checklist-after-1920.png`.
-- Latest labeling guide naming evidence: the labeling-stage guide/tools shortcut now reads `작업`, uses a clipboard/current-work icon, and the expanded panel title reads `현재 작업`, so the panel presents the current-image next action instead of a broad all-in-one guide/tool bucket. Before/after captures: `artifacts\ui\wpf-labeling-current-work-guide-rename-before-20260708-1920.png`, `artifacts\ui\wpf-labeling-current-work-guide-rename-after-20260708-1920.png`, and `artifacts\ui\wpf-labeling-current-work-icon-after-20260708-1920.png`. Public tutorial 03 source/annotated PNGs and the standalone embedded image were refreshed to show `작업` instead of `도구`.
-- Latest labeling guide optional-details evidence: the secondary collapsed details section now reads `필요할 때만: 학습·검사 세부` instead of `도움말/세부 도구`, and it remains collapsed by default. Captures: `artifacts\ui\wpf-labeling-details-expander-header-before-20260708-1920.png`, `artifacts\ui\wpf-labeling-details-expander-header-after-20260708-1920.png`.
-- Latest labeling guide flow-hint evidence: the current-task sequence now renders as one low-emphasis line such as `흐름: 확인 > 확정 > 스킵` instead of three bordered boxes that looked like extra action buttons. Captures: `artifacts\ui\wpf-labeling-current-task-flow-before-20260708-1920.png`, `artifacts\ui\wpf-labeling-current-task-flow-after-20260708-1920.png`.
-- Latest labeling guide action-emphasis evidence: the current-task explanatory sentence now uses primary text instead of the global red accent, while the step badge and actual action controls keep their emphasis. Captures: `artifacts\ui\wpf-labeling-current-task-action-emphasis-before-20260708-1920.png`, `artifacts\ui\wpf-labeling-current-task-action-emphasis-after-20260708-1920.png`.
-- Latest labeling guide card-caption evidence: the expanded panel title stays `현재 작업`, but the first task card caption now reads `현재 이미지` to avoid repeating the same label. Captures: `artifacts\ui\wpf-labeling-current-task-card-caption-before-20260708-1920.png`, `artifacts\ui\wpf-labeling-current-task-card-caption-after-20260708-1920.png`.
-- Latest labeling guide card-border evidence: the current-image task card now uses a neutral border, reserving the red accent for the step badge and actual action controls. Captures: `artifacts\ui\wpf-labeling-current-task-card-border-before-20260708-1920.png`, `artifacts\ui\wpf-labeling-current-task-card-border-after-20260708-1920.png`.
-- Latest no-object tooltip evidence: canvas no-object completion now says no label/empty YOLO label file instead of no box; covered by `--wpf-labeling-shell`.
-- Latest right-workflow mode evidence: Candidate Review now enters inference mode and Saved Labels enters labeling mode; covered by `--wpf-labeling-shell`.
-- Latest focused regression sweep after the guide UX pass: `--wpf-model-comparison-heldout`, `--wpf-model-comparison-run-service`, `--wpf-candidate-polygon-training-flow`, `--wpf-segmentation-object-verification`, `--dataset-readiness-purpose`, `--wpf-image-queue-status`, `--wpf-candidate-review-panel`, `--wpf-model-comparison-review-service`, `--anomaly-classification-evaluation`, `--wpf-yolov8-anomaly-classification-runtime-smoke`, YOLOv8 adapter compile/self-test, PowerShell parser checks for the YOLO comparison/evaluation scripts, solution build, output-copy check for checked-in Noah/OpenCvSharp DLL dependencies, and `--wpf-responsive-layout --width 1920 --height 1080` passed on 2026-07-08 KST.
+Treat the following as completed/protected unless there is a reproduced defect:
 
-## Completed And Verified Work
+- SEG brush-first labeling, brush/eraser performance, undo/redo, preview opacity, image-switch preview clearing, class recolor, pending-save navigation.
+- Saved segmentation geometry: polygon/mask persistence, candidate review save, JSON/mask PNG/YOLO segment label export.
+- YOLOv8 local worker training/inference plumbing and segmentation polygon transport. SEG inference presentation uses closed, unfilled contours with class/confidence labels; it must not fall back to a bounding box for a polygon candidate.
+- Candidate Review, rejected-history guard, model-candidate decision safeguards, and separation between candidate evidence and adoption.
+- Compact task-oriented shell structure: task tabs, current-work guidance, fixed canvas annotation-tool rail, and labeling-only hiding of duplicate viewer measurement chrome.
+- Model-neutral comparison workspace: comparable-evidence guard, Takt/quality presentation, class and ground-truth error review, source-image/error geometry preview.
+- Dataset quality audit and duplicate external-evaluation preflight.
+- Per-machine splitter/layout persistence.
+- Current image queue row state, keyboard navigation, light preview loading, lazy thumbnails, and 10K background catalog/detail indexing.
+- Dataset Health is a separate read-only Model Center window, not another long left-panel block.
+- External native YOLO data.yaml intake remains an explicitly selected training input and must not overwrite the recipe-owned exported dataset.
+- The Model Center adapter catalog is read-only: it exposes only the declared recipe-format, YOLOv5, local-YOLOv8, ONNX inference-only, and blocked-YOLO11 contracts. It must not imply that all GitHub models are executable.
 
-### YOLOv8 Local Segmentation Workflow
+For the exact contracts and required regression gates, read docs/STABLE_VERIFIED_AREAS.md before changing any protected area.
 
-- `C:\Git\yolov8` is connected as a local source worker folder.
-- The local worker imports Ultralytics from `C:\Git\yolov8\ultralyticsMaster` through the local `.venv`.
-- The worker reports YOLOv8 training/detection/segmentation/classification capability when Ultralytics imports.
-- Local `TrainYolo` routes `task=segment` to Ultralytics training and refuses missing local weights instead of triggering implicit downloads.
-- Training output is task-aware: segmentation runs use `runs/segment`.
-- Local folder connection prefers trained `best.pt` outputs over pretrained seeds.
-- App segmentation artifacts are exported into YOLO segmentation label text before training.
-- YOLOv8 segmentation candidates preserve mask polygons through the worker/protocol.
-- Candidate Review confirmation can save AI polygon candidates as segment JSON and mask PNG, then export them into YOLO segmentation labels.
-- Real TCP tiny-fixture smoke passed for local YOLOv8 segmentation polygon candidate -> C# parser -> confirm -> segment JSON/mask PNG.
-- Held-out comparison on the circular SEG dataset ran, but it is model-quality evidence only and not production accuracy.
-- The current EXE circular segmentation rerun after the DLL output fix passed with `--label-count 20`: artifact `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260707_221147`, `trainSegments=10`, `validSegments=5`, `testSegments=5`, `backgroundLabels=20`, and final YOLOv8 inference produced one low-confidence `NG 1.3%` candidate.
-- A follow-up same-class YOLOv8 SEG held-out comparison on that 20-label artifact wrote `artifacts\yolo-model-comparison\yolov8-seg-20label-baseline-vs-userseed-20260707\20260707-222120\comparison-summary.json`. Evidence counts now pass (`11/10` labels, `5/5` positive labels, `5/5` positive images), but promotion remains `hold` because candidate precision is `0.098 < 0.1` and UI-threshold candidates at confidence `0.25` are still `0`.
-- A follow-up 80-epoch local fine-tune from that userseed weight wrote `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-20label-finetune-80ep-img160-20260707\weights\best.pt`. Its held-out comparison wrote `artifacts\yolo-model-comparison\yolov8-seg-20label-baseline-vs-finetune80-20260707\20260707-222900\comparison-summary.json`, passed the evidence gates, scored precision `1.0`, recall `0.589`, mAP50 `0.767`, mAP50-95 `0.257`, produced `2` UI-threshold candidates at confidence `0.25`, and returned `promotion.recommendation=promote`.
-- Latest held-out comparison recheck for that same fine-tuned weight wrote `artifacts\yolo-model-comparison\yolov8-seg-20label-baseline-vs-finetune80-20260708-latest\20260708-185046\comparison-summary.json`; it matches the prior promote result with precision `1.0`, recall `0.589`, mAP50 `0.767`, mAP50-95 `0.257`, baseline UI candidates `0`, candidate UI candidates `2`, and `promotion.recommendation=promote`.
-- Latest direct adapter sweep over all 11 held-out test images at UI confidence `0.25` returned zero candidates for all 6 OK images, one `NG` polygon candidate for `024_NG.png` at confidence `0.5065`, one `NG` polygon candidate for `025_NG.png` at confidence `0.7682`, and zero candidates for `022_NG.png`, `023_NG.png`, and `032_NG.png`. This supports the promote decision but also confirms recall remains limited.
-- Latest 40-label EXE circular SEG workflow wrote `artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260708_213227` with `trainSegments=20`, `validSegments=10`, `testSegments=10`, and `backgroundLabels=20`.
-- A follow-up 80-epoch fine-tune wrote `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-40label-finetune-80ep-img160-20260708\weights\best.pt`.
-- `scripts\compare-yolo-models.ps1` was corrected for local Ultralytics YOLOv8 so metrics still come from `model.val`, but UI candidate counts and Candidate Review example labels come from a separate `model.predict` run. The corrected 40-label comparison wrote `artifacts\yolo-model-comparison\yolov8-seg-40label-baseline-vs-finetune80-20260708-predict-ui\20260708-215754\comparison-summary.json`: candidate precision `0.582`, recall `0.5`, mAP50 `0.683`, mAP50-95 `0.281`, UI candidates `2` at confidence `0.25`, and `promotion.recommendation=promote`.
-- Direct adapter sweep for the same 40-label candidate wrote `artifacts\yolo-tcp-smoke\yolov8-seg-40label-finetune80-conf025-20260708\summary.json`: at confidence `0.25`, 2 of 10 positive test images produced candidates, 0 of 6 OK test images produced candidates. At confidence `0.10`, recall improved but all 6 OK images produced candidates, so do not lower the default threshold without review.
-- The 2026-07-10 image-level operating gate supersedes the historical aggregate `promote` result above. The training run's Ultralytics `best.pt` remains `hold`: at `0.25` positive coverage is `2/10` with background candidates `0/6`, while at `0.10` coverage is `9/10` but background candidates are `6/6`.
-- The same run's `last.pt` has an operating gap. It was packaged byte-for-byte as `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-40label-operating-selected-conf020-20260711\weights\best.pt`, with source/hash/comparison metadata under `operating-selection`. SHA256 is `E659268ECD8BDCCE58E54E7C6A710421AD250BA1E18BC31820A79DE665B4D67F` for both source and package.
-- Full comparison for the packaged path is `artifacts\yolo-model-comparison\yolov8-seg-40label-operating-selected-conf020-20260711\20260711-220539\comparison-summary.json`: confidence `0.20`, precision `0.7748`, recall `0.6891`, mAP50 `0.6900`, mAP50-95 `0.1988`, positive coverage `6/10`, background candidates `0/6`, and `promotion.recommendation=promote`.
-- Adoption now couples comparison confidence to the current inspection confidence. Model Center blocks the package at `0.25` with no adoption-history record and saves it at validated confidence `0.20`; captures are `artifacts\ui\wpf-seg-operating-confidence-mismatch-after-20260711-1920.png` and `artifacts\ui\wpf-seg-operating-conf020-adopt-after-20260711-1920.png`.
-- Real TCP current-image smoke at `0.20` returned one `NG` polygon candidate on `025_NG.png` at `0.6266`, confirmed it, and wrote label text, segment JSON, mask PNG, and review status under `artifacts\real-yolo-smoke\40label-operating-selected-conf020-current-image-025-ng-20260711`. Direct adapter smoke returned zero candidates on `018_OK.png`.
-- The app-saved Teaching dataset has both `OK` outer polygons and `NG` defect polygons. `scripts\compare-yolo-models.ps1` now accepts `-SegmentationPositiveClassName`, filters answer/prediction/image-level evidence to the same class, and records the selected class in summary/report output. `WpfModelComparisonRunService` chooses `NG`, then `Defect`, then a sole segmentation class.
-- The previous circular operating model covered only `1/14` Teaching positives at confidence `0.20`. A Teaching-only fine-tune passed Teaching (`5/5`, backgrounds `0/21`) but failed circular regression (`10/10`, backgrounds `1/6`, precision `0.0018`) and was rejected.
-- The combined run is `C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-circular40-teaching125-multidomain-e60-img160-20260711\weights\best.pt`. At confidence `0.20`, Teaching test passed with precision `0.9891`, recall `1.0`, mAP50 `0.9950`, coverage `5/5`, and backgrounds `0/21`; circular test remained `hold` because backgrounds were `2/6` despite mAP50 `0.7473`.
-- At confidence `0.30`, the combined fixed test summary `artifacts\yolo-model-comparison\yolov8-seg-multidomain-best-combined-test-conf030-20260711\20260711-233546\comparison-summary.json` reports precision `0.6671`, recall `1.0`, mAP50 `0.8799`, mAP50-95 `0.4385`, coverage `11/15`, backgrounds `0/27`, and `review`. The previous operating model covered `4/15` at the same threshold.
-- Direct adapter smoke returned one `NG` polygon for `circular__024_NG.png` at `0.4652` and zero candidates for `circular__018_OK.png` at confidence `0.30`. Real TCP confirmation artifacts are under `artifacts\real-yolo-smoke\multidomain-best-conf030-current-image-024-ng-20260711`.
-- Model Center saved the multi-domain candidate only to a temporary smoke recipe at confidence `0.30`; capture `artifacts\ui\wpf-model-center-multidomain-best-review-conf030-20260711-1920.png`. The production/current user recipe was not changed.
-- A train-only circular-background 4x sampling experiment removed background candidates but lowered combined mAP50 from `0.8799` to `0.8537` and mAP50-95 from `0.4385` to `0.3910`; it was rejected. The multi-domain `best.pt` remains a review candidate, not an automatic production adoption.
-- Focused Model Center save/adoption smoke for the same 40-label candidate passed through `--wpf-model-center-real-candidate-save`, saved it as the current inspection model, and captured `artifacts\ui\wpf-model-center-real-40label-finetune-save-after-20260708-1920.png`.
-- Candidate Review visual smoke for the same 40-label summary captured `artifacts\ui\wpf-model-comparison-40label-promote-after-20260709-1920.png`, showing `차이 2개 이미지 / 예시 2개`, existing model `0`, new model `2`, confidence `25%`, and Korean promote guidance.
-- Real current-image TCP confirm/save smoke for the same 40-label candidate wrote `artifacts\real-yolo-smoke\40label-current-image-025-ng-20260709\summary.txt`: held-out `025_NG.png` returned one `NG` polygon candidate at confidence `0.3039`, confirmation saved YOLO label text, segment JSON, mask PNG, and review status `Confirmed`.
-- Direct local adapter smoke for that fine-tuned weight wrote `artifacts\yolo-smoke\finetune80-20260707`: `025_NG` returned one `NG` polygon candidate at confidence `0.768`, `024_NG` returned one `NG` polygon candidate at confidence `0.507`, and `011_OK` returned zero candidates at confidence `0.25`.
-- Focused WPF Model Center adoption smoke now stages and saves that same fine-tuned weight as the current inspection model using the actual `C:\Git\yolov8` run and circular SEG `data.yaml`; capture `artifacts\ui\wpf-model-center-real-finetune-save-after-1920.png`, test recipe config under `tests\LabelingApplication.Tests\artifacts\isolated-out\RECIPE\real_model_center_smoke_*\VISION.xml`.
-- Current-image TCP workflow smoke for the same fine-tuned weight wrote `artifacts\real-yolo-smoke\finetune80-current-image-025-ng-20260707`: `025_NG` produced one `NG` polygon candidate at confidence `0.7682`, then confirmation saved YOLO label text, segment JSON, and mask PNG.
-- Latest current-image TCP recheck for the same fine-tuned weight wrote `artifacts\real-yolo-smoke\finetune80-current-image-025-ng-20260708-latest`: `025_NG` again produced one `NG` polygon candidate at confidence `0.7682`, and confirmation saved label text, segment JSON, and mask PNG. Latest Model Center save/adoption capture: `artifacts\ui\wpf-model-center-real-finetune-save-recheck-20260708-latest-1920.png`.
+## 7. Committed Feature Slice Map
 
-Do not overstate this as broad production-ready accuracy. Training/inference, direct adapter, temporary Model Center save, and current-image TCP paths work. The old circular operating model passes only its circular fixture, while the new multi-domain model is `review` at confidence `0.30`; both still need independently acquired product/camera/lighting/defect evidence.
+The former dirty worktree was split into the following reviewed local commits. Keep these ownership and verification boundaries separate when a future requirement changes one area.
 
-### Anomaly Workflow
+### A0. Anomaly OK/NG Image Review and Folder-Name Consent - committed at 85d91e9
 
-- Image-level anomaly review state exists: normal, abnormal, unreviewed.
-- Reviewed anomaly images can export to Ultralytics classification layout.
-- Training packets can send `task=classify` with YOLOv8/YOLO11 classification default weights.
-- Readiness guidance exists for insufficient normal/abnormal examples.
-- Local YOLOv8 anomaly/classification runtime smoke now loads `C:\Git\yolov8\yolov8n-cls.pt` through `C:\Git\yolov8\labeling_tcp_client.py` and returns a non-empty image-level classification candidate.
-- The local adapter now mirrors the bundled worker's classification candidate shape: `candidateType=imageClassification`, `predictionType=classification`, `imageLevel=true`, class id/name, confidence, and zero-sized bbox fields.
-- WPF app-level YOLOv8 anomaly classification runtime smoke now calls the local adapter through `RunDetectionForImageAsync`, maps the returned top1 class through explicit anomaly settings, loads the candidate into Candidate Review, and persists the active image as `Abnormal`.
-- A no-download synthetic YOLOv8 normal/abnormal classification train smoke now produces `artifacts\yolov8-cls-training-smoke\normal-abnormal-fixture\runs\yolov8n-cls-normal-abnormal-smoke-e10\weights\best.pt`.
-- That trained fixture `best.pt` loads through the local adapter, preserves class names `abnormal`/`normal`, returns `abnormal` for `test\abnormal\abnormal-0.png` and `normal` for `test\normal\normal-0.png`, and passes the WPF mapped-inference smoke when pointed at the abnormal test image.
-- A non-tiny local circular-defect run now stages 100 unique source images (20 OK, 80 NG) into deterministic train/validation/test splits. The first unbalanced 15-epoch model stayed `hold` at 11/15 overall and 1/5 normal.
-- A second 20-epoch run repeats only the 10 original normal training images to balance train sampling at 60 normal / 60 abnormal; validation and test remain unchanged with zero cross-split duplicate hashes. Its weight is `artifacts\yolov8-cls-training-smoke\circular-defect-real-20260711\runs\yolov8n-cls-circular-defect-balanced-e20-img128-20260711\weights\best.pt`. Oversampling is not additional evidence.
-- Held-out evaluation at minimum confidence 0.8 returned `promotion.recommendation=adopt`, 15/15 correct, normal 5/5, abnormal 10/10, and zero low-confidence class matches. Summary: `artifacts\yolo-classification-evaluation\circular-defect-balanced-e20-minconf08-20260711\classification-evaluation-20260711-214135\classification-evaluation-summary.json`.
-- The WPF runtime smoke accepts expected class/state/image-size environment values and passed both held-out `003_OK.png` -> `Normal` and `033_NG.png` -> `Abnormal`; its original default abnormal behavior also still passes.
-- `AnomalyClassificationEvaluationService` now blocks adoption unless held-out normal/abnormal evidence has at least 10 total images, at least 5 per class, overall accuracy >= 0.9, per-class accuracy >= 0.8, and correct predictions meet the configured minimum confidence.
-- `scripts\evaluate-yolo-classification.ps1` now runs the local YOLOv8 adapter over a held-out normal/abnormal split and writes `classification-evaluation-summary.json`; the current synthetic fixture remains `hold` with `4/10` images, `2/5` per class, `0.75/0.9` accuracy, and `0.5/0.8` abnormal accuracy at the default confidence gate.
-- Minimum-confidence recheck artifact: `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260707-minconf08\classification-evaluation-20260707-232709\classification-evaluation-summary.json`; with `-MinimumConfidence 0.8`, the same fixture remains `hold` with `lowConfidenceClassMatchCount=2`, confidence-gated accuracy `0.25`, normal accuracy `0.5`, and abnormal accuracy `0`.
-- `AnomalyClassificationEvaluationService` can read `classification-evaluation-summary.json` back into a report, and `WpfAnomalyClassificationEvaluationPresentationService` converts that report into Korean recommendation/metrics/detail/action text.
-- Parsed anomaly summaries fail closed: only explicit `promotion.recommendation=adopt` with no hold reasons is adoptable; empty, missing-promotion, or explicit-hold summaries remain non-adoptable.
-- Model Center now exposes that anomaly evaluation presentation through a visible conditional `YoloAnomalyEvaluationPanel`. For anomaly-detection datasets it also auto-loads a bounded summary from the active output root when `classification-evaluation-summary.json` exists at the root, direct `classification-evaluation\` child, or newest immediate `classification-evaluation-*` timestamp folder. The anomaly evaluation card keeps recommendation/metrics visible and defaults blocker detail/next action behind collapsed `YoloAnomalyEvaluationDetailExpander`. Current-source evidence: baseline/no-summary capture `artifacts\ui\wpf-model-center-anomaly-evaluation-baseline-no-summary-1920.png`; summary-loaded after capture `artifacts\ui\wpf-model-center-anomaly-evaluation-after-1920.png`; compact latest capture `artifacts\ui\wpf-model-center-anomaly-evaluation-compact-detail-after-20260708-1920.png`.
-- Model Center now also has explicit anomaly `평가 실행` and `평가 불러오기` actions. `평가 실행` exports a fresh classification-evaluation input split from reviewed normal/abnormal images and runs `scripts\evaluate-yolo-classification.ps1` through the local YOLOv8 adapter; `평가 불러오기` selects an existing `classification-evaluation-summary.json`. Latest capture `artifacts\ui\wpf-model-center-anomaly-evaluation-run-button-after-20260708-1920.png`. This adds the in-app generation/run path, but real operator normal/abnormal held-out data is still required before any accuracy/adoption claim.
-- Historical synthetic recheck artifact: `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260707-rerun\classification-evaluation-20260707-231654\classification-evaluation-summary.json`.
-- Historical 2026-07-08 synthetic runtime/evaluation recheck: adapter compile/self-test, `--wpf-yolov8-anomaly-classification-runtime-smoke`, evaluation script, `--anomaly-classification-evaluation`, and Model Center visual smoke passed. Summary `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-recheck\classification-evaluation-20260708-004229\classification-evaluation-summary.json` remains `hold` with 4 images, normal 1/2, abnormal 0/2, 25% confidence-gated accuracy. Capture `artifacts\ui\wpf-model-center-anomaly-evaluation-recheck-20260708-1920.png`.
-- Historical synthetic minimum-confidence recheck: `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-late-recheck\classification-evaluation-20260708-011412\classification-evaluation-summary.json` remains `hold` with 4 images, normal 1/2, abnormal 0/2, 25% confidence-gated accuracy, and 2 low-confidence class matches. Model Center captures: `artifacts\ui\wpf-model-center-anomaly-evaluation-late-recheck-20260708-1920.png`, `artifacts\ui\wpf-model-center-anomaly-evaluation-timestamp-lookup-after-20260708-1920.png`, and `artifacts\ui\wpf-model-center-anomaly-evaluation-compact-detail-after-20260708-1920.png`.
-- Historical synthetic explicit-adopt guard recheck: `--wpf-yolov8-anomaly-classification-runtime-smoke` passed, and `scripts\evaluate-yolo-classification.ps1 -MinimumConfidence 0.8` wrote `artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260708-explicit-adopt-guard-recheck\classification-evaluation-20260708-014426\classification-evaluation-summary.json`; it remains `hold` with 4 images, normal 1/2, abnormal 0/2, 25% confidence-gated accuracy, and 2 low-confidence class matches.
+Files include:
 
-Missing: independent production-camera or cross-session normal/abnormal held-out evidence. The current adopt result is scoped to one circular-defect source family with only 5 normal / 10 abnormal test images; do not treat it, ImageNet `yolov8n-cls.pt`, or the tiny synthetic fixture as broad production anomaly accuracy.
+- 1. Core/AnomalyImageReviewStatusService.cs
+- 1. Core/AnomalyClassificationTrainingReadinessService.cs
+- Yolo/AnomalyClassificationDatasetExportService.cs
+- 0. UI/9) WPF/ViewModels/WpfImageQueuePanelViewModel.cs
+- 0. UI/9) WPF/Views/WpfImageQueuePanel.xaml
+- 0. UI/9) WPF/Views/WpfLabelingShellWindow.ImageQueue.cs
+- 0. UI/9) WPF/Views/WpfLabelingShellWindow.PanelWiring.ImageQueue.cs
+- 0. UI/9) WPF/Views/WpfLabelingShellWindow.xaml.cs
+- tests/LabelingApplication.Tests/Program.cs
 
-### YOLO11 Runtime
+Behavior and boundary:
 
-- Current bundled Ultralytics runtime observed earlier lacked YOLO11 `C3k2`, so YOLO11 is correctly runtime-blocked.
-- Worker capability reporting gates YOLO11 instead of always advertising it.
-- Do not claim YOLO11 readiness until the selected runtime and local weights prove it.
+- Anomaly labeling is an image-level `OK/NG 이미지 판정` workflow. The current-image actions are `정상(OK) → 다음`, `이상(NG) → 다음`, and `미판정으로 되돌리기`; they persist through the existing anomaly review status and do not require drawing.
+- Anomaly purpose hides object/segmentation label-save, annotation-tool, saved-object/class, label-layer, and queue detection/batch surfaces. Its queue columns/badges show `판정`/`상태` and `OK`/`NG`/`미판정`; generic YOLO refreshes must not overwrite them. Leaving anomaly purpose restores the standard annotation workspace.
+- Parent `OK`/`normal` and `NG`/`abnormal` folders are detected as an optional anomaly-review proposal, never as an implicit label. Opening a folder, checking training readiness, or exporting must leave unreviewed images unreviewed.
+- The temporary Image Queue card offers `N장 일괄 판정` and `이미지별 확인`; it is not a permanent top-header action. Applying affects only unreviewed images and preserves saved manual decisions. Direct review hides the proposal for the same image-root session without persistence.
+- If the selected anomaly root has no direct images, its child-folder paths are interleaved in the queue and the temporary card title reports the included total. Do not return to a path sort that makes every `NG` row appear before `OK` rows.
+- When opening the automatic first nested file or selecting any queue row, retain the operator-selected image root. Never repopulate the queue from the clicked file's leaf `NG` or `OK` parent folder.
+- Training readiness and classification export use saved/explicitly approved review states only. Do not restore automatic folder-state import without a new user decision and regression evidence.
+- The exact staged tree for commit `85d91e9` passed the isolated 0-warning/0-error build, `--anomaly-folder-auto-review`, `--wpf-anomaly-purpose-flow`, `--anomaly-classification-dataset-export`, `--anomaly-classification-training-workflow`, `--wpf-labeling-shell`, `--priority-workflow-docs`, and diff checks. The dedicated command/persistence/purpose-switch and root-retention assertions are in `--anomaly-folder-auto-review`; UI evidence is `artifacts\ui\anomaly-ok-ng-review-20260719\before-anomaly-review-1920.png` and `after-staged-slice-1920.png`.
 
-### Segmentation Labeling UX
+### A. Image Queue 10K Responsiveness - committed at 93c6bfb
 
-The following areas were stabilized and should not be casually rewritten:
+Files include:
 
-- SEG purpose selects brush-first tooling instead of starting with rectangle drawing.
-- Brush/eraser MouseUp hitch was reduced by deferring CPU/Object Review work.
-- Brush materialization creates a label row after the quiet idle window without reintroducing MouseUp stall.
-- Undo/redo for brush strokes was directly EXE-smoked with Ctrl+Z and Ctrl+Shift+Z.
-- Live brush preview opacity now matches committed mask opacity.
-- Existing brush mask class/color changes recolor the mask.
-- Loading another image clears stale brush preview/mask state.
-- Pending labels are committed before image navigation when required.
-- Image queue click-load and keyboard/navigation UX were improved.
+- 0. UI/9) WPF/Models/WpfImageQueueModels.cs
+- 0. UI/9) WPF/Services/WpfImageQueueSelectionService.cs
+- 0. UI/9) WPF/Views/WpfLabelingShellWindow.ImageQueue*.cs
+- DatasetSetupCommands.cs, ImageQueueCommands.cs, ImageQueuePresentation.cs, PanelWiring.ImageQueue.cs, ShellLifecycle.cs, WpfLabelingShellWindow.xaml.cs
+- tests/LabelingApplication.Tests/Program.cs
 
-Treat these as protected contracts. If a future request touches them, run focused brush/eraser/image-switch/undo tests and use EXE evidence when the user asks for direct executable verification.
+Behavior:
 
-### Layout And Operator UX
+- interactive root/recipe/refresh commands create a cancellable background catalog;
+- stale catalog and detail results cannot replace a newer folder;
+- row lookup is path-indexed;
+- detail scan uses four background workers and 64-row UI batches;
+- live filtering handles row state changes, then one final full view refresh completes exact counts;
+- thumbnails remain lazy.
 
-- Top workflow subnavigation was added for stage-specific shortcuts.
-- Image queue layout was compacted to give more vertical room to the list.
-- Image queue thumbnails/preview support and keyboard navigation were added.
-- Guide/onboarding image-queue guidance now avoids fixed left-side location wording so it still fits the current right-docked/rail queue layout.
-- Left panels were compacted by hiding repeated explanatory text while keeping operator-critical actions visible:
-  - AI candidate review
-  - saved-label/object review
-  - guide/tools
-  - class setup
-  - training settings
-  - model center
-- Canvas annotation tools now have a fixed 46px left-side rail. Purpose-filtered selectable tools stay above a separator, while undo/redo/delete remain the existing one-shot commands below it. Brush size, display mode, save, no-object completion, and active class stay in the horizontal action bar. Keep this layout and command ownership stable unless a concrete clipping, selection, tooltip/accessibility, or responsive defect is reproduced.
-- Training/Model now has a fixed task selector above the existing controls: `현황`, `데이터`, `학습/비교`, and `실행기`. Each choice reveals only the existing relevant control group, and existing focus routes select the matching task automatically. Keep this grouping stable unless a concrete clipping/routing issue or operator feedback is reproduced. Current-build evidence is under `artifacts\ui\20260715-training-subtask-navigation`; tutorial image 09 and standalone HTML are current.
-- The guide/tools panel now has a labeling-stage current-task mode: dataset setup/purpose/storage structure stays in onboarding, while YOLO/tutorial/tool details sit behind a collapsed `필요할 때만: 학습·검사 세부` expander. The current-task card distinguishes real annotation tools from workflow modes, so non-labeling actions such as current inspection or AI review should not show a stale brush/box tool label.
-- In the labeling stage, the guide/tools shortcut is now presented to operators as `작업` / `현재 작업` with a clipboard/current-work icon, so the first read is the current action, not a broad tool/manual area.
-- The labeling-stage current-task guide keeps secondary training/inspection details behind the collapsed `필요할 때만: 학습·검사 세부` expander.
-- The guide/tools current-task flow hint is now bound to `WpfLearningWorkflowPanelViewModel` and follows the live state: sample/default shows `흐름: 이미지 > 열기 > 라벨`, labeling shows `흐름: 그리기 > 저장 > 다음`, inference shows `흐름: 검사 > 확인 > 검토`, and AI candidate review shows `흐름: 확인 > 확정 > 스킵`.
-- The current-task explanatory sentence should use primary text instead of the global red accent, so normal guidance does not read as an error state.
-- The first task card caption should read `현재 이미지` under the expanded `현재 작업` panel title.
-- The current-image task card border should stay neutral; the red accent belongs on the step badge and actual action controls.
-- The image-queue current-task card now uses generic label guidance for unlabeled images, so the shared queue panel does not tell segmentation brush/polygon users to draw a box.
-- Visual-smoke evidence for that exact `2 라벨링` guide/tools state should use `--review-tab labeling-guide`; the older `--review-tab guide` route remains dataset-onboarding evidence.
-- Dataset setup completion and the top `2 라벨링` workflow button now land on a compact beginner start view: labeling mode is active, saved-label review is selected, and the side workflow panel is collapsed to the rail instead of opening class management first.
-- Public tutorial screenshots were refreshed from current 1920x1080 visual-smoke captures after the related UI changes.
-  The current beginner-start pass updated tutorial wording but kept the expanded-panel task screenshots because they still document the drawing workflow, not the default entry state.
+Direct current-session evidence:
 
-### Model Review And Adoption Safety
+- isolated test-project build passed with 0 warnings and 0 errors;
+- latest 10K catalog recheck: 16.1ms, one collection reset, stale replacement rejected;
+- latest 10K valid-image detail recheck: 70.5s on a synthetic local temporary disk, while UI input completed in 78.9ms and filtering evaluated 10,000 rows once;
+- current-source warm-cache profile of the user-provided local mixed root: 50,081 images / 1.47GB; catalog return 13.9ms, catalog completion 11.7s, detail completion 406.5s after catalog, catalog/detail dispatcher input 142.0ms/84.9ms, middle/final selection 207.4ms/318.3ms, no empty dimensions, and 1,036.8MB working set after detail; evidence: `artifacts\image-queue-operator-profile\20260717-225226-warm-cache`;
+- current-source local 8K duplicate-file profile of `D:\새 폴더`: 8,000 JPG paths / 476.2MB; catalog return 12.8ms, catalog completion 2.3s, detail completion 80.2s after catalog, catalog/detail dispatcher input 131.1ms/69.9ms, middle/final selection 182.8ms/121.7ms, no empty dimensions, and 365.3MB working set after detail. The before/after metadata manifest SHA-256 remained `072643A7ED96F109E245271AC6BDAF85D26A174BE9A1203D16B245CF462F76F9`. A complete content SHA-256 audit found 250 unique images, each copied 32 times; evidence: `artifacts\image-queue-operator-profile\20260717-231924-local-8k-production-sample`;
+- queue status, keyboard, root switch, selection service, 1,200-item lazy-thumbnail, 125-item click-performance, and shell tests passed;
+- true before/current-source after 1920x1080 captures: artifacts\ui\image-queue-10k-20260717.
 
-- Model comparison examples can parse YOLO segmentation polygon label rows.
-- Model-comparison promotion summaries preserve multiple hold reasons when weak evidence and zero UI-threshold candidates overlap.
-- Model-comparison summaries include threshold-sweep counts; the current userseed candidate has `0.25=0`, `0.10=0`, `0.05=3`, `0.01=259` and remains on hold.
-- Segmentation promotion also requires enough positive held-out mask evidence; the current userseed candidate has only `3/5` positive segment labels and remains on hold.
-- Segmentation promotion also requires enough distinct positive held-out images; the current userseed candidate has only `3/5` positive segment images and remains on hold.
-- Candidate Review now translates promote reasons into operator-facing Korean and avoids treating malformed long SEG rows as bbox rows; the actual fine-tune comparison display shows `기존 모델 0개, 새 모델 2개` and `교체 추천` from `artifacts\yolo-model-comparison\yolov8-seg-20label-baseline-vs-finetune80-20260707\20260707-222900`.
-- Candidate Review latest model-comparison lookup now filters summaries by the current baseline/candidate weight paths before showing adoption detail, so a newer summary from another candidate cannot drive the current review state.
-- Model Center actual-candidate save smoke verifies the fine-tuned YOLOv8 SEG `best.pt` can be selected from the matching `runs\segment` metadata, saved to recipe, and recorded as the current inspection model.
-- Real YOLO current-image TCP smoke verifies that the saved fine-tune model path can produce and confirm a polygon candidate into segment JSON/mask PNG for `025_NG`.
-- Rejected model-history candidates remain visible but are not directly promotable.
-- Candidate save/reject/rejected-state text is owned by `WpfModelCandidateDecisionPresentationService`.
-- Candidate Review model-validation detail remains collapsed by default for compactness.
+Boundary: the 70.5s synthetic recheck, 50K local warm-cache profile, and local duplicate-file 8K profile are not network-share throughput promises. The 8K folder's production-camera provenance was not supplied; it has only 250 distinct contents repeated 32 times, and its before/after metadata manifest is not a content-tree hash. The local profiles retained an interactive dispatcher while full detail indexing took 6.8 minutes and 80.2 seconds respectively; do not add a database, paging system, or another image cache without a representative network-share or provenance-confirmed production-camera measurement.
 
-### Dataset Interoperability
+Review the isolated file ownership, latest-request-wins contract, shared-file hunk boundaries, and acceptance commands in `docs/IMAGE_QUEUE_10K_REVIEW_SLICE.md` before staging or changing this slice.
 
-Object detection and segmentation import/export coverage is broad enough for the current local workstation MVP:
+### B. Dataset Health - committed at 4f65f08
 
-- COCO, Pascal VOC, Label Studio, and CVAT detection slices.
-- COCO, Label Studio, and CVAT segmentation slices.
-- CVAT segmentation import skips invalid polygons and writes local segment/mask artifacts.
+Committed files include:
 
-Current priority is not more interoperability unless the user asks. The next likely interop slice would be Labelbox NDJSON detection import.
+- 0. UI/9) WPF/ViewModels/WpfDatasetHealthViewModel.cs
+- 0. UI/9) WPF/Views/WpfDatasetHealthWindow.xaml
+- 0. UI/9) WPF/Views/WpfDatasetHealthWindow.xaml.cs
+- 0. UI/9) WPF/Views/WpfLabelingShellWindow.DatasetHealth.cs
+- Yolo/YoloDatasetHealthService.cs
+- tests/LabelingApplication.Tests/Program.DatasetHealth.cs
 
-### Documentation, CI, And Library Dependency
+Modified shell/XAML/ViewModel files wire the read-only Model Center entry.
 
-- `README.md` now includes 1-minute summary, install/run, sample data, build command, smoke command, CI, release notes, roadmap, and known limitations.
-- `RELEASE_NOTES.md` exists.
-- `.github/workflows/ci.yml` builds the focused test project, runs `--priority-workflow-docs`, and runs `git diff --check`.
-- `Library-Noah` is no longer referenced as a sibling source project.
-- The app now references and force-copies checked-in DLLs into the EXE output:
-  - `dll\Lib.Common.dll`
-  - `dll\Lib.OpenCV.dll`
-- `Directory.Build.props` owns `OpenCvSharpVersion=4.5.5.20211231`; the app, tests, ImageCanvas, and Display.Core use matching managed/runtime package references. The app post-build step copies only matching native runtime assets and must not overwrite the managed output with the older netstandard binary.
-- The delayed startup sample loader exits when an active bitmap or image path exists, so an application-idle callback cannot replace an operator image or clear live annotations. The complete no-argument suite and three consecutive labeling-session smokes cover this regression.
-- The focused docs smoke asserts the README/release/CI sections and the bundled DLL dependency contract.
-- Latest inspected GitHub Actions evidence is commit `af643f7d`: run `29154340127` completed with `success` on 2026-07-11 KST.
+Recorded scope:
 
-Latest verified commands for the DLL/CI/docs slice:
+- purpose-aware overview for object detection, segmentation, and anomaly classification;
+- separate FluentWindow with data summary, split/label state, and class distribution;
+- it reuses readiness/quality services and must not modify labels, training, inference, model registry, or adoption;
+- it intentionally excludes externally selected native data.yaml aggregation.
 
-```powershell
-dotnet build .\OpenVisionLab.LabelingStudio.sln -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\sln-isolated-out\
+Recorded gates are --dataset-health, --wpf-dataset-health-window, --dataset-readiness-purpose, --dataset-quality-audit, and --wpf-labeling-shell. A current-source focused recheck passed all five after an isolated 0-warning/0-error build; its fresh 1920×1080 capture is `artifacts\ui\dataset-health-20260717-current-review\dataset-health-current-1920.png`. The detailed evidence is in docs/STABLE_VERIFIED_AREAS.md. Rerun these gates before changing or committing this slice.
+
+Review the isolated file ownership, SEG false-normal contract, shared-file hunk boundaries, and acceptance commands in `docs/DATASET_HEALTH_REVIEW_SLICE.md` before staging or changing this slice.
+
+### C. External Native YOLO data.yaml Intake - committed at d1ce5fc
+
+Committed files include:
+
+- 0. UI/9) WPF/Views/WpfLabelingShellWindow.ExternalYoloDatasetIntake.cs
+- Yolo/YoloExternalDatasetIntakeService.cs
+- tests/LabelingApplication.Tests/Program.ExternalYoloDatasetIntake.cs
+- tests/LabelingApplication.Tests/Program.RealExternalYoloDatasetTraining.cs
+
+Related committed files include:
+
+- WpfLearningWorkflowPanelViewModel.cs, WpfTrainingSettingsPanelViewModel.cs, TrainingStatus.cs, panel wiring, shell XAML, LabelingProjectSettings.cs, YoloTrainingWorkflowService.cs, LearningProtocol.cs, CCommunicationLearning.cs, Runtime/Python/openvisionlab_ultralytics_worker.py, and Program.cs.
+
+Recorded behavior:
+
+- validate a native object-detection or segmentation data.yaml, including paths, names, split separation, labels, and normalized coordinates;
+- persist a separate external profile and require explicit activation for the next training run;
+- persist a SHA-256 identity for the YAML plus referenced images/labels; revalidate it immediately before training, require explicit reactivation when it changes, block any silent fallback to the internal recipe dataset until reactivation or explicit clearing, send the original YAML path to the worker, and preserve the internal recipe export unchanged;
+- resolve YAML-relative paths from the YAML directory;
+- isolate YOLOv5 Unicode-path staging/cache and YOLOv8 cache cleanup from source data;
+- latest opt-in runtime evidence: the EasyMatch SEG source completed one YOLOv8 epoch at image size 320/batch 4, while the full 1,207-file source manifest remained exactly unchanged (aggregate SHA-256 `B137A8EE8F2CAB265AA660874CC3B23C1BFA07D59CDBA0A2B74FD1DE26F98E2D`); the artifact-local copied `best.pt` is not registered or adopted;
+- do not support external anomaly-classification YAML intake in this slice.
+
+This is source-data interoperability and runtime safety, not source-data quality, model adoption, or a license to mutate user-supplied data. The detailed current evidence and gates are in docs/STABLE_VERIFIED_AREAS.md.
+
+Completion record: this intake review is complete. The current-source isolated build passed with 0 warnings / 0 errors; `--external-yolo-dataset-intake`, `--wpf-labeling-shell`, Python worker compile, and worker `--self-test` passed. Current-source UI evidence is `artifacts\ui\external-yolo-intake-20260717-current-review\external-yolo-intake-current-1920.png`. The existing opt-in 1-epoch artifact remains the source-immutability runtime proof and was not rerun because its completed scope and evidence remain valid. No model was registered or adopted.
+
+Review the isolated file ownership, shared-file hunk boundaries, contract, and acceptance commands in `docs/EXTERNAL_NATIVE_YOLO_INTAKE_REVIEW_SLICE.md` before staging or changing this slice.
+
+### D. Model and Anomaly Workflow Changes - committed at 6f202db and cdad0be
+
+Committed files include:
+
+- 1. Core/AnomalyImageReviewStatusService.cs
+- 1. Core/YoloTrainingWorkflowService.cs
+- 3. Communication/TCP/CCommunicationLearning.cs
+- 3. Communication/TCP/LearningProtocol.cs
+- Runtime/Python/openvisionlab_ultralytics_worker.py
+- scripts/compare-yolo-models.ps1
+- tests/LabelingApplication.Tests/Program.RealYoloV8AnomalyFolderTraining.cs
+- tests/LabelingApplication.Tests/Program.cs
+
+Recorded outcomes:
+
+- Washer synthetic anomaly candidate completed runtime persistence/restart evidence but is hold on external circular and MultiIndustry synthetic checks at the current confidence gate.
+- EasyMatch native segmentation training/inference and native detection YOLOv5-versus-YOLOv8 comparison completed as controlled synthetic evidence. The 60-image native test favors YOLOv8n for the disclosed conditions, but neither model is auto-registered/adopted.
+- Prediction manifests prevent nested path/stem collisions and restore Ultralytics generated prediction labels to original source stems for review.
+- The current source packages remain unchanged according to recorded hash/cleanup evidence.
+
+Completion record: this focused review is complete. The isolated build passed with 0 warnings / 0 errors; anomaly folder/training/runtime/evaluation gates, bundled-worker contract, local adapter/worker compile, adapter self-test, comparison run-service contract, and PowerShell parser check all passed. No real training or five-repeat comparison was rerun because it is outside this review scope. Recorded runtime/benchmark evidence must not be reported as independent quality evidence or adoption approval.
+
+Review `docs/MODEL_ANOMALY_COMPARISON_REVIEW_SLICES.md` before staging or changing this group. It separates the nested anomaly/runtime and native comparison-manifest changes, names their shared-file hunks, excludes external-intake behavior, and states the acceptance gates.
+
+### E. Documentation Checkpoint
+
+The current source-of-truth documentation set includes:
+
+- docs/NEXT_THREAD_HANDOFF.md
+- CODEX_NEXT_PROMPT.md
+- docs/WORK_TRACKING.md
+- docs/STABLE_VERIFIED_AREAS.md
+- docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md
+
+Read the final diff before changing these records. Historical entries remain evidence journals; update only the current checkpoint and a contract whose source or acceptance criteria changed.
+
+## 8. Model Evidence: What Is Complete and What Is Not
+
+### Segmentation
+
+Completed:
+
+- historical 124-target contour correction was approved, backed up, and retrained;
+- current local YOLOv8 SEG runtime returns polygon/mask artifacts;
+- corrected candidate comparison and runtime smoke exist.
+
+Not complete:
+
+- corrected contour candidate remains hold because its fixed validation set has one NG positive image;
+- no independent cross-session/production-camera segmentation test set with sufficient NG masks exists;
+- do not perform another historical geometry rewrite without a new source contour, preflight, and explicit user approval.
+
+### Object Detection
+
+Completed:
+
+- YOLOv5 versus YOLOv8 comparison plumbing, evidence fingerprints, model-neutral report, class/error review, and native external-YAML compatibility paths;
+- controlled same-source Test01 and recent synthetic EasyMatch comparisons provide engine/regression evidence.
+- user-authorized Switch Housing synthetic cross-product test: 60 held-out native object-detection images, five repeats, artifact-only relative-YAML materialization, and a candidate `hold`; the 300-image Switch Housing anomaly evaluation also holds the existing Washer classifier.
+
+Not complete:
+
+- independent NG-rich industrial camera/session test data is missing;
+- Test01/Test02 duplication cannot count as independent evidence;
+- synthetic packages do not authorize a production model choice.
+
+### Anomaly Classification
+
+Completed:
+
+- image-level normal/abnormal review semantics, local YOLOv8 classification training/runtime mapping, evaluation guard, model profile persistence, and restart smoke;
+- external synthetic evaluation paths demonstrate current candidate failure across domain changes.
+
+Not complete:
+
+- no balanced independent production-camera/cross-session normal and abnormal held-out set;
+- current Washer candidate is hold, not adopt;
+- evaluation data must remain outside training when used as an external regression set.
+
+### YOLO11
+
+Blocked. Do not claim readiness, expose a default, download a weight, or create an adoption path until the selected local runtime and actual compatible weights are tested.
+
+## 9. Known Gaps, Risks, and TODO Scan
+
+- The former dirty feature slices are reconciled into local commits through 85d91e9. Do not repeat their focused reviews unless source, requirements, environment, or evidence validity changes.
+- Current-head CI has not been inspected in this documentation pass.
+- Image-queue behavior on shared/network storage and provenance-confirmed production-camera folders is unverified. Mixed local 50K warm-cache and local duplicate-file 8K profiles exist, but neither is a network result; the 8K source has only 250 distinct contents copied 32 times and is not a production-data proxy. The operator removed this unavailable profile from the active priority list on 2026-07-18; retain the risk record without treating it as next work.
+- Model quality remains data-limited, not implementation-limited.
+- Collaboration, reviewer assignment, cloud sync, account management, deployment, and enterprise governance are out of scope.
+- A repository source scan for TODO, FIXME, and HACK excluding artifacts/bin/obj/tutorial outputs returned no hits in this handoff pass. This does not mean every product gap is complete; use the explicit gaps above.
+
+## 10. Next Priorities
+
+1. Keep all completed workflow slices stable and resume implementation only for a reproduced regression or a newly approved adapter/data workflow. This prevents another broad UI pass or repeated verification of already closed contracts. It excludes speculative polish and recombining independent commits.
+   Prerequisite: a reproduced defect, changed requirement, or explicit new adapter/data request.
+   Recommended model: none until the prerequisite exists
+   Reasoning effort: n/a
+
+2. Convert an independent NG-rich object-detection camera/session source into a labeled held-out test split, then rerun the controlled YOLOv5 versus YOLOv8 test comparison. The `D:\라벨테스트` Switch Housing synthetic cross-product result is complete and remains `hold`; do not repeat it unless its source, weights, threshold, or acceptance criteria change. The discovered `D:\기타이미지\2022.11.16_SIT 이미지` candidate has 10,447 JPEGs (`OK` 5,950 / `NG` 4,497) but no YAML or annotation files, so it is not yet an object-detection evaluation set. This establishes separate quality evidence with provenance and no content overlap; it excludes treating image-level folder names as boxes or promoting a model from the existing synthetic report.
+   Prerequisite: operator confirmation that this is the intended source, object classes and bounding-box labeling rules, and a completed labeled held-out split with no content overlap with training/validation data.
+   Recommended model: none until the data is available
+   Reasoning effort: n/a
+
+3. Acquire balanced independent production-camera/cross-session normal and abnormal anomaly data, keep it outside training initially, and rerun the anomaly evaluation guard. This distinguishes a repeatable classifier runtime from generalizable anomaly quality; it excludes tuning against the preserved circular or MultiIndustry synthetic evaluation sets.
+   Prerequisite: new normal and abnormal images with provenance and representative operating conditions.
+   Recommended model: none until the data is available
+   Reasoning effort: n/a
+
+Do not start another broad UI redesign without a reproduced operator defect. The task tabs, Dataset Health window, model-comparison workspace, Model Center workspace, and adapter catalog are completed contracts.
+
+## 11. Focused Verification Menu
+
+Use only the relevant commands for the slice being changed.
+
+~~~powershell
 dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
-git diff --check
-```
 
-## 2026-07-12 UI And SEG Persistence Correction
-
-- Expanded learning/template details now use full-width wrapping rows and the outer panel scroll; fixed 86px/42px cards and clipping inner height caps were removed.
-- Dataset-purpose badges now stay in separate right-aligned status columns in dataset selection and the current-dataset shell header.
-- Real operator artifact inspection proved the brush data was not lost: `Teaching_1001` retained its non-rectangular NG region in `masks\Teaching_1001.png`, while legacy JSON and YOLO TXT contained rectangles.
-- The segmentation loader now restores raster objects from the PNG, new saves record `RasterMask`/`Polygon`, and training export traces the mask boundary through the managed `RasterMaskPolygonService`.
-- The current turn did not rewrite operator files. Existing sidecars upgrade on normal save/export; an immediate bulk migration requires a separate backup/dry-run decision.
-- Focused storage, object verification, candidate training flow, WPF panel/shell/setup, and 1920x1080 plus 1366x768 responsive tests passed. Visual evidence is under `artifacts\ui\20260712-user-reported-ui-mask-regression`.
-- Public README/tutorial images were reviewed and not replaced because they do not instruct the changed dataset-result row or expanded detail states; no numbered callout depends on the incidental badge location.
-
-## 2026-07-12 Workspace Resize, SEG Template Shape, And Queue Follow-up
-
-- The remaining deep YOLO report/history caps were removed; essential values and paths wrap under the outer guide scroll.
-- Native WPF splitters resize workflow/canvas and canvas/image-queue columns. Bounds remain workflow 72-640px, queue 260-640px, and canvas minimum 420px. The expanded workflow width and image-queue width now persist across restarts as bounded per-machine settings; the settings/tools menu can reset them to 340px and 320px.
-- SEG template matching now uses location from the matcher and geometry from the registered source. Current-image and batch paths both preserve polygon or raster-mask shapes; rectangle fallback remains only when SEG source geometry is unavailable. The current matcher does not rotate or deform source shapes.
-- Actual 97-image queue-detail measurement improved from `3555.8ms` to `2474.0ms` (`30.4%`) by moving the full YOLO training/model completion refresh out of the per-row loop. The current 1200-item construction gate is `142.8ms`. The later row-selection fix below supersedes the intermediate render-latency conclusion.
-- Current-build evidence: `artifacts\ui\20260712-queue-template-resize\after-yolo-report-unclipped-screen-1920.png` and `after-workspace-resized-screen-1920.png`. Public tutorial images were reviewed and not replaced because they do not teach the deep report or splitter interaction.
-- Required isolated build and focused learning/shell/responsive, queue, template, SEG storage/object/training-flow tests passed. Run `--priority-workflow-docs` and `git diff --check` again after any handoff edit.
-
-## 2026-07-12 Image Queue Click Regression Fix
-
-- Root cause was proven: selecting one DataGrid row called `imageQueueView.Refresh()` through the generic open-selection fallback and reevaluated all 97 rows. The bound property and attached selection command could also enter the same orchestration path.
-- Row selection now opens its supplied item directly, while the attached command only fills an event-order gap. Generic open/adjacent/failure paths reuse the current filtered view.
-- Before/after on the same 97-item SEG queue: filter evaluations `97 -> 0`, visible average `258.8ms -> 36.1ms`. After all 125 `D:\LabelingData\Test01\Images` details loaded: visible average `35.5ms`, warm full-settle average `96.2ms`, filter evaluations `0`.
-- Focused queue click/canvas, keyboard, status/filter, selection-service, shell, labeling-session, SEG navigation-save, 1200-item virtualization, required build, docs, and diff gates cover this path.
-- No visible UI changed, so no new screenshot or README/tutorial image update is required.
-
-## 2026-07-12 Legacy Rectangular SEG Mask Consistency
-
-- Root cause: legacy untyped rectangle JSON reopened as a polygon when its class-index mask was a solid rectangle, but reopened as a raster mask when another class punched a hole in the same mask. `Teaching_1000` and `Teaching_1001` exposed this class-overlap-dependent behavior.
-- Legacy untyped axis-aligned rectangles now use matching sibling mask pixels even when they fill the rectangle. Explicit `GeometryType=Polygon` remains polygon, so current intentional polygons are unchanged.
-- Focused storage, WPF segmentation object, candidate training-flow, template-batch, output-root reload, and shell gates pass. Current-build 1920x1080 evidence is under `artifacts\ui\20260712-seg-ok-template-consistency`.
-- An initial actual-dataset capture refreshed `review-status.json`; segment JSON, mask PNG, and YOLO label files were unchanged. The status file was restored to SHA-256 `A93ED5757F8E3C3728B48D3A8639AA0C76EE7BB052EDBCD427D3D51B8B05AFC2`, and the final visual smoke uses a temporary sidecar copy and proves the operator status hash stays unchanged.
-- This fixes representation consistency, not object-boundary inference. A rectangular template source still produces a rectangular mask; use a brush/polygon source when the OK contour itself must be circular.
-
-## 2026-07-12 SEG Mask Class Badge And Existing-Data Audit
-
-- Raster masks carried `SEG <index> <class>` metadata but only rendered a marker while selected. Every visible committed mask now shows a compact class badge; unselected masks do not draw rectangular bounds.
-- Shared SEG, detection-overlay, ROI-overlay, current-image template, and batch-template gates pass. Current-build 1920x1080 evidence is under `artifacts\ui\20260712-seg-mask-class-label`, and actual operator review-status hashes stayed unchanged during capture.
-- The active dataset has 125 Version 1 segment files and 139 untyped rectangle records. `Teaching_0` is the only circular OK source mask; 110 other OK-only masks are solid rectangles, and 14 OK+NG images are rectangular OK masks with NG pixels replacing part of them.
-- Current template code is already guarded to transfer a registered raster source shape. Correcting the 124 historical targets is a data migration, not another renderer fix. Do not rewrite them without explicit approval, backup, and dry-run evidence.
-
-## 2026-07-14 YOLOv5 Versus YOLOv8 Detection Benchmark Workflow
-
-- Same-data YOLOv5 versus YOLOv8 object-detection analysis is now implemented and has real local validation evidence. The next model-quality priority is an independent, class-balanced object-detection test split, followed by independent anomaly classification runtime/model evidence.
-- Training/Model exposes `v5 vs v8 analysis` for object-detection recipes. It prefers the independent `test` split and falls back to `val` only as an engine-performance reference. Candidate Review explicitly labels `val` as training validation and not model-replacement evidence.
-- Model Takt is preprocess + inference + postprocess per image from each engine's validation output. It is not WPF/TCP latency, camera time, PLC time, or full equipment Takt time.
-- Task and label preflight fail closed so a YOLOv8 SEG weight cannot be used as the YOLOv8 Detect side. Cross-engine save/reject controls stay hidden because engine adoption requires changing the runtime/profile as well as the weight. YOLOv8 folder connection is now dataset-purpose aware and resolves `runs\detect`, `runs\segment`, or `runs\classify` weights without crossing tasks.
-- Approved seed `C:\Git\yolov8\yolov8n.pt` (SHA-256 `F59B3D833E2FF32E194B5BB8E08D211DC7C5BDF144B90D2C8412C47CCFC83B36`) was downloaded without a dependency upgrade. A 100-epoch CPU Detect run on the app's 97 train / 28 validation split produced `best.pt` SHA-256 `92CBA615854EBCCC18449AD09CA67452386340C7673AEB627729FC9810553449` under `C:\Git\yolov8\runs\detect\openvisionlab-yolov8n-detect-test01-e100-img320-20260714`.
-- Controlled YOLOv5s-versus-YOLOv8n validation used the same data, image size 320, `batch=1`, CPU, and confidence 0.25. Metrics were stable across five runs: YOLOv5s `P 0.999 / R 0.500 / mAP50 0.505 / mAP50-95 0.464`; YOLOv8n `P 0.980 / R 1.000 / mAP50 0.995 / mAP50-95 0.921`. Model-Takt medians were `74.6ms` and `47.946ms` respectively, a 35.7% reduction for YOLOv8n. The YOLOv8 range included one `87.83ms` CPU outlier.
-- Built-in `v5 vs v8 analysis` now performs five timing runs per engine, keeps candidate generation on the first run, stores every Takt sample plus median/range/count, and fails if any requested timing sample is missing. The final-source integrated run measured YOLOv5s `85.20ms` (`72.50-95.80`) and YOLOv8n `64.811ms` (`53.278-76.380`), a same-run 23.9% median reduction. The difference from the earlier manual set confirms that absolute CPU Takt is load-sensitive; retain same-run conditions and ranges.
-- The dataset dashboard `품질 보고서` card now saves a fresh `dataset-quality-audit.md` under the active dataset root through the existing export service. Focused export/dashboard/shell gates pass; current 1920x1080 before/after evidence is under `artifacts\ui\20260715-dataset-quality-report-action`. Local single-operator quality reporting/export is complete; reviewer assignment remains deferred collaboration scope.
-- The operating-reference YOLOv5m comparison measured `P 0.819 / R 1.000 / mAP50-95 0.692 / Takt 146.6ms` versus YOLOv8n `P 0.980 / R 1.000 / mAP50-95 0.921 / Takt 43.255ms`; this is not a controlled architecture comparison because the YOLOv5m training recipe and exact split differ.
-- Required isolated build and focused runtime-connection, comparison, Candidate Review, and shell tests pass. Real current-build 1920x1080 evidence is under `artifacts\ui\20260714-yolov5-yolov8-real-validation`.
-- The saved-profile restart gate is also complete. A generic settings save had overwritten an authoritative `ObjectDetection` purpose from stale workflow presentation; dataset purpose is now changed only by explicit purpose selection. The actual EXE saved YOLOv8 plus the new Detect `best.pt`, closed, reopened, showed the same engine/weight, and returned one `OK` candidate at confidence `0.982` on first inference. Evidence: `artifacts\exe-yolov8-detect-restart-smoke\codex_yolov8_detect_restart_20260714_193745`.
-- The anomaly-classification saved-profile restart gate is complete. New blank recipes no longer clone the previous recipe's model registry, weight, or image root; queue root switching only honors a selected image present in the new root; and an empty root clears the previous canvas/annotation state. The actual EXE saved YOLOv8 classification settings plus normal/abnormal mapping, closed, reopened, returned one `abnormal 99.8%` candidate on first inference, and persisted `Abnormal`. Evidence: `artifacts\exe-yolov8-anomaly-restart-smoke\codex_yolov8_anomaly_restart_20260714_204940`.
-
-## 2026-07-15 Compact Model-Comparison Summary
-
-- Training/Comparison now conditionally shows the latest comparison artifact matching the current baseline/candidate weights above the existing training controls.
-- The panel reuses `WpfModelComparisonReviewService` and `WpfCandidateReviewPanelViewModel`; it shows the adoption boundary, YOLOv5/YOLOv8 accuracy, five-run Takt median/range/count, evidence scope, and disagreement count without adding another parser or state owner.
-- `Difference examples` opens the existing Candidate Review drill-down for image/class-level differences. First tab entry restores a matching artifact when available; malformed external artifacts log and leave the panel hidden instead of blocking navigation.
-- Required build, shell, comparison-service, 1366x768/1920x1080 responsive gates, and the actual summary visual smoke pass. Before/after evidence is under `artifacts\ui\20260715-model-comparison-summary`.
-- This closes comparison-result readability only. It does not change the empty object-detection test split, one-NG validation limitation, or model-adoption boundary.
-
-## 2026-07-15 Per-Machine Workspace Widths
-
-- The expanded workflow pane width and image-queue width persist to `%LOCALAPPDATA%\OpenVisionLab\LabelingStudio\workspace-layout.json`; corrupt or out-of-range values fall back to bounded defaults.
-- `Settings/Tools > Work transition/environment > Reset panel widths` restores 340px/320px and persists the reset. Window position, dock state, canvas, recipe, and Viewer/OpenGL state remain outside this setting.
-- The isolated restart/reset gate, shell/MVVM gates, 1366x768 and 1920x1080 responsive checks, and current-build visual smoke pass. Evidence is under `artifacts\ui\20260715-workspace-layout-persistence`.
-- README/tutorial images were reviewed and not replaced because neither public guide shows the settings popup and the default tutorial layout did not change.
-
-## 2026-07-15 Model-Comparison Execution History
-
-- Training/Comparison now lists up to eight recent valid summaries matching both the current baseline and candidate weight paths.
-- It reuses `WpfModelComparisonReviewService` and Candidate Review state. Malformed or unrelated summaries are ignored, and no artifact, weight, recipe, label, or model-registry state is rewritten.
-- The newest matching run remains authoritative. Selecting an older run shows a reference-only warning and holds model adoption until the latest run is selected again.
-- Required build, model-comparison review/run, Candidate Review, shell/MVVM, and 1366x768/1920x1080 responsive gates pass. Current-build before/latest/historical evidence is under `artifacts\ui\20260715-model-comparison-history`.
-- README/tutorial images were reviewed and not replaced: tutorial 09 intentionally shows the pre-comparison training state, while tutorial 11 documents model-registry/adoption history rather than comparison-run history.
-
-## 2026-07-15 Supervisely-Inspired Panel/Tab Direction
-
-- The operator explicitly approved an incremental Supervisely-inspired shell direction: a compact top work-context bar, narrow tool rail, dominant center canvas, and task-specific left/right panel tabs. This is a concrete operator request, not speculative permanent left-panel UI.
-- `C:\Git\OpenVisionLab_Dev` is an approved internal reference and reuse source. It already uses `WPF-UI 4.3.0` and wraps `Dirkster.AvalonDock 4.74.1` in `Library\OpenVisionLab.Docking.Controls`.
-- Inspect and adapt only the required WPF-UI resources, docking wrapper/control patterns, pane/tab styles, persistence, and smoke assertions. Do not create a cross-repository runtime dependency or copy OpenVisionLab domain behavior into Labeling Studio.
-- Start with the top context-bar consolidation using the current Labeling Studio WPF controls. Add AvalonDock only if a later verified pane requirement exceeds fixed `Grid`/`GridSplitter`/`TabControl` behavior; if added, keep raw AvalonDock types behind a labeling-owned wrapper.
-- Each visible slice requires a current-build before/after capture at 1920x1080, a 1366x768 responsive check, focused shell/MVVM tests, and README/tutorial image review. Do not modify Viewer/OpenGL/ROI/brush/eraser hot paths for this layout work.
-- First slice is complete: `WorkflowContextHeader` groups the previous 54px stage rail, 36px subtask rail, and 48px dataset bar into an 82px two-row surface, gaining 56px for the workspace while preserving the existing commands and state.
-- Second slice is complete: the existing stage-specific panel selectors now sit directly below the expanded left-panel title in a responsive one-row tab surface. The dataset context spans the full second header row; commands, ViewModels, `ReviewTabControl`, and panel UserControls are unchanged.
-- Third slice is complete: purpose-filtered selectable annotation tools now occupy a fixed 46px canvas-left rail, with distinct MahApps icons, tooltips/automation text, and the existing selected-tool command path. Undo, redo, and delete are grouped below a separator without changing their commands. Existing WPF controls were sufficient; AvalonDock and new state owners were not added.
-- Required isolated build, `--wpf-labeling-shell`, `--mvvm-infra`, and both responsive gates pass. Current-build before/after evidence is under `artifacts\ui\20260715-supervisely-panel-slice`; no overlap was visible at either size, and the three labeling tabs remain on one row at the 280px minimum panel width.
-- The final tool-rail source also passes `--wpf-labeling-shell` and `--wpf-segmentation-object-verification`; object-detection and segmentation screen captures at 1366x768 plus the final 1920x1080 capture are under `artifacts\ui\20260715-annotation-tool-rail`.
-- Public raw/annotated images 01 and 03 plus the cache-busting README hero were refreshed again from the final 1920x1080 shell. The box-label instruction now names the canvas-left tool rail, and standalone HTML embeds the refreshed images. The other task-detail captures were reviewed and retained because they do not instruct tool selection; their workflow content remains valid, although incidental shell chrome may predate the final rail.
-
-## 2026-07-15 Labeling-Only Viewer Toolbar Suppression
-
-- The operator clarified that the unnecessary right-side controls were the shared viewer's ROI rectangle and measurement icons, not the image queue.
-- `RoiImageCanvasView` now has an opt-out visibility dependency property that defaults to visible. Labeling Studio alone sets it to hidden, and the `Auto` toolbar column collapses so the center canvas regains 35px.
-- ROI/measurement commands, OpenGL rendering, annotation persistence, and brush/eraser behavior remain unchanged. The shared viewer's default toolbar is protected by XAML and runtime assertions.
-- Required build, canvas-command, shell, SEG object-verification, and 1920x1080/1366x768 responsive gates pass. True before and current-build after captures are under `artifacts\ui\20260715-viewer-legacy-tools`.
-- Public raw/annotated tutorial images 01 and 03 plus `readme-current-workflow-20260715.png` were refreshed, and the standalone tutorial embeds matching copies of all 14 annotated PNGs.
-- Treat this duplicate-chrome fix as complete. A future explicit measurement workflow should add a labeling-owned task entry rather than silently restoring the legacy strip.
-
-## 2026-07-15 Model-Neutral Performance Comparison Workspace
-
-- The prior compact YOLO-only summary/history presentation in the Training/Comparison left panel is superseded. The panel now exposes one compact `모델 성능 비교` entry that opens a separate reusable modeless window.
-- `WpfModelBenchmarkCatalogService` reads the repository's current pairwise model-comparison summaries and anomaly-classification evaluation summaries into a read-only model-neutral catalog. It does not rewrite artifacts or change Candidate Review/model-adoption ownership.
-- The window supports search and task filtering, an unlimited catalog, at most six selected runs, exactly one selected baseline, dynamic metric rows, and separate summary/metrics/execution-condition tabs.
-- Accuracy comparison is valid only for matching task, split, image count, and evaluation identity. New reports use the content fingerprint; historical reports without one use the exact normalized evaluation path, and fingerprinted/un-fingerprinted runs do not produce a quality delta together. Takt comparison additionally requires matching timing source, image size, batch, and repeat conditions. Mixed tasks and missing timing display an explicit non-comparability reason.
-- Required build, `--wpf-model-benchmark-window`, `--wpf-labeling-shell`, model-comparison review, Candidate Review, MVVM, public-doc gates, actual-report 1920x1080 pair/mixed-task visual smokes, and the 1366x768 responsive smoke pass. Evidence is under `artifacts\ui\20260715-model-benchmark-window`; the true prior inline state is `artifacts\ui\20260715-model-comparison-summary\current-report-request-1920-retry.png`.
-- Tutorial text now directs operators to `성능 비교 열기` and explains the selection/condition boundary. Existing tutorial images 13/14 remain valid for the unchanged Candidate Review/adoption flow, so no public image was replaced.
-- Treat phase 1 as complete. Add a report adapter or versioned generic schema only when a real additional framework emits evidence that the current adapters cannot represent; do not prebuild speculative charts or MLOps scope.
-
-## 2026-07-15 Model-Comparison Evidence Fingerprints
-
-- `scripts\compare-yolo-models.ps1` now writes SHA-256 for `data.yaml`, path/order-independent evaluated image+label pairs, and both evaluated weights. The Markdown report carries the same identities.
-- `scripts\evaluate-yolo-classification.ps1` now writes the evaluated weights SHA-256 and a class+image-content fingerprint for the selected normal/abnormal split.
-- The benchmark catalog accepts only 64-hex SHA values. Matching fingerprints authorize quality deltas; different fingerprints or mixed fingerprint availability block them. Old summaries still load and can compare only through their legacy exact path/split/count identity.
-- The execution-condition table keeps its existing width: each evaluation-data and weights path shows a compact 12-character SHA on the second line and the full value in a tooltip. The top notice distinguishes `data fingerprint match` from historical `fingerprint not recorded` evidence.
-- Required isolated build, `--wpf-model-benchmark-window`, `--wpf-model-comparison-run-service`, `--anomaly-classification-evaluation`, `--wpf-labeling-shell`, both script parser checks, and direct fingerprint stability/content-change checks pass.
-- True before and current-build 1920x1080/1366x768 after captures are under `artifacts\ui\20260715-model-benchmark-fingerprints`. The after report is a derived visual fixture under `artifacts\yolo-model-comparison\current-source-fingerprint-visual-20260715`, not a new model run or accuracy result.
-- README/tutorial images were reviewed and retained because no public guide image currently shows this separate execution-condition table.
-- Real runtime generation is now also verified. One YOLOv5/YOLOv8 validation comparison wrote `artifacts\yolo-model-comparison\sha-end-to-end-runtime-20260715\20260715-202821`; all data/weight SHA values match the evaluated files and the decision remains `benchmark`.
-- The local YOLOv8 anomaly evaluator wrote `artifacts\yolo-classification-evaluation\sha-end-to-end-runtime-20260715\classification-evaluation-20260715-203149`; its weight SHA matches and the unchanged scoped result is 15/15, normal/abnormal accuracy 1.0/1.0, zero low-confidence matches, and `adopt` with zero hold reasons.
-- The catalog loaded those three actual-runtime rows together and correctly displayed the mixed-task non-comparability notice. Supplemental evidence: `artifacts\ui\20260715-model-benchmark-fingerprints\actual-runtime-reports-conditions-1920x1080.png`.
-- This follow-up changed no UI source. README/tutorial replacement was unnecessary, and the actual-runtime evidence does not change the empty-test/one-NG object-detection boundary or the single-source anomaly boundary.
-
-## 2026-07-16 Commercial UX Research And Data-Blocked Priority
-
-- The user cannot currently acquire or train new data. Until that changes, do not fabricate substitute accuracy evidence or reopen completed annotation/rendering paths.
-- Official CVAT, Supervisely, Roboflow, and Labelbox documentation was checked for QA/rework, AI assistance, model evaluation, and workflow expectations. The durable comparison is recorded in `docs\LABELING_STUDIO_COMPLETENESS_AUDIT.md`.
-- Completed: `Model Center > Data` now exposes the bounded `Evaluation data evidence` surface. It reuses `TrainingSettingsViewModel`, `YoloExternalEvaluationDataAuditService`, and the existing folder-selection command; no window, chart package, model runner, or state owner was added. Current evidence is `artifacts\ui\20260716-evaluation-data-evidence`.
-- The separate model-neutral benchmark already has an evidence/fingerprint guard and a native WPF quality-versus-Takt scatter visualization. Do not add a chart dependency unless a concrete report cannot be represented by the existing view.
-- The next commercial-workflow gap after that surface is a local single-operator review/rework worklist, but only if current image-level review state proves insufficient. Foundation-model assist requires explicit runtime/weight approval. Collaboration/workforce remains out of scope.
-
-## Known Remaining Gaps
-
-- The object-detection dataset has no test images. Validation contains 28 OK objects and only one NG object, so NG recall changes between 0% and 100% on one result. The measured comparison is useful engine evidence but cannot authorize model adoption or broad accuracy claims.
-- Built-in cross-engine Takt repeatability is complete: Candidate Review and Markdown show five-run median/range evidence. Hardware/process-load metadata and full equipment-cycle timing remain outside this model-only benchmark.
-- YOLOv8 SEG has a scoped circular operating candidate at confidence `0.20` and a stronger cross-domain review candidate at confidence `0.30`. The latter covers `11/15` positives with `0/27` backgrounds on the combined test but is still `review`, not automatic `promote`.
-- Those model results used the former four-point SEG exports. The saved masks and labels have now been corrected to contours, but the candidate remains historical until retraining and an unchanged held-out comparison are rerun.
-- Legacy solid rectangular class masks now reopen consistently as raster masks even without an overlapping NG class. Existing sidecars are not bulk rewritten; explicit geometry metadata is added on the next normal save.
-- Historical template-generated masks were corrected through the approved 124-target migration. The normal template path remains authoritative for future images; do not apply another bulk rewrite without a new source contour and approval.
-- `D:\LabelingData\Test01` and `Test02` are hash-identical 125-image copies. They must not be counted as independent sessions.
-- Need the next operator loop: collect independently acquired and labeled SEG train/valid/test images for broader accuracy and collect an independent anomaly production-camera/cross-session test set.
-- Anomaly classification now has local YOLOv8 pretrained-seed runtime, WPF mapped-inference, a synthetic trained fixture, a core adoption guard, and a 100-image circular-defect run whose unchanged 15-image test split passes at minimum confidence 0.8. The remaining evidence gap is an independent production-camera/cross-session set; the current five-normal/ten-abnormal held-out result is not broad production readiness.
-- Anomaly classification has an app-level Model Center `평가 실행` path for held-out evaluation summaries plus manual `평가 불러오기`. Auto-display still works from the active output-root direct, fixed child, or timestamped evaluation summary location. The latest scoped adopt summary is `artifacts\yolo-classification-evaluation\circular-defect-balanced-e20-minconf08-20260711\classification-evaluation-20260711-214135\classification-evaluation-summary.json`.
-- YOLO11 remains blocked until a compatible local runtime and weights are verified.
-- The measured 97-image queue detail pass still takes about 2.5 seconds in the background. Current row switching is verified separately at about 35ms visible average; do not modify Viewer/OpenGL without a new reproduced trace and focused evidence.
-- The 125-image real-folder detail pass measured about 3.47 seconds in the background. Row clicks no longer trigger that scan or a full filtered-view refresh; investigate further only if a current build still reproduces blocking while the background pass is active.
-- Latest inspected CI is green for `af643f7d` in GitHub Actions run `29154340127`.
-- Updating `dll\Lib.Common.dll` or `dll\Lib.OpenCV.dll` now requires intentional binary refresh, EXE output-copy verification, and build verification.
-- Any new visible UI change needs fresh current-build capture evidence and tutorial/README image review.
-
-## Recommended Next Work
-
-1. Do not add a second data-evidence UI before operator use. When an existing recipe can be reviewed, decide whether the current image-level state proves a bounded local review/rework worklist is needed; do not prebuild per-object persistence without that evidence.
-2. Prerequisite: acquire and label a new cross-session or production-camera SEG test split with at least five NG mask labels/images. Keep it untouched for evaluation, rerun the same comparison, and perform selected-model EXE close/reopen/first inference only if the candidate becomes promotion-eligible. Do not repeat the completed historical geometry rewrite.
-3. When data becomes available, acquire and label an independent NG-rich object-detection test set, populate `test`, and rerun the built-in five-repeat `v5 vs v8 analysis` before adoption. Do not reuse hash-identical `Test02` as new evidence.
-4. Then collect an independent production-camera or cross-session normal/abnormal set and rerun the unchanged anomaly classification evaluation guard.
-5. Keep the completed compact context header, task-specific tabs, annotation rail, tutorial evidence, queue, Viewer/OpenGL, and segmentation paths stable unless a new defect is reproduced.
-
-## Useful Verification Commands
-
-```powershell
-dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-benchmark-window
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-review-panel
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-review-service
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-heldout
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-comparison-run-service
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-yolov8-detect-restart-smoke
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-10k-responsive
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-10k-detail-responsive
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-status
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-image-queue-root-switch
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --exe-yolov8-anomaly-restart-smoke
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-model-center-real-candidate-save --yolo-root C:\Git\yolov8 --data-yaml .\artifacts\exe-circular-segmentation-workflow\circular_seg_exe_20260708_213227\dataset\data.yaml --baseline-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-segment\weights\best.pt --candidate-weights C:\Git\yolov8\runs\segment\openvisionlab-yolov8-seg-40label-operating-selected-conf020-20260711\weights\best.pt --candidate-confidence 0.20
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-segmentation-object-verification
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-candidate-polygon-training-flow
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-queue-click-perf --count 125 --measure-detail-refresh --settle-ms 60
+
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-health
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-dataset-health-window
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --external-yolo-dataset-intake
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-readiness-purpose
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --dataset-quality-audit
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --model-adapter-catalog
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel
+
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-training-workflow
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-evaluation
-dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose anomaly --review-tab yolo --right-workflow-expanded --anomaly-classification-evaluation-summary .\artifacts\yolo-classification-evaluation\normal-abnormal-fixture-20260707-minconf08\classification-evaluation-20260707-232709\classification-evaluation-summary.json --width 1920 --height 1080 --output .\artifacts\ui\wpf-model-center-anomaly-evaluation-after-1920.png
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolov8-anomaly-classification-runtime-smoke
-powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\evaluate-yolo-classification.ps1 -Weights <normal-abnormal-best.pt> -DatasetRoot <classification-dataset-root> -Split test -ImageSize 64 -Confidence 0.0
-C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile C:\Git\yolov8\labeling_tcp_client.py
-C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --self-test
-git diff --check
-```
 
-Final reports should include changed files, verification commands/results, screenshot need, remaining risks, and the next priority.
+C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile C:\Git\yolov8\labeling_tcp_client.py Runtime\Python\openvisionlab_ultralytics_worker.py
+C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --self-test
+
+git diff --check
+~~~
+
+Run real external-data training, real EXE, or model-comparison commands only when the user has approved the data/runtime cost and the task specifically needs that evidence.
+
+## 12. 2026-07-18 Model Center Workspace Slice
+
+- Status: `Complete` for the approved stage-4 layout scope.
+- `TrainingModel` now uses a dedicated full-width Model Center; it hides the inactive canvas, image queue, splitters, and dock-collapse control only while the model stage is active. Returning to Dataset, Labeling, or Inference restores the normal workspace and its saved image-queue width.
+- Current-source evidence: required isolated 0-warning/0-error build; `--wpf-labeling-shell`, `--wpf-responsive-layout`, and `--wpf-training-settings-panel` passed. Before/after evidence is `artifacts\ui\model-workspace-20260718\before-model-center-1920.png`, `after-model-workspace-1920.png`, and `after-model-workspace-1366.png`.
+- Boundary: this is presentation-only. It does not add a model engine, a training/inference path, or a model-quality/adoption claim. The separately completed model-adapter catalog retains the existing YOLOv5/YOLOv8 evidence boundaries.
+
+## 13. 2026-07-18 Model Adapter Catalog Slice
+
+- Status: `Complete` for the declared-contract scope.
+- The full-width Model Center now presents five Korean, read-only cards: implemented recipe interchange formats, YOLOv5 object detection, the local YOLOv8 worker, ONNX inference-only, and blocked YOLO11. Each card declares 작업, 데이터, 실행기, 근거, and 다음 행동.
+- `ModelAdapterCatalogService` derives the format inventory from the implemented export capability service. It does not create a generic GitHub download/run path, alter a runtime, install a package, modify data, start training/inference, register a model, or make a quality/adoption claim.
+- Current-source evidence: required isolated 0-warning/0-error build; `--model-adapter-catalog`, `--wpf-yolo-model-settings-panel`, `--wpf-labeling-shell`, and `--wpf-responsive-layout` passed. Current captures are `artifacts\ui\model-adapter-catalog-20260718\after-model-adapter-catalog-1920.png` and `after-model-adapter-catalog-1366.png`. The closest pre-catalog baseline is `artifacts\ui\model-workspace-20260718\after-model-workspace-1920.png`; it is not a catalog-specific runtime-tab before capture.
+- Boundary: do not reopen for generic model-platform breadth. Reopen only for an incorrect/missing declared contract, stale export inventory, binding failure, or reproduced layout defect. Data-dependent quality priorities remain unchanged.
+
+## 14. Final Reporting Contract
+
+When finishing a future task, report:
+
+- changed files;
+- exact verification commands and results;
+- whether a 1920x1080 screenshot was required and the before/after paths when it was;
+- what remains unverified, blocked, or risky;
+- the next priority with model and reasoning-effort guidance;
+- no claim of model adoption, independent accuracy, YOLO11 readiness, or CI success without current evidence.
