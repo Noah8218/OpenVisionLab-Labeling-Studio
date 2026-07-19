@@ -587,7 +587,7 @@ internal static partial class Program
 
         if (args.Any(arg => string.Equals(arg, "--anomaly-folder-auto-review", StringComparison.OrdinalIgnoreCase)))
         {
-            return RunSingleSmoke("Anomaly OK/NG folders import reviewed states without replacing manual decisions", TestAnomalyFolderAutoReview);
+            return RunSingleSmoke("Anomaly folder intake preserves the selected images root and requires explicit review approval", TestAnomalyFolderAutoReview);
         }
 
         if (args.Any(arg => string.Equals(arg, "--wpf-yolov8-anomaly-classification-runtime-smoke", StringComparison.OrdinalIgnoreCase)))
@@ -1467,6 +1467,7 @@ internal static partial class Program
         bool openModelBenchmark = HasArgument(args, "--open-model-benchmark");
         bool openDatasetHealth = HasArgument(args, "--open-dataset-health");
         bool includeAnomalyInModelBenchmark = HasArgument(args, "--model-benchmark-include-anomaly");
+        bool anomalyReviewOnly = HasArgument(args, "--anomaly-review-only");
         bool showModelBenchmarkConditions = HasArgument(args, "--model-benchmark-conditions");
         bool showModelBenchmarkClassErrors = HasArgument(args, "--model-benchmark-class-errors");
         bool showModelBenchmarkThresholdReview = HasArgument(args, "--model-benchmark-threshold-review");
@@ -1639,12 +1640,14 @@ internal static partial class Program
                         SeedVisualSmokeDuplicateLabel(window, candidates);
                     }
 
-                    if (!roiOnly && window.FindName("InferenceModeButton") is System.Windows.Controls.Control inferenceModeButton)
+                    if (!roiOnly
+                        && !anomalyReviewOnly
+                        && window.FindName("InferenceModeButton") is System.Windows.Controls.Control inferenceModeButton)
                     {
                         window.ShellViewModel.InferenceModeCommand.Execute(null);
                     }
 
-                    if (!roiOnly)
+                    if (!roiOnly && !anomalyReviewOnly)
                     {
                         InvokePrivateResult<object>(window, "ApplyDetectionCandidates", candidates, true);
                         if (confirmAllCandidates)
@@ -17228,69 +17231,234 @@ internal static partial class Program
                 unmatchedImagePath
             };
 
+            List<string> interleavedImagePaths = new WpfImageQueueSelectionService()
+                .InterleaveTopLevelFolderImages(sourceRoot, sourceImagePaths, CancellationToken.None);
+            AssertEqual(5, interleavedImagePaths.Count);
+            string[] firstQueueFolders = interleavedImagePaths
+                .Take(3)
+                .Select(path => Path.GetRelativePath(sourceRoot, path)
+                    .Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar })[0])
+                .ToArray();
+            AssertEqual("NG", firstQueueFolders[0]);
+            AssertEqual("OK", firstQueueFolders[1]);
+            AssertEqual("pending", firstQueueFolders[2]);
+
             var manualReviewStatus = new AnomalyImageReviewStatusService();
             manualReviewStatus.SetImages(sourceImagePaths);
             manualReviewStatus.MarkAbnormal(manualOverrideImagePath);
             manualReviewStatus.SaveReviewStatus(data);
 
-            var importedReviewStatus = new AnomalyImageReviewStatusService();
-            importedReviewStatus.LoadReviewStatus(data, sourceImagePaths);
-            AnomalyImageReviewFolderImportResult importResult = importedReviewStatus.ImportUnreviewedStatesFromParentFolders();
-            AssertEqual(2, importResult.NormalImageCount);
-            AssertEqual(1, importResult.AbnormalImageCount);
-            AssertEqual(1, importResult.ExistingReviewCount);
-            AssertEqual(1, importResult.UnmatchedImageCount);
-            Dictionary<string, AnomalyImageReviewStatus> importedItems = importedReviewStatus.GetItems()
+            var previewReviewStatus = new AnomalyImageReviewStatusService();
+            previewReviewStatus.LoadReviewStatus(data, sourceImagePaths);
+            AnomalyImageReviewFolderImportResult previewResult = previewReviewStatus.PreviewUnreviewedStatesFromParentFolders();
+            AssertEqual(2, previewResult.NormalImageCount);
+            AssertEqual(1, previewResult.AbnormalImageCount);
+            AssertEqual(1, previewResult.ExistingReviewCount);
+            AssertEqual(1, previewResult.UnmatchedImageCount);
+            Dictionary<string, AnomalyImageReviewStatus> previewItems = previewReviewStatus.GetItems()
                 .ToDictionary(item => item.ImagePath, StringComparer.OrdinalIgnoreCase);
-            AssertEqual(AnomalyImageReviewState.Normal, importedItems[normalImagePath].ReviewState);
-            AssertEqual(AnomalyImageReviewState.Normal, importedItems[nestedNormalImagePath].ReviewState);
-            AssertEqual(AnomalyImageReviewState.Abnormal, importedItems[abnormalImagePath].ReviewState);
-            AssertEqual(AnomalyImageReviewState.Abnormal, importedItems[manualOverrideImagePath].ReviewState);
-            AssertEqual(AnomalyImageReviewState.Unreviewed, importedItems[unmatchedImagePath].ReviewState);
+            AssertEqual(AnomalyImageReviewState.Unreviewed, previewItems[normalImagePath].ReviewState);
+            AssertEqual(AnomalyImageReviewState.Unreviewed, previewItems[nestedNormalImagePath].ReviewState);
+            AssertEqual(AnomalyImageReviewState.Unreviewed, previewItems[abnormalImagePath].ReviewState);
+            AssertEqual(AnomalyImageReviewState.Abnormal, previewItems[manualOverrideImagePath].ReviewState);
+            AssertEqual(AnomalyImageReviewState.Unreviewed, previewItems[unmatchedImagePath].ReviewState);
 
-            AnomalyClassificationTrainingReadinessReport readiness =
+            AnomalyClassificationTrainingReadinessReport preConsentReadiness =
                 AnomalyClassificationTrainingReadinessService.Build(data);
-            AssertTrue(readiness.IsReady, "OK/NG child folders should satisfy anomaly classification readiness without manual review of every image");
-            AssertEqual(5, readiness.SourceImageCount);
-            AssertEqual(2, readiness.NormalImageCount);
-            AssertEqual(2, readiness.AbnormalImageCount);
-            AssertEqual(1, readiness.UnreviewedImageCount);
-            AssertEqual(2, readiness.TrainNormalImageCount);
-            AssertEqual(2, readiness.TrainAbnormalImageCount);
+            AssertTrue(!preConsentReadiness.IsReady, "folder names must not make anomaly training ready before an operator approves them");
+            AssertEqual(5, preConsentReadiness.SourceImageCount);
+            AssertEqual(0, preConsentReadiness.NormalImageCount);
+            AssertEqual(1, preConsentReadiness.AbnormalImageCount);
+            AssertEqual(4, preConsentReadiness.UnreviewedImageCount);
+            AssertTrue(preConsentReadiness.Errors.Any(error => error.Contains(AnomalyClassificationTrainingReadinessService.NeedsReviewedNormalAndAbnormalError, StringComparison.Ordinal)),
+                "training readiness should explain that a reviewed normal class is still required before consent");
 
-            AnomalyClassificationDatasetExportResult exportResult =
-                new AnomalyClassificationDatasetExportService().Export(data, readiness.SourceImagePaths);
-            AssertEqual(2, exportResult.NormalImageCount);
-            AssertEqual(2, exportResult.AbnormalImageCount);
-            AssertEqual(1, exportResult.SkippedImageCount);
-            AssertTrue(File.Exists(Path.Combine(exportResult.DatasetRootPath, "train", "normal", "normal.png")),
-                "OK-folder image should export as a normal classification sample");
-            AssertTrue(File.Exists(Path.Combine(exportResult.DatasetRootPath, "train", "normal", "nested-normal.png")),
-                "nested OK-folder image should export as a normal classification sample");
-            AssertTrue(File.Exists(Path.Combine(exportResult.DatasetRootPath, "train", "abnormal", "abnormal.png")),
-                "NG-folder image should export as an abnormal classification sample");
-            AssertTrue(File.Exists(Path.Combine(exportResult.DatasetRootPath, "train", "abnormal", "manual-override.png")),
-                "saved manual anomaly state should override the parent folder classification");
+            AnomalyClassificationDatasetExportResult preConsentExport =
+                new AnomalyClassificationDatasetExportService().Export(
+                    data,
+                    preConsentReadiness.SourceImagePaths,
+                    Path.Combine(root, "pre-consent-export"));
+            AssertEqual(0, preConsentExport.NormalImageCount);
+            AssertEqual(1, preConsentExport.AbnormalImageCount);
+            AssertEqual(4, preConsentExport.SkippedImageCount);
+            AssertTrue(File.Exists(Path.Combine(preConsentExport.DatasetRootPath, "train", "abnormal", "manual-override.png")),
+                "export must use the saved manual state without importing folder names");
 
             CGlobal.Inst.Data = data;
-            WpfLabelingShellWindow window = new WpfLabelingShellWindow();
+            WpfLabelingShellWindow rootRetentionWindow = new WpfLabelingShellWindow();
             try
             {
-                AssertEqual(5, window.LoadImageQueueFromRoot(sourceRoot, loadFirstImage: false, refreshDetails: false));
-                var persistedReviewStatus = new AnomalyImageReviewStatusService();
-                persistedReviewStatus.LoadReviewStatus(data, sourceImagePaths);
-                Dictionary<string, AnomalyImageReviewStatus> persistedItems = persistedReviewStatus.GetItems()
-                    .ToDictionary(item => item.ImagePath, StringComparer.OrdinalIgnoreCase);
-                AssertEqual(AnomalyImageReviewState.Normal, persistedItems[normalImagePath].ReviewState);
-                AssertEqual(AnomalyImageReviewState.Normal, persistedItems[nestedNormalImagePath].ReviewState);
-                AssertEqual(AnomalyImageReviewState.Abnormal, persistedItems[abnormalImagePath].ReviewState);
-                AssertEqual(AnomalyImageReviewState.Abnormal, persistedItems[manualOverrideImagePath].ReviewState);
-                AssertEqual(AnomalyImageReviewState.Unreviewed, persistedItems[unmatchedImagePath].ReviewState);
+                AssertEqual(5, rootRetentionWindow.LoadImageQueueFromRoot(sourceRoot, loadFirstImage: true, refreshDetails: false));
+                AssertEqual(sourceRoot, rootRetentionWindow.ImageQueueViewModel.CurrentImageFolderPath);
+                AssertEqual(5, rootRetentionWindow.ImageQueueItems.Count);
+                AssertEqual(interleavedImagePaths[0], GetPrivateField<string>(rootRetentionWindow, "activeImagePath"));
+                AssertTrue(rootRetentionWindow.ImageQueueViewModel.IsAnomalyImageReviewMode,
+                    "anomaly image queue should expose the dedicated image-level OK/NG review mode");
+                AssertEqual("판정", rootRetentionWindow.ImageQueueViewModel.QueueDecisionColumnHeaderText);
+                AssertEqual("상태", rootRetentionWindow.ImageQueueViewModel.QueueSecondaryColumnHeaderText);
+                AssertEqual(System.Windows.Visibility.Collapsed, rootRetentionWindow.CanvasPanelViewModel.AnnotationWorkspaceVisibility);
+                AssertEqual(0D, rootRetentionWindow.CanvasPanelViewModel.AnnotationToolRailWidth.Value);
+                AssertTrue(rootRetentionWindow.ShellViewModel.IsAnomalyImageReviewMode,
+                    "shell should hide object-label editing surfaces for anomaly image review");
+                AssertTrue(!rootRetentionWindow.ShellViewModel.IsAnnotationWorkflowVisible,
+                    "anomaly image review should hide the global label-save action");
+                AssertTrue(!rootRetentionWindow.ShellViewModel.IsSavedLabelsViewVisible,
+                    "anomaly image review should hide the saved-object editor tab");
+                WpfImageQueueItem firstAnomalyItem = rootRetentionWindow.ImageQueueItems
+                    .Single(item => string.Equals(item.ImagePath, interleavedImagePaths[0], StringComparison.OrdinalIgnoreCase));
+                AssertEqual(AnomalyImageReviewState.Unreviewed, firstAnomalyItem.AnomalyReviewState);
+                AssertEqual("미판정", firstAnomalyItem.LabelStatus);
+                rootRetentionWindow.ImageQueueViewModel.MarkAnomalyAbnormalCommand.Execute(null);
+                PumpWpfDispatcher(TimeSpan.FromMilliseconds(100));
+                AssertTrue(!string.Equals(interleavedImagePaths[0], GetPrivateField<string>(rootRetentionWindow, "activeImagePath"), StringComparison.OrdinalIgnoreCase),
+                    "saving an NG decision should advance to the next unreviewed image");
+                AssertEqual(AnomalyImageReviewState.Abnormal, firstAnomalyItem.AnomalyReviewState);
+                AssertEqual("NG", firstAnomalyItem.LabelStatus);
+
+                rootRetentionWindow.ImageQueueViewModel.SelectedQueueItem = firstAnomalyItem;
+                PumpWpfDispatcher(TimeSpan.FromMilliseconds(100));
+                rootRetentionWindow.ImageQueueViewModel.MarkAnomalyNormalCommand.Execute(null);
+                PumpWpfDispatcher(TimeSpan.FromMilliseconds(100));
+                AssertEqual(AnomalyImageReviewState.Normal, firstAnomalyItem.AnomalyReviewState);
+                AssertEqual("OK", firstAnomalyItem.LabelStatus);
+
+                rootRetentionWindow.ImageQueueViewModel.SelectedQueueItem = firstAnomalyItem;
+                PumpWpfDispatcher(TimeSpan.FromMilliseconds(100));
+                rootRetentionWindow.ImageQueueViewModel.ClearAnomalyReviewCommand.Execute(null);
+                AssertEqual(AnomalyImageReviewState.Unreviewed, firstAnomalyItem.AnomalyReviewState);
+                AssertEqual("미판정", firstAnomalyItem.LabelStatus);
+                var restoredButtonReview = new AnomalyImageReviewStatusService();
+                restoredButtonReview.LoadReviewStatus(data, sourceImagePaths);
+                AssertEqual(
+                    AnomalyImageReviewState.Unreviewed,
+                    restoredButtonReview.GetItems().Single(item => string.Equals(item.ImagePath, interleavedImagePaths[0], StringComparison.OrdinalIgnoreCase)).ReviewState);
+
+                data.ProjectSettings.DatasetPurpose = LabelingDatasetPurpose.ObjectDetection;
+                InvokePrivateResult<object>(rootRetentionWindow, "RefreshCanvasAnnotationToolScope");
+                AssertTrue(!rootRetentionWindow.ImageQueueViewModel.IsAnomalyImageReviewMode,
+                    "leaving anomaly purpose should restore the standard queue workflow");
+                AssertEqual(System.Windows.Visibility.Visible, rootRetentionWindow.CanvasPanelViewModel.AnnotationWorkspaceVisibility);
+                AssertEqual(46D, rootRetentionWindow.CanvasPanelViewModel.AnnotationToolRailWidth.Value);
+                AssertTrue(rootRetentionWindow.ShellViewModel.IsAnnotationWorkflowVisible,
+                    "leaving anomaly purpose should restore annotation actions");
+
+                data.ProjectSettings.DatasetPurpose = LabelingDatasetPurpose.AnomalyDetection;
+                InvokePrivateResult<object>(rootRetentionWindow, "RefreshCanvasAnnotationToolScope");
+                AssertTrue(rootRetentionWindow.ImageQueueViewModel.IsAnomalyImageReviewMode,
+                    "returning to anomaly purpose should restore image-level review presentation");
+                AssertEqual(AnomalyImageReviewState.Unreviewed, firstAnomalyItem.AnomalyReviewState);
+                AssertEqual("미판정", firstAnomalyItem.LabelStatus);
+                AssertTrue(rootRetentionWindow.ImageQueueItems.Any(item => string.Equals(item.ImagePath, normalImagePath, StringComparison.OrdinalIgnoreCase)),
+                    "opening the first nested image must not replace the selected images root with NG");
+
+                WpfImageQueueItem normalQueueItem = rootRetentionWindow.ImageQueueItems
+                    .Single(item => string.Equals(item.ImagePath, normalImagePath, StringComparison.OrdinalIgnoreCase));
+                rootRetentionWindow.ImageQueueViewModel.SelectedQueueItem = normalQueueItem;
+                PumpWpfDispatcher(TimeSpan.FromMilliseconds(100));
+
+                AssertEqual(sourceRoot, rootRetentionWindow.ImageQueueViewModel.CurrentImageFolderPath);
+                AssertEqual(5, rootRetentionWindow.ImageQueueItems.Count);
+                AssertEqual(normalImagePath, rootRetentionWindow.ImageQueueViewModel.SelectedQueueItem.ImagePath);
+                AssertEqual(normalImagePath, GetPrivateField<string>(rootRetentionWindow, "activeImagePath"));
             }
             finally
             {
-                window.Close();
+                rootRetentionWindow.Close();
             }
+
+            WpfLabelingShellWindow dismissWindow = new WpfLabelingShellWindow();
+            try
+            {
+                AssertEqual(5, dismissWindow.LoadImageQueueFromRoot(sourceRoot, loadFirstImage: false, refreshDetails: false));
+                AssertTrue(dismissWindow.ImageQueueViewModel.IsAnomalyFolderStateSuggestionVisible,
+                    "anomaly image queue should offer, but not apply, a detected OK/NG folder mapping");
+                AssertTrue(dismissWindow.ImageQueueViewModel.AnomalyFolderStateSuggestionTitleText.Contains("OK/NG 폴더 구조", StringComparison.Ordinal),
+                    "anomaly image queue should explain that it detected an optional OK/NG folder mapping");
+                AssertTrue(dismissWindow.ImageQueueViewModel.AnomalyFolderStateSuggestionText.Contains("총 5장", StringComparison.Ordinal),
+                    "anomaly image queue should state that nested-folder images are included");
+                AssertTrue(dismissWindow.ImageQueueViewModel.AnomalyFolderStateSuggestionText.Contains("OK/normal 2", StringComparison.Ordinal),
+                    "folder suggestion should state the detected normal-image count");
+                AssertEqual("3장 일괄 판정", dismissWindow.ImageQueueViewModel.AnomalyFolderStateSuggestionApplyText);
+                string[] visibleQueueFolders = dismissWindow.ImageQueueItems
+                    .Take(3)
+                    .Select(item => Path.GetRelativePath(sourceRoot, item.ImagePath)
+                        .Split(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar })[0])
+                    .ToArray();
+                AssertEqual("NG", visibleQueueFolders[0]);
+                AssertEqual("OK", visibleQueueFolders[1]);
+                AssertEqual("pending", visibleQueueFolders[2]);
+
+                dismissWindow.ImageQueueViewModel.DismissAnomalyFolderStateSuggestionCommand.Execute(null);
+                AssertTrue(!dismissWindow.ImageQueueViewModel.IsAnomalyFolderStateSuggestionVisible,
+                    "direct-review choice should hide the suggestion for the current folder session");
+                AssertEqual(5, dismissWindow.LoadImageQueueFromRoot(sourceRoot, loadFirstImage: false, refreshDetails: false));
+                AssertTrue(!dismissWindow.ImageQueueViewModel.IsAnomalyFolderStateSuggestionVisible,
+                    "a dismissed suggestion should stay hidden while the same image root is open");
+            }
+            finally
+            {
+                dismissWindow.Close();
+            }
+
+            var beforeConsentPersistence = new AnomalyImageReviewStatusService();
+            beforeConsentPersistence.LoadReviewStatus(data, sourceImagePaths);
+            Dictionary<string, AnomalyImageReviewStatus> beforeConsentItems = beforeConsentPersistence.GetItems()
+                .ToDictionary(item => item.ImagePath, StringComparer.OrdinalIgnoreCase);
+            AssertEqual(AnomalyImageReviewState.Unreviewed, beforeConsentItems[normalImagePath].ReviewState);
+            AssertEqual(AnomalyImageReviewState.Unreviewed, beforeConsentItems[nestedNormalImagePath].ReviewState);
+            AssertEqual(AnomalyImageReviewState.Unreviewed, beforeConsentItems[abnormalImagePath].ReviewState);
+            AssertEqual(AnomalyImageReviewState.Abnormal, beforeConsentItems[manualOverrideImagePath].ReviewState);
+
+            WpfLabelingShellWindow consentWindow = new WpfLabelingShellWindow();
+            try
+            {
+                AssertEqual(5, consentWindow.LoadImageQueueFromRoot(sourceRoot, loadFirstImage: false, refreshDetails: false));
+                AssertTrue(consentWindow.ImageQueueViewModel.IsAnomalyFolderStateSuggestionVisible,
+                    "a new image-queue session should make the optional mapping available again");
+                consentWindow.ImageQueueViewModel.ApplyAnomalyFolderStateSuggestionCommand.Execute(null);
+                AssertTrue(!consentWindow.ImageQueueViewModel.IsAnomalyFolderStateSuggestionVisible,
+                    "approved mapping should close the temporary suggestion card");
+            }
+            finally
+            {
+                consentWindow.Close();
+            }
+
+            var approvedReviewStatus = new AnomalyImageReviewStatusService();
+            approvedReviewStatus.LoadReviewStatus(data, sourceImagePaths);
+            Dictionary<string, AnomalyImageReviewStatus> approvedItems = approvedReviewStatus.GetItems()
+                .ToDictionary(item => item.ImagePath, StringComparer.OrdinalIgnoreCase);
+            AssertEqual(AnomalyImageReviewState.Normal, approvedItems[normalImagePath].ReviewState);
+            AssertEqual(AnomalyImageReviewState.Normal, approvedItems[nestedNormalImagePath].ReviewState);
+            AssertEqual(AnomalyImageReviewState.Abnormal, approvedItems[abnormalImagePath].ReviewState);
+            AssertEqual(AnomalyImageReviewState.Abnormal, approvedItems[manualOverrideImagePath].ReviewState);
+            AssertEqual(AnomalyImageReviewState.Unreviewed, approvedItems[unmatchedImagePath].ReviewState);
+
+            AnomalyClassificationTrainingReadinessReport approvedReadiness =
+                AnomalyClassificationTrainingReadinessService.Build(data);
+            AssertTrue(approvedReadiness.IsReady, "approved folder states plus the saved manual review should satisfy anomaly classification readiness");
+            AssertEqual(2, approvedReadiness.NormalImageCount);
+            AssertEqual(2, approvedReadiness.AbnormalImageCount);
+            AssertEqual(1, approvedReadiness.UnreviewedImageCount);
+            AssertEqual(2, approvedReadiness.TrainNormalImageCount);
+            AssertEqual(2, approvedReadiness.TrainAbnormalImageCount);
+
+            AnomalyClassificationDatasetExportResult approvedExport =
+                new AnomalyClassificationDatasetExportService().Export(
+                    data,
+                    approvedReadiness.SourceImagePaths,
+                    Path.Combine(root, "approved-export"));
+            AssertEqual(2, approvedExport.NormalImageCount);
+            AssertEqual(2, approvedExport.AbnormalImageCount);
+            AssertEqual(1, approvedExport.SkippedImageCount);
+            AssertTrue(File.Exists(Path.Combine(approvedExport.DatasetRootPath, "train", "normal", "normal.png")),
+                "approved OK-folder image should export as a normal classification sample");
+            AssertTrue(File.Exists(Path.Combine(approvedExport.DatasetRootPath, "train", "normal", "nested-normal.png")),
+                "approved nested OK-folder image should export as a normal classification sample");
+            AssertTrue(File.Exists(Path.Combine(approvedExport.DatasetRootPath, "train", "abnormal", "abnormal.png")),
+                "approved NG-folder image should export as an abnormal classification sample");
+            AssertTrue(File.Exists(Path.Combine(approvedExport.DatasetRootPath, "train", "abnormal", "manual-override.png")),
+                "saved manual anomaly state should not be overwritten by the parent-folder suggestion");
         }
         finally
         {

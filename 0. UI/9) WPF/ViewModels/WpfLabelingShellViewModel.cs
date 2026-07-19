@@ -34,6 +34,7 @@ namespace MvcVisionSystem
         private static readonly GridLength WorkspaceSplitterPaneGridLengthValue = new GridLength(10D);
         private static readonly GridLength WorkspaceHiddenPaneGridLengthValue = new GridLength(0D);
         private WpfShellWorkflowStage currentWorkflowStage = WpfShellWorkflowStage.Dataset;
+        private bool isAnomalyImageReviewMode;
 
         private bool isCurrentImageDetectionEnabled;
         private bool isLabelingModeActive = true;
@@ -60,6 +61,7 @@ namespace MvcVisionSystem
         private bool isCanvasWorkspaceVisible = true;
         private bool isImageQueueWorkspaceVisible = true;
         private bool isWorkspaceSplitterVisible = true;
+        private bool isAnnotationWorkflowVisible = true;
         private bool isRightWorkflowDockToggleVisible = true;
         private GridLength canvasWorkspacePaneGridLength = WorkspaceCanvasPaneGridLengthValue;
         private GridLength imageQueuePaneGridLength = new GridLength(WpfWorkspaceLayoutSettings.DefaultImageQueuePaneWidth);
@@ -241,6 +243,18 @@ namespace MvcVisionSystem
         {
             get => isSavedLabelsViewVisible;
             private set => SetProperty(ref isSavedLabelsViewVisible, value);
+        }
+
+        public bool IsAnomalyImageReviewMode
+        {
+            get => isAnomalyImageReviewMode;
+            private set => SetProperty(ref isAnomalyImageReviewMode, value);
+        }
+
+        public bool IsAnnotationWorkflowVisible
+        {
+            get => isAnnotationWorkflowVisible;
+            private set => SetProperty(ref isAnnotationWorkflowVisible, value);
         }
 
         public bool IsCandidateReviewViewVisible
@@ -1302,6 +1316,12 @@ namespace MvcVisionSystem
                 return;
             }
 
+            if (IsAnomalyImageReviewMode)
+            {
+                SetRightWorkflowShortcut(WpfRightWorkflowShortcut.LabelingGuide);
+                return;
+            }
+
             if (!IsSavedLabelsShortcutActive
                 && !IsClassCatalogShortcutActive)
             {
@@ -1311,12 +1331,13 @@ namespace MvcVisionSystem
 
         private void ApplyWorkflowStageViewVisibility(WpfShellWorkflowStage stage)
         {
-            IsSavedLabelsViewVisible = stage == WpfShellWorkflowStage.Labeling;
+            IsSavedLabelsViewVisible = stage == WpfShellWorkflowStage.Labeling && !IsAnomalyImageReviewMode;
             IsCandidateReviewViewVisible = stage == WpfShellWorkflowStage.Inference;
             IsGuideToolsViewVisible = stage == WpfShellWorkflowStage.Dataset
                 || stage == WpfShellWorkflowStage.Labeling;
-            IsClassCatalogViewVisible = stage == WpfShellWorkflowStage.Dataset
-                || stage == WpfShellWorkflowStage.Labeling;
+            IsClassCatalogViewVisible = !IsAnomalyImageReviewMode
+                && (stage == WpfShellWorkflowStage.Dataset
+                    || stage == WpfShellWorkflowStage.Labeling);
             IsYoloModelCenterViewVisible = stage == WpfShellWorkflowStage.TrainingModel;
             int visibleViewCount = 0;
             visibleViewCount += IsSavedLabelsViewVisible ? 1 : 0;
@@ -1326,6 +1347,14 @@ namespace MvcVisionSystem
             visibleViewCount += IsYoloModelCenterViewVisible ? 1 : 0;
             IsRightWorkflowShortcutBarVisible = true;
             IsRightWorkflowSubNavigationVisible = visibleViewCount > 1 && !IsRightWorkflowShortcutBarVisible;
+        }
+
+        public void SetAnomalyImageReviewMode(bool enabled)
+        {
+            IsAnomalyImageReviewMode = enabled;
+            IsAnnotationWorkflowVisible = !enabled;
+            ApplyWorkflowStageViewVisibility(currentWorkflowStage);
+            ApplyWorkflowStageShortcutState(currentWorkflowStage);
         }
 
         private void RefreshWorkflowStageModelActionPanelVisibility()

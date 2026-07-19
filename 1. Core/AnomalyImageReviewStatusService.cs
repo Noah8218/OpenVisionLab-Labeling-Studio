@@ -82,6 +82,14 @@ namespace MvcVisionSystem
             }
         }
 
+        public AnomalyImageReviewStatus GetOrCreate(string imagePath)
+        {
+            lock (syncRoot)
+            {
+                return GetOrCreateCore(imagePath);
+            }
+        }
+
         public void SetImages(IEnumerable<string> imagePaths)
         {
             lock (syncRoot)
@@ -215,7 +223,17 @@ namespace MvcVisionSystem
             }
         }
 
+        public AnomalyImageReviewFolderImportResult PreviewUnreviewedStatesFromParentFolders()
+        {
+            return BuildParentFolderReviewResult(applyStates: false);
+        }
+
         public AnomalyImageReviewFolderImportResult ImportUnreviewedStatesFromParentFolders()
+        {
+            return BuildParentFolderReviewResult(applyStates: true);
+        }
+
+        private AnomalyImageReviewFolderImportResult BuildParentFolderReviewResult(bool applyStates)
         {
             var result = new AnomalyImageReviewFolderImportResult();
             lock (syncRoot)
@@ -234,8 +252,11 @@ namespace MvcVisionSystem
                         continue;
                     }
 
-                    status.ReviewState = reviewState;
-                    status.LastUpdatedUtc = DateTime.UtcNow;
+                    if (applyStates)
+                    {
+                        status.ReviewState = reviewState;
+                        status.LastUpdatedUtc = DateTime.UtcNow;
+                    }
                     if (reviewState == AnomalyImageReviewState.Normal)
                     {
                         result.NormalImageCount++;

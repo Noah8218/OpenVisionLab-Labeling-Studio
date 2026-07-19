@@ -34,6 +34,7 @@ namespace MvcVisionSystem
             liveShaping.LiveFilteringProperties.Add(nameof(WpfImageQueueItem.IsSaveRequired));
             liveShaping.LiveFilteringProperties.Add(nameof(WpfImageQueueItem.ReviewState));
             liveShaping.LiveFilteringProperties.Add(nameof(WpfImageQueueItem.QualityReviewState));
+            liveShaping.LiveFilteringProperties.Add(nameof(WpfImageQueueItem.AnomalyReviewState));
             liveShaping.IsLiveFiltering = true;
         }
 
@@ -62,7 +63,12 @@ namespace MvcVisionSystem
                 selected => ImageQueueFilterBox_SelectionChanged(ImageQueueFilterBox, selected),
                 text => ImageQueueSearchBox_TextChanged(ImageQueueSearchBox, text),
                 selected => ImageQueueGrid_SelectionChanged(ImageQueueGrid, selected),
-                () => ImageQueueGrid_MouseDoubleClick(ImageQueueGrid));
+                () => ImageQueueGrid_MouseDoubleClick(ImageQueueGrid),
+                ExecuteApplyAnomalyFolderStateSuggestionCommand,
+                ExecuteDismissAnomalyFolderStateSuggestionCommand,
+                ExecuteMarkActiveAnomalyNormalAndNextCommand,
+                ExecuteMarkActiveAnomalyAbnormalAndNextCommand,
+                ExecuteClearActiveAnomalyReviewCommand);
             RefreshAttachedCommandBindings(ImageQueueFilterBox, InputCommandBehaviors.SelectedItemChangedCommandProperty);
             RefreshAttachedCommandBindings(ImageQueueSearchBox, InputCommandBehaviors.TextInputCommandProperty);
             RefreshAttachedCommandBindings(

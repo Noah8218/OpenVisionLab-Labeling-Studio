@@ -211,6 +211,8 @@
             <Setter Property="ToolTip" Value="{Binding QueueRowToolTip}" />
         </Style>
 
+        <BooleanToVisibilityConverter x:Key="BooleanToVisibilityConverter" />
+
         <Style x:Key="ImageQueueFilterComboBoxStyle" TargetType="ComboBox">
             <Setter Property="Height" Value="24" />
             <Setter Property="Background" Value="{DynamicResource InputBrush}" />
@@ -339,6 +341,8 @@
                     <RowDefinition x:Name="ImageQueuePrimaryActionsRow" Height="Auto" MinHeight="36" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition x:Name="ImageQueueCurrentTaskRow" Height="Auto" MinHeight="54" />
+                    <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
@@ -475,7 +479,134 @@
                     </Grid>
                 </Border>
 
-                <Grid Grid.Row="3">
+                <Border x:Name="AnomalyImageReviewCard"
+                        Grid.Row="3"
+                        Background="{DynamicResource CanvasBrush}"
+                        BorderBrush="{DynamicResource AccentBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="7,6"
+                        Margin="0,0,0,5"
+                        Visibility="{Binding AnomalyImageReviewVisibility}"
+                        AutomationProperties.Name="현재 이미지 OK NG 판정">
+                    <StackPanel>
+                        <TextBlock Text="이미지 전체를 판정하세요"
+                                   Foreground="{DynamicResource PrimaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="11"
+                                   FontWeight="SemiBold" />
+                        <TextBlock Text="결함 위치를 그리는 작업이 아닙니다. 한 번 누르면 저장하고 다음 미판정 이미지로 이동합니다."
+                                   Foreground="{DynamicResource SecondaryTextBrush}"
+                                   FontFamily="Segoe UI"
+                                   FontSize="9.5"
+                                   LineHeight="12"
+                                   Margin="0,2,0,6"
+                                   TextWrapping="Wrap" />
+                        <UniformGrid Columns="2">
+                            <ui:Button x:Name="MarkAnomalyNormalButton"
+                                       Style="{StaticResource QueuePrimaryActionButtonStyle}"
+                                       Height="34"
+                                       Margin="0,0,3,0"
+                                       AutomationProperties.AutomationId="MarkAnomalyNormalButton"
+                                       AutomationProperties.Name="정상 OK 확정 후 다음"
+                                       ToolTip="현재 이미지 전체를 정상(OK)으로 저장하고 다음 미판정 이미지 열기"
+                                       Command="{Binding MarkAnomalyNormalCommand}">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="CheckboxMarkedCircleOutline" />
+                                    <TextBlock Text="정상(OK) → 다음" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ui:Button>
+                            <ui:Button x:Name="MarkAnomalyAbnormalButton"
+                                       Style="{StaticResource QueuePrimaryActionButtonStyle}"
+                                       Height="34"
+                                       Margin="3,0,0,0"
+                                       AutomationProperties.AutomationId="MarkAnomalyAbnormalButton"
+                                       AutomationProperties.Name="이상 NG 확정 후 다음"
+                                       ToolTip="현재 이미지 전체를 이상(NG)으로 저장하고 다음 미판정 이미지 열기"
+                                       Command="{Binding MarkAnomalyAbnormalCommand}">
+                                <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
+                                    <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="AlertCircleOutline" />
+                                    <TextBlock Text="이상(NG) → 다음" VerticalAlignment="Center" />
+                                </StackPanel>
+                            </ui:Button>
+                        </UniformGrid>
+                        <ui:Button x:Name="ClearAnomalyReviewButton"
+                                   Style="{StaticResource QueueQuickFilterButtonStyle}"
+                                   Height="24"
+                                   Margin="0,5,0,0"
+                                   HorizontalAlignment="Stretch"
+                                   AutomationProperties.AutomationId="ClearAnomalyReviewButton"
+                                   AutomationProperties.Name="미판정으로 되돌리기"
+                                   ToolTip="현재 이미지의 저장된 OK 또는 NG 판정을 삭제하고 미판정으로 되돌리기"
+                                   Command="{Binding ClearAnomalyReviewCommand}">
+                            <TextBlock Text="미판정으로 되돌리기" FontSize="10" HorizontalAlignment="Center" />
+                        </ui:Button>
+                    </StackPanel>
+                </Border>
+
+                <Border x:Name="AnomalyFolderStateSuggestionCard"
+                        Grid.Row="4"
+                        Background="{DynamicResource CanvasBrush}"
+                        BorderBrush="{DynamicResource AccentBrush}"
+                        BorderThickness="1"
+                        CornerRadius="4"
+                        Padding="7,5"
+                        Margin="0,0,0,5"
+                        Visibility="{Binding IsAnomalyFolderStateSuggestionVisible, Converter={StaticResource BooleanToVisibilityConverter}}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="18" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <iconPacks:PackIconMaterial Grid.Column="0"
+                                                    Width="14"
+                                                    Height="14"
+                                                    Kind="FolderQuestionOutline"
+                                                    Foreground="{DynamicResource AccentBrush}"
+                                                    HorizontalAlignment="Center"
+                                                    VerticalAlignment="Top"
+                                                    Margin="0,2,0,0" />
+                        <StackPanel Grid.Column="1" Margin="5,0,6,0">
+                            <TextBlock Text="{Binding AnomalyFolderStateSuggestionTitleText}"
+                                       Foreground="{DynamicResource PrimaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="10.5"
+                                       FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding AnomalyFolderStateSuggestionText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9"
+                                       LineHeight="11"
+                                       TextWrapping="Wrap"
+                                       MaxHeight="33" />
+                        </StackPanel>
+                        <WrapPanel Grid.Column="2" VerticalAlignment="Center">
+                            <ui:Button x:Name="ApplyAnomalyFolderStateSuggestionButton"
+                                       Style="{StaticResource QueuePrimaryActionButtonStyle}"
+                                       MinWidth="82"
+                                       Height="26"
+                                       Margin="0,0,4,0"
+                                       AutomationProperties.Name="폴더명 기준 일괄 판정"
+                                       ToolTip="아직 판정하지 않은 이미지만 OK/normal은 정상, NG/abnormal은 이상으로 일괄 판정합니다."
+                                       Command="{Binding ApplyAnomalyFolderStateSuggestionCommand}">
+                                <TextBlock Text="{Binding AnomalyFolderStateSuggestionApplyText}" FontSize="10" VerticalAlignment="Center" />
+                            </ui:Button>
+                            <ui:Button x:Name="DismissAnomalyFolderStateSuggestionButton"
+                                       Style="{StaticResource QueueQuickFilterButtonStyle}"
+                                       MinWidth="66"
+                                       Height="26"
+                                       Margin="0"
+                                       AutomationProperties.Name="이미지별 확인"
+                                       ToolTip="폴더명은 사용하지 않고 이미지를 하나씩 정상 또는 이상으로 판정합니다."
+                                       Command="{Binding DismissAnomalyFolderStateSuggestionCommand}">
+                                <TextBlock Text="이미지별 확인" FontSize="10" VerticalAlignment="Center" />
+                            </ui:Button>
+                        </WrapPanel>
+                    </Grid>
+                </Border>
+
+                <Grid Grid.Row="5">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="112" />
                         <ColumnDefinition Width="8" />
@@ -509,7 +640,7 @@
                     </Grid>
                 </Grid>
 
-                <UniformGrid Grid.Row="4" Columns="3" VerticalAlignment="Center" Visibility="Collapsed">
+                <UniformGrid Grid.Row="6" Columns="3" VerticalAlignment="Center" Visibility="Collapsed">
                     <ui:Button x:Name="QueueFilterUnfinishedButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterUnfinishedActive}" AutomationProperties.Name="&#xC791;&#xC5C5; &#xD544;&#xC694; &#xD544;&#xD130;" ToolTip="&#xB77C;&#xBCA8;&#xB9C1;, AI &#xD6C4;&#xBCF4; &#xAC80;&#xD1A0;, &#xC800;&#xC7A5; &#xD544;&#xC694;, &#xC2E4;&#xD328; &#xD56D;&#xBAA9;&#xB9CC; &#xBCF4;&#xAE30;" Command="{Binding QueueFilterUnfinishedCommand}">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="PlaylistPlay" />
@@ -554,7 +685,7 @@
                     </ui:Button>
                 </UniformGrid>
 
-                <WrapPanel Grid.Row="5" VerticalAlignment="Center">
+                <WrapPanel Grid.Row="7" VerticalAlignment="Center" Visibility="{Binding StandardQueueWorkflowVisibility}">
                     <ui:Button x:Name="DetectSelectedQueueButton" Style="{StaticResource QueueIconButtonStyle}" ToolTip="&#xC120;&#xD0DD; &#xC774;&#xBBF8;&#xC9C0; &#xAC80;&#xC0AC;" AutomationProperties.Name="&#xC120;&#xD0DD; &#xAC80;&#xC0AC;" IsEnabled="{Binding IsDetectSelectedEnabled}" Command="{Binding DetectSelectedQueueCommand}">
                         <iconPacks:PackIconMaterial Style="{StaticResource QueueIconStyle}" Kind="ImageSearch" />
                     </ui:Button>
@@ -575,7 +706,7 @@
                     </ui:Button>
                 </WrapPanel>
 
-                <Grid Grid.Row="6">
+                <Grid Grid.Row="8">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="78" />
                         <ColumnDefinition Width="*" />
@@ -681,8 +812,20 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="&#xC800;&#xC7A5;" Binding="{Binding LabelStatus}" Width="60" ElementStyle="{StaticResource ImageQueueTextStyle}" />
-                    <DataGridTextColumn Header="&#xAC80;&#xC0AC;" Binding="{Binding DetectStatus}" Width="64" ElementStyle="{StaticResource ImageQueueTextStyle}" />
+                    <DataGridTextColumn Header="작업" Binding="{Binding LabelStatus}" Width="60" ElementStyle="{StaticResource ImageQueueTextStyle}">
+                        <DataGridTextColumn.HeaderTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DataContext.QueueDecisionColumnHeaderText, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}" />
+                            </DataTemplate>
+                        </DataGridTextColumn.HeaderTemplate>
+                    </DataGridTextColumn>
+                    <DataGridTextColumn Header="상태" Binding="{Binding DetectStatus}" Width="64" ElementStyle="{StaticResource ImageQueueTextStyle}">
+                        <DataGridTextColumn.HeaderTemplate>
+                            <DataTemplate>
+                                <TextBlock Text="{Binding DataContext.QueueSecondaryColumnHeaderText, RelativeSource={RelativeSource AncestorType={x:Type DataGrid}}}" />
+                            </DataTemplate>
+                        </DataGridTextColumn.HeaderTemplate>
+                    </DataGridTextColumn>
                     <DataGridTextColumn Header="&#xD06C;&#xAE30;" Binding="{Binding Dimensions}" Width="54" ElementStyle="{StaticResource ImageQueueTextStyle}" />
                 </DataGrid.Columns>
             </DataGrid>

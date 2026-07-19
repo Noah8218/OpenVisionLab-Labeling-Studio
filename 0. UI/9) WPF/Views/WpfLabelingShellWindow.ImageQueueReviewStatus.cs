@@ -25,6 +25,13 @@ namespace MvcVisionSystem
             }
 
             WpfImageQueueItem item = FindImageQueueItem(activeImagePath);
+            if (IsAnomalyDatasetPurpose())
+            {
+                ApplyAnomalyReviewStatusToItem(item, anomalyImageReviewStatus.GetOrCreate(activeImagePath));
+                imageQueueView?.Refresh();
+                UpdateImageQueueStatusText();
+                return;
+            }
             YoloImageReviewStatus status = RefreshActiveImageQueueStatusCore(
                 activeImagePath,
                 activeImageSize,
@@ -39,6 +46,16 @@ namespace MvcVisionSystem
         {
             if (string.IsNullOrWhiteSpace(activeImagePath) || activeImageSize.IsEmpty)
             {
+                return;
+            }
+
+            if (IsAnomalyDatasetPurpose())
+            {
+                ApplyAnomalyReviewStatusToItem(
+                    FindImageQueueItem(activeImagePath),
+                    anomalyImageReviewStatus.GetOrCreate(activeImagePath));
+                imageQueueView?.Refresh();
+                UpdateImageQueueStatusText();
                 return;
             }
 
@@ -159,8 +176,17 @@ namespace MvcVisionSystem
                     ? imageReviewStatus.SetDetectionCandidates(activeImagePath, imageName, candidateCount)
                     : imageReviewStatus.SetDetectionNoCandidates(activeImagePath, imageName)
                 : imageReviewStatus.SetDetectionFailed(activeImagePath, imageName, "Detection failed.");
-            ApplyReviewStatusToItem(FindImageQueueItem(activeImagePath), status);
             imageReviewStatus.SaveReviewStatus(global.Data);
+            if (IsAnomalyDatasetPurpose())
+            {
+                ApplyAnomalyReviewStatusToItem(
+                    FindImageQueueItem(activeImagePath),
+                    anomalyImageReviewStatus.GetOrCreate(activeImagePath));
+            }
+            else
+            {
+                ApplyReviewStatusToItem(FindImageQueueItem(activeImagePath), status);
+            }
             imageQueueView?.Refresh();
             UpdateImageQueueStatusText();
         }
@@ -421,6 +447,46 @@ namespace MvcVisionSystem
             MarkAnomalyImageReviewState(activeImagePath, imageName, state, saveReviewStatus: true);
         }
 
+        private void ExecuteMarkActiveAnomalyNormalAndNextCommand()
+        {
+            MarkActiveAnomalyImageAndOpenNext(AnomalyImageReviewState.Normal);
+        }
+
+        private void ExecuteMarkActiveAnomalyAbnormalAndNextCommand()
+        {
+            MarkActiveAnomalyImageAndOpenNext(AnomalyImageReviewState.Abnormal);
+        }
+
+        private void ExecuteClearActiveAnomalyReviewCommand()
+        {
+            if (!IsAnomalyDatasetPurpose() || string.IsNullOrWhiteSpace(activeImagePath))
+            {
+                return;
+            }
+
+            MarkActiveAnomalyImageReviewState(AnomalyImageReviewState.Unreviewed);
+            SetDatasetStatus($"OK/NG 이미지 판정: 미판정으로 되돌림 / {Path.GetFileName(activeImagePath)}");
+            AppendLog($"Anomaly image review cleared: {activeImagePath}");
+        }
+
+        private void MarkActiveAnomalyImageAndOpenNext(AnomalyImageReviewState state)
+        {
+            if (!IsAnomalyDatasetPurpose() || string.IsNullOrWhiteSpace(activeImagePath))
+            {
+                return;
+            }
+
+            string reviewedPath = activeImagePath;
+            MarkActiveAnomalyImageReviewState(state);
+            string decisionText = state == AnomalyImageReviewState.Normal ? "정상(OK)" : "이상(NG)";
+            SetDatasetStatus($"OK/NG 이미지 판정: {decisionText} 저장 / {Path.GetFileName(reviewedPath)}");
+            AppendLog($"Anomaly image reviewed: {reviewedPath} / {state}");
+            if (!TryOpenNextIncompleteQueueImage())
+            {
+                SetDatasetStatus("OK/NG 이미지 판정: 모든 이미지 판정 완료");
+            }
+        }
+
         private void MarkAnomalyImageReviewState(string imagePath, string imageName, AnomalyImageReviewState state, bool saveReviewStatus)
         {
             if (!IsAnomalyDatasetPurpose() || string.IsNullOrWhiteSpace(imagePath))
@@ -428,23 +494,93 @@ namespace MvcVisionSystem
                 return;
             }
 
+            AnomalyImageReviewStatus status;
             if (state == AnomalyImageReviewState.Normal)
             {
-                anomalyImageReviewStatus.MarkNormal(imagePath, imageName);
+                status = anomalyImageReviewStatus.MarkNormal(imagePath, imageName);
             }
             else if (state == AnomalyImageReviewState.Abnormal)
             {
-                anomalyImageReviewStatus.MarkAbnormal(imagePath, imageName);
+                status = anomalyImageReviewStatus.MarkAbnormal(imagePath, imageName);
             }
             else
             {
-                anomalyImageReviewStatus.ClearReviewState(imagePath, imageName);
+                status = anomalyImageReviewStatus.ClearReviewState(imagePath, imageName);
             }
 
             if (saveReviewStatus)
             {
                 SaveAnomalyImageReviewStatus();
             }
+
+            ApplyAnomalyReviewStatusToItem(FindImageQueueItem(imagePath), status);
+            imageQueueView?.Refresh();
+            UpdateImageQueueStatusText();
+        }
+
+        private void ApplyAnomalyReviewStatusToItem(WpfImageQueueItem item, AnomalyImageReviewStatus status)
+        {
+            if (item == null || status == null)
+            {
+                return;
+            }
+
+            item.AnomalyReviewState = status.ReviewState;
+            item.IsLabeled = status.IsReviewed;
+            item.IsSaveRequired = false;
+            item.DetectStatus = status.IsReviewed ? "완료" : "확인 필요";
+            switch (status.ReviewState)
+            {
+                case AnomalyImageReviewState.Normal:
+                    item.LabelStatus = "OK";
+                    item.QueueStatusSummary = "정상(OK) 판정 완료";
+                    item.QueueBadgeText = "OK";
+                    item.QueueIconKind = MahApps.Metro.IconPacks.PackIconMaterialKind.CheckboxMarkedCircleOutline;
+                    item.QueueIconBrush = WpfImageQueueItem.SuccessBrush;
+                    item.QueueBadgeBackgroundBrush = WpfImageQueueItem.SuccessBadgeBrush;
+                    item.QueueRowAccentBrush = WpfImageQueueItem.SuccessBrush;
+                    break;
+                case AnomalyImageReviewState.Abnormal:
+                    item.LabelStatus = "NG";
+                    item.QueueStatusSummary = "이상(NG) 판정 완료";
+                    item.QueueBadgeText = "NG";
+                    item.QueueIconKind = MahApps.Metro.IconPacks.PackIconMaterialKind.AlertCircleOutline;
+                    item.QueueIconBrush = WpfImageQueueItem.ErrorBrush;
+                    item.QueueBadgeBackgroundBrush = WpfImageQueueItem.ErrorBadgeBrush;
+                    item.QueueRowAccentBrush = WpfImageQueueItem.ErrorBrush;
+                    break;
+                default:
+                    item.LabelStatus = "미판정";
+                    item.QueueStatusSummary = "정상(OK) 또는 이상(NG) 판정 필요";
+                    item.QueueBadgeText = "미판정";
+                    item.QueueIconKind = MahApps.Metro.IconPacks.PackIconMaterialKind.ImageOutline;
+                    item.QueueIconBrush = WpfImageQueueItem.MutedBrush;
+                    item.QueueBadgeBackgroundBrush = WpfImageQueueItem.MutedBadgeBrush;
+                    item.QueueRowAccentBrush = WpfImageQueueItem.TransparentBrush;
+                    break;
+            }
+        }
+
+        private void RefreshImageQueuePurposePresentation()
+        {
+            bool isAnomalyPurpose = IsAnomalyDatasetPurpose();
+            foreach (WpfImageQueueItem item in imageQueueItems)
+            {
+                if (isAnomalyPurpose)
+                {
+                    ApplyAnomalyReviewStatusToItem(item, anomalyImageReviewStatus.GetOrCreate(item.ImagePath));
+                }
+                else
+                {
+                    ApplyReviewStatusToItemCore(
+                        item,
+                        imageReviewStatus.GetOrCreate(item.ImagePath),
+                        refreshTrainingStepCompletion: false);
+                }
+            }
+
+            imageQueueView?.Refresh();
+            UpdateImageQueueStatusText();
         }
 
         private void SaveAnomalyImageReviewStatus()

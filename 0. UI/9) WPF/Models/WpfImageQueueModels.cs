@@ -99,6 +99,7 @@ namespace MvcVisionSystem
         private bool isSaveRequired;
         private YoloImageReviewState reviewState;
         private YoloImageQualityReviewState qualityReviewState;
+        private AnomalyImageReviewState anomalyReviewState;
         private ImageSource thumbnailSource;
         private bool thumbnailLoadAttempted;
 
@@ -216,6 +217,12 @@ namespace MvcVisionSystem
             set => SetField(ref qualityReviewState, value);
         }
 
+        public AnomalyImageReviewState AnomalyReviewState
+        {
+            get => anomalyReviewState;
+            set => SetField(ref anomalyReviewState, value);
+        }
+
         public static WpfImageQueueItem CreateShell(string imagePath)
         {
             return CreateShell(WpfImageQueueCatalogEntry.Create(imagePath));
@@ -306,7 +313,8 @@ namespace MvcVisionSystem
                 || string.Equals(propertyName, nameof(Dimensions), StringComparison.Ordinal)
                 || string.Equals(propertyName, nameof(Detail), StringComparison.Ordinal)
                 || string.Equals(propertyName, nameof(QueueStatusSummary), StringComparison.Ordinal)
-                || string.Equals(propertyName, nameof(QualityReviewState), StringComparison.Ordinal);
+                || string.Equals(propertyName, nameof(QualityReviewState), StringComparison.Ordinal)
+                || string.Equals(propertyName, nameof(AnomalyReviewState), StringComparison.Ordinal);
         }
 
         private static ImageSource CreateThumbnailSource(string imagePath)

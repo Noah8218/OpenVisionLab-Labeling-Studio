@@ -776,6 +776,7 @@
                     <ui:Button x:Name="SaveAnnotationsButton"
                                Style="{StaticResource WpfUiToolbarButtonStyle}"
                                MinWidth="92"
+                               Visibility="{Binding ShellViewModel.IsAnnotationWorkflowVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
                                AutomationProperties.Name="&#xB77C;&#xBCA8; &#xC800;&#xC7A5;"
                                ToolTip="&#xD604;&#xC7AC; &#xBC15;&#xC2A4;&#xC640; &#xD655;&#xC815; &#xB77C;&#xBCA8; &#xC800;&#xC7A5;"
                                Command="{Binding ShellViewModel.SaveAnnotationsCommand}">

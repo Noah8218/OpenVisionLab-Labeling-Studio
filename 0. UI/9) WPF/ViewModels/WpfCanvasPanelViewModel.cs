@@ -57,6 +57,8 @@ namespace MvcVisionSystem
         private string canvasInferenceLayerText = "AI \uD6C4\uBCF4 0\uAC1C \uC228\uAE40";
         private bool isLabelLayerVisible = true;
         private bool isInferenceLayerVisible;
+        private System.Windows.Visibility annotationWorkspaceVisibility = System.Windows.Visibility.Visible;
+        private System.Windows.GridLength annotationToolRailWidth = new System.Windows.GridLength(46);
         private WpfAnnotationToolItem selectedAnnotationTool;
         private WpfCanvasLabelClassItem selectedLabelClass;
         private WpfCanvasDisplayModeItem selectedDisplayMode;
@@ -556,6 +558,28 @@ namespace MvcVisionSystem
         {
             get => isInferenceLayerVisible;
             private set => SetProperty(ref isInferenceLayerVisible, value);
+        }
+
+        public System.Windows.Visibility AnnotationWorkspaceVisibility
+        {
+            get => annotationWorkspaceVisibility;
+            private set => SetProperty(ref annotationWorkspaceVisibility, value);
+        }
+
+        public System.Windows.GridLength AnnotationToolRailWidth
+        {
+            get => annotationToolRailWidth;
+            private set => SetProperty(ref annotationToolRailWidth, value);
+        }
+
+        public void SetAnomalyImageReviewMode(bool enabled)
+        {
+            AnnotationWorkspaceVisibility = enabled
+                ? System.Windows.Visibility.Collapsed
+                : System.Windows.Visibility.Visible;
+            AnnotationToolRailWidth = enabled
+                ? new System.Windows.GridLength(0)
+                : new System.Windows.GridLength(46);
         }
 
         public void ConfigureCommands(

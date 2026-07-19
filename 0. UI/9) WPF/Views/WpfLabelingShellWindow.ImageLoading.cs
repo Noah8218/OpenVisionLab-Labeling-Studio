@@ -127,7 +127,13 @@ namespace MvcVisionSystem
                 annotationResetMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
                 if (populateQueue)
                 {
-                    PopulateImageQueue(Path.GetDirectoryName(imagePath), imagePath, refreshQueueDetails);
+                    // ponytail: queued image navigation never substitutes its leaf folder for the operator-selected root.
+                    string queueRoot = imageQueueItemsByPath.ContainsKey(imagePath)
+                        && !string.IsNullOrWhiteSpace(currentImageRoot)
+                        && Directory.Exists(currentImageRoot)
+                        ? currentImageRoot
+                        : Path.GetDirectoryName(imagePath);
+                    PopulateImageQueue(queueRoot, imagePath, refreshQueueDetails);
                 }
                 queuePopulateMilliseconds = WpfImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
                 SetDatasetStatus(imageLoadPresentationService.BuildLoadedDatasetStatus(imagePath, activeImageSize));

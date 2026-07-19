@@ -69,7 +69,6 @@ namespace MvcVisionSystem._1._Core
 
             var reviewStatus = new AnomalyImageReviewStatusService();
             reviewStatus.LoadReviewStatus(data, sourceImagePaths);
-            reviewStatus.ImportUnreviewedStatesFromParentFolders();
             AnomalyImageReviewSummary summary = reviewStatus.BuildSummary();
             int trainNormalCount = 0;
             int trainAbnormalCount = 0;

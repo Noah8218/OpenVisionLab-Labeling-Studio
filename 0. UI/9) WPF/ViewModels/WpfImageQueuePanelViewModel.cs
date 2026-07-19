@@ -44,6 +44,15 @@ namespace MvcVisionSystem
         private string currentImageFolderPath = string.Empty;
         private string currentImageFolderDisplayText = "이미지 폴더를 선택하세요.";
         private bool isOpenCurrentImageFolderEnabled;
+        private bool isAnomalyFolderStateSuggestionVisible;
+        private string anomalyFolderStateSuggestionTitleText = "폴더명으로 초기 판정을 제안합니다";
+        private string anomalyFolderStateSuggestionText = string.Empty;
+        private string anomalyFolderStateSuggestionApplyText = "일괄 판정";
+        private bool isAnomalyImageReviewMode;
+        private System.Windows.Visibility anomalyImageReviewVisibility = System.Windows.Visibility.Collapsed;
+        private System.Windows.Visibility standardQueueWorkflowVisibility = System.Windows.Visibility.Visible;
+        private string queueDecisionColumnHeaderText = "저장";
+        private string queueSecondaryColumnHeaderText = "검사";
         private ICommand loadImageRootCommand = new RelayCommand(NoOpCommand);
         private ICommand browseImageFolderCommand = new RelayCommand(NoOpCommand);
         private ICommand openCurrentImageFolderCommand = new RelayCommand(NoOpCommand);
@@ -66,12 +75,19 @@ namespace MvcVisionSystem
         private ICommand searchTextChangedCommand = new RelayCommand<string>(NoOpTextCommand);
         private ICommand queueSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand queueMouseDoubleClickCommand = new RelayCommand(NoOpMouseCommand);
+        private ICommand applyAnomalyFolderStateSuggestionCommand = new RelayCommand(NoOpCommand);
+        private ICommand dismissAnomalyFolderStateSuggestionCommand = new RelayCommand(NoOpCommand);
+        private ICommand markAnomalyNormalCommand = new RelayCommand(NoOpCommand);
+        private ICommand markAnomalyAbnormalCommand = new RelayCommand(NoOpCommand);
+        private ICommand clearAnomalyReviewCommand = new RelayCommand(NoOpCommand);
 
         public string ViewName => nameof(WpfImageQueuePanel);
 
-        public string NextUnlabeledActionText => "\uB2E4\uC74C \uBBF8\uC644\uB8CC";
+        public string NextUnlabeledActionText => IsAnomalyImageReviewMode ? "다음 미판정" : "\uB2E4\uC74C \uBBF8\uC644\uB8CC";
 
-        public string NextUnlabeledToolTip => "\uC800\uC7A5\uB428/\uAC1D\uCCB4\uC5C6\uC74C \uC774\uBBF8\uC9C0\uB294 \uAC74\uB108\uB6F0\uACE0 \uB77C\uBCA8\uC774 \uD544\uC694\uD55C \uB2E4\uC74C \uC774\uBBF8\uC9C0\uB97C \uC5FD\uB2C8\uB2E4.";
+        public string NextUnlabeledToolTip => IsAnomalyImageReviewMode
+            ? "정상(OK) 또는 이상(NG) 판정이 없는 다음 이미지를 엽니다."
+            : "\uC800\uC7A5\uB428/\uAC1D\uCCB4\uC5C6\uC74C \uC774\uBBF8\uC9C0\uB294 \uAC74\uB108\uB6F0\uACE0 \uB77C\uBCA8\uC774 \uD544\uC694\uD55C \uB2E4\uC74C \uC774\uBBF8\uC9C0\uB97C \uC5FD\uB2C8\uB2E4.";
 
         public WpfImageQueueItem SelectedQueueItem
         {
@@ -318,6 +334,90 @@ namespace MvcVisionSystem
             private set => SetProperty(ref isOpenCurrentImageFolderEnabled, value);
         }
 
+        public bool IsAnomalyFolderStateSuggestionVisible
+        {
+            get => isAnomalyFolderStateSuggestionVisible;
+            private set => SetProperty(ref isAnomalyFolderStateSuggestionVisible, value);
+        }
+
+        public string AnomalyFolderStateSuggestionText
+        {
+            get => anomalyFolderStateSuggestionText;
+            private set => SetProperty(ref anomalyFolderStateSuggestionText, value ?? string.Empty);
+        }
+
+        public string AnomalyFolderStateSuggestionTitleText
+        {
+            get => anomalyFolderStateSuggestionTitleText;
+            private set => SetProperty(ref anomalyFolderStateSuggestionTitleText, value ?? string.Empty);
+        }
+
+        public ICommand ApplyAnomalyFolderStateSuggestionCommand
+        {
+            get => applyAnomalyFolderStateSuggestionCommand;
+            private set => SetProperty(ref applyAnomalyFolderStateSuggestionCommand, value);
+        }
+
+        public ICommand DismissAnomalyFolderStateSuggestionCommand
+        {
+            get => dismissAnomalyFolderStateSuggestionCommand;
+            private set => SetProperty(ref dismissAnomalyFolderStateSuggestionCommand, value);
+        }
+
+        public string AnomalyFolderStateSuggestionApplyText
+        {
+            get => anomalyFolderStateSuggestionApplyText;
+            private set => SetProperty(ref anomalyFolderStateSuggestionApplyText, value ?? string.Empty);
+        }
+
+        public bool IsAnomalyImageReviewMode
+        {
+            get => isAnomalyImageReviewMode;
+            private set => SetProperty(ref isAnomalyImageReviewMode, value);
+        }
+
+        public System.Windows.Visibility AnomalyImageReviewVisibility
+        {
+            get => anomalyImageReviewVisibility;
+            private set => SetProperty(ref anomalyImageReviewVisibility, value);
+        }
+
+        public System.Windows.Visibility StandardQueueWorkflowVisibility
+        {
+            get => standardQueueWorkflowVisibility;
+            private set => SetProperty(ref standardQueueWorkflowVisibility, value);
+        }
+
+        public string QueueDecisionColumnHeaderText
+        {
+            get => queueDecisionColumnHeaderText;
+            private set => SetProperty(ref queueDecisionColumnHeaderText, value ?? string.Empty);
+        }
+
+        public string QueueSecondaryColumnHeaderText
+        {
+            get => queueSecondaryColumnHeaderText;
+            private set => SetProperty(ref queueSecondaryColumnHeaderText, value ?? string.Empty);
+        }
+
+        public ICommand MarkAnomalyNormalCommand
+        {
+            get => markAnomalyNormalCommand;
+            private set => SetProperty(ref markAnomalyNormalCommand, value);
+        }
+
+        public ICommand MarkAnomalyAbnormalCommand
+        {
+            get => markAnomalyAbnormalCommand;
+            private set => SetProperty(ref markAnomalyAbnormalCommand, value);
+        }
+
+        public ICommand ClearAnomalyReviewCommand
+        {
+            get => clearAnomalyReviewCommand;
+            private set => SetProperty(ref clearAnomalyReviewCommand, value);
+        }
+
         public string QueueFilterUnfinishedText
         {
             get => queueFilterUnfinishedText;
@@ -425,7 +525,12 @@ namespace MvcVisionSystem
             Action<object> filterSelectionChanged,
             Action<string> searchTextChanged,
             Action<object> queueSelectionChanged,
-            Action queueMouseDoubleClick)
+            Action queueMouseDoubleClick,
+            Action applyAnomalyFolderStateSuggestion,
+            Action dismissAnomalyFolderStateSuggestion,
+            Action markAnomalyNormal,
+            Action markAnomalyAbnormal,
+            Action clearAnomalyReview)
         {
             // Queue actions stay injected so the virtualized queue view does not relay UI events through code-behind.
             LoadImageRootCommand = new RelayCommand(loadImageRoot ?? NoOpCommand);
@@ -451,6 +556,55 @@ namespace MvcVisionSystem
             SearchTextChangedCommand = new RelayCommand<string>(searchTextChanged ?? NoOpTextCommand);
             QueueSelectionChangedCommand = new RelayCommand<object>(queueSelectionChanged ?? NoOpSelectionCommand);
             QueueMouseDoubleClickCommand = new RelayCommand(queueMouseDoubleClick ?? NoOpMouseCommand);
+            ApplyAnomalyFolderStateSuggestionCommand = new RelayCommand(applyAnomalyFolderStateSuggestion ?? NoOpCommand);
+            DismissAnomalyFolderStateSuggestionCommand = new RelayCommand(dismissAnomalyFolderStateSuggestion ?? NoOpCommand);
+            MarkAnomalyNormalCommand = new RelayCommand(markAnomalyNormal ?? NoOpCommand);
+            MarkAnomalyAbnormalCommand = new RelayCommand(markAnomalyAbnormal ?? NoOpCommand);
+            ClearAnomalyReviewCommand = new RelayCommand(clearAnomalyReview ?? NoOpCommand);
+        }
+
+        public void SetAnomalyImageReviewMode(bool enabled)
+        {
+            IsAnomalyImageReviewMode = enabled;
+            AnomalyImageReviewVisibility = enabled
+                ? System.Windows.Visibility.Visible
+                : System.Windows.Visibility.Collapsed;
+            StandardQueueWorkflowVisibility = enabled
+                ? System.Windows.Visibility.Collapsed
+                : System.Windows.Visibility.Visible;
+            QueueDecisionColumnHeaderText = enabled ? "판정" : "저장";
+            QueueSecondaryColumnHeaderText = enabled ? "상태" : "검사";
+            OnPropertyChanged(nameof(NextUnlabeledActionText));
+            OnPropertyChanged(nameof(NextUnlabeledToolTip));
+            RefreshCurrentImageTaskSummary();
+        }
+
+        public void SetAnomalyFolderStateSuggestion(AnomalyImageReviewFolderImportResult suggestion)
+        {
+            int normalCount = suggestion?.NormalImageCount ?? 0;
+            int abnormalCount = suggestion?.AbnormalImageCount ?? 0;
+            if (normalCount <= 0 && abnormalCount <= 0)
+            {
+                ClearAnomalyFolderStateSuggestion();
+                return;
+            }
+
+            int totalCount = normalCount
+                + abnormalCount
+                + (suggestion?.ExistingReviewCount ?? 0)
+                + (suggestion?.UnmatchedImageCount ?? 0);
+            AnomalyFolderStateSuggestionTitleText = "OK/NG 폴더 구조를 발견했습니다";
+            AnomalyFolderStateSuggestionText = $"OK/normal {normalCount}장 → 정상 · NG/abnormal {abnormalCount}장 → 이상. 총 {totalCount}장 중 아직 판정하지 않은 이미지만 적용합니다.";
+            AnomalyFolderStateSuggestionApplyText = $"{normalCount + abnormalCount}장 일괄 판정";
+            IsAnomalyFolderStateSuggestionVisible = true;
+        }
+
+        public void ClearAnomalyFolderStateSuggestion()
+        {
+            IsAnomalyFolderStateSuggestionVisible = false;
+            AnomalyFolderStateSuggestionTitleText = "폴더명으로 초기 판정을 제안합니다";
+            AnomalyFolderStateSuggestionText = string.Empty;
+            AnomalyFolderStateSuggestionApplyText = "일괄 판정";
         }
 
         public void SetCurrentImageFolder(string folderPath, bool canOpenFolder)
@@ -509,6 +663,7 @@ namespace MvcVisionSystem
                 || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.LabelStatus), StringComparison.Ordinal)
                 || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.DetectStatus), StringComparison.Ordinal)
                 || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.ReviewState), StringComparison.Ordinal)
+                || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.AnomalyReviewState), StringComparison.Ordinal)
                 || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.QualityReviewState), StringComparison.Ordinal)
                 || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.IsLabeled), StringComparison.Ordinal)
                 || string.Equals(e?.PropertyName, nameof(WpfImageQueueItem.IsSaveRequired), StringComparison.Ordinal)
@@ -524,7 +679,9 @@ namespace MvcVisionSystem
             if (item == null)
             {
                 CurrentImageTaskTitleText = "\uC774\uBBF8\uC9C0 \uC120\uD0DD";
-                CurrentImageTaskDetailText = "\uC67C\uCABD \uBAA9\uB85D\uC5D0\uC11C \uC774\uBBF8\uC9C0\uB97C \uC120\uD0DD\uD558\uBA74 \uC800\uC7A5/\uAC80\uC0AC \uC0C1\uD0DC\uB97C \uBCF4\uC5EC\uC90D\uB2C8\uB2E4.";
+                CurrentImageTaskDetailText = IsAnomalyImageReviewMode
+                    ? "목록에서 이미지를 선택한 뒤 이미지 전체를 정상(OK) 또는 이상(NG)으로 판정하세요."
+                    : "\uC67C\uCABD \uBAA9\uB85D\uC5D0\uC11C \uC774\uBBF8\uC9C0\uB97C \uC120\uD0DD\uD558\uBA74 \uC800\uC7A5/\uAC80\uC0AC \uC0C1\uD0DC\uB97C \uBCF4\uC5EC\uC90D\uB2C8\uB2E4.";
                 CurrentImageTaskBadgeText = "\uB300\uAE30";
                 CurrentImageTaskKey = "Waiting";
                 CurrentImageTaskToolTip = BuildCurrentImageTaskToolTip(
@@ -532,6 +689,36 @@ namespace MvcVisionSystem
                     CurrentImageTaskTitleText,
                     CurrentImageTaskDetailText,
                     "\uC774\uBBF8\uC9C0\uB97C \uC120\uD0DD\uD558\uBA74 \uD604\uC7AC \uC791\uC5C5 \uC0C1\uD0DC\uAC00 \uD45C\uC2DC\uB429\uB2C8\uB2E4.");
+                return;
+            }
+
+            if (IsAnomalyImageReviewMode)
+            {
+                CurrentImageTaskTitleText = "현재 이미지 OK/NG 판정";
+                switch (item.AnomalyReviewState)
+                {
+                    case AnomalyImageReviewState.Normal:
+                        CurrentImageTaskDetailText = "이미지 전체를 정상(OK)으로 저장했습니다. 필요하면 NG로 다시 판정할 수 있습니다.";
+                        CurrentImageTaskBadgeText = "OK";
+                        CurrentImageTaskKey = "AnomalyNormal";
+                        break;
+                    case AnomalyImageReviewState.Abnormal:
+                        CurrentImageTaskDetailText = "이미지 전체를 이상(NG)으로 저장했습니다. 필요하면 OK로 다시 판정할 수 있습니다.";
+                        CurrentImageTaskBadgeText = "NG";
+                        CurrentImageTaskKey = "AnomalyAbnormal";
+                        break;
+                    default:
+                        CurrentImageTaskDetailText = "결함 위치를 그리지 않습니다. 이미지 전체가 정상인지 이상인지 판정하세요.";
+                        CurrentImageTaskBadgeText = "미판정";
+                        CurrentImageTaskKey = "AnomalyUnreviewed";
+                        break;
+                }
+
+                CurrentImageTaskToolTip = BuildCurrentImageTaskToolTip(
+                    item.FileName,
+                    CurrentImageTaskTitleText,
+                    CurrentImageTaskDetailText,
+                    item.QueueStatusSummary);
                 return;
             }
 

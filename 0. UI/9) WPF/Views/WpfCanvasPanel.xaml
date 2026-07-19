@@ -553,6 +553,7 @@
             </Border>
             <Border x:Name="CanvasLayerVisibilityStrip"
                     Grid.Row="2"
+                    Visibility="{Binding AnnotationWorkspaceVisibility}"
                     Background="{DynamicResource PanelBrush}"
                     BorderBrush="{DynamicResource BorderBrushDark}"
                     BorderThickness="0,0,0,1"
@@ -628,6 +629,7 @@
             </Border>
             <Border x:Name="CanvasAnnotationToolBar"
                     Grid.Row="3"
+                    Visibility="{Binding AnnotationWorkspaceVisibility}"
                     MinHeight="37"
                     Background="{DynamicResource FrameBrush}"
                     BorderBrush="{DynamicResource BorderBrushDark}"
@@ -1026,11 +1028,12 @@
                 </Border>
             <Grid Grid.Row="5">
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="46" />
+                    <ColumnDefinition Width="{Binding AnnotationToolRailWidth}" />
                     <ColumnDefinition Width="*" />
                 </Grid.ColumnDefinitions>
                 <Border x:Name="CanvasAnnotationToolRail"
                         Grid.Column="0"
+                        Visibility="{Binding AnnotationWorkspaceVisibility}"
                         Background="{DynamicResource FrameBrush}"
                         BorderBrush="{DynamicResource BorderBrushDark}"
                         BorderThickness="0,0,1,0"

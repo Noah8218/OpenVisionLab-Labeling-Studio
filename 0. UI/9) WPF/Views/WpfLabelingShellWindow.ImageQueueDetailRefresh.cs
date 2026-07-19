@@ -196,6 +196,11 @@ namespace MvcVisionSystem
             }
 
             item.Dimensions = WpfImageQueueDetailLoader.FormatImageSize(detail.ImageSize);
+            if (IsAnomalyDatasetPurpose())
+            {
+                ApplyAnomalyReviewStatusToItem(item, anomalyImageReviewStatus.GetOrCreate(item.ImagePath));
+                return;
+            }
             ApplyReviewStatusToItemCore(item, detail.ReviewStatus, refreshTrainingStepCompletion: false);
         }
 

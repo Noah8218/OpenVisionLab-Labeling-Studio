@@ -49,6 +49,50 @@ namespace MvcVisionSystem
                     : EnumerateImageFiles(imageRoot, SearchOption.AllDirectories, cancellationToken));
         }
 
+        public List<string> InterleaveTopLevelFolderImages(
+            string imageRoot,
+            IEnumerable<string> imagePaths,
+            CancellationToken cancellationToken)
+        {
+            string rootPath = string.IsNullOrWhiteSpace(imageRoot)
+                ? string.Empty
+                : Path.GetFullPath(imageRoot);
+            List<string> orderedPaths = (imagePaths ?? Enumerable.Empty<string>())
+                .Where(path => !string.IsNullOrWhiteSpace(path))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToList();
+            if (string.IsNullOrWhiteSpace(rootPath) || orderedPaths.Count < 2)
+            {
+                return orderedPaths;
+            }
+
+            // ponytail: only top-level child folders are interleaved; preserve nested source ordering unless explicit grouping is needed.
+            List<Queue<string>> folderQueues = orderedPaths
+                .GroupBy(path => ResolveTopLevelFolderName(rootPath, path), StringComparer.OrdinalIgnoreCase)
+                .OrderBy(group => group.Key, StringComparer.OrdinalIgnoreCase)
+                .Select(group => new Queue<string>(group))
+                .ToList();
+            if (folderQueues.Count < 2 || folderQueues.Any(queue => queue.Count == 0))
+            {
+                return orderedPaths;
+            }
+
+            var interleaved = new List<string>(orderedPaths.Count);
+            while (folderQueues.Any(queue => queue.Count > 0))
+            {
+                foreach (Queue<string> folderQueue in folderQueues)
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (folderQueue.Count > 0)
+                    {
+                        interleaved.Add(folderQueue.Dequeue());
+                    }
+                }
+            }
+
+            return interleaved;
+        }
+
         private List<string> EnumerateImageFiles(
             string imageRoot,
             SearchOption searchOption,
@@ -66,6 +110,15 @@ namespace MvcVisionSystem
 
             imagePaths.Sort(StringComparer.OrdinalIgnoreCase);
             return imagePaths;
+        }
+
+        private static string ResolveTopLevelFolderName(string rootPath, string imagePath)
+        {
+            string relativePath = Path.GetRelativePath(rootPath, imagePath ?? string.Empty);
+            int separatorIndex = relativePath.IndexOfAny(new[] { Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar });
+            return separatorIndex > 0
+                ? relativePath.Substring(0, separatorIndex)
+                : string.Empty;
         }
 
         public IReadOnlyList<WpfImageQueueItem> CreateShellItems(IEnumerable<string> imagePaths)

@@ -58,6 +58,7 @@ namespace MvcVisionSystem
         private readonly Dictionary<string, WpfImageQueueItem> imageQueueItemsByPath = new Dictionary<string, WpfImageQueueItem>(StringComparer.OrdinalIgnoreCase);
         private YoloImageReviewStatusService imageReviewStatus = new YoloImageReviewStatusService();
         private AnomalyImageReviewStatusService anomalyImageReviewStatus = new AnomalyImageReviewStatusService();
+        private string dismissedAnomalyFolderStateSuggestionRoot = string.Empty;
         private int queuedActiveImageQueueStatusRefreshVersion;
         private readonly WpfImageQueueSelectionService imageQueueSelectionService = new WpfImageQueueSelectionService();
         private readonly WpfDatasetImageRootResolver datasetImageRootResolver = new WpfDatasetImageRootResolver();

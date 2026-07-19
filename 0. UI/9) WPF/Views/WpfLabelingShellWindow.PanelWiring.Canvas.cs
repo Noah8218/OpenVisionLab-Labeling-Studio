@@ -41,6 +41,7 @@ namespace MvcVisionSystem
                 ExecuteDecreaseBrushSizeCommand,
                 ExecuteIncreaseBrushSizeCommand);
             SyncCanvasBrushSizeFromWorkflow();
+            RefreshCanvasAnnotationToolScope();
             RefreshCanvasWorkflowContext();
             RefreshAttachedCommandBindings(
                 CanvasAnnotationToolListBox,
@@ -55,6 +56,17 @@ namespace MvcVisionSystem
 
         private void RefreshCanvasAnnotationToolScope()
         {
+            bool isAnomalyImageReview = IsAnomalyDatasetPurpose();
+            ShellViewModel?.SetAnomalyImageReviewMode(isAnomalyImageReview);
+            CanvasPanelViewModel?.SetAnomalyImageReviewMode(isAnomalyImageReview);
+            ImageQueueViewModel?.SetAnomalyImageReviewMode(isAnomalyImageReview);
+            RefreshImageQueuePurposePresentation();
+            if (isAnomalyImageReview
+                && ShellViewModel?.IsLabelingStageActive == true
+                && LearningReviewTab != null)
+            {
+                ReviewTabControl.SelectedItem = LearningReviewTab;
+            }
             CanvasPanelViewModel?.ConfigureAnnotationTools(
                 LearningWorkflowViewModel?.VisibleAnnotationTools,
                 LearningWorkflowViewModel?.SelectedTool,
@@ -65,6 +77,16 @@ namespace MvcVisionSystem
         {
             // The selected guide step can lag behind direct canvas tool changes, so the
             // strip is composed from the live canvas state that the operator is using.
+            if (IsAnomalyDatasetPurpose())
+            {
+                const string anomalyStepText = "이미지 판정";
+                const string anomalyToolText = "OK/NG";
+                const string anomalyActionText = "이미지 전체를 확인한 뒤 오른쪽에서 정상(OK) 또는 이상(NG)을 선택하세요.";
+                CanvasPanelViewModel?.SetWorkflowContext(anomalyStepText, anomalyToolText, anomalyActionText);
+                LearningWorkflowViewModel?.SetLiveLabelingTask(anomalyStepText, anomalyToolText, anomalyActionText);
+                return;
+            }
+
             WpfLearningStepItem selectedStep = LearningWorkflowViewModel?.SelectedStep;
             WpfAnnotationToolItem selectedTool = CanvasPanelViewModel?.SelectedAnnotationTool
                 ?? LearningWorkflowViewModel?.SelectedTool;

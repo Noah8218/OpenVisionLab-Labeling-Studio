@@ -46,7 +46,6 @@ namespace MvcVisionSystem.Yolo
 
             var reviewStatus = new AnomalyImageReviewStatusService();
             reviewStatus.LoadReviewStatus(data, orderedImages);
-            reviewStatus.ImportUnreviewedStatesFromParentFolders();
 
             var result = new AnomalyClassificationDatasetExportResult
             {
