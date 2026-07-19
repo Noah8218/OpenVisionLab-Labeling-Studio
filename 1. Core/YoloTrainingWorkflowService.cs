@@ -7,6 +7,9 @@ namespace MvcVisionSystem._1._Core
 {
     public sealed class YoloTrainingWorkflowService
     {
+        public const string AnomalyClassificationRuntimeError =
+            "anomaly classification training requires a YOLOv8 or YOLO11 runtime";
+
         public string LastPreparationFailureMessage { get; private set; } = string.Empty;
 
         public bool TryStartTraining(CData data, CCommunicationLearning communication, string runName = "")
@@ -199,6 +202,15 @@ namespace MvcVisionSystem._1._Core
                 DataPath = string.Empty,
                 Task = "classify"
             };
+
+            string model = data?.ProjectSettings?.PythonModel?.GetProtocolModelName() ?? "yolov5";
+            if (!string.Equals(model, "yolov8", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(model, "yolo11", StringComparison.OrdinalIgnoreCase))
+            {
+                LastPreparationFailureMessage = $"{AnomalyClassificationRuntimeError}. Current:{model}";
+                AppLog.ABNORMAL($"YOLO anomaly classification training blocked: {LastPreparationFailureMessage}");
+                return false;
+            }
 
             AnomalyClassificationTrainingReadinessReport readiness =
                 AnomalyClassificationTrainingReadinessService.Build(data);

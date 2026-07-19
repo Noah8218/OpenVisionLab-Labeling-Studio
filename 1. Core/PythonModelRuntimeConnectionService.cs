@@ -35,10 +35,8 @@ namespace MvcVisionSystem._1._Core
             PythonModelSettings settings = Clone(currentSettings);
             settings.ModelEngine = PythonModelSettings.EngineYoloV5;
             settings.ProjectRootPath = projectRootPath;
-            settings.ClientScriptPath = ResolveClientScriptPath(settings.ClientScriptPath, projectRootPath);
-            settings.PythonExecutablePath = ResolvePythonExecutablePath(settings.PythonExecutablePath, projectRootPath);
-            settings.WeightsPath = ResolveWeightsPath(settings.WeightsPath, projectRootPath);
-            settings.ImageRootPath = ResolveImageRootPath(settings.ImageRootPath, projectRootPath);
+            settings.ClientScriptPath = ResolveClientScriptPath(string.Empty, projectRootPath);
+            settings.PythonExecutablePath = ResolveLocalPythonExecutablePath(projectRootPath);
 
             PythonModelRuntimeSelfTestReport report = PythonModelRuntimeSelfTestService.BuildReport(settings);
             string summary = report.CanTrain
@@ -72,8 +70,6 @@ namespace MvcVisionSystem._1._Core
             settings.ProjectRootPath = projectRootPath;
             settings.ClientScriptPath = ResolveClientScriptPath(string.Empty, projectRootPath);
             settings.PythonExecutablePath = ResolveLocalPythonExecutablePath(projectRootPath);
-            settings.WeightsPath = ResolveYoloV8WeightsPath(projectRootPath, datasetPurpose);
-            settings.ImageRootPath = ResolveImageRootPath(string.Empty, projectRootPath);
 
             PythonModelRuntimeSelfTestReport report = PythonModelRuntimeSelfTestService.BuildReport(settings);
             string weightPurpose = datasetPurpose switch
@@ -86,10 +82,64 @@ namespace MvcVisionSystem._1._Core
                 ? "YOLOv8 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uD655\uC778"
                 : "YOLOv8 \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uD655\uC778 \uD544\uC694";
             string detail = report.CanInspect
-                ? $"\uB85C\uCEEC Ultralytics \uC18C\uC2A4 worker\uAC00 \uC5F0\uACB0\uB410\uC2B5\uB2C8\uB2E4. \uD559\uC2B5\uACFC \uD604\uC7AC \uAC80\uC0AC\uC5D0 \uC0AC\uC6A9\uD560 {weightPurpose} weight(.pt)\uB97C \uD655\uC778\uD558\uACE0 \uC800\uC7A5\uD558\uC138\uC694."
-                : $"\uC810\uAC80 \uBAA9\uB85D\uC758 Python, \uB85C\uCEEC Ultralytics \uC18C\uC2A4, \uC2E4\uD589 \uC2A4\uD06C\uB9BD\uD2B8, {weightPurpose} \uAC00\uC911\uCE58\uB97C \uD655\uC778\uD558\uC138\uC694.";
+                ? $"\uB85C\uCEEC Ultralytics worker\uB97C \uC5F0\uACB0\uD588\uC2B5\uB2C8\uB2E4. \uD604\uC7AC \uC774\uBBF8\uC9C0\uC640 \uAC80\uC0AC \uBAA8\uB378\uC740 \uC720\uC9C0\uD588\uC73C\uBA70, {weightPurpose} \uD559\uC2B5 \uC2DC\uC791 \uAC00\uC911\uCE58\uB294 \uD559\uC2B5 \uC124\uC815\uC5D0\uC11C \uC790\uB3D9 \uACB0\uC815\uB429\uB2C8\uB2E4."
+                : $"Python\uACFC worker \uACBD\uB85C\uB97C \uC810\uAC80\uD558\uACE0, \uD604\uC7AC \uAC80\uC0AC\uC5D0 \uC4F8 \uBAA8\uB378\uC744 \uBA85\uC2DC\uC801\uC73C\uB85C \uC120\uD0DD\uD558\uC138\uC694. {weightPurpose} \uD559\uC2B5 \uC2DC\uC791 \uAC00\uC911\uCE58\uB294 \uD559\uC2B5 \uC124\uC815\uC5D0\uC11C \uC790\uB3D9 \uACB0\uC815\uB429\uB2C8\uB2E4.";
 
             return new PythonModelRuntimeConnectionResult(settings, report, summary, detail);
+        }
+
+        public static string ResolveKnownLocalRuntimeFolder(
+            string currentProjectRootPath,
+            string expectedFolderName)
+        {
+            string currentRoot = currentProjectRootPath?.Trim() ?? string.Empty;
+            string expectedName = expectedFolderName?.Trim() ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(currentRoot) || string.IsNullOrWhiteSpace(expectedName))
+            {
+                return string.Empty;
+            }
+
+            string currentLeaf = Path.GetFileName(currentRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar));
+            if (string.Equals(currentLeaf, expectedName, StringComparison.OrdinalIgnoreCase)
+                && IsLocalRuntimeFolder(currentRoot))
+            {
+                return currentRoot;
+            }
+
+            string parent = Directory.GetParent(currentRoot)?.FullName ?? string.Empty;
+            string sibling = string.IsNullOrWhiteSpace(parent) ? string.Empty : Path.Combine(parent, expectedName);
+            return IsLocalRuntimeFolder(sibling) ? sibling : string.Empty;
+        }
+
+        public static bool TryBuildAnomalyTrainingConnection(
+            PythonModelSettings currentSettings,
+            out PythonModelRuntimeConnectionResult result)
+        {
+            result = null;
+            string engine = PythonModelSettings.NormalizeModelEngine(currentSettings?.ModelEngine);
+            if (string.Equals(engine, PythonModelSettings.EngineYoloV8, StringComparison.Ordinal)
+                || string.Equals(engine, PythonModelSettings.EngineYolo11, StringComparison.Ordinal))
+            {
+                return false;
+            }
+
+            string yolo8Root = ResolveKnownLocalRuntimeFolder(currentSettings?.ProjectRootPath, "yolov8");
+            if (string.IsNullOrWhiteSpace(yolo8Root))
+            {
+                return false;
+            }
+
+            PythonModelRuntimeConnectionResult candidate = BuildYoloV8FolderConnection(
+                currentSettings,
+                yolo8Root,
+                LabelingDatasetPurpose.AnomalyDetection);
+            if (!candidate.SelfTestReport.CanTrain)
+            {
+                return false;
+            }
+
+            result = candidate;
+            return true;
         }
 
         public static PythonModelRuntimeConnectionResult BuildUltralyticsPythonConnection(
@@ -174,17 +224,6 @@ namespace MvcVisionSystem._1._Core
             return string.IsNullOrWhiteSpace(currentPath) ? preferred : currentPath.Trim();
         }
 
-        private static string ResolvePythonExecutablePath(string currentPath, string projectRootPath)
-        {
-            string venvPython = Path.Combine(projectRootPath ?? string.Empty, ".venv", "Scripts", "python.exe");
-            if (File.Exists(venvPython))
-            {
-                return venvPython;
-            }
-
-            return currentPath?.Trim() ?? string.Empty;
-        }
-
         private static string ResolveLocalPythonExecutablePath(string projectRootPath)
         {
             foreach (string candidate in EnumerateLocalPythonCandidates(projectRootPath))
@@ -205,6 +244,14 @@ namespace MvcVisionSystem._1._Core
                 yield return Path.Combine(projectRootPath ?? string.Empty, environmentDirectory, "Scripts", "python.exe");
             }
         }
+
+        private static bool IsLocalRuntimeFolder(string projectRootPath)
+            => !string.IsNullOrWhiteSpace(projectRootPath)
+                && Directory.Exists(projectRootPath)
+                && EnumerateLocalPythonCandidates(projectRootPath).Any(File.Exists)
+                && new[] { "labelling_tcp_client.py", "labeling_tcp_client.py" }
+                    .Select(fileName => Path.Combine(projectRootPath, fileName))
+                    .Any(File.Exists);
 
         private static string ResolvePythonOrVenvPath(string selectedPath)
         {
@@ -228,131 +275,5 @@ namespace MvcVisionSystem._1._Core
             return trimmed;
         }
 
-        private static string ResolveWeightsPath(string currentPath, string projectRootPath)
-        {
-            foreach (string candidate in EnumerateWeightCandidates(projectRootPath))
-            {
-                if (File.Exists(candidate))
-                {
-                    return candidate;
-                }
-            }
-
-            string preferred = Path.Combine(projectRootPath ?? string.Empty, "best.pt");
-            return string.IsNullOrWhiteSpace(currentPath) ? preferred : currentPath.Trim();
-        }
-
-        private static string ResolveYoloV8WeightsPath(
-            string projectRootPath,
-            LabelingDatasetPurpose datasetPurpose)
-        {
-            foreach (string candidate in EnumerateYoloV8WeightCandidates(projectRootPath, datasetPurpose))
-            {
-                if (File.Exists(candidate))
-                {
-                    return candidate;
-                }
-            }
-
-            return Path.Combine(projectRootPath ?? string.Empty, ResolveYoloV8SeedFileName(datasetPurpose));
-        }
-
-        private static IEnumerable<string> EnumerateYoloV8WeightCandidates(
-            string projectRootPath,
-            LabelingDatasetPurpose datasetPurpose)
-        {
-            string taskDirectory = datasetPurpose switch
-            {
-                LabelingDatasetPurpose.Segmentation => "segment",
-                LabelingDatasetPurpose.AnomalyDetection => "classify",
-                _ => "detect"
-            };
-
-            foreach (string runsDirectoryName in EnumerateYoloV8RunDirectoryNames(taskDirectory))
-            {
-                string runsDirectory = Path.Combine(projectRootPath ?? string.Empty, "runs", runsDirectoryName);
-                if (!Directory.Exists(runsDirectory))
-                {
-                    continue;
-                }
-
-                foreach (string candidate in Directory.EnumerateFiles(runsDirectory, "best.pt", SearchOption.AllDirectories)
-                    .OrderByDescending(path => File.GetLastWriteTimeUtc(path)))
-                {
-                    yield return candidate;
-                }
-            }
-
-            yield return Path.Combine(projectRootPath ?? string.Empty, "best.pt");
-
-            foreach (string seedFileName in EnumerateYoloV8SeedFileNames(datasetPurpose))
-            {
-                yield return Path.Combine(projectRootPath ?? string.Empty, seedFileName);
-            }
-        }
-
-        private static IEnumerable<string> EnumerateYoloV8RunDirectoryNames(string taskDirectory)
-        {
-            yield return taskDirectory;
-            if (string.Equals(taskDirectory, "segment", StringComparison.Ordinal))
-            {
-                yield return "train";
-            }
-        }
-
-        private static IEnumerable<string> EnumerateYoloV8SeedFileNames(LabelingDatasetPurpose datasetPurpose)
-        {
-            string suffix = datasetPurpose switch
-            {
-                LabelingDatasetPurpose.Segmentation => "-seg",
-                LabelingDatasetPurpose.AnomalyDetection => "-cls",
-                _ => string.Empty
-            };
-            foreach (string size in new[] { "n", "s", "m" })
-            {
-                yield return $"yolov8{size}{suffix}.pt";
-            }
-        }
-
-        private static string ResolveYoloV8SeedFileName(LabelingDatasetPurpose datasetPurpose)
-            => EnumerateYoloV8SeedFileNames(datasetPurpose).First();
-
-        private static IEnumerable<string> EnumerateWeightCandidates(string projectRootPath)
-        {
-            string rootBest = Path.Combine(projectRootPath ?? string.Empty, "best.pt");
-            yield return rootBest;
-
-            string runsRoot = Path.Combine(projectRootPath ?? string.Empty, "runs", "train");
-            if (!Directory.Exists(runsRoot))
-            {
-                yield break;
-            }
-
-            foreach (string candidate in Directory.EnumerateFiles(runsRoot, "best.pt", SearchOption.AllDirectories)
-                .OrderByDescending(path => File.GetLastWriteTimeUtc(path)))
-            {
-                yield return candidate;
-            }
-        }
-
-        private static string ResolveImageRootPath(string currentPath, string projectRootPath)
-        {
-            string[] candidates =
-            {
-                Path.Combine(projectRootPath ?? string.Empty, "data", "train", "images"),
-                Path.Combine(projectRootPath ?? string.Empty, "data", "valid", "images"),
-                Path.Combine(projectRootPath ?? string.Empty, "data", "images")
-            };
-
-            foreach (string candidate in candidates)
-            {
-                if (Directory.Exists(candidate))
-                {
-                    return candidate;
-                }
-            }
-
-            return currentPath?.Trim() ?? string.Empty;
-        }
     }
 }

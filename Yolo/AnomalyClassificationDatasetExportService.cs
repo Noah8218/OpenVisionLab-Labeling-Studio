@@ -37,6 +37,7 @@ namespace MvcVisionSystem.Yolo
             data.ProjectSettings?.EnsureDefaults();
             string rootPath = ResolveDatasetRootPath(data, datasetRootPath);
             Directory.CreateDirectory(rootPath);
+            ResetGeneratedSplitDirectories(rootPath);
 
             string[] orderedImages = (imagePaths ?? Enumerable.Empty<string>())
                 .Where(path => !string.IsNullOrWhiteSpace(path))
@@ -85,6 +86,23 @@ namespace MvcVisionSystem.Yolo
             }
 
             return result;
+        }
+
+        private static void ResetGeneratedSplitDirectories(string rootPath)
+        {
+            foreach (string split in new[]
+            {
+                YoloDatasetSplitService.TrainMode,
+                YoloDatasetSplitService.ValidMode,
+                YoloDatasetSplitService.TestMode
+            })
+            {
+                string splitPath = Path.Combine(rootPath, split);
+                if (Directory.Exists(splitPath))
+                {
+                    Directory.Delete(splitPath, recursive: true);
+                }
+            }
         }
 
         private static string ResolveDatasetRootPath(CData data, string datasetRootPath)

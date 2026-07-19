@@ -34,7 +34,7 @@ namespace MvcVisionSystem
                 isIndeterminate: true);
             SetTrainingStatusBrushes(
                 TrainingSettingsViewModel?.TrainingReadinessForeground ?? TrainingReadinessText?.Foreground,
-                MediaBrushes.DodgerBlue);
+                ResolveBrushResource("InfoBrush", MediaBrushes.DodgerBlue));
             UpdateYoloCommandButtons();
             return true;
         }

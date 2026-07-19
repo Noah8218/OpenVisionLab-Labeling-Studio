@@ -34,7 +34,7 @@ namespace MvcVisionSystem
         public static string BuildStartCommandResultStatus(bool started)
         {
             return started
-                ? "학습 명령 전송 완료. 워커 응답과 에폭 로그를 기다리는 중입니다. 중지 버튼으로 취소할 수 있습니다."
+                ? "학습 시작 요청 전달됨. 아직 성공 완료가 아니며, 워커의 시작 응답과 첫 에폭 로그를 확인하는 중입니다. 중지 버튼으로 취소할 수 있습니다."
                 : "학습 시작 명령을 보내지 못했습니다. 데이터셋 준비 상태와 추론 연결을 확인하세요.";
         }
 
@@ -60,7 +60,7 @@ namespace MvcVisionSystem
 
         public static string BuildTrainingAcceptedProgressText()
         {
-            return "학습 명령 수락됨 / 에폭 시작 대기";
+            return "학습 시작 요청 전달됨 / 워커 시작 확인 대기";
         }
 
         public static string BuildStartExceptionStatus(string message)

@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using MvcVisionSystem._1._Core;
 
 namespace MvcVisionSystem.Yolo
 {
@@ -29,6 +30,15 @@ namespace MvcVisionSystem.Yolo
         {
             get
             {
+                if (Purpose == LabelingDatasetPurpose.AnomalyDetection)
+                {
+                    return new[]
+                    {
+                        $"Anomaly classification dataset ready. TrainImages:{Statistics.TrainImageCount}, ValidImages:{Statistics.ValidImageCount}, TestImages:{Statistics.TestImageCount}, Normal:{Statistics.AnomalyNormalImageCount}, Abnormal:{Statistics.AnomalyAbnormalImageCount}, Unreviewed:{Statistics.AnomalyUnreviewedImageCount}",
+                        $"Dataset purpose summary. {BuildPurposeSummary(Purpose, Statistics)}"
+                    };
+                }
+
                 var lines = new List<string>
                 {
                     $"YOLO dataset ready. Purpose:{Purpose}, TrainImages:{Statistics.TrainImageCount}, ValidImages:{Statistics.ValidImageCount}, TestImages:{Statistics.TestImageCount}, TrainLabels:{Statistics.TrainLabelCount}, ValidLabels:{Statistics.ValidLabelCount}, TestLabels:{Statistics.TestLabelCount}, Objects:{Statistics.TotalObjectCount}, Segments:{Statistics.TotalSegmentationObjectCount}",
@@ -57,7 +67,7 @@ namespace MvcVisionSystem.Yolo
                 LabelingDatasetPurpose.Segmentation =>
                     $"Segmentation uses segment JSON/mask PNG annotations as primary labels. SegmentObjects:{statistics.TotalSegmentationObjectCount}, SegmentFiles:{statistics.TotalSegmentFileCount}, MaskFiles:{statistics.TotalMaskFileCount}, BoxLabelsAuxiliary:{statistics.TotalObjectCount}",
                 LabelingDatasetPurpose.AnomalyDetection =>
-                    "AnomalyDetection uses reviewed normal/abnormal images for the current image-level classification training flow.",
+                    $"AnomalyDetection uses reviewed normal/abnormal images for image-level classification. Normal:{statistics.AnomalyNormalImageCount}, Abnormal:{statistics.AnomalyAbnormalImageCount}, Unreviewed:{statistics.AnomalyUnreviewedImageCount}",
                 _ =>
                     $"ObjectDetection uses YOLO box .txt labels. BoxLabels:{statistics.TotalObjectCount}, SegmentationArtifactsExcluded:{statistics.TotalSegmentationArtifactFileCount}"
             };
@@ -68,14 +78,39 @@ namespace MvcVisionSystem.Yolo
     {
         public static YoloDatasetReadinessReport Build(CData data, bool refreshYaml)
         {
-            YoloDatasetValidationResult configuration = YoloDatasetValidator.ValidateConfiguration(data);
             LabelingDatasetPurpose purpose = ResolveDatasetPurpose(data);
+            YoloDatasetValidationResult configuration = purpose == LabelingDatasetPurpose.AnomalyDetection
+                ? YoloDatasetValidator.ValidateAnomalyClassificationConfiguration(data)
+                : YoloDatasetValidator.ValidateConfiguration(data);
             if (!configuration.IsValid)
             {
                 return new YoloDatasetReadinessReport(
                     configuration,
                     new YoloDatasetValidationResult(Array.Empty<string>()),
                     new YoloDatasetStatistics(),
+                    purpose);
+            }
+
+            if (purpose == LabelingDatasetPurpose.AnomalyDetection)
+            {
+                AnomalyClassificationTrainingReadinessReport anomaly =
+                    AnomalyClassificationTrainingReadinessService.Build(data);
+                var anomalyStatistics = new YoloDatasetStatistics
+                {
+                    TrainImageCount = anomaly.TrainImageCount,
+                    ValidImageCount = anomaly.ValidImageCount,
+                    TestImageCount = anomaly.TestImageCount,
+                    TrainLabelCount = anomaly.TrainImageCount,
+                    ValidLabelCount = anomaly.ValidImageCount,
+                    TestLabelCount = anomaly.TestImageCount,
+                    AnomalyNormalImageCount = anomaly.NormalImageCount,
+                    AnomalyAbnormalImageCount = anomaly.AbnormalImageCount,
+                    AnomalyUnreviewedImageCount = anomaly.UnreviewedImageCount
+                };
+                return new YoloDatasetReadinessReport(
+                    configuration,
+                    new YoloDatasetValidationResult(anomaly.Errors),
+                    anomalyStatistics,
                     purpose);
             }
 

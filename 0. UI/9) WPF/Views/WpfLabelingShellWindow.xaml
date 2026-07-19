@@ -35,7 +35,11 @@
         <SolidColorBrush x:Key="BorderBrushDark" Color="#303030" />
         <SolidColorBrush x:Key="PrimaryTextBrush" Color="#F7F7F7" />
         <SolidColorBrush x:Key="SecondaryTextBrush" Color="#B7B7B7" />
-        <SolidColorBrush x:Key="AccentBrush" Color="#E53935" />
+        <SolidColorBrush x:Key="AccentBrush" Color="#3B82F6" />
+        <SolidColorBrush x:Key="InfoBrush" Color="#3B82F6" />
+        <SolidColorBrush x:Key="SuccessBrush" Color="#22C55E" />
+        <SolidColorBrush x:Key="WarningBrush" Color="#F59E0B" />
+        <SolidColorBrush x:Key="ErrorBrush" Color="#EF4444" />
         <SolidColorBrush x:Key="ModelCenterCandidateBrush" Color="#38BDF8" />
         <SolidColorBrush x:Key="ModelCenterDecisionBrush" Color="#F59E0B" />
         <SolidColorBrush x:Key="ModelCenterCandidatePanelBrush" Color="#0D1E28" />
@@ -2431,9 +2435,9 @@
                                                                          </StackPanel>
                                                                      </ui:Button>
                                                                  </StackPanel>
-                                                             </Border>
-                                                         </StackPanel>
-                                                     </Border>
+                                                 </Border>
+                                             </StackPanel>
+                                         </Border>
                                                  </StackPanel>
                                              </Border>
                                              <Border x:Name="YoloModelRecoveryPanel"

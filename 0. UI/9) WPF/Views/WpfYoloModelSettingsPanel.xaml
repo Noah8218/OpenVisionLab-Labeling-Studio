@@ -882,6 +882,8 @@
                               Height="26"
                               ItemsSource="{Binding ModelEngineOptions}"
                               SelectedItem="{Binding SelectedModelEngine, Mode=TwoWay}"
+                              DropDownOpened="YoloModelEngineBox_DropDownOpened"
+                              DropDownClosed="YoloModelEngineBox_DropDownClosed"
                               Background="{DynamicResource InputBrush}"
                               Foreground="{DynamicResource PrimaryTextBrush}"
                               BorderBrush="{DynamicResource InputBorderBrush}"
@@ -902,7 +904,7 @@
 
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="82" />
+                    <ColumnDefinition Width="132" />
                     <ColumnDefinition Width="*" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
@@ -934,7 +936,7 @@
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
                 </ui:Button>
 
-                <TextBlock Grid.Row="1" Text="&#xD504;&#xB85C;&#xC81D;&#xD2B8;" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBlock Grid.Row="1" Text="&#xBAA8;&#xB378; &#xC2E4;&#xD589;&#xAE30; &#xD3F4;&#xB354;" Style="{StaticResource YoloModelLabelStyle}" />
                 <TextBox x:Name="YoloProjectRootBox"
                          Grid.Row="1"
                          Grid.Column="1"
@@ -946,12 +948,12 @@
                            Grid.Column="2"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowseProjectRootEnabled}"
-                           ToolTip="&#xBAA8;&#xB378; &#xD504;&#xB85C;&#xC81D;&#xD2B8; &#xD3F4;&#xB354; &#xC120;&#xD0DD;"
+                           ToolTip="&#xBAA8;&#xB378; &#xC2E4;&#xD589;&#xAE30; &#xD3F4;&#xB354; &#xC120;&#xD0DD;"
                            Command="{Binding BrowseProjectRootCommand}">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
                 </ui:Button>
 
-                <TextBlock Grid.Row="2" Text="&#xC2E4;&#xD589; &#xC2A4;&#xD06C;&#xB9BD;&#xD2B8;" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBlock Grid.Row="2" Text="&#xBAA8;&#xB378; &#xC6CC;&#xCEE4; &#xC2A4;&#xD06C;&#xB9BD;&#xD2B8;" Style="{StaticResource YoloModelLabelStyle}" />
                 <TextBox x:Name="YoloClientScriptBox"
                          Grid.Row="2"
                          Grid.Column="1"
@@ -963,7 +965,7 @@
                            Grid.Column="2"
                            Style="{StaticResource YoloModelBrowseButtonStyle}"
                            IsEnabled="{Binding IsBrowseClientScriptEnabled}"
-                           ToolTip="&#xCD94;&#xB860; &#xC2E4;&#xD589; &#xC2A4;&#xD06C;&#xB9BD;&#xD2B8; &#xC120;&#xD0DD;"
+                           ToolTip="&#xBAA8;&#xB378; &#xC6CC;&#xCEE4; &#xC2A4;&#xD06C;&#xB9BD;&#xD2B8; &#xC120;&#xD0DD;"
                            Command="{Binding BrowseClientScriptCommand}">
                     <iconPacks:PackIconMaterial Style="{StaticResource YoloModelIconStyle}" Kind="DotsHorizontal" />
                 </ui:Button>
@@ -1003,7 +1005,7 @@
                          ToolTip="1~600&#xCD08;"
                          mvvm:InputCommandBehaviors.TextInputFilter="Integer" />
 
-                <TextBlock Grid.Row="7" Text="&#xAC80;&#xCD9C; &#xC790;&#xB3D9; &#xC2DC;&#xC791;" Style="{StaticResource YoloModelLabelStyle}" />
+                <TextBlock Grid.Row="7" Text="&#xBAA8;&#xB378; &#xC2E4;&#xD589;&#xAE30; &#xC790;&#xB3D9; &#xC2DC;&#xC791;" Style="{StaticResource YoloModelLabelStyle}" />
                 <CheckBox x:Name="YoloAutoStartCheckBox"
                           Grid.Row="7"
                           Grid.Column="1"

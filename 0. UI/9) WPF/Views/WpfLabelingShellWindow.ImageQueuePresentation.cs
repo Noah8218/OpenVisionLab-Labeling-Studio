@@ -8,6 +8,7 @@ using System.IO;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Controls;
 using System.Windows.Threading;
 using DrawingSize = System.Drawing.Size;
 using MediaBrush = System.Windows.Media.Brush;
@@ -34,6 +35,11 @@ namespace MvcVisionSystem
             try
             {
                 ImageQueueGrid.SelectedItem = item;
+                if (ImageQueueGrid.Columns.Count > 0)
+                {
+                    ImageQueueGrid.CurrentCell = new DataGridCellInfo(item, ImageQueueGrid.Columns[0]);
+                }
+
                 ImageQueueGrid.ScrollIntoView(item);
             }
             finally

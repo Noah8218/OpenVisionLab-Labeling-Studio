@@ -91,19 +91,25 @@ namespace MvcVisionSystem
             bool hasReplacementEvidence = hasTest && hasTestLabels;
             bool hasStrongReplacementEvidence = finalVerificationCount >= RecommendedModelReplacementTestImageCount;
             bool hasSplitOverlap = statistics.TrainValidImageContentOverlapCount > 0 || statistics.SplitImageContentOverlapCount > 0;
-            bool needsBoxLabels = purpose != LabelingDatasetPurpose.Segmentation;
-            bool hasPrimaryLabels = needsBoxLabels
-                ? statistics.TotalObjectCount > 0
-                : statistics.TotalSegmentationObjectCount > 0 || statistics.TotalMaskFileCount > 0;
-            int primaryLabelValue = needsBoxLabels
-                ? statistics.TotalObjectCount
-                : Math.Max(statistics.TotalSegmentationObjectCount, statistics.TotalMaskFileCount);
-            int artifactFileCount = needsBoxLabels
-                ? statistics.TotalLabelFileCount
-                : statistics.TotalSegmentFileCount + statistics.TotalMaskFileCount;
-            int completedImageLabelCount = needsBoxLabels
-                ? statistics.TotalLabelFileCount
-                : Math.Max(statistics.TotalSegmentFileCount, statistics.TotalMaskFileCount);
+            bool isAnomaly = purpose == LabelingDatasetPurpose.AnomalyDetection;
+            bool needsBoxLabels = purpose == LabelingDatasetPurpose.ObjectDetection;
+            int anomalyReviewedCount = statistics.AnomalyNormalImageCount + statistics.AnomalyAbnormalImageCount;
+            bool hasPrimaryLabels = isAnomaly
+                ? statistics.AnomalyNormalImageCount > 0 && statistics.AnomalyAbnormalImageCount > 0
+                : needsBoxLabels
+                    ? statistics.TotalObjectCount > 0
+                    : statistics.TotalSegmentationObjectCount > 0 || statistics.TotalMaskFileCount > 0;
+            int primaryLabelValue = isAnomaly
+                ? anomalyReviewedCount
+                : needsBoxLabels
+                    ? statistics.TotalObjectCount
+                    : Math.Max(statistics.TotalSegmentationObjectCount, statistics.TotalMaskFileCount);
+            int artifactFileCount = isAnomaly
+                ? anomalyReviewedCount
+                : needsBoxLabels
+                    ? statistics.TotalLabelFileCount
+                    : statistics.TotalSegmentFileCount + statistics.TotalMaskFileCount;
+            int completedImageLabelCount = artifactFileCount;
             int visibleCompletedImageLabelCount = statistics.TotalImageCount > 0
                 ? Math.Min(completedImageLabelCount, statistics.TotalImageCount)
                 : 0;
@@ -162,27 +168,31 @@ namespace MvcVisionSystem
                     isWarning: report?.IsReady == true && !hasStrongReplacementEvidence,
                     actionKind: WpfDatasetDashboardActionKind.OpenDatasetSettings),
                 new WpfDatasetDashboardMetricItem(
-                    needsBoxLabels ? "\uBC15\uC2A4" : "\uC138\uADF8",
+                    isAnomaly ? "판정" : needsBoxLabels ? "\uBC15\uC2A4" : "\uC138\uADF8",
                     primaryLabelValue.ToString(),
-                    needsBoxLabels
+                    isAnomaly
+                        ? $"정상 {statistics.AnomalyNormalImageCount}장, 이상 {statistics.AnomalyAbnormalImageCount}장"
+                        : needsBoxLabels
                         ? $"\uBC15\uC2A4 {statistics.TotalObjectCount}\uAC1C, \uB77C\uBCA8 \uD30C\uC77C {statistics.TotalLabelFileCount}\uAC1C"
                         : $"\uC138\uADF8\uBA58\uD2B8 {statistics.TotalSegmentationObjectCount}\uAC1C, \uB9C8\uC2A4\uD06C {statistics.TotalMaskFileCount}\uAC1C",
                     hasPrimaryLabels ? "\uC644\uB8CC" : "\uD544\uC694",
-                    needsBoxLabels ? PackIconMaterialKind.ShapeSquareRoundedPlus : PackIconMaterialKind.ViewListOutline,
+                    isAnomaly ? PackIconMaterialKind.CheckCircleOutline : needsBoxLabels ? PackIconMaterialKind.ShapeSquareRoundedPlus : PackIconMaterialKind.ViewListOutline,
                     isProblem: !hasPrimaryLabels,
                     isWarning: false,
                     actionKind: WpfDatasetDashboardActionKind.OpenLabelingTool),
                 new WpfDatasetDashboardMetricItem(
-                    needsBoxLabels ? "\uB77C\uBCA8 \uD30C\uC77C" : "SEG \uAC80\uD1A0",
+                    isAnomaly ? "판정 이미지" : needsBoxLabels ? "\uB77C\uBCA8 \uD30C\uC77C" : "SEG \uAC80\uD1A0",
                     artifactFileCount.ToString(),
-                    needsBoxLabels
+                    isAnomaly
+                        ? $"학습 {statistics.TrainImageCount}장, 검증 {statistics.ValidImageCount}장, 최종 {statistics.TestImageCount}장"
+                        : needsBoxLabels
                         ? $"\uD559\uC2B5 {statistics.TrainLabelCount}\uAC1C, \uAC80\uC99D {statistics.ValidLabelCount}\uAC1C, \uCD5C\uC885 {statistics.TestLabelCount}\uAC1C"
                         : $"\uC138\uADF8\uBA58\uD2B8 {statistics.TotalSegmentFileCount}\uAC1C, \uB9C8\uC2A4\uD06C {statistics.TotalMaskFileCount}\uAC1C / \uD074\uB9AD: \uAE30\uC874 \uB9C8\uC2A4\uD06C \uBCF4\uC815 \uB4DC\uB77C\uC774\uB7F0 \uBCF4\uACE0\uC11C",
-                    artifactFileCount > 0 ? needsBoxLabels ? "\uC788\uC74C" : "\uAC80\uD1A0" : "\uD544\uC694",
+                    artifactFileCount > 0 ? isAnomaly ? "완료" : needsBoxLabels ? "\uC788\uC74C" : "\uAC80\uD1A0" : "\uD544\uC694",
                     PackIconMaterialKind.FileDocumentOutline,
                     isProblem: artifactFileCount == 0,
                     isWarning: false,
-                    actionKind: needsBoxLabels
+                    actionKind: isAnomaly || needsBoxLabels
                         ? WpfDatasetDashboardActionKind.CheckDataset
                         : WpfDatasetDashboardActionKind.ExportHistoricalSegmentationRemediationAudit),
                 new WpfDatasetDashboardMetricItem(
@@ -505,7 +515,7 @@ namespace MvcVisionSystem
                 LabelingDatasetPurpose.Segmentation =>
                     $"데이터셋: {purposeText} {readinessText} / 이미지 {imageCount} / {BuildSegmentationPrimaryLabelText(statistics)} / 박스 라벨 {statistics.TotalObjectCount} 보조",
                 LabelingDatasetPurpose.AnomalyDetection =>
-                    $"데이터셋: {purposeText} {readinessText} / 이미지 {imageCount} / 결함 박스 {statistics.TotalObjectCount} / 세그 라벨 {statistics.TotalSegmentationObjectCount} 보조",
+                    $"데이터셋: {purposeText} {readinessText} / 이미지 {imageCount} / 정상 {statistics.AnomalyNormalImageCount} / 이상 {statistics.AnomalyAbnormalImageCount} / 미판정 {statistics.AnomalyUnreviewedImageCount}",
                 _ =>
                     $"데이터셋: {purposeText} {readinessText} / 이미지 {imageCount} / 박스 라벨 {statistics.TotalObjectCount} / 세그 라벨 {statistics.TotalSegmentationObjectCount} 제외"
             };
@@ -516,6 +526,11 @@ namespace MvcVisionSystem
             if (statistics == null)
             {
                 return $"purpose {purpose}, train 0, valid 0, test 0, box labels 0, segment labels 0, classes 0";
+            }
+
+            if (purpose == LabelingDatasetPurpose.AnomalyDetection)
+            {
+                return $"purpose {purpose}, train {statistics.TrainImageCount}, valid {statistics.ValidImageCount}, test {statistics.TestImageCount}, normal {statistics.AnomalyNormalImageCount}, abnormal {statistics.AnomalyAbnormalImageCount}, unreviewed {statistics.AnomalyUnreviewedImageCount}";
             }
 
             return $"purpose {purpose}, train {statistics.TrainImageCount}, valid {statistics.ValidImageCount}, test {statistics.TestImageCount}, box labels {statistics.TotalObjectCount} ({statistics.TotalLabelFileCount} files), segment labels {statistics.TotalSegmentationObjectCount} ({statistics.TotalSegmentFileCount} files), masks {statistics.TotalMaskFileCount}, classes {classCount}";

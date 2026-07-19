@@ -67,6 +67,11 @@ namespace MvcVisionSystem
 
         private bool EnsureModelRuntimeForTraining()
         {
+            if (TryAutoConnectAnomalyTrainingRuntime())
+            {
+                return true;
+            }
+
             PythonModelRuntimeState runtimeState = GetPythonModelRuntimeState();
             if (runtimeState.CanRunTraining)
             {
@@ -77,6 +82,34 @@ namespace MvcVisionSystem
                 "\uD559\uC2B5 \uC2DC\uC791 \uB300\uAE30: \uBAA8\uB378 \uC2E4\uD589\uAE30 \uC124\uCE58 \uB610\uB294 \uACBD\uB85C \uC5F0\uACB0 \uD544\uC694",
                 runtimeState);
             return false;
+        }
+
+        private bool TryAutoConnectAnomalyTrainingRuntime()
+        {
+            if (global?.Data?.ProjectSettings?.DatasetPurpose != LabelingDatasetPurpose.AnomalyDetection)
+            {
+                return false;
+            }
+
+            global.Data.ProjectSettings.PythonModel ??= new PythonModelSettings();
+            if (!PythonModelRuntimeConnectionService.TryBuildAnomalyTrainingConnection(
+                    global.Data.ProjectSettings.PythonModel,
+                    out PythonModelRuntimeConnectionResult result))
+            {
+                return false;
+            }
+
+            global.Data.ProjectSettings.PythonModel = result.Settings;
+            YoloModelSettingsViewModel?.LoadFrom(
+                result.Settings,
+                global.Data.ProjectSettings.AnomalyClassification);
+            TrainingSettingsViewModel?.ApplyModelEngineSelection(result.Settings.ModelEngine);
+            SaveProjectConfigFromPanel();
+            SetYoloCommandStatus(
+                "이상탐지 분류 학습에 맞는 YOLOv8 실행기를 자동 연결했습니다.",
+                isBusy: false);
+            AppendLog($"이상탐지 학습 실행기 자동 연결: {result.Settings.ProjectRootPath}");
+            return true;
         }
 
         private bool EnsureModelRuntimeForInference()

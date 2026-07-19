@@ -147,8 +147,8 @@ namespace MvcVisionSystem
             MediaBrush readinessBrush = report == null
                 ? ResolveBrushResource("SecondaryTextBrush", MediaBrushes.Gray)
                 : report.IsReady
-                    ? MediaBrushes.LimeGreen
-                    : MediaBrushes.DarkOrange;
+                    ? ResolveBrushResource("SuccessBrush", MediaBrushes.LimeGreen)
+                    : ResolveBrushResource("WarningBrush", MediaBrushes.DarkOrange);
             MediaBrush stateBrush = ResolveTrainingStateBrush(status);
             SetTrainingStatusBrushes(readinessBrush, stateBrush);
         }
@@ -203,23 +203,23 @@ namespace MvcVisionSystem
             string state = status.LastTrainingState?.Trim() ?? string.Empty;
             if (WpfTrainingWeightsService.IsCompletedTrainingState(state))
             {
-                return MediaBrushes.LimeGreen;
+                return ResolveBrushResource("SuccessBrush", MediaBrushes.LimeGreen);
             }
 
             if (string.Equals(state, "failed", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(state, "error", StringComparison.OrdinalIgnoreCase))
             {
-                return MediaBrushes.IndianRed;
+                return ResolveBrushResource("ErrorBrush", MediaBrushes.IndianRed);
             }
 
             if (string.Equals(state, "stopped", StringComparison.OrdinalIgnoreCase))
             {
-                return MediaBrushes.DarkOrange;
+                return ResolveBrushResource("WarningBrush", MediaBrushes.DarkOrange);
             }
 
             if (!IsTerminalTrainingState(state) || status.LastTrainingProgressPercent.HasValue)
             {
-                return MediaBrushes.DodgerBlue;
+                return ResolveBrushResource("InfoBrush", MediaBrushes.DodgerBlue);
             }
 
             return ResolveBrushResource("SecondaryTextBrush", MediaBrushes.Gray);

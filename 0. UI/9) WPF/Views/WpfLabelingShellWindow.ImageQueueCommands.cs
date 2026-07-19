@@ -121,9 +121,19 @@ namespace MvcVisionSystem
             {
                 if (anomalyImageReviewStatus.TryFindNextUnreviewed(orderedPaths, activeImagePath, out string nextAnomalyImagePath))
                 {
-                    SelectImageQueueItem(nextAnomalyImagePath);
-                    TryLoadImage(nextAnomalyImagePath);
-                    return true;
+                    if (TryLoadImage(
+                        nextAnomalyImagePath,
+                        populateQueue: false,
+                        refreshQueueDetails: false,
+                        refreshActiveStatus: false,
+                        appendLoadLog: false))
+                    {
+                        // The queue already contains this image. Keep its rows intact and move only the active selection.
+                        SelectImageQueueItem(nextAnomalyImagePath);
+                        return true;
+                    }
+
+                    return false;
                 }
 
                 return false;

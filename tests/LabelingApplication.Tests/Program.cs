@@ -181,6 +181,11 @@ internal static partial class Program
             return RunExeRealLabelingSmoke(args);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--exe-label-create-queue-locality-smoke", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunExeLabelCreateQueueLocalitySmoke(args);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--exe-roi-tools-smoke", StringComparison.OrdinalIgnoreCase)))
         {
             return RunExeRoiToolsSmoke(args);
@@ -440,6 +445,11 @@ internal static partial class Program
             return RunSingleSmoke("WPF image queue click loads canvas and preserves pending labels", TestWpfImageQueueClickLoadsCanvas);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--wpf-image-queue-save-local-update", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF label create and save update one queue row without resetting the queue view", TestWpfImageQueueSaveUpdatesOnlyActiveRow);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--wpf-image-queue-keyboard-navigation", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("WPF image queue arrow keys load adjacent images", TestWpfImageQueueArrowKeysLoadAdjacentImages);
@@ -583,6 +593,11 @@ internal static partial class Program
         if (args.Any(arg => string.Equals(arg, "--wpf-anomaly-purpose-flow", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("WPF anomaly purpose flow persists image-level review state", TestWpfAnomalyPurposeFlow);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--wpf-anomaly-queue-focus", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF anomaly decisions keep queue focus on the active image", TestWpfAnomalyQueueFocusFollowsActiveImage);
         }
 
         if (args.Any(arg => string.Equals(arg, "--anomaly-folder-auto-review", StringComparison.OrdinalIgnoreCase)))
@@ -841,7 +856,7 @@ internal static partial class Program
 
         if (args.Any(arg => string.Equals(arg, "--python-model-runtime-connection", StringComparison.OrdinalIgnoreCase)))
         {
-            return RunSingleSmoke("Python model runtime connection fills YOLOv5 folder settings", TestPythonModelRuntimeConnection);
+            return RunSingleSmoke("Python model runtime connection switches worker paths without replacing data or inspection model", TestPythonModelRuntimeConnection);
         }
 
         if (args.Any(arg => string.Equals(arg, "--python-model-settings-validator", StringComparison.OrdinalIgnoreCase)))
@@ -1004,6 +1019,7 @@ internal static partial class Program
             ("CVAT segmentation import writes local segmentation artifacts", TestCvatSegmentationImportService),
             ("Dataset export capability inventory declares current and next targets", TestDatasetExportCapabilityInventory),
             ("WPF anomaly purpose flow persists image-level review state", TestWpfAnomalyPurposeFlow),
+            ("WPF anomaly decisions keep queue focus on the active image", TestWpfAnomalyQueueFocusFollowsActiveImage),
             ("Anomaly classification decision maps configured image-level classes", TestAnomalyClassificationDecisionService),
             ("YOLO annotation service writes image and label files", TestYoloAnnotationFileWrite),
             ("YOLO annotation save preserves source image extension and split ownership", TestYoloAnnotationPreservesSourceImageExtensionAndSplitOwnership),
@@ -1039,7 +1055,7 @@ internal static partial class Program
             ("Python model settings validator reports missing weights", TestPythonModelSettingsValidator),
             ("Python model runtime profiles describe selectable engines", TestPythonModelRuntimeProfiles),
             ("Python model runtime self-test reports actionable checks", TestPythonModelRuntimeSelfTest),
-            ("Python model runtime connection fills YOLOv5 folder settings", TestPythonModelRuntimeConnection),
+            ("Python model runtime connection switches worker paths without replacing data or inspection model", TestPythonModelRuntimeConnection),
             ("Bundled Ultralytics worker exposes the runtime contract", TestPythonUltralyticsBundledWorker),
             ("Python environment result summaries stay operator-readable", TestPythonEnvironmentResultSummaries),
             ("Python environment service parses requirements files", TestPythonEnvironmentRequirementsParser),
@@ -1155,6 +1171,7 @@ internal static partial class Program
             ("WPF image queue click uses the lightweight load path", TestWpfImageQueueClickUsesLightweightLoadPath),
             ("WPF image queue preloads adjacent image decodes", TestWpfImageQueuePreloadsAdjacentDecodes),
             ("WPF image queue click loads canvas", TestWpfImageQueueClickLoadsCanvas),
+            ("WPF label create and save update one queue row without resetting the queue view", TestWpfImageQueueSaveUpdatesOnlyActiveRow),
             ("WPF image queue arrow keys load adjacent images", TestWpfImageQueueArrowKeysLoadAdjacentImages),
             ("WPF image queue large folder keeps bulk and lazy thumbnail behavior", TestWpfImageQueueLargeFolderKeepsBulkAndLazyThumbnails),
             ("WPF image queue 10K catalog stays responsive and rejects stale loads", TestWpfImageQueueTenThousandAsyncCatalogLoad),
@@ -1455,6 +1472,7 @@ internal static partial class Program
         bool showWorkspaceLayoutControls = HasArgument(args, "--show-workspace-layout-controls");
         bool showTrainingRecoveryStatus = HasArgument(args, "--show-training-recovery-status");
         bool showCandidateDisclosure = HasArgument(args, "--show-candidate-disclosure");
+        bool expandModelRuntimeDetails = HasArgument(args, "--expand-model-runtime-details");
         bool expandRightWorkflow = HasArgument(args, "--right-workflow-expanded");
         bool confirmAllCandidates = HasArgument(args, "--confirm-all-candidates");
         bool editConfirmedLabelClass = HasArgument(args, "--edit-confirmed-label-class");
@@ -1854,6 +1872,16 @@ internal static partial class Program
                         ApplyVisualSmokeUltralyticsRuntimeReady(window, imagePath, temporaryVisualSmokeRoots);
                         SelectVisualSmokeReviewTab(window, reviewTab);
                         EnsureVisualSmokeRightWorkflowExpanded(window, expandRightWorkflow);
+                        PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
+                    }
+
+                    if (expandModelRuntimeDetails
+                        && window.FindName("YoloModelSettingsPanelControl") is WpfYoloModelSettingsPanel modelSettingsPanel)
+                    {
+                        modelSettingsPanel.SettingsExpander.IsExpanded = true;
+                        modelSettingsPanel.AdvancedSettingsExpander.IsExpanded = true;
+                        window.UpdateLayout();
+                        modelSettingsPanel.AdvancedSettingsExpander.BringIntoView();
                         PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
                     }
 
@@ -17842,6 +17870,12 @@ internal static partial class Program
             AssertTrue(File.Exists(Path.Combine(result.DatasetRootPath, "train", "normal", "normal-a.png")), "normal reviewed image should be copied into classification train/normal");
             AssertTrue(File.Exists(Path.Combine(result.DatasetRootPath, "train", "abnormal", "abnormal-a.png")), "abnormal reviewed image should be copied into classification train/abnormal");
             AssertTrue(!File.Exists(Path.Combine(result.DatasetRootPath, "train", "normal", "unreviewed-a.png")), "unreviewed anomaly images should not be exported for classification training");
+
+            AnomalyClassificationDatasetExportResult repeated = service.Export(data, imagePaths);
+            AssertEqual(2, repeated.TotalExportedImageCount);
+            AssertEqual(1, Directory.EnumerateFiles(Path.Combine(result.DatasetRootPath, "train", "normal")).Count());
+            AssertEqual(1, Directory.EnumerateFiles(Path.Combine(result.DatasetRootPath, "train", "abnormal")).Count());
+            AssertTrue(!File.Exists(Path.Combine(result.DatasetRootPath, "train", "normal", "normal-a-2.png")), "repeated anomaly export should replace generated splits instead of accumulating duplicate images");
         }
         finally
         {
@@ -17878,6 +17912,37 @@ internal static partial class Program
             reviewStatus.MarkNormal(normalPath);
             reviewStatus.MarkAbnormal(abnormalPath);
             reviewStatus.SaveReviewStatus(data);
+
+            var incompatibleWorkflow = new YoloTrainingWorkflowService();
+            data.ProjectSettings.PythonModel.ModelEngine = PythonModelSettings.EngineYoloV5;
+            AssertTrue(!incompatibleWorkflow.TryPrepareTrainingDataset(data), "YOLOv5 must not receive anomaly classification folder training requests");
+            AssertTrue(
+                incompatibleWorkflow.LastPreparationFailureMessage.Contains(YoloTrainingWorkflowService.AnomalyClassificationRuntimeError, StringComparison.Ordinal),
+                "incompatible anomaly runtime should expose the exact YOLOv8/YOLO11 requirement");
+            string incompatibleRuntimeStatus = WpfTrainingCommandPresentationService.BuildStartCommandResultStatus(
+                started: false,
+                incompatibleWorkflow.LastPreparationFailureMessage);
+            AssertTrue(incompatibleRuntimeStatus.Contains("YOLOv8", StringComparison.Ordinal)
+                && incompatibleRuntimeStatus.Contains("YOLO11", StringComparison.Ordinal),
+                "incompatible anomaly runtime should be translated into an actionable operator message");
+
+            data.ProjectSettings.PythonModel.ModelEngine = PythonModelSettings.EngineYolo11;
+            YoloDatasetReadinessReport anomalyDatasetReport = YoloDatasetReadinessService.Build(data, refreshYaml: true);
+            AssertTrue(anomalyDatasetReport.IsReady, string.Join(Environment.NewLine, anomalyDatasetReport.Errors));
+            AssertEqual(2, anomalyDatasetReport.Statistics.TrainImageCount);
+            AssertEqual(1, anomalyDatasetReport.Statistics.AnomalyNormalImageCount);
+            AssertEqual(1, anomalyDatasetReport.Statistics.AnomalyAbnormalImageCount);
+            AssertEqual(0, anomalyDatasetReport.Statistics.TotalObjectCount);
+            string anomalyReadyStatus = InvokePrivateStaticResult<string>(
+                typeof(WpfLabelingShellWindow),
+                "BuildReadyDatasetStatusText",
+                anomalyDatasetReport.Statistics,
+                LabelingDatasetPurpose.AnomalyDetection,
+                false);
+            AssertTrue(anomalyReadyStatus.Contains("정상 1", StringComparison.Ordinal)
+                && anomalyReadyStatus.Contains("이상 1", StringComparison.Ordinal)
+                && !anomalyReadyStatus.Contains("결함 박스", StringComparison.Ordinal),
+                "anomaly readiness should use image decisions rather than object-detection box counts");
 
             int port = GetAvailableTcpPort();
             using var communication = new CCommunicationLearning(startListen: false, port: port);
@@ -17938,6 +18003,7 @@ internal static partial class Program
             var insufficientData = new CData();
             insufficientData.ConfigureOutputRoot(Path.Combine(insufficientRoot, "dataset"));
             insufficientData.ProjectSettings.DatasetPurpose = LabelingDatasetPurpose.AnomalyDetection;
+            insufficientData.ProjectSettings.PythonModel.ModelEngine = PythonModelSettings.EngineYoloV8;
             insufficientData.ProjectSettings.PythonModel.ImageRootPath = sourceRoot;
             var insufficientReviewStatus = new AnomalyImageReviewStatusService();
             insufficientReviewStatus.SetImages(new[] { normalPath, abnormalPath });
@@ -22943,14 +23009,19 @@ internal static partial class Program
             File.WriteAllText(weightsPath, "weights");
             string imageRoot = Path.Combine(root, "data", "train", "images");
             Directory.CreateDirectory(imageRoot);
+            string selectedWeightsPath = Path.Combine(root, "inspection", "selected-best.pt");
+            Directory.CreateDirectory(Path.GetDirectoryName(selectedWeightsPath)!);
+            File.WriteAllText(selectedWeightsPath, "selected inspection weights");
+            string selectedImageRoot = Path.Combine(root, "recipe-images");
+            Directory.CreateDirectory(selectedImageRoot);
 
             var current = new PythonModelSettings
             {
                 ModelEngine = PythonModelSettings.EngineYolo11,
                 ProjectRootPath = Path.Combine(root, "missing"),
                 ClientScriptPath = string.Empty,
-                WeightsPath = string.Empty,
-                ImageRootPath = string.Empty
+                WeightsPath = selectedWeightsPath,
+                ImageRootPath = selectedImageRoot
             };
 
             PythonModelRuntimeConnectionResult result = PythonModelRuntimeConnectionService.BuildYoloV5FolderConnection(current, modelRoot);
@@ -22958,10 +23029,27 @@ internal static partial class Program
             AssertEqual(root, result.Settings.ProjectRootPath);
             AssertEqual(scriptPath, result.Settings.ClientScriptPath);
             AssertEqual(pythonPath, result.Settings.PythonExecutablePath);
-            AssertEqual(weightsPath, result.Settings.WeightsPath);
-            AssertEqual(imageRoot, result.Settings.ImageRootPath);
+            AssertEqual(selectedWeightsPath, result.Settings.WeightsPath);
+            AssertEqual(selectedImageRoot, result.Settings.ImageRootPath);
+            AssertTrue(!string.Equals(weightsPath, result.Settings.WeightsPath, StringComparison.OrdinalIgnoreCase), "runtime connection must not auto-adopt a model-root best.pt");
+            AssertTrue(!string.Equals(imageRoot, result.Settings.ImageRootPath, StringComparison.OrdinalIgnoreCase), "runtime connection must not replace the recipe image root");
             AssertTrue(result.SelfTestReport.CanTrain, "connected YOLOv5 folder should be train-ready");
             AssertTrue(result.SelfTestReport.CanInspect, "connected YOLOv5 folder with best.pt should be inspection-ready");
+
+            string invalidYolo5Root = Path.Combine(root, "invalid-yolov5");
+            Directory.CreateDirectory(invalidYolo5Root);
+            PythonModelRuntimeConnectionResult invalidYolo5Result = PythonModelRuntimeConnectionService.BuildYoloV5FolderConnection(
+                new PythonModelSettings
+                {
+                    PythonExecutablePath = @"C:\old-yolov8\.venv\Scripts\python.exe",
+                    ClientScriptPath = @"C:\old-yolov8\labeling_tcp_client.py",
+                    WeightsPath = selectedWeightsPath,
+                    ImageRootPath = selectedImageRoot
+                },
+                invalidYolo5Root);
+            AssertEqual(string.Empty, invalidYolo5Result.Settings.PythonExecutablePath);
+            AssertEqual(Path.Combine(invalidYolo5Root, "labelling_tcp_client.py"), invalidYolo5Result.Settings.ClientScriptPath);
+            AssertTrue(!invalidYolo5Result.SelfTestReport.CanTrain, "an invalid target runtime must fail instead of reusing the previous engine's Python and worker paths");
 
             string yolo8Root = Path.Combine(root, "yolov8");
             Directory.CreateDirectory(yolo8Root);
@@ -22972,26 +23060,9 @@ internal static partial class Program
             Directory.CreateDirectory(Path.Combine(yolo8Root, ".venv", "Lib", "site-packages", "ultralytics"));
             string yolo8ClientPath = Path.Combine(yolo8Root, "labeling_tcp_client.py");
             File.WriteAllText(yolo8ClientPath, "# YOLOv8 DetectImage local worker" + Environment.NewLine + "def handle_train_yolo(): return 'TrainYoloResult'");
-            string yolo8WeightsPath = Path.Combine(yolo8Root, "yolov8n-seg.pt");
-            File.WriteAllText(yolo8WeightsPath, "weights");
-            string yolo8DetectSeedPath = Path.Combine(yolo8Root, "yolov8n.pt");
-            File.WriteAllText(yolo8DetectSeedPath, "detect seed weights");
-            string yolo8TrainedWeightsPath = Path.Combine(yolo8Root, "runs", "train", "openvisionlab-yolov8-seg-smoke", "weights", "best.pt");
-            string yolo8SegmentTrainedWeightsPath = Path.Combine(yolo8Root, "runs", "segment", "openvisionlab-yolov8-seg-runs-segment-smoke", "weights", "best.pt");
-            string yolo8AppFixtureTrainedWeightsPath = Path.Combine(yolo8Root, "runs", "segment", "openvisionlab-yolov8-app-seg-fixture-smoke", "weights", "best.pt");
-            string yolo8DetectTrainedWeightsPath = Path.Combine(yolo8Root, "runs", "detect", "openvisionlab-yolov8-detect-smoke", "weights", "best.pt");
-            Directory.CreateDirectory(Path.GetDirectoryName(yolo8TrainedWeightsPath)!);
-            Directory.CreateDirectory(Path.GetDirectoryName(yolo8SegmentTrainedWeightsPath)!);
-            Directory.CreateDirectory(Path.GetDirectoryName(yolo8AppFixtureTrainedWeightsPath)!);
-            Directory.CreateDirectory(Path.GetDirectoryName(yolo8DetectTrainedWeightsPath)!);
-            File.WriteAllText(yolo8TrainedWeightsPath, "trained weights");
-            File.WriteAllText(yolo8SegmentTrainedWeightsPath, "segment trained weights");
-            File.WriteAllText(yolo8AppFixtureTrainedWeightsPath, "app fixture segment trained weights");
-            File.WriteAllText(yolo8DetectTrainedWeightsPath, "detect trained weights");
-            File.SetLastWriteTimeUtc(yolo8TrainedWeightsPath, DateTime.UtcNow.AddMinutes(1));
-            File.SetLastWriteTimeUtc(yolo8SegmentTrainedWeightsPath, DateTime.UtcNow.AddMinutes(2));
-            File.SetLastWriteTimeUtc(yolo8AppFixtureTrainedWeightsPath, DateTime.UtcNow.AddMinutes(3));
-            File.SetLastWriteTimeUtc(yolo8DetectTrainedWeightsPath, DateTime.UtcNow.AddMinutes(4));
+            string unrelatedTrainedWeightsPath = Path.Combine(yolo8Root, "runs", "segment", "unrelated-dataset", "weights", "best.pt");
+            Directory.CreateDirectory(Path.GetDirectoryName(unrelatedTrainedWeightsPath)!);
+            File.WriteAllText(unrelatedTrainedWeightsPath, "unrelated trained weights");
             string yolo8ImageRoot = Path.Combine(yolo8Root, "data", "train", "images");
             Directory.CreateDirectory(yolo8ImageRoot);
 
@@ -23000,29 +23071,57 @@ internal static partial class Program
             AssertEqual(yolo8Root, yolo8Result.Settings.ProjectRootPath);
             AssertEqual(yolo8ClientPath, yolo8Result.Settings.ClientScriptPath);
             AssertEqual(yolo8PythonPath, yolo8Result.Settings.PythonExecutablePath);
-            AssertEqual(yolo8AppFixtureTrainedWeightsPath, yolo8Result.Settings.WeightsPath);
-            AssertEqual(yolo8ImageRoot, yolo8Result.Settings.ImageRootPath);
-            AssertTrue(!string.Equals(yolo8Result.Settings.WeightsPath, yolo8WeightsPath, StringComparison.OrdinalIgnoreCase), "local YOLOv8 folder connection should prefer trained best.pt over the pretrained seed");
-            AssertTrue(!string.Equals(yolo8Result.Settings.WeightsPath, yolo8TrainedWeightsPath, StringComparison.OrdinalIgnoreCase), "local YOLOv8 folder connection should prefer the corrected runs/segment best.pt over the older runs/train smoke");
-            AssertTrue(!string.Equals(yolo8Result.Settings.WeightsPath, yolo8SegmentTrainedWeightsPath, StringComparison.OrdinalIgnoreCase), "local YOLOv8 folder connection should prefer the latest app-generated runs/segment best.pt when present");
+            AssertEqual(selectedWeightsPath, yolo8Result.Settings.WeightsPath);
+            AssertEqual(selectedImageRoot, yolo8Result.Settings.ImageRootPath);
+            AssertTrue(!string.Equals(unrelatedTrainedWeightsPath, yolo8Result.Settings.WeightsPath, StringComparison.OrdinalIgnoreCase), "local YOLOv8 folder connection must not auto-adopt the newest unrelated best.pt");
+            AssertTrue(!string.Equals(yolo8ImageRoot, yolo8Result.Settings.ImageRootPath, StringComparison.OrdinalIgnoreCase), "local YOLOv8 folder connection must preserve the recipe image root");
             AssertTrue(yolo8Result.SelfTestReport.CanTrain, "local YOLOv8 folder connection should enable training when the worker implements TrainYolo");
-            AssertTrue(yolo8Result.SelfTestReport.CanInspect, "local YOLOv8 folder connection should enable inspection when worker, venv package, and segmentation weight exist");
-            AssertTrue(yolo8Result.DetailText.Contains("segmentation weight", StringComparison.Ordinal), "YOLOv8 folder connection should explain that local weights are required");
+            AssertTrue(yolo8Result.SelfTestReport.CanInspect, "local YOLOv8 folder connection should keep inspection available when the explicitly selected model exists");
+            AssertTrue(yolo8Result.DetailText.Contains("\uD604\uC7AC \uC774\uBBF8\uC9C0\uC640 \uAC80\uC0AC \uBAA8\uB378\uC740 \uC720\uC9C0", StringComparison.Ordinal), "YOLOv8 folder connection should explain its image/model preservation boundary");
             AssertTrue(PythonModelRuntimeInstallPlanService.BuildPlan(yolo8Result.Settings).IsAlreadyInstalled, "local YOLOv8 folder connection should check the selected venv for ultralytics");
+            string knownYolo8Root = PythonModelRuntimeConnectionService.ResolveKnownLocalRuntimeFolder(Path.Combine(root, "yolov5"), "yolov8");
+            AssertEqual(yolo8Root, knownYolo8Root);
+            AssertEqual(string.Empty, PythonModelRuntimeConnectionService.ResolveKnownLocalRuntimeFolder(Path.Combine(root, "yolov5"), "missing-runtime"));
+            var legacyAnomalySettings = new PythonModelSettings
+            {
+                ModelEngine = PythonModelSettings.EngineYoloV5,
+                ProjectRootPath = Path.Combine(root, "yolov5"),
+                WeightsPath = selectedWeightsPath,
+                ImageRootPath = selectedImageRoot
+            };
+            AssertTrue(
+                PythonModelRuntimeConnectionService.TryBuildAnomalyTrainingConnection(
+                    legacyAnomalySettings,
+                    out PythonModelRuntimeConnectionResult automaticAnomalyConnection),
+                "anomaly training should automatically resolve a train-ready sibling YOLOv8 runtime");
+            AssertEqual(PythonModelSettings.EngineYoloV8, automaticAnomalyConnection.Settings.ModelEngine);
+            AssertEqual(yolo8Root, automaticAnomalyConnection.Settings.ProjectRootPath);
+            AssertEqual(selectedWeightsPath, automaticAnomalyConnection.Settings.WeightsPath);
+            AssertEqual(selectedImageRoot, automaticAnomalyConnection.Settings.ImageRootPath);
+            AssertTrue(
+                !PythonModelRuntimeConnectionService.TryBuildAnomalyTrainingConnection(
+                    automaticAnomalyConnection.Settings,
+                    out _),
+                "already compatible anomaly runtimes should not be replaced again");
 
             PythonModelRuntimeConnectionResult yolo8DetectResult = PythonModelRuntimeConnectionService.BuildYoloV8FolderConnection(
                 current,
                 yolo8Root,
                 LabelingDatasetPurpose.ObjectDetection);
-            AssertEqual(yolo8DetectTrainedWeightsPath, yolo8DetectResult.Settings.WeightsPath);
-            AssertTrue(!string.Equals(yolo8DetectResult.Settings.WeightsPath, yolo8DetectSeedPath, StringComparison.OrdinalIgnoreCase), "object-detection folder connection should prefer runs/detect best.pt over the pretrained seed");
-            AssertTrue(!string.Equals(yolo8DetectResult.Settings.WeightsPath, yolo8AppFixtureTrainedWeightsPath, StringComparison.OrdinalIgnoreCase), "object-detection folder connection must not select segmentation best.pt");
-            AssertTrue(yolo8DetectResult.DetailText.Contains("object-detection weight", StringComparison.Ordinal), "object-detection folder connection should describe the selected task weight");
+            AssertEqual(selectedWeightsPath, yolo8DetectResult.Settings.WeightsPath);
+            AssertEqual(selectedImageRoot, yolo8DetectResult.Settings.ImageRootPath);
+            AssertTrue(yolo8DetectResult.DetailText.Contains("object-detection", StringComparison.Ordinal), "object-detection folder connection should describe the selected training task");
 
             string ultralyticsPath = Path.Combine(root, ".venv", "Lib", "site-packages", "ultralytics");
             Directory.CreateDirectory(ultralyticsPath);
+            var ultralyticsCurrent = new PythonModelSettings
+            {
+                ModelEngine = PythonModelSettings.EngineYolo11,
+                WeightsPath = string.Empty,
+                ImageRootPath = selectedImageRoot
+            };
             PythonModelRuntimeConnectionResult ultralyticsResult = PythonModelRuntimeConnectionService.BuildUltralyticsPythonConnection(
-                current,
+                ultralyticsCurrent,
                 PythonModelSettings.EngineYoloV8,
                 pythonPath);
             AssertEqual(PythonModelSettings.EngineYoloV8, ultralyticsResult.Settings.ModelEngine);
@@ -23100,7 +23199,7 @@ internal static partial class Program
 
             Directory.Delete(ultralyticsPath, recursive: true);
             PythonModelRuntimeConnectionResult missingUltralyticsResult = PythonModelRuntimeConnectionService.BuildUltralyticsPythonConnection(
-                current,
+                ultralyticsCurrent,
                 PythonModelSettings.EngineYolo11,
                 pythonPath);
             AssertEqual(PythonModelSettings.EngineYolo11, missingUltralyticsResult.Settings.ModelEngine);
@@ -23124,7 +23223,13 @@ internal static partial class Program
             AssertTrue(installedUltralyticsInstallPlan.UninstallCommandText.Contains("pip uninstall -y ultralytics", StringComparison.Ordinal), "installed Ultralytics plan should still expose uninstall for repeatable setup tests");
 
             File.Delete(weightsPath);
-            PythonModelRuntimeConnectionResult missingWeightsResult = PythonModelRuntimeConnectionService.BuildYoloV5FolderConnection(current, root);
+            var missingInspectionModel = new PythonModelSettings
+            {
+                ModelEngine = PythonModelSettings.EngineYoloV5,
+                WeightsPath = Path.Combine(root, "missing-inspection-model.pt"),
+                ImageRootPath = selectedImageRoot
+            };
+            PythonModelRuntimeConnectionResult missingWeightsResult = PythonModelRuntimeConnectionService.BuildYoloV5FolderConnection(missingInspectionModel, root);
             AssertTrue(!PythonModelRuntimeInstallPlanService.BuildPlan(missingWeightsResult.Settings).IsVisible, "YOLOv5 folder connection should not show the Ultralytics install plan");
             AssertTrue(missingWeightsResult.SelfTestReport.CanTrain, "missing weights should still allow training after YOLOv5 folder connection");
             AssertTrue(!missingWeightsResult.SelfTestReport.CanInspect, "missing weights should still block current inspection after YOLOv5 folder connection");
@@ -28825,6 +28930,7 @@ internal static partial class Program
         {
             window.Close();
         }
+
     }
 
     private static void TestWpfDatasetSetupWizardDeclaresGuidedFields()
@@ -29627,7 +29733,10 @@ internal static partial class Program
         AssertTrue(completenessAudit.Contains("workspace-layout.json", StringComparison.Ordinal), "completeness audit should record verified per-machine workspace width persistence");
         AssertTrue(completenessAudit.Contains("fixed canvas annotation-tool rail", StringComparison.Ordinal), "completeness audit should record the completed fixed annotation-tool rail");
         AssertTrue(!completenessAudit.Contains("Widths are session-only", StringComparison.Ordinal), "completeness audit should not retain the superseded session-only workspace limitation");
-        AssertTrue(anomalyWorkflow.Contains("gate가 생기기 전에는 anomaly 기능을 `완료`로 표시하지 않습니다.", StringComparison.Ordinal), "anomaly criteria should prohibit claiming completion before gates exist");
+        AssertTrue(anomalyWorkflow.Contains("--wpf-anomaly-queue-focus", StringComparison.Ordinal)
+            && anomalyWorkflow.Contains("--anomaly-classification-training-workflow", StringComparison.Ordinal)
+            && anomalyWorkflow.Contains("--wpf-yolov8-anomaly-classification-runtime-smoke", StringComparison.Ordinal),
+            "anomaly criteria should preserve the current review, classification-training, and runtime gates");
         AssertTrue(tutorialReadme.Contains("캔버스 왼쪽 도구 레일에서 `박스`", StringComparison.Ordinal), "tutorial README should point box labeling to the fixed canvas tool rail");
         AssertTrue(tutorialHtml.Contains("캔버스 왼쪽 도구 레일에서 <strong>박스</strong>", StringComparison.Ordinal), "tutorial HTML should point box labeling to the fixed canvas tool rail");
         AssertTrue(tutorialStandaloneHtml.Contains("캔버스 왼쪽 도구 레일에서 <strong>박스</strong>", StringComparison.Ordinal), "standalone tutorial should match the fixed canvas tool rail instruction");
@@ -30888,9 +30997,12 @@ internal static partial class Program
         string stopTrainingCommandSource = FindMethodSourceBlock(shellSource, "private async void ExecuteStopTrainingCommand()");
         AssertTrue(trainingCommandPresentationSource.Contains("BuildStartCommandResultStatus", StringComparison.Ordinal), "training command presentation service should own start command result wording");
         AssertTrue(trainingCommandPresentationSource.Contains("BuildStopCommandResultStatus", StringComparison.Ordinal), "training command presentation service should own stop command result wording");
-        AssertTrue(WpfTrainingCommandPresentationService.BuildStartCommandResultStatus(true).Contains("에폭 로그", StringComparison.Ordinal), "training start accepted text should tell the operator what to wait for next");
+        string acceptedTrainingText = WpfTrainingCommandPresentationService.BuildStartCommandResultStatus(true);
+        AssertTrue(acceptedTrainingText.Contains("첫 에폭 로그", StringComparison.Ordinal), "training start accepted text should tell the operator what to wait for next");
+        AssertTrue(acceptedTrainingText.Contains("아직 성공 완료가 아니며", StringComparison.Ordinal), "training request transport must not be presented as completed training");
         AssertTrue(WpfTrainingCommandPresentationService.BuildStopFailureRecovery("실패").Action.Contains("재시작", StringComparison.Ordinal), "training stop failure recovery should give a concrete next action");
         AssertTrue(startTrainingCommandSource.Contains("WpfTrainingCommandPresentationService", StringComparison.Ordinal), "start training command should delegate status wording to the presentation service");
+        AssertTrue(shellSource.Contains("if (TryAutoConnectAnomalyTrainingRuntime())", StringComparison.Ordinal), "successful anomaly runtime auto-connection should proceed to worker restart instead of being blocked by stale YOLOv5 capabilities");
         AssertTrue(stopTrainingCommandSource.Contains("WpfTrainingCommandPresentationService", StringComparison.Ordinal), "stop training command should delegate status wording to the presentation service");
         AssertEqual(1, startTrainingCommandSource.Split(new[] { "SetYoloRecoveryStatus(" }, StringSplitOptions.None).Length - 1);
         AssertEqual(1, stopTrainingCommandSource.Split(new[] { "SetYoloRecoveryStatus(" }, StringSplitOptions.None).Length - 1);
@@ -31656,6 +31768,8 @@ internal static partial class Program
         AssertNamedXamlBinding(xaml, xName, "YoloProjectRootBox", "Text", "ProjectRootPath");
         AssertNamedXamlBinding(xaml, xName, "YoloModelEngineBox", "ItemsSource", "ModelEngineOptions");
         AssertNamedXamlBinding(xaml, xName, "YoloModelEngineBox", "SelectedItem", "SelectedModelEngine");
+        AssertNamedXamlValue(xaml, xName, "YoloModelEngineBox", "DropDownOpened", "YoloModelEngineBox_DropDownOpened");
+        AssertNamedXamlValue(xaml, xName, "YoloModelEngineBox", "DropDownClosed", "YoloModelEngineBox_DropDownClosed");
         AssertNamedXamlBinding(xaml, xName, "YoloModelEngineHintText", "Text", "ModelEngineHintText");
         AssertNamedXamlBinding(xaml, xName, "YoloClientScriptBox", "Text", "ClientScriptPath");
         AssertNamedXamlBinding(xaml, xName, "YoloWeightsPathBox", "Text", "WeightsPath");
@@ -32048,6 +32162,59 @@ internal static partial class Program
         {
             window.Close();
         }
+
+        int runtimeProfileSelectionCount = 0;
+        string selectedRuntimeProfile = string.Empty;
+        var directSelectionViewModel = new WpfYoloModelSettingsPanelViewModel();
+        directSelectionViewModel.ConfigureCommands(
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            null,
+            engine =>
+            {
+                runtimeProfileSelectionCount++;
+                selectedRuntimeProfile = engine;
+            });
+        var directSelectionPanel = new WpfYoloModelSettingsPanel
+        {
+            DataContext = directSelectionViewModel
+        };
+        var directSelectionHost = new System.Windows.Window
+        {
+            Content = directSelectionPanel,
+            Width = 900,
+            Height = 700,
+            ShowInTaskbar = false
+        };
+        try
+        {
+            directSelectionHost.Show();
+            PumpWpfDispatcher(TimeSpan.FromMilliseconds(120));
+            directSelectionPanel.SettingsExpander.IsExpanded = true;
+            directSelectionPanel.AdvancedSettingsExpander.IsExpanded = true;
+            directSelectionHost.UpdateLayout();
+            InvokePrivateResult<object>(
+                directSelectionPanel,
+                "YoloModelEngineBox_DropDownOpened",
+                directSelectionPanel.ModelEngineBox,
+                EventArgs.Empty);
+            directSelectionPanel.ModelEngineBox.SelectedItem = PythonModelSettings.EngineYoloV8;
+            InvokePrivateResult<object>(
+                directSelectionPanel,
+                "YoloModelEngineBox_DropDownClosed",
+                directSelectionPanel.ModelEngineBox,
+                EventArgs.Empty);
+            AssertEqual(1, runtimeProfileSelectionCount);
+            AssertEqual(PythonModelSettings.EngineYoloV8, selectedRuntimeProfile);
+        }
+        finally
+        {
+            directSelectionHost.Close();
+        }
     }
 
     private static void TestWpfTrainingSettingsPanelDeclaresControls()
@@ -32210,6 +32377,17 @@ internal static partial class Program
         AssertEqual("YOLOv8 Detect", yolo8DetectionTrainingViewModel.SelectedTrainingModel);
         AssertEqual("yolov8n.pt", yolo8DetectionTrainingViewModel.SelectedTrainingWeight);
         AssertTrue(!yolo8DetectionTrainingViewModel.IsTrainingModelSelectionEnabled, "YOLOv8 detection training should derive its model and starting weight from the selected runtime");
+        var anomalyTrainingViewModel = new WpfTrainingSettingsPanelViewModel();
+        anomalyTrainingViewModel.LoadFrom(
+            new TrainingSettings { Cfg = "yolov5s", Weight = "yolov5s" },
+            new YoloDatasetSettings(),
+            new PythonModelSettings { ModelEngine = PythonModelSettings.EngineYoloV5 },
+            LabelingDatasetPurpose.AnomalyDetection);
+        anomalyTrainingViewModel.ApplyModelEngineSelection(PythonModelSettings.EngineYoloV8);
+        AssertEqual("YOLOv8 Classify", anomalyTrainingViewModel.SelectedTrainingModel);
+        AssertEqual("yolov8n-cls.pt", anomalyTrainingViewModel.SelectedTrainingWeight);
+        AssertTrue(anomalyTrainingViewModel.TrainingSettingsSummaryModelText.Contains("YOLOv8 Classify", StringComparison.Ordinal), "anomaly training summary should identify the classification task immediately after a runtime selection");
+        AssertTrue(anomalyTrainingViewModel.TrainingSettingsSummaryModelText.Contains("yolov8n-cls.pt", StringComparison.Ordinal), "anomaly training summary should identify the classification seed immediately after a runtime selection");
         bool reviewTrainedModelRequested = false;
         bool confirmTrainedModelRequested = false;
         bool engineComparisonRequested = false;
@@ -32318,6 +32496,12 @@ internal static partial class Program
         string logXamlPath = Path.Combine(FindRepositoryRoot(), "0. UI", "9) WPF", "Views", "WpfShellLogPanel.xaml");
         XDocument logXaml = XDocument.Load(logXamlPath);
         XName xName = XName.Get("Name", "http://schemas.microsoft.com/winfx/2006/xaml");
+
+        AssertTrue(shellXamlSource.Contains("x:Key=\"AccentBrush\" Color=\"#3B82F6\"", StringComparison.Ordinal), "normal selection/accent state should use blue instead of the error color");
+        AssertTrue(shellXamlSource.Contains("x:Key=\"SuccessBrush\"", StringComparison.Ordinal)
+            && shellXamlSource.Contains("x:Key=\"WarningBrush\"", StringComparison.Ordinal)
+            && shellXamlSource.Contains("x:Key=\"ErrorBrush\"", StringComparison.Ordinal),
+            "shell status colors should declare separate success, warning, and error semantics");
 
         AssertNamedXamlElement(statusXaml, xName, "TextBlock", "DatasetStatusText");
         AssertNamedXamlElement(statusXaml, xName, "TextBlock", "WorkflowStageText");
@@ -36604,6 +36788,144 @@ internal static partial class Program
         }
     }
 
+    private static void TestWpfImageQueueSaveUpdatesOnlyActiveRow()
+    {
+        if (System.Windows.Application.Current == null)
+        {
+            _ = new System.Windows.Application
+            {
+                ShutdownMode = System.Windows.ShutdownMode.OnExplicitShutdown
+            };
+        }
+
+        CData previousData = CGlobal.Inst.Data;
+        string root = CreateTempRoot();
+        try
+        {
+            const int imageCount = 125;
+            string imageRoot = Path.Combine(root, "images");
+            string outputRoot = Path.Combine(root, "output");
+            Directory.CreateDirectory(imageRoot);
+            for (int index = 0; index < imageCount; index++)
+            {
+                CreateVisualSmokeImage(Path.Combine(imageRoot, $"save-{index:000}.jpg"), index + 1);
+            }
+
+            var data = new CData();
+            data.ConfigureOutputRoot(outputRoot);
+            data.EnsureYoloOutputDirectories();
+            data.ProjectSettings.DatasetPurpose = LabelingDatasetPurpose.ObjectDetection;
+            data.ProjectSettings.PythonModel.ImageRootPath = imageRoot;
+            data.ProjectSettings.YoloDataset.ValidationPercent = 0;
+            data.ProjectSettings.YoloDataset.TestPercent = 0;
+            data.ClassNamedList.Add(new CClassItem { Text = "Defect", DrawColor = Color.LimeGreen });
+            CGlobal.Inst.Data = data;
+
+            WpfLabelingShellWindow window = new WpfLabelingShellWindow();
+            try
+            {
+                AssertEqual(imageCount, window.LoadImageQueueFromRoot(imageRoot, loadFirstImage: true, refreshDetails: false));
+                PumpWpfDispatcher(TimeSpan.FromMilliseconds(100));
+
+                string activePath = GetPrivateField<string>(window, "activeImagePath");
+                int catalogVersion = GetPrivateField<int>(window, "imageQueueCatalogLoadVersion");
+                WpfImageQueueItem[] originalItems = window.ImageQueueItems.ToArray();
+                ICollectionView queueView = GetPrivateField<ICollectionView>(window, "imageQueueView");
+                Predicate<object> originalFilter = queueView.Filter;
+                int filterEvaluationCount = 0;
+                queueView.Filter = value =>
+                {
+                    filterEvaluationCount++;
+                    return originalFilter?.Invoke(value) ?? true;
+                };
+                PumpWpfDispatcher(TimeSpan.FromMilliseconds(20));
+
+                var sourceActions = new List<NotifyCollectionChangedAction>();
+                var viewActions = new List<NotifyCollectionChangedAction>();
+                ((INotifyCollectionChanged)window.ImageQueueItems).CollectionChanged += (_, args) => sourceActions.Add(args.Action);
+                ((INotifyCollectionChanged)queueView).CollectionChanged += (_, args) => viewActions.Add(args.Action);
+                Size activeImageSize = GetPrivateField<Size>(window, "activeImageSize");
+
+                for (int saveIndex = 0; saveIndex < 2; saveIndex++)
+                {
+                    sourceActions.Clear();
+                    viewActions.Clear();
+                    filterEvaluationCount = 0;
+
+                    int offset = 20 + (saveIndex * 10);
+                    window.MainCanvasViewModel.OnRoiAdded(
+                        new CanvasRect<float>(offset, activeImageSize.Height - offset, offset + 40, activeImageSize.Height - offset - 40)
+                        {
+                            UniqueId = $"queue-local-create-{saveIndex}",
+                            ShapeKind = CanvasRoiShapeKind.Rectangle
+                        },
+                        null);
+                    PumpWpfDispatcher(TimeSpan.FromMilliseconds(50));
+
+                    Console.WriteLine(
+                        $"LABEL_CREATE_{saveIndex + 1}_SOURCE_RESETS={sourceActions.Count(action => action == NotifyCollectionChangedAction.Reset)}; "
+                        + $"VIEW_RESETS={viewActions.Count(action => action == NotifyCollectionChangedAction.Reset)}; "
+                        + $"FILTER_EVALUATIONS={filterEvaluationCount}; CATALOG_VERSION={GetPrivateField<int>(window, "imageQueueCatalogLoadVersion")}");
+
+                    AssertTrue(!sourceActions.Contains(NotifyCollectionChangedAction.Reset),
+                        "creating one label must not reset the image queue source collection");
+                    AssertTrue(!viewActions.Contains(NotifyCollectionChangedAction.Reset),
+                        "creating one label must not refresh and reset the entire image queue view");
+                    AssertTrue(filterEvaluationCount < imageCount,
+                        $"creating one label reevaluated the whole image queue filter: {filterEvaluationCount}/{imageCount}");
+                    AssertEqual(catalogVersion, GetPrivateField<int>(window, "imageQueueCatalogLoadVersion"));
+                    AssertEqual(imageRoot, window.ImageQueueViewModel.CurrentImageFolderPath);
+                    AssertEqual(activePath, GetPrivateField<string>(window, "activeImagePath"));
+                    AssertEqual(imageCount, window.ImageQueueItems.Count);
+                    AssertTrue(originalItems.SequenceEqual(window.ImageQueueItems),
+                        "creating one label must preserve every existing queue row instance");
+                    WpfImageQueueItem activeItem = window.ImageQueueItems.Single(item =>
+                        string.Equals(item.ImagePath, activePath, StringComparison.OrdinalIgnoreCase));
+                    AssertTrue(activeItem.IsSaveRequired,
+                        "the active queue row should show save-required after creating a label without rebuilding the queue");
+
+                    sourceActions.Clear();
+                    viewActions.Clear();
+                    filterEvaluationCount = 0;
+
+                    InvokePrivateResult<object>(window, "ExecuteSaveAnnotationsCommand");
+                    PumpWpfDispatcher(TimeSpan.FromMilliseconds(50));
+
+                    Console.WriteLine(
+                        $"LABEL_SAVE_{saveIndex + 1}_SOURCE_RESETS={sourceActions.Count(action => action == NotifyCollectionChangedAction.Reset)}; "
+                        + $"VIEW_RESETS={viewActions.Count(action => action == NotifyCollectionChangedAction.Reset)}; "
+                        + $"FILTER_EVALUATIONS={filterEvaluationCount}; CATALOG_VERSION={GetPrivateField<int>(window, "imageQueueCatalogLoadVersion")}");
+
+                    AssertTrue(!sourceActions.Contains(NotifyCollectionChangedAction.Reset),
+                        "saving one label must not reset the image queue source collection");
+                    AssertTrue(!viewActions.Contains(NotifyCollectionChangedAction.Reset),
+                        "saving one label must not refresh and reset the entire image queue view");
+                    AssertTrue(filterEvaluationCount < imageCount,
+                        $"saving one label reevaluated the whole image queue filter: {filterEvaluationCount}/{imageCount}");
+                    AssertEqual(catalogVersion, GetPrivateField<int>(window, "imageQueueCatalogLoadVersion"));
+                    AssertEqual(imageRoot, window.ImageQueueViewModel.CurrentImageFolderPath);
+                    AssertEqual(activePath, GetPrivateField<string>(window, "activeImagePath"));
+                    AssertEqual(imageCount, window.ImageQueueItems.Count);
+                    AssertTrue(originalItems.SequenceEqual(window.ImageQueueItems),
+                        "saving one label must preserve every existing queue row instance");
+                    activeItem = window.ImageQueueItems.Single(item =>
+                        string.Equals(item.ImagePath, activePath, StringComparison.OrdinalIgnoreCase));
+                    AssertTrue(activeItem.IsLabeled && !activeItem.IsSaveRequired,
+                        "the active queue row should show the saved label without rebuilding the queue");
+                }
+            }
+            finally
+            {
+                window.Close();
+            }
+        }
+        finally
+        {
+            CGlobal.Inst.Data = previousData;
+            DeleteTempRoot(root);
+        }
+    }
+
     private static void TestWpfImageQueueTenThousandAsyncCatalogLoad()
     {
         if (System.Windows.Application.Current == null)
@@ -38163,9 +38485,9 @@ internal static partial class Program
                 && queuePanelSource.Contains("MinHeight=\"36\"")
                 && queuePanelSource.Contains("Margin=\"0,0,0,3\""),
                 "WPF queue primary action buttons should reserve vertical space before the folder path row");
-            AssertTrue(queuePanelSource.Contains("<UniformGrid Grid.Row=\"4\" Columns=\"3\"", StringComparison.Ordinal),
+            AssertTrue(queuePanelSource.Contains("<UniformGrid Grid.Row=\"6\" Columns=\"3\"", StringComparison.Ordinal),
                 "WPF queue quick filters should use a three-column compact layout so more image rows stay visible in the narrow queue panel");
-            AssertTrue(queuePanelSource.Contains("<UniformGrid Grid.Row=\"4\" Columns=\"3\" VerticalAlignment=\"Center\" Visibility=\"Collapsed\"", StringComparison.Ordinal),
+            AssertTrue(queuePanelSource.Contains("<UniformGrid Grid.Row=\"6\" Columns=\"3\" VerticalAlignment=\"Center\" Visibility=\"Collapsed\"", StringComparison.Ordinal),
                 "WPF queue quick filters should stay hidden by default because the status filter combo owns normal queue filtering");
             AssertTrue(queuePanelSource.Contains("<ColumnDefinition Width=\"36\" />", StringComparison.Ordinal),
                 "WPF queue file column should reserve a compact thumbnail slot before row status text");
@@ -38189,10 +38511,16 @@ internal static partial class Program
                 "WPF queue candidate quick filter text should bind to the image queue panel view model");
             AssertTrue(queuePanelSource.Contains("AutomationProperties.Name=\"AI &#xD6C4;&#xBCF4; &#xD544;&#xD130;\"", StringComparison.Ordinal),
                 "WPF queue candidate quick filter should explicitly say AI candidate, not just candidate");
-            AssertTrue(queuePanelSource.Contains("Header=\"&#xC800;&#xC7A5;\"", StringComparison.Ordinal),
-                "WPF queue saved-label column should say saved, not generic label");
-            AssertTrue(queuePanelSource.Contains("Header=\"&#xAC80;&#xC0AC;\"", StringComparison.Ordinal),
-                "WPF queue detection column should be titled as inspection status, not a second saved-label column");
+            AssertTrue(queuePanelSource.Contains("QueueDecisionColumnHeaderText", StringComparison.Ordinal),
+                "WPF queue decision column should bind its standard/anomaly-specific header from the view model");
+            AssertTrue(queuePanelSource.Contains("QueueSecondaryColumnHeaderText", StringComparison.Ordinal),
+                "WPF queue secondary column should bind its standard/anomaly-specific header from the view model");
+            var queueHeaderViewModel = new WpfImageQueuePanelViewModel();
+            AssertEqual("저장", queueHeaderViewModel.QueueDecisionColumnHeaderText);
+            AssertEqual("검사", queueHeaderViewModel.QueueSecondaryColumnHeaderText);
+            queueHeaderViewModel.SetAnomalyImageReviewMode(true);
+            AssertEqual("판정", queueHeaderViewModel.QueueDecisionColumnHeaderText);
+            AssertEqual("상태", queueHeaderViewModel.QueueSecondaryColumnHeaderText);
             AssertTrue(queuePanelSource.Contains("ToolTip=\"{Binding QueueRowToolTip}\"", StringComparison.Ordinal),
                 "WPF queue rows and status columns should use the full row summary tooltip, not only a clipped detail fragment");
             AssertTrue(queuePanelSource.Contains("AutomationProperties.Name=\"{Binding QueueRowAccessibleName}\"", StringComparison.Ordinal),

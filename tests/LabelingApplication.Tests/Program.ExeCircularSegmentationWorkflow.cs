@@ -546,6 +546,21 @@ internal static partial class Program
     {
         var root = RefreshAutomationRoot(process);
         string expectedImageMarker = FindImageQueueMarker(imageRoot);
+        if (FindAutomationElementByAutomationId(root, "LoadConfiguredImageRootButton") == null)
+        {
+            AssertTrue(
+                TryInvokeAutomationButtonByAutomationId(root, "DatasetHomeStageButton"),
+                "dataset stage was not selectable before loading the configured image root");
+            AssertTrue(
+                WaitUntil(
+                    () => FindAutomationElementByAutomationId(
+                        RefreshAutomationRoot(process, bringToFront: false),
+                        "LoadConfiguredImageRootButton") != null,
+                    TimeSpan.FromSeconds(8)),
+                "configured image-root load button did not appear in the dataset stage");
+            root = RefreshAutomationRoot(process);
+        }
+
         bool invoked = TryInvokeAutomationButtonByAutomationId(root, "LoadConfiguredImageRootButton");
         if (!invoked)
         {

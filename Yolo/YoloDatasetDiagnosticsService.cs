@@ -208,6 +208,15 @@ namespace MvcVisionSystem.Yolo
                 return new List<KeyValuePair<string, int>>();
             }
 
+            if (purpose == LabelingDatasetPurpose.AnomalyDetection)
+            {
+                return new List<KeyValuePair<string, int>>
+                {
+                    new KeyValuePair<string, int>("normal", statistics.AnomalyNormalImageCount),
+                    new KeyValuePair<string, int>("abnormal", statistics.AnomalyAbnormalImageCount)
+                };
+            }
+
             List<string> classNames = data?.ClassNamedList?
                 .Select(item => item?.Text?.Trim() ?? string.Empty)
                 .Where(name => !string.IsNullOrWhiteSpace(name))

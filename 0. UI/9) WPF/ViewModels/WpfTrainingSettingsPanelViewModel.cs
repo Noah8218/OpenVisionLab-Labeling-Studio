@@ -147,8 +147,18 @@ namespace MvcVisionSystem
         public string TrainingModelDisplayText
             => modelEngine switch
             {
-                PythonModelSettings.EngineYoloV8 => datasetPurpose == LabelingDatasetPurpose.Segmentation ? "YOLOv8 SEG" : "YOLOv8 Detect",
-                PythonModelSettings.EngineYolo11 => datasetPurpose == LabelingDatasetPurpose.Segmentation ? "YOLO11 SEG" : "YOLO11 Detect",
+                PythonModelSettings.EngineYoloV8 => datasetPurpose switch
+                {
+                    LabelingDatasetPurpose.Segmentation => "YOLOv8 SEG",
+                    LabelingDatasetPurpose.AnomalyDetection => "YOLOv8 Classify",
+                    _ => "YOLOv8 Detect"
+                },
+                PythonModelSettings.EngineYolo11 => datasetPurpose switch
+                {
+                    LabelingDatasetPurpose.Segmentation => "YOLO11 SEG",
+                    LabelingDatasetPurpose.AnomalyDetection => "YOLO11 Classify",
+                    _ => "YOLO11 Detect"
+                },
                 PythonModelSettings.EngineOnnx => "ONNX (\uCD94\uB860 \uC804\uC6A9)",
                 _ => string.IsNullOrWhiteSpace(Cfg) ? "-" : Cfg
             };
@@ -156,8 +166,18 @@ namespace MvcVisionSystem
         public string TrainingStartWeightDisplayText
             => modelEngine switch
             {
-                PythonModelSettings.EngineYoloV8 => datasetPurpose == LabelingDatasetPurpose.Segmentation ? "yolov8n-seg.pt" : "yolov8n.pt",
-                PythonModelSettings.EngineYolo11 => datasetPurpose == LabelingDatasetPurpose.Segmentation ? "yolo11n-seg.pt" : "yolo11n.pt",
+                PythonModelSettings.EngineYoloV8 => datasetPurpose switch
+                {
+                    LabelingDatasetPurpose.Segmentation => "yolov8n-seg.pt",
+                    LabelingDatasetPurpose.AnomalyDetection => "yolov8n-cls.pt",
+                    _ => "yolov8n.pt"
+                },
+                PythonModelSettings.EngineYolo11 => datasetPurpose switch
+                {
+                    LabelingDatasetPurpose.Segmentation => "yolo11n-seg.pt",
+                    LabelingDatasetPurpose.AnomalyDetection => "yolo11n-cls.pt",
+                    _ => "yolo11n.pt"
+                },
                 PythonModelSettings.EngineOnnx => "\uD559\uC2B5 \uAC00\uC911\uCE58 \uC5C6\uC74C",
                 _ => string.IsNullOrWhiteSpace(Weight) ? "-" : Weight
             };
@@ -519,6 +539,13 @@ namespace MvcVisionSystem
             ValidationPercentText = dataset.ValidationPercent.ToString(CultureInfo.InvariantCulture);
             TestPercentText = dataset.TestPercent.ToString(CultureInfo.InvariantCulture);
             SplitSeedText = dataset.SplitSeed.ToString(CultureInfo.InvariantCulture);
+            NotifyTrainingModelSelectionChanged();
+            NotifyTrainingSettingsSummaryChanged();
+        }
+
+        public void ApplyModelEngineSelection(string engine)
+        {
+            modelEngine = PythonModelSettings.NormalizeModelEngine(engine);
             NotifyTrainingModelSelectionChanged();
             NotifyTrainingSettingsSummaryChanged();
         }

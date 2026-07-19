@@ -2,6 +2,128 @@
 
 Last updated: 2026-07-19
 
+## 2026-07-19 anomaly 20-epoch retraining and actual-EXE candidate proof
+
+- Status: `Complete`
+- Scope:
+  - Reuse the existing application classification export, training workflow, TCP adapter, and local YOLOv8 worker to replace the one-epoch runtime-smoke candidate with a 20-epoch comparison candidate.
+  - Keep the source images read-only, preserve the deterministic seed-17 train/validation/test split, compare the old and new weights on identical files, and validate correct and abstained decisions through the current Debug EXE after a saved-profile restart.
+- Acceptance and verification:
+  - Required isolated build passed with 0 warnings / 0 errors. The real 20-epoch CPU run completed with 75 train, 19 validation, and 6 test images and produced `best.pt` SHA-256 `6C3F3910BB7ADBEE2CD21039E12DF063E328448CDB21FAFC2195472AD016FF3D`.
+  - The one-epoch and 20-epoch exported split file lists match exactly. The source remained 100 files / 13,755,212 bytes with identical pre/post path+length+content manifest SHA-256 `5CE17916EAA65EF30EDBE2025630536F69B2BCDA615F23A9C77AA498DCC18665`.
+  - Top-1 comparison improved from 36.8% to 84.2% on validation, 33.3% to 83.3% on test, and 47% to 91% on the full same-source diagnostic. At minimum confidence 0.8, test produced five correct automatic decisions and one unreviewed image with no false OK/NG automatic decision.
+  - Current Debug EXE SHA-256 `BEA6C3CEDCF8DCD1404230F79BD04B157B7850BA13582ED1BA1A99B1A50A60BF` restored the saved YOLOv8 profile and exact new weight, persisted `NG_0001` as NG at 92.2%, persisted `OK_0007` as OK at 91.9%, and left the incorrectly predicted `NG_0026` unreviewed at 78.3% under the 0.8 threshold.
+  - Reusable training logs, copied weight, summaries, and current-EXE screenshots are under `artifacts\verification\anomaly-retrain-20ep-20260719`; the aggregate record is `evaluation-summary.txt`.
+- Boundary / next dependency:
+  - This closes the current-source retraining and EXE candidate proof. It does not adopt the model: the test set has only six images and comes from the same acquisition source.
+  - Final adoption remains blocked until an untouched OK/NG holdout from a separate camera session or acquisition is available. Do not repeat same-source epoch tuning as a substitute for that evidence.
+
+## 2026-07-19 anomaly classification training runtime and status semantics
+
+- Status: `Complete`
+- Scope:
+  - Correct the failed anomaly recipe path that exported valid classification folders but sent them to the YOLOv5 object-detection worker as if they were `data.yaml`.
+  - Automatically reuse a train-ready sibling YOLOv8 runtime when an anomaly recipe still points at YOLOv5; preserve the recipe image root and inspection model, save the corrected runtime profile, and restart the worker through the existing settings-signature path.
+  - Make anomaly readiness/dashboard counts come from reviewed Normal/Abnormal images rather than empty box-label folders, and replace generated classification splits on repeated training preparation instead of accumulating duplicate copies.
+  - Use blue for ordinary selection/current-state accents, green for success, amber for warnings, and red only for actual failures; describe packet delivery as a start request awaiting worker confirmation rather than completed training.
+- Acceptance criteria and result:
+  - YOLOv5 anomaly classification preparation is blocked before export or TCP transmission with an actionable YOLOv8/YOLO11 requirement: passed.
+  - A valid sibling YOLOv8 runtime is resolved without replacing the image root or selected inspection model, while an already-compatible runtime is not replaced again: passed.
+  - Repeated classification export keeps one generated copy per reviewed source image, and anomaly readiness reports Normal/Abnormal/split counts with zero fabricated box objects: passed.
+  - The supplied 100-image OK/NG source completes a real YOLOv8 `classify` 1-epoch CPU run and produces `best.pt`: passed.
+  - Current-source before/after captures show ordinary selected/current UI accents changing from red to blue while completed training remains green: passed.
+- Verification:
+  - Required isolated test build passed with 0 warnings and 0 errors.
+  - Current Debug application build passed with 0 warnings and 0 errors; `artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe` SHA-256 `BEA6C3CEDCF8DCD1404230F79BD04B157B7850BA13582ED1BA1A99B1A50A60BF`.
+  - `--anomaly-classification-dataset-export`, `--anomaly-classification-training-workflow`, `--python-model-runtime-connection`, `--wpf-status-panels`, and `--dataset-readiness-purpose` passed.
+  - Real run `openvisionlab-anomaly-fix-20260719-1ep` completed with 100 source images, 75 train, 19 valid, 6 test, 1 epoch, and `best.pt` SHA-256 `5F8D344F19B3FBA29D6B9BC1066E0F4AFD700263DAE497F997F3E8B78D776308`.
+  - Source tree remained 100 files / 13,755,212 bytes with identical pre/post SHA-256 `E749CD4763B9D70132AA93A30F07723BDA5A47598853F3BEF8FEB9782B76F42F`.
+  - Evidence: `artifacts\verification\anomaly-training-fix-20260719\before-training-center-1920.png`, `after-training-center-1920.png`, and `real-yolov8-anomaly-1epoch\summary.txt`.
+- Boundary:
+  - The real run proves runtime compatibility, dataset export, worker completion, and weight creation. One epoch at image size 128 is not model-quality or adoption evidence; the resulting top-1 validation accuracy was 0.36842 and the candidate must not be promoted on this evidence.
+  - Automatic runtime reuse requires a valid sibling `yolov8` folder. A different first-time layout still requires one explicit runtime connection.
+  - The source images are read-only inputs. Only generated output splits, run artifacts, and weights are created outside the source tree.
+
+## 2026-07-19 anomaly OK/NG decision latency and queue-local transition
+
+- Status: `Complete`
+- Scope:
+  - Remove the visible pause after each anomaly `OK`/`NG` decision without changing review semantics, image decoding, canvas rendering, model runtime, or source data.
+  - Keep the existing queue rows and use live filtering to update only the reviewed row; load the next unreviewed image without repopulating or refreshing the queue.
+  - Persist the primary `anomaly-review-status.json` immediately. Rebuild the derived `dataset.manifest.json` through the existing recipe-save path instead of rescanning the dataset on every decision.
+- Acceptance criteria and result:
+  - A 100-image current WPF queue completes 18 alternating decisions with zero collection-view resets and one local filter evaluation per decision: passed.
+  - Every decision advances the active image, DataGrid selection, current cell, and ViewModel selection to the same next-unreviewed row: passed.
+  - Review-state restart persistence retains nine Normal and nine Abnormal decisions: passed.
+  - Median decision latency remains below 750ms and maximum latency remains below 1500ms in both generated and supplied-real-image focused gates: passed at 160.0ms/244.1ms generated and 223.4ms/290.5ms real 512x512 median/maximum.
+- Verification:
+  - Current Debug application build passed with 0 warnings and 0 errors; `artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe` SHA-256 `FEF51255CCA1C5BDA102BEA5F1319E16801A6E114E0CBFEF29DF539A5B2430D4`.
+  - Pre-fix instrumentation reproduced three view resets and 300 filter evaluations per decision; observed decision latency was 1.23-1.93 seconds and queue presentation work alone consumed 310-574ms.
+  - Required isolated test build passed with 0 warnings and 0 errors.
+  - Generated 100-image `--wpf-anomaly-queue-focus` passed with view resets `0`, filter evaluations `1`, queue population `0ms`, median `160.0ms`, maximum `244.1ms`, and resource warnings `0`.
+  - The same gate passed against the supplied 100-image 512x512 circular dataset with median `223.4ms`, maximum `290.5ms`, and image-tree SHA-256 unchanged before/after: `99D310FCC1CCB36F8CE3D2363ACE21F117C17F54B18A4CEF80E75B92DB3B43E7`.
+  - `--anomaly-folder-auto-review`, `--wpf-anomaly-purpose-flow`, `--wpf-image-queue-status`, and `--wpf-labeling-shell` passed.
+  - Current-source captures: `artifacts\ui\anomaly-decision-latency-20260719\before-1920.png`, `after-1920.png`, and `after-real-512-1920.png`.
+- Boundary:
+  - The focused performance gate covers both 100 generated 260x220 images and the supplied 100-image 512x512 local dataset. It proves queue-local WPF behavior, state persistence, source-image immutability, and image transition timing on this machine; it does not claim timing for every storage device or network share.
+  - The manifest remains derived data and is refreshed on the existing recipe-save path. The primary review-state file remains the immediate crash-recovery source for OK/NG decisions.
+  - No asynchronous persistence queue or new background service was added; the measured reset/repopulation defect was fixed directly.
+
+## 2026-07-19 task-aware model runtime profile transition
+
+- Status: `Complete`
+- Scope:
+  - Make a user-selected YOLO runtime profile apply one coherent worker-path transition instead of allowing a YOLOv8 selector with stale YOLOv5 Python/project/script fields.
+  - Reuse a valid sibling `yolov8` or `yolov5` runtime folder without reopening the folder picker; retain the existing one-time picker when no valid known folder exists.
+  - Preserve the recipe image root and explicitly selected inspection model across a runtime switch. Never scan `runs/**/best.pt` or a model-root image folder into those fields.
+  - Present anomaly training as `YOLOv8 Classify / yolov8n-cls.pt`, while keeping candidate `best.pt` review and explicit inspection-model adoption separate.
+  - Rename advanced fields to `모델 실행기 폴더`, `모델 워커 스크립트`, and `모델 실행기 자동 시작`; do not change training execution, model downloading, or model adoption.
+- Acceptance criteria and result:
+  - Selecting a different profile from the advanced selector invokes the same runtime-profile command as the profile card, while recipe/programmatic field loading does not invoke it: passed.
+  - A valid sibling runtime fills Python, runtime root, and worker script without asking for the folder again: passed.
+  - A deliberately newer unrelated `runs/**/best.pt` and a model-root `data/train/images` directory do not replace the selected inspection model or recipe image root: passed.
+  - Anomaly training immediately shows `YOLOv8 Classify / yolov8n-cls.pt`; object detection remains `YOLOv8 Detect / yolov8n.pt` and segmentation remains `YOLOv8 SEG / yolov8n-seg.pt`: passed.
+  - The current local YOLOv8 worker self-test passes and the changed UI has no 1920x1080 label clipping: passed.
+- Verification:
+  - Required isolated test build passed with 0 warnings and 0 errors.
+  - `--python-model-runtime-connection`, `--wpf-yolo-model-settings-panel`, `--wpf-training-settings-panel`, `--anomaly-classification-training-workflow`, and `--wpf-labeling-shell` passed.
+  - `C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --self-test` passed.
+  - True pre-change anomaly training capture: `artifacts\ui\model-runtime-profile-ux-20260719\before-training-1920.png`.
+  - Current-source after captures: `artifacts\ui\model-runtime-profile-ux-20260719\after-runtime-details-1920.png` and `after-training-1920.png`.
+- Boundary:
+  - The supplied user screenshot is the true baseline for the prior advanced-path labels. The local `before-runtime-1920.png` capture is a current-source top-of-runtime baseline and does not expose the exact advanced fields.
+  - Automatic reuse currently covers a valid target-named sibling folder or the already-selected valid target folder. A first connection on a different layout still requires one explicit folder selection.
+  - This slice does not download weights, run training, assert anomaly accuracy, or adopt a newly trained `best.pt`.
+
+## 2026-07-19 label-create/save row-local image-queue update
+
+- Status: `Complete`
+- Scope:
+  - Stop both object-detection label creation and label save from calling `ICollectionView.Refresh()` and resetting/redrawing the whole Image Queue.
+  - Update only the active queue row through the existing live-filtered item properties; preserve the selected root, active image, row instances, ordering, and catalog generation.
+  - Do not change image loading, queue enumeration, annotation persistence, Viewer/OpenGL/ROI tools, model runtime, training, or dataset contents.
+- Acceptance criteria and result:
+  - Two consecutive real `RoiAdded` event-path label creates and saves on a 125-image queue each produce zero source resets and zero collection-view resets: passed.
+  - Each create/save reevaluates only the changed live-filter row (`1/125`), does not increment `imageQueueCatalogLoadVersion`, and preserves the same 125 row instances: passed.
+  - Root path, active image path, queue count, active-row dirty/saved state, and queue scroll position remain correct through create and save: passed.
+  - The packaged current Debug EXE performs the same real mouse-drag create/save flow at 55% queue scroll with zero UI Automation invalidations or bulk changes: passed.
+  - Click load, canvas load with pending-label protection, keyboard navigation, root switching, queue status, large-folder construction, 10K asynchronous catalog loading, and shell construction remain intact: passed.
+  - The queue-status structure test now follows the already-implemented anomaly layout: quick filters are on row 6, and standard `저장/검사` versus anomaly `판정/상태` column headers are verified through the ViewModel binding instead of stale literal XAML headers: passed.
+- Verification:
+  - Exact pre-fix reproduction measured the label-create phase itself: `SOURCE_RESETS=0`, `VIEW_RESETS=1`, `FILTER_EVALUATIONS=125`, `CATALOG_VERSION=1`. This isolated the defect to `ApplyActiveImageQueueSaveRequiredStatus()` calling `imageQueueView.Refresh()`; no folder/catalog re-enumeration occurred.
+  - The earlier save-only check was invalid because it cleared event counters after label creation. It is superseded by the create/save phase-separated gate and must not be used as completion evidence.
+  - Required isolated test build passed with 0 warnings and 0 errors.
+  - `--wpf-image-queue-save-local-update` passed two creates and two saves on the current build with `SOURCE_RESETS=0`, `VIEW_RESETS=0`, `FILTER_EVALUATIONS=1`, and unchanged `CATALOG_VERSION=1` for all four phases.
+  - `--exe-label-create-queue-locality-smoke` passed against `artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe` SHA-256 `2701EAAA58F3700B67B5F3AE56888D5424C6E0821996C218C388238F8B73BBD0`: create invalidations/bulk changes `0/0`, save invalidations/bulk changes `0/0`, queue scroll `55.00 -> 55.00 -> 55.00`, 125 images and `queue-local-000.jpg` retained, and a non-empty YOLO label file written.
+  - `--wpf-image-queue-status`, `--wpf-image-queue-click-load-path`, `--wpf-image-queue-click-loads-canvas`, `--wpf-image-queue-keyboard-navigation`, `--wpf-image-queue-root-switch`, `--wpf-image-queue-large-folder-performance`, `--wpf-image-queue-10k-responsive`, and `--wpf-labeling-shell` passed.
+  - The 1,200-row construction gate completed in `558.5ms` with one bulk collection action; the 10,000-row catalog returned in `16.2ms` and rejected a stale load.
+  - Current packaged-EXE evidence: `artifacts\exe-label-create-queue-locality\label_create_queue_locality_20260719_171810\summary.txt` plus screenshots `01_before_label_create_scrolled_queue.png`, `02_after_label_create_queue_preserved.png`, and `03_after_label_save_queue_preserved.png`.
+- Boundary:
+  - The reset defect is an event/performance behavior that screenshots alone cannot prove. The failing pre-fix event-counter result is the behavioral baseline; the current EXE event counters and scroll measurement are the completion proof, while screenshots support visible-state review.
+  - Three older broad EXE smokes attempted during diagnosis stopped before this target flow because their project/tool selectors no longer match the current workspace (`--exe-industrial-object-labeling-smoke`, `--exe-real-labeling-smoke`, and candidate/template recipe-panel flows). They are not accepted as evidence for this defect; the narrow current-workspace smoke above is now the canonical non-repeating gate.
+  - This completion does not remove explicit full refreshes used by filter changes, batch review, quality review, or anomaly review paths; those have separate semantics and were not implicated in the reproduced label-create/save defect.
+  - The unrelated indentation-only change in `WpfLabelingShellWindow.xaml` remains excluded and untouched.
+
 ## 2026-07-19 documentation checkpoint reconciliation
 
 - Status: `Complete`
@@ -13327,3 +13449,68 @@ Last updated: 2026-07-19
   - README and tutorial guidance were reviewed. They already state the canonical-recipe and explicit-adapter product boundary; their high-level Model Center images were retained because this is a detailed runtime-contract surface rather than a changed public walkthrough step.
 - Completion disposition and boundary:
   - Complete for the catalog/contract slice. Reopen only for a missing/incorrect declared contract, a stale format inventory, a binding failure, or a reproduced clipping defect. This does not claim generic GitHub-model support, model quality, model adoption, ONNX training, or YOLO11 readiness.
+
+## 2026-07-19 anomaly OK/NG queue-focus synchronization
+
+- Status: `Complete`
+- Scope:
+  - After either `정상(OK) → 다음` or `이상(NG) → 다음`, keep the active canvas image, DataGrid selection, bound `SelectedQueueItem`, DataGrid current row, and scroll-visible selected row on the same next-unreviewed image.
+  - Keep keyboard focus on the decision controls for repeated review; do not add a collection refresh, queue rebuild, model action, or dataset mutation beyond the existing review-state save.
+- Acceptance criteria and evidence:
+  - The focused baseline reproduced the defect for 18 decisions: active image, grid selection, and ViewModel selection advanced, while `DataGrid.CurrentCell` remained empty on every step. Baseline current-source capture: `artifacts\ui\anomaly-queue-focus-20260719\before-focused-smoke.png`.
+  - `SelectImageQueueItem` now aligns the first DataGrid cell with the selected item, and anomaly navigation reapplies selection/scroll after the existing image-load refreshes finish.
+  - `--wpf-anomaly-queue-focus` alternates nine OK and nine NG decisions on a 100-image queue and requires active path, grid selection, ViewModel selection, current cell, realized row, and persisted 9/9 review counts to agree. It passed. Current-source after capture: `artifacts\ui\anomaly-queue-focus-20260719\after-focused-smoke.png`.
+- Verification:
+  - Required isolated build passed with 0 warnings / 0 errors.
+  - `--wpf-anomaly-purpose-flow`, `--wpf-image-queue-keyboard-navigation`, and `--wpf-image-queue-save-local-update` passed.
+  - The real 512x512 NG-folder queue profile completed 29 visible switches at `36.9ms` average and `51.3ms` maximum, settled warm average `90.5ms`, and zero queue-filter evaluations.
+  - `git diff --check` and `--priority-workflow-docs` passed.
+- Boundary / next dependency:
+  - This entry closes visible current-row synchronization only. The later queue-local latency work is independently completed and recorded in `2026-07-19 anomaly OK/NG decision latency and queue-local transition` at the top of this document.
+
+## 2026-07-19 anomaly OK/NG application-scope theme resources
+
+- Status: `Complete`
+- Scope:
+  - Stop repeated `ResourceDictionary` missing-key warnings during actual anomaly OK/NG button interaction by making the existing shell palette and WPF-UI theme/control dictionaries available to detached or newly realized visual-state trees.
+  - Preserve the existing dark/light palette, OK/NG queue focus behavior, labels, recipes, model state, and training state. Do not suppress trace output or create a second palette definition.
+- Acceptance criteria and evidence:
+  - The user-provided Debug stream identified repeated missing lookups for `GridLineBrush`, `PrimaryTextBrush`, `DisabledTextBrush`, `SecondaryTextBrush`, `ControlElevationBorderBrush`, `ToolbarButtonBorderBrush`, and `PanelBrush` on anomaly decisions.
+  - Source inspection found the custom palette and WPF-UI dictionaries only under `WpfLabelingShellWindow.Resources`, while `WpfImageQueuePanel` dynamic styles and WPF-UI button visual states consume those keys. The automated baseline did not re-emit the user's warning stream, so this root-cause conclusion is a source-backed structural diagnosis rather than a claimed local baseline reproduction.
+  - The shell now promotes the same palette objects and the existing merged WPF-UI dictionaries to `Application.Resources` after XAML initialization. Theme changes replace both the window and application entries with the same brush object.
+  - `--wpf-anomaly-queue-focus` requires all seven reported keys to resolve from application scope, deterministically invokes the commands bound to the visible OK/NG buttons for 18 alternating decisions, requires active image/grid/ViewModel/current-row alignment and persisted 9/9 decisions, and records `ANOMALY_QUEUE_RESOURCE_WARNINGS=0`. The separate `after-native-click-1920.png` artifact remains the historical native-mouse evidence.
+- Verification:
+  - Required isolated Debug build passed with 0 warnings / 0 errors.
+  - `--wpf-anomaly-queue-focus`, `--wpf-anomaly-purpose-flow`, `--anomaly-classification-training-workflow`, `--wpf-yolov8-anomaly-classification-runtime-smoke`, `--wpf-canvas-detection-overlay`, `--wpf-labeling-shell`, `--wpf-image-queue-keyboard-navigation`, and `--priority-workflow-docs` passed.
+  - Closest current-source before: `artifacts\ui\anomaly-queue-focus-20260719\before-focused-smoke.png`; current-source native-click after: `artifacts\ui\anomaly-resource-warnings-20260719\after-native-click-1920.png`. Visual comparison found no clipping, color, layout, or selected-row regression.
+  - Latest packaged Debug EXE: `artifacts\run\Debug\OpenVisionLab.LabelingStudio.exe`; EXE SHA-256 `7C080A5684106E4F13DAAF4A11641C3566549C4802180BB9F63FF6E810777A73`, DLL SHA-256 `9658C6C4580A96BD8E9109F1DA6E6931818806DEA28A92896C135ED2265C47E3`.
+  - `git diff --check` passed apart from Git's existing LF-to-CRLF notices.
+- Boundary / next dependency:
+  - A previously running EXE retains the old resource scope and must be closed before launching the current build. This entry closes the reported resource-resolution contract; the later synchronous persistence/full-view-refresh latency issue is independently completed in the queue-local transition record at the top of this document.
+
+## 2026-07-19 current anomaly classification operator guide
+
+- Status: `Complete`
+- Scope:
+  - Replace the obsolete design-stage anomaly document with the implemented operator flow from image-level OK/NG review through YOLOv8 `task=classify` training, candidate review, and independent test evaluation.
+- Acceptance criteria and evidence:
+  - `docs/ANOMALY_DETECTION_FLOW.md` now distinguishes the implemented two-class supervised classifier from one-class novelty detection/PatchCore and heatmap workflows.
+  - The guide names the exact stage/task navigation, fast preset, readiness text, `classification/{train,val,test}/{normal,abnormal}` export, source-copy boundary, YOLOv8 classification runtime/weight prerequisite, failure messages, candidate adoption boundary, and reusable automated gates.
+  - `--priority-workflow-docs`, `--anomaly-classification-training-workflow`, and `--wpf-yolov8-anomaly-classification-runtime-smoke` passed.
+- Boundary / next dependency:
+  - This is an implemented workflow guide, not evidence that a newly trained model is accurate. Independent camera/session OK/NG test data remains required for a model-quality or adoption decision.
+
+## 2026-07-19 operator anomaly model actual-EXE validation
+
+- Status: `Complete`
+- Scope:
+  - Validate the successful one-epoch YOLOv8 classification `best.pt`, trained from the operator's 50 NG / 50 OK circular-image source, through the current Debug EXE rather than treating a direct Python inference as application evidence.
+  - The EXE automation creates an isolated anomaly recipe, saves the YOLOv8 runtime/weight/image-root/class mapping, restarts the EXE, invokes current-image inference, and verifies the persisted Normal/Abnormal review state. It now accepts an explicit expected state and diagnostic anomaly threshold so the same reusable gate covers both classes.
+- Acceptance and evidence:
+  - Required isolated build passed with 0 warnings / 0 errors.
+  - Actual EXE SHA-256 `BEA6C3CEDCF8DCD1404230F79BD04B157B7850BA13582ED1BA1A99B1A50A60BF` loaded weight SHA-256 `5F8D344F19B3FBA29D6B9BC1066E0F4AFD700263DAE497F997F3E8B78D776308` after a saved-profile restart in all four runs.
+  - Correct-path evidence: `NG_0006.png` persisted Abnormal/NG and `OK_0002.png` persisted Normal/OK. Model-error evidence: `NG_0001.png` persisted the model's incorrect Normal output and `OK_0001.png` persisted the model's incorrect Abnormal output. Source/copy SHA-256 matched for every isolated input.
+  - Reusable summaries and current-EXE screenshots are under `artifacts\verification\anomaly-exe-user-model-20260719`; the aggregate record is `verification-summary.txt`.
+- Model-quality boundary:
+  - A 100-image diagnostic produced abnormal→abnormal 25, abnormal→normal 25, normal→normal 22, and normal→abnormal 28: 47% accuracy. The EXE integration path is verified, but this one-epoch model is rejected for actual inspection use.
+  - Reopen EXE integration only if runtime/profile/mapping behavior changes or a reproduced EXE mismatch appears. Model adoption remains a separate task requiring retraining and an untouched independent holdout.

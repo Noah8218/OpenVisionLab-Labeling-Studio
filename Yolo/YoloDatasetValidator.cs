@@ -47,6 +47,9 @@ namespace MvcVisionSystem.Yolo
         public string TrainValidImageOverlapExample { get; internal set; } = "";
         public int SplitImageContentOverlapCount { get; internal set; }
         public string SplitImageOverlapExample { get; internal set; } = "";
+        public int AnomalyNormalImageCount { get; internal set; }
+        public int AnomalyAbnormalImageCount { get; internal set; }
+        public int AnomalyUnreviewedImageCount { get; internal set; }
         public int TotalImageCount => TrainImageCount + ValidImageCount + TestImageCount;
         public int TotalLabelFileCount => TrainLabelCount + ValidLabelCount + TestLabelCount;
         public int TotalEmptyLabelFileCount => TrainEmptyLabelFileCount + ValidEmptyLabelFileCount + TestEmptyLabelFileCount;
@@ -157,6 +160,22 @@ namespace MvcVisionSystem.Yolo
             YoloDatasetStatistics statistics = BuildStatistics(data);
             AppendPurposeAnnotationPolicyErrors(purpose, statistics, errors);
 
+            return new YoloDatasetValidationResult(errors);
+        }
+
+        public static YoloDatasetValidationResult ValidateAnomalyClassificationConfiguration(CData data)
+        {
+            var errors = new List<string>();
+            if (data == null)
+            {
+                errors.Add("Dataset configuration is missing.");
+                return new YoloDatasetValidationResult(errors);
+            }
+
+            data.NormalizeOutputPaths();
+            ValidateOutputPath(data, errors);
+            ValidateDatasetSplit(data.ProjectSettings?.YoloDataset, errors);
+            ValidateTrainingSettings(data.GetTrainingSettings(), errors);
             return new YoloDatasetValidationResult(errors);
         }
 

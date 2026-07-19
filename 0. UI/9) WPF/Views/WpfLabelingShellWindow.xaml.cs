@@ -53,6 +53,44 @@ namespace MvcVisionSystem
         private const int ObjectReviewFullRefreshDeleteLimit = 10_000;
         private const double PreferredInitialShellWidth = 1920D;
         private const double PreferredInitialShellHeight = 1080D;
+        private static readonly string[] SharedThemeResourceKeys =
+        {
+            "AppBackgroundBrush",
+            "FrameBrush",
+            "PanelBrush",
+            "PanelHeaderBrush",
+            "CanvasBrush",
+            "StatusBarBrush",
+            "BorderBrushDark",
+            "PrimaryTextBrush",
+            "SecondaryTextBrush",
+            "AccentBrush",
+            "ModelCenterCandidateBrush",
+            "ModelCenterDecisionBrush",
+            "ModelCenterCandidatePanelBrush",
+            "ModelCenterDecisionPanelBrush",
+            "ToolbarButtonBrush",
+            "ToolbarButtonBorderBrush",
+            "ToolbarButtonHoverBrush",
+            "ToolbarButtonPressedBrush",
+            "ToolbarButtonDisabledBrush",
+            "ToolbarButtonDisabledBorderBrush",
+            "DisabledTextBrush",
+            "InputBrush",
+            "InputBorderBrush",
+            "GridLineBrush",
+            "GridHeaderBrush",
+            "RowHoverBrush",
+            "SelectedRowBrush",
+            "SelectedRowTextBrush",
+            "DetectionOverlayBackgroundBrush",
+            "DetectionOverlayBorderBrush",
+            "DetectionOverlayTitleTextBrush",
+            "DetectionOverlaySummaryTextBrush",
+            "DetectionOverlaySelectedBackgroundBrush",
+            "DetectionOverlaySelectedTextBrush",
+            "DetectionOverlayDetailTextBrush"
+        };
         private readonly CGlobal global = CGlobal.Inst;
         private readonly WpfBulkObservableCollection<WpfImageQueueItem> imageQueueItems = new WpfBulkObservableCollection<WpfImageQueueItem>();
         private readonly Dictionary<string, WpfImageQueueItem> imageQueueItemsByPath = new Dictionary<string, WpfImageQueueItem>(StringComparer.OrdinalIgnoreCase);
@@ -174,6 +212,7 @@ namespace MvcVisionSystem
         {
             this.viewModels = viewModels ?? throw new ArgumentNullException(nameof(viewModels));
             InitializeComponent();
+            PromoteSharedThemeResourcesToApplication();
             ApplyInitialWindowSizeToWorkArea();
             inferenceStatusPulseTimer = new DispatcherTimer(DispatcherPriority.Render, Dispatcher)
             {
@@ -240,6 +279,31 @@ namespace MvcVisionSystem
             RefreshAnnotationHistoryToolState();
             RefreshShellDatasetContext();
             FocusDatasetOnboardingTabIfNoActiveImage();
+        }
+
+        private void PromoteSharedThemeResourcesToApplication()
+        {
+            ResourceDictionary applicationResources = System.Windows.Application.Current?.Resources;
+            if (applicationResources == null)
+            {
+                return;
+            }
+
+            foreach (ResourceDictionary dictionary in Resources.MergedDictionaries)
+            {
+                if (!applicationResources.MergedDictionaries.Any(existing => existing.GetType() == dictionary.GetType()))
+                {
+                    applicationResources.MergedDictionaries.Add(dictionary);
+                }
+            }
+
+            foreach (string key in SharedThemeResourceKeys)
+            {
+                if (Resources.Contains(key))
+                {
+                    applicationResources[key] = Resources[key];
+                }
+            }
         }
 
         private void ApplyInitialWindowSizeToWorkArea()

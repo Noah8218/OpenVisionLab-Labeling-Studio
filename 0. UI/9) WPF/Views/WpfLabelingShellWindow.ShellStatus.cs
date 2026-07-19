@@ -194,7 +194,11 @@ namespace MvcVisionSystem
                 SetThemeBrush("BorderBrushDark", "#D8DEE8");
                 SetThemeBrush("PrimaryTextBrush", "#151922");
                 SetThemeBrush("SecondaryTextBrush", "#566170");
-                SetThemeBrush("AccentBrush", "#E53935");
+                SetThemeBrush("AccentBrush", "#2563EB");
+                SetThemeBrush("InfoBrush", "#2563EB");
+                SetThemeBrush("SuccessBrush", "#16A34A");
+                SetThemeBrush("WarningBrush", "#D97706");
+                SetThemeBrush("ErrorBrush", "#DC2626");
                 SetThemeBrush("ToolbarButtonBrush", "#F7F9FC");
                 SetThemeBrush("ToolbarButtonBorderBrush", "#CBD3DF");
                 SetThemeBrush("ToolbarButtonHoverBrush", "#E8EEF7");
@@ -228,7 +232,11 @@ namespace MvcVisionSystem
                 SetThemeBrush("BorderBrushDark", "#303030");
                 SetThemeBrush("PrimaryTextBrush", "#F7F7F7");
                 SetThemeBrush("SecondaryTextBrush", "#B7B7B7");
-                SetThemeBrush("AccentBrush", "#E53935");
+                SetThemeBrush("AccentBrush", "#3B82F6");
+                SetThemeBrush("InfoBrush", "#3B82F6");
+                SetThemeBrush("SuccessBrush", "#22C55E");
+                SetThemeBrush("WarningBrush", "#F59E0B");
+                SetThemeBrush("ErrorBrush", "#EF4444");
                 SetThemeBrush("ToolbarButtonBrush", "#252525");
                 SetThemeBrush("ToolbarButtonBorderBrush", "#3A3A3A");
                 SetThemeBrush("ToolbarButtonHoverBrush", "#333333");
@@ -266,7 +274,12 @@ namespace MvcVisionSystem
 
         private void SetThemeBrush(string key, string color)
         {
-            Resources[key] = new MediaSolidColorBrush((MediaColor)MediaColorConverter.ConvertFromString(color));
+            var brush = new MediaSolidColorBrush((MediaColor)MediaColorConverter.ConvertFromString(color));
+            Resources[key] = brush;
+            if (System.Windows.Application.Current != null)
+            {
+                System.Windows.Application.Current.Resources[key] = brush;
+            }
         }
 
         private static WpfUiApplicationTheme ToWpfUiTheme(ShellTheme theme)

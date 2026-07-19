@@ -2,6 +2,49 @@
 
 This document records code paths that have already been performance- or UX-verified and should not be casually refactored. Treat these areas as protected product behavior: change them only when the user reports a new issue in that exact path, or when a focused verification gate proves the change is necessary.
 
+## Task-Aware Model Runtime Profile Transition
+
+Status: stable for current-build profile selection, safe runtime-path mapping, and anomaly training summary as of 2026-07-19. This is runtime configuration evidence, not model-quality or model-adoption evidence.
+
+Protected behavior:
+
+- A user profile choice and the profile-card action use the same transition path. Programmatic recipe loading must not open a folder picker.
+- Reuse an already-selected valid target folder or a valid sibling named `yolov8`/`yolov5`; otherwise request one explicit folder selection.
+- When anomaly training is started from a legacy YOLOv5 recipe and a train-ready sibling `yolov8` exists, connect and persist that runtime automatically, then allow the existing worker-signature restart path to replace the stale YOLOv5 process.
+- Never send `task=classify` with the YOLOv5 adapter. The workflow safety guard must block before export/TCP even if UI routing regresses.
+- Change only the model engine, Python executable, model runtime folder, and worker script during a runtime transition.
+- Preserve the recipe image root and current inspection-model path. Never auto-select a `runs/**/best.pt` or model-root image folder merely because a runtime was connected.
+- Derive the visible training task and seed from dataset purpose: Detect/`yolov8n.pt`, SEG/`yolov8n-seg.pt`, or Classify/`yolov8n-cls.pt`.
+- Keep a trained `best.pt` as a candidate until the existing explicit review/adoption workflow confirms it.
+- Rebuild generated `classification/train|valid|test` splits on each preparation; repeated starts must not duplicate prior export files.
+- Present anomaly readiness from reviewed Normal/Abnormal images and their split ownership, not from object-detection box-label counts.
+
+Required gates before reporting this path complete again:
+
+```powershell
+dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --python-model-runtime-connection
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolo-model-settings-panel
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-training-settings-panel
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-training-workflow
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-labeling-shell
+C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --self-test
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --priority-workflow-docs
+git diff --check
+```
+
+Latest evidence:
+
+```text
+PASS Current image and inspection model survive runtime switching even when newer unrelated runtime assets exist: --python-model-runtime-connection
+PASS User dropdown transition, model settings bindings, and current WPF shell: --wpf-yolo-model-settings-panel and --wpf-labeling-shell
+PASS Detect/SEG/Classify task-aware summaries and real classify training packet: --wpf-training-settings-panel and --anomaly-classification-training-workflow
+PASS Repeated anomaly export replacement and image-level readiness: --anomaly-classification-dataset-export and --dataset-readiness-purpose
+PASS Current local YOLOv8 worker: labeling_tcp_client.py --self-test
+PASS Supplied 100-image real 1-epoch YOLOv8 classify run: artifacts\verification\anomaly-training-fix-20260719\real-yolov8-anomaly-1epoch\summary.txt
+PASS Current-source 1920x1080 captures: artifacts\ui\model-runtime-profile-ux-20260719\after-runtime-details-1920.png and after-training-1920.png
+```
+
 ## Anomaly OK/NG Image-Level Review Workspace
 
 Status: stable for current-build manual image-level anomaly review, explicit folder consent, persistence, and purpose-specific UI as of 2026-07-19. This is a labeling/review workflow contract, not model-quality evidence.
@@ -13,6 +56,8 @@ Protected behavior:
 - Keep the three current-image actions in Image Queue: `정상(OK) → 다음`, `이상(NG) → 다음`, and `미판정으로 되돌리기`. A saved OK/NG decision advances to the next unreviewed image; an explicit later decision overrides the earlier one.
 - Present anomaly rows as `판정` and `상태` with `OK`, `NG`, or `미판정` badges. Generic YOLO label/detection refreshes and inference candidates must not overwrite this image-level queue presentation.
 - Persist only reviewed states in the existing `anomaly-review-status.json`. Training readiness, manifest, dashboard, and classification export continue to consume that saved state; the dedicated buttons do not create YOLO annotation files.
+- Persist `anomaly-review-status.json` immediately, but do not rescan the dataset to rebuild the derived manifest on each decision. The existing recipe-save path owns manifest regeneration.
+- Update a reviewed row through the configured live-filter properties and load the next image from the existing queue. Do not call `ICollectionView.Refresh()` or repopulate the queue in the per-decision path.
 - Treat `OK`/`normal` and `NG`/`abnormal` parent names as a proposal only. `N장 일괄 판정` affects unreviewed images only, `이미지별 확인` leaves them unreviewed, and saved manual decisions always win.
 - Preserve the operator-selected image root when the first nested image or a later row is opened.
 
@@ -20,6 +65,7 @@ Required gates before reporting this path complete again:
 
 ```powershell
 dotnet build .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug /nr:false -m:1 /p:UseSharedCompilation=false /p:OutDir=artifacts\isolated-out\
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-anomaly-queue-focus
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-folder-auto-review
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-anomaly-purpose-flow
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-visual-smoke --dataset-purpose anomaly --review-tab labeling-guide --anomaly-review-only --right-workflow-expanded --width 1920 --height 1080 --output .\artifacts\ui\anomaly-ok-ng-review-20260719\after-staged-slice-1920.png
@@ -31,6 +77,8 @@ Latest evidence:
 
 ```text
 PASS Dedicated OK/NG command, next-unreviewed, override, clear, restart persistence, selected-root, bulk-manual precedence, and purpose restore: --anomaly-folder-auto-review
+PASS Generated 100-image/18-decision queue-local transition: zero view resets, one filter evaluation, zero queue population, 160.0ms median, 244.1ms maximum, persisted 9 Normal/9 Abnormal, and zero resource warnings: --wpf-anomaly-queue-focus
+PASS Supplied 100-image 512x512 circular dataset: 223.4ms median, 290.5ms maximum, same queue-local invariants, and unchanged image-tree SHA-256 99D310FCC1CCB36F8CE3D2363ACE21F117C17F54B18A4CEF80E75B92DB3B43E7
 PASS Existing anomaly status, manifest, dashboard, completion, and inference mapping contract: --wpf-anomaly-purpose-flow
 PASS Exact staged-tree before/after 1920x1080 captures for commit 85d91e9: artifacts\ui\anomaly-ok-ng-review-20260719\before-anomaly-review-1920.png and after-staged-slice-1920.png
 ```
@@ -2801,6 +2849,12 @@ This closure does not include historical operator-data correction, SEG or anomal
 2026-07-18 Model Center dedicated-workspace contract: `TrainingModel` is a presentation-only workspace mode. It expands the existing Model Center to the available shell width and hides the inactive canvas, image queue, splitters, and dock-collapse control. Returning to Dataset, Labeling, or Inference restores the normal canvas/queue layout and the saved queue width. This transition must not modify recipe settings, labels, queue selection, model runtime/profile, training state, inference/candidate state, comparison evidence, or adoption history. Covered by the required isolated build, `--wpf-labeling-shell`, `--wpf-responsive-layout`, `--wpf-training-settings-panel`, and current-build 1920x1080 plus 1366x768 captures under `artifacts\ui\model-workspace-20260718`.
 
 2026-07-18 model-adapter catalog contract: `ModelAdapterCatalogService` must expose only five read-only contracts—implemented recipe interchange formats, YOLOv5 detection, local YOLOv8, ONNX inference-only, and blocked YOLO11—and every item must declare task, data, runtime, evidence, and next action. The interchange list derives from `DatasetExportCapabilityService.BuildImplementedCapabilities()` so format availability cannot silently exceed the real exporter inventory. The WPF Model Center binds `ModelAdapterCatalogItems` and `ModelAdapterCatalogBoundaryText` from `WpfYoloModelSettingsPanelViewModel`; XAML and shell code-behind must not decide model readiness or add a runtime action. Data conversion is not executable-runtime evidence, ONNX remains inference-only, and YOLO11 remains blocked until a compatible local runtime, weight, transport mapping, and focused smoke are proven. Covered by the required isolated build, `--model-adapter-catalog`, `--wpf-yolo-model-settings-panel`, `--wpf-labeling-shell`, `--wpf-responsive-layout`, and 1920x1080/1366x768 current-source captures under `artifacts\ui\model-adapter-catalog-20260718`. This is not generic GitHub model support, model quality evidence, model adoption, or ONNX training.
+
+2026-07-19 label-create/save queue-locality contract: creating or saving an annotation for the active image must update that existing `WpfImageQueueItem` through its live-filtered properties and must not call `imageQueueView.Refresh()`, reset the source/view, rebuild row instances, change the selected root or active path, or increment the asynchronous catalog generation. Explicit refreshes owned by user filter changes, batch/quality/anomaly workflows remain outside this contract. The canonical source-level gate is `--wpf-image-queue-save-local-update`, which performs two real `RoiAdded` event-path creates and saves on 125 rows and requires `SOURCE_RESETS=0`, `VIEW_RESETS=0`, `FILTER_EVALUATIONS=1`, and an unchanged catalog version for every phase. The canonical packaged-app gate is `--exe-label-create-queue-locality-smoke`: it starts the current Debug EXE with an isolated 125-image recipe, scrolls the real queue to 55%, draws a box by native mouse input, saves it, and requires zero UI Automation invalidations/bulk changes plus unchanged queue count, active image, visible rows, and scroll position. Verified EXE SHA-256 `2701EAAA58F3700B67B5F3AE56888D5424C6E0821996C218C388238F8B73BBD0`; reusable evidence is `artifacts\exe-label-create-queue-locality\label_create_queue_locality_20260719_171810`. The queue status/click/canvas/keyboard/root-switch/1,200-row/10K/shell gates also pass.
+
+2026-07-19 anomaly OK/NG queue-focus contract: after either anomaly decision-and-next command succeeds, the next-unreviewed path must be the same object held by the active canvas path, DataGrid `SelectedItem`, `WpfImageQueuePanelViewModel.SelectedQueueItem`, and DataGrid `CurrentCell.Item`; the corresponding row must be realized, selected, and scrolled into view. The command must not steal keyboard focus from the OK/NG controls or add another collection-view refresh. The canonical gate is `--wpf-anomaly-queue-focus`, which deterministically invokes the commands bound to the visible OK/NG buttons, alternates nine OK and nine NG decisions in a 100-image queue, and verifies the full selection/current-row chain plus persisted 9/9 review counts. Historical native-mouse evidence remains under `artifacts\ui\anomaly-resource-warnings-20260719`; the current queue-local latency closure and evidence are recorded at the top of this document.
+
+2026-07-19 anomaly application-theme resource contract: `WpfImageQueuePanel` styles and WPF-UI button/DataGrid visual states may resolve the shared palette outside the immediate window resource tree while controls are focused, clicked, or re-realized. `WpfLabelingShellWindow` therefore promotes the same existing palette objects plus its merged WPF-UI theme/control dictionaries to `Application.Resources`; dark/light changes must update the window and application entries with the same brush. Do not suppress ResourceDictionary tracing or define a second palette. The canonical `--wpf-anomaly-queue-focus` gate first requires application lookup for the seven keys reported by the operator, then invokes the commands bound to the visible OK/NG buttons for 18 decisions and requires `ANOMALY_QUEUE_RESOURCE_WARNINGS=0`, synchronized active/grid/ViewModel/current-row state, and persisted 9/9 counts. The earlier current-source capture at `artifacts\ui\anomaly-resource-warnings-20260719\after-native-click-1920.png` remains separate native-mouse evidence. A running old EXE must be restarted to load the corrected resource scope; the later synchronous save/view-refresh latency issue is now closed by the queue-local transition recorded above.
 
 ## Refactor Rule
 

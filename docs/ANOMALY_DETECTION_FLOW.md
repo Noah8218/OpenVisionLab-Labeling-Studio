@@ -1,83 +1,140 @@
-# Anomaly Detection Flow
+# 이상탐지 라벨링·학습 흐름
 
-이 문서는 5순위 과제인 `이상탐지 플로우`의 제품 기준입니다.
+Status: Current workflow guide as of 2026-07-19.
 
-이상탐지는 객체탐지나 세그멘테이션과 목표가 다릅니다. 사용자가 "어디에 어떤 물체가 있다"를 항상 라벨링하는 것이 아니라, 정상/비정상 데이터의 기준을 만들고 모델이 낯선 결함을 찾도록 돕는 흐름이 중심입니다.
+## 현재 프로그램에서 말하는 이상탐지
 
-## 제품 원칙
+현재 구현은 이미지 전체의 `image-level normal/abnormal`, 즉 `정상(OK)` 또는 `이상(NG)` 상태를 판정한 뒤 Ultralytics의 이미지 분류 작업(`task=classify`)으로 학습하는 흐름입니다. 객체탐지처럼 박스를 반드시 그리거나 세그멘테이션처럼 마스크를 반드시 칠하지 않습니다.
 
-- 이상탐지는 별도 dataset purpose입니다.
-- 객체탐지 박스 도구와 세그멘테이션 브러시를 재사용할 수는 있지만, 화면 설명은 `정상/비정상 기준 만들기`가 먼저입니다.
-- 초보자에게는 image-level 정상/비정상 분류를 먼저 보여주고, region-level 결함 표시를 선택 기능으로 둡니다.
-- Python runtime/model은 아직 확정하지 않습니다. C# 앱은 데이터셋 목적, 라벨 타입, 저장 상태, 튜토리얼 UX를 먼저 안정화합니다.
+이 방식은 OK와 NG 예제를 모두 학습하는 **2클래스 지도학습 분류**입니다. 정상 이미지만으로 낯선 결함을 찾는 PatchCore류의 one-class anomaly detection이나 heatmap 기반 위치 추정은 아직 현재 학습 경로가 아닙니다.
 
-## 권장 플로우
+## 학습 전 필수 조건
 
-1. 데이터셋 목적에서 `이상탐지`를 선택합니다.
-2. 앱은 먼저 이미지별 상태를 `정상`, `비정상`, `미검토`로 분리해 보여줍니다.
-3. 정상 이미지는 빠르게 완료 처리할 수 있어야 합니다.
-4. 비정상 이미지는 필요에 따라 박스 또는 mask로 결함 위치를 보조 표시합니다.
-5. dashboard는 정상/비정상 이미지 수, split별 분포, 비정상 부족, test split 부족을 먼저 보여줍니다.
-6. 학습 단계에서는 선택한 anomaly backend가 아직 없으면 export/readiness까지만 안내합니다.
-7. inference 단계에서는 anomaly score, threshold, heatmap, false positive/false negative review가 들어갈 자리를 별도 영역으로 둡니다.
+- 데이터셋 목적이 `이상 탐지`여야 합니다.
+- 이미지 폴더와 쓰기 가능한 저장 폴더가 연결되어 있어야 합니다.
+- 이미지 큐에 `정상(OK)`과 `이상(NG)` 판정이 각각 1장 이상 저장되어야 합니다.
+- 실제 `train` 분할에도 정상과 이상이 각각 1장 이상 들어가야 합니다.
+- 분류 학습을 지원하는 YOLOv8 실행기와 `yolov8n-cls.pt` 시작 가중치가 준비되어야 합니다.
+- 현재 레시피가 `YOLOv5 / best.pt`를 가리키더라도 분류 요청을 YOLOv5로 보내지 않습니다. 유효한 형제 `yolov8` 실행기가 있으면 학습 시작 시 자동으로 전환·저장하고, 찾지 못하면 YOLOv8/YOLO11 연결 필요 상태로 차단합니다.
 
-## 라벨 타입
+## 앱에서 따라 하는 순서
 
-| 타입 | 용도 | 우선순위 |
-| --- | --- | --- |
-| image-level normal/abnormal | 이상탐지의 기본 학습 단위 | 1순위 |
-| region box | 결함 위치를 대략적으로 가르치거나 review 설명에 사용 | 2순위 |
-| region mask | 결함 영역이 작고 경계가 중요한 경우 | 2순위 |
-| class catalog | 불량 종류를 나누는 보조 정보 | 3순위 |
+### 1. 이미지와 저장 위치 연결
+
+1. `1 데이터셋`에서 데이터셋 목적을 `이상 탐지`로 선택합니다.
+2. `이미지 폴더`에서 이미지 루트를 선택합니다. `images/OK/...`, `images/NG/...`처럼 하위 폴더가 있어도 루트 `images` 폴더 하나를 선택합니다.
+3. `저장 폴더`에서 프로젝트 출력 위치를 확인합니다.
+4. 폴더 이름 제안이 나타나면 미리 집계된 OK/NG 수를 확인한 뒤 `폴더명 사용`으로 일괄 반영하거나, 신뢰할 수 없으면 `직접 판정`을 선택합니다.
+
+폴더 이름은 제안일 뿐 정답을 강제하지 않습니다. 이미 수동으로 저장한 판정은 폴더명 재해석으로 덮어쓰지 않습니다.
+
+### 2. 모든 이미지를 OK 또는 NG로 확정
+
+1. `2 라벨링`으로 이동합니다.
+2. 오른쪽 `정상(OK) → 다음` 또는 `이상(NG) → 다음`을 누릅니다.
+3. 판정 직후 다음 미판정 이미지로 이동하고 이미지 큐의 선택 행도 같은 이미지로 이동하는지 확인합니다.
+4. 필요하면 `미판정으로 되돌리기`로 현재 판정을 취소합니다.
+5. `다음 미판정`으로 남은 이미지를 확인합니다.
+
+이상 위치를 설명해야 할 때만 박스나 마스크를 보조 정보로 추가합니다. 현재 분류 학습의 필수 입력은 이미지 전체의 OK/NG 판정입니다.
+
+### 3. 분할과 학습 준비 상태 확인
+
+1. `4 학습/모델`로 이동합니다.
+2. `데이터` 또는 데이터셋 점검 화면에서 정상/이상/미판정 수를 확인합니다.
+3. `학습/비교` 탭에서 `학습 요약 / 설정`을 엽니다.
+4. 첫 실행은 `빠른 추천 적용`을 사용합니다.
+
+빠른 추천의 현재 기본값은 다음과 같습니다.
+
+| 항목 | 기본값 | 의미 |
+| --- | ---: | --- |
+| 이미지 크기 | 320 | 먼저 전체 경로가 동작하는지 빠르게 확인 |
+| 배치 | 4 | CPU에서도 시작하기 위한 보수적 값 |
+| 에폭 | 50 | 첫 기준 모델 |
+| 검증 | 20% | 학습 중 성능 확인 |
+| 최종 검증 | 0% | 별도 test가 없을 때의 첫 실행 |
+| 분할 기준값 | 17 | 같은 데이터에서 같은 분할 재현 |
+
+실제 품질 평가까지 하려면 학습에 사용하지 않을 독립 이미지를 확보하고 최종 검증 비율을 10% 안팎으로 둡니다. 데이터가 적어서 `train normal` 또는 `train abnormal`이 0이 되면 검증/최종 검증 비율을 줄이거나 이미지를 추가해야 합니다.
+
+### 4. YOLOv8 분류 실행기 준비
+
+1. 보통은 `학습 시작`만 누르면 됩니다. 레시피가 YOLOv5이고 같은 상위 위치에 유효한 `yolov8` 폴더가 있으면 Python, 모델 실행기 폴더, 모델 워커 스크립트가 함께 자동 전환되어 recipe에 저장됩니다.
+2. 자동 연결되지 않을 때만 `4 학습/모델 > 실행기`로 이동해 YOLOv8 프로필을 선택합니다.
+3. 자동으로 찾지 못한 최초 연결에서만 YOLOv8 실행기 폴더를 한 번 선택합니다. 이후 같은 연결을 사용할 때는 경로를 항목별로 다시 입력하지 않습니다.
+4. 프로필 전환은 현재 레시피의 이미지 경로와 현재 검사 모델을 바꾸지 않습니다. 실행기 폴더의 과거 `runs/**/best.pt`도 자동으로 검사 모델에 채택하지 않습니다.
+5. `학습/비교` 요약이 `YOLOv8 Classify / yolov8n-cls.pt`인지 확인합니다. `yolov8n-cls.pt`는 학습 시작 가중치이고, 현재 검사에 사용하는 학습 완료 `best.pt`와는 별도입니다.
+6. `yolov8n-cls.pt`가 로컬에 없으면 화면의 다운로드 필요/설치 안내를 따라 명시적으로 준비합니다. 앱은 승인 없이 학습 가중치를 자동 다운로드하지 않습니다.
+7. 상태를 새로고침해 학습 가능 상태인지 확인합니다.
+
+### 5. 학습 실행
+
+1. `학습/비교`로 돌아갑니다.
+2. `새로고침` 또는 상단 `점검`을 누릅니다.
+3. 아래와 같은 문구가 나오면 데이터 조건을 통과한 것입니다.
+
+```text
+학습 준비 완료: 이상 탐지 분류 데이터 / train normal N / train abnormal N / normal N / abnormal N / unreviewed N / source N
+```
+
+4. `학습 시작`을 누릅니다.
+5. 화면의 `학습 시작 요청 전달됨`은 전송 성공일 뿐 학습 완료가 아닙니다. 이어지는 worker 시작 상태와 첫 epoch 로그를 확인합니다.
+6. 앱은 원본 이미지를 수정하지 않고 저장 폴더 아래에 다음 분류 데이터셋을 매번 새로 만든 뒤 `task=classify`로 학습 요청을 보냅니다. 이전 export 파일은 중복 누적하지 않습니다.
+
+```text
+<저장 폴더>/classification/
+  train/normal/
+  train/abnormal/
+  valid/normal/
+  valid/abnormal/
+  test/normal/
+  test/abnormal/
+```
+
+7. 진행률과 에폭을 확인하고, 완료될 때까지 프로그램과 Python worker를 종료하지 않습니다.
+
+### 6. 학습 결과를 검사 모델로 적용
+
+1. 학습 완료 후 `학습 결과 모델` 후보가 표시되는지 확인합니다.
+2. `후보 검증`으로 현재 모델과 새 후보를 구분해 확인합니다.
+3. 독립 test 데이터가 있으면 `이상 분류 평가`를 실행해 정상/이상 정확도와 신뢰도 기준을 확인합니다.
+4. 기준을 통과한 모델만 `검사 모델로 저장/확정`합니다.
+5. 현재 이미지에서 `현재 검사`를 실행해 OK와 NG 양쪽이 의도한 상태로 매핑되는지 확인합니다.
+
+학습 완료 자체는 모델 채택 근거가 아닙니다. test 데이터를 학습에 섞지 말고, 가능하면 다른 촬영 세션·조명·제품 로트의 OK/NG 이미지로 다시 확인합니다.
+
+## 준비 실패 문구별 조치
+
+| 화면 문구 | 조치 |
+| --- | --- |
+| 이상 탐지 학습에 사용할 이미지가 없습니다 | 이미지 폴더를 다시 연결합니다. |
+| 검토된 정상 이미지와 검토된 이상 이미지가 각각 1개 이상 필요 | 이미지 큐에서 OK와 NG를 모두 저장합니다. |
+| train 분할에 정상/이상 이미지가 각각 1개 이상 필요 | 검증/test 비율을 줄이거나 각 판정 이미지를 추가합니다. |
+| 분류 가중치 다운로드 필요 | YOLOv8 실행기에서 `yolov8n-cls.pt`를 명시적으로 준비합니다. |
+| YOLOv8 또는 YOLO11 실행기 필요 | 같은 상위 위치의 `yolov8` 폴더를 확인하거나 실행기 화면에서 한 번 연결합니다. YOLOv5에는 분류 폴더를 보내지 않습니다. |
+| Python 모델 클라이언트 연결 실패 | 실행 파일·프로젝트·클라이언트 경로와 worker 상태를 확인합니다. |
 
 ## 완료 기준
 
-| 영역 | 완료 조건 |
-| --- | --- |
-| 목적 선택 | anomaly purpose를 선택해도 object detection/segmentation의 상태가 섞여 보이지 않습니다. |
-| 정상 완료 UX | 정상 이미지를 빠르게 완료하고 다음 이미지로 넘어갈 수 있습니다. |
-| 비정상 표시 UX | 박스 또는 mask를 보조 라벨로 추가할 수 있지만, 필수 입력처럼 보이지 않습니다. |
-| dashboard | 정상/비정상 분포와 split 부족이 첫 화면에서 드러납니다. |
-| 저장 계약 | manifest에 anomaly purpose와 image-level 상태가 남습니다. |
-| 학습 handoff | Python backend가 정해지기 전에는 runtime을 넣지 않고 export/readiness만 제공합니다. |
-| 검증 | 목적 전환, 저장/재열기, 정상 완료, 보조 region label이 자동화됩니다. |
+- 모든 대상 이미지의 OK/NG 판정이 저장되고 미판정 수가 의도한 값입니다.
+- readiness가 `학습 준비 완료: 이상 탐지 분류 데이터`를 표시합니다.
+- Python worker가 `task=classify` 학습 요청을 수락합니다.
+- 학습 결과 가중치가 후보로 기록됩니다.
+- 독립 test의 정상/이상 결과를 확인한 뒤에만 검사 모델로 확정합니다.
 
-## 현재 코드 기준
-
-| 책임 | 위치 |
-| --- | --- |
-| dataset purpose enum | `1. Core/LabelingProjectSettings.cs` |
-| purpose별 manifest profile/tools | `1. Core/LabelingDatasetManifestService.cs` |
-| guide mode | `0. UI/9) WPF/ViewModels/WpfLearningWorkflowPanelViewModel.cs` |
-| purpose 적용 | `0. UI/9) WPF/Views/WpfLabelingShellWindow.DatasetSetupCommands.cs`, `ShellProjectSettings.cs` |
-| readiness wording | `0. UI/9) WPF/Views/WpfLabelingShellWindow.TrainingGuideStatus.cs` |
-| box/mask 보조 annotation | 기존 ROI와 segmentation 서비스 |
-
-## 아직 구현하지 않는 것
-
-- C# 내부 anomaly model 학습
-- ONNX anomaly runtime
-- U-Net/segmentation runtime을 anomaly로 억지 재사용
-- 자동 heatmap UI
-- threshold tuning UI
-
-이 항목들은 실제 Python backend가 정해진 뒤 별도 설계로 진행합니다.
-
-## 필수 게이트 초안
-
-아직 anomaly 전용 gate는 부족합니다. 구현을 시작하면 최소 아래 gate를 추가해야 합니다.
+현재 자동화 게이트는 다음과 같습니다.
 
 ```powershell
-dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-build -- --wpf-anomaly-purpose-flow
-dotnet run --project .\tests\LabelingApplication.Tests\LabelingApplication.Tests.csproj -c Debug --no-build -- --exe-anomaly-normal-completion-smoke
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-anomaly-purpose-flow
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-anomaly-queue-focus
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-training-workflow
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolov8-anomaly-classification-runtime-smoke
 ```
 
-gate가 생기기 전에는 anomaly 기능을 `완료`로 표시하지 않습니다. 현재는 purpose/manifest/guide의 기반만 있는 설계 단계입니다.
+## 현재 검증 경계
 
-## 다음 구현
-
-1. image-level normal/abnormal 상태 모델을 정합니다.
-2. anomaly purpose에서 normal completion button과 next-image loop를 만듭니다.
-3. manifest/review-status에 image-level anomaly 상태를 저장합니다.
-4. dashboard에 정상/비정상/test split 분포를 추가합니다.
-5. Python backend 후보가 정해지면 export format과 inference result DTO를 설계합니다.
+- YOLOv8 분류 학습·추론 경로는 로컬 스모크 근거가 있습니다.
+- YOLO11 분류 요청·가중치 매핑은 구현돼 있지만 독립 품질 근거는 부족합니다.
+- 현재 흐름은 2클래스 분류이며 one-class novelty detection, 자동 heatmap, 임계값 보정 UI는 별도 기능입니다.
+- 합성 또는 같은 원천의 데이터만으로는 현장 성능을 주장하지 않습니다. 실제 카메라와 다른 세션에서 얻은 독립 OK/NG 데이터가 최종 품질 판단에 필요합니다.

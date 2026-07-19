@@ -140,7 +140,7 @@ namespace MvcVisionSystem
         private void ApplyActiveImageQueueSaveRequiredStatus(string reason)
         {
             ApplySaveRequiredStatusToQueueItem(FindImageQueueItem(activeImagePath), reason);
-            imageQueueView?.Refresh();
+            // Live filtering observes IsSaveRequired; refreshing here resets and redraws the entire queue per edit.
             UpdateImageQueueStatusText();
         }
 
@@ -239,7 +239,7 @@ namespace MvcVisionSystem
             ApplyReviewStatusToItem(FindImageQueueItem(activeImagePath), status);
             imageReviewStatus.SaveReviewStatus(global.Data);
             MarkActiveAnomalyImageAbnormal();
-            imageQueueView?.Refresh();
+            // Live filtering observes the row properties above; a full Refresh resets and redraws the entire queue.
             UpdateImageQueueStatusText();
         }
 
@@ -514,7 +514,7 @@ namespace MvcVisionSystem
             }
 
             ApplyAnomalyReviewStatusToItem(FindImageQueueItem(imagePath), status);
-            imageQueueView?.Refresh();
+            // Live filtering observes AnomalyReviewState/IsLabeled. Refresh() would reset and redraw every row.
             UpdateImageQueueStatusText();
         }
 
@@ -586,11 +586,8 @@ namespace MvcVisionSystem
         private void SaveAnomalyImageReviewStatus()
         {
             anomalyImageReviewStatus.SaveReviewStatus(global.Data);
-            string recipeName = GetCurrentRecipeName();
-            if (!string.IsNullOrWhiteSpace(recipeName))
-            {
-                LabelingDatasetManifestService.Save(global.Data, recipeName);
-            }
+            // The manifest is derived and is rebuilt by CData.SaveConfig. Keep the primary review state durable
+            // without rescanning the full dataset on every OK/NG decision.
         }
     }
 }

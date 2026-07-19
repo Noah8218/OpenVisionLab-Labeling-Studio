@@ -153,7 +153,9 @@ namespace MvcVisionSystem
         private void ExecuteConnectYoloV8RuntimeFolder()
         {
             string initialPath = YoloModelSettingsViewModel?.ProjectRootPath ?? YoloProjectRootBox.Text;
-            if (!TryPickFolder("YOLOv8 \uD3F4\uB354 \uC5F0\uACB0", initialPath, out string selectedPath))
+            string selectedPath = PythonModelRuntimeConnectionService.ResolveKnownLocalRuntimeFolder(initialPath, "yolov8");
+            if (string.IsNullOrWhiteSpace(selectedPath)
+                && !TryPickFolder("YOLOv8 \uD3F4\uB354 \uC5F0\uACB0", initialPath, out selectedPath))
             {
                 YoloProjectRootBox?.Focus();
                 SetYoloCommandStatus("YOLOv8 \uD3F4\uB354 \uC5F0\uACB0\uC744 \uCDE8\uC18C\uD588\uC2B5\uB2C8\uB2E4. \uAE30\uC874 \uACBD\uB85C\uB97C \uD655\uC778\uD558\uAC70\uB098 \uB2E4\uC2DC \uC5F0\uACB0\uD558\uC138\uC694.", isBusy: false);
@@ -166,6 +168,7 @@ namespace MvcVisionSystem
                 selectedPath,
                 global?.Data?.ProjectSettings?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection);
             YoloModelSettingsViewModel?.ApplyRuntimeConnectionResult(result);
+            TrainingSettingsViewModel?.ApplyModelEngineSelection(result.Settings.ModelEngine);
             YoloProjectRootBox?.Focus();
             SetYoloCommandStatus($"{result.SummaryText}: {result.DetailText}", isBusy: false);
             AppendLog($"YOLOv8 \uD3F4\uB354 \uC5F0\uACB0: {selectedPath} / {result.SummaryText}");
@@ -174,7 +177,9 @@ namespace MvcVisionSystem
         private void ExecuteConnectYoloV5RuntimeFolder()
         {
             string initialPath = YoloModelSettingsViewModel?.ProjectRootPath ?? YoloProjectRootBox.Text;
-            if (!TryPickFolder("YOLOv5 \uD3F4\uB354 \uC5F0\uACB0", initialPath, out string selectedPath))
+            string selectedPath = PythonModelRuntimeConnectionService.ResolveKnownLocalRuntimeFolder(initialPath, "yolov5");
+            if (string.IsNullOrWhiteSpace(selectedPath)
+                && !TryPickFolder("YOLOv5 \uD3F4\uB354 \uC5F0\uACB0", initialPath, out selectedPath))
             {
                 YoloProjectRootBox?.Focus();
                 SetYoloCommandStatus("YOLOv5 \uD3F4\uB354 \uC5F0\uACB0\uC744 \uCDE8\uC18C\uD588\uC2B5\uB2C8\uB2E4. \uAE30\uC874 \uACBD\uB85C\uB97C \uD655\uC778\uD558\uAC70\uB098 \uB2E4\uC2DC \uC5F0\uACB0\uD558\uC138\uC694.", isBusy: false);
@@ -186,6 +191,7 @@ namespace MvcVisionSystem
                 CreateYoloModelSettingsSnapshot(),
                 selectedPath);
             YoloModelSettingsViewModel?.ApplyRuntimeConnectionResult(result);
+            TrainingSettingsViewModel?.ApplyModelEngineSelection(result.Settings.ModelEngine);
             YoloProjectRootBox?.Focus();
             SetYoloCommandStatus($"{result.SummaryText}: {result.DetailText}", isBusy: false);
             AppendLog($"YOLOv5 \uD3F4\uB354 \uC5F0\uACB0: {selectedPath} / {result.SummaryText}");

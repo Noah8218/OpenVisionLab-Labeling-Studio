@@ -42,5 +42,35 @@ namespace MvcVisionSystem
         public WpfUiButton ResetButton => ResetYoloSettingsButton;
         public WpfUiButton RuntimeInstallPackageButton => YoloRuntimeInstallPackageButton;
         public WpfUiButton RuntimeUninstallPackageButton => YoloRuntimeUninstallPackageButton;
+
+        private bool isApplyingModelEngineSelection;
+        private string modelEngineBeforeDropDown = string.Empty;
+
+        private void YoloModelEngineBox_DropDownOpened(object sender, System.EventArgs e)
+        {
+            modelEngineBeforeDropDown = ModelEngineBox.SelectedItem as string ?? string.Empty;
+        }
+
+        private void YoloModelEngineBox_DropDownClosed(object sender, System.EventArgs e)
+        {
+            if (isApplyingModelEngineSelection
+                || sender is not ComboBox comboBox
+                || comboBox.SelectedItem is not string engine
+                || string.Equals(modelEngineBeforeDropDown, engine, System.StringComparison.Ordinal)
+                || ViewModel?.RuntimeProfileActionCommand?.CanExecute(engine) != true)
+            {
+                return;
+            }
+
+            try
+            {
+                isApplyingModelEngineSelection = true;
+                ViewModel.RuntimeProfileActionCommand.Execute(engine);
+            }
+            finally
+            {
+                isApplyingModelEngineSelection = false;
+            }
+        }
     }
 }

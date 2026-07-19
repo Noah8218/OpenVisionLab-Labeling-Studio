@@ -15,7 +15,11 @@ namespace MvcVisionSystem._1._Core
             int unreviewedImageCount,
             IReadOnlyList<string> errors,
             int trainNormalImageCount = 0,
-            int trainAbnormalImageCount = 0)
+            int trainAbnormalImageCount = 0,
+            int validNormalImageCount = 0,
+            int validAbnormalImageCount = 0,
+            int testNormalImageCount = 0,
+            int testAbnormalImageCount = 0)
         {
             SourceImagePaths = sourceImagePaths ?? Array.Empty<string>();
             SourceImageCount = SourceImagePaths.Count;
@@ -24,6 +28,10 @@ namespace MvcVisionSystem._1._Core
             UnreviewedImageCount = Math.Max(0, unreviewedImageCount);
             TrainNormalImageCount = Math.Max(0, trainNormalImageCount);
             TrainAbnormalImageCount = Math.Max(0, trainAbnormalImageCount);
+            ValidNormalImageCount = Math.Max(0, validNormalImageCount);
+            ValidAbnormalImageCount = Math.Max(0, validAbnormalImageCount);
+            TestNormalImageCount = Math.Max(0, testNormalImageCount);
+            TestAbnormalImageCount = Math.Max(0, testAbnormalImageCount);
             Errors = errors ?? Array.Empty<string>();
         }
 
@@ -40,6 +48,20 @@ namespace MvcVisionSystem._1._Core
         public int TrainNormalImageCount { get; }
 
         public int TrainAbnormalImageCount { get; }
+
+        public int ValidNormalImageCount { get; }
+
+        public int ValidAbnormalImageCount { get; }
+
+        public int TestNormalImageCount { get; }
+
+        public int TestAbnormalImageCount { get; }
+
+        public int TrainImageCount => TrainNormalImageCount + TrainAbnormalImageCount;
+
+        public int ValidImageCount => ValidNormalImageCount + ValidAbnormalImageCount;
+
+        public int TestImageCount => TestNormalImageCount + TestAbnormalImageCount;
 
         public IReadOnlyList<string> Errors { get; }
 
@@ -72,6 +94,10 @@ namespace MvcVisionSystem._1._Core
             AnomalyImageReviewSummary summary = reviewStatus.BuildSummary();
             int trainNormalCount = 0;
             int trainAbnormalCount = 0;
+            int validNormalCount = 0;
+            int validAbnormalCount = 0;
+            int testNormalCount = 0;
+            int testAbnormalCount = 0;
             foreach (AnomalyImageReviewStatus item in reviewStatus.GetItems())
             {
                 if (!item.IsReviewed)
@@ -82,18 +108,23 @@ namespace MvcVisionSystem._1._Core
                 IReadOnlyList<string> splits = YoloDatasetSplitService.SelectModesForImage(
                     item.ImageName,
                     data?.ProjectSettings?.YoloDataset);
-                if (!splits.Contains(YoloDatasetSplitService.TrainMode, StringComparer.OrdinalIgnoreCase))
+                string split = splits.FirstOrDefault() ?? YoloDatasetSplitService.TrainMode;
+                bool isNormal = item.ReviewState == AnomalyImageReviewState.Normal;
+                bool isAbnormal = item.ReviewState == AnomalyImageReviewState.Abnormal;
+                if (string.Equals(split, YoloDatasetSplitService.TrainMode, StringComparison.OrdinalIgnoreCase))
                 {
-                    continue;
+                    trainNormalCount += isNormal ? 1 : 0;
+                    trainAbnormalCount += isAbnormal ? 1 : 0;
                 }
-
-                if (item.ReviewState == AnomalyImageReviewState.Normal)
+                else if (string.Equals(split, YoloDatasetSplitService.ValidMode, StringComparison.OrdinalIgnoreCase))
                 {
-                    trainNormalCount++;
+                    validNormalCount += isNormal ? 1 : 0;
+                    validAbnormalCount += isAbnormal ? 1 : 0;
                 }
-                else if (item.ReviewState == AnomalyImageReviewState.Abnormal)
+                else if (string.Equals(split, YoloDatasetSplitService.TestMode, StringComparison.OrdinalIgnoreCase))
                 {
-                    trainAbnormalCount++;
+                    testNormalCount += isNormal ? 1 : 0;
+                    testAbnormalCount += isAbnormal ? 1 : 0;
                 }
             }
 
@@ -113,7 +144,11 @@ namespace MvcVisionSystem._1._Core
                 summary.UnreviewedImageCount,
                 errors,
                 trainNormalCount,
-                trainAbnormalCount);
+                trainAbnormalCount,
+                validNormalCount,
+                validAbnormalCount,
+                testNormalCount,
+                testAbnormalCount);
         }
 
         private static IEnumerable<string> EnumerateSourceImages(CData data)

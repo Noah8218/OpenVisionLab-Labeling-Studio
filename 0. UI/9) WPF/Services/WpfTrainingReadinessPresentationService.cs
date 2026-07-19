@@ -110,6 +110,11 @@ namespace MvcVisionSystem
                 return "\uC774\uC0C1 \uD0D0\uC9C0 \uD559\uC2B5\uC740 train \uBD84\uD560\uC5D0 \uC815\uC0C1/\uC774\uC0C1 \uC774\uBBF8\uC9C0\uAC00 \uAC01\uAC01 1\uAC1C \uC774\uC0C1 \uD544\uC694\uD569\uB2C8\uB2E4. \uAC80\uC99D/테스트 \uBE44\uC728\uC744 \uC904\uC774\uAC70\uB098 \uB354 \uB9CE\uC740 \uAC80\uD1A0 \uC774\uBBF8\uC9C0\uB97C \uCD94\uAC00\uD558\uC138\uC694.";
             }
 
+            if (Contains(normalized, YoloTrainingWorkflowService.AnomalyClassificationRuntimeError))
+            {
+                return "이상탐지 분류 학습은 YOLOv8 또는 YOLO11 실행기가 필요합니다. 모델 실행기에서 지원 실행기를 연결한 뒤 다시 시작하세요.";
+            }
+
             if (Contains(normalized, "data.yaml")
                 && (Contains(normalized, "class count")
                     || Contains(normalized, "class names")
