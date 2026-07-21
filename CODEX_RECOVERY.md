@@ -1,3 +1,12 @@
+# Current Recovery Checkpoint (2026-07-21)
+
+Read this checkpoint before the historical recovery material below.
+
+- `ed50831 feat: add model adapter comparison workflows` is pushed on `main`.
+- A later, intentionally uncommitted feature slice completes external native YOLO segmentation intake: native `data.yaml` images/polygons are read without source mutation, converted into a recipe-owned canonical raster-mask export for U-Net, and reused by Model Center common-mask comparison. Native YOLO training always receives an app-owned runtime copy so Ultralytics cache files cannot alter the selected source.
+- Current evidence is local and complete for that feature: isolated build, focused intake/export/comparison tests, Python exporter compile/self-test, real 30-epoch U-Net (CUDA), real 30-epoch YOLOv8-seg (CPU), valid-only confidence selection, and one actual 60-image Model Center test replay. The original source stayed unchanged. With YOLO `confidence=0.25`, the common-mask Dice/IoU is U-Net `0.243091` / `0.156165` and YOLOv8-seg `0.721702` / `0.570198`; neither is selected automatically.
+- The durable evidence is `docs/SEGMENTATION_E30_CONFIDENCE025_TEST_EVIDENCE_20260722.md`. Do not reopen completed behavior merely to repeat it. The next data-quality task is an independent camera/session segmentation packet with a leakage-guarded holdout; U-Net per-class remediation remains a separate hypothesis. Independent evidence is required for any production claim.
+
 # CODEX_RECOVERY.md
 
 > Historical recovery snapshot from 2026-06-29. Do not select current priorities from this file. Use `docs/NEXT_THREAD_HANDOFF.md`, `CODEX_NEXT_PROMPT.md`, `docs/WORK_TRACKING.md`, and `docs/STABLE_VERIFIED_AREAS.md` as the current sources of truth. The 2026-07-20 circular-disk data/model evidence is recorded in `docs/CIRCULAR_DISK_SYNTHETIC_1000_EVIDENCE_20260720.md`.

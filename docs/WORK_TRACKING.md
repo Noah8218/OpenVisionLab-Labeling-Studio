@@ -13700,3 +13700,77 @@ Verification:
 - `git diff --check` passed.
 
 Boundary / next dependency: no valid U-Net-versus-YOLO quality number exists yet. The real adapter smokes use different class contracts, so the next benchmark must train or provide two segmentation checkpoints for the same canonical export/test split, then review the generated report without automatic adoption.
+
+## 2026-07-21 external native YOLO segmentation canonical-mask intake
+
+Status: Complete
+
+Scope: allow an explicitly validated external native YOLO segmentation `data.yaml` to supply the bundled U-Net and the existing U-Net-versus-YOLO-seg comparison flow. The app reads the native image/label package, rasterizes its YOLO polygons into a recipe-owned canonical mask artifact, and preserves the original data.yaml, images, and labels. This excludes source rewriting, automatic activation, bounding-box-to-mask fabrication, model adoption, and model-quality claims.
+
+Acceptance criteria and evidence:
+
+- A single native-intake parser exposes only already validated image/label paths to downstream consumers: passed by `--external-yolo-segmentation-canonical-export`.
+- Native `train` / `val` / `test` polygon labels become an app-owned `train` / `valid` / `test` image-plus-raster-mask contract with the native class mapping preserved: passed by the focused fixture and its mask value/class-manifest assertions.
+- The raw source fingerprint is equal before and after export, and an unchanged source reuses rather than overwrites the canonical artifact: passed by the focused source-SHA and artifact-reuse checks.
+- Duplicate image content across splits and same-pixel polygons assigned to different classes fail closed: passed by focused negative fixtures.
+- U-Net training sends the app-owned canonical artifact path over the existing protocol while persisted provenance retains the selected external `data.yaml`; a valid source change deactivates the source and requires explicit revalidation: passed by the TCP request and source-identity assertions.
+- Every external native YOLO training request, including a conventional `images`/`labels` layout, receives an app-owned runtime copy rather than the selected source root: passed by the standard-layout and split-list intake tests. This prevents a runtime-created Ultralytics cache from mutating the source tree.
+- The Model Center comparison context identifies an activated external native YOLO segmentation source and routes its canonical export through the same provenance guard: passed by the focused presentation/service assertion.
+
+Verification:
+
+- Required isolated test build passed with 0 warnings / 0 errors.
+- `--external-yolo-segmentation-canonical-export`, `--external-yolo-dataset-intake`, `--external-yolo-list-split-intake`, `--unet-segmentation-export`, `--wpf-segmentation-adapter-comparison`, `--segmentation-mask-comparison`, and `--dataset-health` passed.
+- `--real-unet-segmentation-runtime --external-data-yaml <selected native segmentation data.yaml> --image-size 32 --batch 64 --timeout-seconds 180` passed on the supplied 500-image EasyMatch Die Array packet. Source SHA-256 remained `C0FDB11C644F1D705EC3B033FDFB5205E0DE72129559624699C85D5B64CCEF53`; one epoch, a restarted U-Net load, and one current-image inference completed. Evidence: `artifacts\real-external-unet-native-yolo-20260721-195129\summary.txt`.
+- `--real-external-yolo-dataset-training --engine yolov8 --purpose segmentation ... --epochs 1 --image-size 32 --batch 64 --device cpu` completed on the same 360/80/60 external packet through an app-owned runtime copy. The full source tree remained `2,004` files and SHA-256 `5819E2ED72E402D3F06C32CF4F1FB3481A2DF1D70BD8CB8C00B97CE9E28199C2` before/after. Evidence: `artifacts\real-external-yolov8-die-array-20260721-195557\summary.txt`.
+- `--real-external-segmentation-adapter-comparison` then completed the actual Model Center orchestration over 60 held-out images with both checkpoints and the same canonical export. Source fingerprint remained `C0FDB11C644F1D705EC3B033FDFB5205E0DE72129559624699C85D5B64CCEF53`; report: `artifacts\real-external-seg-adapter-compare-20260721-200228\model-center-run\run-f29c6b16d401d5fb-20260721-110239\comparison\comparison-summary.json`.
+
+Boundary / next dependency: this proves format conversion, source immutability, protocol routing, and a one-epoch paired runtime/comparison path. The observed U-Net/YOLO mean Dice (`0.000003` / `0.000153`) and IoU (`0.000001` / `0.000077`) are intentionally unusable one-epoch 32px CPU smoke results, not a model ranking or adoption decision. A real benchmark needs a user-approved training budget and fixed quality criteria before multi-epoch paired runs; it must retain this exact held-out split and continue to prohibit automatic adoption.
+
+## 2026-07-21 controlled external native segmentation 30-epoch benchmark
+
+Status: Complete
+
+Scope: run the approved same-source quality benchmark, not an adoption workflow. U-Net and YOLOv8-seg each train for 30 epochs from the identical external native YOLO segmentation packet (360 train / 80 val / 60 held-out test; 5 classes; image size 320; batch 4). Model Center then exports both predictions against one derived canonical test-mask contract and evaluates only matching artifacts.
+
+Acceptance criteria and evidence:
+
+- U-Net completed 30 epochs on the available CUDA runtime, wrote `best.pt`, restarted its worker, and completed prediction export: passed. Weight SHA-256 `487EF0EE70FD3A37260F4D9CB17C12994FC747575D1984EC8C64BD65967C6F72`; evidence `artifacts\benchmark-external-unet-die-array-e30-20260721-203302\summary.txt`.
+- YOLOv8-seg completed 30 epochs on the installed CPU-only Ultralytics environment through an app-owned runtime copy: passed. Weight SHA-256 `0AF2A2C937C349C11B2021491ADA586B48DAF7DC5E2AE504D8073A0E112B7CBF`; source tree remained 2,004 files and SHA-256 `5819E2ED72E402D3F06C32CF4F1FB3481A2DF1D70BD8CB8C00B97CE9E28199C2` before/after; evidence `artifacts\benchmark-external-yolov8-die-array-e30-20260721-203302\summary.txt`.
+- The actual Model Center orchestration completed over the same 60-image test split with no report errors and unchanged native source fingerprint `C0FDB11C644F1D705EC3B033FDFB5205E0DE72129559624699C85D5B64CCEF53`: passed. U-Net mean Dice/IoU was `0.243091` / `0.156165`; YOLOv8-seg mean Dice/IoU was `0.079059` / `0.044103`. Evidence `artifacts\benchmark-external-seg-adapter-compare-e30-20260721-203302\summary.txt` and its referenced `comparison-summary.json`.
+
+Quality boundary: this same-acquisition benchmark favors the current U-Net checkpoint on the common mask metric, but neither model is eligible for automatic selection. U-Net had zero Dice for `contamination_spot` and `foreign_particle`; YOLOv8-seg generated very high false-positive component counts. GPU U-Net versus CPU YOLO elapsed time is not comparable. The next quality step is error analysis and a threshold/augmentation or model-contract decision approved against the preserved held-out split; independent camera evidence remains separately required for production claims.
+
+## 2026-07-21 controlled segmentation error-analysis closure
+
+Status: Complete
+
+Scope: read-only diagnosis of the paired 30-epoch benchmark without retraining, modifying the external native source, or selecting a model.
+
+Acceptance criteria and evidence:
+
+- The earlier test artifact's YOLO `confidence=0.00` setting was traced to the opt-in evidence runner, while the actual Model Center service was confirmed to use profile confidence with a `0.25` fallback: passed.
+- U-Net's two zero-Dice classes were checked against train support and component sizes; data absence and an all-targets-too-small explanation were rejected: passed.
+- The fixed YOLO checkpoint was replayed only on the 80-image `valid` split at `0.00` and `0.25`. Class Dice improved from `0.000685`-`0.188650` to `0.782156`-`0.854240`, and raw all-80-image predictions reduced to 5-13 predicted images per class: passed.
+- Exact provenance, commands, artifacts, and the no-held-out-tuning rule are recorded in `docs\SEGMENTATION_E30_ERROR_ANALYSIS_20260721.md`.
+
+Boundary / next dependency: this selects only the next hypothesis—expose and calibrate YOLO confidence on `valid`, starting at `0.25`, then replay the unchanged test once. It does not establish production quality, model adoption, or a remedy for U-Net class confusion.
+
+## 2026-07-22 YOLOv8-seg confidence-selected held-out replay
+
+Status: Complete
+
+Scope: expose the opt-in comparison runner's YOLO confidence, retain the valid-only `0.25` selection, and run the preserved 60-image test split once. No native source, checkpoint, UI, U-Net post-process, or model-selection state was changed.
+
+Acceptance criteria and evidence:
+
+- `--yolo-confidence` now defaults to `0.25`, rejects values outside `[0,1]`, configures only the YOLO settings, and writes the selected value to `summary.txt`: passed by source review and the actual run summary.
+- The final app-owned YOLO manifest records `confidence=0.25`, the fixed checkpoint SHA-256, canonical source/class contracts, and `split=test`: passed.
+- Exactly one 60-image held-out replay completed with no evaluator errors and matching native source fingerprint before/after: passed (`C0FDB11C644F1D705EC3B033FDFB5205E0DE72129559624699C85D5B64CCEF53`).
+- Common-mask mean Dice/IoU is U-Net `0.243091` / `0.156165` and YOLOv8-seg `0.721702` / `0.570198`: passed. This is a same-source comparison candidate only; it did not adopt a model.
+
+Verification: isolated Debug build (0 warnings / 0 errors); actual `--real-external-segmentation-adapter-comparison` at image size 320 / confidence 0.25; `--wpf-segmentation-adapter-comparison`; `--segmentation-mask-comparison`; `--external-yolo-segmentation-canonical-export`; and the Python exporter self-test all passed.
+
+Evidence: `docs\SEGMENTATION_E30_CONFIDENCE025_TEST_EVIDENCE_20260722.md` and `artifacts\benchmark-external-seg-adapter-compare-e30-confidence025-test-20260722`.
+
+Boundary / next dependency: do not rerun this held-out split unless requirements or a deliberately new hypothesis changes. Independent camera/session segmentation data with a leakage-guarded holdout is required before production/model-adoption decisions; U-Net per-class remediation remains a separate task.

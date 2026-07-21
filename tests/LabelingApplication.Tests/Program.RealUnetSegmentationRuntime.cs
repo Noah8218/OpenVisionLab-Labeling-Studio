@@ -29,6 +29,16 @@ internal static partial class Program
             artifactRoot = Path.GetFullPath(GetArgumentValue(args, "--artifact-root", Path.Combine(repositoryRoot, "artifacts", artifactName)));
             string runName = GetArgumentValue(args, "--run-name", "openvisionlab-unet-smoke-" + DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture));
             int timeoutSeconds = GetPositiveArgument(args, "--timeout-seconds", 180);
+            int imageSize = GetPositiveArgument(args, "--image-size", 32);
+            int batchSize = GetPositiveArgument(args, "--batch", 1);
+            int epochCount = GetPositiveArgument(args, "--epochs", 1);
+            string device = GetArgumentValue(args, "--device", "cpu").Trim();
+            string externalDataYamlPath = GetArgumentValue(args, "--external-data-yaml", string.Empty);
+            if (!string.IsNullOrWhiteSpace(externalDataYamlPath))
+            {
+                externalDataYamlPath = Path.GetFullPath(externalDataYamlPath);
+            }
+            bool usesExternalNativeYolo = !string.IsNullOrWhiteSpace(externalDataYamlPath);
 
             AssertTrue(Directory.Exists(unetRoot), "U-Net runtime root was not found: " + unetRoot);
             AssertTrue(!Directory.Exists(artifactRoot), "refusing to overwrite an existing U-Net smoke artifact: " + artifactRoot);
@@ -42,18 +52,43 @@ internal static partial class Program
             AssertTrue(File.Exists(connection.Settings.ClientScriptPath), "U-Net worker was not found: " + connection.Settings.ClientScriptPath);
 
             string outputRoot = Path.Combine(artifactRoot, "app-output");
-            CData data = CreateUnetSegmentationFixture(outputRoot);
+            CData data;
+            string sourceBefore;
+            if (usesExternalNativeYolo)
+            {
+                YoloExternalDatasetIntakeReport externalReport = YoloExternalDatasetIntakeService.Build(
+                    externalDataYamlPath,
+                    LabelingDatasetPurpose.Segmentation);
+                AssertTrue(externalReport.IsReady, "external U-Net runtime source is not ready: " + string.Join(" / ", externalReport.Errors));
+                data = new CData();
+                data.ConfigureOutputRoot(outputRoot);
+                data.ProjectSettings.DatasetPurpose = LabelingDatasetPurpose.Segmentation;
+                data.ProjectSettings.ExternalYoloDataset.DataYamlFilePath = externalReport.DataYamlFilePath;
+                data.ProjectSettings.ExternalYoloDataset.DatasetPurpose = LabelingDatasetPurpose.Segmentation;
+                data.ProjectSettings.ExternalYoloDataset.UseForTraining = true;
+                YoloExternalDatasetIntakeService.ApplyValidation(
+                    data.ProjectSettings.ExternalYoloDataset,
+                    externalReport,
+                    acceptSourceIdentity: true);
+                sourceBefore = externalReport.SourceFingerprintSha256;
+            }
+            else
+            {
+                data = CreateUnetSegmentationFixture(outputRoot);
+                sourceBefore = UnetSegmentationDatasetExportService.ComputeSourceDataTreeSha256(data);
+            }
             data.ProjectSettings.PythonModel.ModelEngine = PythonModelSettings.EngineUnet;
             data.ProjectSettings.PythonModel.ProjectRootPath = connection.Settings.ProjectRootPath;
             data.ProjectSettings.PythonModel.PythonExecutablePath = connection.Settings.PythonExecutablePath;
             data.ProjectSettings.PythonModel.ClientScriptPath = connection.Settings.ClientScriptPath;
             data.ProjectSettings.PythonModel.WeightsPath = connection.Settings.WeightsPath;
-            data.ProjectSettings.PythonModel.ImageRootPath = Path.Combine(outputRoot, "data", "valid", "images");
+            data.ProjectSettings.PythonModel.ImageRootPath = usesExternalNativeYolo
+                ? YoloExternalDatasetIntakeService.Build(externalDataYamlPath, LabelingDatasetPurpose.Segmentation).Valid.ImageDirectoryPath
+                : Path.Combine(outputRoot, "data", "valid", "images");
             data.ProjectSettings.PythonModel.AutoStartClient = false;
-            data.TranningParam.imageSize = 32;
-            data.TranningParam.batch = 1;
-            data.TranningParam.epoch = 1;
-            string sourceBefore = UnetSegmentationDatasetExportService.ComputeSourceDataTreeSha256(data);
+            data.TranningParam.imageSize = imageSize;
+            data.TranningParam.batch = batchSize;
+            data.TranningParam.epoch = epochCount;
 
             int firstPort = GetAvailableTcpPort();
             communication = new CCommunicationLearning(startListen: false, port: firstPort);
@@ -65,10 +100,10 @@ internal static partial class Program
                 data.ProjectSettings.PythonModel.ImageRootPath,
                 connection.Settings.WeightsPath,
                 firstPort,
-                imageSize: 32,
+                imageSize: imageSize,
                 stdout,
                 stderr,
-                device: "cpu");
+                device: device);
             AssertTrue(
                 WaitUntil(() => communication.GetStatusSnapshot().IsClientConnected, TimeSpan.FromSeconds(30)),
                 BuildRealYoloSmokeFailure("U-Net worker did not connect", stdout, stderr));
@@ -81,7 +116,11 @@ internal static partial class Program
             AssertTrue(
                 workflow.TryStartTraining(data, communication, runName),
                 BuildRealYoloSmokeFailure("U-Net training request was not sent: " + workflow.LastPreparationFailureMessage, stdout, stderr));
-            AssertEqual(sourceBefore, UnetSegmentationDatasetExportService.ComputeSourceDataTreeSha256(data));
+            AssertEqual(
+                sourceBefore,
+                usesExternalNativeYolo
+                    ? YoloExternalDatasetIntakeService.Build(externalDataYamlPath, LabelingDatasetPurpose.Segmentation).SourceFingerprintSha256
+                    : UnetSegmentationDatasetExportService.ComputeSourceDataTreeSha256(data));
 
             AssertTrue(
                 WaitUntil(
@@ -96,9 +135,13 @@ internal static partial class Program
             string bestWeightsPath = Path.Combine(unetRoot, "runs", "segment", runName, "weights", "best.pt");
             AssertTrue(File.Exists(bestWeightsPath), "U-Net training completed without best.pt: " + bestWeightsPath);
             AssertTrue(string.Equals(Path.GetFullPath(bestWeightsPath), Path.GetFullPath(trainingStatus.LastTrainingWeightsPath), StringComparison.OrdinalIgnoreCase), "U-Net completed status did not identify best.pt");
-            AssertTrue(Directory.Exists(Path.Combine(outputRoot, "artifacts", "unet-dataset")), "U-Net app-owned dataset export was not produced");
+            string canonicalArtifactParent = Path.Combine(
+                outputRoot,
+                "artifacts",
+                usesExternalNativeYolo ? "unet-ext" : "unet-dataset");
+            AssertTrue(Directory.Exists(canonicalArtifactParent), "U-Net app-owned dataset export was not produced");
             string canonicalExportRoot = Directory
-                .EnumerateDirectories(Path.Combine(outputRoot, "artifacts", "unet-dataset"))
+                .EnumerateDirectories(canonicalArtifactParent)
                 .Single(path => File.Exists(Path.Combine(path, "dataset-manifest.json")));
             SegmentationPredictionExportRequest predictionRequest = SegmentationPredictionExportService.BuildRequest(
                 SegmentationPredictionExportService.AdapterUnet,
@@ -106,9 +149,9 @@ internal static partial class Program
                 canonicalExportRoot,
                 Path.Combine(artifactRoot, "unet-test-predictions"));
             predictionRequest.WeightsPath = bestWeightsPath;
-            predictionRequest.ImageSize = 32;
+            predictionRequest.ImageSize = imageSize;
             predictionRequest.Confidence = 0.0D;
-            predictionRequest.Device = "cpu";
+            predictionRequest.Device = device;
             SegmentationPredictionExportResult predictionExport = SegmentationPredictionExportService.Run(predictionRequest);
             AssertTrue(predictionExport.Succeeded, "U-Net prediction export failed: " + predictionExport.Error);
             AssertTrue(File.Exists(predictionExport.PredictionManifestPath), "U-Net prediction export did not produce prediction-manifest.jsonl");
@@ -129,10 +172,10 @@ internal static partial class Program
                 data.ProjectSettings.PythonModel.ImageRootPath,
                 bestWeightsPath,
                 secondPort,
-                imageSize: 32,
+                imageSize: imageSize,
                 stdout,
                 stderr,
-                device: "cpu");
+                device: device);
             AssertTrue(
                 WaitUntil(() => communication.GetStatusSnapshot().IsClientConnected, TimeSpan.FromSeconds(30)),
                 BuildRealYoloSmokeFailure("restarted U-Net worker did not connect", stdout, stderr));
@@ -142,10 +185,11 @@ internal static partial class Program
                 BuildRealYoloSmokeFailure("restarted U-Net worker did not load best.pt", stdout, stderr));
 
             string inferenceImagePath = Directory.EnumerateFiles(
-                    Path.Combine(outputRoot, "data", "valid", "images"),
+                    Path.Combine(canonicalExportRoot, "images", "valid"),
                     "*",
-                    SearchOption.TopDirectoryOnly)
-                .Single();
+                    SearchOption.AllDirectories)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .FirstOrDefault();
             AssertTrue(File.Exists(inferenceImagePath), "U-Net restart inference image was not found: " + inferenceImagePath);
             AssertTrue(communication.SendDetectImage("unet-restart-detect", "valid", inferenceImagePath, 0F, "unet"), "U-Net restart inference request was not sent");
             AssertTrue(
@@ -161,9 +205,17 @@ internal static partial class Program
                 "unetRoot=" + unetRoot,
                 "python=" + connection.Settings.PythonExecutablePath,
                 "worker=" + connection.Settings.ClientScriptPath,
+                "externalDataYaml=" + externalDataYamlPath,
                 "sourceSha256Before=" + sourceBefore,
-                "sourceSha256After=" + UnetSegmentationDatasetExportService.ComputeSourceDataTreeSha256(data),
+                "sourceSha256After=" + (usesExternalNativeYolo
+                    ? YoloExternalDatasetIntakeService.Build(externalDataYamlPath, LabelingDatasetPurpose.Segmentation).SourceFingerprintSha256
+                    : UnetSegmentationDatasetExportService.ComputeSourceDataTreeSha256(data)),
+                "canonicalExport=" + canonicalExportRoot,
                 "runName=" + runName,
+                "epochs=" + epochCount.ToString(CultureInfo.InvariantCulture),
+                "imageSize=" + imageSize.ToString(CultureInfo.InvariantCulture),
+                "batch=" + batchSize.ToString(CultureInfo.InvariantCulture),
+                "requestedDevice=" + device,
                 "bestWeights=" + bestWeightsPath,
                 "bestWeightsSha256=" + ComputeFileSha256(bestWeightsPath),
                 "unetPredictionManifest=" + predictionExport.PredictionManifestPath,

@@ -293,11 +293,18 @@ namespace MvcVisionSystem._1._Core
                 return false;
             }
 
-            if (externalDataset?.UseForTraining == true)
+            if (externalDataset?.RequiresExplicitReactivation == true)
             {
-                LastPreparationFailureMessage = "U-Net training currently requires the canonical OpenVisionLab segmentation recipe, not an external native YOLO data.yaml intake.";
+                LastPreparationFailureMessage = string.IsNullOrWhiteSpace(externalDataset.LastValidationSummary)
+                    ? "External YOLO data.yaml requires explicit revalidation and activation before U-Net training."
+                    : externalDataset.LastValidationSummary;
                 AppLog.ABNORMAL(LastPreparationFailureMessage);
                 return false;
+            }
+
+            if (externalDataset?.UseForTraining == true)
+            {
+                return TryPrepareExternalUnetSegmentationTrainingDataset(data, externalDataset, out trainingRequest);
             }
 
             UnetSegmentationDatasetExportResult result = UnetSegmentationDatasetExportService.Export(data);
@@ -314,6 +321,70 @@ namespace MvcVisionSystem._1._Core
 
             trainingRequest.DataPath = result.OutputRootPath;
             AppLog.NORMAL($"U-Net segmentation dataset ready. Images:{result.ImageCount}, PositiveMasks:{result.PositiveMaskImageCount}, Path:{result.OutputRootPath}");
+            return true;
+        }
+
+        private bool TryPrepareExternalUnetSegmentationTrainingDataset(
+            CData data,
+            ExternalYoloDatasetSettings externalDataset,
+            out TrainingDatasetRequest trainingRequest)
+        {
+            trainingRequest = new TrainingDatasetRequest
+            {
+                DataPath = string.Empty,
+                Task = "segment"
+            };
+            if (externalDataset?.DatasetPurpose != LabelingDatasetPurpose.Segmentation)
+            {
+                LastPreparationFailureMessage = "U-Net external data.yaml training requires a Segmentation native YOLO source.";
+                AppLog.ABNORMAL(LastPreparationFailureMessage);
+                return false;
+            }
+
+            YoloExternalDatasetIntakeReport report = YoloExternalDatasetIntakeService.Build(
+                externalDataset.DataYamlFilePath,
+                LabelingDatasetPurpose.Segmentation);
+            if (!report.IsReady)
+            {
+                YoloExternalDatasetIntakeService.ApplyValidation(externalDataset, report);
+                LastPreparationFailureMessage = string.Join(Environment.NewLine, report.Errors);
+                foreach (string error in report.Errors)
+                {
+                    AppLog.ABNORMAL($"External U-Net segmentation dataset validation failed: {error}");
+                }
+                return false;
+            }
+
+            if (!YoloExternalDatasetIntakeService.HasCurrentSourceIdentity(externalDataset, report, out string identityError))
+            {
+                YoloExternalDatasetIntakeService.ApplyValidation(externalDataset, report);
+                YoloExternalDatasetIntakeService.MarkSourceIdentityRequiresReactivation(externalDataset, identityError);
+                LastPreparationFailureMessage = identityError;
+                AppLog.ABNORMAL($"External U-Net segmentation source identity changed: {identityError}");
+                return false;
+            }
+
+            YoloExternalDatasetIntakeService.ApplyValidation(externalDataset, report);
+            UnetSegmentationDatasetExportResult result = ExternalYoloSegmentationCanonicalExportService.Export(data, report.DataYamlFilePath);
+            foreach (string error in result.Errors)
+            {
+                AppLog.ABNORMAL($"External U-Net segmentation canonical export failed: {error}");
+            }
+            if (!result.IsReady)
+            {
+                LastPreparationFailureMessage = string.Join(Environment.NewLine, result.Errors);
+                return false;
+            }
+
+            trainingRequest = new TrainingDatasetRequest
+            {
+                DataPath = result.OutputRootPath,
+                Task = "segment",
+                IsExternalSource = true,
+                SourceFingerprintSha256 = report.SourceFingerprintSha256,
+                RuntimeDataYamlFilePath = result.OutputRootPath
+            };
+            AppLog.NORMAL($"External native YOLO segmentation U-Net dataset ready. Images:{result.ImageCount}, PositiveMasks:{result.PositiveMaskImageCount}, Source:{report.DataYamlFilePath}, Canonical:{result.OutputRootPath}");
             return true;
         }
 

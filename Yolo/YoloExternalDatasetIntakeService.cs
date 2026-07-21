@@ -101,6 +101,44 @@ namespace MvcVisionSystem.Yolo
         public int EmptyLabelFileCount { get; }
     }
 
+    /// <summary>
+    /// One validated native YOLO source image and its optional label file.  This remains
+    /// read-only provenance; consumers must write any runtime derivative below an
+    /// app-owned artifact directory.
+    /// </summary>
+    public sealed class YoloExternalDatasetSourceEntry
+    {
+        public YoloExternalDatasetSourceEntry(string split, string imagePath, string labelPath)
+        {
+            Split = split ?? string.Empty;
+            ImagePath = imagePath ?? string.Empty;
+            LabelPath = labelPath ?? string.Empty;
+        }
+
+        public string Split { get; }
+
+        public string ImagePath { get; }
+
+        public string LabelPath { get; }
+    }
+
+    public sealed class YoloExternalDatasetSourcePacket
+    {
+        public YoloExternalDatasetSourcePacket(
+            YoloExternalDatasetIntakeReport report,
+            IEnumerable<YoloExternalDatasetSourceEntry> entries)
+        {
+            Report = report;
+            Entries = (entries ?? Array.Empty<YoloExternalDatasetSourceEntry>()).ToArray();
+        }
+
+        public YoloExternalDatasetIntakeReport Report { get; }
+
+        public IReadOnlyList<YoloExternalDatasetSourceEntry> Entries { get; }
+
+        public bool IsReady => Report?.IsReady == true;
+    }
+
     public sealed class YoloExternalRuntimeDatasetResult
     {
         public YoloExternalRuntimeDatasetResult(
@@ -145,6 +183,20 @@ namespace MvcVisionSystem.Yolo
         public static YoloExternalDatasetIntakeReport Build(string dataYamlFilePath, LabelingDatasetPurpose purpose)
             => BuildPackage(dataYamlFilePath, purpose).Report;
 
+        /// <summary>
+        /// Returns the paths already validated by native YOLO intake.  The call never
+        /// copies, edits, or otherwise materializes the selected data.yaml package.
+        /// </summary>
+        public static YoloExternalDatasetSourcePacket ReadValidatedSourcePacket(
+            string dataYamlFilePath,
+            LabelingDatasetPurpose purpose)
+        {
+            ExternalYoloDatasetIntakePackage package = BuildPackage(dataYamlFilePath, purpose);
+            return new YoloExternalDatasetSourcePacket(
+                package.Report,
+                EnumerateSourceEntries(package));
+        }
+
         public static YoloExternalRuntimeDatasetResult PrepareRuntimeDataset(
             string dataYamlFilePath,
             LabelingDatasetPurpose purpose,
@@ -162,16 +214,9 @@ namespace MvcVisionSystem.Yolo
                     report.Errors);
             }
 
-            if (!report.RequiresRuntimeMaterialization)
-            {
-                return new YoloExternalRuntimeDatasetResult(
-                    report,
-                    report.DataYamlFilePath,
-                    string.Empty,
-                    materialized: false,
-                    Array.Empty<string>());
-            }
-
+            // Even a conventional images/labels source must not be passed directly to
+            // a training runtime: Ultralytics can create cache files beside labels.
+            // All external training therefore receives an app-owned copy.
             return MaterializeRuntimeDataset(package, runtimeParentPath);
         }
 
@@ -380,6 +425,22 @@ namespace MvcVisionSystem.Yolo
                 string.Empty,
                 0);
             return new ExternalYoloDatasetIntakePackage(report, new SplitScan("train", string.Empty), new SplitScan("val", string.Empty), new SplitScan("test", string.Empty));
+        }
+
+        private static IEnumerable<YoloExternalDatasetSourceEntry> EnumerateSourceEntries(ExternalYoloDatasetIntakePackage package)
+        {
+            foreach ((SplitScan scan, string split) in new[]
+            {
+                (package?.Train, "train"),
+                (package?.Valid, "val"),
+                (package?.Test, "test")
+            })
+            {
+                foreach (SplitItem item in scan?.Items ?? Enumerable.Empty<SplitItem>())
+                {
+                    yield return new YoloExternalDatasetSourceEntry(split, item.ImagePath, item.LabelPath);
+                }
+            }
         }
 
         private static string NormalizeYamlPath(string dataYamlFilePath, List<string> errors)

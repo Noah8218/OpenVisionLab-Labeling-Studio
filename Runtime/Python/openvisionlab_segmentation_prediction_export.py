@@ -211,7 +211,11 @@ def export_predictions(args: argparse.Namespace) -> Path:
         labels, width, height, device = predictor(image_path)
         if labels.shape != (height, width) or int(labels.max(initial=0)) > len(classes):
             raise ValueError(f"prediction mask violates the canonical image/class contract: {image_path}")
-        prediction_relative = str(Path("predictions") / args.split / Path(image_relative).with_suffix(".png")).replace("\\", "/")
+        # Keep prediction paths shallow. Canonical exports may live below a long
+        # recipe/artifact root, and repeating images/<split>/ below predictions can
+        # otherwise exceed the Windows path limit before Pillow writes the PNG.
+        prediction_name = (source_sha256 or sha256_file(image_path)) + ".png"
+        prediction_relative = str(Path("predictions") / args.split / prediction_name).replace("\\", "/")
         prediction_path = output_root / prediction_relative
         prediction_path.parent.mkdir(parents=True, exist_ok=True)
         Image.fromarray(labels, mode="L").save(prediction_path)

@@ -519,6 +519,11 @@ internal static partial class Program
             return RunSingleSmoke("U-Net segmentation export preserves recipe data and validates split and mask contracts", TestUnetSegmentationDatasetExport);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--external-yolo-segmentation-canonical-export", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("External native YOLO segmentation data.yaml becomes an immutable U-Net canonical mask export", TestExternalYoloSegmentationCanonicalExport);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--segmentation-mask-comparison", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("Segmentation comparison scores only matching canonical mask artifacts", TestSegmentationMaskComparison);
@@ -532,6 +537,11 @@ internal static partial class Program
         if (args.Any(arg => string.Equals(arg, "--real-unet-segmentation-runtime", StringComparison.OrdinalIgnoreCase)))
         {
             return RunRealUnetSegmentationRuntimeSmoke(args);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--real-external-segmentation-adapter-comparison", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunRealExternalSegmentationAdapterComparison(args);
         }
 
         if (args.Any(arg => string.Equals(arg, "--real-ultralytics-segmentation-prediction-export", StringComparison.OrdinalIgnoreCase)))

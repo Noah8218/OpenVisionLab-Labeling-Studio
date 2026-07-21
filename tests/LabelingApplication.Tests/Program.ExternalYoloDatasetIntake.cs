@@ -105,7 +105,9 @@ internal static partial class Program
                     AssertEqual("yolov8", request.model);
                     AssertEqual("segment", request.task);
                     AssertEqual("yolov8n-seg.pt", request.weight);
-                    AssertEqual(LearningProtocol.NormalizeProtocolPath(Path.GetFullPath(segmentationYamlPath)), request.dataYaml);
+                    AssertTrue(
+                        request.dataYaml.Contains("external-yolo-runtime", StringComparison.OrdinalIgnoreCase),
+                        "native source training must use an app-owned runtime copy so the source cannot receive Ultralytics cache files");
                 }));
             AssertTrue(WaitUntil(() => communication.GetStatusSnapshot().IsClientConnected, TimeSpan.FromSeconds(5)), "external YOLO intake mock client did not connect");
             AssertTrue(workflow.TryStartTraining(data, communication, "external-seg-source"), "activated external YOLO data.yaml should start training");
@@ -121,6 +123,9 @@ internal static partial class Program
             AssertTrue(data.ProjectSettings.ExternalYoloDataset.LastValidationSucceeded, "training should revalidate the external YAML before sending it");
             AssertEqual(segmentationReport.SourceFingerprintSha256, data.ProjectSettings.ExternalYoloDataset.LastTrainingSourceFingerprintSha256);
             AssertEqual(Path.GetFullPath(segmentationYamlPath), data.ProjectSettings.ExternalYoloDataset.LastTrainingDataYamlFilePath);
+            AssertTrue(
+                data.ProjectSettings.ExternalYoloDataset.LastTrainingRuntimeDataYamlFilePath.Contains("external-yolo-runtime", StringComparison.OrdinalIgnoreCase),
+                "standard-layout native source training must record the app-owned runtime data.yaml separately from the selected source");
             AssertEqual("yolov8", data.ProjectSettings.ExternalYoloDataset.LastTrainingModel);
             AssertEqual("segment", data.ProjectSettings.ExternalYoloDataset.LastTrainingTask);
             AssertEqual("external-seg-source", data.ProjectSettings.ExternalYoloDataset.LastTrainingRunName);

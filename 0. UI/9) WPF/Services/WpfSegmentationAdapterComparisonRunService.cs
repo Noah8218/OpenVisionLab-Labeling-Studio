@@ -31,8 +31,21 @@ namespace MvcVisionSystem
                 registry,
                 currentSettings);
             bool isSegmentationRecipe = data?.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.Segmentation;
-            int testImageCount = CountTestImages(data?.OutputRootPath);
-            int classCount = data?.ClassNamedList?.Count(item => !string.IsNullOrWhiteSpace(item?.Text)) ?? 0;
+            ExternalYoloDatasetSettings externalDataset = data?.ProjectSettings?.ExternalYoloDataset;
+            bool usesExternalNativeYolo = externalDataset?.UseForTraining == true;
+            YoloExternalDatasetIntakeReport externalReport = usesExternalNativeYolo
+                ? YoloExternalDatasetIntakeService.Build(externalDataset.DataYamlFilePath, LabelingDatasetPurpose.Segmentation)
+                : null;
+            int testImageCount = usesExternalNativeYolo
+                ? externalReport?.Test?.ImageCount ?? 0
+                : CountTestImages(data?.OutputRootPath);
+            int classCount = usesExternalNativeYolo
+                ? externalReport?.ClassNames?.Count ?? 0
+                : data?.ClassNamedList?.Count(item => !string.IsNullOrWhiteSpace(item?.Text)) ?? 0;
+            bool externalSourceReady = !usesExternalNativeYolo
+                || (externalReport?.IsReady == true
+                    && !externalDataset.RequiresExplicitReactivation
+                    && YoloExternalDatasetIntakeService.HasCurrentSourceIdentity(externalDataset, externalReport, out _));
 
             string canonicalDatasetText = isSegmentationRecipe
                 ? $"공통 입력: 현재 레시피의 저장 마스크 → app-owned canonical export / test {testImageCount}장 / 클래스 {classCount}개"
@@ -50,6 +63,16 @@ namespace MvcVisionSystem
                     ? "동일 레시피에 test 이미지와 저장된 마스크를 준비한 뒤 비교하세요."
                     : "U-Net과 YOLO-seg checkpoint를 확인한 뒤 비교 실행을 누르세요. 결과는 artifact에만 저장되며 검사 모델은 자동 교체하지 않습니다.";
 
+            if (isSegmentationRecipe && usesExternalNativeYolo)
+            {
+                canonicalDatasetText = $"공통 입력: 외부 native YOLO segmentation data.yaml을 원본 변경 없이 canonical mask export로 변환 / test {testImageCount}장 / 클래스 {classCount}개";
+                if (!externalSourceReady)
+                {
+                    statusText = "외부 native YOLO source 재검증·명시적 활성화 필요";
+                    actionText = "외부 data.yaml의 원본 파일이 바뀌었거나 아직 활성화되지 않았습니다. Dataset 화면에서 검증 후 명시적으로 사용을 확정하세요.";
+                }
+            }
+
             return new WpfSegmentationAdapterComparisonContext
             {
                 IsVisible = isSegmentationRecipe,
@@ -61,6 +84,7 @@ namespace MvcVisionSystem
                 YoloWeightsPath = yoloWeightsPath,
                 SelectedYoloEngine = selectedYoloEngine,
                 CanRun = isSegmentationRecipe
+                    && externalSourceReady
                     && testImageCount > 0
                     && File.Exists(unetWeightsPath)
                     && File.Exists(yoloWeightsPath)
@@ -128,7 +152,7 @@ namespace MvcVisionSystem
                 return WpfSegmentationAdapterComparisonRunResult.Failed(string.Join(Environment.NewLine, validationErrors));
             }
 
-            UnetSegmentationDatasetExportResult export = UnetSegmentationDatasetExportService.Export(request.Data);
+            UnetSegmentationDatasetExportResult export = BuildCanonicalExport(request.Data);
             if (!export.IsReady)
             {
                 return WpfSegmentationAdapterComparisonRunResult.Failed(
@@ -192,6 +216,45 @@ namespace MvcVisionSystem
                 unetPrediction.PredictionManifestPath,
                 yoloPrediction.PredictionManifestPath,
                 comparison);
+        }
+
+        private static UnetSegmentationDatasetExportResult BuildCanonicalExport(CData data)
+        {
+            ExternalYoloDatasetSettings externalDataset = data?.ProjectSettings?.ExternalYoloDataset;
+            if (externalDataset?.UseForTraining != true)
+            {
+                return UnetSegmentationDatasetExportService.Export(data);
+            }
+
+            var blocked = new UnetSegmentationDatasetExportResult();
+            if (externalDataset.DatasetPurpose != LabelingDatasetPurpose.Segmentation)
+            {
+                blocked.Errors.Add("Selected external data.yaml is not activated as a segmentation source.");
+                return blocked;
+            }
+            if (externalDataset.RequiresExplicitReactivation)
+            {
+                blocked.Errors.Add(string.IsNullOrWhiteSpace(externalDataset.LastValidationSummary)
+                    ? "External data.yaml requires revalidation and explicit activation."
+                    : externalDataset.LastValidationSummary);
+                return blocked;
+            }
+
+            YoloExternalDatasetIntakeReport report = YoloExternalDatasetIntakeService.Build(
+                externalDataset.DataYamlFilePath,
+                LabelingDatasetPurpose.Segmentation);
+            if (!report.IsReady)
+            {
+                blocked.Errors.AddRange(report.Errors);
+                return blocked;
+            }
+            if (!YoloExternalDatasetIntakeService.HasCurrentSourceIdentity(externalDataset, report, out string identityError))
+            {
+                blocked.Errors.Add(identityError);
+                return blocked;
+            }
+
+            return ExternalYoloSegmentationCanonicalExportService.Export(data, report.DataYamlFilePath);
         }
 
         private static PythonModelSettings BuildUnetSettings(PythonModelSettings currentSettings, string weightsPath)
@@ -388,7 +451,8 @@ namespace MvcVisionSystem
         private static string BuildNewRunRoot(string parentDirectory, string datasetFingerprint)
         {
             string timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-            string root = Path.Combine(parentDirectory, datasetFingerprint, timestamp + "-" + Guid.NewGuid().ToString("N").Substring(0, 8));
+            string fingerprintPrefix = (datasetFingerprint ?? string.Empty).Substring(0, Math.Min(16, (datasetFingerprint ?? string.Empty).Length));
+            string root = Path.Combine(parentDirectory, "run-" + fingerprintPrefix + "-" + timestamp);
             return root;
         }
 

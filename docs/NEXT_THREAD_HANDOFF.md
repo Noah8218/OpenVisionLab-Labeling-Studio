@@ -1,6 +1,6 @@
 # Next Thread Handoff
 
-Last updated: 2026-07-19 KST
+Last updated: 2026-07-21 KST
 
 This is the current operational handoff for C:\Git\Labelling_Application. It is intentionally shorter than the historical journal. Use it to choose the next task; use the linked records only for the detailed evidence behind a claim.
 
@@ -395,3 +395,17 @@ When finishing a future task, report:
 - what remains unverified, blocked, or risky;
 - the next priority with model and reasoning-effort guidance;
 - no claim of model adoption, independent accuracy, YOLO11 readiness, or CI success without current evidence.
+
+## 15. 2026-07-21 Latest Checkpoint: External Native Segmentation Pair
+
+Status: `Complete` for the runtime/provenance feature slice and the controlled YOLO confidence selection plus one held-out replay; production quality remains intentionally unclaimed.
+
+- `ed50831 feat: add model adapter comparison workflows` is already pushed to `main`. The newer external-native-segmentation slice is intentionally uncommitted until the operator requests another commit.
+- An explicitly activated external native YOLO segmentation `data.yaml` is now parsed only by `YoloExternalDatasetIntakeService`; `ExternalYoloSegmentationCanonicalExportService` derives recipe-owned image/mask/class artifacts under `artifacts\unet-ext`. It maps native `val` to canonical `valid`, preserves the native class order, rejects duplicate cross-split content and different-class pixel overlap, and verifies source identity before/after export.
+- U-Net training and U-Net/YOLO-seg Model Center comparison use that canonical export. Any external YOLO training, even a conventional `images`/`labels` source, uses a separate app-owned runtime copy so training caches cannot change the selected source. Persisted provenance keeps both the selected source and actual runtime path distinct.
+- Current actual evidence: the approved 30-epoch same-source run is complete. U-Net (CUDA) and YOLOv8-seg (installed CPU-only runtime) both used the 360/80/60 EasyMatch Die Array packet, five-class contract, image size 320, and batch 4. The original 2,004-file source tree SHA-256 and native source fingerprint remained unchanged. The 60-image Model Center common-mask report measured U-Net Dice/IoU `0.243091` / `0.156165` and YOLOv8-seg `0.079059` / `0.044103`. See `artifacts\benchmark-external-unet-die-array-e30-20260721-203302\summary.txt`, `artifacts\benchmark-external-yolov8-die-array-e30-20260721-203302\summary.txt`, and `artifacts\benchmark-external-seg-adapter-compare-e30-20260721-203302\summary.txt`.
+- The saved test prediction manifests prove the original paired evidence runner deliberately used `confidence=0.00`. The actual Model Center service passes the profile confidence and falls back to `0.25`. A read-only replay of the fixed YOLOv8-seg checkpoint on the 80-image `valid` split at `0.25` (not test) reduced the all-image false-positive flood and yielded per-class Dice `0.782156`-`0.854240`. U-Net's two zero-Dice classes have train support and remain a separate class-confusion/training question. Evidence: `docs\SEGMENTATION_E30_ERROR_ANALYSIS_20260721.md` and `artifacts\segmentation-e30-error-analysis-20260721`.
+- The opt-in runner now exposes `--yolo-confidence`, defaults it to `0.25`, rejects values outside `[0,1]`, and records the value in its summary. The selected `0.25` then ran exactly once on unchanged test data: U-Net Dice/IoU `0.243091` / `0.156165`; YOLOv8-seg `0.721702` / `0.570198`; source fingerprint unchanged before/after. Evidence: `docs\SEGMENTATION_E30_CONFIDENCE025_TEST_EVIDENCE_20260722.md` and `artifacts\benchmark-external-seg-adapter-compare-e30-confidence025-test-20260722`.
+- Boundary: this is an engine/model evidence result, not automatic selection or production quality. CUDA/CPU elapsed times cannot be compared. Do not rerun this held-out split unless source, runtime, acceptance criteria, or a deliberately new hypothesis changes.
+
+Next priority: obtain an independent camera/session segmentation packet with reviewed masks and a content-hash leakage guard before a production or adoption decision. Until that source exists, do not rerun the completed same-source benchmark. Keep U-Net class-confusion/training remediation as a separate, non-adopting hypothesis.
