@@ -199,7 +199,9 @@ internal static partial class Program
         int port,
         int imageSize,
         StringBuilder stdout,
-        StringBuilder stderr)
+        StringBuilder stderr,
+        string modelName = "",
+        string device = "cpu")
     {
         var startInfo = new ProcessStartInfo
         {
@@ -229,11 +231,16 @@ internal static partial class Program
         startInfo.ArgumentList.Add("--image-root");
         startInfo.ArgumentList.Add(imageRoot);
         startInfo.ArgumentList.Add("--device");
-        startInfo.ArgumentList.Add("cpu");
+        startInfo.ArgumentList.Add(string.IsNullOrWhiteSpace(device) ? "cpu" : device);
         startInfo.ArgumentList.Add("--img-size");
         startInfo.ArgumentList.Add(imageSize.ToString(CultureInfo.InvariantCulture));
         startInfo.ArgumentList.Add("--conf");
         startInfo.ArgumentList.Add("0");
+        if (!string.IsNullOrWhiteSpace(modelName))
+        {
+            startInfo.ArgumentList.Add("--model");
+            startInfo.ArgumentList.Add(modelName);
+        }
 
         var process = new Process
         {

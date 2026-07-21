@@ -82,13 +82,40 @@ namespace MvcVisionSystem
 
         private void ApplyDatasetPurposeToCurrentProject(LabelingDatasetPurpose purpose)
         {
+            SynchronizeDatasetPurposeToCurrentProject(purpose);
+
+            // CRecipe.Name replaces Data synchronously, but the previous
+            // ListBox selection can still raise a queued WPF SelectionChanged
+            // callback afterwards. Apply the same canonical recipe purpose once
+            // bindings have settled so a previous recipe cannot repaint the new
+            // recipe as segmentation/anomaly by mistake.
+            Dispatcher.BeginInvoke(
+                System.Windows.Threading.DispatcherPriority.ContextIdle,
+                new Action(() => SynchronizeDatasetPurposeToCurrentProject(purpose)));
+        }
+
+        private void SynchronizeDatasetPurposeToCurrentProject(LabelingDatasetPurpose purpose)
+        {
             EnsureProjectSettings();
-            LearningWorkflowViewModel?.ApplyDatasetPurpose(purpose);
             global.Data.ProjectSettings.DatasetPurpose = purpose;
+            LearningWorkflowViewModel?.ApplyDatasetPurpose(purpose);
+
+            // Recipe creation can run while the dataset-purpose ListBox still
+            // holds the previous recipe's selection. Reconcile the view adapter
+            // with the ViewModel before its SelectionChanged command can write
+            // that stale purpose back into the newly created recipe.
+            if (DatasetPurposeListBox != null)
+            {
+                BindingOperations.GetBindingExpression(
+                    DatasetPurposeListBox,
+                    System.Windows.Controls.Primitives.Selector.SelectedItemProperty)?.UpdateTarget();
+            }
+
             RefreshCanvasAnnotationToolScope();
             ApplyAnnotationToolSelection(LearningWorkflowViewModel?.SelectedTool);
             RefreshCanvasWorkflowContext();
             RefreshAnnotationVisibilityForDatasetPurpose();
+            RefreshShellDatasetContext();
         }
     }
 }

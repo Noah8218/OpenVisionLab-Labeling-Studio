@@ -1,5 +1,7 @@
 # CODEX_RECOVERY.md
 
+> Historical recovery snapshot from 2026-06-29. Do not select current priorities from this file. Use `docs/NEXT_THREAD_HANDOFF.md`, `CODEX_NEXT_PROMPT.md`, `docs/WORK_TRACKING.md`, and `docs/STABLE_VERIFIED_AREAS.md` as the current sources of truth. The 2026-07-20 circular-disk data/model evidence is recorded in `docs/CIRCULAR_DISK_SYNTHETIC_1000_EVIDENCE_20260720.md`.
+
 작성일: 2026-06-29 (Asia/Seoul)
 
 이 문서는 긴 Codex 대화에서 이어서 작업하기 위한 복구/인수인계 문서다. 다음 Codex 대화에서는 이 파일을 먼저 읽고 현재 상태를 파악한 뒤 진행하면 된다.

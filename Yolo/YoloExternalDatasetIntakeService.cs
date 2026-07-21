@@ -23,7 +23,8 @@ namespace MvcVisionSystem.Yolo
             IReadOnlyDictionary<string, int> annotationCountByClass,
             IEnumerable<string> errors,
             string sourceFingerprintSha256,
-            int sourceFileCount)
+            int sourceFileCount,
+            bool requiresRuntimeMaterialization = false)
         {
             DataYamlFilePath = dataYamlFilePath ?? string.Empty;
             DatasetRootPath = datasetRootPath ?? string.Empty;
@@ -36,6 +37,7 @@ namespace MvcVisionSystem.Yolo
             Errors = (errors ?? Array.Empty<string>()).Where(error => !string.IsNullOrWhiteSpace(error)).ToArray();
             SourceFingerprintSha256 = sourceFingerprintSha256 ?? string.Empty;
             SourceFileCount = Math.Max(0, sourceFileCount);
+            RequiresRuntimeMaterialization = requiresRuntimeMaterialization;
         }
 
         public string DataYamlFilePath { get; }
@@ -60,6 +62,10 @@ namespace MvcVisionSystem.Yolo
 
         public int SourceFileCount { get; }
 
+        // A split-list packet with labels outside the native images/labels layout is read-only at intake.
+        // Training receives an app-owned standard YOLO copy so the selected source remains untouched.
+        public bool RequiresRuntimeMaterialization { get; }
+
         public bool IsReady => Errors.Count == 0;
 
         public int TotalImageCount => Train.ImageCount + Valid.ImageCount + Test.ImageCount;
@@ -69,7 +75,8 @@ namespace MvcVisionSystem.Yolo
         public int TotalAnnotationCount => AnnotationCountByClass.Values.Sum();
 
         public string Summary =>
-            $"{YoloExternalDatasetIntakeService.FormatPurpose(Purpose)} / train {Train.ImageCount} / val {Valid.ImageCount} / test {Test.ImageCount} / labels {TotalLabelFileCount} / annotations {TotalAnnotationCount} / classes {ClassNames.Count} / source files {SourceFileCount}";
+            $"{YoloExternalDatasetIntakeService.FormatPurpose(Purpose)} / train {Train.ImageCount} / val {Valid.ImageCount} / test {Test.ImageCount} / labels {TotalLabelFileCount} / annotations {TotalAnnotationCount} / classes {ClassNames.Count} / source files {SourceFileCount}"
+            + (RequiresRuntimeMaterialization ? " / app runtime copy required" : string.Empty);
     }
 
     public sealed class YoloExternalDatasetSplitSummary
@@ -94,6 +101,39 @@ namespace MvcVisionSystem.Yolo
         public int EmptyLabelFileCount { get; }
     }
 
+    public sealed class YoloExternalRuntimeDatasetResult
+    {
+        public YoloExternalRuntimeDatasetResult(
+            YoloExternalDatasetIntakeReport sourceReport,
+            string runtimeDataYamlFilePath,
+            string runtimeRootPath,
+            bool materialized,
+            IEnumerable<string> errors)
+        {
+            SourceReport = sourceReport;
+            RuntimeDataYamlFilePath = runtimeDataYamlFilePath ?? string.Empty;
+            RuntimeRootPath = runtimeRootPath ?? string.Empty;
+            Materialized = materialized;
+            Errors = (errors ?? Array.Empty<string>())
+                .Where(error => !string.IsNullOrWhiteSpace(error))
+                .ToArray();
+        }
+
+        public YoloExternalDatasetIntakeReport SourceReport { get; }
+
+        public string RuntimeDataYamlFilePath { get; }
+
+        public string RuntimeRootPath { get; }
+
+        public bool Materialized { get; }
+
+        public IReadOnlyList<string> Errors { get; }
+
+        public bool IsReady => SourceReport?.IsReady == true
+            && !string.IsNullOrWhiteSpace(RuntimeDataYamlFilePath)
+            && Errors.Count == 0;
+    }
+
     // Validates a native Ultralytics detection/segmentation dataset without copying or modifying it.
     public static class YoloExternalDatasetIntakeService
     {
@@ -103,38 +143,75 @@ namespace MvcVisionSystem.Yolo
         };
 
         public static YoloExternalDatasetIntakeReport Build(string dataYamlFilePath, LabelingDatasetPurpose purpose)
+            => BuildPackage(dataYamlFilePath, purpose).Report;
+
+        public static YoloExternalRuntimeDatasetResult PrepareRuntimeDataset(
+            string dataYamlFilePath,
+            LabelingDatasetPurpose purpose,
+            string runtimeParentPath)
+        {
+            ExternalYoloDatasetIntakePackage package = BuildPackage(dataYamlFilePath, purpose);
+            YoloExternalDatasetIntakeReport report = package.Report;
+            if (!report.IsReady)
+            {
+                return new YoloExternalRuntimeDatasetResult(
+                    report,
+                    string.Empty,
+                    string.Empty,
+                    materialized: false,
+                    report.Errors);
+            }
+
+            if (!report.RequiresRuntimeMaterialization)
+            {
+                return new YoloExternalRuntimeDatasetResult(
+                    report,
+                    report.DataYamlFilePath,
+                    string.Empty,
+                    materialized: false,
+                    Array.Empty<string>());
+            }
+
+            return MaterializeRuntimeDataset(package, runtimeParentPath);
+        }
+
+        private static ExternalYoloDatasetIntakePackage BuildPackage(string dataYamlFilePath, LabelingDatasetPurpose purpose)
         {
             var errors = new List<string>();
             if (!IsSupportedPurpose(purpose))
             {
                 errors.Add("External native YOLO intake supports ObjectDetection or Segmentation only.");
-                return Empty(dataYamlFilePath, purpose, errors);
+                return EmptyPackage(dataYamlFilePath, purpose, errors);
             }
 
             string yamlPath = NormalizeYamlPath(dataYamlFilePath, errors);
             if (errors.Count > 0)
             {
-                return Empty(yamlPath, purpose, errors);
+                return EmptyPackage(yamlPath, purpose, errors);
             }
 
             Dictionary<object, object> document = ReadYaml(yamlPath, errors);
             if (document == null)
             {
-                return Empty(yamlPath, purpose, errors);
+                return EmptyPackage(yamlPath, purpose, errors);
             }
 
             string datasetRoot = ResolveDatasetRoot(yamlPath, ReadScalar(document, "path"), errors);
             List<string> classNames = ReadClassNames(document, errors);
             ValidateClassCount(document, classNames, errors);
 
-            string trainDirectory = ResolveSplitDirectory(yamlPath, datasetRoot, ReadScalar(document, "train"), "train", required: true, errors);
-            string validDirectory = ResolveSplitDirectory(yamlPath, datasetRoot, ReadScalar(document, "val"), "val", required: true, errors);
-            string testDirectory = ResolveSplitDirectory(yamlPath, datasetRoot, ReadScalar(document, "test"), "test", required: false, errors);
+            SplitInput trainInput = ResolveSplitInput(yamlPath, datasetRoot, ReadScalar(document, "train"), "train", required: true, errors);
+            SplitInput validInput = ResolveSplitInput(yamlPath, datasetRoot, ReadScalar(document, "val"), "val", required: true, errors);
+            SplitInput testInput = ResolveSplitInput(yamlPath, datasetRoot, ReadScalar(document, "test"), "test", required: false, errors);
+            bool requiresRuntimeMaterialization = trainInput.IsImageList || validInput.IsImageList || testInput.IsImageList;
+            string listLabelsRoot = requiresRuntimeMaterialization
+                ? ResolveListLabelsRoot(yamlPath, datasetRoot, purpose, errors)
+                : string.Empty;
 
             var annotationCountByClass = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            SplitScan train = ScanSplit("train", trainDirectory, required: true, purpose, classNames, annotationCountByClass, errors);
-            SplitScan valid = ScanSplit("val", validDirectory, required: true, purpose, classNames, annotationCountByClass, errors);
-            SplitScan test = ScanSplit("test", testDirectory, required: false, purpose, classNames, annotationCountByClass, errors);
+            SplitScan train = ScanSplit("train", trainInput, required: true, purpose, classNames, listLabelsRoot, annotationCountByClass, errors);
+            SplitScan valid = ScanSplit("val", validInput, required: true, purpose, classNames, listLabelsRoot, annotationCountByClass, errors);
+            SplitScan test = ScanSplit("test", testInput, required: false, purpose, classNames, listLabelsRoot, annotationCountByClass, errors);
             ValidateSplitPathSeparation(train.ImagePaths, valid.ImagePaths, test.ImagePaths, errors);
 
             if (classNames.Count == 0)
@@ -152,7 +229,7 @@ namespace MvcVisionSystem.Yolo
                 ? BuildSourceFingerprint(yamlPath, train, valid, test, out sourceFileCount, errors)
                 : string.Empty;
 
-            return new YoloExternalDatasetIntakeReport(
+            var report = new YoloExternalDatasetIntakeReport(
                 yamlPath,
                 datasetRoot,
                 purpose,
@@ -163,7 +240,9 @@ namespace MvcVisionSystem.Yolo
                 annotationCountByClass,
                 errors,
                 sourceFingerprintSha256,
-                sourceFileCount);
+                sourceFileCount,
+                requiresRuntimeMaterialization);
+            return new ExternalYoloDatasetIntakePackage(report, train, valid, test);
         }
 
         public static bool IsSupportedPurpose(LabelingDatasetPurpose purpose)
@@ -187,6 +266,9 @@ namespace MvcVisionSystem.Yolo
             settings.LastValidationSummary = report.IsReady
                 ? report.Summary
                 : report.Errors.FirstOrDefault() ?? "External YOLO data.yaml validation failed.";
+            settings.LastValidationClassNames = report.IsReady
+                ? string.Join(", ", report.ClassNames)
+                : string.Empty;
             settings.TrainImageCount = report.Train.ImageCount;
             settings.ValidImageCount = report.Valid.ImageCount;
             settings.TestImageCount = report.Test.ImageCount;
@@ -258,7 +340,8 @@ namespace MvcVisionSystem.Yolo
             string task,
             string trainingWeight,
             string runName,
-            string sourceFingerprintSha256)
+            string sourceFingerprintSha256,
+            string runtimeDataYamlFilePath = "")
         {
             if (settings == null)
             {
@@ -268,6 +351,7 @@ namespace MvcVisionSystem.Yolo
             settings.LastTrainingUtc = DateTime.UtcNow.ToString("O", CultureInfo.InvariantCulture);
             settings.LastTrainingSourceFingerprintSha256 = sourceFingerprintSha256 ?? string.Empty;
             settings.LastTrainingDataYamlFilePath = settings.DataYamlFilePath ?? string.Empty;
+            settings.LastTrainingRuntimeDataYamlFilePath = runtimeDataYamlFilePath ?? string.Empty;
             settings.LastTrainingModel = model ?? string.Empty;
             settings.LastTrainingTask = task ?? string.Empty;
             settings.LastTrainingRunName = runName ?? string.Empty;
@@ -281,8 +365,9 @@ namespace MvcVisionSystem.Yolo
             settings.LastTrainingClientScriptSha256 = TryComputeFileSha256(settings.LastTrainingClientScriptPath);
         }
 
-        private static YoloExternalDatasetIntakeReport Empty(string dataYamlFilePath, LabelingDatasetPurpose purpose, IEnumerable<string> errors)
-            => new YoloExternalDatasetIntakeReport(
+        private static ExternalYoloDatasetIntakePackage EmptyPackage(string dataYamlFilePath, LabelingDatasetPurpose purpose, IEnumerable<string> errors)
+        {
+            var report = new YoloExternalDatasetIntakeReport(
                 dataYamlFilePath,
                 string.Empty,
                 purpose,
@@ -294,6 +379,8 @@ namespace MvcVisionSystem.Yolo
                 errors,
                 string.Empty,
                 0);
+            return new ExternalYoloDatasetIntakePackage(report, new SplitScan("train", string.Empty), new SplitScan("val", string.Empty), new SplitScan("test", string.Empty));
+        }
 
         private static string NormalizeYamlPath(string dataYamlFilePath, List<string> errors)
         {
@@ -378,7 +465,7 @@ namespace MvcVisionSystem.Yolo
             }
         }
 
-        private static string ResolveSplitDirectory(
+        private static SplitInput ResolveSplitInput(
             string yamlPath,
             string datasetRoot,
             string configuredSplit,
@@ -394,7 +481,7 @@ namespace MvcVisionSystem.Yolo
                     errors.Add($"External YOLO data.yaml '{key}' path is required.");
                 }
 
-                return string.Empty;
+                return new SplitInput(key, string.Empty, isImageList: false, datasetRoot);
             }
 
             string candidate = Path.IsPathRooted(splitText)
@@ -403,18 +490,67 @@ namespace MvcVisionSystem.Yolo
             try
             {
                 string fullPath = Path.GetFullPath(candidate);
-                if (!Directory.Exists(fullPath))
+                if (Directory.Exists(fullPath))
                 {
-                    errors.Add($"External YOLO {key} image directory does not exist: {fullPath}");
+                    return new SplitInput(key, fullPath, isImageList: false, datasetRoot);
                 }
 
-                return fullPath;
+                if (File.Exists(fullPath)
+                    && string.Equals(Path.GetExtension(fullPath), ".txt", StringComparison.OrdinalIgnoreCase))
+                {
+                    return new SplitInput(key, fullPath, isImageList: true, datasetRoot);
+                }
+
+                errors.Add($"External YOLO {key} path must be an image directory or .txt image list: {fullPath}");
+                return new SplitInput(key, fullPath, isImageList: false, datasetRoot);
             }
             catch (Exception ex)
             {
                 errors.Add($"External YOLO {key} path is invalid: {ex.Message}");
+                return new SplitInput(key, string.Empty, isImageList: false, datasetRoot);
+            }
+        }
+
+        private static string ResolveListLabelsRoot(
+            string yamlPath,
+            string datasetRoot,
+            LabelingDatasetPurpose purpose,
+            List<string> errors)
+        {
+            if (string.IsNullOrWhiteSpace(datasetRoot))
+            {
                 return string.Empty;
             }
+
+            string labelsRoot = Path.Combine(datasetRoot, "labels");
+            if (!Directory.Exists(labelsRoot))
+            {
+                AddError(errors, $"External YOLO split-list packet requires a labels directory: {labelsRoot}");
+                return string.Empty;
+            }
+
+            string semanticToken = Path.GetFileNameWithoutExtension(yamlPath)
+                .Split(new[] { '-', '_', ' ' }, StringSplitOptions.RemoveEmptyEntries)
+                .FirstOrDefault(token => !string.Equals(token, "dataset", StringComparison.OrdinalIgnoreCase))
+                ?? string.Empty;
+            string taskToken = purpose == LabelingDatasetPurpose.Segmentation ? "segmentation" : "detection";
+            string[] candidates = Directory.EnumerateDirectories(labelsRoot, "*", SearchOption.TopDirectoryOnly)
+                .Where(path => !string.IsNullOrWhiteSpace(semanticToken)
+                    && Path.GetFileName(path).Contains(semanticToken, StringComparison.OrdinalIgnoreCase)
+                    && Path.GetFileName(path).Contains(taskToken, StringComparison.OrdinalIgnoreCase))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+            if (candidates.Length == 1)
+            {
+                return candidates[0];
+            }
+
+            AddError(
+                errors,
+                candidates.Length == 0
+                    ? $"External YOLO split-list packet could not match '{Path.GetFileName(yamlPath)}' to one labels subfolder under {labelsRoot}."
+                    : $"External YOLO split-list packet has ambiguous label roots for '{Path.GetFileName(yamlPath)}': {string.Join(", ", candidates.Select(Path.GetFileName))}.");
+            return string.Empty;
         }
 
         private static List<string> ReadClassNames(Dictionary<object, object> document, List<string> errors)
@@ -493,51 +629,65 @@ namespace MvcVisionSystem.Yolo
 
         private static SplitScan ScanSplit(
             string name,
-            string imageDirectory,
+            SplitInput input,
             bool required,
             LabelingDatasetPurpose purpose,
             IReadOnlyList<string> classNames,
+            string listLabelsRoot,
             Dictionary<string, int> annotationCountByClass,
             List<string> errors)
         {
-            var scan = new SplitScan(name, imageDirectory);
-            if (string.IsNullOrWhiteSpace(imageDirectory) || !Directory.Exists(imageDirectory))
+            string displayPath = input?.Path ?? string.Empty;
+            var scan = new SplitScan(name, displayPath);
+            if (input == null || string.IsNullOrWhiteSpace(input.Path))
             {
                 return scan;
             }
 
-            string labelsDirectory = ResolveLabelsDirectory(imageDirectory);
+            string labelsDirectory = input.IsImageList
+                ? listLabelsRoot
+                : ResolveLabelsDirectory(input.Path);
             if (string.IsNullOrWhiteSpace(labelsDirectory))
             {
-                AddError(errors, $"External YOLO {name} image directory must be under an images folder so labels can resolve: {imageDirectory}");
+                AddError(errors, input.IsImageList
+                    ? $"External YOLO {name} image list requires one unambiguous labels subfolder."
+                    : $"External YOLO {name} image directory must be under an images folder so labels can resolve: {input.Path}");
                 return scan;
             }
 
             string[] imagePaths;
             try
             {
-                imagePaths = Directory.EnumerateFiles(imageDirectory, "*", SearchOption.AllDirectories)
-                    .Where(path => ImageExtensions.Contains(Path.GetExtension(path)))
-                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                    .ToArray();
+                imagePaths = input.IsImageList
+                    ? ReadImageList(input.Path, input.DatasetRootPath, name, errors)
+                    : Directory.EnumerateFiles(input.Path, "*", SearchOption.AllDirectories)
+                        .Where(path => ImageExtensions.Contains(Path.GetExtension(path)))
+                        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                        .ToArray();
             }
             catch (Exception ex)
             {
-                AddError(errors, $"External YOLO {name} image directory could not be read: {ex.Message}");
+                AddError(errors, $"External YOLO {name} image {(input.IsImageList ? "list" : "directory")} could not be read: {ex.Message}");
                 return scan;
             }
 
             scan.ImagePaths.AddRange(imagePaths);
+            if (input.IsImageList)
+            {
+                scan.SourceFilePaths.Add(input.Path);
+            }
             if (required && imagePaths.Length == 0)
             {
-                AddError(errors, $"External YOLO {name} image directory contains no supported images: {imageDirectory}");
+                AddError(errors, $"External YOLO {name} image {(input.IsImageList ? "list" : "directory")} contains no supported images: {input.Path}");
             }
 
             foreach (string imagePath in imagePaths)
             {
                 scan.SourceFilePaths.Add(imagePath);
-                string relativePath = Path.GetRelativePath(imageDirectory, imagePath);
-                string labelPath = Path.ChangeExtension(Path.Combine(labelsDirectory, relativePath), ".txt");
+                string labelPath = input.IsImageList
+                    ? ResolveListLabelPath(imagePath, labelsDirectory)
+                    : Path.ChangeExtension(Path.Combine(labelsDirectory, Path.GetRelativePath(input.Path, imagePath)), ".txt");
+                scan.Items.Add(new SplitItem(imagePath, labelPath));
                 if (!File.Exists(labelPath))
                 {
                     continue;
@@ -583,6 +733,80 @@ namespace MvcVisionSystem.Yolo
             }
 
             return scan;
+        }
+
+        private static string[] ReadImageList(string listPath, string datasetRoot, string splitName, List<string> errors)
+        {
+            var imagePaths = new List<string>();
+            foreach (string line in File.ReadAllLines(listPath))
+            {
+                string imageText = (line ?? string.Empty).Trim().Trim('"');
+                if (imageText.Length == 0 || imageText.StartsWith("#", StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                string candidate = Path.IsPathRooted(imageText)
+                    ? imageText
+                    : Path.Combine(datasetRoot, imageText);
+                string imagePath;
+                try
+                {
+                    imagePath = Path.GetFullPath(candidate);
+                }
+                catch (Exception ex)
+                {
+                    AddError(errors, $"External YOLO {splitName} image list path is invalid: {imageText}. {ex.Message}");
+                    continue;
+                }
+
+                if (!ImageExtensions.Contains(Path.GetExtension(imagePath)))
+                {
+                    AddError(errors, $"External YOLO {splitName} image list contains an unsupported image extension: {imageText}");
+                    continue;
+                }
+
+                if (!File.Exists(imagePath))
+                {
+                    AddError(errors, $"External YOLO {splitName} image list image was not found: {imagePath}");
+                    continue;
+                }
+
+                imagePaths.Add(imagePath);
+            }
+
+            return imagePaths
+                .Distinct(StringComparer.OrdinalIgnoreCase)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        private static string ResolveListLabelPath(string imagePath, string labelsRoot)
+        {
+            string imagesRoot = FindImagesRoot(imagePath);
+            if (string.IsNullOrWhiteSpace(imagesRoot))
+            {
+                return string.Empty;
+            }
+
+            string relativePath = Path.GetRelativePath(imagesRoot, imagePath);
+            return Path.ChangeExtension(Path.Combine(labelsRoot, relativePath), ".txt");
+        }
+
+        private static string FindImagesRoot(string imagePath)
+        {
+            DirectoryInfo current = new FileInfo(imagePath).Directory;
+            while (current != null)
+            {
+                if (string.Equals(current.Name, "images", StringComparison.OrdinalIgnoreCase))
+                {
+                    return current.FullName;
+                }
+
+                current = current.Parent;
+            }
+
+            return string.Empty;
         }
 
         private static bool TryValidateLabelLine(
@@ -703,6 +927,126 @@ namespace MvcVisionSystem.Yolo
             errors.Add(error);
         }
 
+        private static YoloExternalRuntimeDatasetResult MaterializeRuntimeDataset(
+            ExternalYoloDatasetIntakePackage package,
+            string runtimeParentPath)
+        {
+            YoloExternalDatasetIntakeReport report = package.Report;
+            var errors = new List<string>();
+            if (string.IsNullOrWhiteSpace(runtimeParentPath))
+            {
+                errors.Add("External YOLO runtime copy requires a recipe output folder.");
+                return new YoloExternalRuntimeDatasetResult(report, string.Empty, string.Empty, materialized: false, errors);
+            }
+
+            string runtimeRoot;
+            string temporaryRoot = string.Empty;
+            try
+            {
+                string parent = Path.GetFullPath(runtimeParentPath);
+                string fingerprint = report.SourceFingerprintSha256.Length >= 16
+                    ? report.SourceFingerprintSha256.Substring(0, 16)
+                    : report.SourceFingerprintSha256;
+                runtimeRoot = Path.Combine(parent, "external-yolo-runtime-" + fingerprint);
+                string runtimeYamlPath = Path.Combine(runtimeRoot, "data.yaml");
+                if (File.Exists(runtimeYamlPath))
+                {
+                    YoloExternalDatasetIntakeReport existing = Build(runtimeYamlPath, report.Purpose);
+                    if (existing.IsReady)
+                    {
+                        return new YoloExternalRuntimeDatasetResult(report, runtimeYamlPath, runtimeRoot, materialized: true, Array.Empty<string>());
+                    }
+
+                    errors.Add($"Existing app-owned external YOLO runtime copy is invalid: {runtimeRoot}. Remove that app-owned folder and start training again.");
+                    return new YoloExternalRuntimeDatasetResult(report, string.Empty, runtimeRoot, materialized: false, errors);
+                }
+
+                Directory.CreateDirectory(parent);
+                temporaryRoot = runtimeRoot + ".partial-" + Guid.NewGuid().ToString("N");
+                Directory.CreateDirectory(temporaryRoot);
+                CopyRuntimeSplit(package.Train, "train", temporaryRoot);
+                CopyRuntimeSplit(package.Valid, "val", temporaryRoot);
+                CopyRuntimeSplit(package.Test, "test", temporaryRoot);
+                File.WriteAllLines(Path.Combine(temporaryRoot, "data.yaml"), BuildRuntimeDataYaml(report));
+
+                YoloExternalDatasetIntakeReport runtimeReport = Build(Path.Combine(temporaryRoot, "data.yaml"), report.Purpose);
+                if (!runtimeReport.IsReady)
+                {
+                    errors.AddRange(runtimeReport.Errors);
+                    return new YoloExternalRuntimeDatasetResult(report, string.Empty, temporaryRoot, materialized: false, errors);
+                }
+
+                Directory.Move(temporaryRoot, runtimeRoot);
+                temporaryRoot = string.Empty;
+                return new YoloExternalRuntimeDatasetResult(report, runtimeYamlPath, runtimeRoot, materialized: true, Array.Empty<string>());
+            }
+            catch (Exception ex)
+            {
+                errors.Add($"External YOLO runtime copy could not be prepared: {ex.Message}");
+                return new YoloExternalRuntimeDatasetResult(report, string.Empty, string.Empty, materialized: false, errors);
+            }
+            finally
+            {
+                if (!string.IsNullOrWhiteSpace(temporaryRoot) && Directory.Exists(temporaryRoot))
+                {
+                    Directory.Delete(temporaryRoot, recursive: true);
+                }
+            }
+        }
+
+        private static void CopyRuntimeSplit(SplitScan scan, string splitName, string runtimeRoot)
+        {
+            foreach (SplitItem item in scan?.Items ?? Enumerable.Empty<SplitItem>())
+            {
+                string imagesRoot = FindImagesRoot(item.ImagePath);
+                if (string.IsNullOrWhiteSpace(imagesRoot))
+                {
+                    throw new InvalidOperationException($"External YOLO runtime copy requires images paths under an images folder: {item.ImagePath}");
+                }
+
+                string relativeImagePath = Path.GetRelativePath(imagesRoot, item.ImagePath);
+                string runtimeImagePath = Path.Combine(runtimeRoot, "images", splitName, relativeImagePath);
+                string runtimeLabelPath = Path.ChangeExtension(Path.Combine(runtimeRoot, "labels", splitName, relativeImagePath), ".txt");
+                Directory.CreateDirectory(Path.GetDirectoryName(runtimeImagePath));
+                Directory.CreateDirectory(Path.GetDirectoryName(runtimeLabelPath));
+                File.Copy(item.ImagePath, runtimeImagePath, overwrite: true);
+                if (File.Exists(item.LabelPath))
+                {
+                    File.Copy(item.LabelPath, runtimeLabelPath, overwrite: true);
+                }
+                else
+                {
+                    File.WriteAllText(runtimeLabelPath, string.Empty);
+                }
+            }
+        }
+
+        private static IReadOnlyList<string> BuildRuntimeDataYaml(YoloExternalDatasetIntakeReport report)
+        {
+            var lines = new List<string>
+            {
+                "path: .",
+                "train: images/train",
+                "val: images/val"
+            };
+            if (report.Test.ImageCount > 0)
+            {
+                lines.Add("test: images/test");
+            }
+
+            lines.Add("nc: " + report.ClassNames.Count.ToString(CultureInfo.InvariantCulture));
+            lines.Add("names:");
+            for (int index = 0; index < report.ClassNames.Count; index++)
+            {
+                string name = report.ClassNames[index]
+                    .Replace("\\", "\\\\")
+                    .Replace("\"", "\\\"");
+                lines.Add($"  {index}: \"{name}\"");
+            }
+
+            return lines;
+        }
+
         private static string BuildSourceFingerprint(
             string yamlPath,
             SplitScan train,
@@ -819,6 +1163,8 @@ namespace MvcVisionSystem.Yolo
 
             public List<string> SourceFilePaths { get; } = new List<string>();
 
+            public List<SplitItem> Items { get; } = new List<SplitItem>();
+
             public int LabelFileCount { get; set; }
 
             public int EmptyLabelFileCount { get; set; }
@@ -827,6 +1173,61 @@ namespace MvcVisionSystem.Yolo
 
             public YoloExternalDatasetSplitSummary ToSummary()
                 => new YoloExternalDatasetSplitSummary(Name, ImageDirectoryPath, ImagePaths.Count, LabelFileCount, EmptyLabelFileCount);
+        }
+
+        private sealed class SplitInput
+        {
+            public SplitInput(string name, string path, bool isImageList, string datasetRootPath)
+            {
+                Name = name ?? string.Empty;
+                Path = path ?? string.Empty;
+                IsImageList = isImageList;
+                DatasetRootPath = datasetRootPath ?? string.Empty;
+            }
+
+            public string Name { get; }
+
+            public string Path { get; }
+
+            public bool IsImageList { get; }
+
+            public string DatasetRootPath { get; }
+        }
+
+        private sealed class SplitItem
+        {
+            public SplitItem(string imagePath, string labelPath)
+            {
+                ImagePath = imagePath ?? string.Empty;
+                LabelPath = labelPath ?? string.Empty;
+            }
+
+            public string ImagePath { get; }
+
+            public string LabelPath { get; }
+        }
+
+        private sealed class ExternalYoloDatasetIntakePackage
+        {
+            public ExternalYoloDatasetIntakePackage(
+                YoloExternalDatasetIntakeReport report,
+                SplitScan train,
+                SplitScan valid,
+                SplitScan test)
+            {
+                Report = report;
+                Train = train;
+                Valid = valid;
+                Test = test;
+            }
+
+            public YoloExternalDatasetIntakeReport Report { get; }
+
+            public SplitScan Train { get; }
+
+            public SplitScan Valid { get; }
+
+            public SplitScan Test { get; }
         }
     }
 }

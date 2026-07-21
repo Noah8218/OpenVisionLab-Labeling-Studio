@@ -128,6 +128,25 @@ def label_cache_directory():
         shutil.rmtree(directory, ignore_errors=True)
 
 
+@contextmanager
+def remove_created_source_label_caches(data_path: Path | None):
+    """Remove only label-cache files created by this training run from a native source tree."""
+    source_root = data_path.parent if data_path is not None and data_path.is_file() else None
+    label_root = source_root / "labels" if source_root is not None else None
+    before = set(label_root.rglob("*.cache")) if label_root is not None and label_root.is_dir() else set()
+    try:
+        yield
+    finally:
+        if label_root is None or not label_root.is_dir():
+            return
+        for cache_path in label_root.rglob("*.cache"):
+            if cache_path not in before:
+                try:
+                    cache_path.unlink()
+                except OSError:
+                    pass
+
+
 def normalize_model(value: Any) -> str:
     lower = str(value or "").strip().lower()
     if lower in {"yolov8", "yolo8", "v8"}:
@@ -839,7 +858,7 @@ class LabelingUltralyticsWorker:
             if hasattr(model, "add_callback"):
                 model.add_callback("on_train_epoch_end", on_train_epoch_end)
 
-            with data_yaml_working_directory(data_yaml), label_cache_directory():
+            with remove_created_source_label_caches(data_yaml), data_yaml_working_directory(data_yaml), label_cache_directory():
                 result = model.train(
                     data=str(data_yaml),
                     task=task,
@@ -1284,6 +1303,21 @@ def run_self_test() -> int:
         assert cache_environment_name not in os.environ
     else:
         assert os.environ.get(cache_environment_name) == previous_cache_directory
+
+    source_cache_root = Path(tempfile.mkdtemp(prefix="openvisionlab-source-cache-contract-"))
+    try:
+        source_data_yaml = source_cache_root / "data.yaml"
+        source_data_yaml.write_text("train: images/train\n", encoding="utf-8")
+        source_label_directory = source_cache_root / "labels" / "train"
+        source_label_directory.mkdir(parents=True)
+        preexisting_cache = source_label_directory / "preexisting.cache"
+        preexisting_cache.write_text("keep", encoding="utf-8")
+        with remove_created_source_label_caches(source_data_yaml):
+            (source_label_directory / "created.cache").write_text("remove", encoding="utf-8")
+        assert preexisting_cache.exists()
+        assert not (source_label_directory / "created.cache").exists()
+    finally:
+        shutil.rmtree(source_cache_root, ignore_errors=True)
 
     buffer = bytearray(
         b'{"type":"HealthCheck","requestId":"req-health"}\n'

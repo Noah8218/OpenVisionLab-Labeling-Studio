@@ -2,6 +2,43 @@
 
 This document records code paths that have already been performance- or UX-verified and should not be casually refactored. Treat these areas as protected product behavior: change them only when the user reports a new issue in that exact path, or when a focused verification gate proves the change is necessary.
 
+## Native YOLOv5/YOLOv8 Comparison Source-Immutability Contract
+
+Status: stable as of 2026-07-20 for cross-engine native test comparison cache cleanup and benchmark-only reporting.
+
+- `scripts\compare-yolo-models.ps1` must preserve any pre-existing YOLOv5 cache artifact and remove only `labels.cache`/`.npy` files created by its own current run, including after a validation failure.
+- A cross-engine comparison is always `engine-benchmark`, including an independent `test` split. Its report may compare metrics and timing but must never issue a candidate promotion or automatically replace the inspection model.
+- The exact 150-image circular-disk test rerun recorded one generated `labels\test\NG.cache` cleanup and finished with the same 2,005-file source-tree SHA-256 `573F0E76D2EB282A54BB136F1AC11C5F1584E68685095F312A0508444CC4FA60` and zero remaining cache files.
+- Covered by the required isolated build, `--wpf-model-comparison-run-service`, PowerShell parse, and `git diff --check`. Runtime evidence: `artifacts\yolo-model-comparison\circular-disk-supplied-1000-yolov5-vs-yolov8-e20-test-fixed-20260720-085900\20260720-082213\comparison-summary.json`.
+
+## Persistent-Adapter Anomaly Classification Evaluation
+
+Status: stable for large local YOLOv8 classification evaluation as of 2026-07-20. This is evaluator runtime and evidence-contract proof, not model-adoption proof.
+
+Protected behavior:
+
+- `scripts\evaluate-yolo-classification.ps1` must preserve the selected local adapter as the candidate-mapping authority while loading its detector only once by default.
+- Keep `-UseLegacyPerImageWorker` as an explicit equivalence/debug fallback; do not return to one Python/model start per image for normal dataset evaluation.
+- Preserve `classification-evaluation-summary.json`, weights SHA-256, class/image content fingerprint, thresholds, samples, promotion reasons, `evaluationMode`, `evaluationElapsedMs`, and average duration.
+- Confidence-gated class matches below the minimum remain incorrect evidence and must keep adoption on hold.
+
+Required gates:
+
+```powershell
+C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile .\Runtime\Python\openvisionlab_yolo_classification_batch.py
+C:\Git\yolov8\.venv\Scripts\python.exe .\Runtime\Python\openvisionlab_yolo_classification_batch.py --self-test
+dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --anomaly-classification-evaluation
+git diff --check
+```
+
+Latest evidence:
+
+```text
+PASS Two supplied images: persistent-adapter and legacy per-image paths returned identical class names and confidence values.
+PASS 600-image persistent-adapter run: 15,214ms total, 25.36ms/image.
+Evidence: artifacts\external-anomaly-evaluation\circular-disk-supplied-synthetic-1000-20260720-000459\evaluation-current-source-batch-timing\classification-evaluation-20260720-001826\classification-evaluation-summary.json
+```
+
 ## Task-Aware Model Runtime Profile Transition
 
 Status: stable for current-build profile selection, safe runtime-path mapping, and anomaly training summary as of 2026-07-19. This is runtime configuration evidence, not model-quality or model-adoption evidence.
@@ -2856,6 +2893,19 @@ This closure does not include historical operator-data correction, SEG or anomal
 
 2026-07-19 anomaly application-theme resource contract: `WpfImageQueuePanel` styles and WPF-UI button/DataGrid visual states may resolve the shared palette outside the immediate window resource tree while controls are focused, clicked, or re-realized. `WpfLabelingShellWindow` therefore promotes the same existing palette objects plus its merged WPF-UI theme/control dictionaries to `Application.Resources`; dark/light changes must update the window and application entries with the same brush. Do not suppress ResourceDictionary tracing or define a second palette. The canonical `--wpf-anomaly-queue-focus` gate first requires application lookup for the seven keys reported by the operator, then invokes the commands bound to the visible OK/NG buttons for 18 decisions and requires `ANOMALY_QUEUE_RESOURCE_WARNINGS=0`, synchronized active/grid/ViewModel/current-row state, and persisted 9/9 counts. The earlier current-source capture at `artifacts\ui\anomaly-resource-warnings-20260719\after-native-click-1920.png` remains separate native-mouse evidence. A running old EXE must be restarted to load the corrected resource scope; the later synchronous save/view-refresh latency issue is now closed by the queue-local transition recorded above.
 
+## 2026-07-20 external detection comparison and trained-model identity contract
+
+Status: stable for the verified external-YAML object-detection comparison path.
+
+Protected behavior:
+
+- A single recipe owns the selected dataset purpose and explicit external-YAML activation. Switching YOLOv5/YOLOv8 is a model-profile choice, not a requirement to clone the recipe or alter the native split.
+- The native external class schema is stored separately from recipe class labels. Report-provided native class metrics take precedence in comparison review so a report cannot be displayed with unrelated local class names.
+- Runtime and inference status must display the engine and a distinguishable training-run identity. Conventional `run/weights/best.pt` paths display `run/best.pt`; exported `run/best.pt` paths keep the direct run-folder name instead of showing an ambiguous bare `best.pt`.
+- Engine benchmark reports remain non-adopting evidence: `comparisonKind=engine-benchmark` and `promotion.recommendation=benchmark` must not replace the inspection model.
+
+Coverage: required isolated build; `--wpf-inference-status-presentation`; `--external-yolo-dataset-intake`; `--wpf-model-comparison-review-service`; `--wpf-model-comparison-run-service`; and current Debug EXE `--exe-yolov8-detect-restart-smoke` evidence under `artifacts\ui\circular-disk-yolov8-beginner-e30-current-final4-20260720`. The EXE flow proves object-purpose persistence, native YAML activation, saved-profile restart, and trained YOLOv8 inference candidate display. This does not prove production accuracy or permit model adoption without independent acquisition data.
+
 ## Refactor Rule
 
 When working near a protected path, prefer adding a small adapter or a new higher-level service instead of rewriting the verified hot path. If the hot path must change, document the reason in the final response and include the focused gate results.
@@ -2869,3 +2919,9 @@ Latest review recheck: `--wpf-image-queue-10k-responsive` returned in `16.1ms`; 
 2026-07-17 local operator-folder profile: a current-source warm-cache WPF profile of the user-provided mixed `D:\라벨테스트` root completed `50,081` images / `1,470,992,535` bytes with catalog return `13.9ms`, catalog completion `11,705.7ms`, catalog/detail dispatcher input `142.0ms`/`84.9ms`, DataGrid scroll dispatch `148.2ms`, middle/final selection `207.4ms`/`318.3ms`, and detail completion `406,505.9ms` after catalog. It reported zero empty dimensions and working set `167.3MB` -> `1,030.7MB` -> `1,036.8MB`. The profile uses a temporary test output root and retained the same before/after extension inventory count/bytes; that check is not a source-tree hash proof. Evidence: `artifacts\image-queue-operator-profile\20260717-225226-warm-cache`. This confirms responsive background scheduling on one large local mixed synthetic root, not network-share or production-camera throughput.
 
 2026-07-17 local 8K duplicate-file queue profile: a current-source WPF profile of `D:\새 폴더` used an explicit `--minimum-images 8000` override; the default operator-profile regression threshold stays 10,000. It completed `8,000` JPG paths / `476,177,088` bytes with catalog return `12.8ms`, catalog completion `2,264.8ms`, catalog/detail dispatcher input `131.1ms`/`69.9ms`, DataGrid scroll dispatch `27.2ms`, middle/final selection `182.8ms`/`121.7ms`, and detail completion `80,183.5ms` after catalog. It reported zero empty dimensions and working set `167.4MB` -> `303.1MB` -> `365.3MB`. The before/after metadata manifest SHA-256 remained `072643A7ED96F109E245271AC6BDAF85D26A174BE9A1203D16B245CF462F76F9`. A complete content SHA-256 audit found exactly `250` contents, each copied `32` times; the metadata manifest remains distinct from a before/after content-tree hash. Evidence: `artifacts\image-queue-operator-profile\20260717-231924-local-8k-production-sample`. This is duplicate-file local scheduling evidence only: `D:` is fixed local storage and the source is not a production-data proxy.
+
+2026-07-21 U-Net canonical-segmentation runtime contract: the `UNet` profile owns a dedicated `C:\Git\unet` PyTorch environment and the bundled `openvisionlab_unet_worker.py`; selecting it must use those automatic defaults rather than ask the operator to locate a project or worker script. Training is valid only for a recipe-owned segmentation export (`images/<split>`, `masks/<split>`, `classes.json`, manifest); it must reject non-segmentation and external native-YOLO input instead of converting bbox labels into fabricated masks. A test-host application workflow must prove one epoch, preserve the recipe-source SHA-256, write `best.pt`, then restart the worker, load that exact checkpoint, and finish inference. Canonical evidence is `artifacts\real-unet-segmentation-runtime-20260721-173045\summary.txt`; focused gates are the isolated build, worker compile/self-test, `--unet-segmentation-export`, `--dataset-health`, `--priority-workflow-docs`, and `--real-unet-segmentation-runtime --timeout-seconds 90`. This contract proves reproducibility and integration only—not segmentation quality, candidate quality, model adoption, or a valid U-Net-versus-YOLO metric comparison. The first one-epoch smoke returned zero components, so metric normalization plus a real held-out mask evaluation remains required before comparison or adoption.
+
+2026-07-21 normalized segmentation-comparison artifact contract: `openvisionlab_segmentation_prediction_export.py` accepts only an explicit `unet` or `ultralytics` adapter plus a canonical export, validates the same `classes.json`/manifest/checkpoint class contract, and writes only app-owned `prediction-manifest.jsonl`, indexed prediction masks, and run summary. `SegmentationMaskComparisonService` may score two runs only when dataset fingerprint, recipe-source SHA-256, class-contract SHA-256, split, image SHA-256/dimensions, and prediction-mask SHA-256 all match the same canonical export. It then reports per-class Dice, IoU/mIoU, and component TP/FP/FN; it must not combine these numbers with YOLO mAP or promote a model. Canonical focused coverage is the isolated build, Python exporter compile/self-test, `--segmentation-mask-comparison`, `--real-unet-segmentation-runtime --timeout-seconds 90`, and `--real-ultralytics-segmentation-prediction-export`. Evidence: `artifacts\real-unet-segmentation-runtime-20260721-173045\summary.txt` and `artifacts\real-ultralytics-segmentation-prediction-export-20260721-173053\summary.txt`. The adapter smokes use intentionally different class contracts, so they prove normalized artifact generation rather than valid cross-model quality; a same-canonical-export paired training run and Model Center review surface remain separate work.
+
+2026-07-21 Model Center U-Net/YOLO-seg launch-and-review contract: the dedicated `SegmentationAdapterComparisonPanel` appears only for a segmentation recipe. It binds independent U-Net and YOLOv8/YOLO11 checkpoint paths through `WpfTrainingSettingsPanelViewModel`; the View code-behind only opens file dialogs and adapts run results. `WpfSegmentationAdapterComparisonRunService` owns canonical export, both raw prediction exports, and `SegmentationMaskComparisonService` invocation. It keeps an already configured U-Net runtime root when valid; YOLO11 uses the existing `yolov8` Ultralytics runtime rather than requiring a separate `yolo11` repository. The flow selects no model automatically and treats any run failure as non-adopting. User copy must say that common raster-mask Dice/IoU/component TP/FP/FN is separate from YOLO mAP. Execution is disabled until two paths exist and during the run. Coverage: required isolated build, `--wpf-segmentation-adapter-comparison`, `--unet-segmentation-export`, `--segmentation-mask-comparison`, `--dataset-health`, `--priority-workflow-docs`, `git diff --check`, and current-source 1920x1080 before/after visual smoke `artifacts\ui\unet-yoloseg-comparison-before-20260721.png` / `artifacts\ui\unet-yoloseg-comparison-after-20260721.png`. This is a comparison entry point, not same-data model-quality evidence, retraining, automatic adoption, or a production claim.

@@ -28,8 +28,9 @@ internal static partial class Program
         {
             string repositoryRoot = FindRepositoryRoot();
             string engine = GetArgumentValue(args, "--engine", "yolov8").Trim().ToLowerInvariant();
-            AssertTrue(engine == "yolov5" || engine == "yolov8", "external YOLO training engine must be yolov5 or yolov8: " + engine);
+            AssertTrue(engine == "yolov5" || engine == "yolov8" || engine == "yolo11", "external YOLO training engine must be yolov5, yolov8, or yolo11: " + engine);
             bool useYoloV5 = engine == "yolov5";
+            bool useYolo11 = engine == "yolo11";
             LabelingDatasetPurpose purpose = ResolveExternalDatasetPurpose(args, useYoloV5);
             AssertTrue(!useYoloV5 || purpose == LabelingDatasetPurpose.ObjectDetection, "the local YOLOv5 smoke supports object-detection data only");
             string defaultDataYamlPath = purpose == LabelingDatasetPurpose.Segmentation
@@ -44,12 +45,21 @@ internal static partial class Program
             string yoloRoot = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--yolo-root",
-                GetArgumentValue(args, useYoloV5 ? "--yolov5-root" : "--yolov8-root", defaultYoloRoot)));
+                GetArgumentValue(args, useYoloV5 ? "--yolov5-root" : useYolo11 ? "--yolo11-root" : "--yolov8-root", defaultYoloRoot)));
             string modelRoot = useYoloV5 ? Path.Combine(yoloRoot, "yolov5Master") : yoloRoot;
-            string pythonPath = Path.Combine(yoloRoot, ".venv", "Scripts", "python.exe");
-            string clientScriptPath = Path.Combine(yoloRoot, "labeling_tcp_client.py");
+            string pythonPath = Path.GetFullPath(GetArgumentValue(
+                args,
+                "--python-exe",
+                Path.Combine(yoloRoot, ".venv", "Scripts", "python.exe")));
+            string clientScriptPath = useYolo11
+                ? PythonModelRuntimeBundledWorkerService.ResolveUltralyticsWorkerScriptPath()
+                : Path.Combine(yoloRoot, "labeling_tcp_client.py");
             string defaultSeedWeightsPath = Path.Combine(yoloRoot, useYoloV5
                 ? "yolov5s.pt"
+                : useYolo11
+                    ? purpose == LabelingDatasetPurpose.Segmentation
+                        ? "yolo11n-seg.pt"
+                        : "yolo11n.pt"
                 : purpose == LabelingDatasetPurpose.Segmentation
                     ? "yolov8n-seg.pt"
                     : "yolov8n.pt");
@@ -58,6 +68,7 @@ internal static partial class Program
             int imageSize = GetPositiveArgument(args, "--image-size", 320);
             int batchSize = GetPositiveArgument(args, "--batch", 4);
             int timeoutSeconds = GetPositiveArgument(args, "--timeout-seconds", 600);
+            string device = GetArgumentValue(args, "--device", "cpu").Trim();
             string taskFolder = purpose == LabelingDatasetPurpose.Segmentation ? "segment" : "detect";
             string runFolder = purpose == LabelingDatasetPurpose.Segmentation ? "segment" : "train";
             string runName = GetArgumentValue(
@@ -101,6 +112,8 @@ internal static partial class Program
             data.ProjectSettings.DatasetPurpose = purpose;
             data.ProjectSettings.PythonModel.ModelEngine = useYoloV5
                 ? PythonModelSettings.EngineYoloV5
+                : useYolo11
+                    ? PythonModelSettings.EngineYolo11
                 : PythonModelSettings.EngineYoloV8;
             data.ProjectSettings.PythonModel.ProjectRootPath = yoloRoot;
             data.ProjectSettings.PythonModel.PythonExecutablePath = pythonPath;
@@ -134,7 +147,9 @@ internal static partial class Program
                 port,
                 imageSize,
                 stdout,
-                stderr);
+                stderr,
+                useYolo11 ? "yolo11" : string.Empty,
+                device);
             AssertTrue(
                 WaitUntil(() => communication.GetStatusSnapshot().IsClientConnected, TimeSpan.FromSeconds(30)),
                 BuildRealYoloSmokeFailure("external YOLO training client did not connect", stdout, stderr));
@@ -166,7 +181,9 @@ internal static partial class Program
             ExternalYoloDatasetSettings externalProfile = data.ProjectSettings.ExternalYoloDataset;
             AssertEqual(intake.SourceFingerprintSha256, externalProfile.LastTrainingSourceFingerprintSha256);
             AssertEqual(Path.GetFullPath(dataYamlPath), externalProfile.LastTrainingDataYamlFilePath);
-            AssertEqual(useYoloV5 ? "yolov5" : "yolov8", externalProfile.LastTrainingModel);
+            AssertTrue(File.Exists(externalProfile.LastTrainingRuntimeDataYamlFilePath), "external training provenance must record the runtime data.yaml sent to YOLO");
+            AssertTrue(!IsPathWithinRoot(externalProfile.LastTrainingRuntimeDataYamlFilePath, sourceRoot), "external source directory must not receive the runtime data.yaml");
+            AssertEqual(useYoloV5 ? "yolov5" : useYolo11 ? "yolo11" : "yolov8", externalProfile.LastTrainingModel);
             AssertEqual(purpose == LabelingDatasetPurpose.Segmentation ? "segment" : "detect", externalProfile.LastTrainingTask);
             AssertEqual(runName, externalProfile.LastTrainingRunName);
             AssertEqual(Path.GetFileName(seedWeightsPath), externalProfile.LastTrainingWeightFile);
@@ -211,12 +228,14 @@ internal static partial class Program
                 "epochs=" + epochCount.ToString(CultureInfo.InvariantCulture),
                 "imageSize=" + imageSize.ToString(CultureInfo.InvariantCulture),
                 "batch=" + batchSize.ToString(CultureInfo.InvariantCulture),
+                "requestedDevice=" + device,
                 "runName=" + runName,
                 "modelRoot=" + modelRoot,
                 "workerTrainingState=" + finalStatus.LastTrainingState,
                 "workerTrainingMessage=" + finalStatus.LastTrainingMessage,
                 "profileSourceFingerprintSha256=" + externalProfile.LastTrainingSourceFingerprintSha256,
                 "profileDataYaml=" + externalProfile.LastTrainingDataYamlFilePath,
+                "profileRuntimeDataYaml=" + externalProfile.LastTrainingRuntimeDataYamlFilePath,
                 "profileModel=" + externalProfile.LastTrainingModel,
                 "profileTask=" + externalProfile.LastTrainingTask,
                 "profileRunName=" + externalProfile.LastTrainingRunName,

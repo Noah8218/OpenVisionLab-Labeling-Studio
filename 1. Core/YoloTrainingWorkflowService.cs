@@ -2,6 +2,7 @@ using Lib.Common;
 using MvcVisionSystem._3._Communication.TCP;
 using MvcVisionSystem.Yolo;
 using System;
+using System.IO;
 
 namespace MvcVisionSystem._1._Core
 {
@@ -53,7 +54,8 @@ namespace MvcVisionSystem._1._Core
                     trainingRequest.Task,
                     weightFile,
                     runName,
-                    trainingRequest.SourceFingerprintSha256);
+                    trainingRequest.SourceFingerprintSha256,
+                    trainingRequest.RuntimeDataYamlFilePath);
             }
 
             return sent;
@@ -92,6 +94,12 @@ namespace MvcVisionSystem._1._Core
 
             data?.ProjectSettings?.EnsureDefaults();
             ExternalYoloDatasetSettings externalDataset = data?.ProjectSettings?.ExternalYoloDataset;
+            string model = data?.ProjectSettings?.PythonModel?.GetProtocolModelName() ?? "yolov5";
+            if (string.Equals(model, "unet", StringComparison.OrdinalIgnoreCase))
+            {
+                return TryPrepareUnetSegmentationTrainingDataset(data, externalDataset, out trainingRequest);
+            }
+
             if (externalDataset?.RequiresExplicitReactivation == true)
             {
                 LastPreparationFailureMessage = string.IsNullOrWhiteSpace(externalDataset.LastValidationSummary)
@@ -103,7 +111,7 @@ namespace MvcVisionSystem._1._Core
 
             if (externalDataset?.UseForTraining == true)
             {
-                return TryPrepareExternalYoloTrainingDataset(externalDataset, out trainingRequest);
+                return TryPrepareExternalYoloTrainingDataset(data, externalDataset, out trainingRequest);
             }
 
             if (data?.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection)
@@ -153,6 +161,7 @@ namespace MvcVisionSystem._1._Core
         }
 
         private bool TryPrepareExternalYoloTrainingDataset(
+            CData data,
             ExternalYoloDatasetSettings externalDataset,
             out TrainingDatasetRequest trainingRequest)
         {
@@ -184,14 +193,32 @@ namespace MvcVisionSystem._1._Core
 
             YoloExternalDatasetIntakeService.ApplyValidation(externalDataset, report);
 
+            string runtimeParentPath = Path.Combine(data?.OutputRootPath ?? string.Empty, "external-yolo-runtime");
+            YoloExternalRuntimeDatasetResult runtime = YoloExternalDatasetIntakeService.PrepareRuntimeDataset(
+                report.DataYamlFilePath,
+                report.Purpose,
+                runtimeParentPath);
+            if (!runtime.IsReady)
+            {
+                LastPreparationFailureMessage = string.Join(Environment.NewLine, runtime.Errors);
+                foreach (string error in runtime.Errors)
+                {
+                    AppLog.ABNORMAL($"External YOLO runtime dataset preparation failed: {error}");
+                }
+
+                trainingRequest = new TrainingDatasetRequest();
+                return false;
+            }
+
             trainingRequest = new TrainingDatasetRequest
             {
-                DataPath = report.DataYamlFilePath,
+                DataPath = runtime.RuntimeDataYamlFilePath,
                 Task = ResolveTrainingTask(report.Purpose),
                 IsExternalSource = true,
-                SourceFingerprintSha256 = report.SourceFingerprintSha256
+                SourceFingerprintSha256 = report.SourceFingerprintSha256,
+                RuntimeDataYamlFilePath = runtime.RuntimeDataYamlFilePath
             };
-            AppLog.NORMAL($"External native YOLO dataset ready. {report.Summary} / Path:{report.DataYamlFilePath}");
+            AppLog.NORMAL($"External native YOLO dataset ready. {report.Summary} / Source:{report.DataYamlFilePath} / Runtime:{runtime.RuntimeDataYamlFilePath}");
             return true;
         }
 
@@ -249,6 +276,47 @@ namespace MvcVisionSystem._1._Core
             return true;
         }
 
+        private bool TryPrepareUnetSegmentationTrainingDataset(
+            CData data,
+            ExternalYoloDatasetSettings externalDataset,
+            out TrainingDatasetRequest trainingRequest)
+        {
+            trainingRequest = new TrainingDatasetRequest
+            {
+                DataPath = string.Empty,
+                Task = "segment"
+            };
+            if (data?.ProjectSettings?.DatasetPurpose != LabelingDatasetPurpose.Segmentation)
+            {
+                LastPreparationFailureMessage = "U-Net training requires a segmentation recipe with masks or polygons.";
+                AppLog.ABNORMAL(LastPreparationFailureMessage);
+                return false;
+            }
+
+            if (externalDataset?.UseForTraining == true)
+            {
+                LastPreparationFailureMessage = "U-Net training currently requires the canonical OpenVisionLab segmentation recipe, not an external native YOLO data.yaml intake.";
+                AppLog.ABNORMAL(LastPreparationFailureMessage);
+                return false;
+            }
+
+            UnetSegmentationDatasetExportResult result = UnetSegmentationDatasetExportService.Export(data);
+            foreach (string error in result.Errors)
+            {
+                AppLog.ABNORMAL($"U-Net segmentation export failed: {error}");
+            }
+
+            if (!result.IsReady)
+            {
+                LastPreparationFailureMessage = string.Join(Environment.NewLine, result.Errors);
+                return false;
+            }
+
+            trainingRequest.DataPath = result.OutputRootPath;
+            AppLog.NORMAL($"U-Net segmentation dataset ready. Images:{result.ImageCount}, PositiveMasks:{result.PositiveMaskImageCount}, Path:{result.OutputRootPath}");
+            return true;
+        }
+
         private static string ResolveTrainingTask(LabelingDatasetPurpose datasetPurpose)
         {
             return datasetPurpose == LabelingDatasetPurpose.Segmentation
@@ -278,6 +346,11 @@ namespace MvcVisionSystem._1._Core
                         : "yolov8n.pt";
             }
 
+            if (normalizedModel == "unet")
+            {
+                return string.Empty;
+            }
+
             return string.IsNullOrWhiteSpace(weight) ? "yolov5s.pt" : $"{weight}.pt";
         }
 
@@ -290,6 +363,8 @@ namespace MvcVisionSystem._1._Core
             public bool IsExternalSource { get; set; }
 
             public string SourceFingerprintSha256 { get; set; } = string.Empty;
+
+            public string RuntimeDataYamlFilePath { get; set; } = string.Empty;
         }
     }
 }

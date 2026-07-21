@@ -252,6 +252,12 @@ namespace MvcVisionSystem
         private Wpf.Ui.Controls.Button ReviewTrainedModelButton => TrainingSettingsPanelControl?.ReviewTrainedModel;
         private Wpf.Ui.Controls.Button ConfirmTrainedModelButton => TrainingSettingsPanelControl?.ConfirmTrainedModel;
         private Wpf.Ui.Controls.Button RunYoloEngineComparisonButton => TrainingSettingsPanelControl?.RunYoloEngineComparison;
+        private Border SegmentationAdapterComparisonPanel => TrainingSettingsPanelControl?.SegmentationAdapterComparison;
+        private TextBox SegmentationUnetCheckpointPathBox => TrainingSettingsPanelControl?.SegmentationUnetCheckpointPath;
+        private TextBox SegmentationYoloCheckpointPathBox => TrainingSettingsPanelControl?.SegmentationYoloCheckpointPath;
+        private Wpf.Ui.Controls.Button BrowseSegmentationUnetCheckpointButton => TrainingSettingsPanelControl?.BrowseSegmentationUnetCheckpoint;
+        private Wpf.Ui.Controls.Button BrowseSegmentationYoloCheckpointButton => TrainingSettingsPanelControl?.BrowseSegmentationYoloCheckpoint;
+        private Wpf.Ui.Controls.Button RunSegmentationAdapterComparisonButton => TrainingSettingsPanelControl?.RunSegmentationAdapterComparison;
         private TextBox TrainingImageSizeBox => TrainingSettingsPanelControl?.ImageSizeBox;
         private TextBox TrainingBatchBox => TrainingSettingsPanelControl?.BatchBox;
         private TextBox TrainingEpochBox => TrainingSettingsPanelControl?.EpochBox;

@@ -317,6 +317,7 @@ namespace MvcVisionSystem
                 global.Data.ProjectSettings.DatasetPurpose,
                 global.Data.ProjectSettings.ExternalYoloDataset);
             RefreshExternalYoloDatasetIntakePresentation();
+            RefreshSegmentationAdapterComparisonState();
         }
 
         private void ConfigureShellCommands()

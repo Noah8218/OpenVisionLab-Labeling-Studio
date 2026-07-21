@@ -5,6 +5,7 @@ using MvcVisionSystem.Yolo;
 using System;
 using System.Drawing;
 using System.IO;
+using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -83,6 +84,7 @@ internal static partial class Program
             AssertEqual(LabelingDatasetPurpose.Segmentation, reloaded.ProjectSettings.ExternalYoloDataset.DatasetPurpose);
             AssertTrue(reloaded.ProjectSettings.ExternalYoloDataset.UseForTraining, "explicit external training selection should persist with the recipe");
             AssertTrue(reloaded.ProjectSettings.ExternalYoloDataset.LastValidationSucceeded, "validated external profile should persist its readiness snapshot");
+            AssertEqual("defect", reloaded.ProjectSettings.ExternalYoloDataset.LastValidationClassNames);
             AssertEqual(segmentationReport.SourceFingerprintSha256, reloaded.ProjectSettings.ExternalYoloDataset.SourceFingerprintSha256);
             AssertEqual(segmentationReport.SourceFileCount, reloaded.ProjectSettings.ExternalYoloDataset.SourceFileCount);
 
@@ -170,6 +172,157 @@ internal static partial class Program
 
             DeleteTempRoot(root);
         }
+    }
+
+    private static void TestExternalYoloListSplitIntake()
+    {
+        string root = CreateTempRoot();
+        string recipeName = "codex_external_yolo_list_" + Guid.NewGuid().ToString("N");
+        string recipeDirectory = Path.Combine(AppContext.BaseDirectory, "RECIPE", recipeName);
+        try
+        {
+            string sourceYamlPath = CreateExternalListSplitYoloDataset(root);
+            string sourceSnapshotBefore = CaptureExternalSourceSnapshot(Path.GetDirectoryName(sourceYamlPath));
+            YoloExternalDatasetIntakeReport sourceReport = YoloExternalDatasetIntakeService.Build(
+                sourceYamlPath,
+                LabelingDatasetPurpose.ObjectDetection);
+            AssertTrue(sourceReport.IsReady, string.Join(Environment.NewLine, sourceReport.Errors));
+            AssertTrue(sourceReport.RequiresRuntimeMaterialization, "split-list source must be materialized before standard YOLO training");
+            AssertEqual(2, sourceReport.Train.ImageCount);
+            AssertEqual(2, sourceReport.Valid.ImageCount);
+            AssertEqual(1, sourceReport.Test.ImageCount);
+            AssertEqual(3, sourceReport.TotalAnnotationCount);
+            AssertEqual("scratch", sourceReport.ClassNames[0]);
+
+            string runtimeParent = Path.Combine(root, "recipe-output", "external-yolo-runtime");
+            YoloExternalRuntimeDatasetResult runtime = YoloExternalDatasetIntakeService.PrepareRuntimeDataset(
+                sourceYamlPath,
+                LabelingDatasetPurpose.ObjectDetection,
+                runtimeParent);
+            AssertTrue(runtime.IsReady, string.Join(Environment.NewLine, runtime.Errors));
+            AssertTrue(runtime.Materialized, "split-list source must use an app-owned runtime copy");
+            AssertTrue(File.Exists(runtime.RuntimeDataYamlFilePath), "runtime data.yaml was not created");
+            AssertTrue(
+                runtime.RuntimeDataYamlFilePath.StartsWith(Path.GetFullPath(runtimeParent), StringComparison.OrdinalIgnoreCase),
+                "runtime data.yaml must remain below the app-owned runtime parent");
+            YoloExternalDatasetIntakeReport runtimeReport = YoloExternalDatasetIntakeService.Build(
+                runtime.RuntimeDataYamlFilePath,
+                LabelingDatasetPurpose.ObjectDetection);
+            AssertTrue(runtimeReport.IsReady, string.Join(Environment.NewLine, runtimeReport.Errors));
+            AssertTrue(!runtimeReport.RequiresRuntimeMaterialization, "runtime copy must use the standard images/labels layout");
+            AssertEqual(sourceReport.Train.ImageCount, runtimeReport.Train.ImageCount);
+            AssertEqual(sourceReport.Valid.ImageCount, runtimeReport.Valid.ImageCount);
+            AssertEqual(sourceReport.Test.ImageCount, runtimeReport.Test.ImageCount);
+            AssertEqual(sourceReport.TotalAnnotationCount, runtimeReport.TotalAnnotationCount);
+            AssertEqual(sourceSnapshotBefore, CaptureExternalSourceSnapshot(Path.GetDirectoryName(sourceYamlPath)));
+
+            var data = new CData();
+            data.ConfigureOutputRoot(Path.Combine(root, "recipe-output"));
+            data.ProjectSettings.DatasetPurpose = LabelingDatasetPurpose.ObjectDetection;
+            data.ProjectSettings.PythonModel.ModelEngine = PythonModelSettings.EngineYoloV8;
+            data.ProjectSettings.ExternalYoloDataset.DataYamlFilePath = sourceYamlPath;
+            data.ProjectSettings.ExternalYoloDataset.DatasetPurpose = LabelingDatasetPurpose.ObjectDetection;
+            data.ProjectSettings.ExternalYoloDataset.UseForTraining = true;
+            YoloExternalDatasetIntakeService.ApplyValidation(
+                data.ProjectSettings.ExternalYoloDataset,
+                sourceReport,
+                acceptSourceIdentity: true);
+
+            int port = GetAvailableTcpPort();
+            using var communication = new CCommunicationLearning(startListen: false, port: port);
+            using var requestReceived = new ManualResetEventSlim(false);
+            AssertTrue(communication.Start(), "list-split intake test TCP listener did not start");
+            Task mockClient = Task.Run(() => RunMockTrainingPacketCaptureClient(
+                port,
+                requestReceived,
+                request =>
+                {
+                    AssertEqual("yolov8", request.model);
+                    AssertEqual("detect", request.task);
+                    AssertTrue(
+                        request.dataYaml.Contains("external-yolo-runtime", StringComparison.OrdinalIgnoreCase),
+                        "training request must use the app-owned runtime data.yaml");
+                }));
+            AssertTrue(WaitUntil(() => communication.GetStatusSnapshot().IsClientConnected, TimeSpan.FromSeconds(5)), "list-split intake mock client did not connect");
+            var workflow = new YoloTrainingWorkflowService();
+            AssertTrue(workflow.TryStartTraining(data, communication, "external-list-source"), "activated list-split source should start training");
+            AssertTrue(requestReceived.Wait(TimeSpan.FromSeconds(5)), "list-split training request was not received");
+            AssertTrue(mockClient.Wait(TimeSpan.FromSeconds(5)), "list-split intake mock client did not finish");
+            if (mockClient.IsFaulted && mockClient.Exception != null)
+            {
+                throw mockClient.Exception;
+            }
+
+            AssertEqual(sourceYamlPath, data.ProjectSettings.ExternalYoloDataset.LastTrainingDataYamlFilePath);
+            AssertTrue(
+                data.ProjectSettings.ExternalYoloDataset.LastTrainingRuntimeDataYamlFilePath.Contains("external-yolo-runtime", StringComparison.OrdinalIgnoreCase),
+                "training provenance must record the runtime data.yaml separately from the selected source");
+            AssertEqual(sourceSnapshotBefore, CaptureExternalSourceSnapshot(Path.GetDirectoryName(sourceYamlPath)));
+        }
+        finally
+        {
+            if (Directory.Exists(recipeDirectory))
+            {
+                Directory.Delete(recipeDirectory, recursive: true);
+            }
+
+            DeleteTempRoot(root);
+        }
+    }
+
+    private static string CreateExternalListSplitYoloDataset(string root)
+    {
+        string datasetRoot = Path.Combine(root, "defect-list-source");
+        foreach (string relativePath in new[]
+        {
+            "images/NG/train_ng.png",
+            "images/OK/train_ok.png",
+            "images/NG/val_ng.png",
+            "images/OK/val_ok.png",
+            "images/NG/test_ng.png"
+        })
+        {
+            string imagePath = Path.Combine(datasetRoot, relativePath.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(imagePath));
+            using Bitmap image = CreateSolidBitmap(24, 24, relativePath.Contains("NG", StringComparison.Ordinal) ? Color.Black : Color.White);
+            image.Save(imagePath);
+        }
+
+        foreach ((string relativePath, string label) in new[]
+        {
+            ("NG/train_ng.txt", "0 0.50 0.50 0.40 0.40"),
+            ("NG/val_ng.txt", "1 0.50 0.50 0.30 0.30"),
+            ("NG/test_ng.txt", "0 0.50 0.50 0.20 0.20")
+        })
+        {
+            string labelPath = Path.Combine(datasetRoot, "labels", "yolo_defect_detection", relativePath.Replace('/', Path.DirectorySeparatorChar));
+            Directory.CreateDirectory(Path.GetDirectoryName(labelPath));
+            File.WriteAllText(labelPath, label);
+        }
+
+        string segmentationLabelPath = Path.Combine(datasetRoot, "labels", "yolo_defect_segmentation", "NG", "train_ng.txt");
+        Directory.CreateDirectory(Path.GetDirectoryName(segmentationLabelPath));
+        File.WriteAllText(segmentationLabelPath, "0 0.10 0.10 0.80 0.10 0.80 0.80");
+
+        string splitDirectory = Path.Combine(datasetRoot, "splits", "detection");
+        Directory.CreateDirectory(splitDirectory);
+        File.WriteAllLines(Path.Combine(splitDirectory, "train.txt"), new[] { "images/NG/train_ng.png", "images/OK/train_ok.png" });
+        File.WriteAllLines(Path.Combine(splitDirectory, "val.txt"), new[] { "images/NG/val_ng.png", "images/OK/val_ok.png" });
+        File.WriteAllLines(Path.Combine(splitDirectory, "test.txt"), new[] { "images/NG/test_ng.png" });
+        string yamlPath = Path.Combine(datasetRoot, "defect_dataset.yaml");
+        File.WriteAllText(
+            yamlPath,
+            "path: .\ntrain: splits/detection/train.txt\nval: splits/detection/val.txt\ntest: splits/detection/test.txt\nnc: 2\nnames:\n  0: scratch\n  1: crack\n");
+        return yamlPath;
+    }
+
+    private static string CaptureExternalSourceSnapshot(string sourceRoot)
+    {
+        return string.Join(
+            "\n",
+            Directory.EnumerateFiles(sourceRoot, "*", SearchOption.AllDirectories)
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .Select(path => Path.GetRelativePath(sourceRoot, path).Replace('\\', '/') + ":" + ComputeFileSha256(path)));
     }
 
     private static string CreateExternalNativeYoloDataset(string root, string name, bool segmentation, bool mappingNames)

@@ -70,6 +70,7 @@ namespace MvcVisionSystem._1._Core
                 BuildProfile(PythonModelSettings.EngineYoloV5, selectedEngine, selectedState),
                 BuildProfile(PythonModelSettings.EngineYoloV8, selectedEngine, selectedState),
                 BuildProfile(PythonModelSettings.EngineYolo11, selectedEngine, selectedState),
+                BuildProfile(PythonModelSettings.EngineUnet, selectedEngine, selectedState),
                 BuildProfile(PythonModelSettings.EngineOnnx, selectedEngine, selectedState)
             };
         }
@@ -110,6 +111,12 @@ namespace MvcVisionSystem._1._Core
                     "\uC124\uCE58/\uC5F0\uACB0 \uB300\uAE30",
                     "Ultralytics \uD328\uD0A4\uC9C0\uB97C \uC0AC\uC6A9\uD558\uB294 YOLO11 \uC2E4\uD589 \uD504\uB85C\uD544\uC785\uB2C8\uB2E4.",
                     "Ultralytics \uC2E4\uD589\uAE30 \uC124\uCE58 \uB610\uB294 \uACBD\uB85C \uC5F0\uACB0",
+                    "\uC5F0\uACB0"),
+                PythonModelSettings.EngineUnet => BuildDisconnectedProfile(
+                    engine,
+                    "U-Net \uC2E4\uD589\uAE30 \uC5F0\uACB0 \uB300\uAE30",
+                    "\uC571\uC774 \uB0B4\uBCB4\ub0B4\ub294 segmentation mask export\ub97c \uc0ac\uc6a9\ud558\ub294 PyTorch U-Net \uc2e4\ud589 \ud504\ub85c\ud544\uc785\ub2c8\ub2e4.",
+                    "C:\\Git\\unet \uc2e4\ud589\uae30 \uc5f0\uacb0",
                     "\uC5F0\uACB0"),
                 PythonModelSettings.EngineOnnx => BuildDisconnectedProfile(
                     engine,
@@ -207,6 +214,7 @@ namespace MvcVisionSystem._1._Core
             {
                 PythonModelSettings.EngineYoloV8 => "\uC9C0\uC6D0 \uBC94\uC704: local worker \uD604\uC7AC \uAC80\uC0AC / \uD559\uC2B5\uC740 TrainYolo \uC9C0\uC6D0 \uD544\uC694",
                 PythonModelSettings.EngineYolo11 => "\uC9C0\uC6D0 \uBC94\uC704: \uD604\uC7AC \uAC80\uC0AC \uC6B0\uC120 / \uD559\uC2B5\uC740 worker \uC5F0\uACB0 \uD544\uC694",
+                PythonModelSettings.EngineUnet => "\uC9C0\uC6D0 \uBC94\uC704: segmentation \uD559\uC2B5 + \uD604\uC7AC \uAC80\uC0AC",
                 PythonModelSettings.EngineOnnx => "\uC9C0\uC6D0 \uBC94\uC704: \uCD94\uB860 \uC804\uC6A9",
                 _ => "\uC9C0\uC6D0 \uBC94\uC704: \uD559\uC2B5 + \uD604\uC7AC \uAC80\uC0AC"
             };
@@ -216,6 +224,7 @@ namespace MvcVisionSystem._1._Core
             {
                 PythonModelSettings.EngineYoloV8 => "YOLOv8",
                 PythonModelSettings.EngineYolo11 => "YOLO11",
+                PythonModelSettings.EngineUnet => "U-Net",
                 PythonModelSettings.EngineOnnx => "ONNX",
                 _ => "YOLOv5"
             };
@@ -225,6 +234,7 @@ namespace MvcVisionSystem._1._Core
             {
                 PythonModelSettings.EngineYoloV8 => "Ultralytics",
                 PythonModelSettings.EngineYolo11 => "Ultralytics",
+                PythonModelSettings.EngineUnet => "PyTorch U-Net",
                 PythonModelSettings.EngineOnnx => "ONNX Runtime",
                 _ => "YOLOv5 repo"
             };

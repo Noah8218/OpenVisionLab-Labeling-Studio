@@ -213,6 +213,13 @@ namespace MvcVisionSystem
                     : settings.LastValidationSummary;
             }
 
+            if (settings.LastValidationSucceeded
+                && !string.IsNullOrWhiteSpace(settings.LastValidationClassNames))
+            {
+                detailText += Environment.NewLine + "외부 학습 클래스: " + settings.LastValidationClassNames
+                    + " (레시피 클래스는 자동으로 바꾸지 않음)";
+            }
+
             LearningWorkflowViewModel?.SetExternalYoloDatasetIntakeResult(
                 settings.DatasetPurpose,
                 statusText,

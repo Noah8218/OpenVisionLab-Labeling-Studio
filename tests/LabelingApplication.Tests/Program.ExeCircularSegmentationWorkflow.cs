@@ -464,7 +464,8 @@ internal static partial class Program
         string inferenceImageSize = "128",
         string anomalyNormalClasses = null,
         string anomalyAbnormalClasses = null,
-        string anomalyMinimumConfidence = null)
+        string anomalyMinimumConfidence = null,
+        string modelEngine = PythonModelSettings.EngineYoloV8)
     {
         var root = RefreshAutomationRoot(process, stableHandle);
         AssertTrue(
@@ -483,31 +484,35 @@ internal static partial class Program
             "YOLO model engine combo box was not reachable");
         root = RefreshAutomationRoot(process, stableHandle);
 
+        string normalizedEngine = PythonModelSettings.NormalizeModelEngine(modelEngine);
+        string displayEngine = string.Equals(normalizedEngine, PythonModelSettings.EngineYolo11, StringComparison.Ordinal)
+            ? "YOLO11"
+            : "YOLOv8";
         bool engineSelected = TrySelectComboBoxItemByAutomationId(
                 process,
                 stableHandle,
                 "YoloModelEngineBox",
-                new[] { PythonModelSettings.EngineYoloV8, "YOLOv8" },
+                new[] { normalizedEngine, displayEngine },
                 string.Empty,
                 out string selectedEngine)
-            || TrySelectVisibleComboBoxItemByName(process, stableHandle, "YoloModelEngineBox", "YOLOv8", out selectedEngine);
+            || TrySelectVisibleComboBoxItemByName(process, stableHandle, "YoloModelEngineBox", displayEngine, out selectedEngine);
         if (!engineSelected)
         {
             root = RefreshAutomationRoot(process, stableHandle);
             selectedEngine = FirstNonEmpty(
                 GetSelectedComboBoxItemNameByAutomationId(root, "YoloModelEngineBox"),
                 GetAutomationValueByAutomationId(root, "YoloModelEngineBox"));
-            engineSelected = selectedEngine.Contains("YOLOv8", StringComparison.OrdinalIgnoreCase)
-                || selectedEngine.Contains(PythonModelSettings.EngineYoloV8, StringComparison.OrdinalIgnoreCase);
+            engineSelected = selectedEngine.Contains(displayEngine, StringComparison.OrdinalIgnoreCase)
+                || selectedEngine.Contains(normalizedEngine, StringComparison.OrdinalIgnoreCase);
         }
 
         AssertTrue(
             engineSelected,
-            "YOLO model engine combo box did not accept YOLOv8 selection");
+            "YOLO model engine combo box did not accept " + displayEngine + " selection");
         AssertTrue(
-            string.Equals(selectedEngine, PythonModelSettings.EngineYoloV8, StringComparison.OrdinalIgnoreCase)
-                || selectedEngine.Contains("YOLOv8", StringComparison.OrdinalIgnoreCase),
-            "YOLO model engine did not select YOLOv8; selected=" + selectedEngine);
+            string.Equals(selectedEngine, normalizedEngine, StringComparison.OrdinalIgnoreCase)
+                || selectedEngine.Contains(displayEngine, StringComparison.OrdinalIgnoreCase),
+            "YOLO model engine did not select " + displayEngine + "; selected=" + selectedEngine);
 
         AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloPythonPathBox", pythonPath), "YOLOv8 python path was not editable");
         AssertTrue(TryPasteYoloSettingsValueThroughExe(process, stableHandle, "YoloProjectRootBox", yoloRoot), "YOLOv8 project root was not editable");
@@ -1512,7 +1517,8 @@ internal static partial class Program
             return true;
         }
 
-        if (TrySelectComboBoxSecondItemByKeyboard(process, stableHandle, comboAutomationId, itemName, comboBox))
+        int itemIndex = string.Equals(itemName, "YOLO11", StringComparison.OrdinalIgnoreCase) ? 2 : 1;
+        if (TrySelectComboBoxItemByKeyboard(process, stableHandle, comboAutomationId, itemName, comboBox, itemIndex))
         {
             selectedItem = itemName;
             return true;
@@ -1573,12 +1579,13 @@ internal static partial class Program
             TimeSpan.FromSeconds(2));
     }
 
-    private static bool TrySelectComboBoxSecondItemByKeyboard(
+    private static bool TrySelectComboBoxItemByKeyboard(
         Process process,
         IntPtr stableHandle,
         string comboAutomationId,
         string expectedItemName,
-        System.Windows.Automation.AutomationElement comboBox)
+        System.Windows.Automation.AutomationElement comboBox,
+        int itemIndex)
     {
         try
         {
@@ -1588,8 +1595,11 @@ internal static partial class Program
             Thread.Sleep(120);
             SendKeys.SendWait("{HOME}");
             Thread.Sleep(80);
-            SendKeys.SendWait("{DOWN}");
-            Thread.Sleep(80);
+            for (int index = 0; index < itemIndex; index++)
+            {
+                SendKeys.SendWait("{DOWN}");
+                Thread.Sleep(80);
+            }
             SendKeys.SendWait("{ENTER}");
         }
         catch (InvalidOperationException)

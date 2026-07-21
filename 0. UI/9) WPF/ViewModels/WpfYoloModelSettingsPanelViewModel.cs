@@ -28,6 +28,7 @@ namespace MvcVisionSystem
         private string anomalyAbnormalClassNamesText = string.Empty;
         private string anomalyMinimumConfidenceText = "0";
         private bool autoStartClient;
+        private bool applyingModelEngineDefaults;
         private bool isBrowsePythonEnabled = true;
         private bool isBrowseProjectRootEnabled = true;
         private bool isBrowseClientScriptEnabled = true;
@@ -166,6 +167,12 @@ namespace MvcVisionSystem
             {
                 if (SetProperty(ref selectedModelEngine, PythonModelSettings.NormalizeModelEngine(value)))
                 {
+                    if (!applyingModelEngineDefaults
+                        && string.Equals(selectedModelEngine, PythonModelSettings.EngineUnet, StringComparison.Ordinal))
+                    {
+                        ApplyUnetRuntimeDefaults();
+                    }
+
                     OnPropertyChanged(nameof(ModelEngineHintText));
                     NotifySettingsSummaryChanged();
                 }
@@ -356,6 +363,7 @@ namespace MvcVisionSystem
                 {
                     PythonModelSettings.EngineYoloV8 => "\uBAA8\uB378 \uD504\uB85C\uD544: YOLOv8 Ultralytics. \uB370\uC774\uD130\uC14B \uBAA9\uC801\uC5D0 \uB530\uB77C \uAC1D\uCCB4\uD0D0\uC9C0, \uC138\uADF8\uBA58\uD14C\uC774\uC158, \uC774\uC0C1\uD0D0\uC9C0 \uBD84\uB958 \uC2E4\uD589 \uACBD\uB85C\uB97C \uC0AC\uC6A9\uD569\uB2C8\uB2E4.",
                     PythonModelSettings.EngineYolo11 => "\uBAA8\uB378 \uD504\uB85C\uD544: YOLO11 Ultralytics. \uB370\uC774\uD130\uC14B \uBAA9\uC801\uACFC \uC5F0\uACB0\uB41C worker \uAE30\uB2A5\uC5D0 \uB530\uB77C \uD559\uC2B5\u00B7\uAC80\uC0AC \uC9C0\uC6D0 \uBC94\uC704\uAC00 \uACB0\uC815\uB429\uB2C8\uB2E4.",
+                    PythonModelSettings.EngineUnet => "\uBAA8\uB378 \uD504\uB85C\uD544: PyTorch U-Net \uc138\uadf8\uba58\ud14c\uc774\uc158. \ub3d9\uc77c\ud55c recipe\uc758 mask/polygon\uc744 \uc571 \uc804\uc6a9 export\ub85c \ubcc0\ud658\ud558\uc5ec \ud559\uc2b5\ud558\uace0, \uacb0\uacfc best.pt\ub85c \uac80\uc0ac\ud569\ub2c8\ub2e4.",
                     PythonModelSettings.EngineOnnx => "\uBAA8\uB378 \uD504\uB85C\uD544: ONNX \uCD94\uB860 \uBAA8\uB378. \uD559\uC2B5 \uC644\uB8CC \uBAA8\uB378\uC744 \uBE60\uB978 \uAC80\uC0AC \uC2E4\uD589\uAE30\uB85C \uC5F0\uACB0\uD558\uB294 \uC6A9\uB3C4\uC785\uB2C8\uB2E4.",
                     _ => "\uBAA8\uB378 \uD504\uB85C\uD544: YOLOv5 \uAC1D\uCCB4\uD0D0\uC9C0. \uD604\uC7AC \uAE30\uBCF8 \uC2E4\uD589 \uC5B4\uB311\uD130\uC774\uBA70, \uBC15\uC2A4 \uB77C\uBCA8 \uB370\uC774\uD130\uC14B\uC744 \uD559\uC2B5/\uCD94\uB860\uC5D0 \uC0AC\uC6A9\uD569\uB2C8\uB2E4."
                 };
@@ -745,15 +753,35 @@ namespace MvcVisionSystem
             RefreshRuntimeProfiles();
         }
 
+        private void ApplyUnetRuntimeDefaults()
+        {
+            applyingModelEngineDefaults = true;
+            try
+            {
+                PythonModelRuntimeConnectionResult result = PythonModelRuntimeConnectionService.BuildUnetFolderConnection(
+                    CreateCurrentSettingsSnapshot(),
+                    PythonModelSettings.GetDefaultUnetProjectRootPath());
+                PythonExecutablePath = result.Settings.PythonExecutablePath ?? string.Empty;
+                ProjectRootPath = result.Settings.ProjectRootPath ?? string.Empty;
+                ClientScriptPath = result.Settings.ClientScriptPath ?? string.Empty;
+                WeightsPath = result.Settings.WeightsPath ?? string.Empty;
+                RuntimeProfileActionStatusText = result.SummaryText;
+            }
+            finally
+            {
+                applyingModelEngineDefaults = false;
+            }
+        }
+
         private void ExecuteRuntimeInstallPackage()
         {
-            RuntimeProfileActionStatusText = "Ultralytics \uC124\uCE58\uB97C \uC2DC\uC791\uD569\uB2C8\uB2E4. \uC9C4\uD589 \uC0C1\uD0DC\uB294 \uBAA8\uB378 \uC2E4\uD589\uAE30 \uC0C1\uD0DC\uC640 \uB85C\uADF8\uC5D0 \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
+            RuntimeProfileActionStatusText = "\uC120\uD0DD \uBAA8\uB378 \uC2E4\uD589\uAE30 \uD328\uD0A4\uC9C0 \uC124\uCE58\uB97C \uC2DC\uC791\uD569\uB2C8\uB2E4. \uC9C4\uD589 \uC0C1\uD0DC\uB294 \uBAA8\uB378 \uC2E4\uD589\uAE30 \uC0C1\uD0DC\uC640 \uB85C\uADF8\uC5D0 \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
             runtimeInstallPackageAction();
         }
 
         private void ExecuteRuntimeUninstallPackage()
         {
-            RuntimeProfileActionStatusText = "Ultralytics \uC81C\uAC70\uB97C \uC2DC\uC791\uD569\uB2C8\uB2E4. \uBC18\uBCF5 \uD14C\uC2A4\uD2B8\uC6A9 \uC791\uC5C5\uC774\uBA70, \uC81C\uAC70 \uD6C4 self-test\uB97C \uB2E4\uC2DC \uD655\uC778\uD569\uB2C8\uB2E4.";
+            RuntimeProfileActionStatusText = "\uC120\uD0DD \uBAA8\uB378 \uC2E4\uD589\uAE30 \uD328\uD0A4\uC9C0 \uC81C\uAC70\uB97C \uC2DC\uC791\uD569\uB2C8\uB2E4. \uC81C\uAC70 \uD6C4 self-test\uB97C \uB2E4\uC2DC \uD655\uC778\uD569\uB2C8\uB2E4.";
             runtimeUninstallPackageAction();
         }
 
@@ -915,6 +943,7 @@ namespace MvcVisionSystem
             {
                 PythonModelSettings.EngineYoloV8 => "YOLOv8 \uAC1D\uCCB4\uD0D0\uC9C0",
                 PythonModelSettings.EngineYolo11 => "YOLO11 \uAC1D\uCCB4\uD0D0\uC9C0",
+                PythonModelSettings.EngineUnet => "U-Net \uc138\uadf8\uba58\ud14c\uc774\uc158",
                 PythonModelSettings.EngineOnnx => "ONNX \uCD94\uB860",
                 _ => "YOLOv5 \uAC1D\uCCB4\uD0D0\uC9C0"
             };
@@ -925,6 +954,7 @@ namespace MvcVisionSystem
             {
                 PythonModelSettings.EngineYoloV8 => "YOLOv8 \uC120\uD0DD\uB428. \uB2E4\uC74C \uC791\uC5C5\uC740 Ultralytics \uC2E4\uD589\uAE30 \uC124\uCE58 \uB610\uB294 Python \uACBD\uB85C \uC5F0\uACB0\uC785\uB2C8\uB2E4.",
                 PythonModelSettings.EngineYolo11 => "YOLO11 \uC120\uD0DD\uB428. \uB2E4\uC74C \uC791\uC5C5\uC740 Ultralytics \uC2E4\uD589\uAE30 \uC124\uCE58 \uB610\uB294 Python \uACBD\uB85C \uC5F0\uACB0\uC785\uB2C8\uB2E4.",
+                PythonModelSettings.EngineUnet => "U-Net \uc120\ud0dd \uc644\ub8cc. C:\\Git\\unet \ud504\ub85c\ud544\uc5d0\uc11c PyTorch \uc2e4\ud589\uae30\uc640 \ubc88\ub4e4 worker\ub97c \uc790\ub3d9 \uc801\uc6a9\ud569\ub2c8\ub2e4.",
                 PythonModelSettings.EngineOnnx => "ONNX \uC120\uD0DD\uB428. \uAC80\uC0AC\uC5D0 \uC4F8 .onnx \uBAA8\uB378 \uD30C\uC77C\uC744 \uC120\uD0DD\uD558\uACE0 \uC800\uC7A5\uD558\uC138\uC694.",
                 _ => "YOLOv5 \uC120\uD0DD\uB428. \uAE30\uC874 YOLOv5 \uD3F4\uB354\uB97C \uC5F0\uACB0\uD55C \uB4A4 \uC800\uC7A5\uD558\uBA74 \uC774 \uD504\uB85C\uD544\uB85C \uD559\uC2B5/\uAC80\uC0AC\uB97C \uC2E4\uD589\uD569\uB2C8\uB2E4."
             };

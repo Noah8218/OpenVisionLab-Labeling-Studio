@@ -83,14 +83,14 @@ namespace MvcVisionSystem.Yolo
                 },
                 new ModelAdapterCatalogItem
                 {
-                    AdapterKey = "yolo11-blocked",
+                    AdapterKey = "yolo11-local",
                     DisplayName = "YOLO11",
-                    AvailabilityText = "런타임·호환 가중치 검증 전 차단됨",
-                    TaskContractText = "아직 지원되는 앱 작업 계약이 선언되지 않았습니다.",
-                    DataContractText = "어댑터 계약이 승인되기 전에는 YOLO11만을 위해 레시피를 내보내거나 변환하지 마세요.",
-                    RuntimeContractText = "활성화 전 실제 로컬 런타임, 호환 가중치, 전송 매핑, 전용 스모크가 필요합니다.",
-                    EvidenceContractText = "패키지 설치나 파일 선택 성공은 런타임·품질·채택 근거가 아닙니다.",
-                    NextActionText = "프로필을 차단 상태로 두고, 명시적 어댑터 구현과 검증 슬라이스가 있을 때만 추가하세요."
+                    AvailabilityText = "검증된 로컬 Ultralytics 런타임",
+                    TaskContractText = "객체 탐지 데이터셋에서 학습·검증·추론과 YOLOv8 대비 실행을 지원합니다.",
+                    DataContractText = "원본 native data.yaml과 YOLO bbox 라벨을 그대로 사용하며, 앱이 원본을 변환하거나 덮어쓰지 않습니다.",
+                    RuntimeContractText = "YOLO11을 선택하면 연결된 로컬 Ultralytics 폴더와 기본 yolo11n.pt 시작 가중치를 사용합니다. 실제 실행 전 경로와 가중치를 확인하세요.",
+                    EvidenceContractText = "비교 결과는 같은 데이터 분할·가중치·실행 환경의 벤치마크입니다. 자동 채택 근거가 아니며 별도 홀드아웃 검증이 필요합니다.",
+                    NextActionText = "YOLO11을 선택한 뒤 로컬 폴더 연결 상태를 확인하고, 같은 데이터셋에서 YOLOv8 대비 실행을 시작하세요."
                 }
             };
         }

@@ -38,6 +38,17 @@ namespace MvcVisionSystem
         private bool isReviewTrainedModelEnabled;
         private bool isConfirmTrainedModelEnabled;
         private bool isRunYoloEngineComparisonEnabled = true;
+        private bool isSegmentationAdapterComparisonVisible;
+        private bool isRunSegmentationAdapterComparisonEnabled;
+        private bool isBrowseSegmentationAdapterCheckpointEnabled;
+        private bool isSegmentationAdapterComparisonAvailable;
+        private string segmentationAdapterCanonicalDatasetText = string.Empty;
+        private string segmentationAdapterComparisonStatusText = string.Empty;
+        private string segmentationAdapterComparisonDetailText = string.Empty;
+        private string segmentationAdapterComparisonActionText = string.Empty;
+        private string segmentationUnetWeightsPath = string.Empty;
+        private string segmentationYoloWeightsPath = string.Empty;
+        private string selectedSegmentationYoloEngine = PythonModelSettings.EngineYoloV8;
         private bool canRunPostTrainingReviewCommands = true;
         private bool canRunPostTrainingConfirmCommands = true;
         private bool isReviewTrainedModelAvailable;
@@ -56,6 +67,9 @@ namespace MvcVisionSystem
         private ICommand reviewTrainedModelCommand = new RelayCommand(NoOpCommand);
         private ICommand confirmTrainedModelCommand = new RelayCommand(NoOpCommand);
         private ICommand runYoloEngineComparisonCommand = new RelayCommand(NoOpCommand);
+        private ICommand browseSegmentationUnetCheckpointCommand = new RelayCommand(NoOpCommand);
+        private ICommand browseSegmentationYoloCheckpointCommand = new RelayCommand(NoOpCommand);
+        private ICommand runSegmentationAdapterComparisonCommand = new RelayCommand(NoOpCommand);
 
         public WpfTrainingSettingsPanelViewModel()
         {
@@ -159,6 +173,7 @@ namespace MvcVisionSystem
                     LabelingDatasetPurpose.AnomalyDetection => "YOLO11 Classify",
                     _ => "YOLO11 Detect"
                 },
+                PythonModelSettings.EngineUnet => "U-Net Segmentation",
                 PythonModelSettings.EngineOnnx => "ONNX (\uCD94\uB860 \uC804\uC6A9)",
                 _ => string.IsNullOrWhiteSpace(Cfg) ? "-" : Cfg
             };
@@ -178,6 +193,7 @@ namespace MvcVisionSystem
                     LabelingDatasetPurpose.AnomalyDetection => "yolo11n-cls.pt",
                     _ => "yolo11n.pt"
                 },
+                PythonModelSettings.EngineUnet => "\ub79c\ub364 \ucd08\uae30\ud654 (\uc0c8 \ud559\uc2b5)",
                 PythonModelSettings.EngineOnnx => "\uD559\uC2B5 \uAC00\uC911\uCE58 \uC5C6\uC74C",
                 _ => string.IsNullOrWhiteSpace(Weight) ? "-" : Weight
             };
@@ -263,6 +279,104 @@ namespace MvcVisionSystem
         {
             get => runYoloEngineComparisonCommand;
             private set => SetProperty(ref runYoloEngineComparisonCommand, value);
+        }
+
+        public ICommand BrowseSegmentationUnetCheckpointCommand
+        {
+            get => browseSegmentationUnetCheckpointCommand;
+            private set => SetProperty(ref browseSegmentationUnetCheckpointCommand, value);
+        }
+
+        public ICommand BrowseSegmentationYoloCheckpointCommand
+        {
+            get => browseSegmentationYoloCheckpointCommand;
+            private set => SetProperty(ref browseSegmentationYoloCheckpointCommand, value);
+        }
+
+        public ICommand RunSegmentationAdapterComparisonCommand
+        {
+            get => runSegmentationAdapterComparisonCommand;
+            private set => SetProperty(ref runSegmentationAdapterComparisonCommand, value);
+        }
+
+        public bool IsSegmentationAdapterComparisonVisible
+        {
+            get => isSegmentationAdapterComparisonVisible;
+            private set => SetProperty(ref isSegmentationAdapterComparisonVisible, value);
+        }
+
+        public string SegmentationAdapterComparisonTitleText => "U-Net vs YOLO-seg 비교";
+
+        public string SegmentationAdapterCanonicalDatasetText
+        {
+            get => segmentationAdapterCanonicalDatasetText;
+            private set => SetProperty(ref segmentationAdapterCanonicalDatasetText, value ?? string.Empty);
+        }
+
+        public string SegmentationAdapterComparisonStatusText
+        {
+            get => segmentationAdapterComparisonStatusText;
+            private set => SetProperty(ref segmentationAdapterComparisonStatusText, value ?? string.Empty);
+        }
+
+        public string SegmentationAdapterComparisonDetailText
+        {
+            get => segmentationAdapterComparisonDetailText;
+            private set => SetProperty(ref segmentationAdapterComparisonDetailText, value ?? string.Empty);
+        }
+
+        public string SegmentationAdapterComparisonActionText
+        {
+            get => segmentationAdapterComparisonActionText;
+            private set => SetProperty(ref segmentationAdapterComparisonActionText, value ?? string.Empty);
+        }
+
+        public string SegmentationUnetWeightsPath
+        {
+            get => segmentationUnetWeightsPath;
+            set
+            {
+                if (SetProperty(ref segmentationUnetWeightsPath, value ?? string.Empty))
+                {
+                    RefreshSegmentationAdapterComparisonEnabled();
+                }
+            }
+        }
+
+        public string SegmentationYoloWeightsPath
+        {
+            get => segmentationYoloWeightsPath;
+            set
+            {
+                if (SetProperty(ref segmentationYoloWeightsPath, value ?? string.Empty))
+                {
+                    RefreshSegmentationAdapterComparisonEnabled();
+                }
+            }
+        }
+
+        public IReadOnlyList<string> SegmentationYoloEngineOptions { get; } = new[]
+        {
+            PythonModelSettings.EngineYoloV8,
+            PythonModelSettings.EngineYolo11
+        };
+
+        public string SelectedSegmentationYoloEngine
+        {
+            get => selectedSegmentationYoloEngine;
+            set => SetProperty(ref selectedSegmentationYoloEngine, NormalizeSegmentationYoloEngine(value));
+        }
+
+        public bool IsBrowseSegmentationAdapterCheckpointEnabled
+        {
+            get => isBrowseSegmentationAdapterCheckpointEnabled;
+            private set => SetProperty(ref isBrowseSegmentationAdapterCheckpointEnabled, value);
+        }
+
+        public bool IsRunSegmentationAdapterComparisonEnabled
+        {
+            get => isRunSegmentationAdapterComparisonEnabled;
+            private set => SetProperty(ref isRunSegmentationAdapterComparisonEnabled, value);
         }
 
         public string ImageSizeText
@@ -493,10 +607,19 @@ namespace MvcVisionSystem
             private set => SetProperty(ref confirmTrainedModelToolTip, string.IsNullOrWhiteSpace(value) ? "\uC800\uC7A5\uD560 \uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378\uC774 \uC5C6\uC2B5\uB2C8\uB2E4." : value);
         }
 
-        public string RunYoloEngineComparisonActionText => "v5 vs v8 \uBD84\uC11D";
+        public string RunYoloEngineComparisonActionText =>
+            string.Equals(modelEngine, PythonModelSettings.EngineUnet, StringComparison.Ordinal)
+                ? "U-Net vs YOLO-seg"
+                : string.Equals(modelEngine, PythonModelSettings.EngineYolo11, StringComparison.Ordinal)
+                ? "v8 vs v11 \uBD84\uC11D"
+                : "v5 vs v8 \uBD84\uC11D";
 
         public string RunYoloEngineComparisonToolTipText =>
-            "\uB3D9\uC77C\uD55C \uAC1D\uCCB4\uD0D0\uC9C0 \uB370\uC774\uD130\uC5D0\uC11C YOLOv5\uC640 YOLOv8\uC758 \uC815\uD655\uB3C4\uC640 \uBAA8\uB378 Takt\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4. test\uAC00 \uC5C6\uC73C\uBA74 val\uC744 \uC131\uB2A5 \uCC38\uACE0\uC6A9\uC73C\uB85C \uC0AC\uC6A9\uD558\uBA70 \uAD50\uCCB4 \uADFC\uAC70\uB85C \uC0AC\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
+            string.Equals(modelEngine, PythonModelSettings.EngineUnet, StringComparison.Ordinal)
+                ? "아래 U-Net vs YOLO-seg 비교 패널에서 두 checkpoint를 확인한 뒤 같은 canonical test mask 기준으로 비교합니다. 검사 모델은 자동으로 교체하지 않습니다."
+                : string.Equals(modelEngine, PythonModelSettings.EngineYolo11, StringComparison.Ordinal)
+                ? "\uB3D9\uC77C\uD55C \uAC1D\uCCB4\uD0D0\uC9C0 \uB370\uC774\uD130\uC5D0\uC11C YOLOv8\uACFC YOLO11\uC758 \uC815\uD655\uB3C4\uC640 \uBAA8\uB378 Takt\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4. test\uAC00 \uC5C6\uC73C\uBA74 val\uC744 \uC131\uB2A5 \uCC38\uACE0\uC6A9\uC73C\uB85C \uC0AC\uC6A9\uD558\uBA70 \uAD50\uCCB4 \uADFC\uAC70\uB85C \uC0AC\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4."
+                : "\uB3D9\uC77C\uD55C \uAC1D\uCCB4\uD0D0\uC9C0 \uB370\uC774\uD130\uC5D0\uC11C YOLOv5\uC640 YOLOv8\uC758 \uC815\uD655\uB3C4\uC640 \uBAA8\uB378 Takt\uB97C \uBE44\uAD50\uD569\uB2C8\uB2E4. test\uAC00 \uC5C6\uC73C\uBA74 val\uC744 \uC131\uB2A5 \uCC38\uACE0\uC6A9\uC73C\uB85C \uC0AC\uC6A9\uD558\uBA70 \uAD50\uCCB4 \uADFC\uAC70\uB85C \uC0AC\uC6A9\uD558\uC9C0 \uC54A\uC2B5\uB2C8\uB2E4.";
 
         public void ConfigureCommands(
             Action refreshReadiness,
@@ -504,7 +627,10 @@ namespace MvcVisionSystem
             Action stopTraining,
             Action reviewTrainedModel = null,
             Action confirmTrainedModel = null,
-            Action runYoloEngineComparison = null)
+            Action runYoloEngineComparison = null,
+            Action browseSegmentationUnetCheckpoint = null,
+            Action browseSegmentationYoloCheckpoint = null,
+            Action runSegmentationAdapterComparison = null)
         {
             // Training commands stay injected so long-running workflow logic remains outside the view.
             RefreshReadinessCommand = new RelayCommand(refreshReadiness ?? NoOpCommand);
@@ -513,6 +639,54 @@ namespace MvcVisionSystem
             ReviewTrainedModelCommand = new RelayCommand(reviewTrainedModel ?? NoOpCommand);
             ConfirmTrainedModelCommand = new RelayCommand(confirmTrainedModel ?? NoOpCommand);
             RunYoloEngineComparisonCommand = new RelayCommand(runYoloEngineComparison ?? NoOpCommand);
+            BrowseSegmentationUnetCheckpointCommand = new RelayCommand(browseSegmentationUnetCheckpoint ?? NoOpCommand);
+            BrowseSegmentationYoloCheckpointCommand = new RelayCommand(browseSegmentationYoloCheckpoint ?? NoOpCommand);
+            RunSegmentationAdapterComparisonCommand = new RelayCommand(runSegmentationAdapterComparison ?? NoOpCommand);
+        }
+
+        public void SetSegmentationAdapterComparisonContext(
+            WpfSegmentationAdapterComparisonContext context,
+            bool preserveSelectedCheckpoints = true)
+        {
+            context ??= new WpfSegmentationAdapterComparisonContext();
+            bool wasVisible = IsSegmentationAdapterComparisonVisible;
+            IsSegmentationAdapterComparisonVisible = context.IsVisible;
+            SegmentationAdapterCanonicalDatasetText = context.CanonicalDatasetText;
+            SegmentationAdapterComparisonStatusText = context.StatusText;
+            SegmentationAdapterComparisonDetailText = context.DetailText;
+            SegmentationAdapterComparisonActionText = context.ActionText;
+            if (!preserveSelectedCheckpoints || !wasVisible)
+            {
+                SelectedSegmentationYoloEngine = context.SelectedYoloEngine;
+            }
+            if (!preserveSelectedCheckpoints || string.IsNullOrWhiteSpace(SegmentationUnetWeightsPath))
+            {
+                SegmentationUnetWeightsPath = context.UnetWeightsPath;
+            }
+
+            if (!preserveSelectedCheckpoints || string.IsNullOrWhiteSpace(SegmentationYoloWeightsPath))
+            {
+                SegmentationYoloWeightsPath = context.YoloWeightsPath;
+            }
+
+            isSegmentationAdapterComparisonAvailable = context.CanRun;
+            RefreshSegmentationAdapterComparisonEnabled();
+        }
+
+        public void SetSegmentationAdapterComparisonExecutionState(
+            bool isRunning,
+            string statusText,
+            string detailText,
+            string actionText)
+        {
+            SegmentationAdapterComparisonStatusText = statusText;
+            SegmentationAdapterComparisonDetailText = detailText;
+            SegmentationAdapterComparisonActionText = actionText;
+            isSegmentationAdapterComparisonAvailable = !isRunning
+                && IsSegmentationAdapterComparisonVisible
+                && !string.IsNullOrWhiteSpace(SegmentationUnetWeightsPath)
+                && !string.IsNullOrWhiteSpace(SegmentationYoloWeightsPath);
+            RefreshSegmentationAdapterComparisonEnabled();
         }
 
         public void LoadFrom(
@@ -675,12 +849,35 @@ namespace MvcVisionSystem
             canRunPostTrainingReviewCommands = canRunGeneralCommands;
             canRunPostTrainingConfirmCommands = state?.CanSaveProjectConfig == true;
             RefreshPostTrainingActionAvailability();
+            RefreshSegmentationAdapterComparisonEnabled();
         }
 
         private void RefreshPostTrainingActionAvailability()
         {
             IsReviewTrainedModelEnabled = isReviewTrainedModelAvailable && canRunPostTrainingReviewCommands;
             IsConfirmTrainedModelEnabled = isConfirmTrainedModelAvailable && canRunPostTrainingConfirmCommands;
+        }
+
+        private void RefreshSegmentationAdapterComparisonEnabled()
+        {
+            bool hasCheckpointPaths = !string.IsNullOrWhiteSpace(SegmentationUnetWeightsPath)
+                && !string.IsNullOrWhiteSpace(SegmentationYoloWeightsPath);
+            IsBrowseSegmentationAdapterCheckpointEnabled = IsSegmentationAdapterComparisonVisible
+                && canRunPostTrainingReviewCommands;
+            IsRunSegmentationAdapterComparisonEnabled = IsSegmentationAdapterComparisonVisible
+                && isSegmentationAdapterComparisonAvailable
+                && hasCheckpointPaths
+                && canRunPostTrainingReviewCommands;
+        }
+
+        private static string NormalizeSegmentationYoloEngine(string engine)
+        {
+            return string.Equals(
+                PythonModelSettings.NormalizeModelEngine(engine),
+                PythonModelSettings.EngineYolo11,
+                System.StringComparison.Ordinal)
+                ? PythonModelSettings.EngineYolo11
+                : PythonModelSettings.EngineYoloV8;
         }
 
         private static string BuildPostTrainingModelDetail(string currentModelText, string candidateModelText, string nextActionText)
@@ -736,6 +933,8 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(TrainingRecommendationText));
             OnPropertyChanged(nameof(CfgGuideText));
             OnPropertyChanged(nameof(TrainingSettingsSummaryModelText));
+            OnPropertyChanged(nameof(RunYoloEngineComparisonActionText));
+            OnPropertyChanged(nameof(RunYoloEngineComparisonToolTipText));
         }
     }
 }

@@ -76,6 +76,11 @@ namespace MvcVisionSystem._1._Core
                 int pythonIndex = items.FindIndex(item => string.Equals(item.LabelText, "Python", StringComparison.Ordinal));
                 items.Insert(Math.Max(0, pythonIndex + 1), BuildUltralyticsPackageItem(settings));
             }
+            else if (UsesUnet(settings.ModelEngine))
+            {
+                int pythonIndex = items.FindIndex(item => string.Equals(item.LabelText, "Python", StringComparison.Ordinal));
+                items.Insert(Math.Max(0, pythonIndex + 1), BuildUnetPackageItem(settings));
+            }
 
             items.Add(BuildExecutionSupportItem(settings));
 
@@ -171,6 +176,29 @@ namespace MvcVisionSystem._1._Core
                 "Ultralytics",
                 installed ? "\uD655\uC778" : "\uC124\uCE58 \uD544\uC694",
                 installed ? sitePackagesPath : $"ultralytics \uD328\uD0A4\uC9C0 \uC5C6\uC74C: {sitePackagesPath} / \uC124\uCE58 \uC2E4\uD589 \uBC84\uD2BC\uC73C\uB85C \uC124\uCE58\uD55C \uB4A4 \uB2E4\uC2DC \uC810\uAC80\uD558\uC138\uC694.",
+                installed,
+                isWarning: false);
+        }
+
+        private static PythonModelRuntimeSelfTestItem BuildUnetPackageItem(PythonModelSettings settings)
+        {
+            string pythonExecutable = PythonModelSettingsValidator.ResolvePythonExecutable(settings);
+            if (!TryResolveSitePackagesPath(pythonExecutable, out string sitePackagesPath))
+            {
+                return new PythonModelRuntimeSelfTestItem(
+                    "PyTorch U-Net",
+                    "\uD655\uC778 \uD544\uC694",
+                    "Connect the Python venv for C:\\Git\\unet to check torch and Pillow.",
+                    isPassed: false,
+                    isWarning: true);
+            }
+
+            bool installed = Directory.Exists(Path.Combine(sitePackagesPath, "torch"))
+                && Directory.Exists(Path.Combine(sitePackagesPath, "PIL"));
+            return new PythonModelRuntimeSelfTestItem(
+                "PyTorch U-Net",
+                installed ? "\uD655\uC778" : "\uC124\uCE58 \uD544\uC694",
+                installed ? sitePackagesPath : $"torch or Pillow package is missing: {sitePackagesPath}",
                 installed,
                 isWarning: false);
         }
@@ -271,6 +299,12 @@ namespace MvcVisionSystem._1._Core
             return string.Equals(normalized, PythonModelSettings.EngineYoloV8, StringComparison.Ordinal)
                 || string.Equals(normalized, PythonModelSettings.EngineYolo11, StringComparison.Ordinal);
         }
+
+        private static bool UsesUnet(string engine)
+            => string.Equals(
+                PythonModelSettings.NormalizeModelEngine(engine),
+                PythonModelSettings.EngineUnet,
+                StringComparison.Ordinal);
 
         private static string FormatDetail(PythonModelRuntimeState runtimeState)
         {

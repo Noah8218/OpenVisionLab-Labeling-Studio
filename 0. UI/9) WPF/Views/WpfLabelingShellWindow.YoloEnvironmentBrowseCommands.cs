@@ -109,7 +109,10 @@ namespace MvcVisionSystem
                     ExecuteConnectYoloV8RuntimeFolder();
                     break;
                 case PythonModelSettings.EngineYolo11:
-                    ExecuteConnectUltralyticsRuntime(normalizedEngine);
+                    ExecuteConnectYolo11RuntimeFolder();
+                    break;
+                case PythonModelSettings.EngineUnet:
+                    ExecuteConnectUnetRuntime();
                     break;
                 case PythonModelSettings.EngineOnnx:
                     YoloWeightsPathBox?.Focus();
@@ -174,6 +177,30 @@ namespace MvcVisionSystem
             AppendLog($"YOLOv8 \uD3F4\uB354 \uC5F0\uACB0: {selectedPath} / {result.SummaryText}");
         }
 
+        private void ExecuteConnectYolo11RuntimeFolder()
+        {
+            string initialPath = YoloModelSettingsViewModel?.ProjectRootPath ?? YoloProjectRootBox.Text;
+            string selectedPath = PythonModelRuntimeConnectionService.ResolveKnownLocalRuntimeFolder(initialPath, "yolov8");
+            if (string.IsNullOrWhiteSpace(selectedPath)
+                && !TryPickFolder("YOLO11 Ultralytics 폴더 연결", initialPath, out selectedPath))
+            {
+                YoloProjectRootBox?.Focus();
+                SetYoloCommandStatus("YOLO11 실행 폴더 연결을 취소했습니다. 기존 Ultralytics 폴더를 확인하거나 다시 연결하세요.", isBusy: false);
+                AppendLog("YOLO11 Ultralytics 폴더 연결 취소.");
+                return;
+            }
+
+            PythonModelRuntimeConnectionResult result = PythonModelRuntimeConnectionService.BuildYolo11FolderConnection(
+                CreateYoloModelSettingsSnapshot(),
+                selectedPath,
+                global?.Data?.ProjectSettings?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection);
+            YoloModelSettingsViewModel?.ApplyRuntimeConnectionResult(result);
+            TrainingSettingsViewModel?.ApplyModelEngineSelection(result.Settings.ModelEngine);
+            YoloProjectRootBox?.Focus();
+            SetYoloCommandStatus($"{result.SummaryText}: {result.DetailText}", isBusy: false);
+            AppendLog($"YOLO11 Ultralytics 폴더 연결: {selectedPath} / {result.SummaryText}");
+        }
+
         private void ExecuteConnectYoloV5RuntimeFolder()
         {
             string initialPath = YoloModelSettingsViewModel?.ProjectRootPath ?? YoloProjectRootBox.Text;
@@ -195,6 +222,19 @@ namespace MvcVisionSystem
             YoloProjectRootBox?.Focus();
             SetYoloCommandStatus($"{result.SummaryText}: {result.DetailText}", isBusy: false);
             AppendLog($"YOLOv5 \uD3F4\uB354 \uC5F0\uACB0: {selectedPath} / {result.SummaryText}");
+        }
+
+        private void ExecuteConnectUnetRuntime()
+        {
+            string projectRootPath = PythonModelSettings.GetDefaultUnetProjectRootPath();
+            PythonModelRuntimeConnectionResult result = PythonModelRuntimeConnectionService.BuildUnetFolderConnection(
+                CreateYoloModelSettingsSnapshot(),
+                projectRootPath);
+            YoloModelSettingsViewModel?.ApplyRuntimeConnectionResult(result);
+            TrainingSettingsViewModel?.ApplyModelEngineSelection(result.Settings.ModelEngine);
+            YoloProjectRootBox?.Focus();
+            SetYoloCommandStatus($"{result.SummaryText}: {result.DetailText}", isBusy: false);
+            AppendLog($"U-Net runtime profile applied: {projectRootPath} / {result.SummaryText}");
         }
 
         private PythonModelSettings CreateYoloModelSettingsSnapshot()

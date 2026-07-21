@@ -1,6 +1,7 @@
 param(
     [string]$PythonExe = "C:\Git\yolov8\.venv\Scripts\python.exe",
     [string]$WorkerScript = "C:\Git\yolov8\labeling_tcp_client.py",
+    [string]$BatchEvaluatorScript = '${repoRoot}\Runtime\Python\openvisionlab_yolo_classification_batch.py',
     [string]$ModelRoot = "C:\Git\yolov8",
     [string]$Weights = "",
     [string]$DatasetRoot = "",
@@ -13,7 +14,8 @@ param(
     [int]$MinimumPerClassImageCount = 5,
     [double]$MinimumAccuracy = 0.9,
     [double]$MinimumPerClassAccuracy = 0.8,
-    [double]$MinimumConfidence = 0.0
+    [double]$MinimumConfidence = 0.0,
+    [switch]$UseLegacyPerImageWorker
 )
 
 $ErrorActionPreference = "Stop"
@@ -162,6 +164,43 @@ function New-Sample([string]$ImagePath, [string]$ExpectedClassName, [double]$Min
     }
 }
 
+function Invoke-ClassificationBatch {
+    $arguments = @(
+        $BatchEvaluatorScript,
+        "--worker-script", $WorkerScript,
+        "--weights", $Weights,
+        "--model-root", $ModelRoot,
+        "--dataset-root", $DatasetRoot,
+        "--split", $Split,
+        "--device", "cpu",
+        "--img-size", $ImageSize.ToString([System.Globalization.CultureInfo]::InvariantCulture),
+        "--conf", $Confidence.ToString([System.Globalization.CultureInfo]::InvariantCulture)
+    )
+
+    $output = & $PythonExe @arguments 2>&1
+    $exitCode = $LASTEXITCODE
+    if ($exitCode -ne 0) {
+        throw "YOLO persistent-adapter batch evaluation failed. ExitCode=$exitCode Output=$output"
+    }
+
+    return @($output |
+        Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+        ForEach-Object {
+            $result = $_ | ConvertFrom-Json
+            $confidenceValue = [double]$result.confidence
+            [pscustomobject]@{
+                imagePath = [string]$result.imagePath
+                expectedClassName = [string]$result.expectedClassName
+                predictedClassName = [string]$result.predictedClassName
+                confidence = $confidenceValue
+                correct = ([string]$result.predictedClassName).Equals(
+                    [string]$result.expectedClassName,
+                    [System.StringComparison]::OrdinalIgnoreCase) -and
+                    $confidenceValue -ge $MinimumConfidence
+            }
+        })
+}
+
 function Get-Count([object[]]$Items, [string]$ExpectedClassName) {
     return @($Items | Where-Object { $_.expectedClassName -ieq $ExpectedClassName }).Count
 }
@@ -202,6 +241,7 @@ function Format-Ratio([double]$Value) {
 
 $PythonExe = Resolve-PathValue $PythonExe
 $WorkerScript = Resolve-PathValue $WorkerScript
+$BatchEvaluatorScript = Resolve-PathValue $BatchEvaluatorScript
 $ModelRoot = Resolve-PathValue $ModelRoot
 $Weights = Resolve-PathValue $Weights
 $DatasetRoot = Resolve-PathValue $DatasetRoot
@@ -210,19 +250,35 @@ $MinimumConfidence = Get-ClampedRatio $MinimumConfidence
 
 Assert-File $PythonExe "Python executable"
 Assert-File $WorkerScript "YOLO worker script"
+if (-not $UseLegacyPerImageWorker) {
+    Assert-File $BatchEvaluatorScript "YOLO classification batch evaluator"
+}
 Assert-Directory $ModelRoot "YOLO model root"
 Assert-File $Weights "YOLO classification weights"
 Assert-Directory $DatasetRoot "Classification dataset root"
 
 $normalImages = @(Get-ClassImages $DatasetRoot $Split "normal")
 $abnormalImages = @(Get-ClassImages $DatasetRoot $Split "abnormal")
-$samples = @()
-foreach ($imagePath in $normalImages) {
-    $samples += New-Sample $imagePath "normal" $MinimumConfidence
+$evaluationMode = if ($UseLegacyPerImageWorker) { "per-image-smoke-test" } else { "persistent-adapter-batch" }
+$evaluationStopwatch = [System.Diagnostics.Stopwatch]::StartNew()
+$samples = if ($UseLegacyPerImageWorker) {
+    @(
+        foreach ($imagePath in $normalImages) {
+            New-Sample $imagePath "normal" $MinimumConfidence
+        }
+        foreach ($imagePath in $abnormalImages) {
+            New-Sample $imagePath "abnormal" $MinimumConfidence
+        }
+    )
 }
-
-foreach ($imagePath in $abnormalImages) {
-    $samples += New-Sample $imagePath "abnormal" $MinimumConfidence
+else {
+    @(Invoke-ClassificationBatch)
+}
+$evaluationStopwatch.Stop()
+$evaluationElapsedMs = [long][Math]::Round($evaluationStopwatch.Elapsed.TotalMilliseconds)
+$expectedSampleCount = $normalImages.Count + $abnormalImages.Count
+if ($samples.Count -ne $expectedSampleCount) {
+    throw "YOLO classification evaluation returned $($samples.Count) samples; expected $expectedSampleCount."
 }
 
 $totalCount = $samples.Count
@@ -276,6 +332,9 @@ $summary = [ordered]@{
     weightsSha256 = Get-FileSha256 $Weights
     datasetRoot = $DatasetRoot
     split = $Split
+    evaluationMode = $evaluationMode
+    evaluationElapsedMs = $evaluationElapsedMs
+    averageEvaluationMsPerImage = if ($samples.Count -gt 0) { $evaluationStopwatch.Elapsed.TotalMilliseconds / $samples.Count } else { 0.0 }
     evidence = [ordered]@{
         fingerprintAlgorithm = "sha256-class-image-pairs-v1"
         fingerprintSha256 = Get-ClassificationEvidenceFingerprint $normalImages $abnormalImages

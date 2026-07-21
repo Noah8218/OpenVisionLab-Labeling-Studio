@@ -16,7 +16,7 @@ internal static partial class Program
 
         AssertEqual(5, catalog.Count);
         AssertEqual(
-            "recipe-interchange,yolov5-detect,yolov8-local,onnx-inference,yolo11-blocked",
+            "recipe-interchange,yolov5-detect,yolov8-local,onnx-inference,yolo11-local",
             string.Join(",", catalog.Select(item => item.AdapterKey)));
         AssertTrue(
             catalog.All(item => !string.IsNullOrWhiteSpace(item.DisplayName)
@@ -47,9 +47,10 @@ internal static partial class Program
         AssertTrue(onnx.AvailabilityText.Contains("Inference-only", StringComparison.OrdinalIgnoreCase), "ONNX contract should not imply application-owned training");
         AssertTrue(onnx.NextActionText.Contains("보지 마세요", StringComparison.Ordinal), "ONNX contract should prevent conversion from being mistaken for training evidence");
 
-        ModelAdapterCatalogItem yolo11 = catalog.Single(item => item.AdapterKey == "yolo11-blocked");
-        AssertTrue(yolo11.AvailabilityText.EndsWith("차단됨", StringComparison.Ordinal), "YOLO11 must remain visibly blocked");
-        AssertTrue(yolo11.DataContractText.Contains("내보내거나 변환하지 마세요", StringComparison.Ordinal), "YOLO11 must not invite unsupported recipe conversion");
+        ModelAdapterCatalogItem yolo11 = catalog.Single(item => item.AdapterKey == "yolo11-local");
+        AssertTrue(yolo11.AvailabilityText.Contains("로컬", StringComparison.Ordinal), "YOLO11 must be represented as a local runtime");
+        AssertTrue(yolo11.DataContractText.Contains("native data.yaml", StringComparison.OrdinalIgnoreCase), "YOLO11 contract should preserve native data.yaml intake");
+        AssertTrue(yolo11.EvidenceContractText.Contains("자동 채택", StringComparison.Ordinal), "YOLO11 comparison must not imply automatic adoption");
 
         var viewModel = new WpfYoloModelSettingsPanelViewModel();
         viewModel.LoadFrom(new PythonModelSettings
@@ -58,8 +59,8 @@ internal static partial class Program
         });
         AssertEqual(catalog.Count, viewModel.ModelAdapterCatalogItems.Count);
         AssertTrue(
-            viewModel.ModelAdapterCatalogItems.Any(item => item.AdapterKey == "yolo11-blocked"),
-            "model settings panel should keep the blocked YOLO11 boundary visible");
+            viewModel.ModelAdapterCatalogItems.Any(item => item.AdapterKey == "yolo11-local"),
+            "model settings panel should expose the local YOLO11 runtime boundary");
 
         string xamlPath = Path.Combine(FindRepositoryRoot(), "0. UI", "9) WPF", "Views", "WpfYoloModelSettingsPanel.xaml");
         XDocument xaml = XDocument.Load(xamlPath);

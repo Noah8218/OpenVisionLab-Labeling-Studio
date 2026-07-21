@@ -172,7 +172,10 @@ namespace MvcVisionSystem
                 ExecuteStopTrainingCommand,
                 ExecuteReviewCandidateModelCommand,
                 ExecuteSaveYoloSettingsCommand,
-                ExecuteRunYoloEngineComparisonCommand);
+                ExecuteRunYoloEngineComparisonCommand,
+                ExecuteBrowseSegmentationUnetCheckpointCommand,
+                ExecuteBrowseSegmentationYoloCheckpointCommand,
+                ExecuteRunSegmentationAdapterComparisonCommand);
         }
 
         private void RegisterTrainingSettingsPanelNames()
@@ -185,6 +188,12 @@ namespace MvcVisionSystem
             RegisterTrainingSettingsName(nameof(ReviewTrainedModelButton), ReviewTrainedModelButton);
             RegisterTrainingSettingsName(nameof(ConfirmTrainedModelButton), ConfirmTrainedModelButton);
             RegisterTrainingSettingsName(nameof(RunYoloEngineComparisonButton), RunYoloEngineComparisonButton);
+            RegisterTrainingSettingsName(nameof(SegmentationAdapterComparisonPanel), SegmentationAdapterComparisonPanel);
+            RegisterTrainingSettingsName(nameof(SegmentationUnetCheckpointPathBox), SegmentationUnetCheckpointPathBox);
+            RegisterTrainingSettingsName(nameof(SegmentationYoloCheckpointPathBox), SegmentationYoloCheckpointPathBox);
+            RegisterTrainingSettingsName(nameof(BrowseSegmentationUnetCheckpointButton), BrowseSegmentationUnetCheckpointButton);
+            RegisterTrainingSettingsName(nameof(BrowseSegmentationYoloCheckpointButton), BrowseSegmentationYoloCheckpointButton);
+            RegisterTrainingSettingsName(nameof(RunSegmentationAdapterComparisonButton), RunSegmentationAdapterComparisonButton);
             RegisterTrainingSettingsName(nameof(TrainingImageSizeBox), TrainingImageSizeBox);
             RegisterTrainingSettingsName(nameof(TrainingBatchBox), TrainingBatchBox);
             RegisterTrainingSettingsName(nameof(TrainingEpochBox), TrainingEpochBox);

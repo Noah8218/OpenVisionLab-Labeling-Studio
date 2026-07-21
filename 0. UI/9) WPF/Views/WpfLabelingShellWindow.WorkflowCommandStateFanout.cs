@@ -13,7 +13,7 @@ namespace MvcVisionSystem
             PythonModelRuntimeState runtimeState = GetPythonModelRuntimeState();
             WpfWorkflowCommandState state = WpfWorkflowCommandStateService.Build(
                 isInferenceMode: currentWorkflowMode == WorkflowMode.Inference,
-                isYoloEnvironmentCommandRunning: isYoloEnvironmentCommandRunning || isModelComparisonRunning || isAnomalyEvaluationRunning,
+                isYoloEnvironmentCommandRunning: isYoloEnvironmentCommandRunning || isModelComparisonRunning || isSegmentationAdapterComparisonRunning || isAnomalyEvaluationRunning,
                 isDetecting: isDetecting,
                 isBatchDetectionRunning: isBatchDetectionRunning,
                 isTrainingCommandRunning: isTrainingCommandRunning || isTrainingWorkflowRunning,

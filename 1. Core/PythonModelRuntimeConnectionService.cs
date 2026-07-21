@@ -88,6 +88,60 @@ namespace MvcVisionSystem._1._Core
             return new PythonModelRuntimeConnectionResult(settings, report, summary, detail);
         }
 
+        public static PythonModelRuntimeConnectionResult BuildYolo11FolderConnection(
+            PythonModelSettings currentSettings,
+            string selectedFolderPath,
+            LabelingDatasetPurpose datasetPurpose)
+        {
+            string projectRootPath = selectedFolderPath?.Trim() ?? string.Empty;
+            PythonModelSettings settings = Clone(currentSettings);
+            settings.ModelEngine = PythonModelSettings.EngineYolo11;
+            settings.ProjectRootPath = projectRootPath;
+            settings.ClientScriptPath = PythonModelRuntimeBundledWorkerService.ResolveUltralyticsWorkerScriptPath();
+            settings.PythonExecutablePath = ResolveLocalPythonExecutablePath(projectRootPath);
+
+            string startWeightFileName = datasetPurpose switch
+            {
+                LabelingDatasetPurpose.Segmentation => "yolo11n-seg.pt",
+                LabelingDatasetPurpose.AnomalyDetection => "yolo11n-cls.pt",
+                _ => "yolo11n.pt"
+            };
+            bool hasStartWeight = File.Exists(Path.Combine(projectRootPath, startWeightFileName));
+            PythonModelRuntimeSelfTestReport report = PythonModelRuntimeSelfTestService.BuildReport(settings);
+            string summary = report.Items.Any(item => string.Equals(item.LabelText, "Ultralytics", StringComparison.Ordinal) && item.IsPassed)
+                ? "YOLO11 실행기 연결 확인"
+                : "YOLO11 실행기 연결 확인 필요";
+            string detail = hasStartWeight
+                ? $"기존 Ultralytics 폴더와 앱 내 YOLO11 worker를 연결했습니다. 현재 이미지와 검사 모델은 유지하며, {startWeightFileName}은 학습 시작 가중치로만 사용합니다."
+                : $"기존 Ultralytics 폴더와 앱 내 YOLO11 worker를 연결했습니다. 학습 전 {startWeightFileName} 시작 가중치가 이 폴더에 있는지 확인하세요. 현재 이미지와 검사 모델은 바꾸지 않습니다.";
+
+            return new PythonModelRuntimeConnectionResult(settings, report, summary, detail);
+        }
+
+        public static PythonModelRuntimeConnectionResult BuildUnetFolderConnection(
+            PythonModelSettings currentSettings,
+            string selectedFolderPath)
+        {
+            string projectRootPath = string.IsNullOrWhiteSpace(selectedFolderPath)
+                ? PythonModelSettings.GetDefaultUnetProjectRootPath()
+                : selectedFolderPath.Trim();
+            PythonModelSettings settings = Clone(currentSettings);
+            settings.ModelEngine = PythonModelSettings.EngineUnet;
+            settings.ProjectRootPath = projectRootPath;
+            settings.ClientScriptPath = PythonModelRuntimeBundledWorkerService.ResolveUnetWorkerScriptPath();
+            settings.PythonExecutablePath = ResolveLocalPythonExecutablePath(projectRootPath);
+            settings.WeightsPath = PythonModelSettings.GetDefaultUnetWeightsPath(projectRootPath);
+
+            PythonModelRuntimeSelfTestReport report = PythonModelRuntimeSelfTestService.BuildReport(settings);
+            string summary = report.CanTrain
+                ? "U-Net segmentation runtime ready"
+                : "U-Net segmentation runtime needs setup";
+            string detail = report.CanTrain
+                ? "The app-owned segmentation export is trained from C:\\Git\\unet. Select the produced best.pt only when you want to run inspection."
+                : "C:\\Git\\unet needs its Python environment and the bundled U-Net worker. The recipe labels remain unchanged.";
+            return new PythonModelRuntimeConnectionResult(settings, report, summary, detail);
+        }
+
         public static string ResolveKnownLocalRuntimeFolder(
             string currentProjectRootPath,
             string expectedFolderName)
@@ -239,7 +293,7 @@ namespace MvcVisionSystem._1._Core
 
         private static IEnumerable<string> EnumerateLocalPythonCandidates(string projectRootPath)
         {
-            foreach (string environmentDirectory in new[] { ".venv", "venv", "env" })
+            foreach (string environmentDirectory in new[] { ".venv-gpu", ".venv", "venv", "env" })
             {
                 yield return Path.Combine(projectRootPath ?? string.Empty, environmentDirectory, "Scripts", "python.exe");
             }

@@ -114,6 +114,14 @@ internal static partial class Program
             anomalyData.ProjectSettings.PythonModel.ImageRootPath = anomalyRoot;
             anomalyData.ProjectSettings.YoloDataset.ValidationPercent = 0;
             anomalyData.ProjectSettings.YoloDataset.TestPercent = 0;
+            var anomalyReviewStatus = new AnomalyImageReviewStatusService();
+            string normalImagePath = Path.Combine(normalRoot, "normal.png");
+            string abnormalImagePath = Path.Combine(abnormalRoot, "abnormal.png");
+            anomalyReviewStatus.SetImages(new[] { normalImagePath, abnormalImagePath });
+            anomalyReviewStatus.MarkNormal(normalImagePath);
+            anomalyReviewStatus.MarkAbnormal(abnormalImagePath);
+            anomalyReviewStatus.SaveReviewStatus(anomalyData);
+
             YoloDatasetHealthReport anomaly = YoloDatasetHealthService.Build(anomalyData);
             AssertTrue(anomaly.IsReady, string.Join(Environment.NewLine, anomaly.Issues));
             AssertEqual(LabelingDatasetPurpose.AnomalyDetection, anomaly.Purpose);

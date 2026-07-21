@@ -23,10 +23,8 @@ Required start order:
 
 Current checkpoint:
 - Workspace: C:\Git\Labelling_Application
-- Branch: main; origin/main is currently 2df6b3c feat: add model adapter catalog contracts.
-- All reviewed code feature slices through 85d91e9 feat: add anomaly ok-ng image review workflow are separate local commits. Do not reopen or recombine them without a changed requirement or failed focused regression.
-- The only known non-document residual after this documentation checkpoint is an indentation-only WpfLabelingShellWindow.xaml hunk. Inspect it before staging or reverting; it is not part of a feature slice.
-- Current local-commit CI has not been rechecked in the latest documentation pass. Do not claim CI success for commits after origin/main.
+- Branch: main; origin/main is `58166f8 feat: complete anomaly labeling and model workflows`. GitHub Actions CI #22 passed for that exact pushed commit.
+- The current uncommitted slice adds persistent-adapter anomaly classification evaluation plus circular-disk synthetic 1,000-image evidence. Inspect the actual diff and rerun its focused gates before committing; CI has not run for uncommitted changes.
 
 Product direction:
 - Build a local Windows industrial labeling, training, inference, review, and model-evidence workstation.
@@ -37,12 +35,14 @@ Product direction:
 - Do not expand into cloud collaboration, accounts, reviewer assignment, deployment, or enterprise governance.
 - The focused single-operator maturity estimate remains 4.0/5. It is workflow maturity, not model accuracy.
 - The highest real product-quality blockers are independent NG-rich object-detection data and independent production-camera/cross-session anomaly data.
+- The supplied circular-disk 500 OK / 500 NG package is complete synthetic workflow evidence: exact metadata-backed 5-class detection data, YOLOv5/YOLOv8 one-epoch connectivity, a controlled 20-epoch 150-image test benchmark, and a new 20-epoch anomaly candidate. The anomaly candidate remains `hold`; the detection benchmark favors YOLOv8n (`mAP50/mAP50-95 0.955/0.678`, 27.575ms) over YOLOv5s (`0.900/0.567`, 52.45ms) but is explicitly `engine-benchmark`, not adoption. The fixed comparison cleanup preserves the exact source-tree SHA-256. The package is derived from one earlier OK source image; do not present it as independent camera evidence. Read `docs/CIRCULAR_DISK_SYNTHETIC_1000_EVIDENCE_20260720.md`.
 
 Current immediate priority:
 - The previously dirty Dataset Health, external native YOLO data.yaml intake, Image Queue responsiveness, anomaly isolation, model-comparison manifest, and anomaly OK/NG workspace slices are independently reviewed and committed. Keep their documented contracts stable unless a focused regression fails or requirements change.
 - The operator deferred the unavailable real camera/network Image Queue profile. Keep the 10,000-image queue path stable and do not add paging, a DB, or another thumbnail cache from the existing local profiles.
 - `D:\라벨테스트` now supplies completed synthetic cross-product evidence: native Switch Housing object detection held the YOLOv8n candidate after a five-repeat test comparison, and its 300-image anomaly mapping held the Washer classifier. Preserve the artifacts and do not rerun them unless source, weight, threshold, or acceptance criteria change.
 - The next evidence path is still independent NG-rich production-camera object detection. Read-only preflight found `D:\기타이미지\2022.11.16_SIT 이미지`: 10,447 JPEGs under image-level `OK` (5,950) and `NG` (4,497) folders, with zero YAML or annotation files. Do not treat it as an object-detection test split until the operator confirms the source and supplies object classes/bounding-box labeling rules; then require a labeled held-out split with no content overlap before a five-repeat comparison.
+- The detailed 2026-07-20 SIT audit found 9,996 unique image contents, 111 duplicate-content groups, and 18 groups carrying conflicting OK/NG labels; no duplicate group crosses PC1/PC2. Remove or adjudicate those conflicts and prove content-hash split separation after box labeling. See `docs\WORK_TRACKING.md` for the reusable audit record.
 - Do not start another broad UI redesign without a reproduced operator defect. The current task tabs, Dataset Health window, model-comparison workspace, Model Center workspace, and model-adapter catalog are completed contracts.
 - The narrow user-approved Model Center workspace slice is complete: stage 4 is now full-width and presentation-only, with current-build evidence under `artifacts\ui\model-workspace-20260718`. Do not reopen it for general polish; reopen only for a reproduced layout or state-preservation defect.
 - The explicit Model Adapter Catalog/Contract slice is complete: the Model Center now shows the declared recipe-format, YOLOv5, local-YOLOv8, ONNX inference-only, and blocked-YOLO11 boundaries with task/data/runtime/evidence/next-action contracts. Do not reopen it for generic GitHub download/run breadth; reopen only for a reproduced contract, inventory, binding, or clipping defect.

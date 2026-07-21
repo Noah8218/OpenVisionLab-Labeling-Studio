@@ -1,10 +1,5 @@
-using Lib.Common;
-using MvcVisionSystem._1._Core;
 using System;
-using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
 
 namespace MvcVisionSystem
 {
@@ -22,10 +17,8 @@ namespace MvcVisionSystem
 
             try
             {
-                CRecipe.InitDirectory(recipeName);
-                global.Data.SaveConfig(recipeName);
+                string configPath = projectRecipeSessionService.Save(global.Data, recipeName);
                 PopulateProjectConfigPanelFields();
-                string configPath = GetCurrentRecipeConfigPath();
                 SetProjectConfigStatus($"설정 저장 완료: {DateTime.Now:HH:mm:ss}");
                 SetDatasetStatus($"데이터셋: 설정 저장 {Path.GetFileName(configPath)}");
                 AppendLog($"프로젝트 설정 저장: {configPath}");
@@ -56,8 +49,7 @@ namespace MvcVisionSystem
 
             try
             {
-                string previousRecipeName = GetCurrentRecipeName();
-                global.Recipe.Name = recipeName;
+                string previousRecipeName = projectRecipeSessionService.Apply(global.Recipe, recipeName);
                 RememberLastOpenedDatasetRecipe(recipeName);
                 EnsureProjectSettings();
                 ApplyProjectDatasetPurposeToWorkflow();

@@ -52,6 +52,37 @@ namespace MvcVisionSystem._1._Core
                     "YOLOv5 \uD559\uC2B5/\uAC80\uC0AC \uC2E4\uD589 \uAC00\uB2A5");
             }
 
+            if (string.Equals(engine, PythonModelSettings.EngineUnet, StringComparison.Ordinal))
+            {
+                bool workerPresent = PythonModelRuntimeBundledWorkerService.IsUnetWorkerScriptPath(settings?.ClientScriptPath);
+                bool torchInstalled = IsTorchInstalled(settings);
+                bool capabilityMismatch = HasAnyCapability(supportedModels)
+                    && !SupportsModel(adapterKey, supportedModels);
+                if (workerPresent && torchInstalled && !capabilityMismatch)
+                {
+                    return new PythonModelRuntimeAdapterSupport(
+                        isExecutionSupported: true,
+                        canTrain: true,
+                        canInspect: true,
+                        "U-Net worker connection ready",
+                        "The bundled U-Net worker and PyTorch environment are available. Training uses the app-owned segmentation export; inspection needs a produced best.pt.",
+                        "U-Net segmentation training and inspection are available");
+                }
+
+                string missing = !workerPresent
+                    ? "bundled U-Net worker"
+                    : !torchInstalled
+                        ? "PyTorch package"
+                        : "U-Net worker capability";
+                return new PythonModelRuntimeAdapterSupport(
+                    isExecutionSupported: false,
+                    canTrain: false,
+                    canInspect: false,
+                    "U-Net runtime connection required",
+                    $"U-Net training and inspection stay blocked until {missing} is available in the selected runtime.",
+                    "Connect C:\\Git\\unet and install the U-Net PyTorch environment");
+            }
+
             if (string.Equals(engine, PythonModelSettings.EngineYoloV8, StringComparison.Ordinal)
                 || string.Equals(engine, PythonModelSettings.EngineYolo11, StringComparison.Ordinal))
             {
@@ -185,6 +216,7 @@ namespace MvcVisionSystem._1._Core
                 "yolov11" => "yolo11",
                 "v11" => "yolo11",
                 "onnxruntime" => "onnx",
+                "u-net" => "unet",
                 _ => lower
             };
         }
@@ -248,6 +280,21 @@ namespace MvcVisionSystem._1._Core
             {
                 return false;
             }
+        }
+
+        private static bool IsTorchInstalled(PythonModelSettings settings)
+        {
+            string pythonPath = PythonModelSettingsValidator.ResolvePythonExecutable(settings);
+            if (string.IsNullOrWhiteSpace(pythonPath) || !File.Exists(pythonPath))
+            {
+                return false;
+            }
+
+            string scriptsPath = Path.GetDirectoryName(pythonPath) ?? string.Empty;
+            string venvRootPath = Directory.GetParent(scriptsPath)?.FullName ?? string.Empty;
+            string sitePackagesPath = Path.Combine(venvRootPath, "Lib", "site-packages");
+            return Directory.Exists(Path.Combine(sitePackagesPath, "torch"))
+                && Directory.Exists(Path.Combine(sitePackagesPath, "PIL"));
         }
     }
 }

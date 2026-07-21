@@ -135,11 +135,13 @@ namespace MvcVisionSystem
         private readonly WpfObjectReviewPresentationService objectReviewPresentationService = new WpfObjectReviewPresentationService();
         private readonly WpfFileDialogService fileDialogService = new WpfFileDialogService();
         private readonly WpfDatasetSetupPathService datasetSetupPathService = new WpfDatasetSetupPathService();
-        private readonly WpfDatasetSetupDataService datasetSetupDataService = new WpfDatasetSetupDataService();
+        private readonly WpfDatasetSetupExecutionService datasetSetupExecutionService = new WpfDatasetSetupExecutionService();
         private readonly WpfDatasetSetupPresentationService datasetSetupPresentationService = new WpfDatasetSetupPresentationService();
+        private readonly WpfProjectRecipeSessionService projectRecipeSessionService = new WpfProjectRecipeSessionService();
         private readonly WpfTrainingWeightsService trainingWeightsService = new WpfTrainingWeightsService();
         private readonly WpfModelComparisonReviewService modelComparisonReviewService = new WpfModelComparisonReviewService();
         private readonly WpfModelComparisonRunService modelComparisonRunService = new WpfModelComparisonRunService();
+        private readonly WpfSegmentationAdapterComparisonRunService segmentationAdapterComparisonRunService = new WpfSegmentationAdapterComparisonRunService();
         private readonly WpfAnomalyClassificationEvaluationRunService anomalyClassificationEvaluationRunService = new WpfAnomalyClassificationEvaluationRunService();
         private readonly WpfWorkspaceLayoutSettingsService workspaceLayoutSettingsService = new WpfWorkspaceLayoutSettingsService();
         private readonly WpfTrainingGuideHistoryService trainingGuideHistoryService = new WpfTrainingGuideHistoryService();
@@ -152,6 +154,7 @@ namespace MvcVisionSystem
         private bool isTrainingCommandRunning;
         private bool isTrainingWorkflowRunning;
         private bool isModelComparisonRunning;
+        private bool isSegmentationAdapterComparisonRunning;
         private bool isAnomalyEvaluationRunning;
         private bool suppressProjectRecipeSelection;
         private int batchDetectionTotalCount;

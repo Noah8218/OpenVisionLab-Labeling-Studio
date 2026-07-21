@@ -1,6 +1,106 @@
 # Work Tracking
 
-Last updated: 2026-07-19
+Last updated: 2026-07-20
+
+## 2026-07-20 dataset training dashboard MVVM presentation boundary
+
+- Status: `Complete`
+- Scope:
+  - Keep dataset-readiness calculation, data persistence, guide navigation, training execution, and the rendered metric-card contract unchanged while moving read-only dataset dashboard metric composition out of `WpfLabelingShellWindow` code-behind.
+  - `WpfDatasetDashboardPresentationService` now builds the existing image/progress/split/model-replacement/label/class/duplicate cards. The View still loads the live report, warning/audit inputs, and sends the returned cards to the existing Learning Workflow ViewModel.
+- Acceptance criteria and evidence:
+  - `UpdateDatasetStatusDashboard` delegates only metric-card composition to the presentation service; the former View helper no longer exists: passed by focused source contract.
+  - The presentation service has no WPF View, WPF-control, or `CGlobal.Inst` dependency: passed by focused source contract.
+  - The baseline ready report retains eight card slots, the original action routing order, and the existing weak final-verification warning state: passed by direct service test.
+  - Existing quality-audit, blocking split, held-out evidence, and operator-readable readiness flows remain covered by the focused workflow tests: passed.
+- Verification:
+  - Required isolated test build completed from current source; generated test DLL timestamp is `2026-07-20T11:58:24+09:00`.
+  - `--wpf-dataset-dashboard-presentation`, `--wpf-training-dashboard-quality`, `--wpf-training-readiness-presentation`, and `--priority-workflow-docs` passed.
+  - `git diff --check` passed.
+- Boundary / next dependency:
+  - This is a card-presentation extraction only. It does not change readiness policy, card text, card routing, audit computation, global state, training settings, or visible layout. Do not extend it into a broad Training Guide rewrite without a reproduced workflow defect or a new approved requirement.
+
+## 2026-07-20 Model Center dashboard MVVM presentation boundary
+
+- Status: `Complete`
+- Scope:
+  - Keep Model Center candidate discovery, candidate review, candidate-save, model registry, training, and inference actions unchanged while removing read-only dashboard-state composition from `WpfLabelingShellWindow` code-behind.
+  - `WpfModelCenterDashboardPresentationService` now composes the existing current/candidate/adoption/decision texts, button labels/tooltips/enabled states, runtime summary, and registry presentation into `WpfModelCenterDashboardState`; the View adapts that state to the existing ViewModels and continues to own UI refresh sequencing.
+- Acceptance criteria and evidence:
+  - `RefreshModelCenterDashboard` delegates dashboard composition to the service and no longer builds model-registry state or dashboard display strings directly: passed by focused source contract.
+  - The new presentation service has no WPF View, ViewModel, `System.Windows`, or `CGlobal.Inst` dependency: passed by focused source contract.
+  - A different latest candidate remains reviewable, exposes its metric evidence, and cannot be saved until selected; a held candidate promotion remains blocked with explanatory tooltip text: passed by direct presentation-service test.
+- Verification:
+  - Required isolated test build completed from current source; generated test DLL timestamp is `2026-07-20T11:42:32+09:00`.
+  - `--model-center-dashboard-presentation`, `--model-registry`, `--wpf-training-settings-panel`, and `--wpf-yolo-model-settings-panel` passed.
+  - `git diff --check` passed.
+- Boundary / next dependency:
+  - This is a read-only presentation extraction only. It does not alter model training, runtime connection, candidate adoption policy, persistence, or the visible Model Center layout/text. Do not broaden it into a ViewModel framework rewrite without a reproduced workflow or maintenance problem.
+
+## 2026-07-20 WPF project recipe session MVVM responsibility boundary
+
+- Status: `Complete`
+- Scope:
+  - Keep project-config commands, validation, status text, panel refresh order, last-opened tracking, and recipe persistence behavior unchanged while moving Core recipe save/apply transitions out of `WpfLabelingShellWindow` code-behind.
+  - `WpfProjectRecipeSessionService` now owns recipe-directory initialization, `CData.SaveConfig`, and `CRecipe.Name` transition; the View adapter passes the existing application state and handles only UI-facing follow-up.
+- Acceptance criteria and evidence:
+  - The project-config View no longer calls `CRecipe.InitDirectory`, `CData.SaveConfig`, or assigns `CRecipe.Name` directly: passed by focused source contract.
+  - The new service has no WPF-window, ViewModel, or `CGlobal.Inst` dependency and preserves the existing Core call order: passed by source check and a direct save/load test.
+  - A saved recipe produces `VISION.xml` and `dataset.manifest.json`; applying it reloads the same class configuration through the existing `CRecipe` lifecycle: passed.
+  - The stale Dataset Health anomaly fixture now saves explicit Normal/Abnormal review states before asserting readiness. This matches the established rule that OK/NG parent-folder names are proposals rather than automatic labels: passed.
+- Verification:
+  - Required isolated test build passed with 0 warnings / 0 errors.
+  - `--wpf-project-config-panel`, `--dataset-health`, `--wpf-dataset-setup-request`, and `--wpf-dataset-setup-ui` passed.
+  - `git diff --check` passed.
+- Boundary / next dependency:
+  - This is a Core-transition extraction only. The shell still deliberately owns visible panel refresh, navigation, logging, and global composition. Do not convert independent command bindings to a new framework or bulk-relocate source files without a reproduced maintenance or behavior problem.
+
+## 2026-07-20 WPF dataset setup MVVM responsibility boundary
+
+- Status: `Complete`
+- Scope:
+  - Keep the existing dataset-setup wizard, status wording, recipe-change lifecycle, queue loading, and visible workflow unchanged while moving dataset-contract creation out of `WpfLabelingShellWindow` code-behind.
+  - Store `WpfDatasetSetupRequest` with the WPF `Models`; let the ViewModel build the request, `WpfDatasetSetupExecutionService` validate/materialize/persist it, and let the View code-behind only adapt the result to global application state and UI navigation.
+- Acceptance criteria and evidence:
+  - The execution service owns output-root collision checks, class materialization, optional sample application, `data.yaml`, `VISION.xml`, and manifest persistence: passed.
+  - The service has no `CGlobal.Inst`, WPF-window, or ViewModel dependency and returns a result object containing the created data and paths: passed by source contract and direct execution test.
+  - `ApplyDatasetSetupRequest` delegates to the execution service and no longer saves YAML/config, mutates the class list, or applies a sample inline: passed by source contract.
+  - A valid segmentation setup still creates an isolated recipe, manifest, YAML, output folders, correct purpose, and empty initial queue; duplicate output roots remain rejected: passed.
+- Verification:
+  - Required isolated test build passed.
+  - `--wpf-dataset-setup-ui` passed, including direct execution-service persistence/global-state isolation coverage.
+  - `--wpf-dataset-setup-request` passed for the shell adapter and generated recipe contract.
+  - `git diff --check` passed.
+- Boundary / next dependency:
+  - This is a focused responsibility extraction, not a full physical rename of the historical top-level source tree or a rewrite of the shell composition root. The remaining highest-value structural candidate is another reproduced shell code-behind responsibility with an existing focused gate; do not bulk-move WPF files merely to rename folders.
+
+## 2026-07-20 independent production-camera object-detection holdout data audit
+
+- Status: `Blocked`
+- Scope:
+  - Read-only suitability audit for the next independent NG-rich object-detection holdout. No source images, labels, recipes, model profiles, model weights, splits, or runtime configuration were changed.
+- Acceptance criteria and evidence:
+  - `D:\기타이미지\2022.11.16_SIT 이미지` contains 10,447 decodable JPEGs in PC1/PC2 and date/session folders. Image path/file tokens identify 5,950 `OK` and 4,497 `NG` images; PC1 contains 3,138 OK / 2,170 NG and PC2 contains 2,812 OK / 2,327 NG.
+  - The SIT source contains zero `.txt`, `.xml`, `.json`, `data.yaml`, or `data.yml` files. Its OK/NG names are image-level judgments, not object classes or bounding boxes; it cannot yet be passed to YOLO detection evaluation.
+  - A complete content SHA-256 audit found 9,996 unique contents among the 10,447 paths. There are 111 duplicate-content groups containing 562 paths, including 18 groups that appear under both OK and NG labels. No duplicate-content group crosses PC1 and PC2. Any future train/validation/test export must first remove or resolve the conflicting groups and keep every remaining content hash in one split only.
+  - `D:\라벨테스트` contains seven native YOLO object-detection packages, but the inspected EasyMatch COCO metadata explicitly describes them as synthetic and each provided 500-image package is balanced rather than NG-rich (30 NG / 30 OK test, 180 / 180 train, 40 / 40 validation). They remain workflow/engine evidence, not this independent-camera holdout.
+  - `D:\새 폴더` contains 8,000 image paths with no label sidecars; the earlier complete content audit remains 250 unique contents copied 32 times, so it is not an independent evaluation source.
+- Verification:
+  - Read-only PowerShell inventory of the three candidate roots, native-YOLO metadata inspection, path-based OK/NG count, and full SIT SHA-256 content grouping completed on 2026-07-20.
+- Exact blocker / next dependency:
+  - The operator must confirm the intended SIT product/session scope, define the defect classes and bounding-box rules, and complete box labeling for a held-out set. The split builder must then exclude or adjudicate the 18 label-conflicting duplicate groups and prove zero content overlap before a YOLOv5/YOLOv8 comparison can begin.
+  - This audit does not turn image-level OK/NG names into boxes, infer defect semantics, or make any model-quality/adoption claim.
+
+## 2026-07-20 supplied circular-disk synthetic 1,000-image anomaly and detection evidence
+
+- Status: `Complete` for profiling, exact metadata-backed detection formatting, anomaly retraining/comparison, one-epoch training-path proof, and the controlled 20-epoch YOLOv5s/YOLOv8n object-detection benchmark.
+- The supplied 500 OK / 500 NG images are internally unique and metadata-valid, but they were generated from the same `OK_0001.png` used by the earlier 100-image source. Treat them as synthetic variation evidence, not independent camera/session evidence.
+- The existing anomaly candidate scored 111/600 at confidence 0.8 on the metadata-defined synthetic test. A new application/TCP 20-epoch candidate improved from 34/104 to 90/104 on the app-owned untouched test split, but remains `hold`: seven automatic false OK cases remain, all `ring_deformation`.
+- Exact per-image MD5 and bounding boxes produced a native 5-class YOLO detection dataset with train 700 / val 150 / test 150. One-epoch YOLOv8 and YOLOv5 application/TCP runs both completed, produced weights, and preserved the 2,005-file source tree SHA-256. Both runs have zero validation mAP and are pipeline evidence only.
+- The same program-default profiles then completed 20 epochs at image size 320 / batch 4 / CPU. On the exact 150-image test fingerprint, YOLOv8n recorded mAP50/mAP50-95 `0.955/0.678` and median takt `27.575ms`, versus YOLOv5s `0.900/0.567` and `52.45ms`. At confidence 0.25, YOLOv8n had `67/7/8` TP/FP/FN versus YOLOv5s `61/5/14`. This is `engine-benchmark` evidence only: it does not register, adopt, or replace an inspection model.
+- The first comparison exposed a generated YOLOv5 `labels.cache` write to the source tree. The exact 2,005-file manifest was restored, the comparison script now removes only cache files it created, and the fixed rerun ended with the same source-tree SHA-256 and no remaining cache file.
+- The anomaly evaluator now reuses one loaded selected adapter. A 600-image run completed in 15,214ms; a two-image equivalence check matched the old per-image path exactly.
+- Full provenance, metrics, artifact paths, regeneration mismatch boundary, and next dependency: `docs\CIRCULAR_DISK_SYNTHETIC_1000_EVIDENCE_20260720.md`.
 
 ## 2026-07-19 anomaly 20-epoch retraining and actual-EXE candidate proof
 
@@ -13500,6 +13600,37 @@ Last updated: 2026-07-19
 - Boundary / next dependency:
   - This is an implemented workflow guide, not evidence that a newly trained model is accurate. Independent camera/session OK/NG test data remains required for a model-quality or adoption decision.
 
+## 2026-07-20 circular-disk 30-epoch detection comparison and first-user EXE walkthrough
+
+Status: Complete
+
+Scope: train the exact metadata-backed circular-disk object-detection packet for 30 epochs with YOLOv5s and YOLOv8n, compare both on the same untouched test split, and verify the first-user YOLOv8 external-YAML recipe flow in the current Debug EXE. The scope includes comparison readability and run identity; it excludes production adoption, camera validation, and a second recipe per engine.
+
+Acceptance criteria:
+
+- Same native YAML, class schema, split, image size, batch, and 30-epoch contract were used by both engines: passed.
+- Formatted training source remained 2,005 files with SHA-256 `573F0E76D2EB282A54BB136F1AC11C5F1584E68685095F312A0508444CC4FA60` before/after each training run: passed.
+- Held-out 150-image test comparison persisted metrics, class metrics, latency samples, ground-truth review, and a non-adopting `engine-benchmark` decision: passed.
+- New recipe -> explicit external YAML activation -> saved profile -> EXE restart -> first YOLOv8 trained inference completed and retained identical saved/reopened/inferred recipe hashes: passed.
+- User-visible inference identity includes engine, training-run folder, and `best.pt`: passed.
+
+Verification:
+
+- `dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Debug -p:Platform="Any CPU" /nr:false -m:1 /p:UseSharedCompilation=false` passed.
+- Required isolated test build passed with 0 warnings / 0 errors.
+- `--wpf-inference-status-presentation`, `--external-yolo-dataset-intake`, `--wpf-model-comparison-review-service`, and `--wpf-model-comparison-run-service` passed.
+- `--exe-yolov8-detect-restart-smoke` passed using the 30-epoch YOLOv8n `best.pt` and the exact external YAML.
+
+Evidence:
+
+- `docs\CIRCULAR_DISK_SYNTHETIC_1000_EVIDENCE_20260720.md`.
+- `artifacts\real-external-yolo-dataset-training\circular-disk-supplied-1000-yolov5s-detect-e30-20260720-131140\summary.txt`.
+- `artifacts\real-external-yolo-dataset-training\circular-disk-supplied-1000-yolov8n-detect-e30-20260720-122444\summary.txt`.
+- `artifacts\yolo-model-comparison\circular-disk-supplied-1000-yolov5s-vs-yolov8n-e30-test-20260720-143520\20260720-143309\comparison-report.md`.
+- `artifacts\ui\circular-disk-yolov8-beginner-e30-current-final4-20260720\summary.txt`.
+
+Boundary / next dependency: the supplied set is procedurally generated from one acquisition source. Independent camera/session data with a leakage-guarded holdout is required before choosing an inspection model for production.
+
 ## 2026-07-19 operator anomaly model actual-EXE validation
 
 - Status: `Complete`
@@ -13514,3 +13645,58 @@ Last updated: 2026-07-19
 - Model-quality boundary:
   - A 100-image diagnostic produced abnormal→abnormal 25, abnormal→normal 25, normal→normal 22, and normal→abnormal 28: 47% accuracy. The EXE integration path is verified, but this one-epoch model is rejected for actual inspection use.
   - Reopen EXE integration only if runtime/profile/mapping behavior changes or a reproduced EXE mismatch appears. Model adoption remains a separate task requiring retraining and an untouched independent holdout.
+
+## 2026-07-21 U-Net canonical segmentation runtime slice
+
+Status: Complete
+
+Scope: deliver the U-Net runtime prerequisite for a future YOLO-seg comparison without creating a second source dataset. The app exports only a segmentation recipe into app-owned image/mask artifacts, runs a bundled PyTorch U-Net worker through the established TCP protocol, and loads the produced checkpoint after a worker restart.
+
+Acceptance criteria and evidence:
+
+- `UNet` is an automatic local profile (`C:\Git\unet`, `.venv-gpu`, bundled worker), not a manual project/script picker: passed by the current-source WPF capture `artifacts\ui\unet-runtime-profile-after-20260721.png`.
+- The runtime rejects non-segmentation and external native YOLO `data.yaml` training rather than manufacturing masks from bounding boxes: passed through `YoloTrainingWorkflowService` routing and `--unet-segmentation-export`.
+- One actual CPU epoch completed through the app training workflow and produced a U-Net checkpoint: passed. `C:\Git\unet\runs\segment\openvisionlab-unet-smoke-20260721-164530\weights\best.pt` SHA-256 is `D8BD220F7CF7C0A734E7848A7E7D154DCEDDB549163C74589E221ABC1DD1C4F7`.
+- The canonical source SHA-256 was identical before/after export/training; a restarted worker loaded the checkpoint (`ready`) and completed inference: passed. Evidence: `artifacts\real-unet-segmentation-runtime-20260721-164530\summary.txt`.
+- Required isolated build (0 warnings / 0 errors), worker compile/self-test, `--unet-segmentation-export`, `--dataset-health`, `--priority-workflow-docs`, and `--real-unet-segmentation-runtime --timeout-seconds 90`: passed.
+
+Boundary / next dependency: this is runtime and reproducibility evidence, not defect-quality evidence. The one-epoch deterministic smoke returned zero connected components, so it cannot be used to claim usable inspection performance. The next slice must normalize U-Net and YOLO-seg prediction masks, shared test metrics, and provenance before Model Center compares them.
+
+## 2026-07-21 normalized U-Net / YOLO-seg mask comparison foundation
+
+Status: Complete
+
+Scope: create the comparison substrate, not a product-quality benchmark. A U-Net and an Ultralytics segmentation checkpoint can now export raw test-split prediction masks using the same canonical export contract, then the evaluator scores only artifacts with matching dataset, source, class, split, image, and mask provenance.
+
+Acceptance criteria and evidence:
+
+- Adapter output is app-owned `prediction-manifest.jsonl`, raster PNG masks, and `run-summary.json`; U-Net and Ultralytics checkpoint class names must match the canonical `classes.json`: passed.
+- Cross-run mismatch is fail-closed for dataset fingerprint, source SHA-256, class contract, split, image identity/dimensions, or mask hash: passed by `--segmentation-mask-comparison`.
+- The evaluator reports per-class Dice, IoU/mIoU, and component TP/FP/FN without combining YOLO mAP and U-Net Dice: passed by the deterministic exact/partial/extra-component fixture.
+- Current U-Net runtime generated a canonical test prediction manifest after a real 1-epoch train/restart; current local YOLOv8 runtime generated a canonical test prediction manifest from an actual two-class checkpoint: passed. Evidence: `artifacts\real-unet-segmentation-runtime-20260721-173045\summary.txt` and `artifacts\real-ultralytics-segmentation-prediction-export-20260721-173053\summary.txt`.
+
+Verification: required isolated build (0 warnings / 0 errors); both Python environments compiled the exporter; exporter self-test; `--segmentation-mask-comparison`; `--real-unet-segmentation-runtime --timeout-seconds 90`; and `--real-ultralytics-segmentation-prediction-export` passed.
+
+Boundary / next dependency: the two real adapter smokes deliberately use different class contracts, so they prove artifact generation, not U-Net-versus-YOLO quality. Model Center must next expose only a same-canonical-export readiness/launch/review flow. A controlled same-data training run is still required for a meaningful comparison result.
+
+## 2026-07-21 Model Center U-Net versus YOLO-seg comparison flow
+
+Status: Complete
+
+Scope: add the Model Center review/launch entry point for semantic-segmentation comparison. The operator selects one U-Net checkpoint and one YOLOv8-seg or YOLO11-seg checkpoint; the app creates or reuses the recipe-owned canonical mask export, writes two separate prediction artifacts, and runs the existing fail-closed common-mask evaluator. This does not retrain a model, alter a recipe, change source images/labels, or adopt an inspection model.
+
+Acceptance criteria and evidence:
+
+- The panel is visible only for segmentation recipes and identifies the common input as the app-owned canonical export/test mask: passed by `--wpf-segmentation-adapter-comparison` and the current 1920x1080 capture.
+- U-Net and YOLO-seg checkpoints are selected independently, the current configured U-Net project root is retained, and YOLO11 uses the existing `yolov8` Ultralytics runtime rather than requiring a fictitious `yolo11` repository: passed by the focused request-contract test.
+- The run calls canonical export -> independent U-Net/YOLO prediction exports -> provenance-guarded Dice/IoU/component comparison; a failed run leaves the current inspection model unchanged: passed by focused source and ViewModel state contracts.
+- The panel explicitly keeps YOLO mAP separate from common raster-mask Dice/IoU and disables execution until both checkpoint paths are supplied: passed by the focused WPF contract and current capture.
+
+Verification:
+
+- Required isolated test build passed with 0 warnings / 0 errors.
+- `--wpf-segmentation-adapter-comparison`, `--unet-segmentation-export`, `--segmentation-mask-comparison`, `--dataset-health`, and `--priority-workflow-docs` passed.
+- Current-source 1920x1080 before/after visual smoke passed: `artifacts\ui\unet-yoloseg-comparison-before-20260721.png` and `artifacts\ui\unet-yoloseg-comparison-after-20260721.png`.
+- `git diff --check` passed.
+
+Boundary / next dependency: no valid U-Net-versus-YOLO quality number exists yet. The real adapter smokes use different class contracts, so the next benchmark must train or provide two segmentation checkpoints for the same canonical export/test split, then review the generated report without automatic adoption.

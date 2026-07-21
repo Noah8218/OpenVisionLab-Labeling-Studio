@@ -141,6 +141,15 @@ internal static partial class Program
             return RunSingleSmoke("WPF dataset setup and selection declare guided fields", TestWpfDatasetSetupWizardDeclaresGuidedFields);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--wpf-project-config-panel", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF project configuration delegates Core recipe transitions", () =>
+            {
+                TestWpfProjectConfigPanelDeclaresRecipeControls();
+                TestWpfProjectRecipeSessionService();
+            });
+        }
+
         if (args.Any(arg => string.Equals(arg, "--exe-dataset-wizard-smoke", StringComparison.OrdinalIgnoreCase)))
         {
             return RunExeDatasetWizardSmoke(args);
@@ -259,6 +268,11 @@ internal static partial class Program
         if (args.Any(arg => string.Equals(arg, "--exe-yolov8-detect-restart-smoke", StringComparison.OrdinalIgnoreCase)))
         {
             return RunExeYoloV8DetectRestartSmoke(args);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--exe-yolo11-detect-restart-smoke", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunExeYoloV8DetectRestartSmoke(args.Concat(new[] { "--engine", "yolo11" }).ToArray());
         }
 
         if (args.Any(arg => string.Equals(arg, "--exe-yolov8-anomaly-restart-smoke", StringComparison.OrdinalIgnoreCase)))
@@ -500,6 +514,31 @@ internal static partial class Program
             return RunSingleSmoke("Dataset Health summarizes detection, segmentation, and anomaly data without changing labels", TestYoloDatasetHealthReport);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--unet-segmentation-export", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("U-Net segmentation export preserves recipe data and validates split and mask contracts", TestUnetSegmentationDatasetExport);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--segmentation-mask-comparison", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("Segmentation comparison scores only matching canonical mask artifacts", TestSegmentationMaskComparison);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--wpf-segmentation-adapter-comparison", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF U-Net versus YOLO-seg comparison keeps checkpoint selection and canonical-mask review separate from adoption", TestWpfSegmentationAdapterComparison);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--real-unet-segmentation-runtime", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunRealUnetSegmentationRuntimeSmoke(args);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--real-ultralytics-segmentation-prediction-export", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunRealUltralyticsSegmentationPredictionExportSmoke(args);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--wpf-dataset-health-window", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("WPF Dataset Health opens as a separate data-analysis window", TestWpfDatasetHealthWindow);
@@ -630,6 +669,11 @@ internal static partial class Program
             return RunSingleSmoke("External native YOLO data.yaml stays separate from recipe exports", TestExternalYoloDatasetIntake);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--external-yolo-list-split-intake", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("External YOLO split-list packet materializes an app-owned runtime dataset", TestExternalYoloListSplitIntake);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--anomaly-classification-evaluation", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("Anomaly classification evaluation blocks weak adoption evidence", TestAnomalyClassificationEvaluationService);
@@ -683,6 +727,11 @@ internal static partial class Program
         if (args.Any(arg => string.Equals(arg, "--wpf-training-dashboard-quality", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("WPF training dashboard surfaces dataset quality audit", TestWpfYoloTrainingChecklistDatasetQualityPresentation);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--wpf-dataset-dashboard-presentation", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF dataset dashboard presentation separates metric-card state", TestWpfDatasetDashboardPresentationService);
         }
 
         if (args.Any(arg => string.Equals(arg, "--wpf-canvas-detection-overlay", StringComparison.OrdinalIgnoreCase)))
@@ -952,6 +1001,11 @@ internal static partial class Program
             return RunSingleSmoke("Model registry persists profile, run, candidate, and adoption history", TestModelRegistryServicePersistence);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--model-center-dashboard-presentation", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("Model Center dashboard presentation separates read-only display state", TestWpfModelCenterDashboardPresentationService);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--wpf-inference-status-presentation", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("WPF inference status shows readable inspection model", TestWpfInferenceStatusPresentationServiceReadable);
@@ -975,6 +1029,7 @@ internal static partial class Program
             ("WPF model benchmark window compares heterogeneous evaluation runs", TestWpfModelBenchmarkWindow),
             ("WPF training guide history service owns run history", TestWpfTrainingGuideHistoryService),
             ("Model registry persists profile, run, candidate, and adoption history", TestModelRegistryServicePersistence),
+            ("Model Center dashboard presentation separates read-only display state", TestWpfModelCenterDashboardPresentationService),
             ("MVVM infrastructure shares observable and command helpers", TestMvvmInfrastructure),
             ("CData creates YOLO dataset directories and data.yaml", TestCreateYoloDataset),
             ("Project settings persist dataset purpose in recipe config", TestLabelingProjectSettingsDatasetPurposePersistence),
@@ -991,6 +1046,7 @@ internal static partial class Program
             ("YOLO dataset diagnostics report operator-ready issues", TestYoloDatasetDiagnosticsReport),
             ("YOLO dataset readiness keeps statistics when duplicate split blocks training", TestYoloDatasetReadinessStatisticsOnDuplicateSplit),
             ("WPF YOLO training checklist separates warnings from blocking errors", TestWpfYoloTrainingChecklistDatasetQualityPresentation),
+            ("WPF dataset dashboard presentation separates metric-card state", TestWpfDatasetDashboardPresentationService),
             ("YOLO dataset quality audit reports labels, missing files, empty labels, and class distribution", TestYoloDatasetQualityAuditReport),
             ("Dataset Health summarizes detection, segmentation, and anomaly data without changing labels", TestYoloDatasetHealthReport),
             ("WPF Dataset Health opens as a separate data-analysis window", TestWpfDatasetHealthWindow),
@@ -1132,6 +1188,7 @@ internal static partial class Program
             ("WPF migration removes legacy WinForms support libraries", TestWpfMigrationRemovesLegacyWinFormsSupportLibraries),
             ("WPF YOLO status panel declares command controls", TestWpfYoloStatusPanelDeclaresCommandControls),
             ("WPF project config panel declares recipe controls", TestWpfProjectConfigPanelDeclaresRecipeControls),
+            ("WPF project recipe session service isolates Core transitions", TestWpfProjectRecipeSessionService),
             ("WPF project recipe service remembers last opened dataset", TestWpfProjectRecipeServiceRemembersLastOpenedDataset),
             ("WPF YOLO model settings panel declares path editors", TestWpfYoloModelSettingsPanelDeclaresPathEditors),
             ("WPF training settings panel declares controls", TestWpfTrainingSettingsPanelDeclaresControls),
@@ -1479,6 +1536,7 @@ internal static partial class Program
         bool saveAfterConfirmedLabelEdit = HasArgument(args, "--save-after-confirmed-label-edit");
         bool missingModelRuntime = HasArgument(args, "--missing-model-runtime");
         bool ultralyticsRuntimeReady = HasArgument(args, "--ultralytics-runtime-ready");
+        bool unetRuntimeReady = HasArgument(args, "--unet-runtime-ready");
         bool anomalyDashboard = HasArgument(args, "--anomaly-dashboard");
         bool qualityDashboard = HasArgument(args, "--quality-dashboard");
         bool showQualityNeedsFix = HasArgument(args, "--show-quality-needs-fix");
@@ -1648,6 +1706,10 @@ internal static partial class Program
                     else if (ultralyticsRuntimeReady)
                     {
                         ApplyVisualSmokeUltralyticsRuntimeReady(window, imagePath, temporaryVisualSmokeRoots);
+                    }
+                    else if (unetRuntimeReady)
+                    {
+                        ApplyVisualSmokeUnetRuntimeReady(window, imagePath);
                     }
 
                     var candidates = roiOnly
@@ -2323,6 +2385,23 @@ internal static partial class Program
             InferenceImageSize = 320,
             DetectionTimeoutSeconds = 30
         };
+
+        window.YoloModelSettingsViewModel?.LoadFrom(CGlobal.Inst.Data.ProjectSettings.PythonModel);
+        InvokePrivateResult<object>(window, "PopulateTrainingEditorFields");
+        InvokePrivateResult<object>(window, "RefreshYoloStatus");
+        InvokePrivateResult<object>(window, "UpdateYoloCommandButtons");
+    }
+
+    private static void ApplyVisualSmokeUnetRuntimeReady(
+        WpfLabelingShellWindow window,
+        string imagePath)
+    {
+        CGlobal.Inst.Data.ProjectSettings ??= new LabelingProjectSettings();
+        PythonModelRuntimeConnectionResult connection = PythonModelRuntimeConnectionService.BuildUnetFolderConnection(
+            CGlobal.Inst.Data.ProjectSettings.PythonModel,
+            PythonModelSettings.GetDefaultUnetProjectRootPath());
+        CGlobal.Inst.Data.ProjectSettings.PythonModel = connection.Settings;
+        CGlobal.Inst.Data.ProjectSettings.PythonModel.ImageRootPath = Path.GetDirectoryName(imagePath) ?? string.Empty;
 
         window.YoloModelSettingsViewModel?.LoadFrom(CGlobal.Inst.Data.ProjectSettings.PythonModel);
         InvokePrivateResult<object>(window, "PopulateTrainingEditorFields");
@@ -9449,6 +9528,7 @@ internal static partial class Program
             bool ultralyticsRuntimeReady = HasArgument(args, "--ultralytics-runtime-ready");
             bool confirmModelSave = HasArgument(args, "--confirm-model-save");
             bool rejectModelCandidate = HasArgument(args, "--reject-model-candidate");
+            bool yolo11EngineComparison = HasArgument(args, "--yolo11-engine-comparison");
             var temporaryVisualSmokeRoots = new List<string>();
 
             CData previousData = CGlobal.Inst.Data;
@@ -9654,7 +9734,23 @@ internal static partial class Program
                     }
                     else
                     {
+                        if (yolo11EngineComparison)
+                        {
+                            CGlobal.Inst.Data.ProjectSettings.PythonModel.ModelEngine = PythonModelSettings.EngineYolo11;
+                            window.TrainingSettingsViewModel.ApplyModelEngineSelection(PythonModelSettings.EngineYolo11);
+                            window.UpdateLayout();
+                            PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
+                        }
+
                         SelectVisualSmokeReviewTab(window, "training");
+                        if (yolo11EngineComparison)
+                        {
+                            window.UpdateLayout();
+                            PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
+                            AssertTrue(
+                                window.TrainingSettingsViewModel.RunYoloEngineComparisonActionText.Contains("v8 vs v11", StringComparison.Ordinal),
+                                "YOLO11 training view model should change the existing engine comparison action to v8 vs v11");
+                        }
                     }
 
                     window.UpdateLayout();
@@ -12332,7 +12428,15 @@ internal static partial class Program
                     dataYaml = dataYamlPath,
                     task = "test",
                     uiConfidence = 0.25,
-                    baseline = new { labelsPath = baselineLabels },
+                    baseline = new
+                    {
+                        labelsPath = baselineLabels,
+                        classMetrics = new[]
+                        {
+                            new { classId = 0, className = "native_contamination" },
+                            new { classId = 1, className = "native_scratch" }
+                        }
+                    },
                     candidate = new { labelsPath = candidateLabels },
                     promotion = new
                     {
@@ -12438,6 +12542,9 @@ internal static partial class Program
             AssertTrue(report.DetailText.Contains("\uC815\uBC00\uB3C4", StringComparison.Ordinal), "model comparison report should translate low-precision promotion reasons for operators");
             AssertTrue(report.DetailText.Contains("1.6", StringComparison.Ordinal), "translated low-precision reason should preserve the current evidence value");
             AssertTrue(!report.DetailText.Contains("Candidate precision", StringComparison.Ordinal), "model comparison report should not expose raw English promotion reasons");
+            AssertTrue(
+                report.Examples.Any(example => example.ReviewText.Contains("native_scratch", StringComparison.Ordinal)),
+                "self-describing comparison class metrics should override unrelated recipe class names in review examples");
             File.WriteAllText(
                 summaryPath,
                 JsonConvert.SerializeObject(new
@@ -12701,7 +12808,11 @@ internal static partial class Program
             AssertTrue(holdViewModel.ModelComparisonActionText.Contains("\uB2E4\uC2DC \uC2E4\uD589", StringComparison.Ordinal), "held model comparison should direct the operator to improve data or tune and rerun validation");
             AssertTrue(!holdViewModel.ModelComparisonActionText.Contains("\uAC80\uC0AC \uBAA8\uB378\uB85C \uC800\uC7A5", StringComparison.Ordinal), "held model comparison should not direct the operator to save the candidate as the inspection model");
             AssertEqual(3, report.Examples.Count);
-            AssertTrue(report.Examples.Any(item => item.Kind == "ClassChanged" && item.Detail.Contains("OK", StringComparison.Ordinal) && item.Detail.Contains("NG", StringComparison.Ordinal)), "model comparison review should surface class changes");
+            AssertTrue(
+                report.Examples.Any(item => item.Kind == "ClassChanged"
+                    && item.Detail.Contains("native_contamination", StringComparison.Ordinal)
+                    && item.Detail.Contains("native_scratch", StringComparison.Ordinal)),
+                "model comparison review should use self-describing comparison classes when surfacing class changes");
             AssertTrue(report.Examples.Any(item => item.Kind == "CandidateOnly" && item.ImageKey == "candidate_only"), "model comparison review should surface new-model-only candidates");
             AssertTrue(report.Examples.Any(item => item.Kind == "BaselineOnly" && item.ImageKey == "baseline_only"), "model comparison review should surface baseline-only candidates");
             AssertTrue(report.Examples.Any(item => item.Kind == "CandidateOnly" && item.ActionText.Contains("\uACFC\uAC80\uCD9C", StringComparison.Ordinal)), "new-model-only examples should explain the false-positive check");
@@ -12857,11 +12968,14 @@ internal static partial class Program
             AssertTrue(!arguments.Contains("-SegmentationPositiveClassName"), "detection comparison should not pass a segmentation-only positive class filter");
             string realScriptSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "scripts", "compare-yolo-models.ps1"));
             AssertTrue(realScriptSource.Contains("Assert-ModelClassCountsMatchData", StringComparison.Ordinal), "model comparison script should preflight model/data label-count compatibility");
-            AssertTrue(realScriptSource.Contains("Clear-StaleYoloV5LabelCacheArtifacts", StringComparison.Ordinal)
+            AssertTrue(realScriptSource.Contains("Get-YoloV5LabelCacheArtifactPaths", StringComparison.Ordinal)
+                && realScriptSource.Contains("Remove-YoloV5CreatedLabelCacheArtifacts", StringComparison.Ordinal)
                 && realScriptSource.Contains("$cacheSidecarPath = $cachePath + \".npy\"", StringComparison.Ordinal)
+                && realScriptSource.Contains("$yoloV5SourceCacheArtifactsBefore", StringComparison.Ordinal)
+                && realScriptSource.Contains("$yoloV5CreatedCacheArtifactsRemoved", StringComparison.Ordinal)
                 && realScriptSource.Contains("Remove-Item -LiteralPath $cacheArtifactPath", StringComparison.Ordinal)
                 && realScriptSource.Contains("runtimePreflight", StringComparison.Ordinal),
-                "YOLOv5 comparison should remove only stale label-cache artifacts and retain that runtime preflight in the report");
+                "YOLOv5 comparison should preserve existing source caches and remove only cache artifacts created by the current run");
             AssertTrue(realScriptSource.Contains("Read-WeightsClassCount", StringComparison.Ordinal), "model comparison script should read each weights file label count before YOLO val");
             AssertTrue(realScriptSource.Contains("Read-DataYamlClassNames", StringComparison.Ordinal), "model comparison script should read data.yaml class names before YOLO val");
             AssertTrue(realScriptSource.Contains("return @((Read-DataYamlClassNames $Path)).Count", StringComparison.Ordinal), "model comparison script should accept valid names-only data.yaml files without an nc field");
@@ -12873,6 +12987,7 @@ internal static partial class Program
             AssertTrue(realScriptSource.Contains("OPENVISIONLAB_BENCHMARK_JSON", StringComparison.Ordinal), "Ultralytics validation should emit parseable native timing metrics");
             AssertTrue(realScriptSource.Contains("Read-ValBenchmark", StringComparison.Ordinal), "model comparison should normalize native YOLO validation timing");
             AssertTrue(realScriptSource.Contains("comparisonKind", StringComparison.Ordinal), "model comparison summary should distinguish engine benchmarks from candidate validation");
+            AssertTrue(realScriptSource.Contains("Held-out test results compare engine profiles only", StringComparison.Ordinal), "cross-engine test comparison should not emit a model-replacement recommendation");
             AssertTrue(realScriptSource.Contains("BenchmarkRepeatCount", StringComparison.Ordinal), "model comparison should support repeated native timing measurements");
             AssertTrue(realScriptSource.Contains("native-validation-speed-median", StringComparison.Ordinal), "repeated model takt should be reported as a median");
             AssertTrue(realScriptSource.Contains("taktSamplesMs", StringComparison.Ordinal), "model comparison summary should preserve the repeated native timing samples");
@@ -12994,6 +13109,37 @@ internal static partial class Program
             AssertTrue(engineArguments.Contains("-CandidateYoloSourceRoot") && engineArguments.Contains(yolo8DetectSourceRoot), "cross-engine comparison should pass the YOLOv8 source root");
             AssertTrue(engineArguments.Contains("-CandidateEngine") && engineArguments.Contains(PythonModelSettings.EngineYoloV8), "cross-engine comparison should identify the YOLOv8 runtime");
             AssertTrue(engineArguments.Contains("-BenchmarkRepeatCount") && engineArguments.Contains("5"), "cross-engine comparison should request five native timing measurements");
+
+            string yolo11DetectWeightsPath = Path.Combine(yolo8DetectRoot, "runs", "detect", "yolo11", "weights", "best.pt");
+            Directory.CreateDirectory(Path.GetDirectoryName(yolo11DetectWeightsPath));
+            File.WriteAllText(yolo11DetectWeightsPath, "yolo11-detect");
+            data.ProjectSettings.ModelRegistry.Profiles.Add(new ModelProfile
+            {
+                ProfileId = "profile-yolo11-detect",
+                DisplayName = "YOLO11 Detect",
+                ModelEngine = PythonModelSettings.EngineYolo11,
+                DatasetPurpose = LabelingDatasetPurpose.ObjectDetection.ToString(),
+                ProjectRootPath = yolo8DetectRoot,
+                LastUsedUtc = DateTime.UtcNow.AddMinutes(1).ToString("o")
+            });
+            data.ProjectSettings.ModelRegistry.Candidates.Add(new ModelCandidate
+            {
+                CandidateId = "candidate-yolo11-detect",
+                ProfileId = "profile-yolo11-detect",
+                WeightsPath = yolo11DetectWeightsPath,
+                LastSeenUtc = DateTime.UtcNow.AddMinutes(1).ToString("o")
+            });
+            WpfModelComparisonRunRequest yolo11EngineRequest = service.BuildYoloV8Yolo11DetectionRequest(data, task: "test");
+            AssertTrue(yolo11EngineRequest.IsEngineComparison, "YOLOv8/YOLO11 comparison should be marked as a cross-engine benchmark");
+            AssertEqual(PythonModelSettings.EngineYoloV8, yolo11EngineRequest.BaselineModelEngine);
+            AssertEqual(PythonModelSettings.EngineYolo11, yolo11EngineRequest.CandidateModelEngine);
+            AssertEqual(yolo8DetectWeightsPath, yolo11EngineRequest.BaselineWeightsPath);
+            AssertEqual(yolo11DetectWeightsPath, yolo11EngineRequest.CandidateWeightsPath);
+            AssertEqual(yolo8DetectSourceRoot, yolo11EngineRequest.BaselineYoloSourceRootPath);
+            AssertEqual(yolo8DetectSourceRoot, yolo11EngineRequest.CandidateYoloSourceRootPath);
+            AssertEqual(0, service.ValidateRequest(yolo11EngineRequest).Count);
+            IReadOnlyList<string> yolo11EngineArguments = service.BuildPowerShellArguments(yolo11EngineRequest);
+            AssertTrue(yolo11EngineArguments.Contains("-CandidateEngine") && yolo11EngineArguments.Contains(PythonModelSettings.EngineYolo11), "cross-engine comparison should identify the YOLO11 runtime");
 
             string yolo8Root = Path.Combine(root, "yolov8");
             string ultralyticsRoot = Path.Combine(yolo8Root, "ultralyticsMaster");
@@ -18263,6 +18409,9 @@ internal static partial class Program
 
         string evaluationScript = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "scripts", "evaluate-yolo-classification.ps1"));
         AssertTrue(evaluationScript.Contains("--smoke-test", StringComparison.Ordinal), "classification evaluation script should run the local YOLO adapter smoke path");
+        AssertTrue(evaluationScript.Contains("persistent-adapter-batch", StringComparison.Ordinal), "classification evaluation script should reuse one loaded adapter model for large held-out datasets");
+        AssertTrue(evaluationScript.Contains("UseLegacyPerImageWorker", StringComparison.Ordinal), "classification evaluation script should retain the per-image adapter path for equivalence checks");
+        AssertTrue(evaluationScript.Contains("evaluationElapsedMs", StringComparison.Ordinal), "classification evaluation summary should record the measured adapter evaluation duration");
         AssertTrue(evaluationScript.Contains("imageClassification", StringComparison.Ordinal), "classification evaluation script should read image-level classification candidates");
         AssertTrue(evaluationScript.Contains("classification-evaluation-summary.json", StringComparison.Ordinal), "classification evaluation script should write a stable summary artifact");
         AssertTrue(evaluationScript.Contains("fingerprintSha256", StringComparison.Ordinal), "classification evaluation summary should persist a content fingerprint for held-out class images");
@@ -18275,6 +18424,10 @@ internal static partial class Program
         AssertTrue(evaluationScript.Contains("class-matching predictions were below minimum confidence", StringComparison.Ordinal), "classification evaluation script should explain confidence-gated hold reasons");
         AssertTrue(evaluationScript.Contains("recommendation = $recommendation", StringComparison.Ordinal), "classification evaluation summary should persist adopt/hold recommendation");
         AssertTrue(evaluationScript.Contains("reasons = $holdReasons", StringComparison.Ordinal), "classification evaluation summary should persist hold reasons");
+        string batchEvaluationScript = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Runtime", "Python", "openvisionlab_yolo_classification_batch.py"));
+        AssertTrue(batchEvaluationScript.Contains("spec_from_file_location", StringComparison.Ordinal), "batch classification evaluation should load the selected local YOLO adapter instead of a second model implementation");
+        AssertTrue(batchEvaluationScript.Contains("build_detector", StringComparison.Ordinal), "batch classification evaluation should build the detector through the selected adapter");
+        AssertTrue(batchEvaluationScript.Contains("detector.detect_path", StringComparison.Ordinal), "batch classification evaluation should preserve adapter-owned candidate mapping");
 
         string runRoot = CreateTempRoot();
         try
@@ -23111,6 +23264,19 @@ internal static partial class Program
             AssertEqual(selectedWeightsPath, yolo8DetectResult.Settings.WeightsPath);
             AssertEqual(selectedImageRoot, yolo8DetectResult.Settings.ImageRootPath);
             AssertTrue(yolo8DetectResult.DetailText.Contains("object-detection", StringComparison.Ordinal), "object-detection folder connection should describe the selected training task");
+
+            PythonModelRuntimeConnectionResult yolo11FolderResult = PythonModelRuntimeConnectionService.BuildYolo11FolderConnection(
+                current,
+                yolo8Root,
+                LabelingDatasetPurpose.ObjectDetection);
+            AssertEqual(PythonModelSettings.EngineYolo11, yolo11FolderResult.Settings.ModelEngine);
+            AssertEqual(yolo8Root, yolo11FolderResult.Settings.ProjectRootPath);
+            AssertEqual(yolo8PythonPath, yolo11FolderResult.Settings.PythonExecutablePath);
+            AssertEqual(PythonModelRuntimeBundledWorkerService.ResolveUltralyticsWorkerScriptPath(), yolo11FolderResult.Settings.ClientScriptPath);
+            AssertEqual(selectedWeightsPath, yolo11FolderResult.Settings.WeightsPath);
+            AssertEqual(selectedImageRoot, yolo11FolderResult.Settings.ImageRootPath);
+            AssertTrue(!yolo11FolderResult.Settings.ClientScriptPath.EndsWith("labeling_tcp_client.py", StringComparison.OrdinalIgnoreCase), "YOLO11 folder connection should use the bundled worker instead of the YOLOv8-only client");
+            AssertTrue(yolo11FolderResult.DetailText.Contains("yolo11n.pt", StringComparison.Ordinal), "YOLO11 folder connection should disclose its object-detection start weight without replacing the current inspection model");
 
             string ultralyticsPath = Path.Combine(root, ".venv", "Lib", "site-packages", "ultralytics");
             Directory.CreateDirectory(ultralyticsPath);
@@ -28988,20 +29154,27 @@ internal static partial class Program
 
         string wizardViewModelSource = File.ReadAllText(wizardViewModelPath);
         string shellSource = ReadWpfLabelingShellWindowSources();
+        string datasetSetupRequestModelSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Models", "WpfDatasetSetupRequest.cs"));
         string datasetSetupPathServiceSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfDatasetSetupPathService.cs"));
         string datasetSetupDataServiceSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfDatasetSetupDataService.cs"));
+        string datasetSetupExecutionServiceSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfDatasetSetupExecutionService.cs"));
         string datasetSetupPresentationServiceSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfDatasetSetupPresentationService.cs"));
         AssertTrue(wizardViewModelSource.Contains("WpfDatasetSetupRequest", StringComparison.Ordinal), "dataset setup wizard should build a request DTO instead of writing files");
+        AssertTrue(datasetSetupRequestModelSource.Contains("public sealed class WpfDatasetSetupRequest", StringComparison.Ordinal), "dataset setup request should be stored with WPF models instead of the ViewModel implementation");
+        AssertTrue(!wizardViewModelSource.Contains("public sealed class WpfDatasetSetupRequest", StringComparison.Ordinal), "dataset setup ViewModel should not declare the cross-layer request DTO");
         AssertTrue(wizardViewModelSource.Contains("TryBuildRequest", StringComparison.Ordinal), "dataset setup wizard should validate before create");
         AssertTrue(wizardViewModelSource.Contains("ParseClassNames", StringComparison.Ordinal), "dataset setup wizard should parse comma/newline class names");
         AssertTrue(shellSource.Contains("WpfDatasetSetupWizardWindow", StringComparison.Ordinal), "dataset setup command should open the guided wizard");
         AssertTrue(shellSource.Contains("ApplyDatasetSetupRequest", StringComparison.Ordinal), "dataset setup persistence should be isolated behind a request application method");
         AssertTrue(shellSource.Contains("WpfDatasetSetupPathService", StringComparison.Ordinal), "dataset setup shell should delegate recipe/output path decisions to a service");
-        AssertTrue(shellSource.Contains("WpfDatasetSetupDataService", StringComparison.Ordinal), "dataset setup shell should delegate CData materialization to a service");
+        AssertTrue(shellSource.Contains("WpfDatasetSetupExecutionService", StringComparison.Ordinal), "dataset setup shell should delegate persisted dataset creation to a service");
         AssertTrue(shellSource.Contains("WpfDatasetSetupPresentationService", StringComparison.Ordinal), "dataset setup shell should delegate operator-facing status text to a service");
         AssertTrue(datasetSetupPathServiceSource.Contains("ResolveRecipeName", StringComparison.Ordinal), "dataset setup path service should own recipe-name selection");
         AssertTrue(datasetSetupPathServiceSource.Contains("TryFindDatasetUsingOutputRoot", StringComparison.Ordinal), "dataset setup path service should own output-root collision detection");
         AssertTrue(datasetSetupDataServiceSource.Contains("ApplyOutputRootAndClasses", StringComparison.Ordinal), "dataset setup data service should own output-root and class materialization");
+        AssertTrue(datasetSetupExecutionServiceSource.Contains("data.SaveYoloDataYaml", StringComparison.Ordinal), "dataset setup execution service should persist data.yaml");
+        AssertTrue(datasetSetupExecutionServiceSource.Contains("data.SaveConfig", StringComparison.Ordinal), "dataset setup execution service should persist the recipe config and manifest");
+        AssertTrue(!datasetSetupExecutionServiceSource.Contains("CGlobal.Inst", StringComparison.Ordinal), "dataset setup execution service should not mutate global UI application state");
         AssertTrue(datasetSetupPresentationServiceSource.Contains("BuildDuplicateOutputRootMessage", StringComparison.Ordinal), "dataset setup presentation service should own duplicate-folder guidance");
         AssertTrue(datasetSetupPresentationServiceSource.Contains("BuildReadyStatus", StringComparison.Ordinal), "dataset setup presentation service should own ready status wording");
         AssertTrue(datasetSetupPresentationServiceSource.Contains("BuildMissingImageRootStatus", StringComparison.Ordinal), "dataset setup presentation service should own missing-image-folder status wording");
@@ -29010,14 +29183,18 @@ internal static partial class Program
         AssertTrue(!shellSource.Contains("private string BuildUniqueDatasetSetupRecipeName", StringComparison.Ordinal), "dataset setup shell should not own unique recipe-name generation");
         AssertTrue(!shellSource.Contains("private bool TryFindDatasetUsingOutputRoot", StringComparison.Ordinal), "dataset setup shell should not scan recipe configs for output-root collisions");
         string applyDatasetSetupSource = FindMethodSourceBlock(shellSource, "private bool ApplyDatasetSetupRequest(WpfDatasetSetupRequest request)");
-        AssertTrue(applyDatasetSetupSource.Contains("datasetSetupDataService.ApplyOutputRootAndClasses", StringComparison.Ordinal),
-            "dataset setup apply should materialize output root and classes through the data service");
+        AssertTrue(applyDatasetSetupSource.Contains("datasetSetupExecutionService.Execute", StringComparison.Ordinal),
+            "dataset setup apply should execute persistence through the service");
         AssertTrue(applyDatasetSetupSource.Contains("datasetSetupPresentationService.BuildDuplicateOutputRootMessage", StringComparison.Ordinal),
             "dataset setup apply should build duplicate output-root guidance through the presentation service");
         AssertTrue(applyDatasetSetupSource.Contains("datasetSetupPresentationService.BuildReadyStatus", StringComparison.Ordinal),
             "dataset setup apply should build final ready status through the presentation service");
         AssertTrue(!applyDatasetSetupSource.Contains("ClassNamedList.Clear", StringComparison.Ordinal),
             "dataset setup apply should not mutate the class catalog inline");
+        AssertTrue(!applyDatasetSetupSource.Contains("SaveYoloDataYaml", StringComparison.Ordinal),
+            "dataset setup apply should not persist YAML inline");
+        AssertTrue(!applyDatasetSetupSource.Contains("SaveConfig", StringComparison.Ordinal),
+            "dataset setup apply should not persist recipe config inline");
         string clearQueueAfterDatasetSwitchSource = FindMethodSourceBlock(shellSource, "private void ClearImageQueueAfterDatasetSwitch(string imageRootPath)");
         AssertTrue(clearQueueAfterDatasetSwitchSource.Contains("datasetSetupPresentationService.BuildMissingImageRootStatus", StringComparison.Ordinal),
             "dataset switch should build missing-image-folder status through the presentation service");
@@ -29154,6 +29331,52 @@ internal static partial class Program
         finally
         {
             DeleteTempRoot(dataServiceRoot);
+        }
+
+        string executionRecipeName = "codex_dataset_execution_" + Guid.NewGuid().ToString("N");
+        string executionRecipeDirectory = Path.Combine(AppContext.BaseDirectory, "RECIPE", executionRecipeName);
+        string executionRoot = CreateTempRoot();
+        CData dataBeforeExecution = CGlobal.Inst.Data;
+        string recipeBeforeExecution = CGlobal.Inst.Recipe.Name;
+        try
+        {
+            var executionService = new WpfDatasetSetupExecutionService();
+            var executionRequest = new WpfDatasetSetupRequest
+            {
+                Purpose = LabelingDatasetPurpose.AnomalyDetection,
+                RecipeName = executionRecipeName,
+                OutputRootPath = Path.Combine(executionRoot, "dataset-output"),
+                ClassNames = new[] { "OK", "NG" }
+            };
+
+            WpfDatasetSetupExecutionResult executionResult = executionService.Execute(
+                executionRequest,
+                WpfProjectRecipeService.GetRecipeRootDirectory(),
+                executionRoot);
+            AssertTrue(executionResult.Succeeded, "dataset setup execution service should create a valid dataset contract");
+            AssertEqual(executionRecipeName, executionResult.RecipeName);
+            AssertEqual(LabelingDatasetPurpose.AnomalyDetection, executionResult.Data.ProjectSettings.DatasetPurpose);
+            AssertPathEqual(executionResult.Data.TrainImagesPath, executionResult.ImageRootPath, "blank execution should use its own train image root");
+            AssertTrue(File.Exists(Path.Combine(executionResult.OutputRootPath, "data.yaml")), "execution service should create data.yaml");
+            AssertTrue(File.Exists(Path.Combine(executionRecipeDirectory, "VISION.xml")), "execution service should create the recipe config");
+            AssertTrue(File.Exists(executionResult.ManifestPath), "execution service should create the manifest");
+            AssertTrue(ReferenceEquals(dataBeforeExecution, CGlobal.Inst.Data), "execution service should not mutate global data");
+            AssertEqual(recipeBeforeExecution, CGlobal.Inst.Recipe.Name);
+
+            WpfDatasetSetupExecutionResult invalidResult = executionService.Execute(
+                new WpfDatasetSetupRequest { RecipeName = "invalid/name" },
+                WpfProjectRecipeService.GetRecipeRootDirectory(),
+                executionRoot);
+            AssertEqual(WpfDatasetSetupExecutionFailure.InvalidRecipeName, invalidResult.Failure);
+        }
+        finally
+        {
+            if (Directory.Exists(executionRecipeDirectory))
+            {
+                Directory.Delete(executionRecipeDirectory, recursive: true);
+            }
+
+            DeleteTempRoot(executionRoot);
         }
 
         var presentationService = new WpfDatasetSetupPresentationService();
@@ -31824,9 +32047,10 @@ internal static partial class Program
         AssertTrue(yoloSettingsViewModel.SettingsSummaryPathText.Contains("Images", StringComparison.Ordinal), "YOLO model settings summary should show the image folder leaf instead of only hidden full paths");
         AssertTrue(yoloSettingsViewModel.SettingsSummaryActionText.Contains("\uBAA8\uB378 \uD504\uB85C\uD544", StringComparison.Ordinal), "model settings action text should explain that the profile and model file are saved together");
         AssertTrue(yoloSettingsViewModel.AdvancedSettingsHeaderText.Contains("\uBAA8\uB378 \uC2E4\uD589 \uD658\uACBD", StringComparison.Ordinal), "advanced model settings header should identify runtime environment details");
-        AssertEqual(4, yoloSettingsViewModel.RuntimeProfileItems.Count);
+        AssertEqual(5, yoloSettingsViewModel.RuntimeProfileItems.Count);
         AssertTrue(yoloSettingsViewModel.RuntimeProfileItems.Any(item => item.Engine == PythonModelSettings.EngineYolo11 && item.RuntimeFamilyText.Contains("Ultralytics", StringComparison.Ordinal)), "YOLO model settings should show YOLO11 as an Ultralytics runtime profile");
         AssertTrue(yoloSettingsViewModel.RuntimeProfileItems.Any(item => item.Engine == PythonModelSettings.EngineYolo11 && item.CapabilityText.Contains("worker", StringComparison.Ordinal)), "YOLO model settings should show runtime profile support scope in the profile list");
+        AssertTrue(yoloSettingsViewModel.RuntimeProfileItems.Any(item => item.Engine == PythonModelSettings.EngineUnet && item.RuntimeFamilyText.Contains("U-Net", StringComparison.Ordinal)), "YOLO model settings should show the dedicated U-Net runtime profile");
         AssertTrue(yoloSettingsViewModel.RuntimeSelfTestTitleText.Contains("\uC810\uAC80", StringComparison.Ordinal), "YOLO model settings should expose a selected-runtime self-test title");
         AssertTrue(yoloSettingsViewModel.RuntimeSelfTestItems.Count >= 5, "YOLO model settings should expose actionable runtime self-test rows");
         AssertTrue(yoloSettingsViewModel.RuntimeExecutionTitleText.Contains("\uC2E4\uD589 \uACBD\uB85C", StringComparison.Ordinal), "YOLO model settings should expose an actual execution route title");
@@ -32374,9 +32598,15 @@ internal static partial class Program
             new YoloDatasetSettings(),
             new PythonModelSettings { ModelEngine = PythonModelSettings.EngineYoloV8 },
             LabelingDatasetPurpose.ObjectDetection);
-        AssertEqual("YOLOv8 Detect", yolo8DetectionTrainingViewModel.SelectedTrainingModel);
-        AssertEqual("yolov8n.pt", yolo8DetectionTrainingViewModel.SelectedTrainingWeight);
-        AssertTrue(!yolo8DetectionTrainingViewModel.IsTrainingModelSelectionEnabled, "YOLOv8 detection training should derive its model and starting weight from the selected runtime");
+            AssertEqual("YOLOv8 Detect", yolo8DetectionTrainingViewModel.SelectedTrainingModel);
+            AssertEqual("yolov8n.pt", yolo8DetectionTrainingViewModel.SelectedTrainingWeight);
+            AssertTrue(!yolo8DetectionTrainingViewModel.IsTrainingModelSelectionEnabled, "YOLOv8 detection training should derive its model and starting weight from the selected runtime");
+            AssertTrue(yolo8DetectionTrainingViewModel.RunYoloEngineComparisonActionText.Contains("v5 vs v8", StringComparison.Ordinal), "YOLOv8 selection should retain the existing v5/v8 comparison action");
+            yolo8DetectionTrainingViewModel.ApplyModelEngineSelection(PythonModelSettings.EngineYolo11);
+            AssertEqual("YOLO11 Detect", yolo8DetectionTrainingViewModel.SelectedTrainingModel);
+            AssertEqual("yolo11n.pt", yolo8DetectionTrainingViewModel.SelectedTrainingWeight);
+            AssertTrue(yolo8DetectionTrainingViewModel.RunYoloEngineComparisonActionText.Contains("v8 vs v11", StringComparison.Ordinal), "YOLO11 selection should expose the v8/v11 comparison action without adding a second control");
+            AssertTrue(yolo8DetectionTrainingViewModel.RunYoloEngineComparisonToolTipText.Contains("YOLO11", StringComparison.Ordinal), "YOLO11 comparison action should explain the selected engine pair");
         var anomalyTrainingViewModel = new WpfTrainingSettingsPanelViewModel();
         anomalyTrainingViewModel.LoadFrom(
             new TrainingSettings { Cfg = "yolov5s", Weight = "yolov5s" },
@@ -32831,9 +33061,11 @@ internal static partial class Program
             string shellSource = ReadWpfLabelingShellWindowSources();
         string maskServiceSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "0. UI", "9) WPF", "Services", "WpfMaskAnnotationService.cs"));
         string reviewStatusSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Yolo", "YoloImageReviewStatusService.cs"));
-        string annotationHistorySource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "0. UI", "9) WPF", "Services", "WpfAnnotationHistoryService.cs"));
+            string annotationHistorySource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "0. UI", "9) WPF", "Services", "WpfAnnotationHistoryService.cs"));
             string viewModelSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "0. UI", "9) WPF", "ViewModels", "WpfProjectConfigPanelViewModel.cs"));
             string serviceSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "0. UI", "9) WPF", "Services", "WpfProjectRecipeService.cs"));
+            string sessionServiceSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "0. UI", "9) WPF", "Services", "WpfProjectRecipeSessionService.cs"));
+            string persistenceSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.ProjectConfigPersistence.cs"));
             AssertTrue(shellSource.Contains("PopulateProjectRecipeList", StringComparison.Ordinal), "WPF project config should list existing recipe folders");
             AssertTrue(!shellSource.Contains("ProjectRecipeNameBox.Text =", StringComparison.Ordinal), "WPF project config should not push recipe text directly into the TextBox");
             AssertTrue(!shellSource.Contains("ProjectRecipeListBox.Items", StringComparison.Ordinal), "WPF project config should not mutate ComboBox items directly");
@@ -32847,13 +33079,155 @@ internal static partial class Program
             AssertTrue(shellSource.Contains("suppressProjectRecipeSelection", StringComparison.Ordinal), "WPF project config should not auto-apply during recipe list refresh");
             AssertTrue(viewModelSource.Contains("StatusText", StringComparison.Ordinal), "WPF project recipe list selection should guide the operator to apply explicitly");
             AssertTrue(shellSource.Contains("WpfProjectRecipeService.IsValidRecipeName", StringComparison.Ordinal), "WPF project config should validate recipe file-system characters through the service");
-            AssertTrue(shellSource.Contains("global.Recipe.Name = recipeName", StringComparison.Ordinal), "WPF project config should apply the recipe through CRecipe");
+            AssertTrue(sessionServiceSource.Contains("CRecipe.InitDirectory", StringComparison.Ordinal), "project recipe session service should own recipe-directory initialization");
+            AssertTrue(sessionServiceSource.Contains("data.SaveConfig", StringComparison.Ordinal), "project recipe session service should own recipe config persistence");
+            AssertTrue(sessionServiceSource.Contains("recipe.Name = recipeName", StringComparison.Ordinal), "project recipe session service should apply the active CRecipe");
+            string saveProjectConfigSource = FindMethodSourceBlock(persistenceSource, "private bool SaveProjectConfigFromPanel()");
+            string applyProjectRecipeSource = FindMethodSourceBlock(persistenceSource, "private void ApplyProjectRecipeFromPanel()");
+            AssertTrue(saveProjectConfigSource.Contains("projectRecipeSessionService.Save(global.Data, recipeName)", StringComparison.Ordinal), "project config save should delegate Core persistence to the session service");
+            AssertTrue(!saveProjectConfigSource.Contains("CRecipe.InitDirectory", StringComparison.Ordinal), "project config View adapter should not initialize recipe folders directly");
+            AssertTrue(!saveProjectConfigSource.Contains("global.Data.SaveConfig", StringComparison.Ordinal), "project config View adapter should not save CData directly");
+            AssertTrue(applyProjectRecipeSource.Contains("projectRecipeSessionService.Apply(global.Recipe, recipeName)", StringComparison.Ordinal), "project config apply should delegate the CRecipe transition to the session service");
+            AssertTrue(!applyProjectRecipeSource.Contains("global.Recipe.Name =", StringComparison.Ordinal), "project config View adapter should not assign CRecipe.Name directly");
             AssertTrue(shellSource.Contains("Recipe", StringComparison.Ordinal), "WPF project config should not claim XML save completion when no recipe exists");
         }
         finally
         {
             window.Close();
         }
+    }
+
+    private static void TestWpfProjectRecipeSessionService()
+    {
+        string recipeName = "codex_project_recipe_session_" + Guid.NewGuid().ToString("N");
+        string recipeDirectory = Path.Combine(AppContext.BaseDirectory, "RECIPE", recipeName);
+        string outputRoot = Path.Combine(Path.GetTempPath(), "OpenVisionLab.LabelingStudio.Tests", recipeName);
+        CData previousData = CGlobal.Inst.Data;
+        string previousRecipeName = CGlobal.Inst.Recipe.Name;
+
+        try
+        {
+            var data = new CData();
+            data.ConfigureOutputRoot(outputRoot);
+            data.ClassNamedList.Add(new CClassItem { Text = "Part", DrawColor = Color.Gray });
+            var sessionService = new WpfProjectRecipeSessionService();
+
+            string configPath = sessionService.Save(data, recipeName);
+            AssertTrue(File.Exists(configPath), "project recipe session service should persist VISION.xml");
+            AssertTrue(File.Exists(LabelingDatasetManifestService.GetManifestPath(recipeName)), "project recipe session service should persist dataset manifest");
+
+            string returnedPreviousRecipeName = sessionService.Apply(CGlobal.Inst.Recipe, recipeName);
+            AssertEqual(previousRecipeName, returnedPreviousRecipeName);
+            AssertEqual(recipeName, CGlobal.Inst.Recipe.Name);
+            AssertEqual("Part", CGlobal.Inst.Data.ClassNamedList.Single().Text);
+        }
+        finally
+        {
+            if (!string.Equals(CGlobal.Inst.Recipe.Name, previousRecipeName, StringComparison.Ordinal))
+            {
+                CGlobal.Inst.Recipe.Name = previousRecipeName;
+            }
+
+            CGlobal.Inst.Data = previousData;
+            if (Directory.Exists(recipeDirectory))
+            {
+                Directory.Delete(recipeDirectory, recursive: true);
+            }
+
+            if (Directory.Exists(outputRoot))
+            {
+                Directory.Delete(outputRoot, recursive: true);
+            }
+        }
+    }
+
+    private static void TestWpfModelCenterDashboardPresentationService()
+    {
+        var settings = new PythonModelSettings
+        {
+            ModelEngine = PythonModelSettings.EngineYoloV8,
+            WeightsPath = @"C:\\models\\current.pt"
+        };
+        var comparison = new WpfTrainingWeightsComparison
+        {
+            LatestWeightsPath = @"C:\\models\\candidate.pt",
+            CurrentWeightsPath = settings.WeightsPath,
+            ShouldApplyLatest = true,
+            MetricsStatusText = "mAP50-95 0.71"
+        };
+
+        WpfModelCenterDashboardState state = WpfModelCenterDashboardPresentationService.Build(
+            settings,
+            comparison,
+            new YoloTrainingGuideHistory(),
+            new ModelRegistrySettings(),
+            settings.WeightsPath,
+            hasPendingModelSelection: false,
+            isModelPromotionHeld: false);
+        AssertTrue(state.RegistryPresentation != null, "dashboard state should include model-registry presentation");
+        AssertTrue(state.CandidateModelText.Contains("candidate.pt", StringComparison.OrdinalIgnoreCase), "dashboard state should identify the latest candidate weights");
+        AssertTrue(state.CanReviewCandidate, "a different latest candidate should be reviewable");
+        AssertTrue(!state.CanConfirmModel, "an unselected candidate should not be saved as the inspection model");
+        AssertTrue(state.DecisionEvidenceText.Contains("mAP50-95 0.71", StringComparison.Ordinal), "dashboard state should retain model comparison evidence");
+
+        WpfModelCenterDashboardState heldState = WpfModelCenterDashboardPresentationService.Build(
+            settings,
+            comparison,
+            new YoloTrainingGuideHistory(),
+            new ModelRegistrySettings(),
+            settings.WeightsPath,
+            hasPendingModelSelection: true,
+            isModelPromotionHeld: true);
+        AssertTrue(!heldState.CanConfirmModel, "held candidate promotion should block recipe save");
+        AssertTrue(!string.IsNullOrWhiteSpace(heldState.ConfirmModelButtonToolTip), "held candidate promotion should explain the blocked save action");
+
+        string root = FindRepositoryRoot();
+        string dashboardSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.ModelCenterDashboard.cs"));
+        string presentationServiceSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfModelCenterDashboardPresentationService.cs"));
+        string refreshSource = FindMethodSourceBlock(dashboardSource, "private void RefreshModelCenterDashboard(");
+        AssertTrue(refreshSource.Contains("WpfModelCenterDashboardPresentationService.Build", StringComparison.Ordinal), "dashboard refresh should delegate display state composition to the presentation service");
+        AssertTrue(!dashboardSource.Contains("private static string BuildModelCenterCurrentModelText", StringComparison.Ordinal), "View should not compose current-model display text directly");
+        AssertTrue(!dashboardSource.Contains("private static string BuildModelCenterDecisionActionText", StringComparison.Ordinal), "View should not compose model decision actions directly");
+        AssertTrue(!refreshSource.Contains("WpfModelRegistryPresentationService.Build", StringComparison.Ordinal), "View should not compose model-registry display state directly");
+        AssertTrue(presentationServiceSource.Contains("WpfModelRegistryPresentationService.Build", StringComparison.Ordinal), "presentation service should compose the model-registry display state");
+        AssertTrue(!presentationServiceSource.Contains("WpfLabelingShellWindow", StringComparison.Ordinal), "dashboard presentation service should not depend on the WPF View");
+        AssertTrue(!presentationServiceSource.Contains("System.Windows", StringComparison.Ordinal), "dashboard presentation service should not depend on WPF controls");
+        AssertTrue(!presentationServiceSource.Contains("CGlobal.Inst", StringComparison.Ordinal), "dashboard presentation service should not read global application state");
+    }
+
+    private static void TestWpfDatasetDashboardPresentationService()
+    {
+        var valid = new YoloDatasetValidationResult(Array.Empty<string>());
+        var report = new YoloDatasetReadinessReport(
+            valid,
+            valid,
+            new YoloDatasetStatistics(),
+            LabelingDatasetPurpose.ObjectDetection);
+
+        IReadOnlyList<WpfDatasetDashboardMetricItem> metrics = WpfDatasetDashboardPresentationService.BuildMetrics(
+            report,
+            report.Statistics,
+            classCount: 0);
+        AssertEqual(8, metrics.Count);
+        AssertEqual(WpfDatasetDashboardActionKind.OpenImages, metrics[0].ActionKind);
+        AssertEqual(WpfDatasetDashboardActionKind.OpenLabelingProgress, metrics[1].ActionKind);
+        AssertEqual(WpfDatasetDashboardActionKind.OpenDatasetSettings, metrics[2].ActionKind);
+        AssertTrue(metrics[3].IsWarning && !metrics[3].IsProblem, "ready data without final verification labels should retain the existing replacement-evidence warning");
+        AssertEqual(WpfDatasetDashboardActionKind.OpenLabelingTool, metrics[4].ActionKind);
+        AssertEqual(WpfDatasetDashboardActionKind.CheckDataset, metrics[5].ActionKind);
+        AssertEqual(WpfDatasetDashboardActionKind.OpenClassCatalog, metrics[6].ActionKind);
+        AssertEqual(WpfDatasetDashboardActionKind.OpenDatasetSettings, metrics[7].ActionKind);
+
+        string root = FindRepositoryRoot();
+        string trainingGuideSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Views", "WpfLabelingShellWindow.TrainingGuideStatus.cs"));
+        string serviceSource = File.ReadAllText(Path.Combine(root, "0. UI", "9) WPF", "Services", "WpfDatasetDashboardPresentationService.cs"));
+        string dashboardUpdateSource = FindMethodSourceBlock(trainingGuideSource, "private void UpdateDatasetStatusDashboard(");
+        AssertTrue(dashboardUpdateSource.Contains("WpfDatasetDashboardPresentationService.BuildMetrics", StringComparison.Ordinal), "training dashboard update should delegate metric-card state to the presentation service");
+        AssertTrue(!trainingGuideSource.Contains("private static IReadOnlyList<WpfDatasetDashboardMetricItem> BuildDatasetDashboardMetrics", StringComparison.Ordinal), "View should not compose dataset dashboard metric cards directly");
+        AssertTrue(serviceSource.Contains("BuildMetrics", StringComparison.Ordinal), "presentation service should own the dataset dashboard metric-card composer");
+        AssertTrue(!serviceSource.Contains("WpfLabelingShellWindow", StringComparison.Ordinal), "dataset dashboard presentation service should not depend on the WPF View");
+        AssertTrue(!serviceSource.Contains("System.Windows", StringComparison.Ordinal), "dataset dashboard presentation service should not depend on WPF controls");
+        AssertTrue(!serviceSource.Contains("CGlobal.Inst", StringComparison.Ordinal), "dataset dashboard presentation service should not read global application state");
     }
 
     private static void AssertNamedXamlButtonClick(XDocument xaml, XName xName, string controlName, string expectedHandler)
@@ -33204,6 +33578,14 @@ internal static partial class Program
             AssertTrue(statusChipText.Contains("YOLOv5", StringComparison.Ordinal), "inspection-model status chip should include the runtime family");
             AssertTrue(statusChipText.Contains("best.pt", StringComparison.Ordinal), "inspection-model status chip should include the weights file");
             AssertEqual("YOLOv5 / exp7" + Path.DirectorySeparatorChar + "best.pt", WpfInferenceStatusPresentationService.BuildRuntimeModelLabel(settings));
+            string exportedWeightsPath = Path.Combine(root, "circular-disk-yolov8n-e30", "best.pt");
+            Directory.CreateDirectory(Path.GetDirectoryName(exportedWeightsPath));
+            File.WriteAllText(exportedWeightsPath, "weights");
+            settings.WeightsPath = exportedWeightsPath;
+            AssertEqual(
+                "YOLOv5 / circular-disk-yolov8n-e30" + Path.DirectorySeparatorChar + "best.pt",
+                WpfInferenceStatusPresentationService.BuildRuntimeModelLabel(settings));
+            settings.WeightsPath = weightsPath;
             string comparisonSourceText = WpfInferenceStatusPresentationService.BuildModelComparisonSourceText(
                 settings,
                 weightsPath,

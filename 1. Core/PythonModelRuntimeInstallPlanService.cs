@@ -60,6 +60,11 @@ namespace MvcVisionSystem._1._Core
         {
             settings ??= new PythonModelSettings();
             string engine = PythonModelSettings.NormalizeModelEngine(settings.ModelEngine);
+            if (string.Equals(engine, PythonModelSettings.EngineUnet, StringComparison.Ordinal))
+            {
+                return BuildUnetPlan(settings, engine);
+            }
+
             if (!UsesUltralytics(engine))
             {
                 return new PythonModelRuntimeInstallPlan(
@@ -139,6 +144,55 @@ namespace MvcVisionSystem._1._Core
                     : "\uC544\uC9C1 \uC124\uCE58\uB294 \uC2E4\uD589\uD558\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4. \uB2E4\uC74C \uB2E8\uACC4\uC5D0\uC11C \uC774 \uBA85\uB839\uACFC \uB300\uC0C1 venv\uB97C \uD655\uC778\uD55C \uB4A4 \uC2E4\uD589\uD558\uB294 action\uC73C\uB85C \uC5F0\uACB0\uD569\uB2C8\uB2E4.",
                 venvRootPath,
                 command,
+                installCommand,
+                uninstallCommand,
+                isVisible: true,
+                canPreviewCommand: true,
+                canRunInstall: true,
+                canRunUninstall: true,
+                requiresInstallation: !installed,
+                isAlreadyInstalled: installed);
+        }
+
+        private static PythonModelRuntimeInstallPlan BuildUnetPlan(PythonModelSettings settings, string engine)
+        {
+            const string title = "U-Net PyTorch installation check";
+            string pythonExecutable = PythonModelSettingsValidator.ResolvePythonExecutable(settings);
+            if (!PythonModelSettingsValidator.LooksLikePath(pythonExecutable) || !File.Exists(pythonExecutable))
+            {
+                return new PythonModelRuntimeInstallPlan(
+                    engine, title, "Python/venv connection required",
+                    "Connect C:\\Git\\unet\\.venv-gpu\\Scripts\\python.exe before installing the U-Net runtime.",
+                    string.IsNullOrWhiteSpace(pythonExecutable) ? "Not configured" : pythonExecutable,
+                    string.Empty, string.Empty, string.Empty,
+                    isVisible: true, canPreviewCommand: false, canRunInstall: false, canRunUninstall: false,
+                    requiresInstallation: false, isAlreadyInstalled: false);
+            }
+
+            if (!TryResolveVenvRootPath(pythonExecutable, out string venvRootPath))
+            {
+                return new PythonModelRuntimeInstallPlan(
+                    engine, title, "venv check required",
+                    "The U-Net runtime must use a venv Scripts\\python.exe path.",
+                    pythonExecutable, string.Empty, string.Empty, string.Empty,
+                    isVisible: true, canPreviewCommand: false, canRunInstall: false, canRunUninstall: false,
+                    requiresInstallation: false, isAlreadyInstalled: false);
+            }
+
+            string sitePackagesPath = Path.Combine(venvRootPath, "Lib", "site-packages");
+            bool installed = Directory.Exists(Path.Combine(sitePackagesPath, "torch"))
+                && Directory.Exists(Path.Combine(sitePackagesPath, "PIL"));
+            string installCommand = $"{Quote(pythonExecutable)} -m pip install --upgrade torch pillow";
+            string uninstallCommand = $"{Quote(pythonExecutable)} -m pip uninstall -y torch pillow";
+            return new PythonModelRuntimeInstallPlan(
+                engine,
+                title,
+                installed ? "PyTorch U-Net installation verified" : "PyTorch U-Net installation required",
+                installed
+                    ? "torch and Pillow are available in the selected U-Net venv."
+                    : "This installs the default PyTorch build. Select a CUDA-specific PyTorch build outside the app when GPU compatibility needs a different package index.",
+                venvRootPath,
+                installed ? $"{Quote(pythonExecutable)} -c \"import torch, PIL; print(torch.__version__)\"" : installCommand,
                 installCommand,
                 uninstallCommand,
                 isVisible: true,

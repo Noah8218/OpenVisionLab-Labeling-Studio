@@ -8,10 +8,39 @@ namespace MvcVisionSystem._1._Core
     public static class PythonModelRuntimeBundledWorkerService
     {
         public const string UltralyticsWorkerRelativePath = @"Runtime\Python\openvisionlab_ultralytics_worker.py";
+        public const string UnetWorkerRelativePath = @"Runtime\Python\openvisionlab_unet_worker.py";
+        public const string SegmentationPredictionExporterRelativePath = @"Runtime\Python\openvisionlab_segmentation_prediction_export.py";
 
         public static string ResolveUltralyticsWorkerScriptPath()
         {
-            foreach (string candidate in EnumerateUltralyticsWorkerCandidates())
+            return ResolveWorkerScriptPath(UltralyticsWorkerRelativePath);
+        }
+
+        public static string ResolveUnetWorkerScriptPath()
+        {
+            return ResolveWorkerScriptPath(UnetWorkerRelativePath);
+        }
+
+        public static string ResolveSegmentationPredictionExporterScriptPath()
+        {
+            return ResolveWorkerScriptPath(SegmentationPredictionExporterRelativePath);
+        }
+
+        public static string ResolveUnetWorkerRootPath()
+        {
+            string scriptPath = ResolveUnetWorkerScriptPath();
+            string directory = Path.GetDirectoryName(scriptPath);
+            return string.IsNullOrWhiteSpace(directory) ? AppContext.BaseDirectory : directory;
+        }
+
+        public static bool IsUnetWorkerScriptPath(string scriptPath)
+        {
+            return IsWorkerScriptPath(scriptPath, UnetWorkerRelativePath);
+        }
+
+        private static string ResolveWorkerScriptPath(string relativePath)
+        {
+            foreach (string candidate in EnumerateWorkerCandidates(relativePath))
             {
                 if (File.Exists(candidate))
                 {
@@ -19,7 +48,7 @@ namespace MvcVisionSystem._1._Core
                 }
             }
 
-            return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, UltralyticsWorkerRelativePath));
+            return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, relativePath));
         }
 
         public static string ResolveUltralyticsWorkerRootPath()
@@ -31,6 +60,11 @@ namespace MvcVisionSystem._1._Core
 
         public static bool IsUltralyticsWorkerScriptPath(string scriptPath)
         {
+            return IsWorkerScriptPath(scriptPath, UltralyticsWorkerRelativePath);
+        }
+
+        private static bool IsWorkerScriptPath(string scriptPath, string relativePath)
+        {
             string trimmed = scriptPath?.Trim() ?? string.Empty;
             if (string.IsNullOrWhiteSpace(trimmed))
             {
@@ -38,7 +72,7 @@ namespace MvcVisionSystem._1._Core
             }
 
             string fileName = Path.GetFileName(trimmed);
-            if (!string.Equals(fileName, Path.GetFileName(UltralyticsWorkerRelativePath), StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(fileName, Path.GetFileName(relativePath), StringComparison.OrdinalIgnoreCase))
             {
                 return false;
             }
@@ -46,7 +80,7 @@ namespace MvcVisionSystem._1._Core
             try
             {
                 string fullPath = Path.GetFullPath(trimmed);
-                return EnumerateUltralyticsWorkerCandidates()
+                return EnumerateWorkerCandidates(relativePath)
                     .Any(candidate => string.Equals(Path.GetFullPath(candidate), fullPath, StringComparison.OrdinalIgnoreCase))
                     || File.Exists(fullPath);
             }
@@ -56,7 +90,7 @@ namespace MvcVisionSystem._1._Core
             }
         }
 
-        private static IEnumerable<string> EnumerateUltralyticsWorkerCandidates()
+        private static IEnumerable<string> EnumerateWorkerCandidates(string relativePath)
         {
             string[] roots =
             {
@@ -69,7 +103,7 @@ namespace MvcVisionSystem._1._Core
             return roots
                 .Where(root => !string.IsNullOrWhiteSpace(root))
                 .Distinct(StringComparer.OrdinalIgnoreCase)
-                .Select(root => Path.Combine(root, UltralyticsWorkerRelativePath));
+                .Select(root => Path.Combine(root, relativePath));
         }
 
         private static string FindRepositoryRoot(string startPath)

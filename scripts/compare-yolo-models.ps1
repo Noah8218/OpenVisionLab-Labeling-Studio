@@ -39,6 +39,8 @@ $MaximumGroundTruthErrorExamples = 40
 $script:SegmentationPositiveClassId = $null
 $script:ComparisonClassNames = @()
 $script:RuntimeDataYaml = ""
+$script:RuntimeDatasetRoot = ""
+$script:RuntimeDatasetMaterialized = $false
 
 $scriptRoot = Split-Path -Parent $MyInvocation.MyCommand.Path
 $repoRoot = Split-Path -Parent $scriptRoot
@@ -299,7 +301,15 @@ function Resolve-DataYamlSplitPath([string]$DataYamlPath, [string]$SplitName) {
     return Resolve-DataYamlValuePath $DataYamlPath $yamlRootPath $splitPath
 }
 
-function New-ComparisonRuntimeDataYaml([string]$SourceDataYamlPath, [string]$RunOutputRoot) {
+function Test-AsciiPath([string]$Path) {
+    return -not [regex]::IsMatch($Path, '[^\x00-\x7F]')
+}
+
+function New-ComparisonRuntimeDataYaml(
+    [string]$SourceDataYamlPath,
+    [string]$RunOutputRoot,
+    [bool]$MaterializeAsciiSource = $false
+) {
     # Native YOLO packages commonly use path: . which is intentionally relative to
     # their data.yaml. YOLOv5 and Ultralytics resolve that path from their runtime
     # working directory, so give each engine an artifact-local YAML with an absolute
@@ -313,7 +323,19 @@ function New-ComparisonRuntimeDataYaml([string]$SourceDataYamlPath, [string]$Run
     else {
         Resolve-DataYamlValuePath $SourceDataYamlPath "" $sourceRootValue
     }
-    $yamlPathValue = $resolvedSourceRoot.Replace("\", "/")
+    $runtimeSourceRoot = $resolvedSourceRoot
+    if ($MaterializeAsciiSource -and -not (Test-AsciiPath $resolvedSourceRoot)) {
+        # Some Windows model runtimes, including YOLOv5's OpenCV loader, cannot
+        # reliably open images below a non-ASCII path. Copy only to the app-owned
+        # comparison artifact so the supplied native dataset remains untouched.
+        $runtimeSourceRoot = Join-Path $RunOutputRoot "runtime-source-ascii"
+        New-Item -ItemType Directory -Force -Path $runtimeSourceRoot | Out-Null
+        Get-ChildItem -LiteralPath $resolvedSourceRoot -Force | Copy-Item -Destination $runtimeSourceRoot -Recurse -Force
+        $script:RuntimeDatasetMaterialized = $true
+    }
+
+    $script:RuntimeDatasetRoot = $runtimeSourceRoot
+    $yamlPathValue = $runtimeSourceRoot.Replace("\", "/")
     $runtimeLines = New-Object System.Collections.Generic.List[string]
     $replacedPath = $false
     foreach ($line in Get-Content -LiteralPath $SourceDataYamlPath) {
@@ -335,7 +357,7 @@ function New-ComparisonRuntimeDataYaml([string]$SourceDataYamlPath, [string]$Run
     return $runtimePath
 }
 
-function Clear-StaleYoloV5LabelCacheArtifacts([string]$DataYamlPath, [string]$SplitName) {
+function Get-YoloV5LabelCacheArtifactPaths([string]$DataYamlPath, [string]$SplitName) {
     $splitPath = Resolve-DataYamlSplitPath $DataYamlPath $SplitName
     if ([string]::IsNullOrWhiteSpace($splitPath)) {
         return @()
@@ -345,25 +367,33 @@ function Clear-StaleYoloV5LabelCacheArtifacts([string]$DataYamlPath, [string]$Sp
         ForEach-Object { Split-Path -Parent (Resolve-LabelPathFromImagePath $_) } |
         Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
         Sort-Object -Unique)
-    $removedPaths = New-Object System.Collections.Generic.List[string]
+    $cachePaths = New-Object System.Collections.Generic.List[string]
     foreach ($labelDirectory in $labelDirectories) {
-        # YOLOv5 writes the sidecar before renaming it over labels.cache on Windows.
         $cachePath = [System.IO.Path]::ChangeExtension($labelDirectory, ".cache")
         $cacheSidecarPath = $cachePath + ".npy"
-        if (-not (Test-Path -LiteralPath $cacheSidecarPath -PathType Leaf)) {
+        foreach ($cacheArtifactPath in @($cachePath, $cacheSidecarPath)) {
+            if (Test-Path -LiteralPath $cacheArtifactPath -PathType Leaf) {
+                $cachePaths.Add([System.IO.Path]::GetFullPath($cacheArtifactPath))
+            }
+        }
+    }
+
+    return $cachePaths.ToArray()
+}
+
+function Remove-YoloV5CreatedLabelCacheArtifacts([string]$DataYamlPath, [string]$SplitName, [string[]]$CachePathsBefore) {
+    $removedPaths = New-Object System.Collections.Generic.List[string]
+    foreach ($cacheArtifactPath in @(Get-YoloV5LabelCacheArtifactPaths $DataYamlPath $SplitName)) {
+        if (@($CachePathsBefore) -contains $cacheArtifactPath) {
             continue
         }
 
         try {
-            foreach ($cacheArtifactPath in @($cacheSidecarPath, $cachePath)) {
-                if (Test-Path -LiteralPath $cacheArtifactPath -PathType Leaf) {
-                    Remove-Item -LiteralPath $cacheArtifactPath -Force -ErrorAction Stop
-                    $removedPaths.Add([System.IO.Path]::GetFullPath($cacheArtifactPath))
-                }
-            }
+            Remove-Item -LiteralPath $cacheArtifactPath -Force -ErrorAction Stop
+            $removedPaths.Add($cacheArtifactPath)
         }
         catch {
-            throw "Model comparison cannot clear stale YOLOv5 label-cache artifacts for '$labelDirectory': $($_.Exception.Message)"
+            throw "Model comparison cannot remove the YOLOv5 label-cache artifact it created '$cacheArtifactPath': $($_.Exception.Message)"
         }
     }
 
@@ -775,7 +805,7 @@ function Invoke-YoloVal(
     $predictionLogPath = ""
     $labelsPath = Join-Path $runProject "$RunName\labels"
     if ($IncludePredictions -and $ModelTask -ieq "detect") {
-        $resolvedPredictSource = Resolve-DataYamlSplitPath $DataYaml $Task
+        $resolvedPredictSource = Resolve-DataYamlSplitPath $script:RuntimeDataYaml $Task
         if ([string]::IsNullOrWhiteSpace($resolvedPredictSource) -or -not (Test-Path -LiteralPath $resolvedPredictSource)) {
             throw "YOLO prediction source not found for $Task split: $resolvedPredictSource"
         }
@@ -848,7 +878,7 @@ function Invoke-UltralyticsVal(
 ) {
     $logPath = Join-Path $RunOutputRoot "$RunName.log"
     $runProject = Join-Path $RunOutputRoot "runs"
-    $resolvedPredictSource = Resolve-DataYamlSplitPath $DataYaml $Task
+    $resolvedPredictSource = Resolve-DataYamlSplitPath $script:RuntimeDataYaml $Task
     if ([string]::IsNullOrWhiteSpace($resolvedPredictSource) -or -not (Test-Path -LiteralPath $resolvedPredictSource)) {
         throw "YOLO prediction source not found for $Task split: $resolvedPredictSource"
     }
@@ -1907,20 +1937,27 @@ function Write-MarkdownReport($Summary, [string]$Path) {
     $lines.Add("")
     $lines.Add("- Data: ``$($Summary.dataYaml)``")
     $lines.Add("- Runtime data YAML: ``$($Summary.runtimeDataYaml)`` (artifact copy with an absolute dataset root; source YAML unchanged)")
+    if ($Summary.runtimeDatasetMaterialized) {
+        $lines.Add("- Runtime dataset root: ``$($Summary.runtimeDatasetRoot)`` (artifact-local ASCII copy for Windows non-ASCII path compatibility; source tree unchanged)")
+    }
     $lines.Add("- Task: ``$($Summary.task)``")
     $lines.Add("- Model task: ``$($Summary.modelTask)``")
     $lines.Add("- Image size: ``$($Summary.imageSize)``")
     $lines.Add("- Validation batch: ``$($Summary.batchSize)``")
     $lines.Add("- Benchmark repeats: ``$($Summary.benchmarkRepeatCount)``")
     $lines.Add("- UI confidence: ``$($Summary.uiConfidence)``")
-    if ($null -ne $Summary.runtimePreflight -and @($Summary.runtimePreflight.yoloV5StaleLabelCacheArtifactsRemoved).Count -gt 0) {
-        $lines.Add("- YOLOv5 cache preflight: removed ``$(@($Summary.runtimePreflight.yoloV5StaleLabelCacheArtifactsRemoved).Count)`` stale ``labels.cache`` artifact(s) before validation.")
+    if ($null -ne $Summary.runtimePreflight -and @($Summary.runtimePreflight.yoloV5SourceCacheArtifactsBefore).Count -gt 0) {
+        $lines.Add("- YOLOv5 source cache before validation: retained ``$(@($Summary.runtimePreflight.yoloV5SourceCacheArtifactsBefore).Count)`` existing artifact(s).")
+    }
+    if ($null -ne $Summary.runtimePreflight -and @($Summary.runtimePreflight.yoloV5CreatedCacheArtifactsRemoved).Count -gt 0) {
+        $lines.Add("- YOLOv5 cache cleanup: removed ``$(@($Summary.runtimePreflight.yoloV5CreatedCacheArtifactsRemoved).Count)`` ``labels.cache`` artifact(s) created by this comparison.")
     }
     if ($null -ne $evidence) {
         $lines.Add("- Data YAML SHA-256: ``$($evidence.dataYamlSha256)``")
         $lines.Add("- Evaluation evidence SHA-256: ``$($evidence.fingerprintSha256)`` (``$($evidence.fingerprintAlgorithm)``)")
-        if ($Summary.comparisonKind -ieq "engine-benchmark" -and $Summary.task -ieq "val") {
-            $lines.Add("- Comparison evidence: ``$($evidence.comparisonLabelCount)`` labeled images from training validation (val); not model-replacement evidence")
+        if ($Summary.comparisonKind -ieq "engine-benchmark") {
+            $splitDescription = if ($Summary.task -ieq "test") { "held-out test" } else { "training validation (val)" }
+            $lines.Add("- Engine comparison evidence: ``$($evidence.comparisonLabelCount)`` labeled images from $splitDescription; not model-replacement evidence")
         }
         else {
             $lines.Add("- Held-out evidence: ``$($evidence.comparisonLabelCount)`` labeled images / recommended ``$($evidence.recommendedLabelCount)``")
@@ -2086,34 +2123,43 @@ $dataClassInfo = Assert-ModelClassCountsMatchData
 $script:ComparisonClassNames = @($dataClassInfo.names)
 $segmentationPositiveClass = Resolve-SegmentationPositiveClass $dataClassInfo $SegmentationPositiveClassName $ModelTask
 $script:SegmentationPositiveClassId = if ($null -eq $segmentationPositiveClass) { $null } else { [int]$segmentationPositiveClass.id }
-$yoloV5StaleLabelCacheArtifactsRemoved = @()
-if ((Test-YoloV5SourceRoot $BaselineYoloSourceRoot) -or (Test-YoloV5SourceRoot $CandidateYoloSourceRoot)) {
-    $yoloV5StaleLabelCacheArtifactsRemoved = @(Clear-StaleYoloV5LabelCacheArtifacts $DataYaml $Task)
-    if ($yoloV5StaleLabelCacheArtifactsRemoved.Count -gt 0) {
-        Write-Host "[INFO] Cleared $($yoloV5StaleLabelCacheArtifactsRemoved.Count) stale YOLOv5 labels.cache artifact(s) before validation."
-    }
-}
+$hasYoloV5Runtime = (Test-YoloV5SourceRoot $BaselineYoloSourceRoot) -or (Test-YoloV5SourceRoot $CandidateYoloSourceRoot)
+$requiresAsciiRuntimeSource = $hasYoloV5Runtime -or -not (Test-AsciiPath $DataYaml)
+$yoloV5SourceCacheArtifactsBefore = if ($hasYoloV5Runtime) { @(Get-YoloV5LabelCacheArtifactPaths $DataYaml $Task) } else { @() }
+$yoloV5CreatedCacheArtifactsRemoved = @()
 
 $stamp = Get-Date -Format "yyyyMMdd-HHmmss"
 $runOutputRoot = Join-Path $OutputDirectory $stamp
 New-Item -ItemType Directory -Force -Path $runOutputRoot | Out-Null
-$script:RuntimeDataYaml = New-ComparisonRuntimeDataYaml $DataYaml $runOutputRoot
+    $script:RuntimeDataYaml = New-ComparisonRuntimeDataYaml $DataYaml $runOutputRoot $requiresAsciiRuntimeSource
 
-$baseline = Invoke-ModelValWithBenchmarkRepeats "baseline" $BaselineWeights $runOutputRoot $BaselinePythonExe $BaselineYoloSourceRoot $BaselineEngine $BenchmarkRepeatCount
-$candidate = Invoke-ModelValWithBenchmarkRepeats "candidate" $CandidateWeights $runOutputRoot $CandidatePythonExe $CandidateYoloSourceRoot $CandidateEngine $BenchmarkRepeatCount
-$evidence = New-ComparisonEvidence $DataYaml $Task $ModelTask $segmentationPositiveClass
-if ($ModelTask -ieq "detect") {
-    $baseline["groundTruthReview"] = New-GroundTruthReview $baseline $evidence $script:ComparisonClassNames $UiConfidence $GroundTruthReviewIouThreshold
-    $candidate["groundTruthReview"] = New-GroundTruthReview $candidate $evidence $script:ComparisonClassNames $UiConfidence $GroundTruthReviewIouThreshold
+try {
+    $baseline = Invoke-ModelValWithBenchmarkRepeats "baseline" $BaselineWeights $runOutputRoot $BaselinePythonExe $BaselineYoloSourceRoot $BaselineEngine $BenchmarkRepeatCount
+    $candidate = Invoke-ModelValWithBenchmarkRepeats "candidate" $CandidateWeights $runOutputRoot $CandidatePythonExe $CandidateYoloSourceRoot $CandidateEngine $BenchmarkRepeatCount
+    $evidence = New-ComparisonEvidence $DataYaml $Task $ModelTask $segmentationPositiveClass
+    if ($ModelTask -ieq "detect") {
+        $baseline["groundTruthReview"] = New-GroundTruthReview $baseline $evidence $script:ComparisonClassNames $UiConfidence $GroundTruthReviewIouThreshold
+        $candidate["groundTruthReview"] = New-GroundTruthReview $candidate $evidence $script:ComparisonClassNames $UiConfidence $GroundTruthReviewIouThreshold
+    }
+    else {
+        Add-SegmentationPredictionImageEvidence $baseline $evidence $UiConfidence
+        Add-SegmentationPredictionImageEvidence $candidate $evidence $UiConfidence
+    }
 }
-else {
-    Add-SegmentationPredictionImageEvidence $baseline $evidence $UiConfidence
-    Add-SegmentationPredictionImageEvidence $candidate $evidence $UiConfidence
+finally {
+    if ($hasYoloV5Runtime) {
+        $yoloV5CreatedCacheArtifactsRemoved = @(Remove-YoloV5CreatedLabelCacheArtifacts $DataYaml $Task $yoloV5SourceCacheArtifactsBefore)
+    }
 }
 $promotion = New-PromotionRecommendation $baseline $candidate $evidence $UiConfidence
 $comparisonKind = if ($BaselineEngine -ine $CandidateEngine) { "engine-benchmark" } else { "candidate-validation" }
-if ($comparisonKind -ieq "engine-benchmark" -and $Task -ieq "val") {
-    $benchmarkReason = "Training validation (val) results are for engine performance analysis and are not model-replacement evidence."
+if ($comparisonKind -ieq "engine-benchmark") {
+    $benchmarkReason = if ($Task -ieq "test") {
+        "Held-out test results compare engine profiles only; they do not automatically replace the current inspection model."
+    }
+    else {
+        "Training validation (val) results are for engine performance analysis and are not model-replacement evidence."
+    }
     $promotion["recommendation"] = "benchmark"
     $promotion["reason"] = $benchmarkReason
     $promotion["reasons"] = @($benchmarkReason)
@@ -2123,6 +2169,8 @@ $summary = [ordered]@{
     createdAt = (Get-Date).ToString("o")
     dataYaml = $DataYaml
     runtimeDataYaml = $script:RuntimeDataYaml
+    runtimeDatasetRoot = $script:RuntimeDatasetRoot
+    runtimeDatasetMaterialized = $script:RuntimeDatasetMaterialized
     task = $Task
     modelTask = $ModelTask
     comparisonKind = $comparisonKind
@@ -2132,7 +2180,8 @@ $summary = [ordered]@{
     uiConfidence = $UiConfidence
     uiNmsIou = $UiNmsIou
     runtimePreflight = [ordered]@{
-        yoloV5StaleLabelCacheArtifactsRemoved = @($yoloV5StaleLabelCacheArtifactsRemoved)
+        yoloV5SourceCacheArtifactsBefore = @($yoloV5SourceCacheArtifactsBefore)
+        yoloV5CreatedCacheArtifactsRemoved = @($yoloV5CreatedCacheArtifactsRemoved)
     }
     evidence = $evidence
     baseline = $baseline

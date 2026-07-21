@@ -256,92 +256,59 @@ namespace MvcVisionSystem
 
         private bool ApplyDatasetSetupRequest(WpfDatasetSetupRequest request)
         {
-            if (request == null)
+            WpfDatasetSetupExecutionResult result = datasetSetupExecutionService.Execute(
+                request,
+                GetRecipeRootDirectory(),
+                GetDatasetSetupDefaultOutputRoot());
+            if (!result.Succeeded)
             {
-                return false;
-            }
-
-            string recipeName = request.RecipeName?.Trim() ?? string.Empty;
-            if (!WpfProjectRecipeService.IsValidRecipeName(recipeName))
-            {
-                string message = datasetSetupPresentationService.BuildInvalidRecipeNameMessage();
+                string message = result.Failure switch
+                {
+                    WpfDatasetSetupExecutionFailure.DuplicateOutputRoot => datasetSetupPresentationService.BuildDuplicateOutputRootMessage(result.ExistingRecipeName),
+                    WpfDatasetSetupExecutionFailure.SamplePreset => datasetSetupPresentationService.BuildSamplePresetFailureMessage(result.SampleError),
+                    _ => datasetSetupPresentationService.BuildInvalidRecipeNameMessage()
+                };
                 SetDatasetSetupStatus(message);
                 SetProjectConfigStatus(message);
+                if (result.Failure != WpfDatasetSetupExecutionFailure.InvalidRecipeName)
+                {
+                    AppendLog(message);
+                }
+
                 return false;
             }
 
-            string outputRootPath = string.IsNullOrWhiteSpace(request.OutputRootPath)
-                ? ResolveDatasetSetupOutputRoot(recipeName)
-                : request.OutputRootPath.Trim();
-            if (datasetSetupPathService.TryFindDatasetUsingOutputRoot(GetRecipeRootDirectory(), outputRootPath, recipeName, out string existingRecipeName))
-            {
-                string message = datasetSetupPresentationService.BuildDuplicateOutputRootMessage(existingRecipeName);
-                SetDatasetSetupStatus(message);
-                SetProjectConfigStatus(message);
-                AppendLog(message);
-                return false;
-            }
+            ProjectConfigViewModel.RecipeName = result.RecipeName;
 
-            ProjectConfigViewModel.RecipeName = recipeName;
-
-            // Dataset setup is a low-frequency workflow action. Keep folder,
-            // config, YAML, and manifest creation here instead of spreading it
-            // across the purpose selector and drawing tool paths.
-            global.Data = new CData();
-            global.Recipe.Name = recipeName;
+            // CRecipe.Name raises the existing recipe-change lifecycle. The
+            // service saved the fully prepared CData first, so the lifecycle can
+            // load that contract without the view constructing files or labels.
+            global.Data = result.Data;
+            global.Recipe.Name = result.RecipeName;
             ApplyDatasetPurposeToCurrentProject(request.Purpose);
-
-            string selectedClassName = datasetSetupDataService.ApplyOutputRootAndClasses(
-                global.Data,
-                outputRootPath,
-                request.ClassNames);
-            if (!WpfDatasetSamplePresetService.TryApplySample(request, global.Data, out WpfDatasetSamplePresetApplyResult sampleResult, out string sampleError))
-            {
-                string message = datasetSetupPresentationService.BuildSamplePresetFailureMessage(sampleError);
-                SetDatasetSetupStatus(message);
-                SetProjectConfigStatus(message);
-                AppendLog(message);
-                return false;
-            }
-
-            string setupImageRootPath;
-            if (sampleResult?.Applied == true && Directory.Exists(sampleResult.ImageRootPath))
-            {
-                setupImageRootPath = sampleResult.ImageRootPath;
-            }
-            else
-            {
-                setupImageRootPath = global.Data.TrainImagesPath;
-            }
-
-            global.Data.ProjectSettings.PythonModel.ImageRootPath = setupImageRootPath;
-
-            global.Data.SaveYoloDataYaml();
-            global.Data.SaveConfig(recipeName);
-            RememberLastOpenedDatasetRecipe(recipeName);
+            RememberLastOpenedDatasetRecipe(result.RecipeName);
 
             PopulateProjectConfigPanelFields();
-            PopulateClassList(selectedClassName);
+            PopulateClassList(result.SelectedClassName);
             PopulateYoloEditorFields();
             PopulateTrainingEditorFields();
             RefreshTrainingReadinessPanel(refreshYaml: false);
             RefreshYoloTrainingStepCompletion();
             EnterLabelingWorkbenchStartView();
-            if (Directory.Exists(setupImageRootPath))
+            if (Directory.Exists(result.ImageRootPath))
             {
-                _ = LoadImageQueueFromRootAsync(setupImageRootPath, string.Empty, loadFirstImage: true);
+                _ = LoadImageQueueFromRootAsync(result.ImageRootPath, string.Empty, loadFirstImage: true);
             }
             else
             {
-                ClearImageQueueAfterDatasetSwitch(setupImageRootPath);
+                ClearImageQueueAfterDatasetSwitch(result.ImageRootPath);
             }
 
-            string manifestPath = LabelingDatasetManifestService.GetManifestPath(recipeName);
-            string status = datasetSetupPresentationService.BuildReadyStatus(recipeName, request.Purpose, manifestPath, sampleResult);
+            string status = datasetSetupPresentationService.BuildReadyStatus(result.RecipeName, request.Purpose, result.ManifestPath, result.SampleResult);
             SetDatasetSetupStatus(status);
             SetProjectConfigStatus(status);
-            SetDatasetStatus(datasetSetupPresentationService.BuildDatasetReadyStatus(outputRootPath));
-            AppendLog(datasetSetupPresentationService.BuildCreationLog(recipeName, request.Purpose, outputRootPath, manifestPath));
+            SetDatasetStatus(datasetSetupPresentationService.BuildDatasetReadyStatus(result.OutputRootPath));
+            AppendLog(datasetSetupPresentationService.BuildCreationLog(result.RecipeName, request.Purpose, result.OutputRootPath, result.ManifestPath));
             return true;
         }
 
@@ -403,8 +370,12 @@ namespace MvcVisionSystem
 
         private string ResolveDatasetSetupOutputRoot(string recipeName)
         {
-            string defaultOutputRoot = Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "DATA"));
-            return datasetSetupPathService.ResolveOutputRoot(recipeName, defaultOutputRoot, GetRecipeRootDirectory());
+            return datasetSetupPathService.ResolveOutputRoot(recipeName, GetDatasetSetupDefaultOutputRoot(), GetRecipeRootDirectory());
+        }
+
+        private static string GetDatasetSetupDefaultOutputRoot()
+        {
+            return Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "DATA"));
         }
 
         private static bool PathsEqual(string firstPath, string secondPath)

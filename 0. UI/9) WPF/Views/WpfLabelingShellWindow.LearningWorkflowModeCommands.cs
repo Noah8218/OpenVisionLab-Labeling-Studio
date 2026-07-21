@@ -5,6 +5,16 @@ namespace MvcVisionSystem
         private void DatasetPurposeListBox_SelectionChanged(object sender, object selectedItem)
         {
             WpfLearningModeItem selectedPurposeItem = selectedItem as WpfLearningModeItem;
+            if (sender is System.Windows.Controls.ListBox purposeListBox
+                && selectedPurposeItem != null
+                && !ReferenceEquals(purposeListBox.SelectedItem, selectedPurposeItem))
+            {
+                // The selected-item command is queued by WPF. Ignore an older
+                // callback if the ListBox has already moved to the current
+                // recipe's canonical purpose.
+                return;
+            }
+
             if (selectedPurposeItem != null && !ReferenceEquals(LearningWorkflowViewModel?.SelectedDatasetPurposeMode, selectedPurposeItem))
             {
                 LearningWorkflowViewModel.SelectedDatasetPurposeMode = selectedPurposeItem;

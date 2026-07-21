@@ -302,10 +302,11 @@ Blocked. Do not claim readiness, expose a default, download a weight, or create 
 
 ## 9. Known Gaps, Risks, and TODO Scan
 
-- The former dirty feature slices are reconciled into local commits through 85d91e9. Do not repeat their focused reviews unless source, requirements, environment, or evidence validity changes.
-- Current-head CI has not been inspected in this documentation pass.
+- The former dirty feature slices are committed and pushed through `58166f8`. Do not repeat their focused reviews unless source, requirements, environment, or evidence validity changes.
+- GitHub Actions CI #22 passed for pushed commit `58166f8`. The current persistent-adapter/synthetic-data slice is uncommitted and therefore has no CI result yet.
 - Image-queue behavior on shared/network storage and provenance-confirmed production-camera folders is unverified. Mixed local 50K warm-cache and local duplicate-file 8K profiles exist, but neither is a network result; the 8K source has only 250 distinct contents copied 32 times and is not a production-data proxy. The operator removed this unavailable profile from the active priority list on 2026-07-18; retain the risk record without treating it as next work.
 - Model quality remains data-limited, not implementation-limited.
+- The supplied circular-disk 500 OK / 500 NG package now has completed synthetic anomaly and exact metadata-backed object-detection evidence. It does not satisfy the independent production-camera requirement. Full record: `docs\CIRCULAR_DISK_SYNTHETIC_1000_EVIDENCE_20260720.md`.
 - Collaboration, reviewer assignment, cloud sync, account management, deployment, and enterprise governance are out of scope.
 - A repository source scan for TODO, FIXME, and HACK excluding artifacts/bin/obj/tutorial outputs returned no hits in this handoff pass. This does not mean every product gap is complete; use the explicit gaps above.
 
@@ -317,11 +318,14 @@ Blocked. Do not claim readiness, expose a default, download a weight, or create 
    Reasoning effort: n/a
 
 2. Convert an independent NG-rich object-detection camera/session source into a labeled held-out test split, then rerun the controlled YOLOv5 versus YOLOv8 test comparison. The `D:\라벨테스트` Switch Housing synthetic cross-product result is complete and remains `hold`; do not repeat it unless its source, weights, threshold, or acceptance criteria change. The discovered `D:\기타이미지\2022.11.16_SIT 이미지` candidate has 10,447 JPEGs (`OK` 5,950 / `NG` 4,497) but no YAML or annotation files, so it is not yet an object-detection evaluation set. This establishes separate quality evidence with provenance and no content overlap; it excludes treating image-level folder names as boxes or promoting a model from the existing synthetic report.
+   The 2026-07-20 read-only audit found 9,996 unique contents, 111 duplicate-content groups, and 18 duplicate groups with conflicting OK/NG labels. No exact duplicate crosses PC1 and PC2. The source is suitable only as an image-level candidate until the operator supplies defect classes and bounding boxes; any eventual split must remove/adjudicate conflicting groups and prove content-hash separation. Full record: `docs\WORK_TRACKING.md` (`2026-07-20 independent production-camera object-detection holdout data audit`).
+   The 2026-07-20 circular-disk package now also has a completed 20-epoch CPU YOLOv5s/YOLOv8n comparison on its 150-image test split: YOLOv8n measured mAP50/mAP50-95 `0.955/0.678` and 27.575ms median native takt, versus YOLOv5s `0.900/0.567` and 52.45ms. The fixed comparison preserved the 2,005-file source SHA-256 after cleaning its generated YOLOv5 cache and is explicitly `engine-benchmark`, not model adoption. The source remains single-image synthetic data, so do not count it as this independent-camera priority.
    Prerequisite: operator confirmation that this is the intended source, object classes and bounding-box labeling rules, and a completed labeled held-out split with no content overlap with training/validation data.
    Recommended model: none until the data is available
    Reasoning effort: n/a
 
 3. Acquire balanced independent production-camera/cross-session normal and abnormal anomaly data, keep it outside training initially, and rerun the anomaly evaluation guard. This distinguishes a repeatable classifier runtime from generalizable anomaly quality; it excludes tuning against the preserved circular or MultiIndustry synthetic evaluation sets.
+   The 2026-07-20 circular synthetic 1,000-image candidate remains `hold` at 90/104 confidence-gated test accuracy with seven false OK ring-deformation cases. Do not tune the threshold against that test or substitute it for new acquisition evidence.
    Prerequisite: new normal and abnormal images with provenance and representative operating conditions.
    Recommended model: none until the data is available
    Reasoning effort: n/a
@@ -357,6 +361,8 @@ dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplicat
 dotnet .\tests\LabelingApplication.Tests\artifacts\isolated-out\LabelingApplication.Tests.dll --wpf-yolov8-anomaly-classification-runtime-smoke
 
 C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile C:\Git\yolov8\labeling_tcp_client.py Runtime\Python\openvisionlab_ultralytics_worker.py
+C:\Git\yolov8\.venv\Scripts\python.exe -m py_compile Runtime\Python\openvisionlab_yolo_classification_batch.py
+C:\Git\yolov8\.venv\Scripts\python.exe Runtime\Python\openvisionlab_yolo_classification_batch.py --self-test
 C:\Git\yolov8\.venv\Scripts\python.exe C:\Git\yolov8\labeling_tcp_client.py --self-test
 
 git diff --check

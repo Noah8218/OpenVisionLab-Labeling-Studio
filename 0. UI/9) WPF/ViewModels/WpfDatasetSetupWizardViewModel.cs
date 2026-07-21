@@ -11,21 +11,6 @@ using System.Windows.Input;
 
 namespace MvcVisionSystem
 {
-    public sealed class WpfDatasetSetupRequest
-    {
-        public LabelingDatasetPurpose Purpose { get; set; } = LabelingDatasetPurpose.ObjectDetection;
-
-        public string RecipeName { get; set; } = string.Empty;
-
-        public string OutputRootPath { get; set; } = string.Empty;
-
-        public IReadOnlyList<string> ClassNames { get; set; } = Array.Empty<string>();
-
-        public WpfDatasetSamplePresetKind SamplePresetKind { get; set; } = WpfDatasetSamplePresetKind.Empty;
-
-        public string SampleSourcePath { get; set; } = string.Empty;
-    }
-
     public sealed class WpfDatasetSetupWizardViewModel : WpfObservableViewModel
     {
         private static readonly Action NoOpCommand = () => { };

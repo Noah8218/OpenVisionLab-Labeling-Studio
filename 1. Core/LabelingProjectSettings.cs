@@ -70,6 +70,9 @@ namespace MvcVisionSystem
 
         public string LastValidationSummary { get; set; } = "";
 
+        // Snapshot only: it tells the operator which native classes were validated without changing recipe-owned classes.
+        public string LastValidationClassNames { get; set; } = "";
+
         public int TrainImageCount { get; set; }
 
         public int ValidImageCount { get; set; }
@@ -91,6 +94,9 @@ namespace MvcVisionSystem
         public string LastTrainingSourceFingerprintSha256 { get; set; } = "";
 
         public string LastTrainingDataYamlFilePath { get; set; } = "";
+
+        // Source stays selected above; this records the app-owned standard-layout copy actually sent to YOLO.
+        public string LastTrainingRuntimeDataYamlFilePath { get; set; } = "";
 
         public string LastTrainingModel { get; set; } = "";
 
@@ -123,10 +129,12 @@ namespace MvcVisionSystem
             DataYamlFilePath ??= "";
             LastValidationUtc ??= "";
             LastValidationSummary ??= "";
+            LastValidationClassNames ??= "";
             SourceFingerprintSha256 ??= "";
             LastTrainingUtc ??= "";
             LastTrainingSourceFingerprintSha256 ??= "";
             LastTrainingDataYamlFilePath ??= "";
+            LastTrainingRuntimeDataYamlFilePath ??= "";
             LastTrainingModel ??= "";
             LastTrainingTask ??= "";
             LastTrainingRunName ??= "";
@@ -158,6 +166,7 @@ namespace MvcVisionSystem
             RequiresExplicitReactivation = false;
             LastValidationUtc = "";
             LastValidationSummary = "";
+            LastValidationClassNames = "";
             TrainImageCount = 0;
             ValidImageCount = 0;
             TestImageCount = 0;
@@ -169,6 +178,7 @@ namespace MvcVisionSystem
             LastTrainingUtc = "";
             LastTrainingSourceFingerprintSha256 = "";
             LastTrainingDataYamlFilePath = "";
+            LastTrainingRuntimeDataYamlFilePath = "";
             LastTrainingModel = "";
             LastTrainingTask = "";
             LastTrainingRunName = "";
@@ -416,6 +426,7 @@ namespace MvcVisionSystem
         public const string EngineYoloV5 = "YOLOv5";
         public const string EngineYoloV8 = "YOLOv8";
         public const string EngineYolo11 = "YOLO11";
+        public const string EngineUnet = "U-Net";
         public const string EngineOnnx = "ONNX";
 
         private const string ProjectRootPathDefault = @"C:\Git\yolov5";
@@ -461,12 +472,16 @@ namespace MvcVisionSystem
 
             if (string.IsNullOrWhiteSpace(ClientScriptPath))
             {
-                ClientScriptPath = Path.Combine(ProjectRootPath, "labelling_tcp_client.py");
+                ClientScriptPath = ModelEngine == EngineUnet
+                    ? _1._Core.PythonModelRuntimeBundledWorkerService.ResolveUnetWorkerScriptPath()
+                    : Path.Combine(ProjectRootPath, "labelling_tcp_client.py");
             }
 
             if (string.IsNullOrWhiteSpace(WeightsPath))
             {
-                WeightsPath = Path.Combine(ProjectRootPath, "best.pt");
+                WeightsPath = ModelEngine == EngineUnet
+                    ? GetDefaultUnetWeightsPath(ProjectRootPath)
+                    : Path.Combine(ProjectRootPath, "best.pt");
             }
 
             if (string.IsNullOrWhiteSpace(ImageRootPath))
@@ -481,7 +496,7 @@ namespace MvcVisionSystem
         }
 
         public static IReadOnlyList<string> GetSupportedModelEngines()
-            => new[] { EngineYoloV5, EngineYoloV8, EngineYolo11, EngineOnnx };
+            => new[] { EngineYoloV5, EngineYoloV8, EngineYolo11, EngineUnet, EngineOnnx };
 
         public static string NormalizeModelEngine(string value)
         {
@@ -496,6 +511,13 @@ namespace MvcVisionSystem
                 || string.Equals(normalized, "yolov11", StringComparison.OrdinalIgnoreCase))
             {
                 return EngineYolo11;
+            }
+
+            if (string.Equals(normalized, "unet", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "u-net", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(normalized, "u net", StringComparison.OrdinalIgnoreCase))
+            {
+                return EngineUnet;
             }
 
             if (string.Equals(normalized, "onnx", StringComparison.OrdinalIgnoreCase)
@@ -513,6 +535,7 @@ namespace MvcVisionSystem
             {
                 EngineYoloV8 => "yolov8",
                 EngineYolo11 => "yolo11",
+                EngineUnet => "unet",
                 EngineOnnx => "onnx",
                 _ => "yolov5"
             };
@@ -542,6 +565,20 @@ namespace MvcVisionSystem
             }
 
             return Directory.Exists(ProjectRootPathDefault) ? ProjectRootPathDefault : siblingRoot;
+        }
+
+        public static string GetDefaultUnetProjectRootPath()
+        {
+            string siblingRoot = ResolveSiblingPath("unet");
+            return Directory.Exists(siblingRoot) ? siblingRoot : Path.Combine(@"C:\Git", "unet");
+        }
+
+        public static string GetDefaultUnetWeightsPath(string projectRootPath = "")
+        {
+            string root = string.IsNullOrWhiteSpace(projectRootPath)
+                ? GetDefaultUnetProjectRootPath()
+                : projectRootPath.Trim();
+            return Path.Combine(root, "runs", "segment", "openvisionlab-unet-segmentation", "weights", "best.pt");
         }
 
         public static string GetDefaultImageRootPath()

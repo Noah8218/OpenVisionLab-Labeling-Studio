@@ -102,6 +102,7 @@ namespace MvcVisionSystem
                 summary.SelectToken("comparisonKind")?.Value<string>(),
                 "engine-benchmark",
                 StringComparison.OrdinalIgnoreCase);
+            IReadOnlyList<string> resolvedClassNames = ResolveClassNamesFromSummary(summary, classNames);
             Func<string, string> resolveImagePath = BuildImagePathResolver(dataYamlPath, task);
             double? summaryConfidence = summary.SelectToken("uiConfidence")?.Value<double?>();
             double threshold = confidenceThreshold
@@ -131,7 +132,7 @@ namespace MvcVisionSystem
             return BuildFromLabelDirectories(
                 baselineLabelsPath,
                 candidateLabelsPath,
-                classNames,
+                resolvedClassNames,
                 threshold,
                 DefaultIouThreshold,
                 maxExamples,
@@ -983,6 +984,49 @@ namespace MvcVisionSystem
             }
 
             return $"class {classId}";
+        }
+
+        // A comparison artifact is self-describing. Prefer its class metrics so an
+        // external native data.yaml cannot be relabelled by unrelated recipe-owned
+        // classes when the user reopens a comparison or selects its history.
+        private static IReadOnlyList<string> ResolveClassNamesFromSummary(
+            JObject summary,
+            IReadOnlyList<string> fallbackClassNames)
+        {
+            var namesById = new Dictionary<int, string>();
+            foreach (string metricPath in new[] { "baseline.classMetrics", "candidate.classMetrics" })
+            {
+                if (summary.SelectToken(metricPath) is not JArray metrics)
+                {
+                    continue;
+                }
+
+                foreach (JToken metric in metrics)
+                {
+                    int? classId = metric["classId"]?.Value<int?>();
+                    string className = metric["className"]?.Value<string>()?.Trim() ?? string.Empty;
+                    if (!classId.HasValue || classId.Value < 0 || string.IsNullOrWhiteSpace(className))
+                    {
+                        continue;
+                    }
+
+                    namesById.TryAdd(classId.Value, className);
+                }
+            }
+
+            if (namesById.Count == 0)
+            {
+                return fallbackClassNames ?? Array.Empty<string>();
+            }
+
+            int maxClassId = namesById.Keys.Max();
+            var resolved = Enumerable.Repeat(string.Empty, maxClassId + 1).ToArray();
+            foreach (KeyValuePair<int, string> item in namesById)
+            {
+                resolved[item.Key] = item.Value;
+            }
+
+            return resolved;
         }
 
         private static string ResolveSummaryPath(string summaryJsonPath, string path)

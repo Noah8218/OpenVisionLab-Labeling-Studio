@@ -251,6 +251,16 @@ namespace MvcVisionSystem
                 return $"{directory.Parent.Name}{Path.DirectorySeparatorChar}{fileName}";
             }
 
+            // Exported training evidence can keep best.pt directly under its run folder
+            // instead of the engine's conventional weights folder.  Keep that run identity
+            // visible so operators do not see several indistinguishable "best.pt" entries.
+            if ((string.Equals(fileName, "best.pt", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(fileName, "last.pt", StringComparison.OrdinalIgnoreCase))
+                && !string.IsNullOrWhiteSpace(directory.Name))
+            {
+                return $"{directory.Name}{Path.DirectorySeparatorChar}{fileName}";
+            }
+
             return fileName;
         }
 

@@ -26,6 +26,12 @@ namespace MvcVisionSystem
         public WpfUiButton ReviewTrainedModel => ReviewTrainedModelButton;
         public WpfUiButton ConfirmTrainedModel => ConfirmTrainedModelButton;
         public WpfUiButton RunYoloEngineComparison => RunYoloEngineComparisonButton;
+        public Border SegmentationAdapterComparison => SegmentationAdapterComparisonPanel;
+        public TextBox SegmentationUnetCheckpointPath => SegmentationUnetCheckpointPathBox;
+        public TextBox SegmentationYoloCheckpointPath => SegmentationYoloCheckpointPathBox;
+        public WpfUiButton BrowseSegmentationUnetCheckpoint => BrowseSegmentationUnetCheckpointButton;
+        public WpfUiButton BrowseSegmentationYoloCheckpoint => BrowseSegmentationYoloCheckpointButton;
+        public WpfUiButton RunSegmentationAdapterComparison => RunSegmentationAdapterComparisonButton;
         public TextBox ImageSizeBox => TrainingImageSizeBox;
         public TextBox BatchBox => TrainingBatchBox;
         public TextBox EpochBox => TrainingEpochBox;

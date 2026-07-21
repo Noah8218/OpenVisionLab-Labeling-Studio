@@ -59,36 +59,58 @@ namespace MvcVisionSystem
         public WpfModelComparisonRunRequest BuildYoloV5YoloV8DetectionRequest(
             CData data,
             string task = "")
+            => BuildYoloDetectionEngineRequest(
+                data,
+                PythonModelSettings.EngineYoloV5,
+                PythonModelSettings.EngineYoloV8,
+                task);
+
+        public WpfModelComparisonRunRequest BuildYoloV8Yolo11DetectionRequest(
+            CData data,
+            string task = "")
+            => BuildYoloDetectionEngineRequest(
+                data,
+                PythonModelSettings.EngineYoloV8,
+                PythonModelSettings.EngineYolo11,
+                task);
+
+        public WpfModelComparisonRunRequest BuildYoloDetectionEngineRequest(
+            CData data,
+            string baselineEngine,
+            string candidateEngine,
+            string task = "")
         {
             data?.NormalizeOutputPaths();
             data?.NormalizeTrainingSettings();
             PythonModelSettings settings = data?.ProjectSettings?.PythonModel ?? new PythonModelSettings();
             TrainingSettings training = data?.GetTrainingSettings() ?? new TrainingSettings();
             ModelRegistrySettings registry = data?.ProjectSettings?.ModelRegistry;
-            EngineModelRuntime yoloV5 = ResolveEngineModelRuntime(
+            string normalizedBaselineEngine = PythonModelSettings.NormalizeModelEngine(baselineEngine);
+            string normalizedCandidateEngine = PythonModelSettings.NormalizeModelEngine(candidateEngine);
+            EngineModelRuntime baseline = ResolveEngineModelRuntime(
                 settings,
                 registry,
-                PythonModelSettings.EngineYoloV5);
-            EngineModelRuntime yoloV8 = ResolveEngineModelRuntime(
+                normalizedBaselineEngine);
+            EngineModelRuntime candidate = ResolveEngineModelRuntime(
                 settings,
                 registry,
-                PythonModelSettings.EngineYoloV8);
+                normalizedCandidateEngine);
 
             return new WpfModelComparisonRunRequest
             {
                 ScriptPath = Path.Combine(repositoryRoot, "scripts", "compare-yolo-models.ps1"),
-                PythonExecutablePath = yoloV5.PythonExecutablePath,
-                YoloProjectRootPath = yoloV5.ProjectRootPath,
-                YoloSourceRootPath = yoloV5.SourceRootPath,
+                PythonExecutablePath = baseline.PythonExecutablePath,
+                YoloProjectRootPath = baseline.ProjectRootPath,
+                YoloSourceRootPath = baseline.SourceRootPath,
                 DataYamlPath = data?.DataYamlFilePath ?? string.Empty,
-                BaselineWeightsPath = yoloV5.WeightsPath,
-                CandidateWeightsPath = yoloV8.WeightsPath,
-                BaselineModelEngine = PythonModelSettings.EngineYoloV5,
-                BaselinePythonExecutablePath = yoloV5.PythonExecutablePath,
-                BaselineYoloSourceRootPath = yoloV5.SourceRootPath,
-                CandidateModelEngine = PythonModelSettings.EngineYoloV8,
-                CandidatePythonExecutablePath = yoloV8.PythonExecutablePath,
-                CandidateYoloSourceRootPath = yoloV8.SourceRootPath,
+                BaselineWeightsPath = baseline.WeightsPath,
+                CandidateWeightsPath = candidate.WeightsPath,
+                BaselineModelEngine = normalizedBaselineEngine,
+                BaselinePythonExecutablePath = baseline.PythonExecutablePath,
+                BaselineYoloSourceRootPath = baseline.SourceRootPath,
+                CandidateModelEngine = normalizedCandidateEngine,
+                CandidatePythonExecutablePath = candidate.PythonExecutablePath,
+                CandidateYoloSourceRootPath = candidate.SourceRootPath,
                 ImageSize = Math.Max(1, training.ImageSize),
                 BatchSize = 1,
                 BenchmarkRepeatCount = 5,
@@ -132,15 +154,15 @@ namespace MvcVisionSystem
             ValidateFile(request.DataYamlPath, "\uD559\uC2B5 \uC124\uC815 \uD30C\uC77C", errors);
             ValidateFile(
                 request.BaselineWeightsPath,
-                request.IsEngineComparison ? "YOLOv5 \uAC1D\uCCB4\uD0D0\uC9C0 \uBAA8\uB378" : "\uAE30\uC874 \uBAA8\uB378 \uD30C\uC77C",
+                request.IsEngineComparison ? FormatEngineName(request.BaselineModelEngine) + " \uAC1D\uCCB4\uD0D0\uC9C0 \uBAA8\uB378" : "\uAE30\uC874 \uBAA8\uB378 \uD30C\uC77C",
                 errors);
             ValidateFile(
                 request.CandidateWeightsPath,
-                request.IsEngineComparison ? "YOLOv8 \uAC1D\uCCB4\uD0D0\uC9C0 \uBAA8\uB378" : "\uC0C8 \uBAA8\uB378 \uD30C\uC77C",
+                request.IsEngineComparison ? FormatEngineName(request.CandidateModelEngine) + " \uAC1D\uCCB4\uD0D0\uC9C0 \uBAA8\uB378" : "\uC0C8 \uBAA8\uB378 \uD30C\uC77C",
                 errors);
             if (request.IsEngineComparison && !string.Equals(request.ModelTask, "detect", StringComparison.OrdinalIgnoreCase))
             {
-                errors.Add("YOLOv5/YOLOv8 \uC5D4\uC9C4 \uBE44\uAD50\uB294 \uAC1D\uCCB4\uD0D0\uC9C0 \uB370\uC774\uD130\uC14B\uC5D0\uC11C\uB9CC \uC2E4\uD589\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.");
+                errors.Add("YOLO engine comparison can run only on object-detection datasets.");
             }
             ValidateDifferentWeights(request, errors);
             ValidateDataYamlSplitImages(request, errors);
@@ -306,6 +328,17 @@ namespace MvcVisionSystem
 
             string projectRoot = settings?.ProjectRootPath?.Trim() ?? string.Empty;
             return string.IsNullOrWhiteSpace(projectRoot) ? string.Empty : Path.Combine(projectRoot, "best.pt");
+        }
+
+        private static string FormatEngineName(string engine)
+        {
+            return PythonModelSettings.NormalizeModelEngine(engine) switch
+            {
+                PythonModelSettings.EngineYoloV5 => "YOLOv5",
+                PythonModelSettings.EngineYoloV8 => "YOLOv8",
+                PythonModelSettings.EngineYolo11 => "YOLO11",
+                _ => "YOLO"
+            };
         }
 
         private static string ResolveYoloSourceRoot(string projectRoot)
