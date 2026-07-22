@@ -13774,3 +13774,98 @@ Verification: isolated Debug build (0 warnings / 0 errors); actual `--real-exter
 Evidence: `docs\SEGMENTATION_E30_CONFIDENCE025_TEST_EVIDENCE_20260722.md` and `artifacts\benchmark-external-seg-adapter-compare-e30-confidence025-test-20260722`.
 
 Boundary / next dependency: do not rerun this held-out split unless requirements or a deliberately new hypothesis changes. Independent camera/session segmentation data with a leakage-guarded holdout is required before production/model-adoption decisions; U-Net per-class remediation remains a separate task.
+
+## 2026-07-22 U-Net 30-epoch class-confusion diagnosis
+
+Status: Complete
+
+Scope: export the existing U-Net checkpoint only on the canonical 80-image `valid` split and identify its supported-class failure mode without retraining, changing source data, or accessing the held-out test split.
+
+Acceptance criteria and evidence:
+
+- The immutable checkpoint generated a new app-owned validation prediction manifest: passed (`artifacts\unet-e30-class-confusion-20260722\unet-valid-predictions`).
+- Both zero-Dice classes were traced by true-class pixel confusion rather than guessed from class counts: passed. `contamination_spot` and `foreign_particle` receive zero same-class prediction pixels; the first collapses 97.6873% to background and the latter splits mainly among background, scratch, and extra-material bridge.
+- Train-mask pixel imbalance and training selection were checked: passed. Background is 99.7823% of train pixels; the worker uses unweighted cross entropy and chooses `best.pt` only by validation loss.
+- One non-combined remediation hypothesis was fixed for validation: train-mask-derived class-weighted cross entropy plus valid-only foreground macro-Dice/no-collapse selection. Exact inputs, outcome, and hold-out boundary are in `docs\UNET_E30_CLASS_CONFUSION_ANALYSIS_20260722.md`.
+
+Boundary / next dependency: the controlled class-weighted run is recorded below and failed its valid-quality gate. Do not combine it with crops, augmentation, architecture changes, relabeling, class merging, or test tuning, and do not use the held-out test split for it.
+
+## 2026-07-22 U-Net class-weighted controlled validation
+
+Status: Complete
+
+Scope: test exactly one class-weighted U-Net hypothesis on the fixed 360 train /
+80 valid packet, decide if it may remain the default worker behavior, and
+leave the held-out test untouched.
+
+Acceptance criteria:
+
+- The temporary foreground-balanced worker contract ran through a one-epoch
+  CUDA smoke and a current built WPF/TCP training/restart/detection fixture
+  smoke before the quality run: passed.
+- The fixed 30-epoch CUDA run used train/valid only, and the train/valid input
+  SHA-256 stayed `D5C48F94E25591BFF53A9AC9EB687D8CC69F017C119D486D397E8483AC8FFD96`
+  before/after: passed.
+- The new valid raster output improved macro quality and cleared class
+  collapse versus the fixed unweighted baseline: failed. Macro Dice/IoU fell
+  from `0.164849` / `0.097209` to `0.074135` / `0.040426`; both runs failed
+  no-collapse and `contamination_spot` remained unpredicted.
+
+Verification: U-Net Python compile and `--self-test`; isolated Debug build (0 warnings / 0 errors); `--unet-segmentation-export`; `--priority-workflow-docs`; `--real-unet-segmentation-runtime` fixture smoke; one CUDA 30-epoch train/valid-only run; and identical-ID valid mask comparison all passed as executions.
+
+Evidence: `docs\UNET_E30_CLASS_CONFUSION_ANALYSIS_20260722.md`, `C:\Git\unet\runs\segment\openvisionlab-unet-classweighted-validonly-e30-20260722-083735`, and `artifacts\unet-classweighted-e30-valid-20260722\unet-valid-predictions`.
+
+Decision / boundary: reject this formula as the default and restore the
+unweighted worker; no held-out test replay was run or authorized. A future
+U-Net attempt needs a distinct valid-only hypothesis and acceptance gate.
+
+## 2026-07-22 U-Net foreground-crop controlled validation
+
+Status: Complete
+
+Scope: test a deterministic train-only foreground-centered crop policy against
+the unchanged full-frame valid split, with no held-out evaluation or default
+worker adoption.
+
+Acceptance criteria:
+
+- Crop provenance was generated: 180 normal full frames, 164 foreground
+  centered 320px crops, and 16 safe full-frame fallbacks; all five classes had
+  train representation: passed.
+- One 30-epoch CUDA crop run kept train/valid SHA-256
+  `D5C48F94E25591BFF53A9AC9EB687D8CC69F017C119D486D397E8483AC8FFD96`
+  unchanged and wrote a valid-only prediction artifact: passed.
+- Its selected checkpoint improved valid foreground macro Dice, produced real
+  overlap for every class, and avoided foreground flood: failed. The
+  validation-loss-selected epoch 29 predicted background only, so macro
+  Dice/IoU was `0.0` / `0.0`.
+
+Decision / boundary: remove the unproven crop code and do not use held-out
+test. The next isolated hypothesis is foreground-quality checkpoint selection
+on the unchanged full-frame dataset; crop must not be retried until that
+selector is independently validated.
+
+## 2026-07-22 U-Net foreground-quality checkpoint selection
+
+Status: Incomplete
+
+Scope: test an opt-in foreground-quality selector on unchanged full-frame,
+unweighted 30-epoch U-Net training; do not alter the normal TCP training path
+or access the held-out test.
+
+Completed evidence:
+
+- The selector and checkpoint provenance passed Python self-test, build, and a
+  one-epoch CUDA integration run.
+- One 30-epoch CUDA run preserved train/valid SHA-256 and selected epoch 29.
+- Identical 80-image valid raster macro Dice/IoU improved from
+  `0.164849` / `0.097209` to `0.204437` / `0.127053`, with no all-image class
+  prediction flood.
+
+Failed criterion: all five classes must have real overlap. `contamination_spot`
+and `foreign_particle` remained at Dice `0.0`, so the selector is not adopted
+as the default and held-out test remains closed.
+
+Corrective action: keep the selector opt-in only and use it as the evidence
+harness for one separately declared loss or architecture hypothesis targeting
+the two zero-overlap classes.

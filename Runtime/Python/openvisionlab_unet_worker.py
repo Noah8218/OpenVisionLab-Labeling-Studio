@@ -243,6 +243,54 @@ def resolve_image_path(value: Any, image_root: Path) -> Path:
     return (image_root / candidate).resolve()
 
 
+def evaluate_foreground_quality(model: Any, loader: Any, loss_function: Any, device: Any, class_count: int) -> tuple[float, float, bool, Any, Any, Any, Any, Any]:
+    np, torch, _, _, _ = torch_dependencies()
+    validation_loss = 0.0
+    true_counts = np.zeros(class_count + 1, dtype=np.int64)
+    predicted_counts = np.zeros(class_count + 1, dtype=np.int64)
+    intersections = np.zeros(class_count + 1, dtype=np.int64)
+    predicted_image_counts = np.zeros(class_count + 1, dtype=np.int64)
+    with torch.no_grad():
+        for images, masks in loader:
+            images = images.to(device)
+            masks = masks.to(device)
+            logits = model(images)
+            validation_loss += float(loss_function(logits, masks).detach().cpu())
+            predictions = logits.argmax(dim=1)
+            for class_index in range(1, class_count + 1):
+                targets_for_class = masks == class_index
+                predictions_for_class = predictions == class_index
+                true_counts[class_index] += int(targets_for_class.sum().item())
+                predicted_counts[class_index] += int(predictions_for_class.sum().item())
+                intersections[class_index] += int((targets_for_class & predictions_for_class).sum().item())
+                predicted_image_counts[class_index] += int(predictions_for_class.flatten(start_dim=1).any(dim=1).sum().item())
+    validation_loss /= max(1, len(loader))
+    if np.any(true_counts[1:] <= 0):
+        raise ValueError("foreground-quality selection requires valid support for every configured U-Net class.")
+    class_dice = np.zeros(class_count, dtype=np.float64)
+    for index in range(class_count):
+        denominator = true_counts[index + 1] + predicted_counts[index + 1]
+        class_dice[index] = 0.0 if denominator == 0 else (2.0 * intersections[index + 1]) / denominator
+    macro_dice = float(class_dice.mean())
+    all_classes_have_overlap = bool(np.all(intersections[1:] > 0))
+    return validation_loss, macro_dice, all_classes_have_overlap, class_dice, true_counts, predicted_counts, intersections, predicted_image_counts
+
+
+def is_better_foreground_candidate(
+    candidate_all_classes_have_overlap: bool,
+    candidate_macro_dice: float,
+    candidate_loss: float,
+    best_all_classes_have_overlap: bool,
+    best_macro_dice: float,
+    best_loss: float,
+) -> bool:
+    if candidate_all_classes_have_overlap != best_all_classes_have_overlap:
+        return candidate_all_classes_have_overlap
+    if candidate_macro_dice != best_macro_dice:
+        return candidate_macro_dice > best_macro_dice
+    return candidate_loss <= best_loss
+
+
 def train_dataset(
     data_root: Path,
     model_root: Path,
@@ -252,6 +300,7 @@ def train_dataset(
     image_size: int,
     device_text: str,
     progress: callable | None = None,
+    foreground_quality_selection: bool = False,
 ) -> dict[str, Any]:
     np, torch, _, _, _ = torch_dependencies()
     from torch.utils.data import DataLoader
@@ -260,6 +309,8 @@ def train_dataset(
     train_data = SegmentationDataset(data_root, "train", image_size, len(classes))
     valid_root = data_root / "images" / "valid"
     valid_data = SegmentationDataset(data_root, "valid", image_size, len(classes)) if valid_root.is_dir() and any(valid_root.rglob("*")) else None
+    if foreground_quality_selection and valid_data is None:
+        raise ValueError("foreground-quality selection requires a canonical valid split.")
     torch.manual_seed(17)
     np.random.seed(17)
     device = torch.device(device_text if device_text else ("cuda" if torch.cuda.is_available() else "cpu"))
@@ -271,8 +322,10 @@ def train_dataset(
     run_root = model_root / "runs" / "segment" / run_name
     weights_root = run_root / "weights"
     weights_root.mkdir(parents=True, exist_ok=True)
-    metrics: list[tuple[int, float, float]] = []
+    metrics: list[tuple[Any, ...]] = []
     best_loss = float("inf")
+    best_foreground_macro_dice = float("-inf")
+    best_all_classes_have_overlap = False
     best_path = weights_root / "best.pt"
     last_path = weights_root / "last.pt"
     for epoch in range(1, epochs + 1):
@@ -288,13 +341,32 @@ def train_dataset(
             train_loss += float(loss.detach().cpu())
         train_loss /= max(1, len(train_loader))
         validation_loss = train_loss
+        validation_foreground_macro_dice = 0.0
+        validation_all_classes_have_overlap = False
+        validation_class_dice = None
+        validation_true_counts = None
+        validation_predicted_counts = None
+        validation_intersections = None
+        validation_predicted_image_counts = None
         if valid_loader is not None:
             model.eval()
-            validation_loss = 0.0
-            with torch.no_grad():
-                for images, masks in valid_loader:
-                    validation_loss += float(loss_function(model(images.to(device)), masks.to(device)).detach().cpu())
-            validation_loss /= max(1, len(valid_loader))
+            if foreground_quality_selection:
+                (
+                    validation_loss,
+                    validation_foreground_macro_dice,
+                    validation_all_classes_have_overlap,
+                    validation_class_dice,
+                    validation_true_counts,
+                    validation_predicted_counts,
+                    validation_intersections,
+                    validation_predicted_image_counts,
+                ) = evaluate_foreground_quality(model, valid_loader, loss_function, device, len(classes))
+            else:
+                validation_loss = 0.0
+                with torch.no_grad():
+                    for images, masks in valid_loader:
+                        validation_loss += float(loss_function(model(images.to(device)), masks.to(device)).detach().cpu())
+                validation_loss /= max(1, len(valid_loader))
         checkpoint = {
             "format": "openvisionlab-unet-v1",
             "classes": classes,
@@ -305,18 +377,38 @@ def train_dataset(
             "trainLoss": train_loss,
             "validationLoss": validation_loss,
         }
+        if foreground_quality_selection:
+            checkpoint.update({
+                "selectionMetric": "valid-all-class-overlap-then-foreground-macro-dice-v1",
+                "validationForegroundMacroDice": validation_foreground_macro_dice,
+                "validationAllClassesHaveOverlap": validation_all_classes_have_overlap,
+                "validationClassDice": [float(value) for value in validation_class_dice],
+                "validationTruePixelCounts": [int(value) for value in validation_true_counts],
+                "validationPredictedPixelCounts": [int(value) for value in validation_predicted_counts],
+                "validationIntersectionPixelCounts": [int(value) for value in validation_intersections],
+                "validationPredictedImageCounts": [int(value) for value in validation_predicted_image_counts],
+            })
         torch.save(checkpoint, last_path)
-        if validation_loss <= best_loss:
+        select_best = is_better_foreground_candidate(
+            validation_all_classes_have_overlap,
+            validation_foreground_macro_dice,
+            validation_loss,
+            best_all_classes_have_overlap,
+            best_foreground_macro_dice,
+            best_loss) if foreground_quality_selection else validation_loss <= best_loss
+        if select_best:
             best_loss = validation_loss
+            best_foreground_macro_dice = validation_foreground_macro_dice
+            best_all_classes_have_overlap = validation_all_classes_have_overlap
             torch.save(checkpoint, best_path)
-        metrics.append((epoch, train_loss, validation_loss))
+        metrics.append((epoch, train_loss, validation_loss, validation_foreground_macro_dice, int(validation_all_classes_have_overlap)) if foreground_quality_selection else (epoch, train_loss, validation_loss))
         if progress is not None:
             progress(epoch, epochs, train_loss, validation_loss)
     with (run_root / "results.csv").open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
-        writer.writerow(["epoch", "train/loss", "val/loss"])
+        writer.writerow(["epoch", "train/loss", "val/loss", "val/foreground_macro_dice", "val/all_classes_have_overlap"] if foreground_quality_selection else ["epoch", "train/loss", "val/loss"])
         writer.writerows(metrics)
-    return {
+    result = {
         "weightsPath": str(best_path.resolve()),
         "lastWeightsPath": str(last_path.resolve()),
         "runPath": str(run_root.resolve()),
@@ -324,6 +416,11 @@ def train_dataset(
         "trainLoss": metrics[-1][1],
         "validationLoss": metrics[-1][2],
     }
+    if foreground_quality_selection:
+        result["selectionMetric"] = "valid-all-class-overlap-then-foreground-macro-dice-v1"
+        result["validationForegroundMacroDice"] = metrics[-1][3]
+        result["validationAllClassesHaveOverlap"] = bool(metrics[-1][4])
+    return result
 
 
 class UnetDetector:
@@ -697,7 +794,15 @@ def run_client(args: argparse.Namespace) -> int:
 def run_train_smoke(args: argparse.Namespace) -> int:
     try:
         data_root = Path(args.data_root).expanduser().resolve()
-        result = train_dataset(data_root, Path(args.model_root).resolve(), args.run_name or "openvisionlab-unet-smoke", args.epochs, args.batch, args.img_size, args.device)
+        result = train_dataset(
+            data_root,
+            Path(args.model_root).resolve(),
+            args.run_name or "openvisionlab-unet-smoke",
+            args.epochs,
+            args.batch,
+            args.img_size,
+            args.device,
+            foreground_quality_selection=args.foreground_quality_selection)
         print(compact_json({"type": "UnetTrainSmokeResult", "ok": True, **result}).decode("utf-8"), flush=True)
         return 0
     except Exception as exc:
@@ -729,6 +834,9 @@ def run_self_test() -> int:
     assert tuple(output.shape) == (1, 3, 32, 32)
     assert list(capability_payload()["trainingModels"]) == ["unet"]
     assert np.zeros((1,), dtype=np.uint8).shape == (1,)
+    assert is_better_foreground_candidate(True, 0.1, 2.0, False, 0.9, 1.0)
+    assert is_better_foreground_candidate(False, 0.6, 2.0, False, 0.5, 1.0)
+    assert not is_better_foreground_candidate(False, 0.4, 0.1, False, 0.5, 1.0)
     print(compact_json({"type": "UnetSelfTestResult", "ok": True, "worker": "openvisionlab-unet-worker"}).decode("utf-8"), flush=True)
     return 0
 
@@ -755,6 +863,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--epochs", type=int, default=1)
     parser.add_argument("--batch", type=int, default=1)
     parser.add_argument("--run-name", default="")
+    parser.add_argument("--foreground-quality-selection", action="store_true")
     parser.add_argument("--smoke-test", action="store_true")
     parser.add_argument("--detect-file", default="")
     parser.add_argument("--image", default="")
