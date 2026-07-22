@@ -2,9 +2,33 @@
 
 Last updated: 2026-07-22
 
+## 2026-07-22 public tutorial real-defect label capture correction
+
+- Status: `Complete`
+- Scope:
+  - Replace the unconvincing arbitrary object-detection and segmentation overlays in the public README/tutorial with current-source captures that reopen the supplied NG sample's exact saved defect labels.
+  - Add the test-only `--saved-annotations-only` visual-smoke mode so documentation captures can load persisted labels without generating AI candidates, centered demo ROIs, local-path log text, or unrelated queue contents.
+  - Keep production labeling, persistence, queue, model runtime, training, and inference behavior unchanged.
+- Acceptance criteria and evidence:
+  - Object detection shows exactly one box around the visible diagonal `scratch_crack`: source YOLO class `1` converts to pixel rectangle `x=305, y=97, width=146, height=92`, matching the app's selected-label details.
+  - Segmentation shows exactly one contour following the same visible `scratch_crack`: all 10 normalized source polygon points match the 10 reopened app polygon points, and the app identifies class `1` as `scratch_crack`.
+  - Detection and segmentation captures use identical source image content: SHA-256 `3AA948713FDBEB13B24061A84070D22D9F51152FE609B782D35CC89378D2DF1A`.
+  - Both public PNGs are current-source 1920x1080 captures, show the actual 30-image NG queue, contain no arbitrary second object, and expose no private local path in the visible log.
+- Verification:
+  - Required isolated test build passed with 0 warnings / 0 errors after the visual-smoke change.
+  - Current-source `--wpf-visual-smoke --saved-annotations-only` detection and segmentation captures completed and were inspected at original resolution.
+  - `--yolo-annotation-storage`, `--wpf-segmentation-object-verification`, and `--priority-workflow-docs` passed.
+  - Exact label-coordinate comparison, source-image SHA-256 comparison, Markdown image-link and 1920x1080 dimension checks, and `git diff --check` passed.
+- Evidence:
+  - `docs/tutorial/images/workflows-20260722/object-detection-labeling-1920x1080.png`
+  - `docs/tutorial/images/workflows-20260722/segmentation-labeling-1920x1080.png`
+- Boundary / next dependency:
+  - The supplied EasyMatch NG sample is procedurally synthesized workflow/format test data. These captures prove that visible defect labels are rendered at their supplied ground-truth coordinates; they do not prove production-camera realism, model accuracy, or automatic defect discovery.
+
 ## 2026-07-22 public README and three-workflow tutorial refresh
 
 - Status: `Complete`
+- Supersession note: the original object-detection and segmentation capture evidence is replaced by the real-defect label correction entry above; the anomaly capture and remaining documentation scope are unchanged.
 - Scope:
   - Reorganize the public README around product identity, a one-minute start, the shared recipe/model-adapter contract, installation, verification, and explicit limitations.
   - Replace the Markdown tutorial with separate first-user procedures for object detection, segmentation, anomaly OK/NG review, training, comparison, and candidate adoption.

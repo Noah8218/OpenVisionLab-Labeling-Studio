@@ -1523,6 +1523,7 @@ internal static partial class Program
         string datasetOutputRoot = GetArgumentValue(args, "--dataset-output-root", string.Empty);
         string datasetClasses = GetArgumentValue(args, "--dataset-classes", string.Empty);
         bool roiOnly = HasArgument(args, "--roi-only");
+        bool savedAnnotationsOnly = HasArgument(args, "--saved-annotations-only");
         bool seedDuplicate = HasArgument(args, "--seed-duplicate");
         bool showBusyInferenceStatus = HasArgument(args, "--show-busy-inference-status");
         bool showFailedInferenceStatus = HasArgument(args, "--show-failed-inference-status");
@@ -1670,7 +1671,7 @@ internal static partial class Program
                             populateQueue: !preserveDatasetOutput,
                             refreshQueueDetails: false,
                             refreshActiveStatus: !preserveDatasetOutput,
-                            appendLoadLog: !preserveDatasetOutput),
+                            appendLoadLog: !preserveDatasetOutput && !savedAnnotationsOnly),
                         "WPF visual smoke image load failed");
                     if (!preserveDatasetOutput && !string.IsNullOrWhiteSpace(datasetPurpose))
                     {
@@ -1722,7 +1723,7 @@ internal static partial class Program
                         ApplyVisualSmokeUnetRuntimeReady(window, imagePath);
                     }
 
-                    var candidates = roiOnly
+                    var candidates = roiOnly || savedAnnotationsOnly
                         ? new List<YoloWorkerSmokeCandidate>()
                         : CreateVisualSmokeCandidates(imageSize, segmentationCandidates);
                     if (!roiOnly && seedDuplicate)
@@ -1731,13 +1732,14 @@ internal static partial class Program
                     }
 
                     if (!roiOnly
+                        && !savedAnnotationsOnly
                         && !anomalyReviewOnly
                         && window.FindName("InferenceModeButton") is System.Windows.Controls.Control inferenceModeButton)
                     {
                         window.ShellViewModel.InferenceModeCommand.Execute(null);
                     }
 
-                    if (!roiOnly && !anomalyReviewOnly)
+                    if (!roiOnly && !savedAnnotationsOnly && !anomalyReviewOnly)
                     {
                         InvokePrivateResult<object>(window, "ApplyDetectionCandidates", candidates, true);
                         if (confirmAllCandidates)
