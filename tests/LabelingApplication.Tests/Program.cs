@@ -29383,6 +29383,10 @@ internal static partial class Program
             AssertEqual("NewRecipe", availableRecipeName);
 
             Directory.CreateDirectory(WpfProjectRecipeService.BuildConfigDirectory(recipeRoot, "TakenRecipe"));
+            string generatedRecipeName = pathService.ResolveRecipeName("TakenRecipe", "TakenRecipe", LabelingDatasetPurpose.Segmentation, recipeRoot, out bool generated);
+            AssertTrue(generated, "path service should identify a generated fallback recipe name");
+            AssertTrue(generatedRecipeName.Contains(nameof(LabelingDatasetPurpose.Segmentation), StringComparison.Ordinal), "generated fallback should identify its dataset purpose");
+
             string currentFallbackRecipeName = pathService.ResolveRecipeName("TakenRecipe", "CurrentRecipe", LabelingDatasetPurpose.ObjectDetection, recipeRoot);
             AssertEqual("CurrentRecipe", currentFallbackRecipeName);
 
@@ -29515,6 +29519,56 @@ internal static partial class Program
         AssertTrue(viewModel.StorageHelpText.Contains("\uB77C\uBCA8", StringComparison.Ordinal), "wizard should explain where labels and recipe files are stored");
         AssertTrue(viewModel.ImageSourcePreviewText.Contains("\uC6D0\uBCF8 \uC774\uBBF8\uC9C0", StringComparison.Ordinal), "wizard should show the source image folder role");
         AssertTrue(viewModel.IsolationHelpText.Contains("\uBD84\uB9AC", StringComparison.Ordinal), "wizard should explain that storage folder isolation prevents label mixing");
+
+        const string generatedSegmentationName = "Dataset_Segmentation_20260722_120000";
+        string generatedSegmentationRoot = Path.Combine(@"C:\Data", generatedSegmentationName);
+        var automaticNameViewModel = new WpfDatasetSetupWizardViewModel();
+        automaticNameViewModel.LoadFrom(LabelingDatasetPurpose.Segmentation, generatedSegmentationName, generatedSegmentationRoot, new[] { "Defect" });
+        automaticNameViewModel.ConfigureAutomaticPathSync(
+            recipeNameWasGenerated: true,
+            selectedPurpose => $"Dataset_{selectedPurpose}_20260722_120000",
+            selectedRecipeName => Path.Combine(@"C:\Data", selectedRecipeName));
+        automaticNameViewModel.SelectedDatasetPurposeMode = automaticNameViewModel.DatasetPurposeModes.First(item => item.Mode == WpfLearningMode.AnomalyDetection);
+        AssertEqual("Dataset_AnomalyDetection_20260722_120000", automaticNameViewModel.RecipeName);
+        AssertEqual(Path.Combine(@"C:\Data", "Dataset_AnomalyDetection_20260722_120000"), automaticNameViewModel.OutputRootPath);
+
+        automaticNameViewModel.RecipeName = "OperatorRecipe";
+        automaticNameViewModel.OutputRootPath = @"D:\OperatorDataset";
+        automaticNameViewModel.SelectedDatasetPurposeMode = automaticNameViewModel.DatasetPurposeModes.First(item => item.Mode == WpfLearningMode.ObjectDetection);
+        AssertEqual("OperatorRecipe", automaticNameViewModel.RecipeName);
+        AssertEqual(@"D:\OperatorDataset", automaticNameViewModel.OutputRootPath);
+
+        var restoredManualNameViewModel = new WpfDatasetSetupWizardViewModel();
+        restoredManualNameViewModel.LoadFrom(LabelingDatasetPurpose.Segmentation, generatedSegmentationName, generatedSegmentationRoot, new[] { "Defect" });
+        restoredManualNameViewModel.ConfigureAutomaticPathSync(
+            recipeNameWasGenerated: true,
+            selectedPurpose => $"Dataset_{selectedPurpose}_20260722_120000",
+            selectedRecipeName => Path.Combine(@"C:\Data", selectedRecipeName));
+        restoredManualNameViewModel.RecipeName = "TemporaryOperatorName";
+        restoredManualNameViewModel.RecipeName = generatedSegmentationName;
+        restoredManualNameViewModel.SelectedDatasetPurposeMode = restoredManualNameViewModel.DatasetPurposeModes.First(item => item.Mode == WpfLearningMode.AnomalyDetection);
+        AssertEqual(generatedSegmentationName, restoredManualNameViewModel.RecipeName);
+
+        var manualOutputRootViewModel = new WpfDatasetSetupWizardViewModel();
+        manualOutputRootViewModel.LoadFrom(LabelingDatasetPurpose.Segmentation, generatedSegmentationName, generatedSegmentationRoot, new[] { "Defect" });
+        manualOutputRootViewModel.ConfigureAutomaticPathSync(
+            recipeNameWasGenerated: true,
+            selectedPurpose => $"Dataset_{selectedPurpose}_20260722_120000",
+            selectedRecipeName => Path.Combine(@"C:\Data", selectedRecipeName));
+        manualOutputRootViewModel.OutputRootPath = @"D:\OperatorSelectedFolder";
+        manualOutputRootViewModel.SelectedDatasetPurposeMode = manualOutputRootViewModel.DatasetPurposeModes.First(item => item.Mode == WpfLearningMode.AnomalyDetection);
+        AssertEqual("Dataset_AnomalyDetection_20260722_120000", manualOutputRootViewModel.RecipeName);
+        AssertEqual(@"D:\OperatorSelectedFolder", manualOutputRootViewModel.OutputRootPath);
+
+        var manualInitialNameViewModel = new WpfDatasetSetupWizardViewModel();
+        manualInitialNameViewModel.LoadFrom(LabelingDatasetPurpose.Segmentation, "ManualInitialRecipe", @"C:\Data\ManualInitialRecipe", new[] { "Defect" });
+        manualInitialNameViewModel.ConfigureAutomaticPathSync(
+            recipeNameWasGenerated: false,
+            selectedPurpose => $"Dataset_{selectedPurpose}_20260722_120000",
+            selectedRecipeName => Path.Combine(@"C:\Data", selectedRecipeName));
+        manualInitialNameViewModel.SelectedDatasetPurposeMode = manualInitialNameViewModel.DatasetPurposeModes.First(item => item.Mode == WpfLearningMode.AnomalyDetection);
+        AssertEqual("ManualInitialRecipe", manualInitialNameViewModel.RecipeName);
+        AssertEqual(@"C:\Data\ManualInitialRecipe", manualInitialNameViewModel.OutputRootPath);
 
         IReadOnlyList<string> parsed = WpfDatasetSetupWizardViewModel.ParseClassNames("OK, NG\r\nok; Defect");
         AssertEqual(3, parsed.Count);

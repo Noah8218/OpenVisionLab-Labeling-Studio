@@ -14,7 +14,16 @@ namespace MvcVisionSystem
             string currentRecipeName,
             LabelingDatasetPurpose purpose,
             string recipeRootPath)
+            => ResolveRecipeName(preferredRecipeName, currentRecipeName, purpose, recipeRootPath, out _);
+
+        public string ResolveRecipeName(
+            string preferredRecipeName,
+            string currentRecipeName,
+            LabelingDatasetPurpose purpose,
+            string recipeRootPath,
+            out bool generated)
         {
+            generated = false;
             if (CanUseRecipeNameForNewDataset(preferredRecipeName, recipeRootPath))
             {
                 return preferredRecipeName.Trim();
@@ -25,6 +34,7 @@ namespace MvcVisionSystem
                 return currentRecipeName.Trim();
             }
 
+            generated = true;
             return BuildUniqueRecipeName(purpose, recipeRootPath);
         }
 

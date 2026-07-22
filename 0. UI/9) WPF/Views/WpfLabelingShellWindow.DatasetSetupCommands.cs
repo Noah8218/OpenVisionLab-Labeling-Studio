@@ -242,7 +242,7 @@ namespace MvcVisionSystem
         private WpfDatasetSetupWizardViewModel CreateDatasetSetupWizardViewModel(object selectedPurpose)
         {
             LabelingDatasetPurpose purpose = ResolveRequestedDatasetPurpose(selectedPurpose);
-            string recipeName = ResolveDatasetSetupRecipeName(purpose);
+            string recipeName = ResolveDatasetSetupRecipeName(purpose, out bool recipeNameWasGenerated);
             string outputRootPath = ResolveDatasetSetupOutputRoot(recipeName);
             IEnumerable<string> classNames = global.Data?.ClassNamedList?
                 .Where(item => item != null && !string.IsNullOrWhiteSpace(item.Text))
@@ -251,6 +251,10 @@ namespace MvcVisionSystem
 
             WpfDatasetSetupWizardViewModel viewModel = new WpfDatasetSetupWizardViewModel();
             viewModel.LoadFrom(purpose, recipeName, outputRootPath, classNames.DefaultIfEmpty("Defect"));
+            viewModel.ConfigureAutomaticPathSync(
+                recipeNameWasGenerated,
+                selectedDatasetPurpose => datasetSetupPathService.BuildUniqueRecipeName(selectedDatasetPurpose, GetRecipeRootDirectory()),
+                ResolveDatasetSetupOutputRoot);
             return viewModel;
         }
 
@@ -346,13 +350,14 @@ namespace MvcVisionSystem
             }
         }
 
-        private string ResolveDatasetSetupRecipeName(LabelingDatasetPurpose purpose)
+        private string ResolveDatasetSetupRecipeName(LabelingDatasetPurpose purpose, out bool generated)
         {
             return datasetSetupPathService.ResolveRecipeName(
                 ProjectConfigViewModel?.RecipeName?.Trim(),
                 GetCurrentRecipeName(),
                 purpose,
-                GetRecipeRootDirectory());
+                GetRecipeRootDirectory(),
+                out generated);
         }
 
         private LabelingDatasetPurpose ResolveRequestedDatasetPurpose(object selectedPurpose)

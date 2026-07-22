@@ -29,6 +29,14 @@ namespace MvcVisionSystem
         private ICommand createCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand cancelCommand = new RelayCommand(NoOpCommand);
         private ICommand browseOutputRootCommand = new RelayCommand(NoOpCommand);
+        private Func<LabelingDatasetPurpose, string> automaticRecipeNameResolver;
+        private Func<string, string> automaticOutputRootResolver;
+        private string automaticRecipeName = string.Empty;
+        private string automaticOutputRootPath = string.Empty;
+        private bool automaticPathSyncEnabled;
+        private bool isApplyingAutomaticPathSync;
+        private bool recipeNameWasEdited;
+        private bool outputRootPathWasEdited;
 
         public WpfDatasetSetupWizardViewModel()
         {
@@ -60,6 +68,7 @@ namespace MvcVisionSystem
             {
                 if (SetProperty(ref selectedDatasetPurposeMode, value))
                 {
+                    SynchronizeUntouchedAutomaticPaths();
                     RefreshSamplePresets();
                     RefreshPreview();
                 }
@@ -86,6 +95,11 @@ namespace MvcVisionSystem
             {
                 if (SetProperty(ref recipeName, value ?? string.Empty))
                 {
+                    if (automaticPathSyncEnabled && !isApplyingAutomaticPathSync)
+                    {
+                        recipeNameWasEdited = true;
+                    }
+
                     RefreshPreview();
                 }
             }
@@ -98,6 +112,11 @@ namespace MvcVisionSystem
             {
                 if (SetProperty(ref outputRootPath, value ?? string.Empty))
                 {
+                    if (automaticPathSyncEnabled && !isApplyingAutomaticPathSync)
+                    {
+                        outputRootPathWasEdited = true;
+                    }
+
                     RefreshPreview();
                 }
             }
@@ -175,6 +194,20 @@ namespace MvcVisionSystem
             CreateCommand = new RelayCommand<object>(create ?? NoOpSelectionCommand);
             CancelCommand = new RelayCommand(cancel ?? NoOpCommand);
             BrowseOutputRootCommand = new RelayCommand(browseOutputRoot ?? NoOpCommand);
+        }
+
+        public void ConfigureAutomaticPathSync(
+            bool recipeNameWasGenerated,
+            Func<LabelingDatasetPurpose, string> recipeNameResolver,
+            Func<string, string> outputRootResolver)
+        {
+            automaticRecipeNameResolver = recipeNameResolver;
+            automaticOutputRootResolver = outputRootResolver;
+            automaticPathSyncEnabled = recipeNameWasGenerated;
+            recipeNameWasEdited = false;
+            outputRootPathWasEdited = false;
+            automaticRecipeName = recipeNameWasGenerated ? (RecipeName ?? string.Empty).Trim() : string.Empty;
+            automaticOutputRootPath = recipeNameWasGenerated ? (OutputRootPath ?? string.Empty).Trim() : string.Empty;
         }
 
         public void LoadFrom(LabelingDatasetPurpose purpose, string recipeName, string outputRootPath, IEnumerable<string> classNames)
@@ -333,6 +366,44 @@ namespace MvcVisionSystem
             }
 
             ClassNamesText = string.Join(Environment.NewLine, samplePreset.ClassNames);
+        }
+
+        private void SynchronizeUntouchedAutomaticPaths()
+        {
+            if (!automaticPathSyncEnabled
+                || recipeNameWasEdited
+                || automaticRecipeNameResolver == null
+                || string.IsNullOrWhiteSpace(automaticRecipeName)
+                || !string.Equals((RecipeName ?? string.Empty).Trim(), automaticRecipeName, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            bool outputRootIsUntouched = !outputRootPathWasEdited
+                && WpfDatasetSetupPathService.PathsEqual(OutputRootPath, automaticOutputRootPath);
+            LabelingDatasetPurpose purpose = WpfLearningWorkflowPanelViewModel.ToDatasetPurpose(
+                SelectedDatasetPurposeMode?.Mode ?? WpfLearningMode.ObjectDetection);
+            string nextRecipeName = automaticRecipeNameResolver(purpose)?.Trim() ?? string.Empty;
+            if (!WpfProjectRecipeService.IsValidRecipeName(nextRecipeName))
+            {
+                return;
+            }
+
+            isApplyingAutomaticPathSync = true;
+            try
+            {
+                automaticRecipeName = nextRecipeName;
+                RecipeName = nextRecipeName;
+                if (outputRootIsUntouched && automaticOutputRootResolver != null)
+                {
+                    automaticOutputRootPath = automaticOutputRootResolver(nextRecipeName)?.Trim() ?? string.Empty;
+                    OutputRootPath = automaticOutputRootPath;
+                }
+            }
+            finally
+            {
+                isApplyingAutomaticPathSync = false;
+            }
         }
     }
 

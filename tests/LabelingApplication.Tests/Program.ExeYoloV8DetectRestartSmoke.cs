@@ -497,6 +497,15 @@ internal static partial class Program
                 TimeSpan.FromSeconds(3)),
             "dataset wizard did not select " + expectedPurpose);
         CaptureWorkflowStep(wizardRoot, screenshotDirectory, "01b_dataset_purpose_selected");
+        string automaticRecipeName = GetAutomationValueByAutomationId(wizardRoot, "WizardRecipeNameBox");
+        string automaticOutputRoot = GetAutomationValueByAutomationId(wizardRoot, "WizardOutputRootPathBox");
+        AssertTrue(
+            automaticRecipeName.Contains(expectedPurpose.ToString(), StringComparison.Ordinal),
+            "dataset wizard automatic recipe name did not follow the selected purpose: " + automaticRecipeName);
+        AssertTrue(
+            Path.GetFileName(automaticOutputRoot.TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar))
+                .Contains(expectedPurpose.ToString(), StringComparison.Ordinal),
+            "dataset wizard automatic output root did not follow the selected purpose: " + automaticOutputRoot);
         AssertTrue(TrySetAutomationValueByAutomationId(wizardRoot, "WizardRecipeNameBox", recipeName), "dataset recipe name was not editable");
         AssertTrue(TrySetAutomationValueByAutomationId(wizardRoot, "WizardOutputRootPathBox", outputRoot), "dataset output root was not editable");
         AssertTrue(TrySetAutomationValueByAutomationId(wizardRoot, "WizardClassNamesBox", classNames), "dataset classes were not editable");
