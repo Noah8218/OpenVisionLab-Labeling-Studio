@@ -330,7 +330,8 @@ internal static partial class Program
             return RunRealMobileSamBoxPrompt(args);
         }
 
-        if (args.Any(arg => string.Equals(arg, "--real-mobile-sam-usability-matrix", StringComparison.OrdinalIgnoreCase)))
+        if (args.Any(arg => string.Equals(arg, "--real-mobile-sam-usability-matrix", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(arg, "--real-mobile-sam-box-jitter-matrix", StringComparison.OrdinalIgnoreCase)))
         {
             return RunRealMobileSamUsabilityMatrix(args);
         }

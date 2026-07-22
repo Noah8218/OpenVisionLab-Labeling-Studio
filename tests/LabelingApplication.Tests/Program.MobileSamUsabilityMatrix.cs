@@ -23,6 +23,10 @@ internal static partial class Program
     {
         try
         {
+            bool boxJitter = args.Any(arg => string.Equals(
+                arg,
+                "--real-mobile-sam-box-jitter-matrix",
+                StringComparison.OrdinalIgnoreCase));
             string datasetRoot = Path.GetFullPath(GetArgumentValue(args, "--dataset-root", string.Empty));
             AssertTrue(Directory.Exists(datasetRoot), "--dataset-root must point to the hexagon defect package");
             string labelsPath = Path.Combine(datasetRoot, "labels.json");
@@ -33,7 +37,10 @@ internal static partial class Program
             string artifactRoot = Path.GetFullPath(GetArgumentValue(
                 args,
                 "--artifact-root",
-                Path.Combine(FindRepositoryRoot(), "artifacts", "mobile-sam-usability-matrix")));
+                Path.Combine(
+                    FindRepositoryRoot(),
+                    "artifacts",
+                    boxJitter ? "mobile-sam-box-jitter-matrix" : "mobile-sam-usability-matrix")));
             string runRoot = Path.Combine(artifactRoot, DateTime.Now.ToString("yyyyMMdd-HHmmss", CultureInfo.InvariantCulture));
             Directory.CreateDirectory(runRoot);
 
@@ -52,6 +59,10 @@ internal static partial class Program
             IReadOnlyList<MobileSamMatrixSample> samples = SelectMobileSamMatrixSamples(datasetRoot, labels, classNames);
             AssertEqual(24, samples.Count);
             AssertEqual(24, samples.Select(sample => sample.ImagePath).Distinct(StringComparer.OrdinalIgnoreCase).Count());
+            IReadOnlyList<MobileSamMatrixTrial> trials = samples
+                .SelectMany(sample => BuildMobileSamMatrixTrials(sample, boxJitter))
+                .ToArray();
+            AssertEqual(boxJitter ? 96 : 24, trials.Count);
 
             JArray manifestSamples = new JArray(samples.Select(sample => new JObject
             {
@@ -78,6 +89,10 @@ internal static partial class Program
                 ["classCount"] = classNames.Length,
                 ["samplesPerClass"] = 3,
                 ["sampleCount"] = samples.Count,
+                ["trialCount"] = trials.Count,
+                ["promptVariants"] = new JArray(trials
+                    .Select(trial => trial.PromptVariant)
+                    .Distinct(StringComparer.Ordinal)),
                 ["selectionFingerprintSha256"] = selectionFingerprint,
                 ["datasetLabelsSha256"] = ComputeFileSha256(labelsPath),
                 ["sourceTreeFileCountBefore"] = sourceBefore.FileCount,
@@ -90,15 +105,16 @@ internal static partial class Program
             var service = new WpfMobileSamBoxPromptService();
             var settings = new PythonModelSettings();
             settings.EnsureDefaults();
-            var resultRows = new List<JObject>(samples.Count);
+            var resultRows = new List<JObject>(trials.Count);
             string weightsPath = string.Empty;
-            for (int index = 0; index < samples.Count; index++)
+            for (int index = 0; index < trials.Count; index++)
             {
-                MobileSamMatrixSample sample = samples[index];
+                MobileSamMatrixTrial trial = trials[index];
+                MobileSamMatrixSample sample = trial.Sample;
                 WpfMobileSamBoxPromptRequest request = service.BuildRequest(
                     settings,
                     sample.ImagePath,
-                    sample.PromptBounds,
+                    trial.PromptBounds,
                     Array.IndexOf(classNames, sample.ClassName),
                     sample.ClassName);
                 AssertTrue(request.IsValid, string.Join(" ", request.Errors));
@@ -110,12 +126,20 @@ internal static partial class Program
                     ["sourceSplit"] = sample.SourceSplit,
                     ["imageRelativePath"] = sample.ImageRelativePath,
                     ["maskRelativePath"] = sample.MaskRelativePath,
-                    ["promptBox"] = JArray.FromObject(new[]
+                    ["promptVariant"] = trial.PromptVariant,
+                    ["baselinePromptBox"] = JArray.FromObject(new[]
                     {
                         sample.PromptBounds.X,
                         sample.PromptBounds.Y,
                         sample.PromptBounds.Width,
                         sample.PromptBounds.Height
+                    }),
+                    ["promptBox"] = JArray.FromObject(new[]
+                    {
+                        trial.PromptBounds.X,
+                        trial.PromptBounds.Y,
+                        trial.PromptBounds.Width,
+                        trial.PromptBounds.Height
                     }),
                     ["workerSucceeded"] = result.Succeeded,
                     ["elapsedMs"] = result.ElapsedMilliseconds,
@@ -125,11 +149,18 @@ internal static partial class Program
                 };
                 if (result.Succeeded && result.Candidate?.PolygonPoints?.Count >= 3)
                 {
-                    string predictedMaskRelativePath = Path.Combine(
-                        "predicted-masks",
-                        sample.SourceSplit,
-                        sample.ClassName,
-                        Path.GetFileNameWithoutExtension(sample.ImagePath) + ".png");
+                    string predictedMaskRelativePath = boxJitter
+                        ? Path.Combine(
+                            "predicted-masks",
+                            trial.PromptVariant,
+                            sample.SourceSplit,
+                            sample.ClassName,
+                            Path.GetFileNameWithoutExtension(sample.ImagePath) + ".png")
+                        : Path.Combine(
+                            "predicted-masks",
+                            sample.SourceSplit,
+                            sample.ClassName,
+                            Path.GetFileNameWithoutExtension(sample.ImagePath) + ".png");
                     string predictedMaskPath = Path.Combine(runRoot, predictedMaskRelativePath);
                     MobileSamMaskMetric metric = ComputeMobileSamMaskMetric(
                         sample.MaskPath,
@@ -160,17 +191,18 @@ internal static partial class Program
 
                 resultRows.Add(row);
                 Console.WriteLine(FormattableString.Invariant(
-                    $"MOBILE_SAM_MATRIX_SAMPLE={index + 1}/{samples.Count} CLASS={sample.ClassName} SPLIT={sample.SourceSplit} IOU={(row.Value<double?>("iou") ?? 0D):F6} DISPOSITION={row.Value<string>("disposition")}"));
+                    $"MOBILE_SAM_MATRIX_SAMPLE={index + 1}/{trials.Count} VARIANT={trial.PromptVariant} CLASS={sample.ClassName} SPLIT={sample.SourceSplit} IOU={(row.Value<double?>("iou") ?? 0D):F6} DISPOSITION={row.Value<string>("disposition")}"));
             }
 
             ExternalYoloSourceTreeSnapshot sourceAfter = CaptureExternalYoloSourceTree(datasetRoot);
             AssertEqual(sourceBefore.FileCount, sourceAfter.FileCount);
             AssertEqual(sourceBefore.TreeSha256, sourceAfter.TreeSha256);
-            AssertTrue(resultRows.All(row => row.Value<bool>("workerSucceeded")), "all 24 fixed samples should complete MobileSAM inference");
+            AssertTrue(resultRows.All(row => row.Value<bool>("workerSucceeded")), "all fixed MobileSAM matrix trials should complete inference");
             AssertEqual(1, resultRows.Select(row => row.Value<string>("runtime")).Distinct(StringComparer.Ordinal).Count());
             AssertEqual(1, resultRows.Select(row => row.Value<string>("weightsSha256")).Distinct(StringComparer.OrdinalIgnoreCase).Count());
 
             IReadOnlyList<JObject> classRows = BuildMobileSamClassRows(classNames, resultRows);
+            IReadOnlyList<JObject> variantRows = BuildMobileSamVariantRows(resultRows);
             int usableCount = resultRows.Count(row => string.Equals(row.Value<string>("disposition"), "usable", StringComparison.Ordinal));
             int editableCount = resultRows.Count(row => string.Equals(row.Value<string>("disposition"), "edit", StringComparison.Ordinal));
             int skipCount = resultRows.Count - usableCount - editableCount;
@@ -182,7 +214,9 @@ internal static partial class Program
             var summary = new JObject
             {
                 ["status"] = "Complete",
-                ["scope"] = "MobileSAM fixed 8-class synthetic box-prompt usability matrix",
+                ["scope"] = boxJitter
+                    ? "MobileSAM fixed 8-class synthetic box-jitter robustness matrix"
+                    : "MobileSAM fixed 8-class synthetic box-prompt usability matrix",
                 ["evidenceOrigin"] = "synthetic",
                 ["fieldValidation"] = "Not evaluated",
                 ["productionAccuracyClaimed"] = false,
@@ -196,7 +230,9 @@ internal static partial class Program
                 ["runtime"] = runtime,
                 ["usableIouThreshold"] = MobileSamUsableIou,
                 ["editableIouThreshold"] = MobileSamEditableIou,
-                ["sampleCount"] = resultRows.Count,
+                ["sampleCount"] = samples.Count,
+                ["trialCount"] = resultRows.Count,
+                ["promptVariants"] = new JArray(variantRows.Select(row => row.Value<string>("promptVariant"))),
                 ["usableCount"] = usableCount,
                 ["editableCount"] = editableCount,
                 ["skipCount"] = skipCount,
@@ -206,6 +242,7 @@ internal static partial class Program
                 ["p95ElapsedMs"] = Percentile(resultRows.Select(row => row.Value<double?>("elapsedMs") ?? 0D), 0.95D),
                 ["boxOnlyGatePassed"] = boxOnlyGatePassed,
                 ["classes"] = new JArray(classRows),
+                ["variants"] = new JArray(variantRows),
                 ["boundary"] = "Synthetic labeling-assist evidence only; no production accuracy or automatic model-adoption claim."
             };
             string resultsPath = Path.Combine(runRoot, "sample-results.jsonl");
@@ -213,7 +250,7 @@ internal static partial class Program
             string summaryJsonPath = Path.Combine(runRoot, "summary.json");
             File.WriteAllText(summaryJsonPath, summary.ToString(Formatting.Indented));
             string summaryMarkdownPath = Path.Combine(runRoot, "summary.md");
-            File.WriteAllText(summaryMarkdownPath, BuildMobileSamMatrixMarkdown(summary, classRows));
+            File.WriteAllText(summaryMarkdownPath, BuildMobileSamMatrixMarkdown(summary, classRows, variantRows));
 
             Console.WriteLine("MOBILE_SAM_MATRIX_ROOT=" + runRoot);
             Console.WriteLine("MOBILE_SAM_MATRIX_SUMMARY=" + summaryJsonPath);
@@ -227,6 +264,74 @@ internal static partial class Program
             Console.Error.WriteLine("MOBILE_SAM_MATRIX_FAILED=" + error);
             return 1;
         }
+    }
+
+    private static IReadOnlyList<MobileSamMatrixTrial> BuildMobileSamMatrixTrials(
+        MobileSamMatrixSample sample,
+        bool boxJitter)
+    {
+        if (!boxJitter)
+        {
+            return new[] { new MobileSamMatrixTrial(sample, "exact", sample.PromptBounds) };
+        }
+
+        using var image = new Bitmap(sample.ImagePath);
+        return BuildMobileSamJitterVariants(sample.PromptBounds, image.Size)
+            .Select(variant => new MobileSamMatrixTrial(sample, variant.Name, variant.Bounds))
+            .ToArray();
+    }
+
+    private static IReadOnlyList<MobileSamPromptVariant> BuildMobileSamJitterVariants(
+        Rectangle baseline,
+        Size imageSize)
+    {
+        int horizontalPadding = Math.Max(1, (int)Math.Round(baseline.Width * 0.20D, MidpointRounding.AwayFromZero));
+        int verticalPadding = Math.Max(1, (int)Math.Round(baseline.Height * 0.20D, MidpointRounding.AwayFromZero));
+        int horizontalInset = Math.Max(1, (int)Math.Round(baseline.Width * 0.10D, MidpointRounding.AwayFromZero));
+        int verticalInset = Math.Max(1, (int)Math.Round(baseline.Height * 0.10D, MidpointRounding.AwayFromZero));
+        int horizontalShift = Math.Max(1, (int)Math.Round(baseline.Width * 0.10D, MidpointRounding.AwayFromZero));
+        int verticalShift = Math.Max(1, (int)Math.Round(baseline.Height * 0.10D, MidpointRounding.AwayFromZero));
+
+        return new[]
+        {
+            new MobileSamPromptVariant(
+                "expand-20pct",
+                ClampPromptBounds(Rectangle.FromLTRB(
+                    baseline.Left - horizontalPadding,
+                    baseline.Top - verticalPadding,
+                    baseline.Right + horizontalPadding,
+                    baseline.Bottom + verticalPadding), imageSize)),
+            new MobileSamPromptVariant(
+                "shrink-10pct",
+                ClampPromptBounds(Rectangle.FromLTRB(
+                    baseline.Left + horizontalInset,
+                    baseline.Top + verticalInset,
+                    baseline.Right - horizontalInset,
+                    baseline.Bottom - verticalInset), imageSize)),
+            new MobileSamPromptVariant(
+                "shift-negative-10pct",
+                ClampPromptBounds(new Rectangle(
+                    baseline.X - horizontalShift,
+                    baseline.Y - verticalShift,
+                    baseline.Width,
+                    baseline.Height), imageSize)),
+            new MobileSamPromptVariant(
+                "shift-positive-10pct",
+                ClampPromptBounds(new Rectangle(
+                    baseline.X + horizontalShift,
+                    baseline.Y + verticalShift,
+                    baseline.Width,
+                    baseline.Height), imageSize))
+        };
+    }
+
+    private static Rectangle ClampPromptBounds(Rectangle bounds, Size imageSize)
+    {
+        int left = Math.Clamp(bounds.Left, 0, imageSize.Width - 2);
+        int top = Math.Clamp(bounds.Top, 0, imageSize.Height - 2);
+        int right = Math.Clamp(bounds.Right, left + 1, imageSize.Width);
+        int bottom = Math.Clamp(bounds.Bottom, top + 1, imageSize.Height);
+        return Rectangle.FromLTRB(left, top, right, bottom);
     }
 
     private static IReadOnlyList<MobileSamMatrixSample> SelectMobileSamMatrixSamples(
@@ -381,10 +486,35 @@ internal static partial class Program
             };
         }).ToArray();
 
-    private static string BuildMobileSamMatrixMarkdown(JObject summary, IReadOnlyList<JObject> classRows)
+    private static IReadOnlyList<JObject> BuildMobileSamVariantRows(IReadOnlyList<JObject> results)
+        => results
+            .GroupBy(row => row.Value<string>("promptVariant") ?? "exact", StringComparer.Ordinal)
+            .OrderBy(group => group.Key, StringComparer.Ordinal)
+            .Select(group =>
+            {
+                JObject[] rows = group.ToArray();
+                return new JObject
+                {
+                    ["promptVariant"] = group.Key,
+                    ["trialCount"] = rows.Length,
+                    ["usableCount"] = rows.Count(row => string.Equals(row.Value<string>("disposition"), "usable", StringComparison.Ordinal)),
+                    ["editableCount"] = rows.Count(row => string.Equals(row.Value<string>("disposition"), "edit", StringComparison.Ordinal)),
+                    ["skipCount"] = rows.Count(row => string.Equals(row.Value<string>("disposition"), "skip", StringComparison.Ordinal)),
+                    ["medianIou"] = Median(rows.Select(row => row.Value<double?>("iou") ?? 0D)),
+                    ["medianDice"] = Median(rows.Select(row => row.Value<double?>("dice") ?? 0D))
+                };
+            }).ToArray();
+
+    private static string BuildMobileSamMatrixMarkdown(
+        JObject summary,
+        IReadOnlyList<JObject> classRows,
+        IReadOnlyList<JObject> variantRows)
     {
         var builder = new StringBuilder();
-        builder.AppendLine("# MobileSAM 8-Class Synthetic Usability Matrix");
+        bool boxJitter = variantRows.Any(row => !string.Equals(row.Value<string>("promptVariant"), "exact", StringComparison.Ordinal));
+        builder.AppendLine(boxJitter
+            ? "# MobileSAM 8-Class Synthetic Box-Jitter Robustness Matrix"
+            : "# MobileSAM 8-Class Synthetic Usability Matrix");
         builder.AppendLine();
         builder.AppendLine("- Status: Complete");
         builder.AppendLine("- Evidence origin: synthetic");
@@ -400,6 +530,14 @@ internal static partial class Program
         {
             builder.AppendLine(FormattableString.Invariant(
                 $"| {row.Value<string>("className")} | {row.Value<int>("usableCount")} / {row.Value<int>("editableCount")} / {row.Value<int>("skipCount")} | {row.Value<double>("medianIou"):F4} | {row.Value<double>("medianDice"):F4} | {row.Value<double>("medianElapsedMs"):F1} | {row.Value<string>("dominantFailure")} |"));
+        }
+        builder.AppendLine();
+        builder.AppendLine("| Prompt variant | Usable / Edit / Skip | Median IoU | Median Dice |");
+        builder.AppendLine("| --- | ---: | ---: | ---: |");
+        foreach (JObject row in variantRows)
+        {
+            builder.AppendLine(FormattableString.Invariant(
+                $"| {row.Value<string>("promptVariant")} | {row.Value<int>("usableCount")} / {row.Value<int>("editableCount")} / {row.Value<int>("skipCount")} | {row.Value<double>("medianIou"):F4} | {row.Value<double>("medianDice"):F4} |"));
         }
         builder.AppendLine();
         builder.AppendLine(FormattableString.Invariant(
@@ -452,6 +590,14 @@ internal static partial class Program
             AssertEqual("usable", ClassifyMobileSamCandidate(metric.IoU));
             AssertEqual("edit", ClassifyMobileSamCandidate(0.30D));
             AssertEqual("skip", ClassifyMobileSamCandidate(0.10D));
+            IReadOnlyList<MobileSamPromptVariant> variants = BuildMobileSamJitterVariants(
+                new Rectangle(100, 100, 50, 40),
+                new Size(200, 200));
+            AssertEqual(4, variants.Count);
+            AssertEqual(new Rectangle(90, 92, 70, 56), variants.Single(item => item.Name == "expand-20pct").Bounds);
+            AssertEqual(new Rectangle(105, 104, 40, 32), variants.Single(item => item.Name == "shrink-10pct").Bounds);
+            AssertEqual(new Rectangle(95, 96, 50, 40), variants.Single(item => item.Name == "shift-negative-10pct").Bounds);
+            AssertEqual(new Rectangle(105, 104, 50, 40), variants.Single(item => item.Name == "shift-positive-10pct").Bounds);
         }
         finally
         {
@@ -486,6 +632,32 @@ internal static partial class Program
         public string ImagePath { get; }
         public string MaskPath { get; }
         public Rectangle PromptBounds { get; }
+    }
+
+    private sealed class MobileSamMatrixTrial
+    {
+        public MobileSamMatrixTrial(MobileSamMatrixSample sample, string promptVariant, Rectangle promptBounds)
+        {
+            Sample = sample;
+            PromptVariant = promptVariant;
+            PromptBounds = promptBounds;
+        }
+
+        public MobileSamMatrixSample Sample { get; }
+        public string PromptVariant { get; }
+        public Rectangle PromptBounds { get; }
+    }
+
+    private sealed class MobileSamPromptVariant
+    {
+        public MobileSamPromptVariant(string name, Rectangle bounds)
+        {
+            Name = name;
+            Bounds = bounds;
+        }
+
+        public string Name { get; }
+        public Rectangle Bounds { get; }
     }
 
     private sealed class MobileSamMaskMetric

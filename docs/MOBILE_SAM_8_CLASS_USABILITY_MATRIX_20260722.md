@@ -101,3 +101,11 @@ Evidence: `artifacts/mobile-sam-usability-matrix/20260722-153003`.
 Boundary / next dependency: 정확한 메타데이터 박스 기반 합성 증거입니다.
 대략적인 사용자 박스 실패나 현장 데이터가 새로 확보되기 전에는 점/음성
 프롬프트 작업을 반복하지 않습니다.
+
+## 후속 box-jitter 결과
+
+고정 20% 확대, 10% 축소, 좌상/우하 10% 이동을 적용한 96회 후속 평가도
+96/96 사용 가능으로 통과했습니다. 작은 결정론적 박스 오차 범위는 더 이상
+미평가 상태가 아닙니다. 상세 근거는
+`docs/MOBILE_SAM_BOX_JITTER_MATRIX_20260722.md`와
+`artifacts/mobile-sam-box-jitter-matrix/20260722-165800`에 있습니다.
