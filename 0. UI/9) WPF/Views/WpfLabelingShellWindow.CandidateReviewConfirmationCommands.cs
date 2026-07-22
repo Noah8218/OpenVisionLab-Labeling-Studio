@@ -125,7 +125,9 @@ namespace MvcVisionSystem
             DrawingRectangle bounds = GetClippedCandidateBounds(candidate);
             string confidence = WpfCandidateReviewPresenter.FormatConfidence(candidate, "P1");
             ApplyCandidateSelectionReview(candidate);
-            SetModelStatus(bounds.IsEmpty
+            SetModelStatus(candidate.ImageLevel
+                ? $"후보: {candidate.ClassName} {confidence} 이미지 전체 판정"
+                : bounds.IsEmpty
                 ? $"후보: {candidate.ClassName} {confidence} 이미지 밖"
                 : $"후보: {candidate.ClassName} {confidence}  {WpfCandidateReviewPresenter.FormatBoundsCompact(bounds)}");
             UpdateDetectionResultOverlay();

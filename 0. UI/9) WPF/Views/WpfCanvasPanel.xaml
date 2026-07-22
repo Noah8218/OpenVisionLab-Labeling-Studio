@@ -140,6 +140,8 @@
         <Style x:Key="CanvasAnnotationToolItemStyle" TargetType="ListBoxItem">
             <Setter Property="Width" Value="38" />
             <Setter Property="Height" Value="38" />
+            <Setter Property="AutomationProperties.Name" Value="{Binding Text}" />
+            <Setter Property="AutomationProperties.HelpText" Value="{Binding ToolTip}" />
             <Setter Property="Padding" Value="0" />
             <Setter Property="Margin" Value="0,0,0,4" />
             <Setter Property="Foreground" Value="{DynamicResource PrimaryTextBrush}" />

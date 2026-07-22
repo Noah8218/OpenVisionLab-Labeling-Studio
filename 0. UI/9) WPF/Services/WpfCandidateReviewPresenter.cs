@@ -116,6 +116,11 @@ namespace MvcVisionSystem
                 return "-";
             }
 
+            if (IsImageLevel(candidate))
+            {
+                return $"{GetClassName(candidate)}  {FormatConfidence(candidate, "P1")}  이미지 전체 판정";
+            }
+
             return bounds.IsEmpty
                 ? $"{GetClassName(candidate)}  {FormatConfidence(candidate, "P1")}  \uC774\uBBF8\uC9C0 \uBC16"
                 : $"{GetClassName(candidate)}  {FormatConfidence(candidate, "P1")}  {FormatBoundsCompact(bounds)}";
@@ -134,6 +139,11 @@ namespace MvcVisionSystem
 
             string confidence = FormatConfidence(candidate, "P2");
             string threshold = minimumConfidence.ToString("P0", CultureInfo.CurrentCulture);
+            if (IsImageLevel(candidate))
+            {
+                return $"{GetClassName(candidate)} / 신뢰도 {confidence} / 기준 {threshold}\n범위: 이미지 전체 판정\n상태: OK/NG 판정 확인\n위치·겹침: 해당 없음";
+            }
+
             string boundsText = bounds.IsEmpty
                 ? "\uC774\uBBF8\uC9C0 \uBC16"
                 : FormatBoundsCompact(bounds);
@@ -166,6 +176,17 @@ namespace MvcVisionSystem
             }
 
             string confidence = FormatConfidence(candidate, "P1");
+            if (IsImageLevel(candidate))
+            {
+                return new WpfCandidateComparisonPresentation(
+                    $"{GetClassName(candidate)} {confidence}\n이미지 전체 판정",
+                    "현재 이미지\nOK/NG 판정",
+                    "위치·겹침\n해당 없음",
+                    "이미지 전체 분류 후보입니다. 오른쪽 OK/NG 판정과 신뢰도를 확인하세요.",
+                    false,
+                    $"선택: {BuildCandidateSummaryName(candidate)} / 범위: 이미지 전체 / 조치: OK/NG 판정 확인");
+            }
+
             string candidateText = bounds.IsEmpty
                 ? $"{GetClassName(candidate)} {confidence}\n\uC774\uBBF8\uC9C0 \uBC16"
                 : $"{GetClassName(candidate)} {confidence}\n{FormatBoundsCompact(bounds)}";
@@ -194,6 +215,11 @@ namespace MvcVisionSystem
             }
 
             string candidateText = BuildCandidateSummaryName(candidate);
+            if (IsImageLevel(candidate))
+            {
+                return $"선택: {candidateText} / 범위: 이미지 전체 / 조치: OK/NG 판정 확인";
+            }
+
             if (bounds.IsEmpty)
             {
                 return $"\uC120\uD0DD: {candidateText} / \uC774\uBBF8\uC9C0 \uBC16 / \uC870\uCE58: \uC2A4\uD0B5";
@@ -241,6 +267,11 @@ namespace MvcVisionSystem
                 return "\uAC80\uD1A0 \uD544\uC694";
             }
 
+            if (IsImageLevel(candidate))
+            {
+                return "이미지 전체 판정 / OK/NG 확인";
+            }
+
             string status = IsConfirmable(candidate, bounds, overlap, minimumConfidence)
                 ? "\uD655\uC815 \uAC00\uB2A5"
                 : IsHighOverlap(overlap)
@@ -274,6 +305,11 @@ namespace MvcVisionSystem
                 return "\uD655\uC815\uD560 AI \uD6C4\uBCF4\uB97C \uC120\uD0DD\uD558\uC138\uC694.";
             }
 
+            if (IsImageLevel(candidate))
+            {
+                return "이미지 전체 분류 후보는 박스 라벨로 확정하지 않습니다. 오른쪽 OK/NG 판정을 확인하세요.";
+            }
+
             if (bounds.IsEmpty)
             {
                 return "\uC774\uBBF8\uC9C0 \uC601\uC5ED \uBC16 \uD6C4\uBCF4\uB294 \uD655\uC815\uD560 \uC218 \uC5C6\uC2B5\uB2C8\uB2E4.";
@@ -295,6 +331,11 @@ namespace MvcVisionSystem
         {
             if (candidate == null || bounds.IsEmpty || IsHighOverlap(overlap))
             {
+                if (IsImageLevel(candidate))
+                {
+                    return PackIconMaterialKind.ImageCheckOutline;
+                }
+
                 return PackIconMaterialKind.AlertCircleOutline;
             }
 
@@ -311,6 +352,11 @@ namespace MvcVisionSystem
         {
             if (candidate == null || bounds.IsEmpty)
             {
+                if (IsImageLevel(candidate))
+                {
+                    return new MediaSolidColorBrush(MediaColor.FromRgb(56, 189, 248));
+                }
+
                 return new MediaSolidColorBrush(MediaColor.FromRgb(239, 68, 68));
             }
 
@@ -360,6 +406,9 @@ namespace MvcVisionSystem
 
         private static bool IsSmartMask(YoloWorkerSmokeCandidate candidate)
             => string.Equals(candidate?.CandidateType, "smart-mask", StringComparison.OrdinalIgnoreCase);
+
+        private static bool IsImageLevel(YoloWorkerSmokeCandidate candidate)
+            => candidate?.ImageLevel == true;
 
         public static string FormatBoundsCompact(Rectangle bounds)
             => bounds.IsEmpty ? "-" : $"\uD06C\uAE30 {bounds.Width}x{bounds.Height} / \uC704\uCE58 x={bounds.X}, y={bounds.Y}";

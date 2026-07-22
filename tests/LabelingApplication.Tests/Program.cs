@@ -5200,6 +5200,18 @@ internal static partial class Program
             System.Windows.Rect annotationRegion = hasSmokeImageBounds
                 ? BuildExeSmokeFittedImageRegion(canvasRect, smokeImagePath)
                 : BuildExeSmokeAnnotationRegion(canvasRect);
+            if (!ClickDatasetPurposeByText(root, "\uAC1D\uCCB4 \uD0D0\uC9C0"))
+            {
+                AssertTrue(
+                    SelectAutomationTabByAutomationId(root, "LearningReviewTab") || SelectTabItemByName(root, "\uAC00\uC774\uB4DC/\uB3C4\uAD6C"),
+                    "guide/tools tab was not selectable before ROI-tools smoke");
+                root = RefreshAutomationRoot(process);
+                AssertTrue(
+                    ClickDatasetPurposeByText(root, "\uAC1D\uCCB4 \uD0D0\uC9C0"),
+                    "native click did not find the object-detection dataset purpose");
+            }
+
+            root = RefreshAutomationRoot(process);
             System.Windows.Automation.AutomationElement boxToolItem = FindAnnotationToolItem(root, "\uBC15\uC2A4");
             AssertTrue(boxToolItem != null, "native click did not find the box tool");
             NativeClick(GetAutomationCenter(boxToolItem));
@@ -5213,14 +5225,16 @@ internal static partial class Program
             ExeSmokeDragBatchMetrics boxInputMetrics = ExecuteExeSmokeDragBatch(boxDrags, moveDelayMilliseconds: 1, postMouseUpMilliseconds: 10);
 
             root = RefreshAutomationRoot(process);
-            if (!ContainsAutomationText(root, "Defect / \uBC15\uC2A4"))
+            if (!ContainsAutomationText(root, "/ \uBC15\uC2A4"))
             {
-                AssertTrue(SelectTabItemByName(root, "\uAC1D\uCCB4"), "object tab was not selectable after ROI smoke box drawing");
+                AssertTrue(
+                    SelectAutomationTabByAutomationId(root, "ObjectsReviewTab") || SelectTabItemByName(root, "\uC800\uC7A5 \uB77C\uBCA8"),
+                    "saved-label tab was not selectable after ROI smoke box drawing");
                 root = RefreshAutomationRoot(process);
             }
 
             bool objectRowVisible = WaitUntil(
-                () => ContainsAutomationText(RefreshAutomationRoot(process, bringToFront: false), "Defect / \uBC15\uC2A4"),
+                () => ContainsAutomationText(RefreshAutomationRoot(process, bringToFront: false), "/ \uBC15\uC2A4"),
                 TimeSpan.FromSeconds(4));
             AssertTrue(objectRowVisible, "real EXE ROI smoke box draw did not create an object-review row");
 
@@ -5254,7 +5268,7 @@ internal static partial class Program
                     var currentRoot = RefreshAutomationRoot(process, bringToFront: false);
                     return boxDrags.Count <= 1
                         ? ContainsAutomationText(currentRoot, "\uD604\uC7AC \uC774\uBBF8\uC9C0 \uAC1D\uCCB4 \uC5C6\uC74C")
-                        : ContainsAutomationText(currentRoot, "Defect /");
+                        : ContainsAutomationText(currentRoot, "/ \uBC15\uC2A4");
                 },
                 TimeSpan.FromSeconds(4));
             AssertTrue(remainingObjectVisible, "real EXE ROI delete did not leave the expected object-review state");
@@ -6213,7 +6227,9 @@ internal static partial class Program
                 "mask did not materialize before purpose switching");
 
             root = RefreshAutomationRoot(process, bringToFront: false);
-            AssertTrue(SelectTabItemByName(root, "\uAC1D\uCCB4"), "object tab was not selectable after mask materialization");
+            AssertTrue(
+                SelectAutomationTabByAutomationId(root, "ObjectsReviewTab") || SelectTabItemByName(root, "\uC800\uC7A5 \uB77C\uBCA8"),
+                "saved-label tab was not selectable after mask materialization");
             bool maskVisibleBeforeSwitch = WaitUntil(
                 () => ContainsAutomationText(RefreshAutomationRoot(process, bringToFront: false), "Defect / \uB9C8\uC2A4\uD06C"),
                 TimeSpan.FromSeconds(4));
@@ -6244,7 +6260,9 @@ internal static partial class Program
             AssertTrue(hiddenStatusVisible, "purpose switch should explain hidden segmentation labels in the model status");
 
             root = RefreshAutomationRoot(process, bringToFront: false);
-            AssertTrue(SelectTabItemByName(root, "\uAC1D\uCCB4"), "object tab was not selectable after object-detection switch");
+            AssertTrue(
+                SelectAutomationTabByAutomationId(root, "ObjectsReviewTab") || SelectTabItemByName(root, "\uC800\uC7A5 \uB77C\uBCA8"),
+                "saved-label tab was not selectable after object-detection switch");
             bool segmentationHidden = WaitUntil(
                 () => !ContainsAutomationText(RefreshAutomationRoot(process, bringToFront: false), "Defect / \uB9C8\uC2A4\uD06C"),
                 TimeSpan.FromSeconds(3));
@@ -6265,7 +6283,9 @@ internal static partial class Program
             ExeSmokeDragPath outsideDrag = BuildExeSmokeOutsideImageBoxDrag(random, canvasRect, fittedImageBounds);
             double outsideBoxMilliseconds = NativeHumanDrag(outsideDrag.Points, moveDelayMilliseconds: 1, postMouseUpMilliseconds: 80);
             root = RefreshAutomationRoot(process, bringToFront: false);
-            AssertTrue(SelectTabItemByName(root, "\uAC1D\uCCB4"), "object tab was not selectable after outside-image drag");
+            AssertTrue(
+                SelectAutomationTabByAutomationId(root, "ObjectsReviewTab") || SelectTabItemByName(root, "\uC800\uC7A5 \uB77C\uBCA8"),
+                "saved-label tab was not selectable after outside-image drag");
             root = RefreshAutomationRoot(process, bringToFront: false);
             int boxCountAfterOutsideDrag = CountAutomationTextOccurrences(root, "Defect / \uBC15\uC2A4");
             bool outsideBoxCreatedObject = boxCountAfterOutsideDrag > boxBaselineBeforeOutsideDrag;
@@ -6314,7 +6334,9 @@ internal static partial class Program
 
             AssertTrue(restoredStatusVisible, "purpose switch back should explain restored segmentation label visibility");
             root = RefreshAutomationRoot(process, bringToFront: false);
-            AssertTrue(SelectTabItemByName(root, "\uAC1D\uCCB4"), "object tab was not selectable after segmentation restore");
+            AssertTrue(
+                SelectAutomationTabByAutomationId(root, "ObjectsReviewTab") || SelectTabItemByName(root, "\uC800\uC7A5 \uB77C\uBCA8"),
+                "saved-label tab was not selectable after segmentation restore");
             bool segmentationRestored = WaitUntil(
                 () => ContainsAutomationText(RefreshAutomationRoot(process, bringToFront: false), "Defect / \uB9C8\uC2A4\uD06C"),
                 TimeSpan.FromSeconds(4));
@@ -6399,7 +6421,9 @@ internal static partial class Program
             root = RefreshAutomationRoot(process);
             if (!ContainsAutomationText(root, "Defect / 박스"))
             {
-                AssertTrue(SelectTabItemByName(root, "객체"), "object tab was not selectable after box drawing");
+                AssertTrue(
+                    SelectAutomationTabByAutomationId(root, "ObjectsReviewTab") || SelectTabItemByName(root, "저장 라벨"),
+                    "saved-label tab was not selectable after box drawing");
                 root = RefreshAutomationRoot(process);
             }
 
@@ -7440,7 +7464,8 @@ internal static partial class Program
                 continue;
             }
 
-            if (GetAutomationTextChildren(element).Any(text => string.Equals(text, toolText, StringComparison.Ordinal)))
+            if (string.Equals(element.Current.Name, toolText, StringComparison.Ordinal)
+                || GetAutomationTextChildren(element).Any(text => string.Equals(text, toolText, StringComparison.Ordinal)))
             {
                 return element;
             }
@@ -13829,6 +13854,32 @@ internal static partial class Program
         AssertTrue(newCandidateComparison.DecisionText.Contains("\uC2A4\uD0B5", StringComparison.Ordinal), "new candidate decision should still explain the reject path");
         AssertTrue(newCandidateComparison.SelectionSummaryText.Contains("\uACB9\uCE68 \uC5C6\uC74C", StringComparison.Ordinal), "new candidate summary should say there is no current-label overlap");
         AssertTrue(newCandidateComparison.SelectionSummaryText.Contains("\uD655\uC815", StringComparison.Ordinal), "new candidate summary should point to confirm");
+
+        var imageLevel = new YoloWorkerSmokeCandidate
+        {
+            Index = 3,
+            ClassName = "abnormal",
+            Confidence = 0.998,
+            ImageLevel = true
+        };
+        Rectangle emptyBounds = Rectangle.Empty;
+        WpfCandidateComparisonPresentation imageLevelComparison = WpfCandidateReviewPresenter.BuildComparison(
+            imageLevel,
+            emptyBounds,
+            new WpfCandidateOverlapInfo(string.Empty, Rectangle.Empty, 0D));
+        WpfCandidateReviewListItem imageLevelRow = WpfCandidateReviewPresenter.BuildListItem(
+            imageLevel,
+            1,
+            emptyBounds,
+            new WpfCandidateOverlapInfo(string.Empty, Rectangle.Empty, 0D),
+            0.25F);
+        AssertTrue(imageLevelComparison.CandidateText.Contains("이미지 전체 판정", StringComparison.Ordinal), "image-level candidate comparison should name its classification scope");
+        AssertTrue(imageLevelComparison.OverlapText.Contains("해당 없음", StringComparison.Ordinal), "image-level candidate comparison should not report a geometry overlap percentage");
+        AssertTrue(!imageLevelComparison.CandidateText.Contains("이미지 밖", StringComparison.Ordinal), "image-level candidate should not be described as outside the image");
+        AssertTrue(imageLevelComparison.DecisionText.Contains("OK/NG", StringComparison.Ordinal), "image-level candidate comparison should point to OK/NG review");
+        AssertTrue(imageLevelRow.SecondaryText.Contains("이미지 전체 판정", StringComparison.Ordinal), "image-level candidate row should name its classification scope");
+        AssertTrue(!imageLevelRow.SecondaryText.Contains("이미지 밖", StringComparison.Ordinal), "image-level candidate row should not use object-detection geometry wording");
+        AssertTrue(WpfCandidateReviewPresenter.BuildConfirmDisabledHint(imageLevel, emptyBounds, default).Contains("OK/NG", StringComparison.Ordinal), "image-level confirm hint should point to the image decision controls");
 
         WpfDetectionOverlayPresentation overlayEmpty = service.BuildOverlayPresentation(
             string.Empty,
@@ -27651,6 +27702,11 @@ internal static partial class Program
         AssertNamedXamlElement(xaml, xName, "WrapPanel", "CanvasAnnotationToolBarItems");
         AssertNamedXamlElement(xaml, xName, "Border", "CanvasAnnotationToolRail");
         AssertNamedXamlElement(xaml, xName, "ListBox", "CanvasAnnotationToolListBox");
+        var xamlText = xaml.ToString(SaveOptions.DisableFormatting);
+        AssertTrue(
+            xamlText.Contains("<Setter Property=\"AutomationProperties.Name\" Value=\"{Binding Text}\"", StringComparison.Ordinal)
+                && xamlText.Contains("<Setter Property=\"AutomationProperties.HelpText\" Value=\"{Binding ToolTip}\"", StringComparison.Ordinal),
+            "icon-only canvas annotation tool containers should expose accessible names and help text");
         AssertNamedXamlElement(xaml, xName, "Border", "CanvasBrushSizeControl");
         AssertNamedXamlElement(xaml, xName, "Button", "CanvasDecreaseBrushSizeButton");
         AssertNamedXamlElement(xaml, xName, "TextBlock", "CanvasBrushSizeText");
