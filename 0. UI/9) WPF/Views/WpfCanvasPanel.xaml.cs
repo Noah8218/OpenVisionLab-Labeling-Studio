@@ -45,6 +45,7 @@ namespace MvcVisionSystem
         public TextBlock OverlaySelectedText => DetectionOverlaySelectedText;
         public TextBlock OverlayDetailText => DetectionOverlayDetailText;
         public WpfUiButton SaveAnnotationButton => CanvasSaveAnnotationButton;
+        public WpfUiButton CreateSmartMaskButton => CanvasCreateSmartMaskButton;
         public WpfUiButton CompleteNoObjectButton => CanvasCompleteNoObjectButton;
         public WpfUiButton FitButton => FitCanvasButton;
         public WpfUiButton ActualSizeButton => ActualSizeCanvasButton;

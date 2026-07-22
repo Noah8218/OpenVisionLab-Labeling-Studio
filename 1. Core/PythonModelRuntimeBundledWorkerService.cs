@@ -10,6 +10,7 @@ namespace MvcVisionSystem._1._Core
         public const string UltralyticsWorkerRelativePath = @"Runtime\Python\openvisionlab_ultralytics_worker.py";
         public const string UnetWorkerRelativePath = @"Runtime\Python\openvisionlab_unet_worker.py";
         public const string SegmentationPredictionExporterRelativePath = @"Runtime\Python\openvisionlab_segmentation_prediction_export.py";
+        public const string MobileSamBoxPromptWorkerRelativePath = @"Runtime\Python\openvisionlab_mobile_sam_box_prompt.py";
 
         public static string ResolveUltralyticsWorkerScriptPath()
         {
@@ -24,6 +25,11 @@ namespace MvcVisionSystem._1._Core
         public static string ResolveSegmentationPredictionExporterScriptPath()
         {
             return ResolveWorkerScriptPath(SegmentationPredictionExporterRelativePath);
+        }
+
+        public static string ResolveMobileSamBoxPromptWorkerScriptPath()
+        {
+            return ResolveWorkerScriptPath(MobileSamBoxPromptWorkerRelativePath);
         }
 
         public static string ResolveUnetWorkerRootPath()

@@ -40,6 +40,8 @@ namespace MvcVisionSystem
             CanvasPanelViewModel.ConfigureBrushSizeCommands(
                 ExecuteDecreaseBrushSizeCommand,
                 ExecuteIncreaseBrushSizeCommand);
+            CanvasPanelViewModel.ConfigureSmartMaskCommand(
+                ExecuteCreateSmartMaskCandidateCommand);
             SyncCanvasBrushSizeFromWorkflow();
             RefreshCanvasAnnotationToolScope();
             RefreshCanvasWorkflowContext();
@@ -75,6 +77,7 @@ namespace MvcVisionSystem
 
         private void RefreshCanvasWorkflowContext()
         {
+            RefreshSmartMaskCommandState();
             // The selected guide step can lag behind direct canvas tool changes, so the
             // strip is composed from the live canvas state that the operator is using.
             if (IsAnomalyDatasetPurpose())
@@ -223,6 +226,7 @@ namespace MvcVisionSystem
             RegisterCanvasName(nameof(CanvasLabelLayerText), CanvasLabelLayerText);
             RegisterCanvasName(nameof(CanvasInferenceLayerText), CanvasInferenceLayerText);
             RegisterCanvasName(nameof(CanvasSaveAnnotationButton), CanvasSaveAnnotationButton);
+            RegisterCanvasName(nameof(CanvasCreateSmartMaskButton), CanvasCreateSmartMaskButton);
             RegisterCanvasName(nameof(CanvasCompleteNoObjectButton), CanvasCompleteNoObjectButton);
             RegisterCanvasName(nameof(CanvasAnnotationSaveStateCard), CanvasAnnotationSaveStateCard);
             RegisterCanvasName(nameof(CanvasAnnotationSaveStatusTitleText), CanvasAnnotationSaveStatusTitleText);

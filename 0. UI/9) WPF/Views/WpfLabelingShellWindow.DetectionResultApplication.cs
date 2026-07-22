@@ -19,8 +19,19 @@ namespace MvcVisionSystem
     {
         // Detection result application owns canvas/list updates; execution code should only return worker results.
         private void ApplyDetectionCandidates(IReadOnlyList<YoloWorkerSmokeCandidate> candidates, bool succeeded)
+            => ApplyDetectionCandidatesCore(candidates, succeeded, clearConfirmed: true);
+
+        private void ApplyDetectionCandidatesPreservingConfirmed(
+            IReadOnlyList<YoloWorkerSmokeCandidate> candidates,
+            bool succeeded)
+            => ApplyDetectionCandidatesCore(candidates, succeeded, clearConfirmed: false);
+
+        private void ApplyDetectionCandidatesCore(
+            IReadOnlyList<YoloWorkerSmokeCandidate> candidates,
+            bool succeeded,
+            bool clearConfirmed)
         {
-            int loadedCount = candidateReviewState.LoadPendingCandidates(candidates, clearConfirmed: true);
+            int loadedCount = candidateReviewState.LoadPendingCandidates(candidates, clearConfirmed);
             CandidateReviewViewModel?.ClearReviewHistory();
 
             ApplyCanvasDisplayMode(WpfCanvasDisplayMode.InferenceOnly, redraw: false, logChange: false);

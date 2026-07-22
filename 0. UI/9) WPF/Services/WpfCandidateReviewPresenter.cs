@@ -143,7 +143,10 @@ namespace MvcVisionSystem
                     ? "\uC911\uBCF5 \uAC00\uB2A5 - \uD655\uC815 \uC81C\uC678"
                     : "\uAC80\uD1A0 \uD544\uC694";
 
-            return $"{GetClassName(candidate)} / \uC2E0\uB8B0\uB3C4 {confidence} / \uAE30\uC900 {threshold}\n\uC88C\uD45C: {boundsText}\n\uC0C1\uD0DC: {status}\n{BuildCurrentObjectComparison(bounds, overlap)}";
+            string scoreText = IsSmartMask(candidate)
+                ? $"\uC0DD\uC131 \uBC29\uC2DD {confidence} / \uC2E0\uB8B0\uB3C4 \uC810\uC218 \uC5C6\uC74C"
+                : $"\uC2E0\uB8B0\uB3C4 {confidence} / \uAE30\uC900 {threshold}";
+            return $"{GetClassName(candidate)} / {scoreText}\n\uC88C\uD45C: {boundsText}\n\uC0C1\uD0DC: {status}\n{BuildCurrentObjectComparison(bounds, overlap)}";
         }
 
         public static WpfCandidateComparisonPresentation BuildComparison(
@@ -351,7 +354,12 @@ namespace MvcVisionSystem
         }
 
         public static string FormatConfidence(YoloWorkerSmokeCandidate candidate, string format)
-            => (candidate?.Confidence ?? 0D).ToString(format, CultureInfo.CurrentCulture);
+            => IsSmartMask(candidate)
+                ? "\uBC15\uC2A4 \uD504\uB86C\uD504\uD2B8"
+                : (candidate?.Confidence ?? 0D).ToString(format, CultureInfo.CurrentCulture);
+
+        private static bool IsSmartMask(YoloWorkerSmokeCandidate candidate)
+            => string.Equals(candidate?.CandidateType, "smart-mask", StringComparison.OrdinalIgnoreCase);
 
         public static string FormatBoundsCompact(Rectangle bounds)
             => bounds.IsEmpty ? "-" : $"\uD06C\uAE30 {bounds.Width}x{bounds.Height} / \uC704\uCE58 x={bounds.X}, y={bounds.Y}";

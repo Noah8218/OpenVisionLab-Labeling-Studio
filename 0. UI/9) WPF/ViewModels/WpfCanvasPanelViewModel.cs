@@ -103,6 +103,11 @@ namespace MvcVisionSystem
         private ICommand completeNoObjectCommand = new RelayCommand(NoOpCommand);
         private ICommand decreaseBrushSizeCommand = new RelayCommand(NoOpCommand);
         private ICommand increaseBrushSizeCommand = new RelayCommand(NoOpCommand);
+        private ICommand createSmartMaskCommand = new RelayCommand(NoOpCommand);
+        private System.Windows.Visibility smartMaskVisibility = System.Windows.Visibility.Collapsed;
+        private bool isSmartMaskEnabled;
+        private string smartMaskActionText = "박스 → 스마트 마스크";
+        private string smartMaskToolTip = "결함 둘레에 박스를 그린 뒤 MobileSAM 후보 마스크를 만듭니다.";
 
         public string ViewName => nameof(WpfCanvasPanel);
 
@@ -294,6 +299,36 @@ namespace MvcVisionSystem
         {
             get => increaseBrushSizeCommand;
             private set => SetProperty(ref increaseBrushSizeCommand, value);
+        }
+
+        public ICommand CreateSmartMaskCommand
+        {
+            get => createSmartMaskCommand;
+            private set => SetProperty(ref createSmartMaskCommand, value);
+        }
+
+        public System.Windows.Visibility SmartMaskVisibility
+        {
+            get => smartMaskVisibility;
+            private set => SetProperty(ref smartMaskVisibility, value);
+        }
+
+        public bool IsSmartMaskEnabled
+        {
+            get => isSmartMaskEnabled;
+            private set => SetProperty(ref isSmartMaskEnabled, value);
+        }
+
+        public string SmartMaskActionText
+        {
+            get => smartMaskActionText;
+            private set => SetProperty(ref smartMaskActionText, value ?? string.Empty);
+        }
+
+        public string SmartMaskToolTip
+        {
+            get => smartMaskToolTip;
+            private set => SetProperty(ref smartMaskToolTip, value ?? string.Empty);
         }
 
         public int BrushSize
@@ -601,6 +636,23 @@ namespace MvcVisionSystem
         {
             DecreaseBrushSizeCommand = new RelayCommand(decreaseBrushSize ?? NoOpCommand);
             IncreaseBrushSizeCommand = new RelayCommand(increaseBrushSize ?? NoOpCommand);
+        }
+
+        public void ConfigureSmartMaskCommand(Action createSmartMask)
+        {
+            CreateSmartMaskCommand = new RelayCommand(createSmartMask ?? NoOpCommand);
+        }
+
+        public void SetSmartMaskState(bool isVisible, bool isEnabled, bool isBusy, string detail)
+        {
+            SmartMaskVisibility = isVisible
+                ? System.Windows.Visibility.Visible
+                : System.Windows.Visibility.Collapsed;
+            IsSmartMaskEnabled = isVisible && isEnabled && !isBusy;
+            SmartMaskActionText = isBusy ? "마스크 생성 중..." : "박스 → 스마트 마스크";
+            SmartMaskToolTip = string.IsNullOrWhiteSpace(detail)
+                ? "결함 둘레에 박스를 그린 뒤 MobileSAM 후보 마스크를 만듭니다. 결과는 확정 전 후보로만 표시됩니다."
+                : detail;
         }
 
         public void SetBrushSize(int size)

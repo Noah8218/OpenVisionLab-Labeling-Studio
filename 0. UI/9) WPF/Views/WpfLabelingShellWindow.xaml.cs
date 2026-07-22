@@ -142,6 +142,7 @@ namespace MvcVisionSystem
         private readonly WpfModelComparisonReviewService modelComparisonReviewService = new WpfModelComparisonReviewService();
         private readonly WpfModelComparisonRunService modelComparisonRunService = new WpfModelComparisonRunService();
         private readonly WpfSegmentationAdapterComparisonRunService segmentationAdapterComparisonRunService = new WpfSegmentationAdapterComparisonRunService();
+        private readonly WpfMobileSamBoxPromptService mobileSamBoxPromptService = new WpfMobileSamBoxPromptService();
         private readonly WpfAnomalyClassificationEvaluationRunService anomalyClassificationEvaluationRunService = new WpfAnomalyClassificationEvaluationRunService();
         private readonly WpfWorkspaceLayoutSettingsService workspaceLayoutSettingsService = new WpfWorkspaceLayoutSettingsService();
         private readonly WpfTrainingGuideHistoryService trainingGuideHistoryService = new WpfTrainingGuideHistoryService();
@@ -149,6 +150,7 @@ namespace MvcVisionSystem
         private readonly WpfMaskStrokeHistoryDraftService maskStrokeHistoryDraftService = new WpfMaskStrokeHistoryDraftService();
         private bool suppressImageQueueSelection;
         private bool isDetecting;
+        private bool isCreatingSmartMask;
         private bool isBatchDetectionRunning;
         private bool isYoloEnvironmentCommandRunning;
         private bool isTrainingCommandRunning;

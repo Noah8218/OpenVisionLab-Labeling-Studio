@@ -89,6 +89,16 @@ edge_chip
 
 브러시 크기는 경계보다 지나치게 크지 않게 시작하세요. 넓은 내부는 큰 브러시, 외곽은 작은 브러시로 마무리하면 수정 횟수를 줄일 수 있습니다.
 
+### 세그멘테이션 스마트 마스크
+
+![결함을 감싼 박스 프롬프트](images/workflows-20260722/segmentation-smart-mask-prompt-1920x1080.png)
+
+결함을 직접 전부 칠하기 어려우면 사각형으로 결함을 감싼 뒤 `박스 → 스마트 마스크`를 누릅니다. MobileSAM이 외곽선 후보를 만들면 반드시 후보를 확인하고 `확정` 또는 `스킵`을 선택하세요. 후보 생성만으로는 저장되지 않으며 `확정` 명령이 기존 정답 저장 흐름까지 실행합니다. 확정 뒤 수동 편집을 추가했다면 `라벨 저장`을 다시 누릅니다.
+
+![MobileSAM이 만든 검토 전 결함 외곽선 후보](images/workflows-20260722/segmentation-smart-mask-candidate-1920x1080.png)
+
+버튼이 비활성이면 세그멘테이션 목적, 현재 이미지, 마지막 사각형 프롬프트와 로컬 MobileSAM 실행 조건을 확인합니다. 자세한 조건은 [MobileSAM 박스 스마트 마스크](../MOBILE_SAM_SMART_MASK.md)를 참고하세요.
+
 ## 5. 이상탐지 OK/NG 판정
 
 ![이상탐지 사용 화면](images/workflows-20260722/anomaly-ok-ng-review-1920x1080.png)

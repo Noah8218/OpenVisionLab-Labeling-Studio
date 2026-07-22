@@ -102,7 +102,7 @@ namespace MvcVisionSystem
 
             ApplyCanvasDisplayMode(WpfCanvasDisplayMode.InferenceOnly, redraw: true, logChange: false);
             MainCanvasViewModel.ImageViewer.FitToRect(BuildCandidateFocusRect(bounds));
-            SetModelStatus($"후보 초점: {candidate.ClassName} {candidate.Confidence:P1}  {WpfCandidateReviewPresenter.FormatBoundsCompact(bounds)}");
+            SetModelStatus($"후보 초점: {candidate.ClassName} {WpfCandidateReviewPresenter.FormatConfidence(candidate, "P1")}  {WpfCandidateReviewPresenter.FormatBoundsCompact(bounds)}");
             return true;
         }
 

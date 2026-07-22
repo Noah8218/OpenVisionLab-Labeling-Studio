@@ -123,7 +123,7 @@ namespace MvcVisionSystem
             }
 
             DrawingRectangle bounds = GetClippedCandidateBounds(candidate);
-            string confidence = candidate.Confidence.ToString("P1", CultureInfo.CurrentCulture);
+            string confidence = WpfCandidateReviewPresenter.FormatConfidence(candidate, "P1");
             ApplyCandidateSelectionReview(candidate);
             SetModelStatus(bounds.IsEmpty
                 ? $"후보: {candidate.ClassName} {confidence} 이미지 밖"

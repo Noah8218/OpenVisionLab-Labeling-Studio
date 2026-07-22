@@ -115,6 +115,7 @@ namespace MvcVisionSystem
             string shapeName = FormatManualRoiShapeName(e.RoiRect.ShapeKind);
             SetModelStatus($"라벨 추가: {shapeName} {WpfCandidateReviewPresenter.FormatBoundsCompact(bounds)}");
             AppendLog($"라벨 추가({shapeName}): {bounds.X},{bounds.Y},{bounds.Width},{bounds.Height}");
+            RefreshSmartMaskCommandState();
         }
 
         private void MainCanvasViewModel_RoiEditingCompleted(object sender, OpenVisionLab.ImageCanvas.Model.RoiChangedEventArgs e)
@@ -163,6 +164,7 @@ namespace MvcVisionSystem
             // Canvas ViewModel owns the OpenGL overlay removal after this event; the shell only updates model/review state here.
             RefreshObjectReviewAfterDelete(WpfObjectReviewSource.ManualRoi, index);
             QueueActiveImageQueueStatusRefresh(hasActiveCandidates: pendingDetectionCandidates.Count > 0);
+            RefreshSmartMaskCommandState();
         }
 
 

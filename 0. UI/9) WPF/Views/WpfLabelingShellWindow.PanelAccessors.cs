@@ -128,6 +128,7 @@ namespace MvcVisionSystem
         private TextBlock CanvasLabelLayerText => CanvasPanelControl?.LabelLayerText;
         private TextBlock CanvasInferenceLayerText => CanvasPanelControl?.InferenceLayerText;
         private Wpf.Ui.Controls.Button CanvasSaveAnnotationButton => CanvasPanelControl?.SaveAnnotationButton;
+        private Wpf.Ui.Controls.Button CanvasCreateSmartMaskButton => CanvasPanelControl?.CreateSmartMaskButton;
         private Wpf.Ui.Controls.Button CanvasCompleteNoObjectButton => CanvasPanelControl?.CompleteNoObjectButton;
         private Border CanvasAnnotationSaveStateCard => CanvasPanelControl?.AnnotationSaveStateCard;
         private TextBlock CanvasAnnotationSaveStatusTitleText => CanvasPanelControl?.AnnotationSaveStatusTitleTextBlock;

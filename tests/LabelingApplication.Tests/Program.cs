@@ -320,6 +320,21 @@ internal static partial class Program
             return RunSingleSmoke("WPF candidate review confirms polygon candidates through YOLOv8 segment training packet", TestWpfCandidateReviewConfirmsPolygonCandidateAsSegmentationArtifact);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--mobile-sam-box-prompt", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("MobileSAM box prompt produces a reviewable segmentation candidate", TestMobileSamBoxPromptContract);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--real-mobile-sam-box-prompt", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunRealMobileSamBoxPrompt(args);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--real-mobile-sam-usability-matrix", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunRealMobileSamUsabilityMatrix(args);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--wpf-annotation-object-verification", StringComparison.OrdinalIgnoreCase)))
         {
             return RunWpfAnnotationObjectVerification();
@@ -1562,6 +1577,9 @@ internal static partial class Program
         bool screenCapture = HasArgument(args, "--screen-capture");
         bool labelsOnly = HasArgument(args, "--labels-only");
         bool segmentationCandidates = HasArgument(args, "--segmentation-candidates");
+        bool smartMaskCandidate = HasArgument(args, "--smart-mask-candidate");
+        bool smartMaskPromptOnly = HasArgument(args, "--smart-mask-prompt-only");
+        string smartMaskPromptBox = GetArgumentValue(args, "--smart-mask-prompt-box", string.Empty);
         bool preserveDatasetOutput = roiOnly &&
             !string.IsNullOrWhiteSpace(datasetOutputRoot) &&
             Directory.Exists(datasetOutputRoot);
@@ -1875,6 +1893,14 @@ internal static partial class Program
                     }
                     ApplyVisualSmokeAnnotationTool(window, annotationTool, imageSize);
                     PumpWpfDispatcher(TimeSpan.FromMilliseconds(250));
+                    if (smartMaskCandidate)
+                    {
+                        ApplyVisualSmokeSmartMaskCandidate(window, imageSize, smartMaskPromptBox);
+                    }
+                    else if (smartMaskPromptOnly)
+                    {
+                        ApplyVisualSmokeSmartMaskPrompt(window, imageSize, smartMaskPromptBox);
+                    }
                     SelectVisualSmokeReviewTab(window, reviewTab);
                     EnsureVisualSmokeRightWorkflowExpanded(window, expandRightWorkflow);
                     PrepareVisualSmokeGuidePanel(window, reviewTab, expandLearningConcepts, focusTemplateWorkflow, expandLabelingDetails, focusYoloValidationReport, focusDatasetDashboard);
