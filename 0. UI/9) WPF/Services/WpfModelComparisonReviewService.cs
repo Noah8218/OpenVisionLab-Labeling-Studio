@@ -264,8 +264,8 @@ namespace MvcVisionSystem
                 ?? 0;
             string countText = comparisonCount > 0 ? $" {comparisonCount}\uC7A5" : string.Empty;
             return string.Equals(task, "test", StringComparison.OrdinalIgnoreCase)
-                ? $"\uBE44\uAD50 \uAE30\uC900: test{countText} (\uB3C5\uB9BD \uCD5C\uC885 \uAC80\uC99D)"
-                : $"\uBE44\uAD50 \uAE30\uC900: val{countText} (\uD559\uC2B5 \uAC80\uC99D\uC14B, \uAD50\uCCB4 \uD310\uB2E8 \uC544\uB2D8)";
+                ? $"\uBE44\uAD50 \uAE30\uC900: test{countText} (\uC81C\uC5B4\uB41C \uC5D4\uC9C4 \uBE44\uAD50, \uD604\uC7A5 \uAC80\uC99D \uC544\uB2D8)"
+                : $"\uBE44\uAD50 \uAE30\uC900: val{countText} (\uC81C\uC5B4\uB41C \uD559\uC2B5 \uAC80\uC99D\uC14B, \uD604\uC7A5 \uAC80\uC99D\u00B7\uAD50\uCCB4 \uD310\uB2E8 \uC544\uB2D8)";
         }
 
         private static string BuildBenchmarkLine(JObject summary, string modelKey, string fallbackEngine)

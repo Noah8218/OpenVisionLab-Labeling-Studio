@@ -153,7 +153,7 @@ Evidence: one-epoch run
 
 ## Foreground-quality checkpoint selection experiment
 
-Status: Incomplete
+Status: Complete as an evidence slice; rejected as a default selector.
 
 Scope: keep full-frame images, unweighted cross-entropy, optimizer, seed,
 train/valid split, and 30-epoch budget unchanged; change only the opt-in
@@ -173,14 +173,14 @@ Completed evidence:
   improved macro Dice/IoU from `0.164849` / `0.097209` to `0.204437` /
   `0.127053`; no class was predicted on all 80 images.
 
-Failed criterion:
+Quality gate result:
 
 - All five classes must have real valid overlap: failed. Both
   `contamination_spot` and `foreign_particle` remained at Dice `0.0` and zero
   intersection pixels. Therefore the selector is not eligible as the default
   training policy and the held-out test remains closed.
 
-Boundary / corrective action: retain the flag only as an internal opt-in
+Decision / boundary: retain the flag only as an internal opt-in
 validation harness; the normal TCP worker still uses validation-loss selection.
 Before another data-sampling experiment, isolate one loss/architecture
 hypothesis that can recover the two zero-overlap classes while this harness
@@ -189,3 +189,59 @@ measures the unchanged valid split.
 Evidence: run
 `C:\Git\unet\runs\segment\openvisionlab-unet-foregroundselection-validonly-e30-20260722-102225`; valid artifact
 `artifacts\unet-foregroundselection-e30-valid-20260722\unet-valid-predictions`.
+
+## Foreground soft-Dice loss experiment
+
+Status: Complete as a controlled experiment; rejected for product use.
+
+Scope: keep the fixed full-frame 360 train / 80 valid packet, unweighted
+cross-entropy, optimizer, seed 17, image size 320, batch 4, 30-epoch CUDA
+budget, and the opt-in foreground-quality selector. Change only the training
+loss to unweighted cross-entropy plus foreground soft-Dice. Do not use crop,
+class weights, augmentation changes, architecture changes, or the held-out
+60-image test split.
+
+The temporary loss excluded background and averaged soft-Dice only over
+foreground classes supported by the current target batch. With smoothing 1,
+the added term was `1 - mean((2 * intersection + 1) / (prediction + target +
+1))`. It was added to the unchanged cross-entropy with coefficient 1.
+
+Acceptance criteria and result:
+
+- One-epoch CUDA integration and the fixed 30-epoch run completed, and the
+  selected checkpoint records the loss/selector provenance: passed. The
+  30-epoch checkpoint is epoch 30 with SHA-256
+  `B317D352661A9893C281A31B4C824154762E88673E958545C123B640AD960D33`.
+- The app-owned canonical train/valid inputs remained identical to their
+  manifest: passed. All 880 train/valid image and mask files matched their
+  recorded SHA-256 after the run. The worker received only the canonical
+  export root, not the native `data.yaml` source.
+- The new valid raster output must have real overlap for all five classes:
+  failed. `contamination_spot` remained at zero predicted and intersection
+  pixels. `foreign_particle` recovered to Dice `0.295521`, but the all-class
+  gate remained false.
+- Valid macro Dice/IoU must exceed the fixed selector baseline
+  `0.204437/0.127053`: failed. The soft-Dice run scored
+  `0.189220/0.111142` on the same 80 full-frame valid masks.
+- The run must avoid an all-image foreground flood: passed. No class was
+  predicted on more than 32 of 80 valid images.
+
+Decision: reject this exact CE plus foreground soft-Dice formula as a product
+training policy. The held-out test remains closed and no model was registered,
+selected, or adopted. The temporary loss flag and implementation were removed;
+the normal TCP worker remains unweighted cross-entropy with validation-loss
+selection, and the existing selector remains only an internal opt-in evidence
+harness. Do not rerun this formula unless the data, architecture, loss
+definition, or acceptance criteria deliberately change.
+
+Evidence: one-epoch run
+`C:\Git\unet\runs\segment\openvisionlab-unet-softdice-validonly-e1-20260722`;
+30-epoch run
+`C:\Git\unet\runs\segment\openvisionlab-unet-softdice-validonly-e30-20260722`;
+valid predictions
+`artifacts\unet-softdice-e30-valid-20260722\unet-valid-predictions`.
+
+Boundary / next dependency: further production-readiness progress is blocked
+until independently acquired camera/session segmentation images and masks are
+available. Existing synthetic or unknown-provenance folders cannot satisfy
+that gate.

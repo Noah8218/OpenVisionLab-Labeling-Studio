@@ -175,6 +175,7 @@ GitHub Actions의 `.github/workflows/ci.yml`은 다음을 확인합니다.
 | [세그멘테이션 UX 기준](docs/SEGMENTATION_UX_COMPLETION.md) | 마스크·폴리곤 저장과 검증 기준 |
 | [이상탐지 흐름](docs/ANOMALY_DETECTION_FLOW.md) | OK/NG 판정, 분류 학습, 검증 절차 |
 | [모델 비교 기록](docs/YOLO11_ENGINE_COMPARISON_20260721.md) | 모델별 비교 계약과 근거 |
+| [합성 데이터 검증 계약](docs/SYNTHETIC_EVIDENCE_CONTRACT.md) | 합성 데이터로 기능을 완료하는 기준과 현장 성능 경계 |
 
 ## Release Notes
 
@@ -189,7 +190,7 @@ GitHub Actions의 `.github/workflows/ci.yml`은 다음을 확인합니다.
 ## Known Limitations
 
 - 현재 이상탐지는 OK/NG 2클래스 분류이며 one-class novelty detection이나 위치 heatmap 학습이 아닙니다.
-- 합성 데이터, validation-only 결과, 같은 출처의 재분할 결과는 기능 회귀 근거일 뿐 생산 정확도 보장이 아닙니다.
+- 합성 데이터는 기능·어댑터·재현성 완료 근거로 사용할 수 있지만 생산 정확도 보장은 아닙니다. 현장 데이터가 없으면 `현장 검증 미평가`로 분리합니다.
 - 모델 비교는 같은 데이터 지문, 클래스, split과 평가 조건이 확인될 때만 의미가 있습니다.
 - 로컬 Python 모델 런타임과 시작 가중치는 별도 준비가 필요할 수 있으며 승인 없이 자동 다운로드하지 않습니다.
 - 클라우드 계정, 팀 협업 권한, 배포 파이프라인, 카메라·PLC 제어는 현재 제품 범위가 아닙니다.

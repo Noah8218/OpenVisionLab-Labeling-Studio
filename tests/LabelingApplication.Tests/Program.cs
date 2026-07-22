@@ -12599,7 +12599,8 @@ internal static partial class Program
             AssertTrue(weakEvidenceReport.BenchmarkText.Contains("7.90-9.10", StringComparison.Ordinal) && weakEvidenceReport.BenchmarkText.Contains("n=5", StringComparison.Ordinal), "cross-engine summary should expose repeated takt range and sample count");
             AssertTrue(weakEvidenceReport.BenchmarkText.Contains("\uBC18\uBCF5 5\uD68C \uC911\uC559\uAC12", StringComparison.Ordinal), "cross-engine summary should identify repeated takt values as medians");
             AssertTrue(weakEvidenceReport.BenchmarkText.Contains("batch 1", StringComparison.Ordinal), "cross-engine summary should disclose the batch-one timing condition");
-            AssertTrue(weakEvidenceReport.BenchmarkText.Contains("test", StringComparison.Ordinal), "cross-engine summary should identify an independent test comparison");
+            AssertTrue(weakEvidenceReport.BenchmarkText.Contains("test", StringComparison.Ordinal), "cross-engine summary should identify the test split");
+            AssertTrue(weakEvidenceReport.BenchmarkText.Contains("\uD604\uC7A5 \uAC80\uC99D \uC544\uB2D8", StringComparison.Ordinal), "cross-engine test summary should not imply field validation");
             var engineComparisonViewModel = new WpfCandidateReviewPanelViewModel();
             engineComparisonViewModel.SetModelComparisonReview(weakEvidenceReport);
             AssertEqual(System.Windows.Visibility.Visible, engineComparisonViewModel.ModelComparisonBenchmarkVisibility);
@@ -12644,6 +12645,7 @@ internal static partial class Program
                 new[] { "OK", "NG" },
                 confidenceThreshold: null,
                 maxExamples: 10);
+            AssertTrue(validationEngineReport.BenchmarkText.Contains("\uD604\uC7A5 \uAC80\uC99D", StringComparison.Ordinal), "cross-engine validation summary should disclose the field-validation boundary");
             AssertTrue(validationEngineReport.BenchmarkText.Contains("val 28", StringComparison.Ordinal), "validation fallback should disclose its split and labeled image count");
             AssertTrue(validationEngineReport.BenchmarkText.Contains("\uAD50\uCCB4 \uD310\uB2E8 \uC544\uB2D8", StringComparison.Ordinal), "validation fallback should disclose that it is not model-adoption evidence");
             AssertTrue(validationEngineReport.RecommendationText.Contains("\uC5D4\uC9C4 \uBD84\uC11D", StringComparison.Ordinal), "validation fallback should be presented as an engine benchmark");
@@ -29860,6 +29862,7 @@ internal static partial class Program
         string segmentationWorkflowPath = Path.Combine(root, "docs", "SEGMENTATION_UX_COMPLETION.md");
         string anomalyWorkflowPath = Path.Combine(root, "docs", "ANOMALY_DETECTION_FLOW.md");
         string completenessAuditPath = Path.Combine(root, "docs", "LABELING_STUDIO_COMPLETENESS_AUDIT.md");
+        string syntheticEvidenceContractPath = Path.Combine(root, "docs", "SYNTHETIC_EVIDENCE_CONTRACT.md");
         string releaseNotesPath = Path.Combine(root, "RELEASE_NOTES.md");
         string ciWorkflowPath = Path.Combine(root, ".github", "workflows", "ci.yml");
         string tutorialReadmePath = Path.Combine(root, "docs", "tutorial", "README.md");
@@ -29873,6 +29876,7 @@ internal static partial class Program
         AssertTrue(File.Exists(segmentationWorkflowPath), "segmentation UX completion document should exist");
         AssertTrue(File.Exists(anomalyWorkflowPath), "anomaly detection flow document should exist");
         AssertTrue(File.Exists(completenessAuditPath), "product completeness audit document should exist");
+        AssertTrue(File.Exists(syntheticEvidenceContractPath), "synthetic-first evidence contract should exist");
         AssertTrue(File.Exists(releaseNotesPath), "release notes document should exist");
         AssertTrue(File.Exists(ciWorkflowPath), "CI workflow should exist");
         AssertTrue(File.Exists(tutorialReadmePath), "tutorial README should exist");
@@ -29891,6 +29895,7 @@ internal static partial class Program
         string segmentationWorkflow = File.ReadAllText(segmentationWorkflowPath, Encoding.UTF8);
         string anomalyWorkflow = File.ReadAllText(anomalyWorkflowPath, Encoding.UTF8);
         string completenessAudit = File.ReadAllText(completenessAuditPath, Encoding.UTF8);
+        string syntheticEvidenceContract = File.ReadAllText(syntheticEvidenceContractPath, Encoding.UTF8);
         string releaseNotes = File.ReadAllText(releaseNotesPath, Encoding.UTF8);
         string ciWorkflow = File.ReadAllText(ciWorkflowPath, Encoding.UTF8);
         string tutorialReadme = File.ReadAllText(tutorialReadmePath, Encoding.UTF8);
@@ -29900,6 +29905,7 @@ internal static partial class Program
         AssertTrue(readme.Contains("YOLOV5_TRAINING_RESULT_WORKFLOW.md", StringComparison.Ordinal), "README should link the YOLOv5 workflow criteria");
         AssertTrue(readme.Contains("SEGMENTATION_UX_COMPLETION.md", StringComparison.Ordinal), "README should link the segmentation UX criteria");
         AssertTrue(readme.Contains("ANOMALY_DETECTION_FLOW.md", StringComparison.Ordinal), "README should link the anomaly detection criteria");
+        AssertTrue(readme.Contains("SYNTHETIC_EVIDENCE_CONTRACT.md", StringComparison.Ordinal), "README should link the synthetic-first evidence contract");
         AssertTrue(readme.Contains("## 1분 요약", StringComparison.Ordinal), "README should include a one-minute summary section");
         AssertTrue(readme.Contains("## 설치", StringComparison.Ordinal), "README should include installation prerequisites");
         AssertTrue(readme.Contains("## 샘플 데이터", StringComparison.Ordinal), "README should include sample data guidance");
@@ -29968,6 +29974,10 @@ internal static partial class Program
         AssertTrue(completenessAudit.Contains("workspace-layout.json", StringComparison.Ordinal), "completeness audit should record verified per-machine workspace width persistence");
         AssertTrue(completenessAudit.Contains("fixed canvas annotation-tool rail", StringComparison.Ordinal), "completeness audit should record the completed fixed annotation-tool rail");
         AssertTrue(!completenessAudit.Contains("Widths are session-only", StringComparison.Ordinal), "completeness audit should not retain the superseded session-only workspace limitation");
+        AssertTrue(syntheticEvidenceContract.Contains("Synthetic-First Evidence Contract", StringComparison.Ordinal), "synthetic evidence contract should name the policy");
+        AssertTrue(syntheticEvidenceContract.Contains("Field validation: Deferred", StringComparison.Ordinal), "synthetic evidence contract should keep field validation separate from feature completion");
+        AssertTrue(syntheticEvidenceContract.Contains("Production accuracy is not claimed", StringComparison.Ordinal), "synthetic evidence contract should forbid production-accuracy claims");
+        AssertTrue(syntheticEvidenceContract.Contains("comparisonKind=engine-benchmark", StringComparison.Ordinal), "synthetic evidence contract should keep cross-engine decisions non-adopting");
         AssertTrue(anomalyWorkflow.Contains("--wpf-anomaly-queue-focus", StringComparison.Ordinal)
             && anomalyWorkflow.Contains("--anomaly-classification-training-workflow", StringComparison.Ordinal)
             && anomalyWorkflow.Contains("--wpf-yolov8-anomaly-classification-runtime-smoke", StringComparison.Ordinal),
@@ -31023,7 +31033,7 @@ internal static partial class Program
             "selected model-history detail should use candidate/decision emphasis instead of global error red");
         AssertTrue(!selectedHistoryTemplate.Contains("AccentBrush", StringComparison.Ordinal),
             "selected model-history detail should not make selectable history look like a failure");
-        AssertTrue(shellSource.Contains("WpfModelRegistryPresentationService.Build", StringComparison.Ordinal), "WPF shell should build model-registry state through a presentation service");
+        AssertTrue(shellSource.Contains("WpfModelCenterDashboardPresentationService.Build", StringComparison.Ordinal), "WPF shell should build Model Center state through the dashboard presentation service");
         AssertTrue(shellSource.Contains("ExecutePromoteSelectedModelHistoryCommand", StringComparison.Ordinal), "WPF shell should route model-history promotion through an adapter command");
         AssertTrue(shellXamlSource.Contains("AutomationProperties.AutomationId=\"ModelCenterPriorityPanel\"", StringComparison.Ordinal),
             "model center should expose a first-visible priority panel before dense history details");
