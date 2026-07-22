@@ -380,7 +380,7 @@ namespace MvcVisionSystem
         {
             return filter switch
             {
-                WpfImageQueueFilter.Unlabeled => "작업 필요",
+                WpfImageQueueFilter.Unlabeled => "확인 필요",
                 WpfImageQueueFilter.NeedsFix => "수정 필요",
                 WpfImageQueueFilter.Requested => "검사중",
                 WpfImageQueueFilter.Candidate => "AI 후보",

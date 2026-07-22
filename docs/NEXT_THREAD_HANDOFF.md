@@ -18,16 +18,14 @@ There is no separate C:\AGENTS.md or C:\Git\AGENTS.md in this workstation snapsh
 ## 2. Repository Checkpoint
 
 - Workspace: C:\Git\Labelling_Application
-- Branch: main. `origin/main` remains at the explicitly pushed baseline
-  `6a4ab11f576ed6a422d7025645c98a8613806129`.
-- Local `main` contains three additional independently reviewed feature
-  commits: `f952915` MobileSAM box-jitter evidence, `ac8c50f` beginner
-  labeling-review UX, and `f515bdf` generated dataset-default synchronization.
-  This documentation checkpoint follows those commits.
+- Branch: main. The latest validated feature after baseline `c317278` is the
+  Image Queue action Worklist recorded in section 25. Always verify the live
+  local and remote hashes with `git status`, `git log`, and `git ls-remote`;
+  this handoff does not pin a post-publication hash before it exists.
 - The reviewed worktree contains no known non-document residual. Verify live
   state with `git status --short`; do not infer cleanliness from this document.
-- GitHub Actions has not been rechecked for the local commits after
-  `origin/main`. Do not cite older CI evidence as current CI evidence.
+- GitHub Actions has not been rechecked for the latest Worklist publication.
+  Do not cite older CI evidence as current CI evidence.
 - The current focused passes directly verified Dataset Health, external native YOLO intake, model/anomaly comparison, the dedicated Model Center workspace, and the explicit model-adapter catalog slices. The image-queue slice also has a 50,081-image local warm-cache profile and a separate duplicate-file local 8K profile; neither is a network-share or production-camera result.
 - Never push unless the user explicitly says push. A commit request means local commit only.
 
@@ -660,3 +658,18 @@ Boundary / next dependency: all four commits are local only. `origin/main`
 remains at `6a4ab11`; no push occurred. A remote update requires an explicit
 operator request and must be a normal non-force push. Do not reopen or recombine
 these completed slices without a changed contract or reproduced regression.
+
+## 25. 2026-07-22 Latest Checkpoint: Image Queue Action Worklist
+
+Status: `Complete`.
+
+- The Worklist slice follows baseline `c317278`. Verify the current local and remote hashes directly; this supersedes stale remote statements in historical sections.
+- The existing unfinished-image filter is now a visible `확인 필요 Worklist` card in the right Image Queue. It gathers unreviewed, save-required, AI-candidate, failed, and needs-fix images without creating a second queue or persistence format.
+- Saved labels, confirmed/skipped/no-candidate rows, and completed anomaly OK/NG decisions remain complete and do not appear in the Worklist.
+- One completed row leaves the filtered view through live filtering. The 10,000-row gate retained all row instances, emitted no view reset, evaluated the filter once, and changed the visible set from 5 to 4.
+- Final local synthetic timings were `4.3ms` for the one-pass 10K summary and `113.3ms` for one completion plus status update. These are bounded regression gates, not production or network-share throughput claims.
+- The first actual-EXE use exposed stale visible-count text and nondeterministic queue focus after the completed selected row left the live-filtered view. Counts now come from the queue summary, and Worklist-only label save explicitly advances from the completed path.
+- Two consecutive runs of the current EXE on an isolated mixed-state 125-image Recipe individually proved candidate, failed, needs-fix, and requested inclusion plus completed-label exclusion, then produced `completed=5->6`, `worklist=120->119`, zero queue invalidations/bulk changes, and active/selected `queue-local-001.jpg`. Verified EXE SHA-256: `B62AFCDF5B7820632CACF22C185DFC23E47E9F6844F7DAC30A79B5CBE531A70D`.
+- Current-source captures at 1920x1080 and 1366x768 are under `artifacts/ui/image-queue-worklist-20260722`; current-EXE category and transition evidence is under `artifacts/exe-image-queue-worklist/current-exe-20260722-categories-repeat`. Detailed scope and commands are in `docs/IMAGE_QUEUE_ACTION_WORKLIST_20260722.md`.
+
+Boundary / next dependency: do not add accounts, assignments, comments, server sync, a new DB, paging, or a second review screen from this slice. The next implementation requires a current Recipe to reproduce a missed category, incorrect transition, or unacceptable latency. Otherwise this Worklist is closed and protected.

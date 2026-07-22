@@ -195,6 +195,11 @@ internal static partial class Program
             return RunExeLabelCreateQueueLocalitySmoke(args);
         }
 
+        if (args.Any(arg => string.Equals(arg, "--exe-image-queue-worklist-smoke", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunExeImageQueueWorklistSmoke(args);
+        }
+
         if (args.Any(arg => string.Equals(arg, "--exe-roi-tools-smoke", StringComparison.OrdinalIgnoreCase)))
         {
             return RunExeRoiToolsSmoke(args);
@@ -498,6 +503,11 @@ internal static partial class Program
         if (args.Any(arg => string.Equals(arg, "--wpf-image-queue-10k-detail-responsive", StringComparison.OrdinalIgnoreCase)))
         {
             return RunSingleSmoke("WPF image queue 10K detail refresh keeps dispatcher responsive", TestWpfImageQueueTenThousandDetailRefreshKeepsDispatcherResponsive);
+        }
+
+        if (args.Any(arg => string.Equals(arg, "--wpf-image-queue-worklist-10k", StringComparison.OrdinalIgnoreCase)))
+        {
+            return RunSingleSmoke("WPF image queue 10K worklist stays actionable without a full refresh", TestWpfImageQueueWorklistTenThousand);
         }
 
         if (args.Any(arg => string.Equals(arg, "--wpf-image-queue-operator-profile", StringComparison.OrdinalIgnoreCase)))
@@ -1258,6 +1268,7 @@ internal static partial class Program
             ("WPF image queue arrow keys load adjacent images", TestWpfImageQueueArrowKeysLoadAdjacentImages),
             ("WPF image queue large folder keeps bulk and lazy thumbnail behavior", TestWpfImageQueueLargeFolderKeepsBulkAndLazyThumbnails),
             ("WPF image queue 10K catalog stays responsive and rejects stale loads", TestWpfImageQueueTenThousandAsyncCatalogLoad),
+            ("WPF image queue 10K worklist stays actionable without a full refresh", TestWpfImageQueueWorklistTenThousand),
             ("WPF detection candidates render as detection overlays", TestWpfDetectionCandidatesRenderAsDetectionOverlays),
             ("WPF model comparison example click focuses difference", TestWpfModelComparisonExampleClickFocusesDifference),
             ("WPF current-image smoke detection preserves manual labels", TestWpfCurrentImageSmokeDetectionPreservesManualLabels),
@@ -38987,7 +38998,7 @@ internal static partial class Program
             AssertEqual(
                 "데이터셋: 2/6 이미지 / 완료 3 / AI 후보 2 / 실패 1 / 저장됨 1 / 숨김 1 / 객체없음 1 / 필터 AI 후보 / 로드 3/6",
                 WpfImageQueueFilterService.BuildDatasetStatusText(queueSummaryItems, 2, WpfImageQueueFilter.Candidate, 3, 6));
-            AssertEqual("작업 필요", WpfImageQueueFilterOption.GetDisplayName(WpfImageQueueFilter.Unlabeled));
+            AssertEqual("확인 필요", WpfImageQueueFilterOption.GetDisplayName(WpfImageQueueFilter.Unlabeled));
             AssertTrue(!WpfImageQueueFilterService.ShouldShow(queueSummaryItems[5], "empty", WpfImageQueueFilter.Unlabeled),
                 "empty completed normal images should not stay in the unfinished queue filter");
             WpfImageQueueItem saveRequiredLabeledItem = WpfImageQueueItem.CreateShell(Path.Combine(root, "save-required.jpg"));
@@ -39133,7 +39144,7 @@ internal static partial class Program
 
                 quickFilterWindow.ImageQueueViewModel.QueueFilterUnfinishedCommand.Execute(null);
                 PumpWpfDispatcher(TimeSpan.FromMilliseconds(20));
-                AssertEqual("작업 필요 3", unfinishedText.Text);
+                AssertEqual("3장 보기", unfinishedText.Text);
                 AssertTrue(Equals(true, unfinishedButton.Tag), "WPF queue work-needed quick filter should expose active state through the bound button Tag");
                 AssertEqual(WpfImageQueueFilter.Unlabeled, ((WpfImageQueueFilterOption)filterBox.SelectedItem).Filter);
                 AssertTrue(!string.IsNullOrWhiteSpace(statusText.Text), "WPF queue work-needed quick filter should update status text");

@@ -16,6 +16,14 @@ namespace MvcVisionSystem
             return $"{label} {(count > 99 ? "99+" : Math.Max(0, count).ToString(CultureInfo.InvariantCulture))}";
         }
 
+        public static string FormatWorklistActionText(int count)
+        {
+            string displayCount = count > 99
+                ? "99+"
+                : Math.Max(0, count).ToString(CultureInfo.InvariantCulture);
+            return $"{displayCount}장 보기";
+        }
+
         public static string BuildOpenSelectionFailureMessage(
             string searchText,
             int visibleCount,
@@ -33,49 +41,45 @@ namespace MvcVisionSystem
 
         public static string BuildReviewCountSummary(IEnumerable<WpfImageQueueItem> items)
         {
-            var queueItems = (items ?? Array.Empty<WpfImageQueueItem>())
-                .Where(item => item != null)
-                .ToList();
-            if (queueItems.Count == 0)
+            return BuildReviewCountSummary(WpfImageQueueFilterService.Summarize(items));
+        }
+
+        public static string BuildReviewCountSummary(WpfImageQueueSummary summary)
+        {
+            if (summary == null || summary.TotalCount == 0)
             {
                 return string.Empty;
             }
 
-            int candidateCount = queueItems.Count(item => item.ReviewState == YoloImageReviewState.Candidate);
-            int failedCount = queueItems.Count(item => item.ReviewState == YoloImageReviewState.Failed);
-            int confirmedCount = queueItems.Count(item => item.ReviewState == YoloImageReviewState.Confirmed);
-            int skippedCount = queueItems.Count(item => item.ReviewState == YoloImageReviewState.Skipped);
-            int noCandidateCount = queueItems.Count(item => item.ReviewState == YoloImageReviewState.NoCandidate);
-            int needsFixCount = queueItems.Count(item => item.QualityReviewState == YoloImageQualityReviewState.NeedsFix);
             var parts = new List<string>();
-            if (needsFixCount > 0)
+            if (summary.NeedsFixCount > 0)
             {
-                parts.Add($"수정 필요 {needsFixCount}");
+                parts.Add($"수정 필요 {summary.NeedsFixCount}");
             }
 
-            if (candidateCount > 0)
+            if (summary.CandidateCount > 0)
             {
-                parts.Add($"AI 후보 {candidateCount}");
+                parts.Add($"AI 후보 {summary.CandidateCount}");
             }
 
-            if (failedCount > 0)
+            if (summary.FailedCount > 0)
             {
-                parts.Add($"실패 {failedCount}");
+                parts.Add($"실패 {summary.FailedCount}");
             }
 
-            if (confirmedCount > 0)
+            if (summary.ConfirmedCount > 0)
             {
-                parts.Add($"저장됨 {confirmedCount}");
+                parts.Add($"저장됨 {summary.ConfirmedCount}");
             }
 
-            if (skippedCount > 0)
+            if (summary.SkippedCount > 0)
             {
-                parts.Add($"숨김 {skippedCount}");
+                parts.Add($"숨김 {summary.SkippedCount}");
             }
 
-            if (noCandidateCount > 0)
+            if (summary.NoCandidateCount > 0)
             {
-                parts.Add($"객체없음 {noCandidateCount}");
+                parts.Add($"객체없음 {summary.NoCandidateCount}");
             }
 
             return parts.Count == 0 ? string.Empty : " / " + string.Join(" / ", parts);

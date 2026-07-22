@@ -20,7 +20,7 @@ namespace MvcVisionSystem
         private bool isTemplateBatchEnabled;
         private bool isRetryFailedEnabled;
         private bool isStopBatchEnabled;
-        private string queueFilterUnfinishedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC791\uC5C5 \uD544\uC694", 0);
+        private string queueFilterUnfinishedText = WpfImageQueuePresenter.FormatWorklistActionText(0);
         private string queueFilterAllText = "\uC804\uCCB4";
         private string queueFilterCandidateText = WpfImageQueuePresenter.FormatQuickFilterText("AI \uD6C4\uBCF4", 0);
         private string queueFilterFailedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC2E4\uD328", 0);
@@ -82,6 +82,14 @@ namespace MvcVisionSystem
         private ICommand clearAnomalyReviewCommand = new RelayCommand(NoOpCommand);
 
         public string ViewName => nameof(WpfImageQueuePanel);
+
+        public string QueueWorklistTitleText => "확인 필요 Worklist";
+
+        public string QueueWorklistSummaryText => IsAnomalyImageReviewMode
+            ? "미판정 OK/NG 이미지만 모아 순서대로 확인"
+            : "미판정 · 저장 필요 · AI 후보 · 검사 실패 · 수정 필요";
+
+        public string QueueWorklistAutomationName => $"{QueueWorklistTitleText} / {QueueFilterUnfinishedText}";
 
         public string NextUnlabeledActionText => IsAnomalyImageReviewMode ? "다음 미판정" : "\uB2E4\uC74C \uBBF8\uC644\uB8CC";
 
@@ -421,7 +429,13 @@ namespace MvcVisionSystem
         public string QueueFilterUnfinishedText
         {
             get => queueFilterUnfinishedText;
-            private set => SetProperty(ref queueFilterUnfinishedText, value);
+            private set
+            {
+                if (SetProperty(ref queueFilterUnfinishedText, value))
+                {
+                    OnPropertyChanged(nameof(QueueWorklistAutomationName));
+                }
+            }
         }
 
         public string QueueFilterAllText
@@ -576,6 +590,7 @@ namespace MvcVisionSystem
             QueueSecondaryColumnHeaderText = enabled ? "상태" : "검사";
             OnPropertyChanged(nameof(NextUnlabeledActionText));
             OnPropertyChanged(nameof(NextUnlabeledToolTip));
+            OnPropertyChanged(nameof(QueueWorklistSummaryText));
             RefreshCurrentImageTaskSummary();
         }
 
@@ -639,7 +654,7 @@ namespace MvcVisionSystem
             int noCandidateCount,
             int unfinishedCount = 0)
         {
-            QueueFilterUnfinishedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC791\uC5C5 \uD544\uC694", unfinishedCount);
+            QueueFilterUnfinishedText = WpfImageQueuePresenter.FormatWorklistActionText(unfinishedCount);
             QueueFilterAllText = "\uC804\uCCB4";
             QueueFilterCandidateText = WpfImageQueuePresenter.FormatQuickFilterText("AI \uD6C4\uBCF4", candidateCount);
             QueueFilterFailedText = WpfImageQueuePresenter.FormatQuickFilterText("\uC2E4\uD328", failedCount);

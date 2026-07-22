@@ -24,13 +24,9 @@ Required start order:
 
 Current checkpoint:
 - Workspace: C:\Git\Labelling_Application
-- Branch: main. `origin/main` remains at the explicitly pushed baseline
-  `6a4ab11f576ed6a422d7025645c98a8613806129`. Local `main` contains three
-  additional independently reviewed feature commits: `f952915` MobileSAM
-  box-jitter evidence, `ac8c50f` beginner labeling-review UX, and `f515bdf`
-  generated dataset-default synchronization. The current documentation
-  checkpoint follows those commits. None of these later local commits has been
-  pushed.
+- Branch: main. The completed Image Queue Worklist slice follows baseline
+  `c317278826c77565b15ad8142177a8632c99b279`. Verify current local and remote
+  hashes directly before work; do not push without a new explicit request.
 - The previously mixed worktree was independently reviewed and split into `687e553 feat: add YOLO11 segmentation comparison evidence`, `0b05986 feat: define synthetic evidence completion contract`, and `549a7d4 feat: add MobileSAM smart-mask labeling`. Each commit passed an isolated build and its focused checks from a detached temporary worktree. Do not recombine or repeat these completed slices without a changed contract or reproduced regression.
 - Read `docs/WORK_TRACKING.md` section `2026-07-21 external native YOLO segmentation canonical-mask intake` and `docs/STABLE_VERIFIED_AREAS.md` section `external native YOLO runtime-copy and paired-comparison contract` before selecting work. These newer records supersede stale priorities below.
 
@@ -46,6 +42,7 @@ Product direction:
 - The supplied circular-disk 500 OK / 500 NG package is complete synthetic workflow evidence: exact metadata-backed 5-class detection data, YOLOv5/YOLOv8 one-epoch connectivity, a controlled 20-epoch 150-image test benchmark, and a new 20-epoch anomaly candidate. The anomaly candidate remains `hold`; the detection benchmark favors YOLOv8n (`mAP50/mAP50-95 0.955/0.678`, 27.575ms) over YOLOv5s (`0.900/0.567`, 52.45ms) but is explicitly `engine-benchmark`, not adoption. The fixed comparison cleanup preserves the exact source-tree SHA-256. The package is derived from one earlier OK source image; do not present it as independent camera evidence. Read `docs/CIRCULAR_DISK_SYNTHETIC_1000_EVIDENCE_20260720.md`.
 
 Current immediate priority:
+- The user-approved 10,000-image `확인 필요 Worklist` slice and current-EXE mixed-state follow-up are complete in the current worktree. It exposes the existing unfinished filter, keeps completed OK/NG and saved/rejected rows out, uses summary counts so visible status cannot lag live filtering, and explicitly focuses the next incomplete row after Worklist-only label save. The final controlled actual-EXE Recipe individually proved candidate, failed, needs-fix, and requested inclusion plus completed-label exclusion; two consecutive runs then produced `120->119`, completion `5->6`, zero queue invalidations/bulk changes, and active/selected image 001. Read `docs/IMAGE_QUEUE_ACTION_WORKLIST_20260722.md`; do not reopen it without a reproduced membership, transition, focus, or latency defect. The next implementation requires new operator evidence rather than another speculative queue system.
 - The accumulated 2026-07-22 changes were separated into the three local
   feature commits listed above and independently verified from detached
   worktrees. Do not recombine them or repeat their checks unless the source,

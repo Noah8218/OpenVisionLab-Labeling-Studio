@@ -116,10 +116,15 @@ namespace MvcVisionSystem
 
         private bool TryOpenNextIncompleteQueueImage()
         {
+            return TryOpenNextIncompleteQueueImage(activeImagePath);
+        }
+
+        private bool TryOpenNextIncompleteQueueImage(string currentImagePath)
+        {
             IReadOnlyList<string> orderedPaths = imageQueueItems.Select(item => item.ImagePath).ToList();
             if (IsAnomalyDatasetPurpose())
             {
-                if (anomalyImageReviewStatus.TryFindNextUnreviewed(orderedPaths, activeImagePath, out string nextAnomalyImagePath))
+                if (anomalyImageReviewStatus.TryFindNextUnreviewed(orderedPaths, currentImagePath, out string nextAnomalyImagePath))
                 {
                     if (TryLoadImage(
                         nextAnomalyImagePath,
@@ -139,7 +144,7 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            if (imageReviewStatus.TryFindNextUnlabeled(orderedPaths, activeImagePath, out string nextImagePath))
+            if (imageReviewStatus.TryFindNextUnlabeled(orderedPaths, currentImagePath, out string nextImagePath))
             {
                 SelectImageQueueItem(nextImagePath);
                 TryLoadImage(nextImagePath);
@@ -169,7 +174,6 @@ namespace MvcVisionSystem
         private void ImageQueueFilterBox_SelectionChanged(object sender, object selectedItem)
         {
             imageQueueView?.Refresh();
-            UpdateQueueQuickFilterButtons();
             UpdateImageQueueStatusText();
         }
 
@@ -221,7 +225,6 @@ namespace MvcVisionSystem
             }
 
             imageQueueView?.Refresh();
-            UpdateQueueQuickFilterButtons();
             UpdateImageQueueStatusText();
         }
 

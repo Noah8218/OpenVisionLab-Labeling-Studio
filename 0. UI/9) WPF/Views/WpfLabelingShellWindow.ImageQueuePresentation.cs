@@ -68,12 +68,17 @@ namespace MvcVisionSystem
 
         private void UpdateImageQueueStatusText(int loadedCount = -1, int totalToLoad = -1)
         {
-            int visibleCount = imageQueueView?.Cast<object>().Count() ?? imageQueueItems.Count;
-            UpdateQueueQuickFilterButtons();
+            WpfImageQueueFilter selectedFilter = GetSelectedImageQueueFilter();
+            WpfImageQueueSummary summary = WpfImageQueueFilterService.Summarize(imageQueueItems);
+            bool hasSearch = !string.IsNullOrWhiteSpace(ImageQueueSearchBox?.Text);
+            int visibleCount = !hasSearch
+                ? WpfImageQueueFilterService.CountByFilter(summary, selectedFilter)
+                : imageQueueView?.Cast<object>().Count() ?? summary.TotalCount;
+            UpdateQueueQuickFilterButtons(summary, selectedFilter);
             SetDatasetStatus(WpfImageQueueFilterService.BuildDatasetStatusTextWithActiveImage(
-                imageQueueItems,
+                summary,
                 visibleCount,
-                GetSelectedImageQueueFilter(),
+                selectedFilter,
                 loadedCount,
                 totalToLoad,
                 activeImagePath));
@@ -81,15 +86,22 @@ namespace MvcVisionSystem
 
         private void UpdateQueueQuickFilterButtons()
         {
-            WpfImageQueueFilter filter = GetSelectedImageQueueFilter();
+            UpdateQueueQuickFilterButtons(
+                WpfImageQueueFilterService.Summarize(imageQueueItems),
+                GetSelectedImageQueueFilter());
+        }
+
+        private void UpdateQueueQuickFilterButtons(WpfImageQueueSummary summary, WpfImageQueueFilter filter)
+        {
+            summary ??= new WpfImageQueueSummary();
             ImageQueueViewModel.SetQuickFilterState(
                 filter,
-                WpfImageQueueFilterService.CountByFilter(imageQueueItems, WpfImageQueueFilter.Candidate),
-                WpfImageQueueFilterService.CountByFilter(imageQueueItems, WpfImageQueueFilter.Failed),
-                WpfImageQueueFilterService.CountByFilter(imageQueueItems, WpfImageQueueFilter.Confirmed),
-                WpfImageQueueFilterService.CountByFilter(imageQueueItems, WpfImageQueueFilter.Skipped),
-                WpfImageQueueFilterService.CountByFilter(imageQueueItems, WpfImageQueueFilter.NoCandidate),
-                WpfImageQueueFilterService.CountByFilter(imageQueueItems, WpfImageQueueFilter.Unlabeled));
+                summary.CandidateCount,
+                summary.FailedCount,
+                summary.ConfirmedCount,
+                summary.SkippedCount,
+                summary.NoCandidateCount,
+                summary.WorklistCount);
         }
 
         private WpfImageQueueFilter GetSelectedImageQueueFilter()

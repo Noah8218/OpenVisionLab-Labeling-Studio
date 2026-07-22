@@ -2,6 +2,24 @@
 
 Last updated: 2026-07-22
 
+## 2026-07-22 Image Queue 10K action Worklist
+
+- Status: `Complete`
+- Scope:
+  - Expose the existing unfinished-image filter as one visible `확인 필요 Worklist` in the right Image Queue panel.
+  - Reuse existing saved-label, anomaly-decision, candidate, failure, and quality-review state; add no new persistence or collaboration layer.
+  - Keep single-image completion local to WPF live filtering instead of resetting the 10,000-row view.
+- Acceptance criteria and evidence:
+  - Saved labels, confirmed/skipped/no-candidate rows, and completed anomaly OK/NG decisions are excluded; unreviewed, save-required, candidate, failed, and needs-fix rows are included: passed.
+  - The 10,000-row focused gate retained every original row, performed one filter evaluation, emitted no view reset, and changed the visible Worklist from 5 to 4 after one completion: passed.
+  - Final one-pass summary was `4.3ms`; the single-row completion/status update was `113.3ms` on the current local synthetic fixture: passed.
+  - Current-source 1920x1080 and 1366x768 captures show the Worklist without obscuring the queue or existing next-item action: passed.
+  - The first actual-EXE run exposed a stale visible-count race and nondeterministic focus after the selected completed row left the live-filtered view. Counts now come from the single-pass summary, and Worklist-only label save explicitly advances from the completed image path.
+  - Two consecutive current-EXE runs on an isolated 125-image Recipe seeded through the existing review service proved candidate, failed, needs-fix, and requested rows at `1/125` each, a completed-label row at `0/125`, save-required retention, `completed=5->6`, `worklist=120->119`, zero queue invalidations/bulk changes, and active/selected `queue-local-001.jpg`: passed. EXE SHA-256 `B62AFCDF5B7820632CACF22C185DFC23E47E9F6844F7DAC30A79B5CBE531A70D`.
+- Verification: isolated build and current app build passed with 0 warnings / 0 errors; `--wpf-image-queue-worklist-10k` plus seven queue/anomaly/candidate/shell regressions passed; `--priority-workflow-docs` and `git diff --check` passed.
+- Evidence: `docs/IMAGE_QUEUE_ACTION_WORKLIST_20260722.md`, `artifacts/ui/image-queue-worklist-20260722`, and `artifacts/exe-image-queue-worklist/current-exe-20260722-categories-repeat`.
+- Boundary: local single-operator workflow only. No accounts, assignments, comments, server sync, per-object history DB, paging, or production productivity claim.
+
 ## 2026-07-22 U-Net / YOLOv8-seg / YOLO11-seg fixed three-model comparison
 
 - Status: `Complete`

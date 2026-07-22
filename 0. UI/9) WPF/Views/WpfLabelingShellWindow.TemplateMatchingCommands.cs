@@ -405,7 +405,7 @@ namespace MvcVisionSystem
                 RefreshActiveImageQueueStatus(hasActiveCandidates: false);
             }
 
-            imageQueueView?.Refresh();
+            RefreshImageQueueViewAfterItemStateChange();
             UpdateImageQueueStatusText();
         }
 
@@ -499,7 +499,7 @@ namespace MvcVisionSystem
             SetModelStatus($"템플릿 라벨 초안 생성: {addedCount}개 / 위치 확인 후 라벨 저장");
             AddCandidateReviewHistory($"템플릿 라벨 초안 생성: {addedCount}개 / 저장 전 초안");
             AppendLog($"Template labels added: {addedCount}");
-            imageQueueView?.Refresh();
+            RefreshImageQueueViewAfterItemStateChange();
             UpdateImageQueueStatusText();
             return addedCount;
         }

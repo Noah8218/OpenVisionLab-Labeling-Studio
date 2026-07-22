@@ -640,13 +640,57 @@
                     </Grid>
                 </Grid>
 
-                <UniformGrid Grid.Row="6" Columns="3" VerticalAlignment="Center" Visibility="Collapsed">
-                    <ui:Button x:Name="QueueFilterUnfinishedButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterUnfinishedActive}" AutomationProperties.Name="&#xC791;&#xC5C5; &#xD544;&#xC694; &#xD544;&#xD130;" ToolTip="&#xB77C;&#xBCA8;&#xB9C1;, AI &#xD6C4;&#xBCF4; &#xAC80;&#xD1A0;, &#xC800;&#xC7A5; &#xD544;&#xC694;, &#xC2E4;&#xD328; &#xD56D;&#xBAA9;&#xB9CC; &#xBCF4;&#xAE30;" Command="{Binding QueueFilterUnfinishedCommand}">
-                        <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
-                            <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="PlaylistPlay" />
-                            <TextBlock x:Name="QueueFilterUnfinishedText" Text="{Binding QueueFilterUnfinishedText}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                <ui:Button x:Name="QueueFilterUnfinishedButton"
+                           Grid.Row="6"
+                           Style="{StaticResource QueueQuickFilterButtonStyle}"
+                           Height="50"
+                           Margin="0,5,0,3"
+                           Padding="8,4"
+                           HorizontalContentAlignment="Stretch"
+                           Tag="{Binding IsQueueFilterUnfinishedActive}"
+                           AutomationProperties.AutomationId="QueueWorklistButton"
+                           AutomationProperties.Name="{Binding QueueWorklistAutomationName}"
+                           ToolTip="&#xBBF8;&#xD310;&#xC815;, &#xC800;&#xC7A5; &#xD544;&#xC694;, AI &#xD6C4;&#xBCF4;, &#xAC80;&#xC0AC; &#xC2E4;&#xD328;, &#xC218;&#xC815; &#xD544;&#xC694; &#xC774;&#xBBF8;&#xC9C0;&#xB9CC; &#xBD05;&#xB2C8;&#xB2E4;."
+                           Command="{Binding QueueFilterUnfinishedCommand}">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="24" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <iconPacks:PackIconMaterial Width="17"
+                                                    Height="17"
+                                                    Kind="PlaylistPlay"
+                                                    VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Margin="3,0,7,0" VerticalAlignment="Center">
+                            <TextBlock Text="{Binding QueueWorklistTitleText}"
+                                       FontWeight="SemiBold"
+                                       TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding QueueWorklistSummaryText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontSize="9"
+                                       TextTrimming="CharacterEllipsis" />
                         </StackPanel>
-                    </ui:Button>
+                        <Border Grid.Column="2"
+                                MinWidth="54"
+                                Height="22"
+                                Padding="6,0"
+                                Background="{DynamicResource InputBrush}"
+                                BorderBrush="{DynamicResource AccentBrush}"
+                                BorderThickness="1"
+                                CornerRadius="3"
+                                VerticalAlignment="Center">
+                            <TextBlock x:Name="QueueFilterUnfinishedText"
+                                       Text="{Binding QueueFilterUnfinishedText}"
+                                       HorizontalAlignment="Center"
+                                       VerticalAlignment="Center"
+                                       FontSize="10"
+                                       FontWeight="SemiBold" />
+                        </Border>
+                    </Grid>
+                </ui:Button>
+
+                <UniformGrid Grid.Row="6" Columns="3" VerticalAlignment="Center" Visibility="Collapsed">
                     <ui:Button x:Name="QueueFilterAllButton" Style="{StaticResource QueueQuickFilterButtonStyle}" Tag="{Binding IsQueueFilterAllActive}" AutomationProperties.Name="&#xC804;&#xCCB4; &#xD544;&#xD130;" ToolTip="&#xC804;&#xCCB4; &#xC774;&#xBBF8;&#xC9C0; &#xBCF4;&#xAE30;" Command="{Binding QueueFilterAllCommand}">
                         <StackPanel Orientation="Horizontal" HorizontalAlignment="Center">
                             <iconPacks:PackIconMaterial Style="{StaticResource ToolbarIconStyle}" Kind="ViewListOutline" />

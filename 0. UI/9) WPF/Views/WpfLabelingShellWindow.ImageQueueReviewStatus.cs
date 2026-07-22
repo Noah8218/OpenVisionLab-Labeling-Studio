@@ -28,7 +28,7 @@ namespace MvcVisionSystem
             if (IsAnomalyDatasetPurpose())
             {
                 ApplyAnomalyReviewStatusToItem(item, anomalyImageReviewStatus.GetOrCreate(activeImagePath));
-                imageQueueView?.Refresh();
+                RefreshImageQueueViewAfterItemStateChange();
                 UpdateImageQueueStatusText();
                 return;
             }
@@ -38,7 +38,7 @@ namespace MvcVisionSystem
                 global.Data,
                 hasActiveCandidates);
             ApplyReviewStatusToItem(item, status);
-            imageQueueView?.Refresh();
+            RefreshImageQueueViewAfterItemStateChange();
             UpdateImageQueueStatusText();
         }
 
@@ -54,7 +54,7 @@ namespace MvcVisionSystem
                 ApplyAnomalyReviewStatusToItem(
                     FindImageQueueItem(activeImagePath),
                     anomalyImageReviewStatus.GetOrCreate(activeImagePath));
-                imageQueueView?.Refresh();
+                RefreshImageQueueViewAfterItemStateChange();
                 UpdateImageQueueStatusText();
                 return;
             }
@@ -115,7 +115,7 @@ namespace MvcVisionSystem
                         }
 
                         ApplyReviewStatusToItem(FindImageQueueItem(imagePath), refreshTask.Result);
-                        imageQueueView?.Refresh();
+                        RefreshImageQueueViewAfterItemStateChange();
                         UpdateImageQueueStatusText();
                     }),
                     DispatcherPriority.Background);
@@ -187,7 +187,7 @@ namespace MvcVisionSystem
             {
                 ApplyReviewStatusToItem(FindImageQueueItem(activeImagePath), status);
             }
-            imageQueueView?.Refresh();
+            RefreshImageQueueViewAfterItemStateChange();
             UpdateImageQueueStatusText();
         }
 
@@ -260,7 +260,7 @@ namespace MvcVisionSystem
             ApplyReviewStatusToItem(FindImageQueueItem(activeImagePath), status);
             imageReviewStatus.SaveReviewStatus(global.Data);
             MarkActiveAnomalyImageNormal();
-            imageQueueView?.Refresh();
+            RefreshImageQueueViewAfterItemStateChange();
             UpdateImageQueueStatusText();
         }
 
@@ -277,7 +277,7 @@ namespace MvcVisionSystem
                 : imageReviewStatus.MarkSkipped(activeImagePath, imageName);
             ApplyReviewStatusToItem(FindImageQueueItem(activeImagePath), status);
             imageReviewStatus.SaveReviewStatus(global.Data);
-            imageQueueView?.Refresh();
+            RefreshImageQueueViewAfterItemStateChange();
             UpdateImageQueueStatusText();
         }
 
@@ -358,7 +358,7 @@ namespace MvcVisionSystem
             };
             ApplyReviewStatusToItem(item, status);
             imageReviewStatus.SaveReviewStatus(global.Data);
-            imageQueueView?.Refresh();
+            RefreshImageQueueViewAfterItemStateChange();
             UpdateImageQueueStatusText();
 
             string displayText = WpfImageQueuePresenter.FormatQualityReviewState(state);

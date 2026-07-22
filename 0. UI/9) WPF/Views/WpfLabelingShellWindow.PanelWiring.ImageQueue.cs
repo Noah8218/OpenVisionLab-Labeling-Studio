@@ -38,6 +38,17 @@ namespace MvcVisionSystem
             liveShaping.IsLiveFiltering = true;
         }
 
+        private void RefreshImageQueueViewAfterItemStateChange()
+        {
+            if (imageQueueView is ICollectionViewLiveShaping liveShaping
+                && liveShaping.IsLiveFiltering == true)
+            {
+                return;
+            }
+
+            imageQueueView?.Refresh();
+        }
+
         private void ConfigureImageQueuePanelCommands()
         {
             ImageQueueViewModel.ConfigureCommands(

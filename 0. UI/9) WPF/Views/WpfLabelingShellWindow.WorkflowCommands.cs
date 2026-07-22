@@ -44,9 +44,22 @@ namespace MvcVisionSystem
 
         private void ExecuteSaveAnnotationsCommand()
         {
+            string completedImagePath = activeImagePath;
             if (SaveCurrentAnnotations(out int savedCount))
             {
                 MarkActiveImageConfirmed();
+                if (GetSelectedImageQueueFilter() == WpfImageQueueFilter.Unlabeled)
+                {
+                    Dispatcher.BeginInvoke(
+                        new Action(() =>
+                        {
+                            if (!TryOpenNextIncompleteQueueImage(completedImagePath))
+                            {
+                                FinishQueueCompletionAndGuideDatasetCheck();
+                            }
+                        }),
+                        System.Windows.Threading.DispatcherPriority.Background);
+                }
                 AppendLog($"YOLO 라벨 저장. 객체:{savedCount}  {BuildLabelPathSummary()}");
                 return;
             }
