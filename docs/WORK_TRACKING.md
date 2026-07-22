@@ -1,6 +1,25 @@
 # Work Tracking
 
-Last updated: 2026-07-20
+Last updated: 2026-07-22
+
+## 2026-07-22 public README and three-workflow tutorial refresh
+
+- Status: `Complete`
+- Scope:
+  - Reorganize the public README around product identity, a one-minute start, the shared recipe/model-adapter contract, installation, verification, and explicit limitations.
+  - Replace the Markdown tutorial with separate first-user procedures for object detection, segmentation, anomaly OK/NG review, training, comparison, and candidate adoption.
+  - Add fresh current-source 1920x1080 captures for all three labeling purposes under `docs/tutorial/images/workflows-20260722`.
+- Acceptance criteria and evidence:
+  - README and tutorial both show and explain object-detection box labeling, segmentation polygon/mask labeling, and image-level anomaly OK/NG review: passed by direct document review and local image-link checks.
+  - All three committed captures are exactly 1920x1080 and visibly include the current workbench, purpose-specific controls, image canvas, and queue without clipping: passed by dimension and visual inspection.
+  - The anomaly regression executed 18 alternating OK/NG decisions with active image, grid selection, ViewModel selection, and current cell aligned; queue view resets were 0, filter evaluations were 1 per decision, queue repopulation was 0ms, median decision time was 155.7ms, maximum was 283.0ms, and resource warnings were 0.
+  - Public docs contain no private machine path or conversation wording, and retain the required workflow links and README sections: passed by `--priority-workflow-docs`.
+- Verification:
+  - Required isolated test build passed with 0 warnings / 0 errors.
+  - Detection, segmentation, and anomaly current-source visual smoke captures completed; the focused anomaly queue test passed.
+  - `--priority-workflow-docs`, Markdown image-link validation, exact image-dimension checks, and `git diff --check` passed.
+- Boundary / next dependency:
+  - This is public documentation and current-source UI evidence only. It does not change labeling behavior, retrain a model, improve production accuracy, or claim that arbitrary GitHub models work without an explicit adapter contract.
 
 ## 2026-07-20 dataset training dashboard MVVM presentation boundary
 
