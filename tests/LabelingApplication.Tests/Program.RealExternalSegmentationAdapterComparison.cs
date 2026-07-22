@@ -22,6 +22,7 @@ internal static partial class Program
             string yoloRoot = Path.GetFullPath(GetArgumentValue(args, "--yolo-root", @"C:\Git\yolov8"));
             string unetWeightsPath = Path.GetFullPath(GetArgumentValue(args, "--unet-weights", string.Empty));
             string yoloWeightsPath = Path.GetFullPath(GetArgumentValue(args, "--yolo-weights", string.Empty));
+            string yoloEngine = GetSegmentationComparisonYoloEngineArgument(args);
             int imageSize = GetPositiveArgument(args, "--image-size", 32);
             float yoloConfidence = GetYoloConfidenceArgument(args);
             artifactRoot = Path.GetFullPath(GetArgumentValue(
@@ -67,7 +68,7 @@ internal static partial class Program
             AssertTrue(File.Exists(yoloPythonPath), "YOLO Python was not found: " + yoloPythonPath);
             var yoloSettings = new PythonModelSettings
             {
-                ModelEngine = PythonModelSettings.EngineYoloV8,
+                ModelEngine = yoloEngine,
                 ProjectRootPath = yoloRoot,
                 PythonExecutablePath = yoloPythonPath,
                 WeightsPath = yoloWeightsPath,
@@ -81,7 +82,7 @@ internal static partial class Program
                 Data = data,
                 UnetSettings = unetSettings,
                 YoloSettings = yoloSettings,
-                YoloEngine = PythonModelSettings.EngineYoloV8,
+                YoloEngine = yoloEngine,
                 OutputParentDirectory = Path.Combine(artifactRoot, "model-center-run")
             });
             AssertTrue(result.Succeeded, "external U-Net versus YOLO-seg comparison failed: " + result.Error);
@@ -104,6 +105,7 @@ internal static partial class Program
                 "sourceFingerprintAfter=" + sourceAfter.SourceFingerprintSha256,
                 "unetWeights=" + unetWeightsPath,
                 "yoloWeights=" + yoloWeightsPath,
+                "yoloEngine=" + yoloEngine,
                 "yoloConfidence=" + yoloConfidence.ToString("0.####", CultureInfo.InvariantCulture),
                 "canonicalExport=" + result.CanonicalExportRootPath,
                 "unetPredictionManifest=" + result.UnetPredictionManifestPath,
@@ -128,6 +130,16 @@ internal static partial class Program
             Console.Error.WriteLine("FAIL real external segmentation adapter comparison: " + ex.Message);
             return 1;
         }
+    }
+
+    private static string GetSegmentationComparisonYoloEngineArgument(string[] args)
+    {
+        string engine = PythonModelSettings.NormalizeModelEngine(
+            GetArgumentValue(args, "--yolo-engine", PythonModelSettings.EngineYoloV8));
+        AssertTrue(
+            engine == PythonModelSettings.EngineYoloV8 || engine == PythonModelSettings.EngineYolo11,
+            "--yolo-engine must be YOLOv8 or YOLO11.");
+        return engine;
     }
 
     private static float GetYoloConfidenceArgument(string[] args)

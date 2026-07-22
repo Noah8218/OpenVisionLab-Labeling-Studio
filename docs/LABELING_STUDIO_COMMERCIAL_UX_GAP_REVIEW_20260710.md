@@ -6,6 +6,12 @@ Purpose: define the next UI/UX development priorities for OpenVisionLab Labeling
 
 This is a UI/UX planning document. It does not change runtime, model, dataset, or annotation behavior.
 
+Superseding status note (2026-07-22): this document preserves the 2026-07-10
+comparison as historical planning evidence. Its earlier YOLO11-blocked statement
+is superseded by the scoped local YOLO11 detection and segmentation evidence in
+`docs/NEXT_THREAD_HANDOFF.md` sections 7 and 16. Anomaly classification and
+arbitrary external YOLO11 runtimes remain unverified.
+
 ## Sources Checked
 
 Official and product documentation checked on 2026-07-10:
@@ -194,7 +200,7 @@ Deferred by design:
 
 - Cloud/team collaboration, roles, assignment, RBAC, SSO, and workforce management remain outside the current local workstation product.
 - More dataset interoperability is lower priority unless the runtime/model work is paused or the user redirects.
-- YOLO11 readiness remains blocked until compatible local runtime and weights are actually verified.
+- Historical 2026-07-10 boundary: YOLO11 was blocked at the time of this review. See the superseding status note above for the current verified scope.
 
 ## Next Implementation Slice
 

@@ -48,6 +48,7 @@ internal static partial class Program
             AssertEqual(packet.Report.SourceFingerprintSha256, export.SourceDataTreeSha256Before);
             AssertEqual(packet.Report.SourceFingerprintSha256, export.SourceDataTreeSha256After);
             AssertTrue(export.OutputRootPath.Contains("unet-ext", StringComparison.OrdinalIgnoreCase), "external source must use a separately named app-owned canonical artifact root");
+            AssertEqual(24, Path.GetFileName(export.OutputRootPath).Length);
             AssertTrue(File.Exists(Path.Combine(export.OutputRootPath, "classes.json")), "external canonical export should write its U-Net class contract");
             AssertEqual(sourceSnapshotBefore, CaptureExternalSourceSnapshot(Path.GetDirectoryName(yamlPath)));
 

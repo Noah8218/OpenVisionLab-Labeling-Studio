@@ -70,7 +70,7 @@ namespace MvcVisionSystem.Yolo
                 recipeRootPath,
                 "artifacts",
                 ArtifactDirectoryName,
-                result.DatasetFingerprint);
+                result.DatasetFingerprint.Substring(0, 24));
 
             if (TryReuseExistingArtifact(result))
             {

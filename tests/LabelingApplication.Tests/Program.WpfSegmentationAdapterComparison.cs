@@ -87,6 +87,8 @@ internal static partial class Program
                 PythonModelSettings.EngineYolo11);
             AssertEqual(PythonModelSettings.EngineYolo11, yolo11Request.YoloSettings.ModelEngine);
             AssertEqual(ultralyticsRuntimeRoot, yolo11Request.YoloSettings.ProjectRootPath);
+            AssertEqual(PythonModelSettings.EngineYoloV8, GetSegmentationComparisonYoloEngineArgument(Array.Empty<string>()));
+            AssertEqual(PythonModelSettings.EngineYolo11, GetSegmentationComparisonYoloEngineArgument(new[] { "--yolo-engine", "yolo11" }));
 
             var viewModel = new WpfTrainingSettingsPanelViewModel();
             viewModel.SetSegmentationAdapterComparisonContext(context, preserveSelectedCheckpoints: false);

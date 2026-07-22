@@ -174,6 +174,13 @@ def relative_value(item: dict[str, Any], pascal: str, camel: str) -> str:
     return value
 
 
+def prediction_name_for_sha256(value: str) -> str:
+    digest = value.strip()
+    if len(digest) != 64 or any(character not in "0123456789abcdefABCDEF" for character in digest):
+        raise ValueError("prediction source SHA-256 is invalid")
+    return digest[:32] + ".png"
+
+
 def export_predictions(args: argparse.Namespace) -> Path:
     from PIL import Image
 
@@ -201,6 +208,7 @@ def export_predictions(args: argparse.Namespace) -> Path:
     output_root.mkdir(parents=True, exist_ok=True)
     manifest_path = output_root / "prediction-manifest.jsonl"
     records: list[dict[str, Any]] = []
+    prediction_paths: set[str] = set()
     for item in images:
         image_relative = relative_value(item, "ExportImageRelativePath", "exportImageRelativePath")
         source_relative = relative_value(item, "SourceRelativeImagePath", "sourceRelativeImagePath")
@@ -214,8 +222,11 @@ def export_predictions(args: argparse.Namespace) -> Path:
         # Keep prediction paths shallow. Canonical exports may live below a long
         # recipe/artifact root, and repeating images/<split>/ below predictions can
         # otherwise exceed the Windows path limit before Pillow writes the PNG.
-        prediction_name = (source_sha256 or sha256_file(image_path)) + ".png"
+        prediction_name = prediction_name_for_sha256(source_sha256 or sha256_file(image_path))
         prediction_relative = str(Path("predictions") / args.split / prediction_name).replace("\\", "/")
+        if prediction_relative in prediction_paths:
+            raise ValueError(f"prediction mask path collision: {prediction_relative}")
+        prediction_paths.add(prediction_relative)
         prediction_path = output_root / prediction_relative
         prediction_path.parent.mkdir(parents=True, exist_ok=True)
         Image.fromarray(labels, mode="L").save(prediction_path)
@@ -273,6 +284,7 @@ def self_test() -> int:
         (root / "dataset-manifest.json").write_text(json.dumps(manifest), encoding="utf-8")
         assert classes_from_manifest(manifest) == ["Defect"]
         assert len(split_images(manifest, "test")) == 1
+        assert prediction_name_for_sha256("A" * 64) == ("A" * 32) + ".png"
         print(json.dumps({"type": "SegmentationPredictionExportSelfTest", "ok": True}, separators=(",", ":")))
     return 0
 
