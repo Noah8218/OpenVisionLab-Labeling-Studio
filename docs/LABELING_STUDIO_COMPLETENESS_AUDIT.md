@@ -6,7 +6,18 @@ This audit answers one product question: when compared with established labeling
 
 The score below is product completeness, not code quality. A lower score can still be acceptable when the feature is outside the current product goal.
 
-## Latest Evidence Update (2026-07-17)
+## Latest Evidence Update (2026-07-22)
+
+The first bounded foundation-model assist slice is now implemented. In a
+segmentation recipe, an operator-drawn defect box can invoke the existing local
+Ultralytics runtime with MobileSAM, producing one reviewable polygon candidate.
+The candidate is never auto-saved: confirmation still uses the established
+candidate-review and canonical segment/mask save path. Current synthetic
+evidence covers a real defect prompt, runtime/weight provenance, source-image
+SHA-256 immutability, and confirmed JSON/PNG output. Point/negative prompts,
+text prompts, multi-object auto-labeling, and field accuracy remain unverified.
+This raises only the foundation-assist subscore; the focused-workstation
+estimate remains `4.0/5` and is still not a model-accuracy score.
 
 Two additional user-supplied synthetic packages were used as separate YOLOv8 candidates rather than merged into the historical circular data. The Washer OK/NG classification run completed through the app service and local TCP adapter for 20 epochs after the adapter's long-running socket behavior was corrected; its independent 30-image app-export test is hold at 11/30, with normal 0/13. The EasyMatch package retained its native 216/48/36 segmentation split and five-class polygon labels. Its local YOLOv8n-seg 50-epoch candidate produced source-test box mAP50 0.682 and mask mAP50 0.660; a local TCP smoke returned named polygon candidates from the exact new weight.
 
@@ -81,15 +92,19 @@ Current weaknesses:
 - QA is image-level. Commercial tools provide deeper object/geometry/class review, comments, decision history, reviewer identity, consensus, and analytics.
 - There is no multi-user assignment, role/workforce flow, general API/SDK, cloud connector, or hosted job dashboard.
 - Video tracking, keypoints, 3D, and volumetric annotation are absent and remain outside the current image-workstation scope.
-- Independent production-camera/cross-session SEG and anomaly evidence, production monitoring, and threshold calibration are still missing.
+- Independent production-camera/cross-session SEG and anomaly evidence, production monitoring, and threshold calibration are still not evaluated. Under `SYNTHETIC_EVIDENCE_CONTRACT.md`, that boundary does not block feature completion from controlled synthetic evidence.
 
 Current work disposition:
+
+Optional field-adoption evidence remains unevaluated: a SEG packet needs at least five NG mask labels/images, and anomaly adoption needs an independent
+production-camera or cross-session normal/abnormal set. These are field claims,
+not blockers for synthetic-first feature completion.
 
 | Status | Areas |
 | --- | --- |
 | Complete and protected | Dataset/purpose setup; class catalog; box labeling; SEG brush/eraser/polygon persistence and export code; pending-save/reopen/navigation; queue click/keyboard/performance; valid-source template shape transfer; Candidate Review and contour rendering; local YOLOv8 training/inference plumbing; engine/task-aware training and worker identity; model comparison/adoption guards; current supported import/export formats; image-level QA/report; current-work/left-panel UX, splitters, and clipping fixes; public documentation/CI/DLL contracts. |
-| Open and prioritized | Untouched cross-session/production-camera SEG test data with at least five NG mask labels/images, then an unchanged class-specific comparison and selected-model close/reopen/first-inference record if eligible; independent object-detection and anomaly domain-shift evidence. |
-| Deferred or out of scope | YOLO11 until runtime and weights are proven; collaboration/workforce/cloud platform; video/tracking/keypoints/3D/volumetric; broad public API/platform; Labelbox NDJSON unless product direction changes; foundation-model assist until core SEG data/model correctness is restored. |
+| Open and prioritized | Local box-prompt smart-mask assistance that writes only a reviewable candidate into the existing SEG workflow; synthetic evidence must satisfy the declared-origin, split/hash, provenance, and non-adopting gates. |
+| Deferred or out of scope | Optional production-camera/cross-session adoption validation until approved data exists; collaboration/workforce/cloud platform; video/tracking/keypoints/3D/volumetric; broad public API/platform; Labelbox NDJSON unless product direction changes. |
 
 Do not interpret the completed SEG annotation tooling as completed SEG model quality. Annotation mechanics remain 4.2/5; current operational SEG model-quality evidence is 2.8/5 because the historical ground truth is predominantly rectangular and independent evidence is absent.
 
@@ -172,7 +187,7 @@ Labelbox sets an ontology and workforce baseline: reusable ontologies, projects,
 | Quality control and audit metrics | 3.4 | Dataset readiness/audit export exists, and Detection/Segmentation now has persisted image-level `미검토 / 수정 필요 / 검수 완료` state, an issue-only queue filter, one current short issue reason, and a local Markdown QA report. Per-label issues, immutable decision history, reviewer identity, consensus, comments, and deeper annotation analytics are still missing. |
 | Collaboration/workforce | 0.5 | Not implemented. This is outside the current local workstation MVP. |
 | Video/tracking/keypoints/3D | 0.5 | Not implemented beyond some annotation shape foundations. |
-| Foundation-model assist | 1 | Template matching and YOLO candidates exist, but SAM/Grounding-DINO-style assisted annotation is missing. |
+| Foundation-model assist | 2.5 | Local MobileSAM single-box prompting now creates a reviewable segmentation polygon candidate and reuses the normal confirmation/save path. Point/negative/text prompts and broad auto-labeling remain absent. |
 | Public docs/tutorials | 3.8 | Strong for local onboarding, but product-level compatibility claims must stay conservative. |
 
 ## Stop Reworking
@@ -358,7 +373,8 @@ After the 2026-07-03 object-detection import/export slices, segmentation export 
 
 4. Foundation-model assisted labeling.
    - Why: Roboflow/CVAT/Label Studio now set user expectations around SAM or prompt-based assistance.
-   - First shippable slice: a runtime-agnostic assist interface and UI wording, not a hardcoded future model.
+   - First completed slice: local MobileSAM single-box prompting creates one reviewable polygon candidate, preserves confirmed labels, fails closed when the image/prompt changes, and does not save before operator confirmation.
+   - Next slice only when operator evidence requires it: point/negative refinement on the same local runtime. Do not add text-prompt or broad auto-label infrastructure speculatively.
 
 5. Collaboration/workforce.
    - Why: important for enterprise parity, but it is a different product shape from the current local workstation.
@@ -412,7 +428,7 @@ Approved direction as of 2026-07-15:
 | --- | --- | --- |
 | Project/data context and class definitions | Local dataset, class catalog, queue, readiness, and SHA-256 external-data audit exist. The audit is currently a collapsed detail surface in `Model Center > Data`. | Improve discoverability, not duplicate the services. |
 | Review/rework and annotation QA | Image-level issue state, filter, reason, and report are complete. Per-object issues, immutable review history, reviewer identity, comments, and consensus do not exist. | Keep the current single-operator slice stable; design a local review worklist only after the data-evidence surface is used. |
-| AI-assisted pre-labeling | Template matching and local YOLO candidates are present. Prompt/SAM/foundation-model assistance is not. | Defer until a specific offline runtime and weights are approved. Do not label template matching as foundation-model assistance. |
+| AI-assisted pre-labeling | Template matching, local YOLO candidates, and a bounded local MobileSAM box-prompt candidate are present. | Keep the verified box flow small; add point/negative refinement only for a reproduced operator need. |
 | Model evaluation | Read-only model-neutral catalog, same-evidence fingerprint checks, task-aware metrics, Takt conditions, threshold review, and native scatter visualization exist. | Preserve the current comparison window; improve data-readiness entry first. |
 | Team collaboration/workforce | No accounts, assignment, server sync, consensus, or hosted labeling. | Explicitly out of scope for the local workstation product. |
 
@@ -428,7 +444,7 @@ Approved direction as of 2026-07-15:
 ### Deferred work
 
 - A local single-operator review/rework worklist is the next commercial-workflow gap after the evidence surface, but it must reuse the existing image-level state before introducing per-object persistence.
-- Foundation-model assistance requires a bounded runtime/weight proposal and explicit download/dependency approval.
+- The bounded MobileSAM box slice is complete with an approved local weight and existing runtime. Any different model, dependency, or automatic download still requires explicit approval.
 - Collaboration, video/3D/keypoints, cloud workflows, and enterprise workforce controls remain outside the current product direction.
 
 ## Next Development Recommendation
@@ -440,7 +456,7 @@ The bounded shell, `Evaluation data evidence` surface, and controlled Test01 eng
 3. When independent data becomes available, acquire a new production-camera or cross-session NG-rich object-detection set and run the same frozen-snapshot/fingerprint/five-repeat path before production adoption; the hash-identical `Test02` copy is not new evidence.
 4. Then collect an independent production-camera or cross-session normal/abnormal set and rerun the unchanged anomaly evaluation guard. Existing runtime/restart and same-source circular-defect smokes are already complete and should not be repeated as production proof.
 5. Keep the verified compact context header, task-specific left-panel tabs, fixed annotation-tool rail, splitters, completed SEG annotation, queue, Viewer/OpenGL, runtime, profile persistence, and model-neutral benchmark paths stable. Use `C:\Git\OpenVisionLab_Dev` WPF-UI/AvalonDock patterns only when a future bounded pane requirement proves native controls insufficient.
-6. Foundation-model assistance needs explicit runtime/weight approval; collaboration/workforce, video/3D/keypoints, broad API/platform work, and Labelbox NDJSON remain deferred.
+6. Keep the completed MobileSAM box slice stable. Point/negative refinement waits for operator evidence; collaboration/workforce, video/3D/keypoints, broad API/platform work, and Labelbox NDJSON remain deferred.
 
 The evidence-surface slice does not replace independent model data. It only makes the existing missing-data condition and integrity checks easier to discover.
 

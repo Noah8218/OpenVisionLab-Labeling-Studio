@@ -2,6 +2,31 @@
 
 Last updated: 2026-07-22
 
+## 2026-07-22 U-Net / YOLOv8-seg / YOLO11-seg fixed three-model comparison
+
+- Status: `Complete`
+- Scope:
+  - Add the missing YOLO11 engine selector to the opt-in real external segmentation comparison runner without changing its YOLOv8 default or the product UI.
+  - Train YOLO11-seg for 30 epochs through the real app/TCP worker on the same five-class `360/80/60` native packet used by the completed U-Net/YOLOv8 run, then score all three checkpoints on the same 60 canonical test masks.
+  - Close the Windows long-path failure reproduced during the current comparison while preserving full evidence hashes in manifests.
+- Acceptance criteria and evidence:
+  - YOLO11 profile provenance records `model=yolo11`, `task=segment`, image `320`, batch `4`, CPU, the source `data.yaml`, separate app-owned runtime YAML, seed SHA-256, worker SHA-256, and final checkpoint SHA-256: passed. Evidence: `artifacts\benchmark-external-yolo11-die-array-e30-20260722\summary.txt`.
+  - The native source remained 2,004 files and tree SHA-256 `5819E2ED72E402D3F06C32CF4F1FB3481A2DF1D70BD8CB8C00B97CE9E28199C2` before/after training, with zero source cache/temp artifacts: passed.
+  - The common-mask comparison has 60 images, no report errors, one matching dataset/class contract, and unchanged source fingerprint before/after: passed.
+  - Mean Dice/IoU: U-Net `0.243091/0.156165`, YOLOv8-seg `0.721702/0.570198`, YOLO11-seg `0.773711/0.636553`: passed. Evidence: `docs\SEGMENTATION_E30_THREE_MODEL_COMPARISON_20260722.md`.
+  - Full SHA-256 evidence remains in manifests while artifact directory/file names are shortened; a deliberately longer comparison path passed with canonical/prediction paths of 221/238 characters: passed.
+- Verification:
+  - Required isolated build passed with 0 warnings / 0 errors.
+  - Prediction exporter `py_compile` and `--self-test`, `--external-yolo-segmentation-canonical-export`, `--wpf-segmentation-adapter-comparison`, `--external-yolo-dataset-intake`, `--segmentation-mask-comparison`, and `--priority-workflow-docs` passed.
+  - The real 30-epoch YOLO11 run and the final long-path 60-image comparison completed.
+- Evidence:
+  - `artifacts\benchmark-external-yolo11-die-array-e30-20260722\summary.txt`
+  - `artifacts\benchmark-external-seg-adapter-compare-yolo11-e30-confidence025-test-pathfix2-20260722\summary.txt`
+  - `docs\SEGMENTATION_E30_THREE_MODEL_COMPARISON_20260722.md`
+- Boundary / next dependency:
+  - This completes YOLO11 segmentation training/comparison for the verified local Ultralytics runtime and the disclosed synthetic packet. It does not automatically adopt a model, prove production-camera quality, compare CPU/GPU latency, or establish every YOLO11 task/data combination.
+  - The subsequent U-Net CE plus foreground soft-Dice valid-only hypothesis is complete and rejected. Same-valid macro Dice/IoU fell from `0.204437/0.127053` to `0.189220/0.111142`, `contamination_spot` remained zero-overlap, temporary loss code was removed, and held-out stayed closed. Next production evidence is blocked on independently acquired camera/session data.
+
 ## 2026-07-22 public tutorial real-defect label capture correction
 
 - Status: `Complete`
@@ -13890,7 +13915,7 @@ selector is independently validated.
 
 ## 2026-07-22 U-Net foreground-quality checkpoint selection
 
-Status: Incomplete
+Status: Complete as an evidence slice; rejected as a default selector.
 
 Scope: test an opt-in foreground-quality selector on unchanged full-frame,
 unweighted 30-epoch U-Net training; do not alter the normal TCP training path
@@ -13905,10 +13930,203 @@ Completed evidence:
   `0.164849` / `0.097209` to `0.204437` / `0.127053`, with no all-image class
   prediction flood.
 
-Failed criterion: all five classes must have real overlap. `contamination_spot`
+Quality gate result: all five classes must have real overlap. `contamination_spot`
 and `foreign_particle` remained at Dice `0.0`, so the selector is not adopted
 as the default and held-out test remains closed.
 
-Corrective action: keep the selector opt-in only and use it as the evidence
+Decision / boundary: keep the selector opt-in only and use it as the evidence
 harness for one separately declared loss or architecture hypothesis targeting
 the two zero-overlap classes.
+
+## 2026-07-22 U-Net CE plus foreground soft-Dice controlled validation
+
+Status: Complete as an evidence slice; rejected as a product training policy.
+
+Scope: run exactly one full-frame, unweighted CE plus foreground soft-Dice
+hypothesis on the fixed 360 train / 80 valid packet at image 320, batch 4,
+seed 17, and 30 CUDA epochs. Keep crop, class weights, augmentation,
+architecture, and the 60-image test split out of scope.
+
+Acceptance criteria and evidence:
+
+- Python compile/self-test and one-epoch CUDA integration: passed while the
+  temporary opt-in loss flag existed.
+- Fixed 30-epoch run and checkpoint provenance: passed. The selected epoch 30
+  checkpoint SHA-256 is
+  `B317D352661A9893C281A31B4C824154762E88673E958545C123B640AD960D33`.
+- Canonical input immutability: passed. All 880 train/valid image and mask
+  files matched the canonical manifest after the run.
+- Same-valid all-class overlap and macro-quality improvement: failed.
+  `contamination_spot` remained zero-overlap; macro Dice/IoU fell from the
+  selector baseline `0.204437/0.127053` to `0.189220/0.111142`.
+- No foreground class was predicted on all 80 images: passed; the maximum was
+  32 images.
+
+Verification: 30-epoch CUDA training, checkpoint metadata/hash inspection,
+valid-only prediction export, direct same-mask per-class Dice/IoU comparison,
+and canonical manifest SHA-256 verification all completed. The held-out test
+was not opened.
+
+Evidence: `docs\UNET_E30_CLASS_CONFUSION_ANALYSIS_20260722.md`,
+`C:\Git\unet\runs\segment\openvisionlab-unet-softdice-validonly-e30-20260722`,
+and `artifacts\unet-softdice-e30-valid-20260722\unet-valid-predictions`.
+
+Decision / boundary: reject the exact loss formula, remove its temporary code,
+keep the normal TCP worker unchanged, do not register/adopt the checkpoint,
+and do not repeat the hypothesis unless its data, architecture, loss
+definition, or acceptance criteria deliberately change.
+
+## 2026-07-22 production-camera availability audit and synthetic-first disposition
+
+Status: Complete.
+
+Scope: identify whether an operator-approved, independently acquired
+production camera/session packet is available for object detection,
+segmentation, or anomaly evaluation. Do not inspect the explicitly excluded
+`D:\기타이미지\2022.11.16_SIT` path and do not relabel synthetic data as field
+evidence.
+
+Evidence:
+
+- `D:\라벨테스트` contains 33 top-level roots. A metadata-only scan found 130
+  files explicitly declaring synthetic, procedurally generated, or augmented
+  content.
+- Remaining folders without such a declaration still lack an approved
+  acquisition provenance record, so they cannot be inferred to be production
+  evidence.
+- The excluded `D:\기타이미지\2022.11.16_SIT` path was not inspected.
+
+Disposition: unavailable production-camera data no longer blocks product
+feature completion. Synthetic/procedural sources may close a feature when the
+gates in `docs\SYNTHETIC_EVIDENCE_CONTRACT.md` pass. Record field performance
+as `Field validation: Deferred` or `Field validation: Not evaluated` and do not
+claim production accuracy.
+
+Optional field-validation prerequisite: provide an approved folder plus acquisition provenance
+(part/product, camera/lens, lighting, date/session and relationship to training
+data), trustworthy task labels (boxes, masks, or image-level OK/NG), a fixed
+held-out split, and zero SHA-256 content overlap with training/validation.
+Only then can the existing comparison/evaluation workflow produce production
+evidence. This prerequisite gates a field-adoption claim, not continued product
+implementation or synthetic feature verification.
+
+## 2026-07-22 MobileSAM box-prompt smart-mask slice
+
+Status: Complete
+
+Scope: add one local, review-first segmentation assist that converts the last
+operator rectangle around a defect into a MobileSAM polygon candidate. Reuse
+the installed Ultralytics runtime; do not add a project, dependency, network
+call, automatic download, automatic save, or automatic model-adoption path.
+
+Acceptance criteria:
+
+- Segmentation-only `박스 → 스마트 마스크` command is visible and becomes
+  available only with a current image, valid rectangle prompt, local Python,
+  worker, and `mobile_sam.pt`: passed.
+- Real box inference returns a polygon candidate and reports runtime plus weight
+  provenance: passed; 44 points, mask area 540, MobileSAM / Ultralytics 8.4.101
+  / Torch 2.12.1+cpu / cpu.
+- Existing confirmed candidates survive the assist; changed image/prompt results
+  fail closed; generated output remains pending until explicit confirmation:
+  passed by focused contract coverage.
+- Confirmation enters the existing canonical segmentation save path: passed;
+  segment JSON and non-empty mask PNG were written below the app-owned evidence
+  root.
+- Source image remains immutable: passed; SHA-256 before/after was
+  `92202A4CBC1A6C5949FC0AE7AF9918304288FD1CC8863214010AC843EBA611D4`.
+- Weight identity is recorded: passed; SHA-256
+  `6DBB90523A35330FEDD7F1D3DFC66F995213D81B29A5CA8108DBCDD4E37D6C2F`.
+
+Verification: isolated Debug test build (0 warnings / 0 errors), Python compile
+and worker self-test, `--mobile-sam-box-prompt`, real
+`--real-mobile-sam-box-prompt`, candidate polygon save regression,
+`--wpf-labeling-shell`, documentation contract, current-build 1920x1080 prompt
+and result captures, and `git diff --check`.
+
+Evidence: `docs\MOBILE_SAM_SMART_MASK.md`,
+`artifacts\mobile-sam-box-prompt\20260722-150938\mobile-sam-evidence.json`,
+`artifacts\ui\smart-mask-20260722\before-click-box-prompt-screen-1920x1080.png`,
+and `after-click-mobile-sam-candidate-screen-1920x1080.png`.
+
+Boundary / next dependency: synthetic labeling-workflow evidence only; field
+validation is `Not evaluated` and no production accuracy is claimed. Point,
+negative, text, and multi-object prompting remain excluded until a reproduced
+operator need justifies another bounded slice.
+
+## 2026-07-22 MobileSAM 8-class box-prompt usability matrix
+
+Status: Complete
+
+Scope: run the existing local MobileSAM box-prompt path against one fixed
+single-defect sample per class and split from the synthetic eight-class hexagon
+packet: 24 unique images, three per class. Compare rasterized candidates with
+the supplied binary masks, record provenance, and leave the source tree
+unchanged. Point/negative prompt implementation was excluded from the scope.
+
+Acceptance criteria:
+
+- Fixed selection manifest exists before inference: passed; 24 unique samples,
+  selection fingerprint
+  `4735226832BF80A0E8EBE47C74A8887200FC08845EE175316C6675B3A5C37A8D`.
+- Box-only gate is overall usable rate `>= 75%` and every class median IoU
+  `>= 0.50`: passed; `24/24` usable, overall median IoU `0.8562`, lowest class
+  median `crack 0.7129`.
+- Runtime and weight identity are recorded: passed; MobileSAM / Ultralytics
+  `8.4.101` / Torch `2.12.1+cpu` / CPU, weight SHA-256
+  `6DBB90523A35330FEDD7F1D3DFC66F995213D81B29A5CA8108DBCDD4E37D6C2F`.
+- Full source tree remains immutable: passed; 4,525 files and SHA-256
+  `4E511A2E08F2ED609B78B40D6B789DE691C968E71ED5A298B76A1E7CA1FB52A8`
+  before and after.
+
+Verification: isolated Debug build, `--mobile-sam-box-prompt`, real
+`--real-mobile-sam-usability-matrix`, `--priority-workflow-docs`, and
+`git diff --check`.
+
+Evidence: `docs\MOBILE_SAM_8_CLASS_USABILITY_MATRIX_20260722.md` and
+`artifacts\mobile-sam-usability-matrix\20260722-153003`.
+
+Boundary / next dependency: synthetic exact-metadata-box evidence only; field
+validation and approximate operator-box tolerance are `Not evaluated`. Keep the
+current box-only plus manual polygon/brush fallback. Do not add point/negative
+prompt UI unless operator failures or a fixed box-jitter regression reproduce a
+need.
+
+## 2026-07-22 independent feature-slice review and local commit separation
+
+Status: Complete
+
+Scope: inventory every remaining tracked and untracked change, preserve all
+existing work, split the mixed tree into independently reviewable local
+commits, and verify each commit from its own detached temporary worktree. Do
+not push.
+
+Acceptance criteria and evidence:
+
+- Every dirty file was assigned to a feature or cumulative evidence-doc slice;
+  no user change was reset, deleted, or overwritten: passed.
+- YOLO11 segmentation comparison is isolated in `687e553`: passed. Its
+  detached-worktree build had 0 warnings / 0 errors; external canonical export,
+  WPF adapter comparison, and Python exporter self-test passed.
+- Synthetic evidence policy and U-Net experiment closure are isolated in
+  `0b05986`: passed. Its detached-worktree build had 0 warnings / 0 errors;
+  model-comparison review and priority-doc checks passed.
+- MobileSAM implementation, direct documentation, tests, and screenshots are
+  isolated in `549a7d4`: passed. Review found and fixed the missing
+  prompt-coordinate comparison before commit. Its detached-worktree build had
+  0 warnings / 0 errors; Python compile/self-test, MobileSAM contract,
+  candidate-polygon save, WPF shell, and priority-doc checks passed.
+- Remote state was not changed: passed; `origin/main` remained at `4dda0d9`.
+
+Verification: per-commit detached-worktree isolated builds and focused tests,
+final `--priority-workflow-docs`, `git diff --check`, clean worktree check, and
+recent-log inspection.
+
+Evidence: commits `687e553`, `0b05986`, and `549a7d4`; the cumulative evidence
+documents in this final documentation slice; MobileSAM runtime artifacts under
+`artifacts\mobile-sam-usability-matrix\20260722-153003`.
+
+Boundary / next dependency: local commits only. Push requires an explicit
+operator request. Completed model runs and MobileSAM prompt expansion remain
+closed unless their recorded source, runtime, contract, or failure evidence
+changes.

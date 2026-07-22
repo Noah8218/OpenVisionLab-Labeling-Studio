@@ -1,6 +1,6 @@
 # Next Thread Handoff
 
-Last updated: 2026-07-21 KST
+Last updated: 2026-07-22 KST
 
 This is the current operational handoff for C:\Git\Labelling_Application. It is intentionally shorter than the historical journal. Use it to choose the next task; use the linked records only for the detailed evidence behind a claim.
 
@@ -64,7 +64,7 @@ The latest audit estimates focused single-operator workstation maturity at 4.0/5
 - Preserve MVVM: code-behind is a WPF adapter; commands, workflow state, presentation decisions, and persistence rules belong in ViewModel or service code when practical.
 - Do not touch Viewer, OpenGL, ROI, brush, eraser, or overlay hot paths unless the user reports a specific defect. Add focused evidence when doing so.
 - Do not download model weights, run pip/package upgrades, or change dependencies without explicit approval.
-- Do not claim YOLO11 readiness. It remains blocked until a compatible installed runtime and real compatible weights are verified.
+- YOLO11 detection and segmentation are verified only for the recorded local Ultralytics runtime, compatible task weights, and focused app paths. Do not generalize that evidence to every YOLO11 task, dataset, runtime, or production deployment.
 - ONNX can support inference deployment, but does not replace local-source YOLOv8 training.
 - UI changes require current 1920x1080 evidence and a README/tutorial-image relevance check.
 - Completion requires a build when code changes, focused tests for the changed area, and git diff --check.
@@ -80,6 +80,12 @@ YOLOv8 is local-source operated:
 - adapter: C:\Git\yolov8\labeling_tcp_client.py
 - install mode: editable local install
 - pretrained seeds such as yolov8n-seg.pt and yolov8n-cls.pt are seeds only, never final production models.
+
+YOLO11 reuses the same local Ultralytics source/runtime root and the bundled
+Ultralytics worker; it does not require a separate `C:\Git\yolo11` repository.
+Actual detection and segmentation training/comparison evidence exists, but
+task-specific compatible weights and live worker capability checks still gate
+execution. A pretrained `yolo11n-seg.pt` is a seed, not an adopted model.
 
 YOLOv5 remains a separately configured local runtime. Do not mix a weight, model engine, task, class list, or data.yaml across engines without explicit compatibility verification.
 
@@ -98,7 +104,7 @@ Treat the following as completed/protected unless there is a reproduced defect:
 - Current image queue row state, keyboard navigation, light preview loading, lazy thumbnails, and 10K background catalog/detail indexing.
 - Dataset Health is a separate read-only Model Center window, not another long left-panel block.
 - External native YOLO data.yaml intake remains an explicitly selected training input and must not overwrite the recipe-owned exported dataset.
-- The Model Center adapter catalog is read-only: it exposes only the declared recipe-format, YOLOv5, local-YOLOv8, ONNX inference-only, and blocked-YOLO11 contracts. It must not imply that all GitHub models are executable.
+- The Model Center adapter catalog is read-only: it exposes only the declared recipe-format, YOLOv5, local-YOLOv8, ONNX inference-only, and verified-scope local-YOLO11 contracts. It must not imply that all GitHub models or all YOLO11 task/runtime combinations are executable.
 
 For the exact contracts and required regression gates, read docs/STABLE_VERIFIED_AREAS.md before changing any protected area.
 
@@ -298,7 +304,14 @@ Not complete:
 
 ### YOLO11
 
-Blocked. Do not claim readiness, expose a default, download a weight, or create an adoption path until the selected local runtime and actual compatible weights are tested.
+Verified for the recorded local Ultralytics detection and segmentation paths.
+The detection 30-epoch benchmark/restart smoke is recorded in
+`docs\YOLO11_ENGINE_COMPARISON_20260721.md`; the segmentation 30-epoch
+training and normalized three-model comparison are recorded in
+`docs\SEGMENTATION_E30_THREE_MODEL_COMPARISON_20260722.md`. Keep compatible
+task weights, worker capability, source identity, and non-adoption guards
+explicit. Anomaly-classification and arbitrary external YOLO11 runtimes remain
+unverified unless their own focused evidence exists.
 
 ## 9. Known Gaps, Risks, and TODO Scan
 
@@ -380,7 +393,7 @@ Run real external-data training, real EXE, or model-comparison commands only whe
 ## 13. 2026-07-18 Model Adapter Catalog Slice
 
 - Status: `Complete` for the declared-contract scope.
-- The full-width Model Center now presents five Korean, read-only cards: implemented recipe interchange formats, YOLOv5 object detection, the local YOLOv8 worker, ONNX inference-only, and blocked YOLO11. Each card declares 작업, 데이터, 실행기, 근거, and 다음 행동.
+- The full-width Model Center now presents five Korean, read-only cards: implemented recipe interchange formats, YOLOv5 object detection, the local YOLOv8 worker, ONNX inference-only, and verified-scope local YOLO11. Each card declares 작업, 데이터, 실행기, 근거, and 다음 행동. YOLO11 detection and segmentation are executable only within the runtime/weight/app paths recorded in sections 7 and 16; anomaly classification and arbitrary external YOLO11 runtimes remain unverified.
 - `ModelAdapterCatalogService` derives the format inventory from the implemented export capability service. It does not create a generic GitHub download/run path, alter a runtime, install a package, modify data, start training/inference, register a model, or make a quality/adoption claim.
 - Current-source evidence: required isolated 0-warning/0-error build; `--model-adapter-catalog`, `--wpf-yolo-model-settings-panel`, `--wpf-labeling-shell`, and `--wpf-responsive-layout` passed. Current captures are `artifacts\ui\model-adapter-catalog-20260718\after-model-adapter-catalog-1920.png` and `after-model-adapter-catalog-1366.png`. The closest pre-catalog baseline is `artifacts\ui\model-workspace-20260718\after-model-workspace-1920.png`; it is not a catalog-specific runtime-tab before capture.
 - Boundary: do not reopen for generic model-platform breadth. Reopen only for an incorrect/missing declared contract, stale export inventory, binding failure, or reproduced layout defect. Data-dependent quality priorities remain unchanged.
@@ -394,19 +407,128 @@ When finishing a future task, report:
 - whether a 1920x1080 screenshot was required and the before/after paths when it was;
 - what remains unverified, blocked, or risky;
 - the next priority with model and reasoning-effort guidance;
-- no claim of model adoption, independent accuracy, YOLO11 readiness, or CI success without current evidence.
+- no claim of model adoption, independent accuracy, YOLO11 scope beyond its recorded evidence, or CI success without current evidence.
 
 ## 15. 2026-07-21 Latest Checkpoint: External Native Segmentation Pair
 
 Status: `Complete` for the runtime/provenance feature slice and the controlled YOLO confidence selection plus one held-out replay; production quality remains intentionally unclaimed.
 
-- `ed50831 feat: add model adapter comparison workflows` is already pushed to `main`. The newer external-native-segmentation slice is intentionally uncommitted until the operator requests another commit.
+- The external-native-segmentation foundation was committed before this checkpoint. The later YOLO11 comparison extension is independently committed as `687e553`; the synthetic evidence contract is `0b05986`; MobileSAM labeling is `549a7d4`. These commits are local and not pushed.
 - An explicitly activated external native YOLO segmentation `data.yaml` is now parsed only by `YoloExternalDatasetIntakeService`; `ExternalYoloSegmentationCanonicalExportService` derives recipe-owned image/mask/class artifacts under `artifacts\unet-ext`. It maps native `val` to canonical `valid`, preserves the native class order, rejects duplicate cross-split content and different-class pixel overlap, and verifies source identity before/after export.
 - U-Net training and U-Net/YOLO-seg Model Center comparison use that canonical export. Any external YOLO training, even a conventional `images`/`labels` source, uses a separate app-owned runtime copy so training caches cannot change the selected source. Persisted provenance keeps both the selected source and actual runtime path distinct.
 - Current actual evidence: the approved 30-epoch same-source run is complete. U-Net (CUDA) and YOLOv8-seg (installed CPU-only runtime) both used the 360/80/60 EasyMatch Die Array packet, five-class contract, image size 320, and batch 4. The original 2,004-file source tree SHA-256 and native source fingerprint remained unchanged. The 60-image Model Center common-mask report measured U-Net Dice/IoU `0.243091` / `0.156165` and YOLOv8-seg `0.079059` / `0.044103`. See `artifacts\benchmark-external-unet-die-array-e30-20260721-203302\summary.txt`, `artifacts\benchmark-external-yolov8-die-array-e30-20260721-203302\summary.txt`, and `artifacts\benchmark-external-seg-adapter-compare-e30-20260721-203302\summary.txt`.
 - The saved test prediction manifests prove the original paired evidence runner deliberately used `confidence=0.00`. The actual Model Center service passes the profile confidence and falls back to `0.25`. A read-only replay of the fixed YOLOv8-seg checkpoint on the 80-image `valid` split at `0.25` (not test) reduced the all-image false-positive flood and yielded per-class Dice `0.782156`-`0.854240`. U-Net's two zero-Dice classes have train support and remain a separate class-confusion/training question. Evidence: `docs\SEGMENTATION_E30_ERROR_ANALYSIS_20260721.md` and `artifacts\segmentation-e30-error-analysis-20260721`.
 - The opt-in runner now exposes `--yolo-confidence`, defaults it to `0.25`, rejects values outside `[0,1]`, and records the value in its summary. The selected `0.25` then ran exactly once on unchanged test data: U-Net Dice/IoU `0.243091` / `0.156165`; YOLOv8-seg `0.721702` / `0.570198`; source fingerprint unchanged before/after. Evidence: `docs\SEGMENTATION_E30_CONFIDENCE025_TEST_EVIDENCE_20260722.md` and `artifacts\benchmark-external-seg-adapter-compare-e30-confidence025-test-20260722`.
-- U-Net class-confusion, class-weighted, crop, and foreground-quality selector experiments are recorded on `train`/`valid`. The selector alone improved valid macro Dice/IoU from `0.164849` / `0.097209` to `0.204437` / `0.127053`, but `contamination_spot` and `foreign_particle` still had zero overlap. It remains an internal opt-in evidence harness; normal TCP training still uses validation loss, neither crop nor weights are adopted, and no held-out test was used. Evidence: `docs\UNET_E30_CLASS_CONFUSION_ANALYSIS_20260722.md`.
+- U-Net class-confusion, class-weighted, crop, foreground-quality selector, and CE plus foreground soft-Dice experiments are recorded on `train`/`valid`. The selector baseline reached valid macro Dice/IoU `0.204437` / `0.127053`. The soft-Dice run recovered `foreign_particle` but left `contamination_spot` at zero overlap and reduced macro Dice/IoU to `0.189220` / `0.111142`, so it is rejected and its temporary code is removed. The selector remains an internal opt-in evidence harness; normal TCP training still uses unweighted cross-entropy and validation-loss selection. No held-out test was used by the loss experiment. Evidence: `docs\UNET_E30_CLASS_CONFUSION_ANALYSIS_20260722.md`.
 - Boundary: this is an engine/model evidence result, not automatic selection or production quality. CUDA/CPU elapsed times cannot be compared. Do not rerun this held-out split unless source, runtime, acceptance criteria, or a deliberately new hypothesis changes.
 
-Next priority: test one unweighted cross-entropy plus foreground soft-Dice loss hypothesis on unchanged full-frame train/valid data, using the opt-in selector only as evidence. Independent camera/session segmentation data remains required for a production or adoption decision.
+Production adoption remains blocked on independently acquired camera/session data with trustworthy object-detection boxes, segmentation masks, or balanced anomaly OK/NG decisions. Product feature work is not blocked: synthetic evidence may close a feature under `docs\SYNTHETIC_EVIDENCE_CONTRACT.md`. `D:\라벨테스트` remains synthetic or lacks acceptable acquisition provenance, and the operator-excluded `D:\기타이미지\2022.11.16_SIT` path must not be inspected or used.
+
+## 16. 2026-07-22 Latest Checkpoint: YOLO11 Segmentation and Three-Model Evidence
+
+Status: `Complete` for the declared local runtime, fixed synthetic source, and
+normalized held-out comparison. No model was adopted.
+
+- YOLO11-seg completed 30 CPU epochs through the app's real TCP training path
+  at image `320`, batch `4`, using the fixed five-class `360/80/60` native
+  packet and an app-owned runtime copy.
+- The source stayed 2,004 files with identical before/after tree SHA-256
+  `5819E2ED72E402D3F06C32CF4F1FB3481A2DF1D70BD8CB8C00B97CE9E28199C2`.
+  The YOLO11 checkpoint SHA-256 is
+  `4A09B5F668B8F2AA2DAF9FEDB9ADDA4954A607D61CB08C96379AE8CA82462ECA`.
+- The same 60 canonical test masks at YOLO confidence `0.25` measured mean
+  Dice/IoU U-Net `0.243091/0.156165`, YOLOv8-seg `0.721702/0.570198`, and
+  YOLO11-seg `0.773711/0.636553`. This is a synthetic same-source engine
+  benchmark, not production evidence or automatic selection.
+- The comparison runner now records an explicit YOLOv8/YOLO11 engine. A
+  reproduced Windows long-path failure is closed by compact artifact names
+  while manifests retain the full SHA-256 identities; the final deliberately
+  long real comparison passed.
+- Evidence: `docs\SEGMENTATION_E30_THREE_MODEL_COMPARISON_20260722.md`,
+  `artifacts\benchmark-external-yolo11-die-array-e30-20260722\summary.txt`, and
+  `artifacts\benchmark-external-seg-adapter-compare-yolo11-e30-confidence025-test-pathfix2-20260722\summary.txt`.
+
+The subsequent U-Net CE plus foreground soft-Dice valid-only hypothesis is now
+complete and rejected: same-valid macro Dice/IoU fell to `0.189220/0.111142`
+and `contamination_spot` remained zero-overlap. The temporary loss path was
+removed and the 60-image test set stayed closed. Production-readiness remains
+blocked on independently acquired camera/session evidence, but product feature
+work continues under the synthetic evidence contract.
+
+## 17. 2026-07-22 Latest Checkpoint: MobileSAM Box Smart Mask
+
+Status: `Complete` for the bounded local labeling-assist feature. Field
+validation is `Not evaluated`; no production accuracy is claimed.
+
+- In a segmentation recipe, the last operator-drawn rectangle can invoke
+  `박스 → 스마트 마스크`. The app reuses the existing local Ultralytics runtime
+  and `mobile_sam.pt`, shows one polygon as an unconfirmed AI candidate, and
+  requires the normal confirm/skip flow. Confirmation invokes the existing
+  canonical annotation save path.
+- The assist preserves confirmed candidates, does not auto-save, and fails
+  closed if the current image or prompt changes during inference. The prompt
+  rectangle is removed only after its candidate is accepted into review state.
+- A real synthetic defect prompt `[369,226,43,18]` produced a 44-point contour
+  and 540-pixel mask through MobileSAM / Ultralytics `8.4.101` / Torch
+  `2.12.1+cpu`. Confirmation wrote canonical segment JSON and mask PNG. The
+  source image SHA-256 stayed
+  `92202A4CBC1A6C5949FC0AE7AF9918304288FD1CC8863214010AC843EBA611D4`.
+- Weight SHA-256:
+  `6DBB90523A35330FEDD7F1D3DFC66F995213D81B29A5CA8108DBCDD4E37D6C2F`.
+- Evidence: `docs\MOBILE_SAM_SMART_MASK.md`,
+  `artifacts\mobile-sam-box-prompt\20260722-150938\mobile-sam-evidence.json`,
+  and current-build prompt/candidate captures under
+  `artifacts\ui\smart-mask-20260722`.
+- Boundary: box prompt only. Point/negative/text prompts, multi-object automatic
+  labeling, MobileSAM training, automatic confirmation, and field accuracy are
+  excluded. Do not reopen for broader infrastructure unless operator use
+  exposes a concrete failure of the box workflow.
+
+## 18. 2026-07-22 Latest Checkpoint: MobileSAM 8-Class Usability Matrix
+
+Status: `Complete` for the fixed synthetic exact-box evaluation. Field
+validation and approximate operator-box tolerance are `Not evaluated`.
+
+- One single-defect image per class was fixed from each train/valid/test split:
+  24 unique images, three per each of eight defect classes.
+- All 24 real MobileSAM calls produced candidates with IoU `>= 0.50`. Overall
+  median IoU was `0.8562`; the lowest class median was `crack 0.7129`.
+- Runtime was MobileSAM / Ultralytics `8.4.101` / Torch `2.12.1+cpu` / CPU.
+  Weight SHA-256 stayed
+  `6DBB90523A35330FEDD7F1D3DFC66F995213D81B29A5CA8108DBCDD4E37D6C2F`.
+- The source remained 4,525 files with tree SHA-256
+  `4E511A2E08F2ED609B78B40D6B789DE691C968E71ED5A298B76A1E7CA1FB52A8`
+  before and after.
+- Decision: keep the current box-only plus polygon/brush fallback. Point and
+  negative prompts are not the next implementation priority. Reopen only after
+  a real operator failure or fixed box-jitter regression crosses the recorded
+  gate.
+- Evidence: `docs\MOBILE_SAM_8_CLASS_USABILITY_MATRIX_20260722.md` and
+  `artifacts\mobile-sam-usability-matrix\20260722-153003`.
+
+## 19. 2026-07-22 Latest Checkpoint: Feature-Slice Commit Review
+
+Status: `Complete`. The mixed worktree was split without discarding or
+overwriting existing changes.
+
+- `687e553 feat: add YOLO11 segmentation comparison evidence`: YOLO11 engine
+  selection, compact collision-checked prediction paths, and the controlled
+  three-model report. Detached-worktree isolated build passed with 0 warnings
+  and 0 errors; canonical export, segmentation comparison, and Python exporter
+  self-test passed.
+- `0b05986 feat: define synthetic evidence completion contract`: synthetic
+  completion/field-validation boundary, rejected U-Net experiment record, and
+  model-comparison wording. Detached-worktree isolated build, model-comparison
+  review, and priority-doc tests passed.
+- `549a7d4 feat: add MobileSAM smart-mask labeling`: local box-prompt worker,
+  review-first WPF flow, canonical save integration, fixed 8-class matrix,
+  public tutorial, and current captures. Independent review added a missing
+  prompt-coordinate equality guard so an edited prompt cannot accept a stale
+  result. Detached-worktree isolated build, Python compile/self-test,
+  MobileSAM contract, polygon save, WPF shell, and priority-doc tests passed.
+- `origin/main` remains at `4dda0d9`. No push was performed.
+
+Boundary / next dependency: these feature slices are complete and locally
+committed. Push requires an explicit operator request. Do not repeat their
+training/evaluation merely to produce another result; reopen only for changed
+source/runtime/contracts or a focused regression.
