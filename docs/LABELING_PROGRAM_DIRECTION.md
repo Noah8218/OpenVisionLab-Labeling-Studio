@@ -1,5 +1,22 @@
 # Labeling Program Direction
 
+## Current Source Of Truth (2026-07-22)
+
+This section overrides older migration plans and dated priority notes later in this document. Use project guidance in this order when the documents disagree:
+
+1. `AGENTS.md` for repository operating rules and completion gates.
+2. `docs/NEXT_THREAD_HANDOFF.md` for the latest verified project state.
+3. `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` for current product scope, maturity, and commercial comparison.
+4. `CODEX_NEXT_PROMPT.md` for the next bounded work item.
+
+The product is a local Windows industrial labeling, training, inference, review, and model-evidence workstation. One recipe owns canonical images, classes, annotations, splits, and provenance; verified adapters prepare those same labels for YOLOv5, YOLOv8, YOLO11, U-Net, and related task-specific runtimes. Human review owns final labels and model adoption.
+
+Current supported task paths are object detection, segmentation, and supervised OK/NG anomaly classification. The WPF shell is the current application shell. U-Net runs as a separate Python segmentation worker selected through the common model-profile boundary; it is not embedded as an in-process C# model runtime. MobileSAM is a bounded single-box smart-mask assistant whose candidates must be reviewed and corrected before save.
+
+The product is not an arbitrary GitHub-model launcher and does not promise that any repository becomes compatible through a name or path alone. A model becomes supported only after its input/output mapping, class and split contract, runtime profile, focused tests, and reproducible evidence are present. Cloud collaboration, workforce management, camera/PLC control, and deployment orchestration remain outside the current product direction.
+
+The dated completed-work list below remains useful evidence history. Any old sentence that says WPF, U-Net, anomaly classification, or a completed feature is still a future task is historical and must not be used to reopen that work.
+
 ## Product Role
 
 This application should be the Windows image-AI labeling and tutorial workstation. It should help a first-time learner understand what labeling is, how object detection differs from segmentation and anomaly detection, how YOLO-style box labels and U-Net-style masks are created, and how trained models produce inference results.
@@ -19,7 +36,7 @@ Python should own model-specific work: training, weight management, inference ex
 
 ## Architecture Direction
 
-- Replace the WinForms UI with WPF in stages. This is a full UI migration: shell, workspace layout, panels, dialogs, and operator controls should end as WPF.
+- Keep the established WPF shell as the product UI. Remaining WinForms interop is a compatibility adapter, not a reason to restart a broad UI migration.
 - Use OpenGL `CViewer`/ImageCanvas as the only image viewer path. Legacy ImageBox/OpenCvSharp UI viewers should stay removed.
 - Exclude OpenGL/ImageCanvas from the remaining app-shell WPF cleanup because that viewer stack will be split into a separate project.
 - Keep the C# services, Python boundary, and labeling data ownership stable while replacing the UI.
@@ -46,7 +63,7 @@ Current command direction:
 - Python -> C#: `TrainingStatus` / `DetectionStatus` v1 JSON envelope for progress and errors
 - Python -> C#: current YOLO training worker messages `TrainYoloResult` and `TaskStatus` are also accepted and normalized into the same training-status snapshot.
 
-The next protocol target is a versioned message shape:
+The implemented protocol target is the following versioned message shape:
 
 ```json
 {
@@ -66,8 +83,7 @@ The next protocol target is a versioned message shape:
 }
 ```
 
-Until Python is updated, the current `ResultDefect [...]` format remains supported through `PythonDetectionResultProtocol`.
-The current `C:\Git\yolov5\labelling_tcp_client.py` emits v1 `DetectionStatus` and `ResultDefect` envelopes for the pretrained KTEM model path.
+The legacy `ResultDefect [...]` format remains supported through `PythonDetectionResultProtocol` for compatibility. Verified local workers emit v1 `DetectionStatus` and `ResultDefect` envelopes; public documentation must not depend on one developer-machine path.
 
 ## Current Detection Workflow
 
@@ -137,15 +153,15 @@ Detection candidates are removed after confirmation or skip, and the remaining c
 - Drawing tools should feel closer to a precise paint/annotation app than a debug ROI editor: visible active tool, cursor feedback, stable handles, predictable resize/move behavior, brush size/opacity controls, and no surprise inference when selecting images.
 - Detection, segmentation, and anomaly detection should be distinct modes or lessons, not ambiguous toolbar states. The UI should make it obvious whether the user is creating ground truth labels, running a model, reviewing predictions, or saving confirmed labels.
 - Every teaching mode should have a small sample-first path: load sample, draw label, run inference or save label, review result, and explain what changed.
-- U-Net runtime/model implementation is deferred. It may become a separate Python project, so the C# WPF app should only keep generic segmentation teaching UI and annotation concepts until that project direction is decided.
+- U-Net runtime is implemented as a separate Python project and is selected through the common model-profile boundary. Keep U-Net training/inference outside the C# process and preserve the canonical mask export used for cross-model comparison.
 
-## Near-Term Refactoring Queue
+## Current Change Policy
 
-1. Keep splitting WPF shell responsibilities into small ViewModels/services, but judge each split by whether it makes the teaching workflow easier to maintain.
-2. Define the education-mode navigation before adding more buttons: Learn Labeling, Object Detection, Segmentation, Anomaly Detection, Train, Infer, Review.
-3. Design and implement the annotation tool palette as a first-class WPF panel, even if the actual drawing commands continue to route into the existing viewer boundary.
-4. Add circle/ellipse and polygon/mask workflow planning before deeper model additions, because those tools define how U-Net and anomaly-region lessons will feel.
-5. Keep OpenGL/ImageCanvas cleanup tracked separately unless the task is specifically about drawing interaction quality.
+1. Do not reopen a completed feature unless its contract, source, environment, or evidence has changed, or a reproducible operator defect invalidates an acceptance criterion.
+2. Keep WPF View code-behind as a UI adapter; move command, state, workflow, and presentation logic to ViewModels or services only when a concrete slice benefits.
+3. Preserve the established task navigation and annotation-tool rail. Add controls only for a reproduced workflow need.
+4. Keep OpenGL/ImageCanvas performance paths unchanged unless the selected task explicitly requires them and includes focused regression evidence.
+5. Keep synthetic feature completion separate from optional field adoption. Lack of production-camera data does not reopen a completed deterministic feature gate.
 
 ## Completed Work
 
@@ -438,7 +454,9 @@ Detection candidates are removed after confirmation or skip, and the remaining c
 
 195. The Guide dataset dashboard now repeats the object-detection MVP remaining action as a compact `객체탐지 MVP 완료까지` line derived from the same dashboard action state. This keeps beginner next-step guidance tied to the object-detection completion criteria instead of becoming another separate checklist.
 
-## Next Work
+## Historical Work List (superseded)
+
+The numbered items in this section record how the product reached the current state. They are not an active backlog. Select work only from the source order defined at the top of this document and do not repeat an item already closed in `docs/STABLE_VERIFIED_AREAS.md` or `docs/WORK_TRACKING.md`.
 
 1. Keep new settings/confirmation surfaces WPF-only. The main shell, teaching view, image queue, class list, training panel, detection-review panel, log panel, display-layer form, YOLO settings dialog, class settings dialog, new-panel dialog, common message boxes, and legacy support library references are now removed.
 2. Split the WPF shell into focused UserControls/ViewModels after the current flow settles: image queue models, presentation, detail loading, filtering, queue panel, canvas panel, current-object review, AI-candidate review, class catalog, YOLO status/commands, YOLO model settings, training settings, project config state/service, log/status strip, candidate/object display presenters, workflow command-state service, object-review edit service, Object Review ViewModel-only selection, learning workflow panel, status bar binding, training status binding, YOLO status command binding, project config command binding, YOLO model command binding, training command binding, detection/queue command binding, image-queue selected-open binding, canvas command binding, YOLO guide fix command binding, top workflow mode button binding, candidate comparison card binding, canvas detection result overlay binding, image queue quick filter binding, Object Review class editor sync, Candidate Review selection detail/comparison sync, Candidate Review navigation state binding, and the first ViewModel folder split are done. OpenGL/ImageCanvas is excluded because it will move to a separate project. Next continue moving Object/Candidate Review row presentation helpers into ViewModels or presenters.
@@ -447,7 +465,7 @@ Detection candidates are removed after confirmation or skip, and the remaining c
 5. Improve candidate review ergonomics further with current-label editing beside AI candidates, clearer class editing in WPF, and class-specific overlay color/thickness tuning based on real defect screenshots.
 6. Add training-run detail, comparison, delete, or export only if the compact recent-run list is not enough during real use.
 7. Keep Undo/Redo as in-memory WPF edit restoration until explicit save. The dirty/saved status chip is now in place; tune wording only after real labeling sessions.
-8. Do not start U-Net runtime integration until the separate Python-project direction is decided.
+8. Keep the completed U-Net integration on its separate Python-project boundary; do not duplicate the runtime inside the C# process.
 9. Tune the viewer command strip after real use: compact labels and icon density. Top workflow mode active/disabled states are now ViewModel-bound.
 10. Tune the global inference status chip after a real long-running detection run if the top-bar signal is still not obvious enough, and profile UI-thread request work if the pulse still visibly pauses.
 11. Tune the adjacent-image decode cache against large real folders: capacity, max pixel count, eviction timing, and memory pressure behavior.
@@ -524,5 +542,5 @@ Detection candidates are removed after confirmation or skip, and the remaining c
 - Do not rewrite annotation storage, Python protocol, or YOLO training as part of the WPF migration.
 - Do not reintroduce the legacy ImageBox viewer path.
 - Do not put YOLO training logic directly into the C# WinForms project.
-- Do not implement U-Net runtime/model execution inside this app until the separate Python project direction is decided.
+- Do not move the verified external U-Net Python runtime into the C# process or create a second competing U-Net execution path.
 - Do not make UI popups part of automated verification.

@@ -11,9 +11,10 @@ Required start order:
 1. Run git status --short first.
 2. Read AGENTS.md.
 3. Read docs/NEXT_THREAD_HANDOFF.md. It is the current project handoff and source-of-truth summary.
-4. Read this CODEX_NEXT_PROMPT.md, docs/WORK_TRACKING.md, docs/STABLE_VERIFIED_AREAS.md, and docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md.
-5. Inspect the actual current diff before selecting work. The dirty worktree is authoritative over documentation.
-6. Before editing or running follow-up commands, state:
+4. Read docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md for current product scope, maturity, and commercial comparison.
+5. Read this CODEX_NEXT_PROMPT.md, docs/WORK_TRACKING.md, and docs/STABLE_VERIFIED_AREAS.md for the bounded next action and durable evidence.
+6. Inspect the actual current diff before selecting work. The dirty worktree is authoritative over documentation.
+7. Before editing or running follow-up commands, state:
    - immediate priority;
    - remaining product priority;
    - product identity;
@@ -23,7 +24,13 @@ Required start order:
 
 Current checkpoint:
 - Workspace: C:\Git\Labelling_Application
-- Branch: main. `origin/main` is at `4dda0d9`; the feature commits below are local and have not been pushed.
+- Branch: main. `origin/main` remains at the explicitly pushed baseline
+  `6a4ab11f576ed6a422d7025645c98a8613806129`. Local `main` contains three
+  additional independently reviewed feature commits: `f952915` MobileSAM
+  box-jitter evidence, `ac8c50f` beginner labeling-review UX, and `f515bdf`
+  generated dataset-default synchronization. The current documentation
+  checkpoint follows those commits. None of these later local commits has been
+  pushed.
 - The previously mixed worktree was independently reviewed and split into `687e553 feat: add YOLO11 segmentation comparison evidence`, `0b05986 feat: define synthetic evidence completion contract`, and `549a7d4 feat: add MobileSAM smart-mask labeling`. Each commit passed an isolated build and its focused checks from a detached temporary worktree. Do not recombine or repeat these completed slices without a changed contract or reproduced regression.
 - Read `docs/WORK_TRACKING.md` section `2026-07-21 external native YOLO segmentation canonical-mask intake` and `docs/STABLE_VERIFIED_AREAS.md` section `external native YOLO runtime-copy and paired-comparison contract` before selecting work. These newer records supersede stale priorities below.
 
@@ -39,7 +46,26 @@ Product direction:
 - The supplied circular-disk 500 OK / 500 NG package is complete synthetic workflow evidence: exact metadata-backed 5-class detection data, YOLOv5/YOLOv8 one-epoch connectivity, a controlled 20-epoch 150-image test benchmark, and a new 20-epoch anomaly candidate. The anomaly candidate remains `hold`; the detection benchmark favors YOLOv8n (`mAP50/mAP50-95 0.955/0.678`, 27.575ms) over YOLOv5s (`0.900/0.567`, 52.45ms) but is explicitly `engine-benchmark`, not adoption. The fixed comparison cleanup preserves the exact source-tree SHA-256. The package is derived from one earlier OK source image; do not present it as independent camera evidence. Read `docs/CIRCULAR_DISK_SYNTHETIC_1000_EVIDENCE_20260720.md`.
 
 Current immediate priority:
-- The bounded MobileSAM single-box smart-mask slice and its fixed 8-class exact-box usability matrix are complete in local commit `549a7d4`. A segmentation operator draws one defect box, invokes `박스 → 스마트 마스크`, reviews one local MobileSAM polygon candidate, and confirms it through the existing canonical segment JSON/mask PNG path. The 24-sample train/valid/test matrix produced 24/24 usable candidates, overall median IoU `0.8562`, and lowest class median `crack 0.7129`, while preserving the 4,525-file source tree SHA-256. Image changes, prompt deletion, and prompt coordinate changes during inference fail closed. This is synthetic exact-metadata-box evidence; field validation and approximate operator-box tolerance are `Not evaluated`. Keep box-only plus manual correction and do not add point/negative prompts without a reproduced operator or box-jitter failure. Read `docs\MOBILE_SAM_SMART_MASK.md`, `docs\MOBILE_SAM_8_CLASS_USABILITY_MATRIX_20260722.md`, and the latest durable records before reopening it.
+- The accumulated 2026-07-22 changes were separated into the three local
+  feature commits listed above and independently verified from detached
+  worktrees. Do not recombine them or repeat their checks unless the source,
+  contract, or reproduced behavior changes. A remote update requires a new,
+  explicit push request and must use a normal non-force push.
+- The 2026-07-22 source-of-truth synchronization and current-EXE beginner
+  object-detection/segmentation/anomaly audit are complete. Read
+  `docs\BEGINNER_END_TO_END_UX_AUDIT_20260722.md` before reopening either
+  slice. The current built EXE passed all three task flows. The audit also
+  corrected missing canvas-tool automation names and object-detection geometry
+  wording shown for image-level anomaly candidates.
+- The reproduced dataset-wizard generated-name issue is complete. Purpose
+  changes now synchronize only an untouched generated Recipe name and default
+  storage path; any operator edit permanently protects that field for the
+  current wizard session. The current EXE passed create, close/restart, and
+  first anomaly inference. Read
+  `docs\DATASET_PURPOSE_AUTOMATIC_NAME_SYNC_20260722.md` and do not reopen the
+  slice without a focused regression.
+- No additional MobileSAM input mode or broad UI/model expansion is currently justified. The next implementation must start from a newly reproduced operator defect or a changed approved contract. Independent camera/session data remains an optional field-adoption prerequisite, not a reason to repeat synthetic training or evaluation.
+- The bounded MobileSAM single-box smart-mask slice, fixed 8-class exact-box matrix, and deterministic box-jitter matrix are complete. The 24 exact prompts produced 24/24 usable candidates. The later 96-call matrix applied 20% expansion, 10% contraction, and 10% translation in each diagonal direction; all 96 remained usable, overall median IoU was `0.856132`, lowest class median was `crack 0.704918`, and the 4,525-file source tree SHA-256 stayed unchanged. Keep box-only plus polygon/brush correction. Point/negative prompts are not an implementation priority unless a new operator failure is reproduced. Read `docs\MOBILE_SAM_SMART_MASK.md`, `docs\MOBILE_SAM_8_CLASS_USABILITY_MATRIX_20260722.md`, and `docs\MOBILE_SAM_BOX_JITTER_MATRIX_20260722.md` before reopening it.
 - The fixed three-model segmentation comparison is complete. On the unchanged 60-image canonical test masks, mean Dice/IoU is U-Net `0.243091/0.156165`, YOLOv8-seg at confidence `0.25` `0.721702/0.570198`, and YOLO11-seg at confidence `0.25` `0.773711/0.636553`. The YOLO11 30-epoch app/TCP run preserved the native 2,004-file tree SHA-256 and records full runtime/checkpoint provenance. This is a synthetic same-source engine benchmark, not adoption or production evidence. See `docs\SEGMENTATION_E30_THREE_MODEL_COMPARISON_20260722.md`.
 - The external native YOLO segmentation source contract and approved 30-epoch same-data benchmark are complete: selected `data.yaml` source is read-only, U-Net receives a recipe-owned canonical raster-mask export, and every YOLO training request receives an app-owned runtime copy so cache files cannot mutate the source. U-Net CUDA versus YOLOv8-seg CPU completed 30 epochs at image 320/batch 4 on the same 360/80/60 packet; the 60-image common-mask report favors U-Net (`Dice/IoU 0.243091/0.156165`) over YOLOv8-seg (`0.079059/0.044103`), without selecting either model.
 - Do not repeat the 30-epoch benchmark unless source, runtime, behavior, acceptance criteria, or a deliberate hyperparameter decision changes. The controlled error analysis and one final held-out replay are complete: the runner now records an explicit YOLO `0.25` confidence, which was selected on `valid` only; the unchanged test replay measured YOLOv8-seg Dice/IoU `0.721702` / `0.570198` versus U-Net `0.243091` / `0.156165`. Do not adopt either model automatically. Keep U-Net's two zero-Dice classes as a separate class-confusion/training hypothesis; independent camera/session data remains required for any production claim. See `docs\SEGMENTATION_E30_CONFIDENCE025_TEST_EVIDENCE_20260722.md`.

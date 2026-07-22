@@ -18,10 +18,16 @@ There is no separate C:\AGENTS.md or C:\Git\AGENTS.md in this workstation snapsh
 ## 2. Repository Checkpoint
 
 - Workspace: C:\Git\Labelling_Application
-- Branch: main. The current origin/main reference is 2df6b3c feat: add model adapter catalog contracts.
-- All reviewed code feature slices through 85d91e9 feat: add anomaly ok-ng image review workflow are separate local commits. This documentation checkpoint follows that code baseline.
-- The only known non-document residual is a three-line indentation-only hunk in WpfLabelingShellWindow.xaml. It was deliberately excluded from the feature and documentation commits; inspect it before staging or reverting.
-- GitHub Actions has not been rechecked for the local commits after origin/main. Do not cite older CI evidence as current CI evidence.
+- Branch: main. `origin/main` remains at the explicitly pushed baseline
+  `6a4ab11f576ed6a422d7025645c98a8613806129`.
+- Local `main` contains three additional independently reviewed feature
+  commits: `f952915` MobileSAM box-jitter evidence, `ac8c50f` beginner
+  labeling-review UX, and `f515bdf` generated dataset-default synchronization.
+  This documentation checkpoint follows those commits.
+- The reviewed worktree contains no known non-document residual. Verify live
+  state with `git status --short`; do not infer cleanliness from this document.
+- GitHub Actions has not been rechecked for the local commits after
+  `origin/main`. Do not cite older CI evidence as current CI evidence.
 - The current focused passes directly verified Dataset Health, external native YOLO intake, model/anomaly comparison, the dedicated Model Center workspace, and the explicit model-adapter catalog slices. The image-queue slice also has a 50,081-image local warm-cache profile and a separate duplicate-file local 8K profile; neither is a network-share or production-camera result.
 - Never push unless the user explicitly says push. A commit request means local commit only.
 
@@ -249,13 +255,13 @@ Review `docs/MODEL_ANOMALY_COMPARISON_REVIEW_SLICES.md` before staging or changi
 
 ### E. Documentation Checkpoint
 
-The current source-of-truth documentation set includes:
+When current statements disagree, use this source order:
 
-- docs/NEXT_THREAD_HANDOFF.md
-- CODEX_NEXT_PROMPT.md
-- docs/WORK_TRACKING.md
-- docs/STABLE_VERIFIED_AREAS.md
-- docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md
+1. `AGENTS.md` for repository operating rules and completion gates.
+2. `docs/NEXT_THREAD_HANDOFF.md` for the latest verified project state.
+3. `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` for current product scope, maturity, and commercial comparison.
+4. `CODEX_NEXT_PROMPT.md` for the next bounded action.
+5. `docs/WORK_TRACKING.md` and `docs/STABLE_VERIFIED_AREAS.md` for evidence history and protected behavior.
 
 Read the final diff before changing these records. Historical entries remain evidence journals; update only the current checkpoint and a contract whose source or acceptance criteria changed.
 
@@ -413,7 +419,7 @@ When finishing a future task, report:
 
 Status: `Complete` for the runtime/provenance feature slice and the controlled YOLO confidence selection plus one held-out replay; production quality remains intentionally unclaimed.
 
-- The external-native-segmentation foundation was committed before this checkpoint. The later YOLO11 comparison extension is independently committed as `687e553`; the synthetic evidence contract is `0b05986`; MobileSAM labeling is `549a7d4`. These commits are local and not pushed.
+- The external-native-segmentation foundation was committed before this checkpoint. The later YOLO11 comparison extension is independently committed as `687e553`; the synthetic evidence contract is `0b05986`; MobileSAM labeling is `549a7d4`. These commits were pushed to `origin/main` on 2026-07-22.
 - An explicitly activated external native YOLO segmentation `data.yaml` is now parsed only by `YoloExternalDatasetIntakeService`; `ExternalYoloSegmentationCanonicalExportService` derives recipe-owned image/mask/class artifacts under `artifacts\unet-ext`. It maps native `val` to canonical `valid`, preserves the native class order, rejects duplicate cross-split content and different-class pixel overlap, and verifies source identity before/after export.
 - U-Net training and U-Net/YOLO-seg Model Center comparison use that canonical export. Any external YOLO training, even a conventional `images`/`labels` source, uses a separate app-owned runtime copy so training caches cannot change the selected source. Persisted provenance keeps both the selected source and actual runtime path distinct.
 - Current actual evidence: the approved 30-epoch same-source run is complete. U-Net (CUDA) and YOLOv8-seg (installed CPU-only runtime) both used the 360/80/60 EasyMatch Die Array packet, five-class contract, image size 320, and batch 4. The original 2,004-file source tree SHA-256 and native source fingerprint remained unchanged. The 60-image Model Center common-mask report measured U-Net Dice/IoU `0.243091` / `0.156165` and YOLOv8-seg `0.079059` / `0.044103`. See `artifacts\benchmark-external-unet-die-array-e30-20260721-203302\summary.txt`, `artifacts\benchmark-external-yolov8-die-array-e30-20260721-203302\summary.txt`, and `artifacts\benchmark-external-seg-adapter-compare-e30-20260721-203302\summary.txt`.
@@ -487,7 +493,8 @@ validation is `Not evaluated`; no production accuracy is claimed.
 ## 18. 2026-07-22 Latest Checkpoint: MobileSAM 8-Class Usability Matrix
 
 Status: `Complete` for the fixed synthetic exact-box evaluation. Field
-validation and approximate operator-box tolerance are `Not evaluated`.
+validation is `Not evaluated`; section 21 supersedes the earlier unevaluated
+small-box tolerance boundary.
 
 - One single-defect image per class was fixed from each train/valid/test split:
   24 unique images, three per each of eight defect classes.
@@ -500,9 +507,8 @@ validation and approximate operator-box tolerance are `Not evaluated`.
   `4E511A2E08F2ED609B78B40D6B789DE691C968E71ED5A298B76A1E7CA1FB52A8`
   before and after.
 - Decision: keep the current box-only plus polygon/brush fallback. Point and
-  negative prompts are not the next implementation priority. Reopen only after
-  a real operator failure or fixed box-jitter regression crosses the recorded
-  gate.
+  negative prompts are not the next implementation priority. The later fixed
+  box-jitter regression passed; reopen only after a new real operator failure.
 - Evidence: `docs\MOBILE_SAM_8_CLASS_USABILITY_MATRIX_20260722.md` and
   `artifacts\mobile-sam-usability-matrix\20260722-153003`.
 
@@ -526,9 +532,131 @@ overwriting existing changes.
   prompt-coordinate equality guard so an edited prompt cannot accept a stale
   result. Detached-worktree isolated build, Python compile/self-test,
   MobileSAM contract, polygon save, WPF shell, and priority-doc tests passed.
-- `origin/main` remains at `4dda0d9`. No push was performed.
+- This historical review ended before push. The later explicit push advanced `origin/main` to `6a4ab11f576ed6a422d7025645c98a8613806129`.
 
-Boundary / next dependency: these feature slices are complete and locally
-committed. Push requires an explicit operator request. Do not repeat their
+Boundary / next dependency: these feature slices are complete, committed, and
+pushed. Do not repeat their
 training/evaluation merely to produce another result; reopen only for changed
 source/runtime/contracts or a focused regression.
+
+## 20. 2026-07-22 Latest Checkpoint: Explicit Main Push
+
+Status: `Complete`.
+
+- The operator explicitly requested push. A normal, non-force
+  `git push origin main` advanced the remote from `4dda0d9` to `6a4ab11`.
+- Local HEAD, `origin/main`, and `git ls-remote --heads origin main` all matched
+  `6a4ab11f576ed6a422d7025645c98a8613806129` after fetch.
+- No pull request was created. No source file changed as part of the push.
+
+## 21. 2026-07-22 Latest Checkpoint: MobileSAM Box-Jitter Matrix
+
+Status: `Complete` for the declared synthetic small-box-error range. Field
+validation remains `Not evaluated`.
+
+- The same fixed 24 images were evaluated with four deterministic prompt
+  variants each: 20% expansion, 10% contraction, and 10% translation in each
+  diagonal direction. All 96 real MobileSAM calls produced IoU `>= 0.50`.
+- Overall median IoU was `0.856132`; the lowest class median was
+  `crack 0.704918`; the lowest variant median was
+  `shrink-10pct 0.850117`.
+- The 4,525-file source tree SHA-256 stayed
+  `4E511A2E08F2ED609B78B40D6B789DE691C968E71ED5A298B76A1E7CA1FB52A8`.
+  Runtime and weight identity matched the exact-box matrix.
+- Evidence: `docs\MOBILE_SAM_BOX_JITTER_MATRIX_20260722.md` and
+  `artifacts\mobile-sam-box-jitter-matrix\20260722-165800`.
+- Independent review preserved the existing exact-box artifact layout:
+  `predicted-masks/<split>/<class>`. Only the jitter command adds
+  `predicted-masks/<variant>/<split>/<class>`.
+
+Boundary / next dependency: keep the current box-only plus polygon/brush
+fallback. Do not add point/negative prompts without a new reproducible operator
+failure. No additional product implementation is currently justified solely by
+the existing synthetic evidence; production adoption still requires an
+approved independent camera/session packet.
+
+## 22. 2026-07-22 Latest Checkpoint: Documentation Baseline And Beginner EXE Audit
+
+Status: `Complete`.
+
+- The active authority order is `AGENTS.md`, this handoff,
+  `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md`, then
+  `CODEX_NEXT_PROMPT.md`. Older dated priority lists are historical evidence.
+- The current built EXE passed object-detection box labeling, segmentation
+  brush/eraser labeling, and anomaly close/restart/first-inference persistence
+  with 1920x1080 captures under
+  `artifacts/ui/beginner-e2e-audit-20260722`.
+- The audit fixed two reproduced defects: selectable canvas tool containers now
+  expose their names to UI automation/accessibility, and image-level anomaly
+  candidates use whole-image OK/NG language instead of outside-image and box
+  overlap language.
+- Detailed evidence, commands, timings, and boundaries are in
+  `docs/BEGINNER_END_TO_END_UX_AUDIT_20260722.md`.
+
+Boundary / next dependency: workflow maturity remains `4.0/5`; this is not a
+model-accuracy or production-adoption claim. The generated-name follow-up is
+complete in section 23; manually edited names and paths remain protected.
+
+## 23. 2026-07-22 Latest Checkpoint: Dataset Purpose Generated Defaults
+
+Status: `Complete`.
+
+- Changing purpose in the creation wizard now resolves a new generated Recipe
+  name only when the initial name was genuinely generated and has never been
+  operator-edited.
+- The default storage path follows only while it is also untouched. Manual
+  names and paths remain protected even after their text is restored to the
+  original generated value.
+- The final current EXE showed `AnomalyDetection` in both fields, created the
+  Recipe, restored its YOLOv8 profile after close/restart, returned one
+  candidate, and persisted `Abnormal`.
+- Evidence: `docs/DATASET_PURPOSE_AUTOMATIC_NAME_SYNC_20260722.md` and
+  `artifacts/ui/dataset-purpose-auto-name-20260722/after`.
+
+Boundary / next dependency: existing Recipes, folders, source data, labels,
+and model settings are unchanged. Do not reopen without a reproduced
+name/path-preservation regression. No further internal feature is justified by
+this finding alone; select the next task from a newly reproduced operator defect
+or changed approved contract.
+
+## 24. 2026-07-22 Latest Checkpoint: Independent Local Commit Separation
+
+Status: `Complete`.
+
+Scope: separate the accumulated MobileSAM evidence, beginner labeling-review
+UX, and generated dataset-default changes into independently reviewable local
+feature commits, then record the current documentation state separately. Do not
+push, rebase, force-update, or mix unrelated source changes.
+
+Acceptance criteria and evidence:
+
+- `f952915 test: add MobileSAM box-jitter evidence` contains the MobileSAM
+  matrix, test entry point, focused README link, and no beginner/dataset-default
+  source. A detached-worktree isolated build completed with zero warnings and
+  errors; `--mobile-sam-box-prompt`, `--priority-workflow-docs`, and commit
+  `diff --check` passed.
+- `ac8c50f fix: clarify beginner labeling review UX` contains the candidate
+  wording, canvas accessibility, and beginner workflow checks, without the
+  dataset-default service. A detached-worktree isolated build completed with
+  zero warnings and errors; `--wpf-canvas-panel-commands`,
+  `--wpf-candidate-review-presentation`, `--wpf-anomaly-purpose-flow`,
+  `--wpf-labeling-shell`, and commit `diff --check` passed.
+- `f515bdf fix: sync generated dataset defaults` contains only the generated
+  name/path synchronization implementation, regressions, EXE smoke update, and
+  its evidence document. A detached-worktree isolated build completed with
+  zero warnings and errors; `--wpf-dataset-setup-ui`,
+  `--wpf-dataset-setup-request`, `--wpf-labeling-shell`, and commit
+  `diff --check` passed.
+- The documentation checkpoint on top is limited to project guidance and
+  evidence records. Its detached-worktree isolated build,
+  `--priority-workflow-docs`, and commit `diff --check` passed.
+
+Current cumulative EXE evidence remains the current-source anomaly restart
+smoke recorded in section 23: the final Debug EXE created an anomaly Recipe,
+restored the YOLOv8 profile after restart, returned one candidate, and persisted
+`Abnormal`. Its build completed with zero warnings and errors.
+
+Boundary / next dependency: all four commits are local only. `origin/main`
+remains at `6a4ab11`; no push occurred. A remote update requires an explicit
+operator request and must be a normal non-force push. Do not reopen or recombine
+these completed slices without a changed contract or reproduced regression.

@@ -19,6 +19,15 @@ text prompts, multi-object auto-labeling, and field accuracy remain unverified.
 This raises only the foundation-assist subscore; the focused-workstation
 estimate remains `4.0/5` and is still not a model-accuracy score.
 
+The follow-up fixed box-jitter matrix covers 24 images across eight defect
+classes with four deterministic prompt errors per image: 20% expansion, 10%
+contraction, and 10% translation in each diagonal direction. All 96 real
+MobileSAM calls remained usable at IoU `>= 0.50`; overall median IoU was
+`0.856132`, the lowest class median was `crack 0.704918`, and the 4,525-file
+source tree SHA-256 stayed unchanged. This closes approximate small-box
+tolerance for the declared synthetic range. It does not justify field accuracy,
+multi-object automation, or speculative point/negative prompt UI.
+
 Two additional user-supplied synthetic packages were used as separate YOLOv8 candidates rather than merged into the historical circular data. The Washer OK/NG classification run completed through the app service and local TCP adapter for 20 epochs after the adapter's long-running socket behavior was corrected; its independent 30-image app-export test is hold at 11/30, with normal 0/13. The EasyMatch package retained its native 216/48/36 segmentation split and five-class polygon labels. Its local YOLOv8n-seg 50-epoch candidate produced source-test box mAP50 0.682 and mask mAP50 0.660; a local TCP smoke returned named polygon candidates from the exact new weight.
 
 This proves the local training/inference path can use the supplied data without altering source images or labels, but the packages are procedurally synthetic, the EasyMatch weight is not app-registered or adopted, and neither result raises the focused-workstation estimate above 4.0/5. The remaining quality gate is independently acquired camera/session data with sufficient normal and NG/defect coverage, followed by a controlled candidate comparison.
@@ -88,7 +97,7 @@ Current strengths:
 Current weaknesses:
 
 - The historical operator SEG geometry correction is complete: all 124 non-source OK rectangles now use transformed Teaching_0 raster contours with backups. The corrected-data candidate improves the fixed validation mAP50-95 but remains `hold` because that 28-image split has only one NG label/image and is not independent evidence.
-- There is no SAM/SAM2/Grounding-DINO-style click/prompt mask assistance. Template matching and trained-model candidates are useful but are not equivalent.
+- MobileSAM single-box mask assistance is implemented and review-first; small deterministic box expansion, contraction, and translation are verified on the fixed synthetic matrix. Point/negative/text prompts and broad multi-object auto-labeling remain absent.
 - QA is image-level. Commercial tools provide deeper object/geometry/class review, comments, decision history, reviewer identity, consensus, and analytics.
 - There is no multi-user assignment, role/workforce flow, general API/SDK, cloud connector, or hosted job dashboard.
 - Video tracking, keypoints, 3D, and volumetric annotation are absent and remain outside the current image-workstation scope.
@@ -103,7 +112,7 @@ not blockers for synthetic-first feature completion.
 | Status | Areas |
 | --- | --- |
 | Complete and protected | Dataset/purpose setup; class catalog; box labeling; SEG brush/eraser/polygon persistence and export code; pending-save/reopen/navigation; queue click/keyboard/performance; valid-source template shape transfer; Candidate Review and contour rendering; local YOLOv8 training/inference plumbing; engine/task-aware training and worker identity; model comparison/adoption guards; current supported import/export formats; image-level QA/report; current-work/left-panel UX, splitters, and clipping fixes; public documentation/CI/DLL contracts. |
-| Open and prioritized | Local box-prompt smart-mask assistance that writes only a reviewable candidate into the existing SEG workflow; synthetic evidence must satisfy the declared-origin, split/hash, provenance, and non-adopting gates. |
+| Open and prioritized | No additional smart-annotation implementation is justified by current evidence. Reopen only for a reproduced operator defect; optional field-adoption evidence requires an approved independent camera/session packet. |
 | Deferred or out of scope | Optional production-camera/cross-session adoption validation until approved data exists; collaboration/workforce/cloud platform; video/tracking/keypoints/3D/volumetric; broad public API/platform; Labelbox NDJSON unless product direction changes. |
 
 Do not interpret the completed SEG annotation tooling as completed SEG model quality. Annotation mechanics remain 4.2/5; current operational SEG model-quality evidence is 2.8/5 because the historical ground truth is predominantly rectangular and independent evidence is absent.
@@ -213,6 +222,27 @@ Priority order:
 2026-07-13 source-of-truth override, updated by the 2026-07-16 active-data result: data correctness precedes more model tuning. The read-only/dry-run remediation report for the 124 historical non-source SEG targets is complete and records per-image old/new geometry type, point count, mask-pixel count, and YOLO-label difference without rewriting operator files. Its active result is zero YOLO-label differences, so no universal label regeneration or retraining is justified. Before any selected migration, visually decide whether the stored rectangular masks are semantically intended; reannotate only approved incorrect images. Regenerate labels, retrain YOLOv8 SEG, and rerun the unchanged class-specific held-out comparison only if that review changes mask geometry. Record a real EXE close/reopen/first-inference sequence after a corrected model is selected. Independent anomaly evidence follows when new production-camera/cross-session data exists.
 
 The dated entries below are evidence history, not permission to restart completed slices. The completion disposition near the top and the recommendation at the end are the current priority source of truth.
+
+### 2026-07-22 current-EXE beginner workflow audit
+
+The source-of-truth synchronization and current built-EXE audit are complete.
+Object detection, segmentation, and anomaly detection each passed a focused
+first-time task flow with current 1920x1080 evidence. Two reproduced defects
+were corrected: canvas tool containers now expose automation names, and
+image-level anomaly candidates no longer use object-detection geometry/error
+language. See `docs/BEGINNER_END_TO_END_UX_AUDIT_20260722.md`.
+
+This evidence does not change the current maturity estimates: focused
+single-operator workflow `4.0/5` (about 80%), general commercial labeling-suite
+parity `3.1/5` (about 62%), and intentional enterprise/team-platform parity
+`1.2/5` (about 24%). These are workflow/scope estimates, not model accuracy.
+
+The remaining wizard naming finding from that audit is also complete. A purpose
+change now synchronizes only a genuinely generated, untouched Recipe name and
+untouched default storage path. Any operator edit permanently protects that
+field for the current wizard session. The final current EXE passed anomaly
+Recipe creation, close/restart, and first inference. See
+`docs/DATASET_PURPOSE_AUTOMATIC_NAME_SYNC_20260722.md`.
 
 2026-07-11 SEG multi-domain update: class-specific `NG` evidence is implemented and verified, so do not add another parallel comparison path. Keep the existing 42-image combined test fixed for regression. The multi-domain `best.pt` is reviewable at confidence 0.30 (`11/15` defects, `0/27` backgrounds) but is not an automatic production adoption. A train-only circular-background 4x sampling experiment removed threshold false positives but lowered mAP and was rejected. The next model task is new production-camera or cross-session SEG data, especially circular normal backgrounds and the four circular defects still below the operating threshold. Do not reuse the hash-identical `Test01`/`Test02` copies as independent evidence.
 
@@ -456,7 +486,7 @@ The bounded shell, `Evaluation data evidence` surface, and controlled Test01 eng
 3. When independent data becomes available, acquire a new production-camera or cross-session NG-rich object-detection set and run the same frozen-snapshot/fingerprint/five-repeat path before production adoption; the hash-identical `Test02` copy is not new evidence.
 4. Then collect an independent production-camera or cross-session normal/abnormal set and rerun the unchanged anomaly evaluation guard. Existing runtime/restart and same-source circular-defect smokes are already complete and should not be repeated as production proof.
 5. Keep the verified compact context header, task-specific left-panel tabs, fixed annotation-tool rail, splitters, completed SEG annotation, queue, Viewer/OpenGL, runtime, profile persistence, and model-neutral benchmark paths stable. Use `C:\Git\OpenVisionLab_Dev` WPF-UI/AvalonDock patterns only when a future bounded pane requirement proves native controls insufficient.
-6. Keep the completed MobileSAM box slice stable. Point/negative refinement waits for operator evidence; collaboration/workforce, video/3D/keypoints, broad API/platform work, and Labelbox NDJSON remain deferred.
+6. Keep the completed MobileSAM box slice and fixed box-jitter gate stable. Point/negative refinement waits for a reproduced operator failure; collaboration/workforce, video/3D/keypoints, broad API/platform work, and Labelbox NDJSON remain deferred.
 
 The evidence-surface slice does not replace independent model data. It only makes the existing missing-data condition and integrity checks easier to discover.
 

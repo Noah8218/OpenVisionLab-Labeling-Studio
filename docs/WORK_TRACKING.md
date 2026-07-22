@@ -14130,3 +14130,164 @@ Boundary / next dependency: local commits only. Push requires an explicit
 operator request. Completed model runs and MobileSAM prompt expansion remain
 closed unless their recorded source, runtime, contract, or failure evidence
 changes.
+
+## 2026-07-22 explicit main push and MobileSAM box-jitter closure
+
+Status: Complete
+
+Scope: push the four already reviewed local commits after explicit operator
+approval, then test whether deterministic small operator-box errors justify a
+new MobileSAM input mode. Do not force-push, create a PR, retrain a model, alter
+the app UI, or add point/negative prompts.
+
+Acceptance criteria and evidence:
+
+- A normal `git push origin main` advanced the remote from `4dda0d9` to
+  `6a4ab11`; local HEAD, `origin/main`, and `git ls-remote` all matched full SHA
+  `6a4ab11f576ed6a422d7025645c98a8613806129`: passed.
+- The fixed 24-image, eight-class selection produced four deterministic jitter
+  prompts per image, for 96 actual MobileSAM calls: passed.
+- All 96 candidates met IoU `>= 0.50`; overall median IoU was `0.856132`, the
+  lowest class median was `crack 0.704918`, and the lowest variant median was
+  `shrink-10pct 0.850117`: passed.
+- Runtime/weight provenance stayed MobileSAM / Ultralytics `8.4.101` / Torch
+  `2.12.1+cpu` / CPU and weight SHA-256
+  `6DBB90523A35330FEDD7F1D3DFC66F995213D81B29A5CA8108DBCDD4E37D6C2F`:
+  passed.
+- The source remained 4,525 files with tree SHA-256
+  `4E511A2E08F2ED609B78B40D6B789DE691C968E71ED5A298B76A1E7CA1FB52A8`
+  before and after: passed.
+- Independent review found that the shared runner initially inserted an
+  unnecessary `exact` directory into the established exact-box prediction
+  artifact path. The final code preserves the legacy
+  `predicted-masks/<split>/<class>` layout and adds the variant directory only
+  for the new jitter command: passed by source-path review and the post-fix
+  build/focused gates.
+
+Verification: isolated Debug test build with 0 warnings and 0 errors,
+`--mobile-sam-box-prompt`, one complete
+`--real-mobile-sam-box-jitter-matrix` execution, direct summary/lowest-row
+inspection, priority documentation gate, and `git diff --check`.
+
+Evidence: `docs\MOBILE_SAM_BOX_JITTER_MATRIX_20260722.md` and
+`artifacts\mobile-sam-box-jitter-matrix\20260722-165800`.
+
+Boundary / next dependency: the tested synthetic small-error range is complete
+and supports keeping box-only plus manual polygon/brush correction. Field
+validation remains `Not evaluated`. Do not implement point/negative prompts or
+repeat this matrix until a new reproducible operator failure or changed
+contract exists.
+
+## 2026-07-22 source-of-truth sync and beginner current-EXE audit
+
+Status: Complete
+
+Scope: define one current documentation authority order, remove or mark stale
+active direction/recovery contradictions, and exercise object detection,
+segmentation, and anomaly detection as first-time task workflows in the current
+built EXE. Fix only defects reproduced by that audit.
+
+Acceptance criteria and evidence:
+
+- `AGENTS.md` -> `docs/NEXT_THREAD_HANDOFF.md` ->
+  `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` -> `CODEX_NEXT_PROMPT.md` is
+  recorded as the active authority order: passed.
+- Stale protocol, U-Net deferral, old-commit, and historical-next-work wording
+  is removed from active direction/recovery guidance or explicitly marked
+  historical: passed.
+- Current-EXE object-detection box, segmentation brush/eraser, and anomaly
+  close/restart/first-inference paths passed with 1920x1080 evidence: passed.
+- Canvas annotation tools expose their bound names through the selectable WPF
+  item container: passed by current-EXE automation and focused XAML contract.
+- Image-level anomaly candidates no longer display outside-image/overlap box
+  language and persisted `Abnormal` behavior remains unchanged: passed by
+  focused presenter coverage and a post-fix current-EXE restart smoke.
+
+Verification: current app and isolated test builds, focused canvas/candidate/
+shell/anomaly/documentation checks, three current-EXE workflow smokes, and
+`git diff --check`.
+
+Evidence: `docs/BEGINNER_END_TO_END_UX_AUDIT_20260722.md` and
+`artifacts/ui/beginner-e2e-audit-20260722`.
+
+Boundary / next dependency: this is workflow evidence, not model accuracy or
+production adoption. The generated-name follow-up is complete in the next
+record and preserves manually edited names and paths.
+
+## 2026-07-22 dataset-purpose automatic Recipe/storage synchronization
+
+Status: Complete
+
+Scope: when the dataset-creation purpose changes, synchronize only a genuinely
+generated, untouched Recipe name and its untouched default storage path. Do not
+rename existing Recipes or overwrite operator-edited fields.
+
+Acceptance criteria and evidence:
+
+- The path service distinguishes an automatically generated fallback from an
+  available preferred/current name: passed.
+- Segmentation -> anomaly changes untouched defaults from `Segmentation` to
+  `AnomalyDetection`: passed by ViewModel regression and current EXE.
+- A manually edited Recipe name is preserved: passed.
+- A name edited and then restored to its original generated text remains manual:
+  passed.
+- A manually selected storage path is preserved while an untouched generated
+  Recipe name may still follow purpose: passed.
+- An initial non-generated name is preserved: passed.
+- Final current EXE created the anomaly Recipe, restored the saved YOLOv8
+  profile after restart, returned one candidate, and persisted `Abnormal`:
+  passed.
+
+Verification: isolated 0-warning/0-error build, `--wpf-dataset-setup-ui`,
+`--wpf-dataset-setup-request`, current app 0-warning/0-error build, final
+`--exe-yolov8-anomaly-restart-smoke`, shell/documentation gates, and
+`git diff --check`.
+
+Evidence: `docs/DATASET_PURPOSE_AUTOMATIC_NAME_SYNC_20260722.md` and
+`artifacts/ui/dataset-purpose-auto-name-20260722/after`.
+
+Boundary / next dependency: wizard defaults only. Existing Recipe directories,
+source data, labels, model settings, and manual paths are unchanged. Reopen only
+for a reproduced name/path preservation regression.
+
+## 2026-07-22 MobileSAM, beginner UX, and dataset-default local commit separation
+
+Status: Complete
+
+Scope: turn the accumulated reviewed changes into independent local commits for
+MobileSAM box-jitter evidence, beginner labeling-review UX, generated
+dataset-default synchronization, and the cumulative documentation checkpoint.
+Do not push or alter unrelated repository history.
+
+Acceptance criteria and evidence:
+
+- MobileSAM evidence is isolated in `f952915`: passed by detached-worktree
+  isolated build, `--mobile-sam-box-prompt`, `--priority-workflow-docs`, and
+  commit `diff --check`.
+- Beginner review UX is isolated in `ac8c50f`: passed by detached-worktree
+  isolated build, `--wpf-canvas-panel-commands`,
+  `--wpf-candidate-review-presentation`, `--wpf-anomaly-purpose-flow`,
+  `--wpf-labeling-shell`, and commit `diff --check`.
+- Generated dataset defaults are isolated in `f515bdf`: passed by
+  detached-worktree isolated build, `--wpf-dataset-setup-ui`,
+  `--wpf-dataset-setup-request`, `--wpf-labeling-shell`, and commit
+  `diff --check`.
+- The documentation checkpoint contains no application or test source and
+  passes a detached-worktree isolated build, `--priority-workflow-docs`, and
+  commit `diff --check`.
+- The current working tree is clean after the four local commits: passed.
+- `origin/main` remains `6a4ab11`; no push, rebase, or force update occurred:
+  passed.
+
+Verification: the focused detached-worktree commands listed above, final
+cumulative `git diff 6a4ab11..HEAD --check`, clean `git status --short`, local
+commit-log inspection, and local/remote divergence inspection.
+
+Evidence: local commits `f952915`, `ac8c50f`, `f515bdf`, this documentation
+checkpoint, `docs/BEGINNER_END_TO_END_UX_AUDIT_20260722.md`, and
+`docs/DATASET_PURPOSE_AUTOMATIC_NAME_SYNC_20260722.md`.
+
+Boundary / next dependency: this closes local review and commit separation, not
+remote publication or GitHub Actions. A normal non-force push requires a new
+explicit operator request. Reopen a completed slice only when its contract,
+source, environment, or reproduced behavior changes.

@@ -1,14 +1,15 @@
-# Current Recovery Checkpoint (2026-07-21)
+# Historical Recovery Checkpoint (superseded 2026-07-22)
 
-Read this checkpoint before the historical recovery material below.
+This file is retained to explain older recovery decisions. It is not the current priority list. Rebuild live repository state with `git status --short` and `git log --oneline -5`, then read the current documents in this order: `AGENTS.md` -> `docs/NEXT_THREAD_HANDOFF.md` -> `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md` -> `CODEX_NEXT_PROMPT.md`.
 
-- `origin/main` is at `4dda0d9`. Local `main` additionally contains `687e553` (YOLO11 segmentation comparison evidence), `0b05986` (synthetic evidence completion contract), and `549a7d4` (MobileSAM smart-mask labeling); these local commits have not been pushed.
+- Last verified pushed baseline at this checkpoint is `6a4ab11`. Never infer current commit or worktree state from this historical file; check Git directly.
 - External native YOLO segmentation intake is committed locally: native `data.yaml` images/polygons are read without source mutation, converted into a recipe-owned canonical raster-mask export for U-Net, and reused by Model Center common-mask comparison. Native YOLO training always receives an app-owned runtime copy so Ultralytics cache files cannot alter the selected source.
 - Current evidence is local and complete for that feature: isolated build, focused intake/export/comparison tests, Python exporter compile/self-test, real 30-epoch U-Net (CUDA), real 30-epoch YOLOv8-seg (CPU), valid-only confidence selection, and one actual 60-image Model Center test replay. The original source stayed unchanged. With YOLO `confidence=0.25`, the common-mask Dice/IoU is U-Net `0.243091` / `0.156165` and YOLOv8-seg `0.721702` / `0.570198`; neither is selected automatically.
 - The durable evidence is `docs/SEGMENTATION_E30_CONFIDENCE025_TEST_EVIDENCE_20260722.md`. Do not reopen completed behavior merely to repeat it. The next data-quality task is an independent camera/session segmentation packet with a leakage-guarded holdout; U-Net per-class remediation remains a separate hypothesis. Independent evidence is required for any production claim.
 - U-Net's valid-only diagnostic and experiments are `docs/UNET_E30_CLASS_CONFUSION_ANALYSIS_20260722.md`. The internal selector baseline is `0.204437/0.127053`; the completed CE plus foreground soft-Dice experiment fell to `0.189220/0.111142` and left `contamination_spot` at zero overlap. The hypothesis is rejected, its temporary code is removed, normal TCP training remains unweighted cross-entropy plus validation-loss selection, and held-out stayed closed. Do not repeat these experiments without a deliberately changed hypothesis.
 - 2026-07-22 superseding checkpoint: unavailable production-camera data is no longer an implementation blocker. `docs/SYNTHETIC_EVIDENCE_CONTRACT.md` defines when synthetic evidence can complete a product feature while field validation remains `Not evaluated`. The first bounded MobileSAM box-prompt smart-mask slice is implemented and must be treated as a review-assisted labeling feature, not production accuracy or automatic labeling. See `docs/MOBILE_SAM_SMART_MASK.md` and the newest handoff/work-tracking entries; the historical template/MVVM priorities below are not current priorities.
 - 2026-07-22 MobileSAM usability closure: the fixed 8-class, 24-image exact-box matrix passed with 24/24 usable candidates, overall median IoU `0.8562`, and lowest class median `crack 0.7129`; the full 4,525-file source tree was unchanged. Keep the box-only plus manual-correction design. Point/negative prompts remain deferred until approximate operator boxes reproduce a failure. See `docs/MOBILE_SAM_8_CLASS_USABILITY_MATRIX_20260722.md`.
+- 2026-07-22 MobileSAM box-jitter closure: the same fixed 24 images were exercised with 20% expansion, 10% contraction, and 10% translation in both diagonal directions. All 96 real calls were usable at IoU `>= 0.50`, overall median IoU was `0.856132`, and the source tree SHA-256 was unchanged. This proves only the deterministic small-jitter contract; arbitrary boxes and field accuracy remain unverified. See `docs/MOBILE_SAM_BOX_JITTER_MATRIX_20260722.md`.
 
 # CODEX_RECOVERY.md
 
@@ -240,50 +241,27 @@ Viewer/OpenGL 성능:
 - `docs/LABELING_PROGRAM_DIRECTION.md`
 - `docs/OBJECT_DETECTION_MVP_COMPLETION.md`
 
-## 6. 남은 작업 / 다음 우선순위
+## 6. 역사적 다음 우선순위 (완료 또는 대체됨)
 
-우선순위 1: 실제 EXE에서 템플릿 매칭 자동 라벨링 검증
+이 절의 기존 템플릿 매칭 EXE 검증, 템플릿 테스트, 광범위 MVVM 리팩토링 후보는 후속 작업에서 완료되었거나 더 작은 검증 단위로 대체되었습니다. 현재 우선순위를 이 절에서 선택하지 마세요.
 
-- 데이터셋 열기.
-- OK 또는 NG 박스 1개 라벨링.
-- 상단 `템플릿` 버튼으로 현재 이미지 후보 확인.
-- 이미지 큐의 `템플릿 배치` 버튼 실행.
-- 라벨 없는 이미지에 `.txt`가 생성되는지 확인.
-- 기존 라벨 있는 이미지는 덮어쓰지 않는지 확인.
-- 저장 후 재오픈 시 클래스/박스/색상이 유지되는지 확인.
+현재 작업 선택 규칙은 다음과 같습니다.
 
-우선순위 2: 템플릿 매칭 테스트 추가
+1. `docs/NEXT_THREAD_HANDOFF.md`와 `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md`에서 완료 기록과 현재 결손을 먼저 확인합니다.
+2. 재현된 사용자 결함 또는 변경된 계약이 있으면 그 한 가지를 독립 feature slice로 정의합니다.
+3. 데이터·자격 증명·하드웨어 같은 외부 전제조건이 없으면 `Blocked`로 기록하고 같은 구현·검증을 반복하지 않습니다.
+4. 작업은 명시한 acceptance criteria와 현재 실행 근거가 모두 통과한 경우에만 `Complete`로 닫습니다.
 
-- synthetic image 2~3장을 만들어 동일 패턴 매칭/저장 검증.
-- 기존 라벨 파일이 있는 이미지는 skip되는지 테스트.
-- source image extension 보존 테스트는 이미 있음. 템플릿 배치 저장에도 별도 테스트 추가 가능.
-
-우선순위 3: MVVM 리팩토링 계속
-
-다음 후보:
-
-- `WpfLabelingShellWindow.DatasetSetupCommands.cs`
-- `WpfLabelingShellWindow.ImageQueueCommands.cs`
-- `WpfLabelingShellWindow.AnnotationMaskStrokeCommit.cs`
-- `WpfLabelingShellWindow.TrainingGuideStatus.cs`
-
-기준:
-
-- 단순히 ViewModel로 복사하지 말 것.
-- 파일 IO, OpenCV, YOLO 저장, 데이터셋 manifest, training readiness는 Service/Core로 이동.
-- ViewModel은 command, 상태, 사용자 의도, 진행 상태만 담당.
-- View는 XAML과 unavoidable adapter만 담당.
-
-우선순위 4: UX 검토
+역사적 UX 검토 체크리스트:
 
 - 초보자가 데이터셋 생성 -> 이미지 불러오기 -> 클래스 등록 -> 라벨 저장 -> YOLO 학습까지 단계적으로 이해하는지 확인.
 - 기술 용어(OpenGL 등)는 사용자-facing label에서 제거.
 - 현재 데이터셋/이미지 폴더/저장 위치가 항상 보이는지 확인.
 - "다음", "저장 필요", "라벨 저장됨" 같은 표현이 자연스러운지 점검.
 
-## 7. 다음 대화에서 바로 붙여 넣을 프롬프트
+## 7. 역사적 다음 대화 프롬프트 (사용 금지)
 
-아래 프롬프트를 새 Codex 대화에 그대로 붙여 넣으면 된다.
+아래 프롬프트는 2026-06-29 당시의 기록으로만 보존합니다. 현재 작업에는 붙여 넣지 말고 이 파일 맨 위의 최신 문서 순서를 사용하세요.
 
 ```text
 C:\Git\Labelling_Application 작업을 이어서 진행해주세요.
