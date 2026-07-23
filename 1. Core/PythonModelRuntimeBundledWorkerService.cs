@@ -124,7 +124,8 @@ namespace MvcVisionSystem._1._Core
 
             while (!string.IsNullOrWhiteSpace(current))
             {
-                if (File.Exists(Path.Combine(current, "MvcVisionSystem.csproj")))
+                if (File.Exists(Path.Combine(current, "OpenVisionLab.LabelingStudio.csproj"))
+                    || File.Exists(Path.Combine(current, "MvcVisionSystem.csproj")))
                 {
                     return current;
                 }

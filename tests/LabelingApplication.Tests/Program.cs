@@ -41,6 +41,7 @@ internal static partial class Program
     private const uint MouseEventWheel = 0x0800;
     private const uint WmNull = 0x0000;
     private const uint SmtoAbortIfHung = 0x0002;
+    private const int SwRestore = 9;
     private const int VisualSmokeDefaultWindowWidth = 1920;
     private const int VisualSmokeDefaultWindowHeight = 1080;
     private const int VisualSmokeMinimumWindowWidth = 1100;
@@ -64,6 +65,12 @@ internal static partial class Program
 
     [DllImport("user32.dll")]
     private static extern bool SetForegroundWindow(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool IsIconic(IntPtr hWnd);
+
+    [DllImport("user32.dll")]
+    private static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
 
     [DllImport("user32.dll")]
     private static extern bool SetWindowPos(IntPtr hWnd, IntPtr hWndInsertAfter, int x, int y, int cx, int cy, uint flags);
@@ -3783,14 +3790,16 @@ internal static partial class Program
                 "dataset setup start button was not invokable in the real EXE");
 
             var wizardRoot = WaitForProcessWindowByName(process, "\uB370\uC774\uD130\uC14B \uC0DD\uC131", TimeSpan.FromSeconds(8));
-            AssertTrue(ContainsAutomationText(wizardRoot, "Purpose: ObjectDetection"), "dataset wizard preview did not reflect the selected object-detection purpose");
+            WaitForAutomationText(wizardRoot, "\uBAA9\uC801: \uAC1D\uCCB4 \uD0D0\uC9C0", TimeSpan.FromSeconds(3));
             AssertTrue(SelectListItemByText(wizardRoot, "COCO128 \uAC1D\uCCB4\uD0D0\uC9C0 \uC0D8\uD50C"), "COCO128 sample preset was not selectable in the real EXE dataset wizard");
             wizardRoot = WaitForProcessWindowByName(process, "\uB370\uC774\uD130\uC14B \uC0DD\uC131", TimeSpan.FromSeconds(8));
-            AssertTrue(ContainsAutomationText(wizardRoot, "COCO128"), "dataset wizard preview did not include the COCO128 sample after selection");
+            WaitForAutomationText(wizardRoot, "COCO128", TimeSpan.FromSeconds(3));
             AssertTrue(TrySetAutomationValueByAutomationId(wizardRoot, "WizardRecipeNameBox", recipeName), "dataset wizard recipe name was not editable");
             AssertTrue(TrySetAutomationValueByAutomationId(wizardRoot, "WizardOutputRootPathBox", outputRoot), "dataset wizard output root was not editable");
             AssertTrue(
-                ContainsAutomationText(wizardRoot, recipeName) && ContainsAutomationText(wizardRoot, "person"),
+                WaitUntil(
+                    () => ContainsAutomationText(wizardRoot, recipeName) && ContainsAutomationText(wizardRoot, "person"),
+                    TimeSpan.FromSeconds(3)),
                 "dataset wizard preview did not update after editing fields or applying the COCO128 preset");
             CaptureAutomationRoot(wizardRoot, Path.ChangeExtension(outputPath, ".wizard.png"));
             System.Windows.Automation.AutomationElement createButton = FindAutomationElementByAutomationId(wizardRoot, "WizardCreateButton");
@@ -3867,17 +3876,25 @@ internal static partial class Program
             }
 
             AssertTrue(loadedObjectSelected, "EXE COCO128 loaded box should become selected and deletable after selecting its object row");
-            System.Windows.Automation.AutomationElement deleteButton = FindEnabledObjectDeleteButton(RefreshAutomationRoot(process, bringToFront: false));
+            root = RefreshAutomationRoot(process, bringToFront: false);
+            System.Windows.Automation.AutomationElement deleteButton = FindEnabledObjectDeleteButton(root);
             AssertTrue(deleteButton != null, "EXE COCO128 delete button was not enabled after selecting a loaded box row");
-            NativeClick(GetAutomationCenter(deleteButton));
+            int objectCountBeforeDelete = GetObjectReviewSummaryCount(root);
+            AssertTrue(objectCountBeforeDelete > 0, "EXE COCO128 object summary should expose the loaded box count before delete");
+            AssertTrue(TryInvokeAutomationButtonByAutomationId(root, "DeleteObjectButton"), "EXE COCO128 delete button was not invokable");
             AssertTrue(
                 WaitUntil(
-                    () => ContainsAutomationText(RefreshAutomationRoot(process, bringToFront: false), "7\uAC1C \uAC1D\uCCB4"),
+                    () => GetObjectReviewSummaryCount(RefreshAutomationRoot(process, bringToFront: false)) == objectCountBeforeDelete - 1,
                     TimeSpan.FromSeconds(4)),
                 "EXE COCO128 delete should remove one loaded YOLO box from Object Review");
             root = RefreshAutomationRoot(process);
-            AssertTrue(TryInvokeAutomationButton(root, "\uC800\uC7A5"), "COCO128 edit flow delete save button was not invokable");
-            Thread.Sleep(700);
+            AssertTrue(
+                WaitUntil(
+                    () => TryInvokeAutomationButtonByAutomationId(
+                        RefreshAutomationRoot(process, bringToFront: false),
+                        "CanvasSaveAnnotationButton"),
+                    TimeSpan.FromSeconds(4)),
+                "COCO128 edit flow delete save button was not invokable");
 
             AssertTrue(
                 SelectImageQueueItemBySearch(process, "000000000250", TimeSpan.FromSeconds(5)),
@@ -3925,7 +3942,13 @@ internal static partial class Program
                 "EXE COCO128 new box draw should add one object to the empty-label image");
 
             root = RefreshAutomationRoot(process);
-            AssertTrue(TryInvokeAutomationButton(root, "\uC800\uC7A5"), "COCO128 edit flow save button was not invokable");
+            AssertTrue(
+                WaitUntil(
+                    () => TryInvokeAutomationButtonByAutomationId(
+                        RefreshAutomationRoot(process, bringToFront: false),
+                        "CanvasSaveAnnotationButton"),
+                    TimeSpan.FromSeconds(4)),
+                "COCO128 edit flow save button was not invokable");
             Thread.Sleep(800);
             AssertTrue(
                 SelectImageQueueItemBySearch(process, "000000000009", TimeSpan.FromSeconds(5)),
@@ -3988,10 +4011,14 @@ internal static partial class Program
                 "dataset setup start button was not invokable for industrial setup");
 
             var wizardRoot = WaitForProcessWindowByName(process, "\uB370\uC774\uD130\uC14B \uC0DD\uC131", TimeSpan.FromSeconds(8));
-            AssertTrue(ContainsAutomationText(wizardRoot, "Purpose: ObjectDetection"), "industrial wizard preview did not reflect object detection");
+            WaitForAutomationText(wizardRoot, "\uBAA9\uC801: \uAC1D\uCCB4 \uD0D0\uC9C0", TimeSpan.FromSeconds(3));
             AssertTrue(SelectListItemContainingText(wizardRoot, "Kolektor"), "Kolektor industrial object preset was not selectable in the real EXE dataset wizard");
             wizardRoot = WaitForProcessWindowByName(process, "\uB370\uC774\uD130\uC14B \uC0DD\uC131", TimeSpan.FromSeconds(8));
-            AssertTrue(ContainsAutomationText(wizardRoot, "Kolektor") && ContainsAutomationText(wizardRoot, "Defect"), "industrial wizard preview did not include Kolektor and Defect after preset selection");
+            AssertTrue(
+                WaitUntil(
+                    () => ContainsAutomationText(wizardRoot, "Kolektor") && ContainsAutomationText(wizardRoot, "Defect"),
+                    TimeSpan.FromSeconds(3)),
+                "industrial wizard preview did not include Kolektor and Defect after preset selection");
             AssertTrue(TrySetAutomationValueByAutomationId(wizardRoot, "WizardRecipeNameBox", recipeName), "industrial wizard recipe name was not editable");
             AssertTrue(TrySetAutomationValueByAutomationId(wizardRoot, "WizardOutputRootPathBox", outputRoot), "industrial wizard output root was not editable");
             CaptureAutomationRoot(wizardRoot, Path.ChangeExtension(outputPath, ".wizard.png"));
@@ -6679,6 +6706,11 @@ internal static partial class Program
             return;
         }
 
+        if (IsIconic(handle))
+        {
+            ShowWindow(handle, SwRestore);
+        }
+
         SetWindowPos(handle, HwndTopMost, 0, 0, 0, 0, SwpNoMove | SwpNoSize | SwpShowWindow);
         SetForegroundWindow(handle);
         Thread.Sleep(250);
@@ -6921,6 +6953,21 @@ internal static partial class Program
         }
 
         return element.Current.Name ?? string.Empty;
+    }
+
+    private static int GetObjectReviewSummaryCount(System.Windows.Automation.AutomationElement root)
+    {
+        string summary = GetAutomationValueByAutomationId(root, "ObjectReviewSummaryText");
+        if (summary.Contains("\uAC1D\uCCB4 \uC5C6\uC74C", StringComparison.Ordinal))
+        {
+            return 0;
+        }
+
+        int countSuffixIndex = summary.IndexOf("\uAC1C \uAC1D\uCCB4", StringComparison.Ordinal);
+        return countSuffixIndex > 0
+            && int.TryParse(summary.Substring(0, countSuffixIndex), NumberStyles.Integer, CultureInfo.InvariantCulture, out int count)
+                ? count
+                : -1;
     }
 
     private static string GetAutomationElementValue(System.Windows.Automation.AutomationElement element)
@@ -36895,7 +36942,9 @@ internal static partial class Program
                 AssertEqual(recipeName, CGlobal.Inst.Recipe.Name);
                 AssertEqual(recipeName, window.ProjectConfigViewModel.RecipeName);
                 AssertEqual(imageRoot, window.ImageQueueViewModel.CurrentImageFolderPath);
-                AssertEqual(1, window.ImageQueueItems.Count);
+                AssertTrue(
+                    WaitUntilWpf(() => window.ImageQueueItems.Count == 1, TimeSpan.FromSeconds(3)),
+                    $"startup restore should finish the asynchronous image queue load; actual={window.ImageQueueItems.Count}");
                 AssertTrue(CGlobal.Inst.Data.ClassNamedList.Any(item => item.Text == "StartupOK"), "startup restore should load the last opened dataset classes");
             }
             finally

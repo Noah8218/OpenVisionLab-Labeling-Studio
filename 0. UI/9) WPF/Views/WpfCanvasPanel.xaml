@@ -741,6 +741,8 @@
                         </ui:Button>
                         <ui:Button x:Name="CanvasSaveAnnotationButton"
                                    Style="{StaticResource CanvasAnnotationSaveButtonStyle}"
+                                   AutomationProperties.AutomationId="CanvasSaveAnnotationButton"
+                                   AutomationProperties.Name="{Binding AnnotationSaveActionText}"
                                    ToolTip="{Binding AnnotationSaveToolTip}"
                                    IsEnabled="{Binding IsAnnotationSaveEnabled}"
                                    Command="{Binding SaveAnnotationCommand}">

@@ -14309,3 +14309,167 @@ Boundary / next dependency: this closes local review and commit separation, not
 remote publication or GitHub Actions. A normal non-force push requires a new
 explicit operator request. Reopen a completed slice only when its contract,
 source, environment, or reproduced behavior changes.
+
+## 2026-07-23 relocated-copy Dataset wizard and Worklist EXE verification
+
+Status: Complete
+
+Scope: verify that the project copied to
+`C:\새 폴더\OpenVisionLab-Labeling-Studio_TEST` retains the current Dataset
+wizard, startup Dataset restoration, labeling-save, and image-queue Worklist
+behavior when run from the copied EXE. Keep the original
+`C:\Git\Labelling_Application` repository, model training behavior, and remote
+Git state outside this slice.
+
+Acceptance criteria and evidence:
+
+- Repository-root discovery accepts the current
+  `OpenVisionLab.LabelingStudio.sln` / `.csproj` markers while preserving the
+  legacy marker names: passed by focused service tests and the copied EXE.
+- Startup restoration waits for the asynchronous image catalog rather than
+  racing an immediate queue assertion: passed by
+  `--wpf-startup-dataset-restore`.
+- The copied EXE can select COCO128, create the 128-image Recipe, remove one
+  existing box and save it, search for `000000000250`, add and save a `person`
+  box, navigate away and return, and reopen the saved result: passed by
+  `--exe-dataset-wizard-smoke`.
+- Native UI automation restores a minimized EXE before coordinate-based input;
+  the prior failure was reproduced with the search box at Windows minimized
+  coordinates near `-32000`, then closed without text- or position-based
+  fallback code: passed by the final copied-EXE smoke.
+- The Worklist still removes only the completed row, keeps the next actionable
+  image focused, and performs no source reset or bulk change: passed with
+  `completed=5->6`, `worklist=120->119`, `invalidations=0`, and
+  `bulkChanges=0`.
+- No visible redesign was introduced. The save command gained a stable
+  automation ID/name for accessibility and deterministic EXE verification.
+
+Verification: isolated test build with 0 warnings / 0 errors;
+`--wpf-startup-dataset-restore`; `--wpf-startup-onboarding`;
+`--wpf-dataset-setup-ui`; `--wpf-dataset-setup-request`;
+`--python-ultralytics-worker`; `--python-model-runtime-connection`;
+`--wpf-model-comparison-review-service`;
+`--wpf-model-comparison-run-service`; `--wpf-image-queue-worklist-10k`;
+`--wpf-image-queue-save-local-update`; `--wpf-labeling-shell`;
+`--priority-workflow-docs`; copied-EXE `--exe-dataset-wizard-smoke`; and
+copied-EXE `--exe-image-queue-worklist-smoke`.
+
+Evidence:
+`artifacts/copy-verification-relocation-fixed/exe-dataset-wizard-smoke.png`,
+`artifacts/copy-verification-relocation-fixed/exe-dataset-wizard-smoke.wizard.png`,
+and
+`artifacts/copy-verification-worklist/post-relocation-fix-20260723/summary.txt`.
+The verified copied EXE SHA-256 is
+`3879971AEAA54AD80B81FD68D19D5D0BD8DA484D05F54BDAE24190C2E6E47850`.
+
+Boundary / next dependency: this proves relocation and the exercised local
+workflow on the current machine. It does not retrain models, establish model
+accuracy, verify GPU/camera/network storage, publish a commit, or change the
+original repository. Reopen only if the repository markers, asynchronous
+startup contract, EXE environment, or reproduced workflow changes.
+
+## 2026-07-23 relocated-copy YOLOv8 restart and inference verification
+
+Status: Complete
+
+Scope: use the copied current-source EXE with the existing local YOLOv8 runtime,
+trained Detect checkpoint, and one existing input image; save the model profile,
+close the EXE, reopen it, restore the Recipe/profile/image queue, and complete
+the first inference. Do not retrain, rank models, modify the original
+repository, or claim standalone deployment without the configured runtime.
+
+Acceptance criteria and evidence:
+
+- The copied EXE saved `YOLOv8`, the local worker, the 100-epoch Detect
+  `best.pt`, confidence `0.25`, and inference image size `320`: passed.
+- After a real close/restart, the same Recipe, image queue, engine, run identity,
+  and `best.pt` were visible and inference-ready: passed.
+- The first post-restart inference completed with one UI-threshold candidate and
+  displayed the full run identity
+  `openvisionlab-yolov8n-detect-test01-e100-img320-20260714/best.pt`: passed.
+- The reopened Recipe SHA-256 remained equal before/after inference:
+  `7BDBC5ED011091293AD17C6BC2E23965F8448A8223AB7D2D82D2CA9375E8DD69`.
+- The checkpoint, source image, and worker script SHA-256 values remained equal
+  before/after the run: passed.
+- Current 1920x1080 restart and first-inference captures visibly match the
+  recorded engine, run, checkpoint, and candidate state: passed.
+
+Verification: isolated test build with 0 warnings / 0 errors;
+`--python-ultralytics-worker`; `--python-model-runtime-connection`;
+`--wpf-dataset-setup-request`; `--wpf-startup-dataset-restore`;
+`--wpf-inference-status-presentation`; `--model-registry`;
+`--wpf-labeling-shell`; and actual copied-EXE
+`--exe-yolov8-detect-restart-smoke`.
+
+Evidence:
+`artifacts/copy-verification-model-runtime/yolov8-detect-restart-20260723/summary.txt`
+and its `screenshots/03_restarted_recipe_restored.png` and
+`screenshots/04_first_inference_after_restart.png`. The copied EXE SHA-256 is
+`3879971AEAA54AD80B81FD68D19D5D0BD8DA484D05F54BDAE24190C2E6E47850`;
+the checkpoint SHA-256 is
+`92CBA615854EBCCC18449AD09CA67452386340C7673AEB627729FC9810553449`;
+the source-image SHA-256 is
+`F21C246FB697A5262474EDE07D96C6A908621026C1CD3C2C798A29FAE501FFED`.
+
+Boundary / next dependency: this proves local runtime path persistence,
+restart, and one real inference on the copied project. It does not prove model
+accuracy, new training, GPU behavior, camera/network operation, or a portable
+runtime bundle independent of `C:\Git\yolov8`. The copied repository was not
+deleted because nine verified modified files differ from the clean original
+repository; explicit synchronization or discard approval is required before
+safe deletion.
+
+## 2026-07-23 verified relocation sync to original and clone cleanup
+
+Status: Complete
+
+Scope: transplant the nine verified modified files from the relocated copy to
+the clean original `C:\Git\Labelling_Application` repository without rewriting
+their behavior, rebuild and rerun the same focused/current-EXE gates from the
+original path, preserve fresh evidence in the original artifact tree, and then
+delete the approved relocated copy. Do not retrain models, modify external
+inputs/checkpoints, commit, or push.
+
+Acceptance criteria and evidence:
+
+- Original and relocated repositories started at the same commit
+  `04a9728b12e915622d24e6bed53cc202f475483f`; the original was clean: passed.
+- All nine mapped files matched after CRLF/LF normalization; there were no
+  behavioral, source, test, or documentation deviations: passed.
+- The original isolated test build and separate EXE build both completed with
+  0 warnings / 0 errors: passed.
+- Fourteen focused gates passed, including startup Dataset restore, Dataset
+  setup, repository/runtime discovery, model comparison, 10K Worklist,
+  queue-local save, inference presentation, model registry, shell, and workflow
+  documentation coverage.
+- The original-path EXE completed the COCO128 Dataset wizard labeling loop, the
+  125-image Worklist transition (`5->6`, `120->119`, zero invalidation/bulk
+  change), and YOLOv8 save/close/restart/first inference with one candidate:
+  passed.
+- Checkpoint, source image, and worker SHA-256 values were unchanged before and
+  after original-path inference: passed.
+- Fresh original-path 1920x1080 captures were inspected and matched their
+  summaries: passed.
+- The exact resolved clone path
+  `C:\새 폴더\OpenVisionLab-Labeling-Studio_TEST` contained no running process
+  and was deleted after verifying its parent and target; 2,157 files /
+  1,003,398,001 bytes were removed and path absence was confirmed: passed.
+
+Verification: the two builds; the fourteen focused switches recorded above;
+actual original-path `--exe-dataset-wizard-smoke`,
+`--exe-image-queue-worklist-smoke`, and
+`--exe-yolov8-detect-restart-smoke`; normalized source-target comparison;
+external-file SHA-256 comparison; visual inspection; `--priority-workflow-docs`;
+and `git diff --check`.
+
+Evidence: `artifacts/copy-verification-relocation-fixed`,
+`artifacts/copy-verification-worklist/post-relocation-fix-20260723`, and
+`artifacts/copy-verification-model-runtime/yolov8-detect-restart-20260723` in
+the original repository. The original-path verification EXE SHA-256 is
+`7D21038F27FB017610017B10E812FA3F134DF4CF9229820CD7E0BD654619988C`.
+
+Boundary / next dependency: the original working tree intentionally contains
+the nine synchronized modifications and no commit or push was performed. The
+deleted clone is no longer a development source. Reopen this slice only if the
+same relocation/runtime contract regresses; a commit or push requires a new
+explicit user request.

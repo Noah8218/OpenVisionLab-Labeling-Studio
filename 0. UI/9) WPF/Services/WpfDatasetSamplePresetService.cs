@@ -356,7 +356,9 @@ namespace MvcVisionSystem
                 string current = startPath;
                 while (!string.IsNullOrWhiteSpace(current))
                 {
-                    if (File.Exists(Path.Combine(current, "MvcVisionSystem.sln"))
+                    if (File.Exists(Path.Combine(current, "OpenVisionLab.LabelingStudio.sln"))
+                        || File.Exists(Path.Combine(current, "OpenVisionLab.LabelingStudio.csproj"))
+                        || File.Exists(Path.Combine(current, "MvcVisionSystem.sln"))
                         || File.Exists(Path.Combine(current, "MvcVisionSystem.csproj")))
                     {
                         return current;

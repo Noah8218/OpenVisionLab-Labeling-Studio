@@ -2906,6 +2906,72 @@ Protected behavior:
 
 Coverage: required isolated build; `--wpf-inference-status-presentation`; `--external-yolo-dataset-intake`; `--wpf-model-comparison-review-service`; `--wpf-model-comparison-run-service`; and current Debug EXE `--exe-yolov8-detect-restart-smoke` evidence under `artifacts\ui\circular-disk-yolov8-beginner-e30-current-final4-20260720`. The EXE flow proves object-purpose persistence, native YAML activation, saved-profile restart, and trained YOLOv8 inference candidate display. This does not prove production accuracy or permit model adoption without independent acquisition data.
 
+## 2026-07-23 Relocated-Copy Runtime Contract
+
+Status: stable for the copied local EXE workflow verified on 2026-07-23.
+
+Repository-root discovery must recognize the current
+`OpenVisionLab.LabelingStudio.sln` / `.csproj` markers as well as the retained
+legacy markers, so a copied EXE can find bundled project datasets and workers
+without a machine-specific source path. Startup Dataset restoration remains
+asynchronous and tests must wait for catalog completion instead of asserting
+immediately. Native coordinate-based EXE automation must restore a minimized
+window before input and use stable automation IDs for save/search actions; do
+not add localized button-text or screen-position fallbacks.
+
+The copied EXE completed COCO128 Recipe creation, existing-box deletion/save,
+targeted empty-label search, new `person` box save/reopen, and Worklist next-row
+focus with no queue reset. Verified EXE SHA-256 is
+`3879971AEAA54AD80B81FD68D19D5D0BD8DA484D05F54BDAE24190C2E6E47850`.
+Evidence: the 2026-07-23 entry in `docs/WORK_TRACKING.md`,
+`artifacts/copy-verification-relocation-fixed`, and
+`artifacts/copy-verification-worklist/post-relocation-fix-20260723`.
+
+This contract proves relocation and the exercised local workflow only. It does
+not prove model accuracy, model retraining, GPU/camera/network operation, or
+remote publication.
+
+## 2026-07-23 Relocated-Copy YOLOv8 Runtime Contract
+
+Status: stable for the copied local EXE and configured local YOLOv8 runtime
+verified on 2026-07-23.
+
+The copied current-source EXE may retain a configured external local YOLOv8
+runtime rather than embedding its Python environment and checkpoint. It must
+save the engine, worker path, trained run identity, checkpoint, confidence, and
+inference size; after close/restart it must restore the same Recipe and image
+queue and complete first inference without changing the reopened Recipe.
+
+The verified run used
+`openvisionlab-yolov8n-detect-test01-e100-img320-20260714/weights/best.pt`
+at confidence `0.25` and image size `320`, then returned one candidate. The
+reopened and post-inference Recipe SHA-256 values matched. The external
+checkpoint, input image, and worker script hashes were unchanged. Evidence:
+`artifacts/copy-verification-model-runtime/yolov8-detect-restart-20260723`.
+
+This contract proves persistence and local integration only. It does not make
+the copied folder standalone from `C:\Git\yolov8`, establish model accuracy,
+or authorize deletion while its verified uncommitted changes differ from the
+original repository.
+
+## 2026-07-23 Original-Repository Sync and Clone Retirement
+
+Status: stable after exact normalized-content synchronization and independent
+original-path verification.
+
+The nine relocation fixes/tests/documents were synchronized to
+`C:\Git\Labelling_Application` with no behavioral deviation. The original-path
+test and EXE builds completed with 0 warnings / 0 errors; fourteen focused gates
+and the Dataset wizard, Worklist, and YOLOv8 restart/inference EXE smokes passed.
+Fresh evidence now lives under the original repository's corresponding
+`artifacts/copy-verification-*` folders. The relocated copy at
+`C:\새 폴더\OpenVisionLab-Labeling-Studio_TEST` was then deleted after exact-path,
+parent, process, and evidence checks. Treat the original repository as the only
+development source going forward.
+
+This retirement does not imply a commit, push, model retraining, production
+accuracy, or a portable Python/model bundle.
+
 ## Refactor Rule
 
 When working near a protected path, prefer adding a small adapter or a new higher-level service instead of rewriting the verified hot path. If the hot path must change, document the reason in the final response and include the focused gate results.
