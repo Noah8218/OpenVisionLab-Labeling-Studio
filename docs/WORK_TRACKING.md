@@ -14473,3 +14473,34 @@ the nine synchronized modifications and no commit or push was performed. The
 deleted clone is no longer a development source. Reopen this slice only if the
 same relocation/runtime contract regresses; a commit or push requires a new
 explicit user request.
+
+## 2026-07-23 post-push authority-document synchronization
+
+Status: Complete
+
+Scope: update only the current handoff, next-chat prompt, and product
+completeness authority after commit `0f1f91b` was pushed and the temporary clone
+was deleted. Do not reopen a completed feature, change product maturity, modify
+code/UI/models/data, or perform another commit/push.
+
+Acceptance criteria and evidence:
+
+- The current handoff records local/remote `0f1f91b`, original-path EXE
+  verification, clone retirement, and the no-speculative-feature boundary:
+  passed.
+- The next-chat prompt identifies `C:\Git\Labelling_Application` as the only
+  development source and prevents repetition of the relocation exercise:
+  passed.
+- The completeness audit records the new regression evidence without raising
+  the focused-workstation `4.0/5` estimate or claiming model accuracy: passed.
+
+Verification: `--priority-workflow-docs` and `git diff --check`.
+
+Evidence: `docs/NEXT_THREAD_HANDOFF.md` section 26,
+`CODEX_NEXT_PROMPT.md` current checkpoint, and the 2026-07-23 latest-evidence
+entry in `docs/LABELING_STUDIO_COMPLETENESS_AUDIT.md`.
+
+Boundary / next dependency: no new product implementation is justified by this
+documentation update alone. The next feature requires a reproduced operator
+defect or changed approved adapter/data workflow; independent camera/session
+data remains an optional field-adoption gate.

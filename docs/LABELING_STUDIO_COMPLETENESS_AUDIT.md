@@ -6,7 +6,19 @@ This audit answers one product question: when compared with established labeling
 
 The score below is product completeness, not code quality. A lower score can still be acceptable when the feature is outside the current product goal.
 
-## Latest Evidence Update (2026-07-22)
+## Latest Evidence Update (2026-07-23)
+
+The temporary relocated checkout has now been retired after an independent
+original-path verification. Repository-root discovery recognizes the current
+solution/project names, Dataset startup tests wait for asynchronous queue
+restoration, and native EXE automation restores a minimized window before
+coordinate input. The original-path current-source EXE completed the COCO128
+Dataset wizard labeling loop, the 125-image Worklist transition without queue
+reset, and YOLOv8 save/close/restart/first inference with one candidate. The
+nine-file closure is committed and pushed as `0f1f91b`; the temporary clone was
+deleted after evidence was preserved in the original artifact tree. This closes
+a relocation/regression risk only and does not change the focused-workstation
+estimate from `4.0/5` or establish model accuracy.
 
 The first bounded foundation-model assist slice is now implemented. In a
 segmentation recipe, an operator-drawn defect box can invoke the existing local

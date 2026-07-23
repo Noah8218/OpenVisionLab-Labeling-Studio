@@ -24,9 +24,14 @@ Required start order:
 
 Current checkpoint:
 - Workspace: C:\Git\Labelling_Application
-- Branch: main. The completed Image Queue Worklist slice follows baseline
-  `c317278826c77565b15ad8142177a8632c99b279`. Verify current local and remote
-  hashes directly before work; do not push without a new explicit request.
+- Branch: main. The verified relocation/runtime closure is committed as
+  `0f1f91bdd11b28f311826e2b757357296e7c639e`; local `HEAD` and `origin/main`
+  matched after the explicit 2026-07-23 push. Verify live hashes before work and
+  do not push again without a new explicit request.
+- The temporary `C:\새 폴더\OpenVisionLab-Labeling-Studio_TEST` clone was deleted
+  after the original path independently passed Dataset wizard, Worklist, and
+  YOLOv8 restart/inference EXE smokes. Develop only in
+  `C:\Git\Labelling_Application`.
 - The previously mixed worktree was independently reviewed and split into `687e553 feat: add YOLO11 segmentation comparison evidence`, `0b05986 feat: define synthetic evidence completion contract`, and `549a7d4 feat: add MobileSAM smart-mask labeling`. Each commit passed an isolated build and its focused checks from a detached temporary worktree. Do not recombine or repeat these completed slices without a changed contract or reproduced regression.
 - Read `docs/WORK_TRACKING.md` section `2026-07-21 external native YOLO segmentation canonical-mask intake` and `docs/STABLE_VERIFIED_AREAS.md` section `external native YOLO runtime-copy and paired-comparison contract` before selecting work. These newer records supersede stale priorities below.
 
@@ -42,6 +47,13 @@ Product direction:
 - The supplied circular-disk 500 OK / 500 NG package is complete synthetic workflow evidence: exact metadata-backed 5-class detection data, YOLOv5/YOLOv8 one-epoch connectivity, a controlled 20-epoch 150-image test benchmark, and a new 20-epoch anomaly candidate. The anomaly candidate remains `hold`; the detection benchmark favors YOLOv8n (`mAP50/mAP50-95 0.955/0.678`, 27.575ms) over YOLOv5s (`0.900/0.567`, 52.45ms) but is explicitly `engine-benchmark`, not adoption. The fixed comparison cleanup preserves the exact source-tree SHA-256. The package is derived from one earlier OK source image; do not present it as independent camera evidence. Read `docs/CIRCULAR_DISK_SYNTHETIC_1000_EVIDENCE_20260720.md`.
 
 Current immediate priority:
+- The original-path relocation closure is complete and pushed in `0f1f91b`.
+  Repository-root discovery recognizes the current solution/project names,
+  startup Dataset restore waits for asynchronous queue completion, and native
+  EXE automation restores minimized windows and uses a stable save automation
+  ID. Do not reopen the deleted-clone exercise unless relocation behavior
+  regresses. Evidence is recorded in `docs/WORK_TRACKING.md` and
+  `docs/STABLE_VERIFIED_AREAS.md` under the 2026-07-23 entries.
 - The user-approved 10,000-image `확인 필요 Worklist` slice and current-EXE mixed-state follow-up are complete in the current worktree. It exposes the existing unfinished filter, keeps completed OK/NG and saved/rejected rows out, uses summary counts so visible status cannot lag live filtering, and explicitly focuses the next incomplete row after Worklist-only label save. The final controlled actual-EXE Recipe individually proved candidate, failed, needs-fix, and requested inclusion plus completed-label exclusion; two consecutive runs then produced `120->119`, completion `5->6`, zero queue invalidations/bulk changes, and active/selected image 001. Read `docs/IMAGE_QUEUE_ACTION_WORKLIST_20260722.md`; do not reopen it without a reproduced membership, transition, focus, or latency defect. The next implementation requires new operator evidence rather than another speculative queue system.
 - The accumulated 2026-07-22 changes were separated into the three local
   feature commits listed above and independently verified from detached

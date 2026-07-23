@@ -1,6 +1,6 @@
 # Next Thread Handoff
 
-Last updated: 2026-07-22 KST
+Last updated: 2026-07-23 KST
 
 This is the current operational handoff for C:\Git\Labelling_Application. It is intentionally shorter than the historical journal. Use it to choose the next task; use the linked records only for the detailed evidence behind a claim.
 
@@ -18,14 +18,18 @@ There is no separate C:\AGENTS.md or C:\Git\AGENTS.md in this workstation snapsh
 ## 2. Repository Checkpoint
 
 - Workspace: C:\Git\Labelling_Application
-- Branch: main. The latest validated feature after baseline `c317278` is the
-  Image Queue action Worklist recorded in section 25. Always verify the live
-  local and remote hashes with `git status`, `git log`, and `git ls-remote`;
-  this handoff does not pin a post-publication hash before it exists.
-- The reviewed worktree contains no known non-document residual. Verify live
-  state with `git status --short`; do not infer cleanliness from this document.
-- GitHub Actions has not been rechecked for the latest Worklist publication.
-  Do not cite older CI evidence as current CI evidence.
+- Branch: main. Local `HEAD` and `origin/main` both matched
+  `0f1f91bdd11b28f311826e2b757357296e7c639e` after the explicit normal push on
+  2026-07-23. Always verify the live hashes before new work.
+- The verified relocation fixes and evidence records are committed in
+  `0f1f91b fix: preserve relocated runtime workflows`. The relocated copy at
+  `C:\새 폴더\OpenVisionLab-Labeling-Studio_TEST` was deleted after the original
+  path independently passed the Dataset wizard, Worklist, and YOLOv8 restart
+  EXE smokes. Use only `C:\Git\Labelling_Application` for development.
+- The worktree was clean immediately after the push. Verify live state with
+  `git status --short`; do not infer cleanliness from this document.
+- GitHub Actions has not been rechecked for commit `0f1f91b`. Do not cite older
+  CI evidence as current CI evidence.
 - The current focused passes directly verified Dataset Health, external native YOLO intake, model/anomaly comparison, the dedicated Model Center workspace, and the explicit model-adapter catalog slices. The image-queue slice also has a 50,081-image local warm-cache profile and a separate duplicate-file local 8K profile; neither is a network-share or production-camera result.
 - Never push unless the user explicitly says push. A commit request means local commit only.
 
@@ -319,8 +323,8 @@ unverified unless their own focused evidence exists.
 
 ## 9. Known Gaps, Risks, and TODO Scan
 
-- The former dirty feature slices are committed and pushed through `58166f8`. Do not repeat their focused reviews unless source, requirements, environment, or evidence validity changes.
-- GitHub Actions CI #22 passed for pushed commit `58166f8`. The current persistent-adapter/synthetic-data slice is uncommitted and therefore has no CI result yet.
+- The former dirty feature slices and the relocation/runtime verification are committed and pushed through `0f1f91b`. Do not repeat their focused reviews unless source, requirements, environment, or evidence validity changes.
+- GitHub Actions CI #22 passed for historical commit `58166f8`; CI has not been rechecked for `0f1f91b` and must not be implied current.
 - Image-queue behavior on shared/network storage and provenance-confirmed production-camera folders is unverified. Mixed local 50K warm-cache and local duplicate-file 8K profiles exist, but neither is a network result; the 8K source has only 250 distinct contents copied 32 times and is not a production-data proxy. The operator removed this unavailable profile from the active priority list on 2026-07-18; retain the risk record without treating it as next work.
 - Model quality remains data-limited, not implementation-limited.
 - The supplied circular-disk 500 OK / 500 NG package now has completed synthetic anomaly and exact metadata-backed object-detection evidence. It does not satisfy the independent production-camera requirement. Full record: `docs\CIRCULAR_DISK_SYNTHETIC_1000_EVIDENCE_20260720.md`.
@@ -673,3 +677,29 @@ Status: `Complete`.
 - Current-source captures at 1920x1080 and 1366x768 are under `artifacts/ui/image-queue-worklist-20260722`; current-EXE category and transition evidence is under `artifacts/exe-image-queue-worklist/current-exe-20260722-categories-repeat`. Detailed scope and commands are in `docs/IMAGE_QUEUE_ACTION_WORKLIST_20260722.md`.
 
 Boundary / next dependency: do not add accounts, assignments, comments, server sync, a new DB, paging, or a second review screen from this slice. The next implementation requires a current Recipe to reproduce a missed category, incorrect transition, or unacceptable latency. Otherwise this Worklist is closed and protected.
+
+## 26. 2026-07-23 Latest Checkpoint: Original-Path Relocation Closure
+
+Status: `Complete`, committed, and pushed.
+
+- The nine relocation fixes/tests/documents were transplanted from the temporary
+  copy to the clean original repository with normalized-content equality for all
+  nine mapped files and no behavioral deviation.
+- The original-path isolated test build and separate EXE build completed with
+  zero warnings and errors. Fourteen focused gates passed.
+- The original-path EXE independently completed the COCO128 Dataset wizard
+  labeling loop, the 125-image Worklist transition (`5->6`, `120->119`, zero
+  invalidation/bulk change), and YOLOv8 save/close/restart/first inference with
+  one candidate. External checkpoint, input, and worker hashes stayed unchanged.
+- Fresh evidence is under `artifacts/copy-verification-relocation-fixed`,
+  `artifacts/copy-verification-worklist/post-relocation-fix-20260723`, and
+  `artifacts/copy-verification-model-runtime/yolov8-detect-restart-20260723`.
+- The approved temporary clone was deleted only after original-path evidence and
+  zero running clone processes were confirmed. Commit `0f1f91b` was then pushed
+  normally and local `HEAD` matched `origin/main`.
+
+Boundary / next dependency: this improves relocation and regression confidence,
+not model accuracy or product maturity; the focused-workstation estimate remains
+`4.0/5`. Do not recreate or use the deleted clone. No new product implementation
+is justified without a reproduced operator defect or changed approved adapter/data
+contract. Independent camera/session data remains an optional field-adoption gate.
