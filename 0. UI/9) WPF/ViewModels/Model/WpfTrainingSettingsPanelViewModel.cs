@@ -647,10 +647,10 @@ namespace MvcVisionSystem
         }
 
         public void SetSegmentationAdapterComparisonContext(
-            WpfSegmentationAdapterComparisonContext context,
+            SegmentationAdapterComparisonContext context,
             bool preserveSelectedCheckpoints = true)
         {
-            context ??= new WpfSegmentationAdapterComparisonContext();
+            context ??= new SegmentationAdapterComparisonContext();
             bool wasVisible = IsSegmentationAdapterComparisonVisible;
             IsSegmentationAdapterComparisonVisible = context.IsVisible;
             SegmentationAdapterCanonicalDatasetText = context.CanonicalDatasetText;
@@ -838,7 +838,7 @@ namespace MvcVisionSystem
             TrainingProgressForeground = progressBrush;
         }
 
-        public void ApplyWorkflowCommandState(WpfWorkflowCommandState state)
+        public void ApplyWorkflowCommandState(WorkflowCommandState state)
         {
             bool canRunGeneralCommands = state?.CanRunGeneralCommands == true;
             IsApplyFastRecommendationEnabled = canRunGeneralCommands;

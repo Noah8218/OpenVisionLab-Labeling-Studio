@@ -12,13 +12,13 @@ namespace MvcVisionSystem
         [STAThread]
         static void Main(string[] args)
         {
-            if (WpfHeadlessRuntimeCommandService.TryExecute(args, Console.Out, out int headlessExitCode))
+            if (HeadlessRuntimeCommandService.TryExecute(args, Console.Out, out int headlessExitCode))
             {
                 Environment.ExitCode = headlessExitCode;
                 return;
             }
 
-            WpfRuntimeDiagnosticsService.ConfigureApplicationStartup();
+            RuntimeDiagnosticsService.ConfigureApplicationStartup();
             OpenVisionLanguageService.Load();
             using (Mutex mutex = new Mutex(true, "OpenVisionLab.LabelingStudio", out bool bNew))
             {

@@ -330,7 +330,7 @@ namespace MvcVisionSystem
             error = string.Empty;
 
             string normalizedRecipeName = (RecipeName ?? string.Empty).Trim();
-            if (!WpfProjectRecipeService.IsValidRecipeName(normalizedRecipeName))
+            if (!ProjectRecipeService.IsValidRecipeName(normalizedRecipeName))
             {
                 error = T("WpfDatasetSetup.Error.InvalidRecipeName");
                 return false;
@@ -379,7 +379,7 @@ namespace MvcVisionSystem
                 AnomalyAbnormalClassNames = ParseClassNames(AnomalyAbnormalClassNamesText)
             };
             WpfDatasetSamplePresetItem samplePreset = SelectedSamplePreset
-                ?? WpfDatasetSamplePresetService.CreateEmptyPreset(request.Purpose);
+                ?? DatasetSamplePresetService.CreateEmptyPreset(request.Purpose);
             if (!samplePreset.IsAvailable)
             {
                 error = Format("WpfDatasetSetup.Error.SampleUnavailable", samplePreset.Text, samplePreset.AvailabilityText);
@@ -480,7 +480,7 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(SetupSourceRuleDetailText));
             OnPropertyChanged(nameof(SetupSourceRuleChecklistText));
             OnPropertyChanged(nameof(ModelSetupHelpText));
-            StatusText = WpfLocalizationTextRuntimeService.Translate(StatusText);
+            StatusText = LocalizationTextRuntimeService.Translate(StatusText);
             RefreshSamplePresets();
             RefreshPreview();
         }
@@ -507,7 +507,7 @@ namespace MvcVisionSystem
             LabelingDatasetPurpose purpose = WpfLearningWorkflowPanelViewModel.ToDatasetPurpose(SelectedDatasetPurposeMode?.Mode ?? WpfLearningMode.ObjectDetection);
 
             SamplePresets.Clear();
-            foreach (WpfDatasetSamplePresetItem preset in WpfDatasetSamplePresetService.BuildPresets(purpose))
+            foreach (WpfDatasetSamplePresetItem preset in DatasetSamplePresetService.BuildPresets(purpose))
             {
                 SamplePresets.Add(preset);
             }
@@ -539,11 +539,11 @@ namespace MvcVisionSystem
             }
 
             bool outputRootIsUntouched = !outputRootPathWasEdited
-                && WpfDatasetSetupPathService.PathsEqual(OutputRootPath, automaticOutputRootPath);
+                && DatasetSetupPathService.PathsEqual(OutputRootPath, automaticOutputRootPath);
             LabelingDatasetPurpose purpose = WpfLearningWorkflowPanelViewModel.ToDatasetPurpose(
                 SelectedDatasetPurposeMode?.Mode ?? WpfLearningMode.ObjectDetection);
             string nextRecipeName = automaticRecipeNameResolver(purpose)?.Trim() ?? string.Empty;
-            if (!WpfProjectRecipeService.IsValidRecipeName(nextRecipeName))
+            if (!ProjectRecipeService.IsValidRecipeName(nextRecipeName))
             {
                 return;
             }
@@ -606,9 +606,9 @@ namespace MvcVisionSystem
 
         public LabelingDatasetPurpose Purpose { get; }
 
-        public string Text => WpfLocalizationTextRuntimeService.Translate(text);
+        public string Text => LocalizationTextRuntimeService.Translate(text);
 
-        public string ToolTip => WpfLocalizationTextRuntimeService.Translate(toolTip);
+        public string ToolTip => LocalizationTextRuntimeService.Translate(toolTip);
 
         public string ImageSourcePath { get; }
 
@@ -618,6 +618,6 @@ namespace MvcVisionSystem
 
         public bool IsAvailable { get; }
 
-        public string AvailabilityText => WpfLocalizationTextRuntimeService.Translate(availabilityText);
+        public string AvailabilityText => LocalizationTextRuntimeService.Translate(availabilityText);
     }
 }

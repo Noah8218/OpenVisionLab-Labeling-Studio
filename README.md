@@ -120,9 +120,12 @@ flowchart LR
 사용자에게 영향을 주는 변경은 `RELEASE_NOTES.md`에 기록합니다. 이 저장소는
 실제 검증된 변경을 버전별 checkpoint로 계속 갱신합니다.
 
-- 현재 소스 버전: `0.3.1` PATCH 후보 (2026-09-04)
-- 이전 Public 버전: `0.3.0`
+- 현재 소스 버전: `0.3.2` PATCH 후보 (2026-09-07)
+- 이전 Public 버전: `0.3.1`
 - 최근 버전 기록:
+  - `0.3.2` (2026-09-07): Shell partial과 내부 WPF 계약의 책임을 concrete owner로
+    정리하고 비동기 종료·수명 경계를 보강했습니다. 저장 포맷과 모델 상태 경계는
+    변경하지 않았습니다.
   - `0.3.1` (2026-09-04): Shell partial 책임을 concrete owner로 이동하고
     명령·콜백의 종료 경계를 보강했습니다. 저장 포맷과 모델 상태 경계는
     변경하지 않았습니다.
@@ -164,7 +167,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x6
 .\scripts\start-labeling-workbench.ps1 -AppMode Publish
 ```
 
-기본 릴리스는 `artifacts\publish\Release\win-x64\0.3.1`에 생성되는
+기본 릴리스는 `artifacts\publish\Release\win-x64\0.3.2`에 생성되는
 self-contained Windows x64 번들입니다. `release-manifest.json`과
 `publish-manifest.txt`에는 소스 커밋, 빌드 식별 정보, 전체 payload의
 SHA-256이 기록됩니다. 기존 패키지는 다음 명령으로 변경 없이 다시 검증할 수 있습니다.
@@ -174,7 +177,7 @@ SHA-256이 기록됩니다. 기존 패키지는 다음 명령으로 변경 없�
 `OpenVisionLab.LabelingStudio.exe`를 실행합니다.
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.3.1 -VerifyOnly
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.3.2 -VerifyOnly
 ```
 
 ## 샘플 데이터
@@ -202,7 +205,7 @@ dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Release
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File .\scripts\publish-win-x64.ps1 -Configuration Release
-& .\artifacts\publish\Release\win-x64\0.3.1\OpenVisionLab.LabelingStudio.exe `
+& .\artifacts\publish\Release\win-x64\0.3.2\OpenVisionLab.LabelingStudio.exe `
   --environment-self-test --json
 ```
 
@@ -232,7 +235,7 @@ GitHub Actions의 `.github/workflows/ci.yml`은 다음을 확인합니다.
 - README 필수 섹션
 - .NET Release 제품 빌드
 - versioned self-contained `win-x64` publish와 payload 검증
-- `openvisionlab-labeling-studio-0.3.1-win-x64` artifact 업로드
+- `openvisionlab-labeling-studio-0.3.2-win-x64` artifact 업로드
 - `git diff --check`
 
 ## 문서

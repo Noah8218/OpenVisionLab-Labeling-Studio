@@ -6,6 +6,7 @@ using System.IO;
 using System.Linq;
 using System.Security.Cryptography;
 using System.Text;
+using System.Threading;
 using YamlDotNet.Serialization;
 
 namespace MvcVisionSystem.Yolo
@@ -19,7 +20,13 @@ namespace MvcVisionSystem.Yolo
         };
 
         public static YoloExternalDatasetIntakeReport Build(string dataYamlFilePath, LabelingDatasetPurpose purpose)
-            => BuildPackage(dataYamlFilePath, purpose).Report;
+            => Build(dataYamlFilePath, purpose, CancellationToken.None);
+
+        public static YoloExternalDatasetIntakeReport Build(
+            string dataYamlFilePath,
+            LabelingDatasetPurpose purpose,
+            CancellationToken cancellationToken)
+            => BuildPackage(dataYamlFilePath, purpose, cancellationToken).Report;
 
         /// <summary>
         /// Returns the paths already validated by native YOLO intake.  The call never
@@ -58,8 +65,12 @@ namespace MvcVisionSystem.Yolo
             return MaterializeRuntimeDataset(package, runtimeParentPath);
         }
 
-        private static ExternalYoloDatasetIntakePackage BuildPackage(string dataYamlFilePath, LabelingDatasetPurpose purpose)
+        private static ExternalYoloDatasetIntakePackage BuildPackage(
+            string dataYamlFilePath,
+            LabelingDatasetPurpose purpose,
+            CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var errors = new List<string>();
             if (!IsSupportedPurpose(purpose))
             {
@@ -73,12 +84,14 @@ namespace MvcVisionSystem.Yolo
                 return EmptyPackage(yamlPath, purpose, errors);
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             Dictionary<object, object> document = ReadYaml(yamlPath, errors);
             if (document == null)
             {
                 return EmptyPackage(yamlPath, purpose, errors);
             }
 
+            cancellationToken.ThrowIfCancellationRequested();
             string datasetRoot = ResolveDatasetRoot(yamlPath, ReadScalar(document, "path"), errors);
             List<string> classNames = ReadClassNames(document, errors);
             ValidateClassCount(document, classNames, errors);
@@ -92,9 +105,10 @@ namespace MvcVisionSystem.Yolo
                 : string.Empty;
 
             var annotationCountByClass = new Dictionary<string, int>(StringComparer.OrdinalIgnoreCase);
-            SplitScan train = ScanSplit("train", trainInput, required: true, purpose, classNames, listLabelsRoot, annotationCountByClass, errors);
-            SplitScan valid = ScanSplit("val", validInput, required: true, purpose, classNames, listLabelsRoot, annotationCountByClass, errors);
-            SplitScan test = ScanSplit("test", testInput, required: false, purpose, classNames, listLabelsRoot, annotationCountByClass, errors);
+            SplitScan train = ScanSplit("train", trainInput, required: true, purpose, classNames, listLabelsRoot, annotationCountByClass, errors, cancellationToken);
+            SplitScan valid = ScanSplit("val", validInput, required: true, purpose, classNames, listLabelsRoot, annotationCountByClass, errors, cancellationToken);
+            SplitScan test = ScanSplit("test", testInput, required: false, purpose, classNames, listLabelsRoot, annotationCountByClass, errors, cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
             ValidateSplitPathSeparation(train.ImagePaths, valid.ImagePaths, test.ImagePaths, errors);
 
             if (classNames.Count == 0)
@@ -109,8 +123,9 @@ namespace MvcVisionSystem.Yolo
 
             int sourceFileCount = 0;
             string sourceFingerprintSha256 = errors.Count == 0
-                ? BuildSourceFingerprint(yamlPath, train, valid, test, out sourceFileCount, errors)
+                ? BuildSourceFingerprint(yamlPath, train, valid, test, out sourceFileCount, errors, cancellationToken)
                 : string.Empty;
+            cancellationToken.ThrowIfCancellationRequested();
 
             var report = new YoloExternalDatasetIntakeReport(
                 yamlPath,
@@ -534,8 +549,10 @@ namespace MvcVisionSystem.Yolo
             IReadOnlyList<string> classNames,
             string listLabelsRoot,
             Dictionary<string, int> annotationCountByClass,
-            List<string> errors)
+            List<string> errors,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             string displayPath = input?.Path ?? string.Empty;
             var scan = new SplitScan(name, displayPath);
             if (input == null || string.IsNullOrWhiteSpace(input.Path))
@@ -558,11 +575,12 @@ namespace MvcVisionSystem.Yolo
             try
             {
                 imagePaths = input.IsImageList
-                    ? ReadImageList(input.Path, input.DatasetRootPath, name, errors)
-                    : Directory.EnumerateFiles(input.Path, "*", SearchOption.AllDirectories)
-                        .Where(path => ImageExtensions.Contains(Path.GetExtension(path)))
-                        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
-                        .ToArray();
+                    ? ReadImageList(input.Path, input.DatasetRootPath, name, errors, cancellationToken)
+                    : EnumerateImageFiles(input.Path, cancellationToken);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {
@@ -582,6 +600,7 @@ namespace MvcVisionSystem.Yolo
 
             foreach (string imagePath in imagePaths)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 scan.SourceFilePaths.Add(imagePath);
                 string labelPath = input.IsImageList
                     ? ResolveListLabelPath(imagePath, labelsDirectory)
@@ -613,6 +632,7 @@ namespace MvcVisionSystem.Yolo
 
                 for (int lineIndex = 0; lineIndex < lines.Length; lineIndex++)
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (TryValidateLabelLine(
                         lines[lineIndex],
                         purpose,
@@ -634,11 +654,35 @@ namespace MvcVisionSystem.Yolo
             return scan;
         }
 
-        private static string[] ReadImageList(string listPath, string datasetRoot, string splitName, List<string> errors)
+        private static string[] EnumerateImageFiles(string directoryPath, CancellationToken cancellationToken)
         {
             var imagePaths = new List<string>();
-            foreach (string line in File.ReadAllLines(listPath))
+            foreach (string path in Directory.EnumerateFiles(directoryPath, "*", SearchOption.AllDirectories))
             {
+                cancellationToken.ThrowIfCancellationRequested();
+                if (ImageExtensions.Contains(Path.GetExtension(path)))
+                {
+                    imagePaths.Add(path);
+                }
+            }
+
+            return imagePaths
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                .ToArray();
+        }
+
+        private static string[] ReadImageList(
+            string listPath,
+            string datasetRoot,
+            string splitName,
+            List<string> errors,
+            CancellationToken cancellationToken)
+        {
+            var imagePaths = new List<string>();
+            string[] lines = File.ReadAllLines(listPath);
+            foreach (string line in lines)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
                 string imageText = (line ?? string.Empty).Trim().Trim('"');
                 if (imageText.Length == 0 || imageText.StartsWith("#", StringComparison.Ordinal))
                 {
@@ -952,8 +996,10 @@ namespace MvcVisionSystem.Yolo
             SplitScan valid,
             SplitScan test,
             out int sourceFileCount,
-            List<string> errors)
+            List<string> errors,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var paths = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
             if (!string.IsNullOrWhiteSpace(yamlPath))
             {
@@ -977,6 +1023,7 @@ namespace MvcVisionSystem.Yolo
                 using SHA256 aggregate = SHA256.Create();
                 foreach (string path in paths.OrderBy(item => item, StringComparer.OrdinalIgnoreCase))
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     string fileHash = ComputeFileSha256(path);
                     byte[] entry = Encoding.UTF8.GetBytes(path.Replace('\\', '/') + "\n" + fileHash + "\n");
                     aggregate.TransformBlock(entry, 0, entry.Length, entry, 0);
@@ -984,6 +1031,10 @@ namespace MvcVisionSystem.Yolo
 
                 aggregate.TransformFinalBlock(Array.Empty<byte>(), 0, 0);
                 return ToHex(aggregate.Hash);
+            }
+            catch (OperationCanceledException)
+            {
+                throw;
             }
             catch (Exception ex)
             {

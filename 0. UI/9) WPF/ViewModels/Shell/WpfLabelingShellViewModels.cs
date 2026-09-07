@@ -79,6 +79,8 @@ namespace MvcVisionSystem
             }
 
             disposed = true;
+            TemplateMatchingAutoLabelViewModel.Dispose();
+            MainCanvasViewModel.Dispose();
             CanvasPanelViewModel.Dispose();
             LearningWorkflowViewModel.Dispose();
             StatusBarViewModel.Dispose();

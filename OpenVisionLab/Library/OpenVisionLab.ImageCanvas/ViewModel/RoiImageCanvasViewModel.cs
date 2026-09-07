@@ -25,7 +25,7 @@ using Model = OpenVisionLab.ImageCanvas.Model;
 
 namespace OpenVisionLab.ImageCanvas.ViewModels
 {
-	public partial class RoiImageCanvasViewModel : ObservableObject
+	public partial class RoiImageCanvasViewModel : ObservableObject, IDisposable
 	{
 		internal const double DrawingRefreshIntervalMilliseconds = 16.0;
 		private static readonly long PixelPropertyUpdateIntervalTicks = Math.Max(1L, Stopwatch.Frequency / 30);
@@ -77,6 +77,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		private AddRoiArrayViewModel _addRoiArrayVm = new AddRoiArrayViewModel();
 		private System.Timers.Timer _refreshTimer;
 		private System.Timers.Timer _reshapeTimer;
+		private bool _disposed;
 		private readonly List<RoiImageCanvasDetectionOverlay> _detectionOverlays = new List<RoiImageCanvasDetectionOverlay>();
 		private readonly DetectionOverlaySpatialIndex _detectionOverlayHitIndex = new DetectionOverlaySpatialIndex();
 		private readonly List<RoiImageCanvasPolygonOverlay> _polygonOverlays = new List<RoiImageCanvasPolygonOverlay>();
@@ -4414,6 +4415,57 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			return arg;
 		}
 
+		#endregion
+
+		#region Dispose
+		public void Dispose()
+		{
+			if (_disposed)
+			{
+				return;
+			}
+
+			_disposed = true;
+			_imageViewer.VisibleOverlayLodChanged -= ImageViewer_VisibleOverlayLodChanged;
+			_imageViewer.Draw -= OnDraw;
+			if (_inputAdapter != null)
+			{
+				_inputAdapter.Load -= OnLoad;
+				_inputAdapter.Resized -= OnResized;
+				_inputAdapter.MouseDoubleClicked -= OnMouseDoubleClicked;
+				_inputAdapter.KeyDown -= OnKeyDown;
+				_inputAdapter.KeyUp -= OnKeyUp;
+				_inputAdapter.MouseClicked -= OnMouseClicked;
+				_inputAdapter.MouseDown -= OnMouseDown;
+				_inputAdapter.MouseMove -= OnMouseMove;
+				_inputAdapter.MouseUp -= OnMouseUp;
+				_inputAdapter.MouseLeave -= OnMouseLeave;
+				_inputAdapter.MouseWheel -= OnMouseWheel;
+				_inputAdapter.Dispose();
+				_inputAdapter = null;
+			}
+
+			if (_refreshTimer != null)
+			{
+				_refreshTimer.Stop();
+				_refreshTimer.Elapsed -= _refreshTimer_Elapsed;
+				_refreshTimer.Dispose();
+				_refreshTimer = null;
+			}
+
+			if (_reshapeTimer != null)
+			{
+				_reshapeTimer.Stop();
+				_reshapeTimer.Elapsed -= _reshapeTimer_Elapsed;
+				_reshapeTimer.Dispose();
+				_reshapeTimer = null;
+			}
+
+			if (!_imageViewer.IsDisposed)
+			{
+				_imageViewer.Dispose();
+			}
+		}
 		#endregion
 	}
 }

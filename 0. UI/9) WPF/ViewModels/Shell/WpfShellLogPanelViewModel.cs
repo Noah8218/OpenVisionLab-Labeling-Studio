@@ -135,7 +135,7 @@ namespace MvcVisionSystem
             LogSummaryText = Format("WpfShell.Log.Count", LogCount);
             string localizedMessage = string.IsNullOrWhiteSpace(latestLogMessage)
                 ? string.Empty
-                : WpfLocalizationTextRuntimeService.Translate(latestLogMessage);
+                : LocalizationTextRuntimeService.Translate(latestLogMessage);
             LatestLogText = string.IsNullOrWhiteSpace(localizedMessage)
                 ? T("WpfShell.Log.Empty")
                 : Format("WpfShell.Log.Latest", localizedMessage);

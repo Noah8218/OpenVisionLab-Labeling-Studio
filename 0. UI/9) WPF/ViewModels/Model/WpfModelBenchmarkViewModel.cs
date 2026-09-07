@@ -19,7 +19,7 @@ namespace MvcVisionSystem
     {
         public const int MaximumSelectedRunCount = 6;
 
-        private readonly WpfModelBenchmarkCatalogService catalogService;
+        private readonly ModelBenchmarkCatalogService catalogService;
         private readonly string repositoryRoot;
         private readonly ICollectionView filteredRuns;
         private string preferredSourcePath = string.Empty;
@@ -54,11 +54,11 @@ namespace MvcVisionSystem
         private bool disposed;
 
         public WpfModelBenchmarkViewModel(
-            WpfModelBenchmarkCatalogService catalogService = null,
+            ModelBenchmarkCatalogService catalogService = null,
             string repositoryRoot = "",
             string preferredSourcePath = "")
         {
-            this.catalogService = catalogService ?? new WpfModelBenchmarkCatalogService();
+            this.catalogService = catalogService ?? new ModelBenchmarkCatalogService();
             this.repositoryRoot = repositoryRoot ?? string.Empty;
             OpenVisionLanguageService.LanguageChanged += OpenVisionLanguageService_LanguageChanged;
             TaskFilters.Add("\uC804\uCCB4");

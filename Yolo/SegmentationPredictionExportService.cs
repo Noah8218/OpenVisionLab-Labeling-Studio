@@ -5,6 +5,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Threading;
 
 namespace MvcVisionSystem.Yolo
 {
@@ -12,6 +13,7 @@ namespace MvcVisionSystem.Yolo
     {
         public const string AdapterUnet = "unet";
         public const string AdapterUltralytics = "ultralytics";
+        private static readonly ExternalProcessRunner ProcessRunner = new ExternalProcessRunner();
 
         public static SegmentationPredictionExportRequest BuildRequest(
             string adapterKey,
@@ -111,20 +113,27 @@ namespace MvcVisionSystem.Yolo
         }
 
         public static SegmentationPredictionExportResult Run(SegmentationPredictionExportRequest request)
+            => Run(request, CancellationToken.None);
+
+        public static SegmentationPredictionExportResult Run(
+            SegmentationPredictionExportRequest request,
+            CancellationToken cancellationToken)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             IReadOnlyList<string> errors = ValidateRequest(request);
             if (errors.Count > 0)
             {
                 return new SegmentationPredictionExportResult { Error = string.Join(Environment.NewLine, errors) };
             }
 
-            using var process = new Process { StartInfo = CreateStartInfo(request) };
-            process.Start();
-            string output = process.StandardOutput.ReadToEnd();
-            string error = process.StandardError.ReadToEnd();
-            process.WaitForExit();
+            ExternalProcessRunResult processResult = ProcessRunner.Run(
+                CreateStartInfo(request),
+                cancellationToken: cancellationToken);
+            cancellationToken.ThrowIfCancellationRequested();
+            string output = processResult.Output;
+            string error = processResult.Error;
             string manifestPath = ParseManifestPath(output);
-            bool succeeded = process.ExitCode == 0 && File.Exists(manifestPath);
+            bool succeeded = processResult.ExitCode == 0 && File.Exists(manifestPath);
             return new SegmentationPredictionExportResult
             {
                 Succeeded = succeeded,

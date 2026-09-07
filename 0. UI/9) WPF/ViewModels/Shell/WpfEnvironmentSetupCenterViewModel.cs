@@ -47,7 +47,7 @@ namespace MvcVisionSystem
 
     public sealed class WpfEnvironmentSetupCenterViewModel : WpfObservableViewModel, IDisposable
     {
-        private readonly WpfRuntimeDiagnosticsService diagnosticsService;
+        private readonly RuntimeDiagnosticsService diagnosticsService;
         private readonly Func<PythonModelSettings> pythonSettingsProvider;
         private readonly Action openModelSettingsAction;
         private bool disposed;
@@ -62,14 +62,14 @@ namespace MvcVisionSystem
 
         public WpfEnvironmentSetupCenterViewModel()
             : this(
-                new WpfRuntimeDiagnosticsService(),
+                new RuntimeDiagnosticsService(),
                 () => LabelingApplicationState.Inst.Data.ProjectSettings?.PythonModel ?? new PythonModelSettings(),
                 null)
         {
         }
 
         public WpfEnvironmentSetupCenterViewModel(
-            WpfRuntimeDiagnosticsService diagnosticsService,
+            RuntimeDiagnosticsService diagnosticsService,
             Func<PythonModelSettings> pythonSettingsProvider,
             Action openModelSettingsAction)
         {
@@ -171,7 +171,7 @@ namespace MvcVisionSystem
             try
             {
                 Items.Clear();
-                WpfRuntimeSelfTestResult applicationReport = diagnosticsService.RunReadOnlySelfTest();
+                RuntimeSelfTestResult applicationReport = diagnosticsService.RunReadOnlySelfTest();
                 AddApplicationItems(applicationReport);
 
                 PythonModelSettings settings = pythonSettingsProvider() ?? new PythonModelSettings();
@@ -217,9 +217,9 @@ namespace MvcVisionSystem
             openModelSettingsAction?.Invoke();
         }
 
-        private void AddApplicationItems(WpfRuntimeSelfTestResult report)
+        private void AddApplicationItems(RuntimeSelfTestResult report)
         {
-            foreach (WpfRuntimeSelfTestCheck check in report?.Checks ?? Array.Empty<WpfRuntimeSelfTestCheck>())
+            foreach (RuntimeSelfTestCheck check in report?.Checks ?? Array.Empty<RuntimeSelfTestCheck>())
             {
                 bool ready = string.Equals(check.Status, "pass", StringComparison.Ordinal);
                 bool warning = string.Equals(check.Status, "warning", StringComparison.Ordinal);
@@ -322,7 +322,7 @@ namespace MvcVisionSystem
                 "diagnosticsPath" => T("WpfEnvironment.Name.DiagnosticsPath"),
                 "supportBundlePath" => T("WpfEnvironment.Name.SupportBundlePath"),
                 "logIsolation" => T("WpfEnvironment.Name.LogIsolation"),
-                WpfRuntimeDiagnosticsService.ViewerGraphicsCheckName => T("WpfEnvironment.Name.ViewerGraphics"),
+                RuntimeDiagnosticsService.ViewerGraphicsCheckName => T("WpfEnvironment.Name.ViewerGraphics"),
                 _ => LocalizeEnvironmentText(name)
             };
 
@@ -332,7 +332,7 @@ namespace MvcVisionSystem
                 "productBinary" or "applicationExecutable" => T("WpfEnvironment.NextAction.ProductFiles"),
                 "releaseManifest" => T("WpfEnvironment.NextAction.ReleaseManifest"),
                 "diagnosticsPath" or "supportBundlePath" or "logIsolation" => T("WpfEnvironment.NextAction.UserPaths"),
-                WpfRuntimeDiagnosticsService.ViewerGraphicsCheckName => T("WpfEnvironment.NextAction.ViewerGraphics"),
+                RuntimeDiagnosticsService.ViewerGraphicsCheckName => T("WpfEnvironment.NextAction.ViewerGraphics"),
                 _ => T("WpfEnvironment.NextAction.Generic")
             };
 
@@ -392,7 +392,7 @@ namespace MvcVisionSystem
                 arguments ?? Array.Empty<object>());
 
         private static string LocalizeEnvironmentText(string value)
-            => WpfLocalizationTextRuntimeService.Translate(value ?? string.Empty);
+            => LocalizationTextRuntimeService.Translate(value ?? string.Empty);
 
         private static string LocalizeApplicationDetail(string name, string detail)
         {
@@ -434,7 +434,7 @@ namespace MvcVisionSystem
                 }
             }
 
-            if (string.Equals(name, WpfRuntimeDiagnosticsService.ViewerGraphicsCheckName, StringComparison.Ordinal))
+            if (string.Equals(name, RuntimeDiagnosticsService.ViewerGraphicsCheckName, StringComparison.Ordinal))
             {
                 const string notAvailablePrefix = "이미지 뷰어 사용 불가";
                 const string availablePrefix = "이미지 뷰어 사용 가능";

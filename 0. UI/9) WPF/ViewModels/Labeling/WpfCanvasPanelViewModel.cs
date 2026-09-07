@@ -207,9 +207,9 @@ namespace MvcVisionSystem
 
         public string FirstLabelLoopText => T("WpfCanvas.FirstLabelLoop");
 
-        public string ShortcutSummaryText => TranslateExact(WpfAnnotationProductivityService.ShortcutSummaryText);
+        public string ShortcutSummaryText => TranslateExact(AnnotationProductivityService.ShortcutSummaryText);
 
-        public string ShortcutHelpText => TranslateExact(WpfAnnotationProductivityService.ShortcutHelpText);
+        public string ShortcutHelpText => TranslateExact(AnnotationProductivityService.ShortcutHelpText);
 
         public ObservableCollection<WpfAnnotationToolItem> AnnotationTools { get; } = new ObservableCollection<WpfAnnotationToolItem>();
 
@@ -1143,8 +1143,8 @@ namespace MvcVisionSystem
             displayAdjustmentChanged = adjustmentChanged ?? NoOpCommand;
         }
 
-        public WpfImageDisplayAdjustmentOptions GetDisplayAdjustmentOptions()
-            => new WpfImageDisplayAdjustmentOptions
+        public ImageDisplayAdjustmentOptions GetDisplayAdjustmentOptions()
+            => new ImageDisplayAdjustmentOptions
             {
                 Brightness = DisplayBrightness,
                 Contrast = DisplayContrastPercent / 100D,
@@ -1500,7 +1500,7 @@ namespace MvcVisionSystem
 
         private static string TranslateExact(string value)
         {
-            return WpfLocalizationTextRuntimeService.Translate(value);
+            return LocalizationTextRuntimeService.Translate(value);
         }
 
         public void SetLabelClasses(IEnumerable<LabelClass> classItems, string selectedName = "")
@@ -1654,7 +1654,7 @@ namespace MvcVisionSystem
 
         public void SetSelectedAnnotationTool(WpfAnnotationToolItem selectedTool)
         {
-            if (selectedTool == null || IsOneShotCommandTool(selectedTool.Tool))
+            if (selectedTool == null || AnnotationWorkflowService.IsOneShotCommandTool(selectedTool.Tool))
             {
                 return;
             }
@@ -1662,7 +1662,7 @@ namespace MvcVisionSystem
             if (AnnotationTools.Contains(selectedTool))
             {
                 SelectedAnnotationTool = selectedTool;
-                if (WpfAnnotationProductivityService.IsRepeatableDrawingTool(selectedTool.Tool))
+                if (AnnotationProductivityService.IsRepeatableDrawingTool(selectedTool.Tool))
                 {
                     lastDrawingTool = selectedTool.Tool;
                 }
@@ -1724,11 +1724,6 @@ namespace MvcVisionSystem
                     return false;
             }
         }
-
-        private static bool IsOneShotCommandTool(WpfAnnotationTool tool)
-            => tool == WpfAnnotationTool.Undo
-                || tool == WpfAnnotationTool.Redo
-                || tool == WpfAnnotationTool.Delete;
 
         private void RefreshActiveLabelClassPresentation()
         {

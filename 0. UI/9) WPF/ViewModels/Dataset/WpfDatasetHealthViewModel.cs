@@ -11,7 +11,7 @@ using System.Windows.Input;
 
 namespace MvcVisionSystem
 {
-    internal static class WpfDatasetHealthTextFormatter
+    internal static class DatasetHealthTextFormatter
     {
         public static string Translate(string key)
             => OpenVisionLanguageService.T(key);
@@ -29,7 +29,7 @@ namespace MvcVisionSystem
         public const string AllVisualQaClasses = "전체";
         private static readonly Action NoOpCommand = () => { };
         private static readonly string[] VisualQaSplitOrder = { "train", "valid", "test" };
-        private readonly WpfDatasetVisualQaService visualQaService = new WpfDatasetVisualQaService();
+        private readonly DatasetVisualQaService visualQaService = new DatasetVisualQaService();
         private readonly List<WpfDatasetVisualQaItem> visualQaCatalogItems = new List<WpfDatasetVisualQaItem>();
         private bool disposed;
         private LabelingProjectData data;
@@ -287,8 +287,8 @@ namespace MvcVisionSystem
                 SplitRows.Clear();
                 ClassRows.Clear();
                 Issues.Clear();
-                DatasetName = WpfDatasetContextPresentationService.BuildDatasetName(string.Empty, data?.OutputRootPath);
-                PurposeText = WpfDatasetContextPresentationService.FormatPurposeName(data?.ProjectSettings?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection);
+                DatasetName = DatasetContextPresentationService.BuildDatasetName(string.Empty, data?.OutputRootPath);
+                PurposeText = DatasetContextPresentationService.FormatPurposeName(data?.ProjectSettings?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection);
                 OutputRootText = data?.OutputRootPath ?? string.Empty;
                 StatusText = T("WpfDatasetHealth.Status.AnalysisFailed");
                 StatusDetailText = ex.Message;
@@ -331,7 +331,7 @@ namespace MvcVisionSystem
                 visualQaCatalogItems.Clear();
                 visualQaCatalogItems.AddRange(catalog.Items);
                 string truncationText = catalog.IsTruncated
-                    ? Format("WpfDatasetHealth.VisualQa.Truncated", WpfDatasetVisualQaService.MaximumCatalogItemCount)
+                    ? Format("WpfDatasetHealth.VisualQa.Truncated", DatasetVisualQaService.MaximumCatalogItemCount)
                     : string.Empty;
                 visualQaCatalogStatusText = selectedClassIndex.HasValue
                     ? Format(
@@ -479,8 +479,8 @@ namespace MvcVisionSystem
                 classes: Array.Empty<YoloDatasetHealthClassSummary>(),
                 issues: Array.Empty<string>());
 
-            DatasetName = WpfDatasetContextPresentationService.BuildDatasetName(string.Empty, data?.OutputRootPath);
-            PurposeText = WpfDatasetContextPresentationService.FormatPurposeName(report.Purpose);
+            DatasetName = DatasetContextPresentationService.BuildDatasetName(string.Empty, data?.OutputRootPath);
+            PurposeText = DatasetContextPresentationService.FormatPurposeName(report.Purpose);
             OutputRootText = string.IsNullOrWhiteSpace(data?.OutputRootPath)
                 ? T("WpfDatasetHealth.OutputRootPrompt")
                 : data.OutputRootPath;
@@ -664,8 +664,8 @@ namespace MvcVisionSystem
                 return T("WpfDatasetHealth.Issue.Unreviewed");
             }
 
-            return WpfLocalizationTextRuntimeService.Translate(
-                WpfTrainingReadinessPresentationService.BuildFriendlyIssueSummary(normalized));
+            return LocalizationTextRuntimeService.Translate(
+                TrainingReadinessPresentationService.BuildFriendlyIssueSummary(normalized));
         }
 
         private void OpenVisionLanguageService_LanguageChanged(object sender, EventArgs e)
@@ -681,10 +681,10 @@ namespace MvcVisionSystem
         }
 
         private static string T(string key)
-            => WpfDatasetHealthTextFormatter.Translate(key);
+            => DatasetHealthTextFormatter.Translate(key);
 
         private static string Format(string key, params object[] arguments)
-            => WpfDatasetHealthTextFormatter.Format(key, arguments);
+            => DatasetHealthTextFormatter.Format(key, arguments);
     }
 
     public sealed class WpfDatasetHealthMetricItem
@@ -767,10 +767,10 @@ namespace MvcVisionSystem
         }
 
         private static string T(string key)
-            => WpfDatasetHealthTextFormatter.Translate(key);
+            => DatasetHealthTextFormatter.Translate(key);
 
         private static string Format(string key, params object[] arguments)
-            => WpfDatasetHealthTextFormatter.Format(key, arguments);
+            => DatasetHealthTextFormatter.Format(key, arguments);
     }
 
     public sealed class WpfDatasetHealthClassRow
@@ -792,7 +792,7 @@ namespace MvcVisionSystem
         }
 
         private static string T(string key)
-            => WpfDatasetHealthTextFormatter.Translate(key);
+            => DatasetHealthTextFormatter.Translate(key);
 
         public string ClassName { get; }
 

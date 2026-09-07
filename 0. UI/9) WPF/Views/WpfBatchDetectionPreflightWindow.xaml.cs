@@ -26,7 +26,7 @@ namespace MvcVisionSystem
         public WpfBatchDetectionPreflightWindow(WpfBatchDetectionPreflightViewModel viewModel)
         {
             InitializeComponent();
-            WpfLocalizationTextRuntimeService.RegisterWindow(this);
+            LocalizationTextRuntimeService.RegisterWindow(this);
             DataContext = viewModel ?? throw new ArgumentNullException(nameof(viewModel));
             viewModel.StartRequested += ViewModel_StartRequested;
             Closed += Window_Closed;

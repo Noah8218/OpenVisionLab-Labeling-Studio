@@ -9,9 +9,12 @@ namespace MvcVisionSystem
 {
     public partial class WpfLearningWorkflowPanel : UserControl
     {
+        private int deferredFocusVersion;
+
         public WpfLearningWorkflowPanel()
         {
             InitializeComponent();
+            Unloaded += OnUnloaded;
         }
 
         public WpfLearningWorkflowPanelViewModel ViewModel => DataContext as WpfLearningWorkflowPanelViewModel;
@@ -152,25 +155,50 @@ namespace MvcVisionSystem
 
         public Button TutorialOpenHtmlGuide => TutorialOpenHtmlGuideButton;
 
+        private void OnUnloaded(object sender, System.Windows.RoutedEventArgs e)
+        {
+            deferredFocusVersion++;
+        }
+
         public void ShowAnnotationToolPalette()
         {
-            Dispatcher.BeginInvoke(new Action(() =>
+            int requestVersion = deferredFocusVersion;
+            Dispatcher.BeginInvoke(new Action(() => ApplyDeferredAnnotationToolPalette(requestVersion)), DispatcherPriority.Background);
+        }
+
+        private void ApplyDeferredAnnotationToolPalette(int requestVersion)
+        {
+            if (requestVersion != deferredFocusVersion
+                || Dispatcher.HasShutdownStarted
+                || Dispatcher.HasShutdownFinished)
             {
-                ViewModel?.ShowLabelingTask();
-                LearningWorkflowScrollViewer.ScrollToTop();
-                CurrentWorkflowStepPanel.BringIntoView();
-            }), DispatcherPriority.Background);
+                return;
+            }
+
+            ViewModel?.ShowLabelingTask();
+            LearningWorkflowScrollViewer.ScrollToTop();
+            CurrentWorkflowStepPanel.BringIntoView();
         }
 
         public void ShowDatasetSetupStart()
         {
-            Dispatcher.BeginInvoke(new Action(() =>
+            int requestVersion = deferredFocusVersion;
+            Dispatcher.BeginInvoke(new Action(() => ApplyDeferredDatasetSetupStart(requestVersion)), DispatcherPriority.Background);
+        }
+
+        private void ApplyDeferredDatasetSetupStart(int requestVersion)
+        {
+            if (requestVersion != deferredFocusVersion
+                || Dispatcher.HasShutdownStarted
+                || Dispatcher.HasShutdownFinished)
             {
-                ViewModel?.ShowDatasetOnboarding();
-                LearningWorkflowScrollViewer.ScrollToTop();
-                DatasetSetupActionPanel.BringIntoView();
-                DatasetSetupStartButton.Focus();
-            }), DispatcherPriority.Background);
+                return;
+            }
+
+            ViewModel?.ShowDatasetOnboarding();
+            LearningWorkflowScrollViewer.ScrollToTop();
+            DatasetSetupActionPanel.BringIntoView();
+            DatasetSetupStartButton.Focus();
         }
     }
 }

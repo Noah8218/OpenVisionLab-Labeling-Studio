@@ -42,10 +42,10 @@ namespace MvcVisionSystem
 
         public static string BuildReviewCountSummary(IEnumerable<WpfImageQueueItem> items)
         {
-            return BuildReviewCountSummary(WpfImageQueueFilterService.Summarize(items));
+            return BuildReviewCountSummary(ImageQueueFilterService.Summarize(items));
         }
 
-        public static string BuildReviewCountSummary(WpfImageQueueSummary summary)
+        public static string BuildReviewCountSummary(ImageQueueSummary summary)
         {
             if (summary == null || summary.TotalCount == 0)
             {

@@ -17,6 +17,7 @@ namespace MvcVisionSystem
     public partial class WpfModelBenchmarkWindow : FluentWindow
     {
         private WpfModelBenchmarkViewModel observedViewModel;
+        private bool isClosed;
 
         private static readonly string[] ThemeBrushKeys =
         {
@@ -45,7 +46,7 @@ namespace MvcVisionSystem
         public WpfModelBenchmarkWindow(WpfModelBenchmarkViewModel viewModel = null)
         {
             InitializeComponent();
-            WpfLocalizationTextRuntimeService.RegisterWindow(this);
+            LocalizationTextRuntimeService.RegisterWindow(this);
             DataContext = viewModel ?? new WpfModelBenchmarkViewModel();
             Loaded += OnWindowLoaded;
             Unloaded += OnWindowUnloaded;
@@ -79,10 +80,21 @@ namespace MvcVisionSystem
 
         private void OnWindowLoaded(object sender, RoutedEventArgs e)
         {
+            if (isClosed)
+            {
+                return;
+            }
+
             OpenVisionLanguageService.LanguageChanged += OnLanguageChanged;
             Dispatcher.BeginInvoke(
                 DispatcherPriority.ApplicationIdle,
-                new Action(ApplyLocalizedColumnHeaders));
+                new Action(() =>
+                {
+                    if (!isClosed)
+                    {
+                        ApplyLocalizedColumnHeaders();
+                    }
+                }));
             AttachDashboardViewModel();
             RenderQualityTaktCanvas();
         }
@@ -99,15 +111,27 @@ namespace MvcVisionSystem
 
         protected override void OnClosed(EventArgs e)
         {
+            isClosed = true;
             ViewModel?.Dispose();
             base.OnClosed(e);
         }
 
         private void OnLanguageChanged(object sender, EventArgs e)
         {
+            if (isClosed)
+            {
+                return;
+            }
+
             Dispatcher.BeginInvoke(
                 DispatcherPriority.ApplicationIdle,
-                new Action(ApplyLocalizedColumnHeaders));
+                new Action(() =>
+                {
+                    if (!isClosed)
+                    {
+                        ApplyLocalizedColumnHeaders();
+                    }
+                }));
         }
 
         private void ApplyLocalizedColumnHeaders()
@@ -152,6 +176,11 @@ namespace MvcVisionSystem
 
         private void OnDashboardViewModelPropertyChanged(object sender, PropertyChangedEventArgs e)
         {
+            if (isClosed)
+            {
+                return;
+            }
+
             if (!string.Equals(e.PropertyName, nameof(WpfModelBenchmarkViewModel.DashboardRevision), StringComparison.Ordinal))
             {
                 return;
@@ -165,7 +194,13 @@ namespace MvcVisionSystem
             {
                 Dispatcher.BeginInvoke(
                     DispatcherPriority.Render,
-                    new Action(RenderQualityTaktCanvas));
+                    new Action(() =>
+                    {
+                        if (!isClosed)
+                        {
+                            RenderQualityTaktCanvas();
+                        }
+                    }));
             }
         }
 

@@ -14,6 +14,7 @@ namespace MvcVisionSystem._1._Core
     public static class YoloWorkerSmokeTestService
     {
         private static readonly string[] ImageExtensions = { ".bmp", ".jpg", ".jpeg", ".png" };
+        private static readonly ExternalProcessRunner ProcessRunner = new ExternalProcessRunner();
 
         public static async Task<YoloWorkerSmokeTestResult> RunAsync(
             PythonModelSettings settings,
@@ -47,49 +48,57 @@ namespace MvcVisionSystem._1._Core
             }
 
             int timeoutMilliseconds = Math.Clamp((settings.DetectionTimeoutSeconds + 90) * 1000, 120000, 300000);
-            using var process = CreateSmokeProcess(
+            ExternalProcessRunResult processResult = await ProcessRunner
+                .RunAsync(
+                    CreateSmokeStartInfo(
+                        pythonExecutablePath,
+                        projectRootPath,
+                        clientScriptPath,
+                        modelRootPath,
+                        weightsPath,
+                        imagePath,
+                        settings.InferenceImageSize,
+                        settings.MinimumDetectionConfidence,
+                        modelName),
+                    TimeSpan.FromMilliseconds(timeoutMilliseconds),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (processResult.Canceled)
+            {
+                return BuildProcessFailure("YOLO smoke test canceled.", pythonExecutablePath, projectRootPath, clientScriptPath, modelRootPath, weightsPath, imagePath, processResult.Output, processResult.Error);
+            }
+
+            if (processResult.TimedOut)
+            {
+                return BuildProcessFailure("YOLO smoke test timed out.", pythonExecutablePath, projectRootPath, clientScriptPath, modelRootPath, weightsPath, imagePath, processResult.Output, processResult.Error);
+            }
+
+            if (!processResult.Started)
+            {
+                return BuildProcessFailure(
+                    string.IsNullOrWhiteSpace(processResult.Error)
+                        ? "YOLO smoke test process did not start."
+                        : processResult.Error,
+                    pythonExecutablePath,
+                    projectRootPath,
+                    clientScriptPath,
+                    modelRootPath,
+                    weightsPath,
+                    imagePath,
+                    processResult.Output,
+                    processResult.Error);
+            }
+
+            return ParseSmokeOutput(
+                processResult.ExitCode,
+                processResult.Output,
+                processResult.Error,
                 pythonExecutablePath,
                 projectRootPath,
                 clientScriptPath,
                 modelRootPath,
                 weightsPath,
-                imagePath,
-                settings.InferenceImageSize,
-                settings.MinimumDetectionConfidence,
-                modelName);
-
-            try
-            {
-                if (!process.Start())
-                {
-                    return BuildProcessFailure("YOLO smoke test process did not start.", pythonExecutablePath, projectRootPath, clientScriptPath, modelRootPath, weightsPath, imagePath);
-                }
-
-                Task<string> outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-                Task<string> errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-                Task waitTask = process.WaitForExitAsync(cancellationToken);
-                Task completed = await Task.WhenAny(waitTask, Task.Delay(timeoutMilliseconds, cancellationToken)).ConfigureAwait(false);
-                if (completed != waitTask)
-                {
-                    TryKill(process);
-                    string output = await SafeRead(outputTask).ConfigureAwait(false);
-                    string error = await SafeRead(errorTask).ConfigureAwait(false);
-                    return BuildProcessFailure("YOLO smoke test timed out.", pythonExecutablePath, projectRootPath, clientScriptPath, modelRootPath, weightsPath, imagePath, output, error);
-                }
-
-                string stdout = await SafeRead(outputTask).ConfigureAwait(false);
-                string stderr = await SafeRead(errorTask).ConfigureAwait(false);
-                return ParseSmokeOutput(process.ExitCode, stdout, stderr, pythonExecutablePath, projectRootPath, clientScriptPath, modelRootPath, weightsPath, imagePath);
-            }
-            catch (OperationCanceledException)
-            {
-                TryKill(process);
-                return BuildProcessFailure("YOLO smoke test canceled.", pythonExecutablePath, projectRootPath, clientScriptPath, modelRootPath, weightsPath, imagePath);
-            }
-            catch (Exception ex)
-            {
-                return BuildProcessFailure(ex.Message, pythonExecutablePath, projectRootPath, clientScriptPath, modelRootPath, weightsPath, imagePath);
-            }
+                imagePath);
         }
 
         public static string ResolveSmokeImagePath(PythonModelSettings settings)
@@ -165,7 +174,7 @@ namespace MvcVisionSystem._1._Core
             return errors.Distinct(StringComparer.OrdinalIgnoreCase).ToList();
         }
 
-        private static Process CreateSmokeProcess(
+        private static ProcessStartInfo CreateSmokeStartInfo(
             string pythonExecutablePath,
             string projectRootPath,
             string clientScriptPath,
@@ -176,38 +185,35 @@ namespace MvcVisionSystem._1._Core
             float confidence,
             string modelName)
         {
-            var process = new Process
+            var startInfo = new ProcessStartInfo
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = pythonExecutablePath,
-                    WorkingDirectory = Directory.Exists(projectRootPath) ? projectRootPath : AppContext.BaseDirectory,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                }
+                FileName = pythonExecutablePath,
+                WorkingDirectory = Directory.Exists(projectRootPath) ? projectRootPath : AppContext.BaseDirectory,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
             };
 
-            process.StartInfo.ArgumentList.Add(clientScriptPath);
-            process.StartInfo.ArgumentList.Add("--smoke-test");
-            process.StartInfo.ArgumentList.Add("--weights");
-            process.StartInfo.ArgumentList.Add(weightsPath);
+            startInfo.ArgumentList.Add(clientScriptPath);
+            startInfo.ArgumentList.Add("--smoke-test");
+            startInfo.ArgumentList.Add("--weights");
+            startInfo.ArgumentList.Add(weightsPath);
             if (!string.IsNullOrWhiteSpace(modelName))
             {
-                process.StartInfo.ArgumentList.Add("--model");
-                process.StartInfo.ArgumentList.Add(modelName.Trim());
+                startInfo.ArgumentList.Add("--model");
+                startInfo.ArgumentList.Add(modelName.Trim());
             }
 
-            process.StartInfo.ArgumentList.Add("--model-root");
-            process.StartInfo.ArgumentList.Add(modelRootPath);
-            process.StartInfo.ArgumentList.Add("--image");
-            process.StartInfo.ArgumentList.Add(imagePath);
-            process.StartInfo.ArgumentList.Add("--img-size");
-            process.StartInfo.ArgumentList.Add(imageSize.ToString(CultureInfo.InvariantCulture));
-            process.StartInfo.ArgumentList.Add("--conf");
-            process.StartInfo.ArgumentList.Add(confidence.ToString(CultureInfo.InvariantCulture));
-            return process;
+            startInfo.ArgumentList.Add("--model-root");
+            startInfo.ArgumentList.Add(modelRootPath);
+            startInfo.ArgumentList.Add("--image");
+            startInfo.ArgumentList.Add(imagePath);
+            startInfo.ArgumentList.Add("--img-size");
+            startInfo.ArgumentList.Add(imageSize.ToString(CultureInfo.InvariantCulture));
+            startInfo.ArgumentList.Add("--conf");
+            startInfo.ArgumentList.Add(confidence.ToString(CultureInfo.InvariantCulture));
+            return startInfo;
         }
 
         private static YoloWorkerSmokeTestResult ParseSmokeOutput(
@@ -433,32 +439,6 @@ namespace MvcVisionSystem._1._Core
                 Error = error ?? string.Empty,
                 Errors = new[] { summary ?? "YOLO smoke test failed." }
             };
-        }
-
-        private static async Task<string> SafeRead(Task<string> task)
-        {
-            try
-            {
-                return await task.ConfigureAwait(false);
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
-
-        private static void TryKill(Process process)
-        {
-            try
-            {
-                if (process != null && !process.HasExited)
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-            }
-            catch
-            {
-            }
         }
 
         private static string FirstNonEmpty(params string[] values)

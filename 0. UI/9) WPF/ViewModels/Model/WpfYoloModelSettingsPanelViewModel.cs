@@ -785,7 +785,7 @@ namespace MvcVisionSystem
             settings.EnsureDefaults();
         }
 
-        public void ApplyWorkflowCommandState(WpfWorkflowCommandState state)
+        public void ApplyWorkflowCommandState(WorkflowCommandState state)
         {
             bool canRunGeneralCommands = state?.CanRunGeneralCommands == true;
             IsBrowsePythonEnabled = canRunGeneralCommands;

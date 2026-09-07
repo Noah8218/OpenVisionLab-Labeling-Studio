@@ -52,7 +52,7 @@ namespace MvcVisionSystem
         private string toolDetailText = string.Empty;
         private string trainingChecklistStatusText = T("WpfLearningWorkflow.TrainingChecklist.Status.Initial");
         private string trainingChecklistDetailText = T("WpfLearningWorkflow.TrainingChecklist.Detail.Initial");
-        private string trainingChecklistActionText = WpfTrainingChecklistLocalizationService.CreateInitialAction().ActionText;
+        private string trainingChecklistActionText = TrainingChecklistLocalizationService.CreateInitialAction().ActionText;
         private string datasetDashboardStatusText = T("WpfLearningWorkflow.DatasetDashboard.Status.Before");
         private string datasetDashboardSummaryText = T("WpfLearningWorkflow.DatasetDashboard.Summary.Before");
         private string datasetDashboardActionText = T("WpfLearningWorkflow.DatasetDashboardAction.Initial");
@@ -64,8 +64,8 @@ namespace MvcVisionSystem
         private string externalYoloDatasetIntakeDetailText = "\uB0B4\uBD80 \uB77C\uBCA8\uB9C1 \uB370\uC774\uD130\uC640 \uBD84\uB9AC\uB41C \uC6D0\uBCF8 YOLO \uB370\uC774\uD130\uC14B\uC744 \uAC80\uC99D\uD55C \uB4A4 \uB2E4\uC74C \uD559\uC2B5\uC5D0\uB9CC \uC0AC\uC6A9\uD569\uB2C8\uB2E4.";
         private string externalYoloDatasetIntakePathText = string.Empty;
         private string objectDetectionMvpNextActionText = T("WpfLearningWorkflow.ObjectDetectionMvpNextAction.Empty");
-        private string modelReplacementStatusText = WpfModelReplacementLocalizationService.CreateInitial().StatusText;
-        private string modelReplacementDetailText = WpfModelReplacementLocalizationService.CreateInitial().DetailText;
+        private string modelReplacementStatusText = ModelReplacementLocalizationService.CreateInitial().StatusText;
+        private string modelReplacementDetailText = ModelReplacementLocalizationService.CreateInitial().DetailText;
         private string trainingHistoryText = string.Empty;
         private string trainingResultComparisonSummaryText = string.Empty;
         private string trainingResultComparisonText = string.Empty;
@@ -115,12 +115,12 @@ namespace MvcVisionSystem
         private ICommand clearExternalYoloDatasetCommand = new RelayCommand(NoOpCommand);
         private ICommand templateCurrentImageCommand = new RelayCommand(NoOpCommand);
         private ICommand templateBatchCommand = new RelayCommand(NoOpCommand);
-        private WpfTrainingChecklistLocalizationSnapshot trainingChecklistLocalizationSnapshot;
-        private WpfTrainingChecklistActionLocalizationSnapshot trainingChecklistActionLocalizationSnapshot;
-        private WpfModelReplacementLocalizationSnapshot modelReplacementLocalizationSnapshot;
-        private WpfTrainingModelLifecycleLocalizationSnapshot trainingModelLifecycleLocalizationSnapshot;
-        private WpfTrainingComparisonLocalizationSnapshot trainingComparisonLocalizationSnapshot;
-        private WpfDatasetDashboardLocalizationSnapshot datasetDashboardLocalizationSnapshot;
+        private TrainingChecklistLocalizationSnapshot trainingChecklistLocalizationSnapshot;
+        private TrainingChecklistActionLocalizationSnapshot trainingChecklistActionLocalizationSnapshot;
+        private ModelReplacementLocalizationSnapshot modelReplacementLocalizationSnapshot;
+        private TrainingModelLifecycleLocalizationSnapshot trainingModelLifecycleLocalizationSnapshot;
+        private TrainingComparisonLocalizationSnapshot trainingComparisonLocalizationSnapshot;
+        private DatasetDashboardLocalizationSnapshot datasetDashboardLocalizationSnapshot;
         private bool refreshingTrainingChecklistLocalization;
         private bool refreshingModelReplacementLocalization;
         private bool refreshingTrainingModelLifecycleLocalization;
@@ -129,14 +129,14 @@ namespace MvcVisionSystem
 
         public WpfLearningWorkflowPanelViewModel()
         {
-            modelReplacementLocalizationSnapshot = WpfModelReplacementLocalizationService.CreateInitial();
-            trainingModelLifecycleLocalizationSnapshot = WpfTrainingModelLifecycleLocalizationService.CreateInitial();
-            trainingComparisonLocalizationSnapshot = WpfTrainingComparisonLocalizationService.CreateInitial();
+            modelReplacementLocalizationSnapshot = ModelReplacementLocalizationService.CreateInitial();
+            trainingModelLifecycleLocalizationSnapshot = TrainingModelLifecycleLocalizationService.CreateInitial();
+            trainingComparisonLocalizationSnapshot = TrainingComparisonLocalizationService.CreateInitial();
             OpenVisionLanguageService.LanguageChanged += OpenVisionLanguageService_LanguageChanged;
 
             SetTrainingComparisonLocalization(trainingComparisonLocalizationSnapshot);
 
-            foreach (WpfLearningModeItem mode in WpfLearningWorkflowCatalogService.BuildLearningModes())
+            foreach (WpfLearningModeItem mode in LearningWorkflowCatalogService.BuildLearningModes())
             {
                 LearningModes.Add(mode);
             }
@@ -147,38 +147,38 @@ namespace MvcVisionSystem
             ExternalYoloDatasetPurposeModes.Add(DatasetPurposeModes.First(item => item.Mode == WpfLearningMode.Segmentation));
             SelectedExternalYoloDatasetPurposeMode = ExternalYoloDatasetPurposeModes.FirstOrDefault();
 
-            foreach (WpfAnnotationToolItem tool in WpfLearningWorkflowCatalogService.BuildAnnotationTools())
+            foreach (WpfAnnotationToolItem tool in LearningWorkflowCatalogService.BuildAnnotationTools())
             {
                 RegisterAnnotationTool(tool);
             }
             ApplyDatasetPurpose(LabelingDatasetPurpose.ObjectDetection);
 
-            foreach (WpfLearningStepItem step in WpfLearningWorkflowCatalogService.BuildLearningSteps())
+            foreach (WpfLearningStepItem step in LearningWorkflowCatalogService.BuildLearningSteps())
             {
                 LearningSteps.Add(step);
             }
 
-            foreach (WpfTemplateWorkflowStepItem step in WpfLearningWorkflowCatalogService.BuildTemplateWorkflowSteps())
+            foreach (WpfTemplateWorkflowStepItem step in LearningWorkflowCatalogService.BuildTemplateWorkflowSteps())
             {
                 TemplateWorkflowSteps.Add(step);
             }
 
-            foreach (WpfFirstRunChecklistItem item in WpfLearningWorkflowCatalogService.BuildFirstRunSamplePathItems())
+            foreach (WpfFirstRunChecklistItem item in LearningWorkflowCatalogService.BuildFirstRunSamplePathItems())
             {
                 FirstRunSamplePathItems.Add(item);
             }
 
-            foreach (WpfFirstRunChecklistItem item in WpfLearningWorkflowCatalogService.BuildFirstRunChecklistItems())
+            foreach (WpfFirstRunChecklistItem item in LearningWorkflowCatalogService.BuildFirstRunChecklistItems())
             {
                 FirstRunChecklistItems.Add(item);
             }
 
-            foreach (string item in WpfLearningWorkflowCatalogService.BuildTutorialChecklistItems())
+            foreach (string item in LearningWorkflowCatalogService.BuildTutorialChecklistItems())
             {
                 TutorialChecklistItems.Add(item);
             }
 
-            foreach (WpfYoloTrainingWorkflowStepItem step in WpfLearningWorkflowCatalogService.BuildYoloTrainingWorkflowSteps())
+            foreach (WpfYoloTrainingWorkflowStepItem step in LearningWorkflowCatalogService.BuildYoloTrainingWorkflowSteps())
             {
                 YoloTrainingWorkflowSteps.Add(step);
             }
@@ -191,14 +191,14 @@ namespace MvcVisionSystem
             SelectedTool = SelectableAnnotationTools.FirstOrDefault();
             SelectedStep = LearningSteps.FirstOrDefault();
             SetAnnotationHistoryState(canUndo: false, canRedo: false, undoActionName: string.Empty, redoActionName: string.Empty);
-            SetTrainingChecklistLocalization(WpfTrainingChecklistLocalizationService.CreateInitial());
-            SetTrainingChecklistActionLocalization(WpfTrainingChecklistLocalizationService.CreateInitialAction());
-            WpfDatasetDashboardLocalizationSnapshot initialDashboard = WpfDatasetDashboardLocalizationService.CreateInitial();
+            SetTrainingChecklistLocalization(TrainingChecklistLocalizationService.CreateInitial());
+            SetTrainingChecklistActionLocalization(TrainingChecklistLocalizationService.CreateInitialAction());
+            DatasetDashboardLocalizationSnapshot initialDashboard = DatasetDashboardLocalizationService.CreateInitial();
             SetDatasetDashboard(
                 initialDashboard.StatusText,
                 initialDashboard.SummaryText,
                 datasetDashboardActionText,
-                WpfLearningWorkflowCatalogService.BuildInitialDatasetDashboardMetrics(),
+                LearningWorkflowCatalogService.BuildInitialDatasetDashboardMetrics(),
                 initialDashboard.IssueItems,
                 initialDashboard);
         }
@@ -471,7 +471,7 @@ namespace MvcVisionSystem
             set => SetProperty(ref datasetDashboardActionText, value ?? string.Empty);
         }
 
-        public void SetTrainingChecklistLocalization(WpfTrainingChecklistLocalizationSnapshot localization)
+        public void SetTrainingChecklistLocalization(TrainingChecklistLocalizationSnapshot localization)
         {
             trainingChecklistLocalizationSnapshot = localization;
             refreshingTrainingChecklistLocalization = true;
@@ -488,7 +488,7 @@ namespace MvcVisionSystem
             trainingChecklistLocalizationSnapshot = localization;
         }
 
-        public void SetTrainingChecklistActionLocalization(WpfTrainingChecklistActionLocalizationSnapshot localization)
+        public void SetTrainingChecklistActionLocalization(TrainingChecklistActionLocalizationSnapshot localization)
         {
             trainingChecklistActionLocalizationSnapshot = localization;
             refreshingTrainingChecklistLocalization = true;
@@ -502,6 +502,24 @@ namespace MvcVisionSystem
             }
 
             trainingChecklistActionLocalizationSnapshot = localization;
+        }
+
+        public void SetTrainingChecklistText(string statusText, string detailText, string actionText)
+        {
+            refreshingTrainingChecklistLocalization = true;
+            try
+            {
+                TrainingChecklistStatusText = statusText ?? string.Empty;
+                TrainingChecklistDetailText = detailText ?? string.Empty;
+                TrainingChecklistActionText = actionText ?? string.Empty;
+            }
+            finally
+            {
+                refreshingTrainingChecklistLocalization = false;
+            }
+
+            trainingChecklistLocalizationSnapshot = null;
+            trainingChecklistActionLocalizationSnapshot = null;
         }
 
         public string ExternalEvaluationDataAuditStatusText
@@ -588,7 +606,7 @@ namespace MvcVisionSystem
                 SetProperty(
                     ref trainingHistoryText,
                     string.IsNullOrWhiteSpace(value)
-                        ? WpfTrainingComparisonLocalizationService.CreateInitial().HistoryText
+                        ? TrainingComparisonLocalizationService.CreateInitial().HistoryText
                         : value);
             }
         }
@@ -607,7 +625,7 @@ namespace MvcVisionSystem
                 SetProperty(
                     ref trainingResultComparisonText,
                     string.IsNullOrWhiteSpace(value)
-                        ? WpfTrainingComparisonLocalizationService.CreateInitial().ComparisonText
+                        ? TrainingComparisonLocalizationService.CreateInitial().ComparisonText
                         : value);
             }
         }
@@ -626,7 +644,7 @@ namespace MvcVisionSystem
                 SetProperty(
                     ref trainingResultComparisonSummaryText,
                     string.IsNullOrWhiteSpace(value)
-                        ? WpfTrainingComparisonLocalizationService.CreateInitial().SummaryText
+                        ? TrainingComparisonLocalizationService.CreateInitial().SummaryText
                         : value);
             }
         }
@@ -645,7 +663,7 @@ namespace MvcVisionSystem
                 SetProperty(
                     ref trainingModelAdoptionDecisionText,
                     string.IsNullOrWhiteSpace(value)
-                        ? WpfTrainingComparisonLocalizationService.CreateInitial().AdoptionDecisionText
+                        ? TrainingComparisonLocalizationService.CreateInitial().AdoptionDecisionText
                         : value);
             }
         }
@@ -732,7 +750,7 @@ namespace MvcVisionSystem
                 SetProperty(
                     ref runModelComparisonActionText,
                     string.IsNullOrWhiteSpace(value)
-                        ? WpfTrainingComparisonLocalizationService.CreateInitial().RunActionText
+                        ? TrainingComparisonLocalizationService.CreateInitial().RunActionText
                         : value);
             }
         }
@@ -751,7 +769,7 @@ namespace MvcVisionSystem
                 SetProperty(
                     ref runModelComparisonToolTipText,
                     string.IsNullOrWhiteSpace(value)
-                        ? WpfTrainingComparisonLocalizationService.CreateInitial().RunToolTipText
+                        ? TrainingComparisonLocalizationService.CreateInitial().RunToolTipText
                         : value);
             }
         }
@@ -770,7 +788,7 @@ namespace MvcVisionSystem
                 SetProperty(
                     ref modelComparisonBasisText,
                     string.IsNullOrWhiteSpace(value)
-                        ? WpfTrainingComparisonLocalizationService.CreateInitial().ComparisonBasisText
+                        ? TrainingComparisonLocalizationService.CreateInitial().ComparisonBasisText
                         : value);
             }
         }
@@ -795,7 +813,7 @@ namespace MvcVisionSystem
                     CurrentYoloTrainingStepDetailText = value?.ActionText ?? string.Empty;
                     CurrentYoloTrainingActionText = value == null
                         ? "대기"
-                        : WpfLearningWorkflowGuidanceService.BuildCurrentYoloTrainingActionText(value);
+                        : LearningWorkflowGuidanceService.BuildCurrentYoloTrainingActionText(value);
                 }
             }
         }
@@ -852,7 +870,7 @@ namespace MvcVisionSystem
             AnnotationTools.Add(tool);
             // The guide separates persistent drawing tools from one-shot edit commands;
             // the full AnnotationTools list stays as the shared source for canvas toolbar state.
-            if (IsOneShotCommandTool(tool.Tool))
+            if (AnnotationWorkflowService.IsOneShotCommandTool(tool.Tool))
             {
                 AnnotationCommandTools.Add(tool);
                 return;
@@ -860,11 +878,6 @@ namespace MvcVisionSystem
 
             SelectableAnnotationTools.Add(tool);
         }
-
-        private static bool IsOneShotCommandTool(WpfAnnotationTool tool)
-            => tool == WpfAnnotationTool.Undo
-                || tool == WpfAnnotationTool.Redo
-                || tool == WpfAnnotationTool.Delete;
 
         private void RefreshAnnotationToolScopeForMode(WpfLearningMode mode)
         {
@@ -886,7 +899,7 @@ namespace MvcVisionSystem
                 }
             }
 
-            foreach (WpfAnnotationToolItem tool in AnnotationTools.Where(tool => mode != WpfLearningMode.AnomalyDetection && IsOneShotCommandTool(tool.Tool)))
+            foreach (WpfAnnotationToolItem tool in AnnotationTools.Where(tool => mode != WpfLearningMode.AnomalyDetection && AnnotationWorkflowService.IsOneShotCommandTool(tool.Tool)))
             {
                 AnnotationCommandTools.Add(tool);
                 VisibleAnnotationTools.Add(tool);
@@ -1095,9 +1108,9 @@ namespace MvcVisionSystem
             RefreshTrainingComparisonLocalization();
         }
 
-        public void SetTrainingComparisonLocalization(WpfTrainingComparisonLocalizationSnapshot localization)
+        public void SetTrainingComparisonLocalization(TrainingComparisonLocalizationSnapshot localization)
         {
-            localization ??= WpfTrainingComparisonLocalizationService.CreateInitial();
+            localization ??= TrainingComparisonLocalizationService.CreateInitial();
             trainingComparisonLocalizationSnapshot = localization;
             refreshingTrainingComparisonLocalization = true;
             try
@@ -1119,7 +1132,7 @@ namespace MvcVisionSystem
         private void RefreshTrainingComparisonLocalization()
         {
             SetTrainingComparisonLocalization(
-                WpfTrainingComparisonLocalizationService.Build(
+                TrainingComparisonLocalizationService.Build(
                     trainingHistorySourceText,
                     trainingResultComparisonSummarySourceText,
                     trainingResultComparisonSourceText,
@@ -1158,9 +1171,9 @@ namespace MvcVisionSystem
                 : detailText;
         }
 
-        public void SetModelReplacementLocalization(WpfModelReplacementLocalizationSnapshot localization)
+        public void SetModelReplacementLocalization(ModelReplacementLocalizationSnapshot localization)
         {
-            localization ??= WpfModelReplacementLocalizationService.CreateInitial();
+            localization ??= ModelReplacementLocalizationService.CreateInitial();
             modelReplacementLocalizationSnapshot = localization;
             refreshingModelReplacementLocalization = true;
             try
@@ -1181,7 +1194,7 @@ namespace MvcVisionSystem
             string nextActionText)
         {
             SetTrainingModelLifecycleLocalization(
-                WpfTrainingModelLifecycleLocalizationService.Build(
+                TrainingModelLifecycleLocalizationService.Build(
                     currentModelText,
                     candidateModelText,
                     decisionText,
@@ -1189,9 +1202,9 @@ namespace MvcVisionSystem
         }
 
         public void SetTrainingModelLifecycleLocalization(
-            WpfTrainingModelLifecycleLocalizationSnapshot localization)
+            TrainingModelLifecycleLocalizationSnapshot localization)
         {
-            localization ??= WpfTrainingModelLifecycleLocalizationService.CreateInitial();
+            localization ??= TrainingModelLifecycleLocalizationService.CreateInitial();
             trainingModelLifecycleLocalizationSnapshot = localization;
             refreshingTrainingModelLifecycleLocalization = true;
             try
@@ -1213,7 +1226,7 @@ namespace MvcVisionSystem
             string actionText,
             IEnumerable<WpfDatasetDashboardMetricItem> metrics,
             IEnumerable<string> issues,
-            WpfDatasetDashboardLocalizationSnapshot localization = null)
+            DatasetDashboardLocalizationSnapshot localization = null)
         {
             List<WpfDatasetDashboardMetricItem> metricItems = (metrics ?? Enumerable.Empty<WpfDatasetDashboardMetricItem>())
                 .Where(item => item != null)
@@ -1229,7 +1242,7 @@ namespace MvcVisionSystem
             DatasetDashboardActionText = string.IsNullOrWhiteSpace(localizedActionText)
                 ? (string.IsNullOrWhiteSpace(actionText) ? string.Empty : actionText)
                 : localizedActionText;
-            ObjectDetectionMvpNextActionText = WpfLearningWorkflowGuidanceService.BuildObjectDetectionMvpNextActionText(DatasetDashboardActionText);
+            ObjectDetectionMvpNextActionText = LearningWorkflowGuidanceService.BuildObjectDetectionMvpNextActionText(DatasetDashboardActionText);
 
             DatasetDashboardMetrics.Clear();
             IEnumerable<WpfDatasetDashboardMetricItem> localizedMetrics = datasetDashboardLocalizationSnapshot?.MetricItems
@@ -1313,14 +1326,14 @@ namespace MvcVisionSystem
                 canUndo,
                 canUndo ? "\uAC00\uB2A5" : "\uC5C6\uC74C",
                 canUndo
-                    ? "\uB418\uB3CC\uB9AC\uAE30 \uAC00\uB2A5" + WpfLearningWorkflowGuidanceService.FormatHistoryActionSuffix(undoActionName)
+                    ? "\uB418\uB3CC\uB9AC\uAE30 \uAC00\uB2A5" + LearningWorkflowGuidanceService.FormatHistoryActionSuffix(undoActionName)
                     : "\uB418\uB3CC\uB9B4 \uD3B8\uC9D1 \uC774\uB825\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
             SetAnnotationToolRuntimeState(
                 WpfAnnotationTool.Redo,
                 canRedo,
                 canRedo ? "\uAC00\uB2A5" : "\uC5C6\uC74C",
                 canRedo
-                    ? "\uB2E4\uC2DC \uC801\uC6A9 \uAC00\uB2A5" + WpfLearningWorkflowGuidanceService.FormatHistoryActionSuffix(redoActionName)
+                    ? "\uB2E4\uC2DC \uC801\uC6A9 \uAC00\uB2A5" + LearningWorkflowGuidanceService.FormatHistoryActionSuffix(redoActionName)
                     : "\uB2E4\uC2DC \uC801\uC6A9\uD560 \uD3B8\uC9D1 \uC774\uB825\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
         }
 
@@ -1449,7 +1462,7 @@ namespace MvcVisionSystem
                 : stepText.Trim();
             CurrentLabelingTaskToolText = string.IsNullOrWhiteSpace(toolText)
                 ? "\uB3C4\uAD6C: \uC120\uD0DD"
-                : WpfLearningWorkflowGuidanceService.FormatLiveLabelingTaskToolText(toolText);
+                : LearningWorkflowGuidanceService.FormatLiveLabelingTaskToolText(toolText);
             CurrentLabelingTaskActionText = string.IsNullOrWhiteSpace(actionText)
                 ? "\uB77C\uBCA8\uC744 \uADF8\uB9AC\uACE0 \uACB0\uACFC\uB97C \uD655\uC778\uD55C \uB4A4 \uB77C\uBCA8 \uC800\uC7A5\uC744 \uB204\uB974\uC138\uC694."
                 : actionText.Trim();
@@ -1637,36 +1650,36 @@ namespace MvcVisionSystem
         private void RefreshLessonText()
         {
             // Keep dataset-purpose UX copy in the ViewModel so the panel remains a display-only composition surface.
-            DatasetPurposeSummaryText = WpfLearningWorkflowGuidanceService.BuildDatasetPurposeSummaryText(
+            DatasetPurposeSummaryText = LearningWorkflowGuidanceService.BuildDatasetPurposeSummaryText(
                 SelectedDatasetPurposeMode?.Mode ?? WpfLearningMode.ObjectDetection);
 
-            DatasetPurposeToolSummaryText = WpfLearningWorkflowGuidanceService.BuildDatasetPurposeToolSummaryText(
+            DatasetPurposeToolSummaryText = LearningWorkflowGuidanceService.BuildDatasetPurposeToolSummaryText(
                 SelectedDatasetPurposeMode?.Mode);
 
-            DatasetSetupActionText = WpfLearningWorkflowGuidanceService.BuildDatasetSetupActionText(
+            DatasetSetupActionText = LearningWorkflowGuidanceService.BuildDatasetSetupActionText(
                 SelectedDatasetPurposeMode?.Mode);
 
-            DatasetSetupFirstActionText = WpfLearningWorkflowGuidanceService.BuildDatasetSetupFirstActionText(
+            DatasetSetupFirstActionText = LearningWorkflowGuidanceService.BuildDatasetSetupFirstActionText(
                 SelectedDatasetPurposeMode?.Mode);
 
-            ModeDetailText = WpfLearningWorkflowGuidanceService.BuildModeDetailText(
+            ModeDetailText = LearningWorkflowGuidanceService.BuildModeDetailText(
                 SelectedMode?.Mode ?? WpfLearningMode.LabelingBasics);
 
-            StepDetailText = WpfLearningWorkflowGuidanceService.BuildStepDetailText(
+            StepDetailText = LearningWorkflowGuidanceService.BuildStepDetailText(
                 SelectedStep?.Step,
                 SelectedDatasetPurposeMode?.Mode ?? WpfLearningMode.ObjectDetection);
 
-            CurrentWorkflowActionText = WpfLearningWorkflowGuidanceService.BuildCurrentWorkflowActionText(
+            CurrentWorkflowActionText = LearningWorkflowGuidanceService.BuildCurrentWorkflowActionText(
                 SelectedStep?.Step,
                 SelectedDatasetPurposeMode?.Mode);
 
-            ToolDetailText = WpfLearningWorkflowGuidanceService.BuildToolDetailText(SelectedTool?.Tool);
+            ToolDetailText = LearningWorkflowGuidanceService.BuildToolDetailText(SelectedTool?.Tool);
         }
 
         private void RefreshYoloDatasetStructureItems()
         {
             YoloDatasetStructureItems.Clear();
-            foreach (WpfYoloDatasetStructureItem item in WpfLearningWorkflowCatalogService.BuildYoloDatasetStructureItems())
+            foreach (WpfYoloDatasetStructureItem item in LearningWorkflowCatalogService.BuildYoloDatasetStructureItems())
             {
                 YoloDatasetStructureItems.Add(item);
             }
@@ -1750,7 +1763,7 @@ namespace MvcVisionSystem
                 }
             }
 
-            ObjectDetectionMvpNextActionText = WpfLearningWorkflowGuidanceService.BuildObjectDetectionMvpNextActionText(DatasetDashboardActionText);
+            ObjectDetectionMvpNextActionText = LearningWorkflowGuidanceService.BuildObjectDetectionMvpNextActionText(DatasetDashboardActionText);
 
             // The remaining panel captions are expression-backed so one owner-level
             // notification refreshes them without a visual-tree string rewrite.

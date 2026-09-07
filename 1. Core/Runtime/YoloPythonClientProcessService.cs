@@ -1,8 +1,6 @@
 using System;
 using System.Diagnostics;
-using System.Globalization;
-using System.IO;
-using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace MvcVisionSystem._1._Core
@@ -48,16 +46,23 @@ namespace MvcVisionSystem._1._Core
 
         public bool EnsureStarted(PythonModelSettings settings)
         {
+            return EnsureStarted(settings, CancellationToken.None);
+        }
+
+        public bool EnsureStarted(PythonModelSettings settings, CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             lock (sync)
             {
-                if (!TryCreateStartInfo(settings, out ProcessStartInfo startInfo, out string error))
+                cancellationToken.ThrowIfCancellationRequested();
+                if (!PythonClientStartInfoBuilder.TryCreateStartInfo(settings, out ProcessStartInfo startInfo, out string error))
                 {
                     LastError = error;
                     AppLog.ABNORMAL(error);
                     return false;
                 }
 
-                string startSignature = CreateStartSignature(startInfo);
+                string startSignature = PythonClientStartInfoBuilder.CreateStartSignature(startInfo);
                 if (IsRunning && string.Equals(currentStartSignature, startSignature, StringComparison.Ordinal))
                 {
                     return true;
@@ -68,6 +73,8 @@ namespace MvcVisionSystem._1._Core
                     AppLog.COMM("YOLO Python client settings changed. Restarting client process.");
                     StopLocked();
                 }
+
+                cancellationToken.ThrowIfCancellationRequested();
 
                 try
                 {
@@ -81,17 +88,19 @@ namespace MvcVisionSystem._1._Core
                     process.ErrorDataReceived += OnErrorDataReceived;
                     process.Exited += OnExited;
 
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (!process.Start())
                     {
                         LastError = "YOLO Python client process did not start.";
                         AppLog.ABNORMAL(LastError);
-                        process.Dispose();
-                        process = null;
+                        DisposeFailedProcessLocked();
                         return false;
                     }
 
+                    cancellationToken.ThrowIfCancellationRequested();
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
+                    cancellationToken.ThrowIfCancellationRequested();
                     LastStartedAtUtc = DateTime.UtcNow;
                     LastError = "";
                     LastExitCode = null;
@@ -100,13 +109,16 @@ namespace MvcVisionSystem._1._Core
                     AppLog.COMM($"YOLO Python client started. PID:{process.Id}");
                     return true;
                 }
+                catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                {
+                    DisposeFailedProcessLocked();
+                    throw;
+                }
                 catch (Exception ex)
                 {
                     LastError = $"YOLO Python client start failed: {ex.Message}";
                     AppLog.ABNORMAL(LastError);
-                    process?.Dispose();
-                    process = null;
-                    currentStartSignature = "";
+                    DisposeFailedProcessLocked();
                     return false;
                 }
             }
@@ -143,96 +155,31 @@ namespace MvcVisionSystem._1._Core
 
         public static bool TryCreateStartInfo(PythonModelSettings settings, out ProcessStartInfo startInfo, out string error)
         {
-            startInfo = null;
-            error = "";
-
-            settings ??= new PythonModelSettings();
-            PythonModelRuntimePathResolver.ApplyDefaults(settings);
-
-            PythonModelValidationResult validation = PythonModelSettingsValidator.Validate(settings, requireWeights: false);
-            if (!validation.IsValid)
-            {
-                error = validation.Errors.FirstOrDefault() ?? "Python model client settings are invalid.";
-                return false;
-            }
-
-            string projectRootPath = settings.ProjectRootPath?.Trim() ?? "";
-            string clientScriptPath = settings.ClientScriptPath?.Trim() ?? "";
-            string pythonExecutablePath = PythonModelSettingsValidator.ResolvePythonExecutable(settings);
-
-            startInfo = new ProcessStartInfo
-            {
-                FileName = pythonExecutablePath,
-                WorkingDirectory = projectRootPath,
-                UseShellExecute = false,
-                CreateNoWindow = true,
-                RedirectStandardOutput = true,
-                RedirectStandardError = true,
-                WindowStyle = ProcessWindowStyle.Hidden
-            };
-            startInfo.ArgumentList.Add(clientScriptPath);
-            startInfo.ArgumentList.Add("--retry");
-            startInfo.ArgumentList.Add("--preload");
-
-            string modelRootPath = settings.GetModelRootPath();
-            if (Directory.Exists(modelRootPath))
-            {
-                startInfo.ArgumentList.Add("--model-root");
-                startInfo.ArgumentList.Add(modelRootPath);
-            }
-
-            string weightsPath = settings.WeightsPath?.Trim() ?? "";
-            if (!string.IsNullOrWhiteSpace(weightsPath))
-            {
-                startInfo.ArgumentList.Add("--weights");
-                startInfo.ArgumentList.Add(weightsPath);
-            }
-
-            string imageRootPath = settings.ImageRootPath?.Trim() ?? "";
-            if (!string.IsNullOrWhiteSpace(imageRootPath))
-            {
-                startInfo.ArgumentList.Add("--image-root");
-                startInfo.ArgumentList.Add(imageRootPath);
-            }
-
-            startInfo.ArgumentList.Add("--conf");
-            startInfo.ArgumentList.Add(settings.MinimumDetectionConfidence.ToString(CultureInfo.InvariantCulture));
-            startInfo.ArgumentList.Add("--img-size");
-            startInfo.ArgumentList.Add(settings.InferenceImageSize.ToString(CultureInfo.InvariantCulture));
-
-            return true;
+            return PythonClientStartInfoBuilder.TryCreateStartInfo(settings, out startInfo, out error);
         }
 
         public static bool TryCreateStartSignature(PythonModelSettings settings, out string startSignature, out string error)
         {
-            startSignature = "";
-            if (!TryCreateStartInfo(settings, out ProcessStartInfo startInfo, out error))
-            {
-                return false;
-            }
-
-            startSignature = CreateStartSignature(startInfo);
-            return true;
-        }
-
-        private static string CreateStartSignature(ProcessStartInfo startInfo)
-        {
-            if (startInfo == null)
-            {
-                return string.Empty;
-            }
-
-            string arguments = string.Join("\u001F", startInfo.ArgumentList.Select(item => item ?? string.Empty));
-            return string.Join(
-                "\u001E",
-                startInfo.FileName ?? string.Empty,
-                startInfo.WorkingDirectory ?? string.Empty,
-                arguments);
+            return PythonClientStartInfoBuilder.TryCreateStartSignature(settings, out startSignature, out error);
         }
 
         private void StopLocked()
         {
             StopDetachedProcess(DetachProcessForStopLocked());
+        }
+
+        private void DisposeFailedProcessLocked()
+        {
+            Process failedProcess = process;
+            process = null;
+            currentStartSignature = "";
+            stopRequested = true;
+            if (failedProcess == null)
+            {
+                return;
+            }
+
+            StopDetachedProcess(failedProcess);
         }
 
         private Process DetachProcessForStopLocked()
@@ -265,7 +212,17 @@ namespace MvcVisionSystem._1._Core
                 processToStop.ErrorDataReceived -= OnErrorDataReceived;
                 processToStop.Exited -= OnExited;
 
-                if (!processToStop.HasExited)
+                bool hasExited;
+                try
+                {
+                    hasExited = processToStop.HasExited;
+                }
+                catch (InvalidOperationException)
+                {
+                    hasExited = true;
+                }
+
+                if (!hasExited)
                 {
                     int pid = 0;
                     try
@@ -297,34 +254,36 @@ namespace MvcVisionSystem._1._Core
 
         private void OnOutputDataReceived(object sender, DataReceivedEventArgs e)
         {
-            if (!string.IsNullOrWhiteSpace(e.Data))
+            if (!IsCurrentProcess(sender) || string.IsNullOrWhiteSpace(e.Data))
             {
-                if (stopRequested)
-                {
-                    return;
-                }
-
-                AppLog.COMM($"[YOLO] {e.Data}");
+                return;
             }
+
+            AppLog.COMM($"[YOLO] {e.Data}");
         }
 
         private void OnErrorDataReceived(object sender, DataReceivedEventArgs e)
         {
-            if (!string.IsNullOrWhiteSpace(e.Data))
+            if (!IsCurrentProcess(sender) || string.IsNullOrWhiteSpace(e.Data))
             {
-                if (stopRequested)
-                {
-                    return;
-                }
+                return;
+            }
 
-                if (IsBenignPythonStderrLine(e.Data))
-                {
-                    AppLog.COMM($"[YOLO] {e.Data}");
-                    return;
-                }
+            if (IsBenignPythonStderrLine(e.Data))
+            {
+                AppLog.COMM($"[YOLO] {e.Data}");
+                return;
+            }
 
-                LastError = e.Data;
-                AppLog.ABNORMAL($"[YOLO] {e.Data}");
+            LastError = e.Data;
+            AppLog.ABNORMAL($"[YOLO] {e.Data}");
+        }
+
+        private bool IsCurrentProcess(object sender)
+        {
+            lock (sync)
+            {
+                return !stopRequested && ReferenceEquals(process, sender);
             }
         }
 
@@ -348,6 +307,18 @@ namespace MvcVisionSystem._1._Core
         private void OnExited(object sender, EventArgs e)
         {
             Process exitedProcess = sender as Process;
+            bool isCurrentProcess;
+            bool wasStopRequested;
+            lock (sync)
+            {
+                isCurrentProcess = ReferenceEquals(process, exitedProcess);
+                wasStopRequested = stopRequested;
+            }
+            if (!isCurrentProcess)
+            {
+                return;
+            }
+
             int exitCode = 0;
             try
             {
@@ -359,18 +330,26 @@ namespace MvcVisionSystem._1._Core
             }
 
             AppLog.COMM($"YOLO Python client exited. ExitCode:{exitCode}");
-            LastExitedAtUtc = DateTime.UtcNow;
-            LastExitCode = exitCode;
-            if (stopRequested)
+            lock (sync)
             {
-                LastError = "";
-                stopRequested = false;
-                return;
-            }
+                if (!ReferenceEquals(process, exitedProcess))
+                {
+                    return;
+                }
 
-            if (exitCode != 0)
-            {
-                LastError = $"YOLO Python client exited with code {exitCode}.";
+                LastExitedAtUtc = DateTime.UtcNow;
+                LastExitCode = exitCode;
+                if (wasStopRequested)
+                {
+                    LastError = "";
+                    stopRequested = false;
+                    return;
+                }
+
+                if (exitCode != 0)
+                {
+                    LastError = $"YOLO Python client exited with code {exitCode}.";
+                }
             }
         }
     }

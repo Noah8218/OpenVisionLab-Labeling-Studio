@@ -109,14 +109,14 @@ namespace MvcVisionSystem
 
         public WpfAnnotationToolItem(WpfAnnotationTool tool, string text, PackIconMaterialKind iconKind, string toolTip)
         {
-            WpfAnnotationToolCapability capability = WpfAnnotationToolCapabilityService.Get(tool);
+            AnnotationToolCapability capability = AnnotationToolCapabilityService.Get(tool);
             Tool = tool;
             Text = text ?? string.Empty;
             IconKind = iconKind;
             baseToolTip = string.IsNullOrWhiteSpace(toolTip)
                 ? capability.StatusText
                 : $"{toolTip} / {capability.StatusText}";
-            string shortcutText = WpfAnnotationProductivityService.GetToolShortcutText(tool);
+            string shortcutText = AnnotationProductivityService.GetToolShortcutText(tool);
             if (!string.IsNullOrWhiteSpace(shortcutText))
             {
                 baseToolTip = $"{baseToolTip} / 단축키 {shortcutText}";
@@ -232,7 +232,7 @@ namespace MvcVisionSystem
 
     public sealed class WpfDatasetDashboardMetricItem
     {
-        private readonly WpfDatasetDashboardMetricLocalizationDescriptor localization;
+        private readonly DatasetDashboardMetricLocalizationDescriptor localization;
 
         public WpfDatasetDashboardMetricItem(
             string title,
@@ -265,7 +265,7 @@ namespace MvcVisionSystem
             bool isProblem,
             bool isWarning,
             WpfDatasetDashboardActionKind actionKind,
-            WpfDatasetDashboardMetricLocalizationDescriptor localization)
+            DatasetDashboardMetricLocalizationDescriptor localization)
         {
             Title = title ?? string.Empty;
             Value = value ?? string.Empty;
@@ -279,7 +279,7 @@ namespace MvcVisionSystem
         }
 
         internal static WpfDatasetDashboardMetricItem CreateLocalized(
-            WpfDatasetDashboardMetricLocalizationDescriptor localization,
+            DatasetDashboardMetricLocalizationDescriptor localization,
             string fallbackValue,
             PackIconMaterialKind iconKind,
             bool isProblem,

@@ -4,9 +4,10 @@ using System.Windows.Forms;
 
 namespace OpenVisionLab.ImageCanvas.Canvas
 {
-	internal sealed class RoiImageCanvasInputAdapter
+	internal sealed class RoiImageCanvasInputAdapter : IDisposable
 	{
 		private readonly ImageCanvasControl imageViewer;
+		private bool disposed;
 
 		public RoiImageCanvasInputAdapter(ImageCanvasControl imageViewer)
 		{
@@ -58,6 +59,27 @@ namespace OpenVisionLab.ImageCanvas.Canvas
 			CanvasKeyboardEventArgs canvasArgs = CanvasKeyboardEventArgs.FromWinForms(e);
 			KeyUp(sender, canvasArgs);
 			e.Handled = canvasArgs.Handled;
+		}
+
+		public void Dispose()
+		{
+			if (disposed)
+			{
+				return;
+			}
+
+			disposed = true;
+			imageViewer.Load -= OnLoad;
+			imageViewer.Resized -= OnResized;
+			imageViewer.MouseDoubleClicked -= OnMouseDoubleClicked;
+			imageViewer.KeyDown -= OnKeyDown;
+			imageViewer.KeyUp -= OnKeyUp;
+			imageViewer.MouseClicked -= OnMouseClicked;
+			imageViewer.MouseDown -= OnMouseDown;
+			imageViewer.MouseMove -= OnMouseMove;
+			imageViewer.MouseUp -= OnMouseUp;
+			imageViewer.MouseLeave -= OnMouseLeave;
+			imageViewer.MouseWheel -= OnMouseWheel;
 		}
 	}
 }

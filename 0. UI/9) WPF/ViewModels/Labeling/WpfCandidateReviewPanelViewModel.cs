@@ -1,15 +1,11 @@
-using MahApps.Metro.IconPacks;
 using OpenVisionLab.Mvvm;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
-using MediaBrush = System.Windows.Media.Brush;
-using MediaBrushes = System.Windows.Media.Brushes;
 
 namespace MvcVisionSystem
 {
@@ -147,7 +143,7 @@ namespace MvcVisionSystem
 
         public string ModelValidationRoleResultText => "\uACB0\uACFC: \uBAA8\uB378\uC13C\uD130\uC5D0\uC11C \uCC44\uD0DD/\uC720\uC9C0 \uD655\uC815";
 
-        public WpfBulkObservableCollection<WpfCandidateReviewListItem> Candidates { get; } = new WpfBulkObservableCollection<WpfCandidateReviewListItem>();
+        public BulkObservableCollection<WpfCandidateReviewListItem> Candidates { get; } = new BulkObservableCollection<WpfCandidateReviewListItem>();
 
         public ObservableCollection<string> ReviewHistory { get; } = new ObservableCollection<string>();
 
@@ -830,7 +826,7 @@ namespace MvcVisionSystem
             }
         }
 
-        public void SetPatchCoreHeatmapAvailability(WpfPatchCoreHeatmapAvailability availability)
+        public void SetPatchCoreHeatmapAvailability(PatchCoreHeatmapAvailability availability)
         {
             ClosePatchCoreHeatmap();
             if (availability?.IsPatchCoreCandidate != true)
@@ -850,7 +846,7 @@ namespace MvcVisionSystem
             IsPatchCoreHeatmapActionEnabled = availability.CanOpen;
         }
 
-        public void ShowPatchCoreHeatmap(WpfPatchCoreHeatmapLoadResult result)
+        public void ShowPatchCoreHeatmap(PatchCoreHeatmapLoadResult result)
         {
             if (result?.Succeeded != true || result.ImageSource == null)
             {
@@ -1122,54 +1118,5 @@ namespace MvcVisionSystem
 
         private static string FormatCandidateCount(int count)
             => count <= 0 ? "AI \uD6C4\uBCF4 0\uAC1C" : $"AI \uD6C4\uBCF4 {count}\uAC1C";
-    }
-
-    public sealed class WpfCandidateReviewListItem
-    {
-        public WpfCandidateReviewListItem(
-            string title,
-            string secondaryText,
-            string toolTip,
-            object payload,
-            PackIconMaterialKind iconKind,
-            MediaBrush stateBrush,
-            bool isEnabled = true)
-        {
-            Title = title ?? string.Empty;
-            SecondaryText = secondaryText ?? string.Empty;
-            ToolTip = toolTip ?? string.Empty;
-            Payload = payload;
-            IconKind = iconKind;
-            StateBrush = stateBrush ?? MediaBrushes.Transparent;
-            IsEnabled = isEnabled;
-        }
-
-        public string Title { get; }
-
-        public string SecondaryText { get; }
-
-        public string ToolTip { get; }
-
-        public object Payload { get; }
-
-        public PackIconMaterialKind IconKind { get; }
-
-        public MediaBrush StateBrush { get; }
-
-        public bool IsEnabled { get; }
-
-        public string Content => Title;
-
-        public static WpfCandidateReviewListItem Empty(string title, string toolTip)
-            => new WpfCandidateReviewListItem(
-                title,
-                string.Empty,
-                toolTip,
-                null,
-                PackIconMaterialKind.InformationOutline,
-                MediaBrushes.Gray,
-                isEnabled: false);
-
-        public override string ToString() => Title;
     }
 }

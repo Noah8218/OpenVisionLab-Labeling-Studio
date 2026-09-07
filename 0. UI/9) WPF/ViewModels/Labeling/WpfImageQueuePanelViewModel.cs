@@ -770,7 +770,7 @@ namespace MvcVisionSystem
             IsOpenSelectedImageEnabled = canOpenSelectedImage;
         }
 
-        public void ApplyWorkflowCommandState(WpfWorkflowCommandState state)
+        public void ApplyWorkflowCommandState(WorkflowCommandState state)
         {
             bool canRunInference = state?.CanRunInference == true;
             IsDetectSelectedEnabled = canRunInference;

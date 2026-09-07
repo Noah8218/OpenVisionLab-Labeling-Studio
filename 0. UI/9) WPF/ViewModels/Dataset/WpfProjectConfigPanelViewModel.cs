@@ -192,9 +192,9 @@ namespace MvcVisionSystem
             SelectedRecipeName = selectedName ?? string.Empty;
         }
 
-        public void SetDatasetVersionInfo(WpfRecipeDatasetVersionPresentation presentation)
+        public void SetDatasetVersionInfo(RecipeDatasetVersionPresentation presentation)
         {
-            presentation ??= new WpfRecipeDatasetVersionPresentation();
+            presentation ??= new RecipeDatasetVersionPresentation();
             DatasetVersionText = presentation.VersionText;
             DatasetVersionDetailText = presentation.DetailText;
         }
@@ -213,11 +213,11 @@ namespace MvcVisionSystem
 
         private void RefreshConfigPath()
         {
-            ConfigPath = WpfProjectRecipeService.BuildConfigPreviewPath(recipeRootPath, RecipeName);
-            ManifestPath = WpfProjectRecipeService.BuildManifestPreviewPath(recipeRootPath, RecipeName);
+            ConfigPath = ProjectRecipeService.BuildConfigPreviewPath(recipeRootPath, RecipeName);
+            ManifestPath = ProjectRecipeService.BuildManifestPreviewPath(recipeRootPath, RecipeName);
         }
 
-        public void ApplyWorkflowCommandState(WpfWorkflowCommandState state)
+        public void ApplyWorkflowCommandState(WorkflowCommandState state)
         {
             bool canRunGeneralCommands = state?.CanRunGeneralCommands == true;
             IsApplyRecipeEnabled = canRunGeneralCommands;

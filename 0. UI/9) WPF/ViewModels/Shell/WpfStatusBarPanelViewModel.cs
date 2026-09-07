@@ -131,7 +131,7 @@ namespace MvcVisionSystem
             InspectionModelStatusText = LocalizeInspectionModelStatus(statusText);
             InspectionModelStatusToolTip = string.IsNullOrWhiteSpace(toolTip)
                 ? InspectionModelStatusText
-                : WpfLocalizationTextRuntimeService.Translate(toolTip.Trim());
+                : LocalizationTextRuntimeService.Translate(toolTip.Trim());
         }
 
         public void SetModelStatus(string text)
@@ -148,12 +148,12 @@ namespace MvcVisionSystem
 
         public void RefreshLocalizedPresentation()
         {
-            PythonStatusText = WpfLocalizationTextRuntimeService.Translate(PythonStatusText);
+            PythonStatusText = LocalizationTextRuntimeService.Translate(PythonStatusText);
             InspectionModelStatusText = LocalizeInspectionModelStatus(InspectionModelStatusText);
-            InspectionModelStatusToolTip = WpfLocalizationTextRuntimeService.Translate(InspectionModelStatusToolTip);
+            InspectionModelStatusToolTip = LocalizationTextRuntimeService.Translate(InspectionModelStatusToolTip);
             ModelStatusText = LocalizeModelStatus(ModelStatusText);
-            AnnotationSaveStatusText = WpfLocalizationTextRuntimeService.Translate(AnnotationSaveStatusText);
-            AnnotationSaveStatusToolTip = WpfLocalizationTextRuntimeService.Translate(AnnotationSaveStatusToolTip);
+            AnnotationSaveStatusText = LocalizationTextRuntimeService.Translate(AnnotationSaveStatusText);
+            AnnotationSaveStatusToolTip = LocalizationTextRuntimeService.Translate(AnnotationSaveStatusToolTip);
         }
 
         public void Dispose()
@@ -206,7 +206,7 @@ namespace MvcVisionSystem
                 return OpenVisionLanguageService.T("WpfShell.Status.ToolSelected");
             }
 
-            return WpfLocalizationTextRuntimeService.Translate(text);
+            return LocalizationTextRuntimeService.Translate(text);
         }
 
         private static string LocalizeInspectionModelStatus(string text)
@@ -263,13 +263,13 @@ namespace MvcVisionSystem
             }
             else
             {
-                return WpfLocalizationTextRuntimeService.Translate(text);
+                return LocalizationTextRuntimeService.Translate(text);
             }
 
             string[] parts = value.Substring(prefix.Length).Split(new[] { " / " }, 2, StringSplitOptions.None);
             return parts.Length == 2
                 ? Format(key, parts[0], parts[1])
-                : WpfLocalizationTextRuntimeService.Translate(text);
+                : LocalizationTextRuntimeService.Translate(text);
         }
 
         private static string LocalizeModelState(string value)
@@ -278,7 +278,7 @@ namespace MvcVisionSystem
             {
                 "미설치" or "Not installed" => OpenVisionLanguageService.T("WpfShell.Status.ModelState.NotInstalled"),
                 "설정 확인 필요" or "Configuration required" => OpenVisionLanguageService.T("WpfShell.Status.ModelState.ConfigurationRequired"),
-                _ => WpfLocalizationTextRuntimeService.Translate(value)
+                _ => LocalizationTextRuntimeService.Translate(value)
             };
         }
 

@@ -7,7 +7,7 @@ using System.Windows.Media.Imaging;
 
 namespace MvcVisionSystem
 {
-    public sealed class WpfPatchCoreHeatmapAvailability
+    public class PatchCoreHeatmapAvailability
     {
         public bool IsPatchCoreCandidate { get; init; }
 
@@ -22,18 +22,18 @@ namespace MvcVisionSystem
         public string ToolTip { get; init; } = string.Empty;
     }
 
-    public sealed class WpfPatchCoreHeatmapLoadResult
+    public class PatchCoreHeatmapLoadResult
     {
         public bool Succeeded { get; init; }
 
         public ImageSource ImageSource { get; init; }
 
-        public WpfPatchCoreHeatmapAvailability Availability { get; init; }
+        public PatchCoreHeatmapAvailability Availability { get; init; }
 
         public string StatusText { get; init; } = string.Empty;
     }
 
-    public sealed class WpfPatchCoreHeatmapReviewService
+    public class PatchCoreHeatmapReviewService
     {
         private static readonly HashSet<string> SupportedExtensions = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
         {
@@ -46,11 +46,11 @@ namespace MvcVisionSystem
             ".tiff"
         };
 
-        public WpfPatchCoreHeatmapAvailability Inspect(YoloWorkerSmokeCandidate candidate)
+        public PatchCoreHeatmapAvailability Inspect(YoloWorkerSmokeCandidate candidate)
         {
             if (!string.Equals(candidate?.PredictionType, "patchcore", StringComparison.OrdinalIgnoreCase))
             {
-                return new WpfPatchCoreHeatmapAvailability();
+                return new PatchCoreHeatmapAvailability();
             }
 
             string configuredPath = candidate.HeatmapPath?.Trim() ?? string.Empty;
@@ -88,7 +88,7 @@ namespace MvcVisionSystem
                     "히트맵 파일을 찾을 수 없습니다. 결과가 이동·삭제되었는지 확인한 뒤 검사를 다시 실행하세요.");
             }
 
-            return new WpfPatchCoreHeatmapAvailability
+            return new PatchCoreHeatmapAvailability
             {
                 IsPatchCoreCandidate = true,
                 CanOpen = true,
@@ -99,12 +99,12 @@ namespace MvcVisionSystem
             };
         }
 
-        public WpfPatchCoreHeatmapLoadResult Load(YoloWorkerSmokeCandidate candidate)
+        public PatchCoreHeatmapLoadResult Load(YoloWorkerSmokeCandidate candidate)
         {
-            WpfPatchCoreHeatmapAvailability availability = Inspect(candidate);
+            PatchCoreHeatmapAvailability availability = Inspect(candidate);
             if (!availability.CanOpen)
             {
-                return new WpfPatchCoreHeatmapLoadResult
+                return new PatchCoreHeatmapLoadResult
                 {
                     Availability = availability,
                     StatusText = availability.StatusText
@@ -129,7 +129,7 @@ namespace MvcVisionSystem
                 }
 
                 bitmap.Freeze();
-                return new WpfPatchCoreHeatmapLoadResult
+                return new PatchCoreHeatmapLoadResult
                 {
                     Succeeded = true,
                     ImageSource = bitmap,
@@ -144,7 +144,7 @@ namespace MvcVisionSystem
                 || ex is InvalidOperationException
                 || ex is ArgumentException)
             {
-                return new WpfPatchCoreHeatmapLoadResult
+                return new PatchCoreHeatmapLoadResult
                 {
                     Availability = availability,
                     StatusText = "히트맵 이미지를 읽을 수 없습니다. 파일이 손상되었거나 다른 형식인지 확인하세요."
@@ -152,9 +152,9 @@ namespace MvcVisionSystem
             }
         }
 
-        private static WpfPatchCoreHeatmapAvailability Unavailable(string path, string statusText)
+        private static PatchCoreHeatmapAvailability Unavailable(string path, string statusText)
         {
-            return new WpfPatchCoreHeatmapAvailability
+            return new PatchCoreHeatmapAvailability
             {
                 IsPatchCoreCandidate = true,
                 CanOpen = false,
@@ -162,6 +162,58 @@ namespace MvcVisionSystem
                 FileName = string.IsNullOrWhiteSpace(path) ? "결과 파일 없음" : Path.GetFileName(path),
                 StatusText = statusText,
                 ToolTip = string.IsNullOrWhiteSpace(path) ? statusText : path
+            };
+        }
+    }
+
+    [Obsolete("Use PatchCoreHeatmapReviewService.", false)]
+    public sealed class WpfPatchCoreHeatmapReviewService : PatchCoreHeatmapReviewService
+    {
+        public new WpfPatchCoreHeatmapAvailability Inspect(YoloWorkerSmokeCandidate candidate)
+            => WpfPatchCoreHeatmapAvailability.FromCanonical(base.Inspect(candidate));
+
+        public new WpfPatchCoreHeatmapLoadResult Load(YoloWorkerSmokeCandidate candidate)
+            => WpfPatchCoreHeatmapLoadResult.FromCanonical(base.Load(candidate));
+    }
+
+    [Obsolete("Use PatchCoreHeatmapAvailability.", false)]
+    public sealed class WpfPatchCoreHeatmapAvailability : PatchCoreHeatmapAvailability
+    {
+        internal static WpfPatchCoreHeatmapAvailability FromCanonical(PatchCoreHeatmapAvailability source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            return new WpfPatchCoreHeatmapAvailability
+            {
+                IsPatchCoreCandidate = source.IsPatchCoreCandidate,
+                CanOpen = source.CanOpen,
+                FullPath = source.FullPath,
+                FileName = source.FileName,
+                StatusText = source.StatusText,
+                ToolTip = source.ToolTip
+            };
+        }
+    }
+
+    [Obsolete("Use PatchCoreHeatmapLoadResult.", false)]
+    public sealed class WpfPatchCoreHeatmapLoadResult : PatchCoreHeatmapLoadResult
+    {
+        internal static WpfPatchCoreHeatmapLoadResult FromCanonical(PatchCoreHeatmapLoadResult source)
+        {
+            if (source == null)
+            {
+                return null;
+            }
+
+            return new WpfPatchCoreHeatmapLoadResult
+            {
+                Succeeded = source.Succeeded,
+                ImageSource = source.ImageSource,
+                Availability = WpfPatchCoreHeatmapAvailability.FromCanonical(source.Availability),
+                StatusText = source.StatusText
             };
         }
     }

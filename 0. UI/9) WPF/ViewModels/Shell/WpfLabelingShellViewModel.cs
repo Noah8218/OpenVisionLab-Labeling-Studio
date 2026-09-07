@@ -8,27 +8,10 @@ using System.Windows.Input;
 
 namespace MvcVisionSystem
 {
-    public enum WpfShellWorkflowStage
-    {
-        Dataset,
-        Labeling,
-        Inference,
-        TrainingModel
-    }
-
-    public enum WpfRightWorkflowShortcut
-    {
-        None,
-        SavedLabels,
-        LabelingGuide,
-        ClassCatalog
-    }
-
     public sealed class WpfLabelingShellViewModel : WpfObservableViewModel
     {
         private static readonly Action NoOpCommand = () => { };
         private static readonly Action<KeyInputCommandArgs> NoOpKeyCommand = _ => { };
-        private const string ModelCenterActionRouteText = "\uC2E4\uD589: \uD6C4\uBCF4 \uAC80\uC99D=\uD559\uC2B5 \uD6C4\uBCF4 \uD0ED \uC5F4\uAE30, \uD604\uC7AC \uAC80\uC0AC=\uAC80\uC0AC \uBAA8\uB378+\uD604\uC7AC \uC774\uBBF8\uC9C0 -> AI \uD6C4\uBCF4/\uCE94\uBC84\uC2A4";
         private static readonly GridLength RightWorkflowExpandedPaneGridLengthValue = new GridLength(WpfWorkspaceLayoutSettings.DefaultWorkflowPaneWidth);
         private static readonly GridLength RightWorkflowCollapsedPaneGridLengthValue = new GridLength(72D);
         private static readonly GridLength WorkspaceCanvasPaneGridLengthValue = new GridLength(1D, GridUnitType.Star);
@@ -78,10 +61,10 @@ namespace MvcVisionSystem
         private bool isSavedLabelsShortcutActive;
         private bool isLabelingGuideShortcutActive = true;
         private bool isClassCatalogShortcutActive;
-        private string workflowStageProgressText = WpfWorkflowStagePresentationService.Build(WpfShellWorkflowStage.Dataset).ProgressText;
-        private string workflowStageTitleText = WpfWorkflowStagePresentationService.Build(WpfShellWorkflowStage.Dataset).TitleText;
-        private string workflowStageDetailText = WpfWorkflowStagePresentationService.Build(WpfShellWorkflowStage.Dataset).DetailText;
-        private string workflowStageNextActionText = WpfWorkflowStagePresentationService.Build(WpfShellWorkflowStage.Dataset).NextActionText;
+        private string workflowStageProgressText = WorkflowStagePresentationService.Build(WpfShellWorkflowStage.Dataset).ProgressText;
+        private string workflowStageTitleText = WorkflowStagePresentationService.Build(WpfShellWorkflowStage.Dataset).TitleText;
+        private string workflowStageDetailText = WorkflowStagePresentationService.Build(WpfShellWorkflowStage.Dataset).DetailText;
+        private string workflowStageNextActionText = WorkflowStagePresentationService.Build(WpfShellWorkflowStage.Dataset).NextActionText;
         private bool isLabelingModeButtonEnabled = true;
         private bool isInferenceModeButtonEnabled = true;
         private bool isOpenDatasetFolderEnabled;
@@ -1147,7 +1130,7 @@ namespace MvcVisionSystem
             PreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(previewKeyDown ?? NoOpKeyCommand);
         }
 
-        public void ApplyWorkflowCommandState(WpfWorkflowCommandState state)
+        public void ApplyWorkflowCommandState(WorkflowCommandState state)
         {
             IsCurrentImageDetectionEnabled = state?.CanRunInference == true;
             canRunModelCenterCommands = state?.CanSaveProjectConfig == true;
@@ -1186,7 +1169,7 @@ namespace MvcVisionSystem
 
         public void RefreshLocalizedPresentation()
         {
-            WpfWorkflowStagePresentation presentation = WpfWorkflowStagePresentationService.Build(currentWorkflowStage);
+            WorkflowStagePresentation presentation = WorkflowStagePresentationService.Build(currentWorkflowStage);
             WorkflowStageProgressText = presentation.ProgressText;
             WorkflowStageTitleText = presentation.TitleText;
             WorkflowStageDetailText = presentation.DetailText;
@@ -1236,7 +1219,7 @@ namespace MvcVisionSystem
 
         private void ApplyRightWorkflowPresentation(WpfRightWorkflowShortcut shortcut)
         {
-            WpfRightWorkflowPresentation presentation = WpfRightWorkflowPresentationService.Build(
+            RightWorkflowPresentation presentation = RightWorkflowPresentationService.Build(
                 currentWorkflowStage,
                 shortcut);
             RightWorkflowViewTitleText = presentation.TitleText;
@@ -1473,6 +1456,32 @@ namespace MvcVisionSystem
                 IsModelCenterAnomalyEvaluationPickerVisible && canRunModelCenterReviewCommands;
         }
 
+        internal void ApplyModelCenterModelState(ModelCenterDashboardState state)
+        {
+            if (state == null)
+            {
+                return;
+            }
+
+            ModelCenterCurrentModelText = state.CurrentModelText ?? string.Empty;
+            ModelCenterCurrentModelDetailText = state.CurrentModelDetailText ?? string.Empty;
+            ModelCenterCandidateModelText = state.CandidateModelText ?? string.Empty;
+            ModelCenterCandidateModelDetailText = state.CandidateModelDetailText ?? string.Empty;
+            ModelCenterAdoptionText = state.AdoptionText ?? string.Empty;
+            ModelCenterAdoptionDetailText = state.AdoptionDetailText ?? string.Empty;
+            ModelCenterNextActionText = state.NextActionText ?? string.Empty;
+            ModelCenterNextActionDetailText = state.NextActionDetailText ?? string.Empty;
+            ModelCenterDecisionSummaryText = state.DecisionSummaryText ?? string.Empty;
+            ModelCenterDecisionEvidenceText = state.DecisionEvidenceText ?? string.Empty;
+            ModelCenterDecisionActionText = state.DecisionActionText ?? string.Empty;
+            ModelCenterRuntimeActionText = state.RuntimeActionText ?? string.Empty;
+            RefreshModelCenterInspectCurrentImageState();
+            ModelCenterConfirmModelButtonText = state.ConfirmModelButtonText ?? string.Empty;
+            modelCenterConfirmModelBaseToolTip = state.ConfirmModelButtonToolTip ?? string.Empty;
+            isModelCenterConfirmModelAvailable = state.CanConfirmModel;
+            RefreshModelCenterConfirmModelEnabled();
+        }
+
         public void SetModelCenterModelState(
             string currentModelText,
             string candidateModelText,
@@ -1486,50 +1495,19 @@ namespace MvcVisionSystem
             string decisionActionText = null,
             string runtimeActionText = null)
         {
-            ModelCenterCurrentModelText = string.IsNullOrWhiteSpace(currentModelText)
-                ? "\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378: \uC5C6\uC74C"
-                : currentModelText.Trim();
-            ModelCenterCandidateModelText = string.IsNullOrWhiteSpace(candidateModelText)
-                ? "\uC0C8 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4: \uC5C6\uC74C"
-                : candidateModelText.Trim();
-            ModelCenterAdoptionText = string.IsNullOrWhiteSpace(adoptionText)
-                ? "\uBAA8\uB378 \uC801\uC6A9: \uB300\uAE30"
-                : adoptionText.Trim();
-            ModelCenterNextActionText = string.IsNullOrWhiteSpace(nextActionText)
-                ? "\uB2E4\uC74C: \uB370\uC774\uD130\uC14B \uC810\uAC80 \uD6C4 \uD559\uC2B5\uC744 \uC2DC\uC791\uD558\uC138\uC694."
-                : nextActionText.Trim();
-            ModelCenterCurrentModelDetailText = StripModelCenterPrefix(
-                ModelCenterCurrentModelText,
-                "\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378:",
-                "\uAC80\uC0AC \uBAA8\uB378 \uD6C4\uBCF4:");
-            ModelCenterCandidateModelDetailText = StripModelCenterPrefix(
-                ModelCenterCandidateModelText,
-                "\uC0C8 \uD559\uC2B5 \uBAA8\uB378 \uD6C4\uBCF4:");
-            ModelCenterAdoptionDetailText = StripModelCenterPrefix(
-                ModelCenterAdoptionText,
-                "\uBAA8\uB378 \uC801\uC6A9:");
-            ModelCenterNextActionDetailText = StripModelCenterPrefix(
-                ModelCenterNextActionText,
-                "\uB2E4\uC74C:");
-            ModelCenterDecisionSummaryText = string.IsNullOrWhiteSpace(decisionSummaryText)
-                ? "\uD310\uB2E8: " + ModelCenterAdoptionDetailText
-                : decisionSummaryText.Trim();
-            ModelCenterDecisionEvidenceText = string.IsNullOrWhiteSpace(decisionEvidenceText)
-                ? $"\uADFC\uAC70: \uAC80\uC0AC \uBAA8\uB378 {ModelCenterCurrentModelDetailText} / \uD559\uC2B5 \uACB0\uACFC {ModelCenterCandidateModelDetailText}"
-                : decisionEvidenceText.Trim();
-            ModelCenterDecisionActionText = string.IsNullOrWhiteSpace(decisionActionText)
-                ? $"\uD655\uC815: {ModelCenterNextActionDetailText}"
-                : decisionActionText.Trim();
-            ModelCenterRuntimeActionText = (runtimeActionText ?? string.Empty).Trim();
-            RefreshModelCenterInspectCurrentImageState();
-            ModelCenterConfirmModelButtonText = string.IsNullOrWhiteSpace(confirmModelButtonText)
-                ? "\uD6C4\uBCF4 \uC5C6\uC74C"
-                : confirmModelButtonText.Trim();
-            modelCenterConfirmModelBaseToolTip = string.IsNullOrWhiteSpace(confirmModelButtonToolTip)
-                ? "\uD655\uC815\uD560 \uD559\uC2B5 \uACB0\uACFC \uBAA8\uB378\uC774 \uC5C6\uC2B5\uB2C8\uB2E4."
-                : confirmModelButtonToolTip.Trim();
-            isModelCenterConfirmModelAvailable = canConfirmModel;
-            RefreshModelCenterConfirmModelEnabled();
+            ApplyModelCenterModelState(
+                ModelCenterDashboardPresentationService.BuildModelCenterState(
+                    currentModelText,
+                    candidateModelText,
+                    adoptionText,
+                    nextActionText,
+                    confirmModelButtonText,
+                    confirmModelButtonToolTip,
+                    canConfirmModel,
+                    decisionSummaryText,
+                    decisionEvidenceText,
+                    decisionActionText,
+                    runtimeActionText));
         }
 
         public void SetModelCenterCandidateReviewState(
@@ -1549,36 +1527,29 @@ namespace MvcVisionSystem
 
         public void SetModelRegistryState(WpfModelRegistryPresentation presentation)
         {
-            ModelRegistrySummaryPrimaryText = string.IsNullOrWhiteSpace(presentation?.SummaryPrimaryText)
-                ? "\uD604\uC7AC \uAC80\uC0AC: \uC5C6\uC74C / \uD559\uC2B5 \uD6C4\uBCF4: \uC5C6\uC74C"
-                : presentation.SummaryPrimaryText.Trim();
-            ModelRegistrySummarySecondaryText = string.IsNullOrWhiteSpace(presentation?.SummarySecondaryText)
-                ? "YOLOv5 / \uCD5C\uADFC \uD559\uC2B5 \uC5C6\uC74C / \uC774\uB825 0\uAC74 / \uD6C4\uBCF4 \uC5C6\uC74C"
-                : presentation.SummarySecondaryText.Trim();
-            ModelRegistryProfileText = string.IsNullOrWhiteSpace(presentation?.ProfileText)
-                ? "\uBAA8\uB378 \uD504\uB85C\uD544: \uBBF8\uC124\uC815"
-                : presentation.ProfileText.Trim();
-            ModelRegistryTrainingRunText = string.IsNullOrWhiteSpace(presentation?.TrainingRunText)
-                ? "\uCD5C\uADFC \uD559\uC2B5 \uC2E4\uD589: \uC5C6\uC74C"
-                : presentation.TrainingRunText.Trim();
-            ModelRegistryCandidateModelText = string.IsNullOrWhiteSpace(presentation?.CandidateModelText)
-                ? "\uBAA8\uB378 \uD6C4\uBCF4: \uC5C6\uC74C"
-                : presentation.CandidateModelText.Trim();
-            ModelRegistryInspectionModelText = string.IsNullOrWhiteSpace(presentation?.InspectionModelText)
-                ? "\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378: \uC5C6\uC74C"
-                : presentation.InspectionModelText.Trim();
-            ModelRegistryActionText = string.IsNullOrWhiteSpace(presentation?.ActionText)
-                ? "\uAD6C\uC870: \uBAA8\uB378 \uD504\uB85C\uD544 -> \uD559\uC2B5 \uC2E4\uD589 -> \uD6C4\uBCF4 \uBAA8\uB378 -> \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uB85C \uBD84\uB9AC\uD574 \uAD00\uB9AC\uD569\uB2C8\uB2E4."
-                : presentation.ActionText.Trim();
-            SetModelRegistryHistoryItems(presentation?.HistoryItems);
+            ApplyModelRegistryState(
+                ModelRegistryPresentationService.BuildState(
+                    presentation,
+                    SelectedModelRegistryHistoryItem?.CandidateId,
+                    SelectedModelRegistryHistoryItem?.WeightsPath));
         }
 
-        private void SetModelRegistryHistoryItems(System.Collections.Generic.IEnumerable<WpfModelRegistryHistoryItem> items)
+        internal void ApplyModelRegistryState(ModelRegistryState state)
         {
-            string selectedCandidateId = SelectedModelRegistryHistoryItem?.CandidateId ?? string.Empty;
-            string selectedWeightsPath = SelectedModelRegistryHistoryItem?.WeightsPath ?? string.Empty;
+            if (state == null)
+            {
+                return;
+            }
+
+            ModelRegistrySummaryPrimaryText = state.SummaryPrimaryText ?? string.Empty;
+            ModelRegistrySummarySecondaryText = state.SummarySecondaryText ?? string.Empty;
+            ModelRegistryProfileText = state.ProfileText ?? string.Empty;
+            ModelRegistryTrainingRunText = state.TrainingRunText ?? string.Empty;
+            ModelRegistryCandidateModelText = state.CandidateModelText ?? string.Empty;
+            ModelRegistryInspectionModelText = state.InspectionModelText ?? string.Empty;
+            ModelRegistryActionText = state.ActionText ?? string.Empty;
             ModelRegistryHistoryItems.Clear();
-            foreach (WpfModelRegistryHistoryItem item in items ?? Array.Empty<WpfModelRegistryHistoryItem>())
+            foreach (WpfModelRegistryHistoryItem item in state.HistoryItems ?? Array.Empty<WpfModelRegistryHistoryItem>())
             {
                 if (item != null)
                 {
@@ -1586,27 +1557,31 @@ namespace MvcVisionSystem
                 }
             }
 
-            int count = ModelRegistryHistoryItems.Count;
-            IsModelRegistryHistoryVisible = count > 0;
-            ModelRegistryHistoryHeaderText = count <= 0
-                ? "\uCD5C\uADFC \uBAA8\uB378 \uC774\uB825 0\uAC74"
-                : $"\uCD5C\uADFC \uBAA8\uB378 \uC774\uB825 {count}\uAC74";
-            ModelRegistryHistorySummaryText = count <= 0
-                ? "\uD559\uC2B5 \uD6C4\uBCF4\uB97C \uC800\uC7A5\uD558\uAC70\uB098 \uAC70\uC808\uD558\uBA74 \uC5EC\uAE30\uC5D0 \uCD5C\uADFC \uC774\uB825\uC774 \uD45C\uC2DC\uB429\uB2C8\uB2E4."
-                : "\uD559\uC2B5 run, \uD6C4\uBCF4 \uBAA8\uB378, \uC9C0\uD45C, \uCC44\uD0DD/\uAC70\uC808 \uACB0\uC815\uC744 \uD568\uAED8 \uBE44\uAD50\uD569\uB2C8\uB2E4.";
-            SelectedModelRegistryHistoryItem = WpfModelRegistryPresentationService.FindHistorySelection(
-                ModelRegistryHistoryItems,
-                selectedCandidateId,
-                selectedWeightsPath)
-                ?? ModelRegistryHistoryItems.FirstOrDefault();
+            IsModelRegistryHistoryVisible = state.IsHistoryVisible;
+            ModelRegistryHistoryHeaderText = state.HistoryHeaderText ?? string.Empty;
+            ModelRegistryHistorySummaryText = state.HistorySummaryText ?? string.Empty;
+            SetProperty(
+                ref selectedModelRegistryHistoryItem,
+                state.SelectedHistoryItem,
+                nameof(SelectedModelRegistryHistoryItem));
+            ApplySelectedModelHistoryPresentation(state.SelectedHistoryPresentation);
         }
 
         private void RefreshSelectedModelHistoryState()
         {
-            WpfModelRegistryHistorySelectionPresentation presentation =
-                WpfModelRegistryPresentationService.BuildSelectedHistoryPresentation(
+            ApplySelectedModelHistoryPresentation(
+                ModelRegistryPresentationService.BuildSelectedHistoryPresentation(
                     ModelRegistryHistoryItems,
-                    SelectedModelRegistryHistoryItem);
+                    SelectedModelRegistryHistoryItem));
+        }
+
+        private void ApplySelectedModelHistoryPresentation(WpfModelRegistryHistorySelectionPresentation presentation)
+        {
+            if (presentation == null)
+            {
+                return;
+            }
+
             IsSelectedModelHistoryVisible = presentation.IsVisible;
             SelectedModelHistoryTitleText = presentation.TitleText;
             SelectedModelHistoryDetailText = presentation.DetailText;
@@ -1649,7 +1624,7 @@ namespace MvcVisionSystem
             bool canOpenDatasetFolder,
             int classCount = 0)
         {
-            WpfDatasetContextPresentation presentation = WpfDatasetContextPresentationService.Build(
+            DatasetContextPresentation presentation = DatasetContextPresentationService.Build(
                 datasetName,
                 purposeText,
                 outputRootPath,
@@ -1664,21 +1639,6 @@ namespace MvcVisionSystem
             CurrentDatasetSourceText = presentation.SourceText;
             CurrentDatasetToolTip = presentation.Tooltip;
             IsOpenDatasetFolderEnabled = canOpenDatasetFolder;
-        }
-
-        private static string StripModelCenterPrefix(string text, params string[] prefixes)
-        {
-            string normalized = (text ?? string.Empty).Trim();
-            foreach (string prefix in prefixes ?? Array.Empty<string>())
-            {
-                if (!string.IsNullOrWhiteSpace(prefix)
-                    && normalized.StartsWith(prefix, StringComparison.OrdinalIgnoreCase))
-                {
-                    return normalized.Substring(prefix.Length).Trim();
-                }
-            }
-
-            return normalized;
         }
 
         private void RefreshModelCenterConfirmModelEnabled()
@@ -1697,21 +1657,9 @@ namespace MvcVisionSystem
         private void RefreshModelCenterInspectCurrentImageState()
         {
             ModelCenterInspectCurrentImageButtonText = "\uD604\uC7AC \uAC80\uC0AC";
-            string currentModel = ModelCenterCurrentModelDetailText?.Trim() ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(currentModel)
-                || string.Equals(currentModel, "\uC5C6\uC74C", StringComparison.OrdinalIgnoreCase)
-                || currentModel.Contains("\uD30C\uC77C \uC5C6\uC74C", StringComparison.OrdinalIgnoreCase))
-            {
-                ModelCenterInspectCurrentImageButtonToolTip = "\uAC80\uC0AC \uBAA8\uB378\uC744 \uC800\uC7A5\uD55C \uB4A4 \uD604\uC7AC \uAC80\uC0AC\uB97C \uC2E4\uD589\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
-                RefreshModelCenterInspectCurrentImageEnabled();
-                return;
-            }
-
-            string runtimeText = string.IsNullOrWhiteSpace(ModelCenterRuntimeActionText)
-                || currentModel.IndexOf(ModelCenterRuntimeActionText, StringComparison.OrdinalIgnoreCase) >= 0
-                ? string.Empty
-                : $" \uC2E4\uD589\uAE30: {ModelCenterRuntimeActionText}.";
-            ModelCenterInspectCurrentImageButtonToolTip = $"\uD604\uC7AC \uC774\uBBF8\uC9C0\uC5D0 {currentModel} \uBAA8\uB378\uB85C \uAC80\uC0AC\uB97C \uC2E4\uD589\uD558\uACE0 \uACB0\uACFC\uB97C AI \uD6C4\uBCF4/\uCE94\uBC84\uC2A4\uC5D0 \uD45C\uC2DC\uD569\uB2C8\uB2E4.{runtimeText}";
+            ModelCenterInspectCurrentImageButtonToolTip = ModelCenterDashboardPresentationService.BuildInspectCurrentImageToolTip(
+                ModelCenterCurrentModelDetailText,
+                ModelCenterRuntimeActionText);
             RefreshModelCenterInspectCurrentImageEnabled();
         }
 
@@ -1723,45 +1671,31 @@ namespace MvcVisionSystem
 
         private void RefreshModelCenterConfirmModelToolTip()
         {
-            if (isModelCenterConfirmModelAvailable
-                && !IsModelCenterConfirmModelEnabled
-                && !string.IsNullOrWhiteSpace(modelCenterConfirmModelUnavailableToolTip))
-            {
-                ModelCenterConfirmModelButtonToolTip = modelCenterConfirmModelUnavailableToolTip;
-                return;
-            }
-
-            ModelCenterConfirmModelButtonToolTip = modelCenterConfirmModelBaseToolTip;
+            ModelCenterConfirmModelButtonToolTip = ModelCenterDashboardPresentationService.BuildConfirmModelAvailabilityToolTip(
+                isModelCenterConfirmModelAvailable,
+                IsModelCenterConfirmModelEnabled,
+                modelCenterConfirmModelUnavailableToolTip,
+                modelCenterConfirmModelBaseToolTip);
         }
 
         private void RefreshModelCenterActionStateText()
         {
-            string runtimeStateText = string.IsNullOrWhiteSpace(ModelCenterRuntimeActionText)
-                ? string.Empty
-                : $"\uC2E4\uD589\uAE30: {ModelCenterRuntimeActionText} / ";
-            ModelCenterActionStateText = runtimeStateText
-                + ModelCenterActionRouteText
-                + " / \uBC84\uD2BC \uC0C1\uD0DC: "
-                + WpfModelCenterDashboardPresentationService.BuildActionStatePart(
-                    ModelCenterReviewCandidateButtonText,
-                    IsModelCenterReviewCandidateEnabled,
-                    isModelCenterReviewCandidateAvailable,
-                    canRunModelCenterReviewCommands,
-                    ModelCenterReviewCandidateButtonToolTip)
-                + " / "
-                + WpfModelCenterDashboardPresentationService.BuildActionStatePart(
-                    ModelCenterConfirmModelButtonText,
-                    IsModelCenterConfirmModelEnabled,
-                    isModelCenterConfirmModelAvailable,
-                    canRunModelCenterCommands,
-                    ModelCenterConfirmModelButtonToolTip)
-                + " / "
-                + WpfModelCenterDashboardPresentationService.BuildActionStatePart(
-                    ModelCenterInspectCurrentImageButtonText,
-                    IsModelCenterInspectCurrentImageEnabled,
-                    true,
-                    canRunModelCenterReviewCommands && IsCurrentImageDetectionEnabled,
-                    ModelCenterInspectCurrentImageButtonToolTip);
+            ModelCenterActionStateText = ModelCenterDashboardPresentationService.BuildActionStateText(
+                ModelCenterRuntimeActionText,
+                ModelCenterReviewCandidateButtonText,
+                IsModelCenterReviewCandidateEnabled,
+                isModelCenterReviewCandidateAvailable,
+                canRunModelCenterReviewCommands,
+                ModelCenterReviewCandidateButtonToolTip,
+                ModelCenterConfirmModelButtonText,
+                IsModelCenterConfirmModelEnabled,
+                isModelCenterConfirmModelAvailable,
+                canRunModelCenterCommands,
+                ModelCenterConfirmModelButtonToolTip,
+                ModelCenterInspectCurrentImageButtonText,
+                IsModelCenterInspectCurrentImageEnabled,
+                canRunModelCenterReviewCommands && IsCurrentImageDetectionEnabled,
+                ModelCenterInspectCurrentImageButtonToolTip);
         }
 
         private static string T(string key) => OpenVisionLanguageService.T(key);

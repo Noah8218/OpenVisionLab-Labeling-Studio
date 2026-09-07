@@ -8,19 +8,19 @@ namespace MvcVisionSystem
 {
     public sealed class WpfRuntimeDiagnosticsViewModel : WpfObservableViewModel
     {
-        private readonly WpfRuntimeDiagnosticsService diagnosticsService;
+        private readonly RuntimeDiagnosticsService diagnosticsService;
         private string statusTitleText = "환경 점검 전";
         private string statusDetailText = "지원 자료는 버튼을 눌러야 생성되며 이미지·라벨·가중치는 제외됩니다.";
-        private WpfRuntimeSelfTestCheck lastGraphicsCapabilityCheck;
+        private RuntimeSelfTestCheck lastGraphicsCapabilityCheck;
         private Action openSetupCenterAction;
         private bool isBusy;
 
         public WpfRuntimeDiagnosticsViewModel()
-            : this(new WpfRuntimeDiagnosticsService())
+            : this(new RuntimeDiagnosticsService())
         {
         }
 
-        public WpfRuntimeDiagnosticsViewModel(WpfRuntimeDiagnosticsService diagnosticsService)
+        public WpfRuntimeDiagnosticsViewModel(RuntimeDiagnosticsService diagnosticsService)
         {
             this.diagnosticsService = diagnosticsService ?? throw new ArgumentNullException(nameof(diagnosticsService));
             RunSelfTestCommand = new RelayCommand(RunSelfTest, () => !IsBusy);
@@ -56,9 +56,9 @@ namespace MvcVisionSystem
             }
         }
 
-        internal WpfRuntimeDiagnosticsService DiagnosticsService => diagnosticsService;
+        internal RuntimeDiagnosticsService DiagnosticsService => diagnosticsService;
 
-        public void AttachGraphicsCapabilityProvider(Func<WpfRuntimeSelfTestCheck> provider)
+        public void AttachGraphicsCapabilityProvider(Func<RuntimeSelfTestCheck> provider)
         {
             diagnosticsService.SetGraphicsCapabilityProvider(provider);
             lastGraphicsCapabilityCheck = null;
@@ -72,7 +72,7 @@ namespace MvcVisionSystem
 
         public bool EnsureViewerReadyForImageLoad(out string detail)
         {
-            WpfRuntimeSelfTestCheck check = lastGraphicsCapabilityCheck
+            RuntimeSelfTestCheck check = lastGraphicsCapabilityCheck
                 ?? diagnosticsService.RunGraphicsCapabilityCheck();
             if (!string.Equals(check.Status, "warning", StringComparison.Ordinal))
             {
@@ -95,11 +95,11 @@ namespace MvcVisionSystem
             Execute(
                 () =>
                 {
-                    WpfRuntimeSelfTestResult result = diagnosticsService.RunSelfTest();
+                    RuntimeSelfTestResult result = diagnosticsService.RunSelfTest();
                     RememberGraphicsCapability(result.Checks.FirstOrDefault(check =>
                         string.Equals(
                             check.Name,
-                            WpfRuntimeDiagnosticsService.ViewerGraphicsCheckName,
+                            RuntimeDiagnosticsService.ViewerGraphicsCheckName,
                             StringComparison.Ordinal)));
                     ApplySelfTestResult(result);
                 });
@@ -110,11 +110,11 @@ namespace MvcVisionSystem
             Execute(
                 () =>
                 {
-                    WpfSupportBundleResult result = diagnosticsService.CreateSupportBundle();
+                    SupportBundleResult result = diagnosticsService.CreateSupportBundle();
                     RememberGraphicsCapability(result.SelfTest?.Checks.FirstOrDefault(check =>
                         string.Equals(
                             check.Name,
-                            WpfRuntimeDiagnosticsService.ViewerGraphicsCheckName,
+                            RuntimeDiagnosticsService.ViewerGraphicsCheckName,
                             StringComparison.Ordinal)));
                     StatusTitleText = result.SelfTest?.FailedCount > 0
                         ? $"지원 자료 생성 완료 · 환경 실패 {result.SelfTest.FailedCount}"
@@ -129,7 +129,7 @@ namespace MvcVisionSystem
             openSetupCenterAction?.Invoke();
         }
 
-        private void RememberGraphicsCapability(WpfRuntimeSelfTestCheck check)
+        private void RememberGraphicsCapability(RuntimeSelfTestCheck check)
         {
             lastGraphicsCapabilityCheck = check != null
                 && !string.Equals(check.Status, "warning", StringComparison.Ordinal)
@@ -137,16 +137,16 @@ namespace MvcVisionSystem
                     : null;
         }
 
-        private void ApplySelfTestResult(WpfRuntimeSelfTestResult result)
+        private void ApplySelfTestResult(RuntimeSelfTestResult result)
         {
-            WpfRuntimeSelfTestCheck failure = result.Checks.FirstOrDefault(check =>
+            RuntimeSelfTestCheck failure = result.Checks.FirstOrDefault(check =>
                 string.Equals(check.Status, "fail", StringComparison.Ordinal));
-            WpfRuntimeSelfTestCheck warning = result.Checks.FirstOrDefault(check =>
+            RuntimeSelfTestCheck warning = result.Checks.FirstOrDefault(check =>
                 string.Equals(check.Status, "warning", StringComparison.Ordinal));
-            WpfRuntimeSelfTestCheck graphics = result.Checks.FirstOrDefault(check =>
+            RuntimeSelfTestCheck graphics = result.Checks.FirstOrDefault(check =>
                 string.Equals(
                     check.Name,
-                    WpfRuntimeDiagnosticsService.ViewerGraphicsCheckName,
+                    RuntimeDiagnosticsService.ViewerGraphicsCheckName,
                     StringComparison.Ordinal));
 
             if (failure != null)

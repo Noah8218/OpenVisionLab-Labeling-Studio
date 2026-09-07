@@ -54,12 +54,13 @@ namespace MvcVisionSystem
         Task YieldAutoLabelBatchFrameAsync(CancellationToken token);
     }
 
-    public sealed class WpfTemplateMatchingAutoLabelViewModel : WpfObservableViewModel
+    public sealed class WpfTemplateMatchingAutoLabelViewModel : WpfObservableViewModel, IDisposable
     {
         private static readonly Action NoOpCommand = () => { };
         private readonly TemplateMatchingAutoLabelService templateMatchingAutoLabelService;
         private readonly TemplateMatchingBatchAutoLabelService templateMatchingBatchAutoLabelService;
-        private readonly WpfTemplateMatchingAutoLabelPresentationService presentationService;
+        private readonly TemplateMatchingAutoLabelPresentationService presentationService;
+        private bool disposed;
         private IWpfTemplateMatchingAutoLabelHost host;
         private Bitmap registeredTemplateImage;
         private string registeredTemplateClassName = string.Empty;
@@ -84,18 +85,18 @@ namespace MvcVisionSystem
             : this(
                 templateMatchingAutoLabelService,
                 templateMatchingBatchAutoLabelService,
-                new WpfTemplateMatchingAutoLabelPresentationService())
+                new TemplateMatchingAutoLabelPresentationService())
         {
         }
 
         public WpfTemplateMatchingAutoLabelViewModel(
             TemplateMatchingAutoLabelService templateMatchingAutoLabelService,
             TemplateMatchingBatchAutoLabelService templateMatchingBatchAutoLabelService,
-            WpfTemplateMatchingAutoLabelPresentationService presentationService)
+            TemplateMatchingAutoLabelPresentationService presentationService)
         {
             this.templateMatchingAutoLabelService = templateMatchingAutoLabelService ?? new TemplateMatchingAutoLabelService();
             this.templateMatchingBatchAutoLabelService = templateMatchingBatchAutoLabelService ?? new TemplateMatchingBatchAutoLabelService();
-            this.presentationService = presentationService ?? new WpfTemplateMatchingAutoLabelPresentationService();
+            this.presentationService = presentationService ?? new TemplateMatchingAutoLabelPresentationService();
             RunCurrentImageCommand = new RelayCommand(RunCurrentImage);
             RunBatchCommand = new RelayCommand(RunBatch);
         }
@@ -118,11 +119,21 @@ namespace MvcVisionSystem
 
         public void ConfigureHost(IWpfTemplateMatchingAutoLabelHost host)
         {
+            if (disposed)
+            {
+                return;
+            }
+
             this.host = host;
         }
 
         public void RunCurrentImage()
         {
+            if (disposed)
+            {
+                return;
+            }
+
             IWpfTemplateMatchingAutoLabelHost currentHost = host;
             if (currentHost == null)
             {
@@ -179,6 +190,12 @@ namespace MvcVisionSystem
                 return;
             }
 
+            if (disposed)
+            {
+                templateImage.Dispose();
+                return;
+            }
+
             registeredTemplateImage?.Dispose();
             registeredTemplateImage = templateImage;
             registeredTemplateClassName = string.IsNullOrWhiteSpace(className) ? "Defect" : className.Trim();
@@ -195,6 +212,11 @@ namespace MvcVisionSystem
 
         private void ApplyRegisteredTemplateToCurrentImage(IWpfTemplateMatchingAutoLabelHost currentHost)
         {
+            if (disposed)
+            {
+                return;
+            }
+
             TemplateMatchingAutoLabelResult result = templateMatchingAutoLabelService.MatchImageWithTemplate(
                 currentHost.ActiveAutoLabelImage,
                 registeredTemplateImage,
@@ -226,83 +248,118 @@ namespace MvcVisionSystem
             currentHost.AppendAutoLabelLog($"Template applied: labels={addedCount}, candidates={result.Candidates.Count}, registeredSource={registeredTemplateSourceBounds.X},{registeredTemplateSourceBounds.Y},{registeredTemplateSourceBounds.Width},{registeredTemplateSourceBounds.Height}, elapsed={result.Elapsed.TotalMilliseconds:0.0}ms");
         }
 
-        public async void RunBatch()
+        public void RunBatch()
         {
+            _ = RunBatchEntryAsync();
+        }
+
+        private async Task RunBatchEntryAsync()
+        {
+            if (disposed)
+            {
+                return;
+            }
+
             IWpfTemplateMatchingAutoLabelHost currentHost = host;
-            if (currentHost == null)
+            try
             {
-                return;
-            }
+                if (currentHost == null)
+                {
+                    return;
+                }
 
-            if (currentHost.IsAutoLabelBusy)
-            {
-                currentHost.AppendAutoLabelLog("Template batch skipped: another detection task is running.");
-                return;
-            }
+                if (currentHost.IsAutoLabelBusy)
+                {
+                    currentHost.AppendAutoLabelLog("Template batch skipped: another detection task is running.");
+                    return;
+                }
 
-            if (HasRegisteredTemplate)
-            {
-                await RunRegisteredTemplateBatchAsync(currentHost).ConfigureAwait(true);
-                return;
-            }
+                if (HasRegisteredTemplate)
+                {
+                    await RunRegisteredTemplateBatchAsync(currentHost).ConfigureAwait(true);
+                    return;
+                }
 
-            if (!currentHost.HasActiveAutoLabelImage)
-            {
-                ShowTemplateGuide(
+                if (!currentHost.HasActiveAutoLabelImage)
+                {
+                    ShowTemplateGuide(
+                        currentHost,
+                        "이미지가 필요합니다",
+                        "전체 이미지 자동 저장을 실행하려면 먼저 기준 이미지를 열고, 그 이미지에서 기준 라벨 박스 1개를 선택해야 합니다.");
+                    return;
+                }
+
+                if (!currentHost.TryResolveTemplateMatchingSource(out Rectangle templateBounds, out string className))
+                {
+                    ShowTemplateGuide(
+                        currentHost,
+                        "기준 라벨이 필요합니다",
+                        "전체 이미지 자동 저장은 선택한 라벨 박스 모양을 라벨 없는 이미지에 바로 저장합니다. 먼저 기준 이미지에서 라벨 박스 1개를 선택하세요.");
+                    return;
+                }
+
+                using Bitmap templateImage = templateMatchingAutoLabelService.CloneTemplateImage(
+                    currentHost.ActiveAutoLabelImage,
+                    templateBounds,
+                    out string cloneError);
+                if (templateImage == null)
+                {
+                    ShowTemplateGuide(
+                        currentHost,
+                        "기준 라벨을 사용할 수 없습니다",
+                        $"선택한 라벨 박스를 템플릿으로 만들 수 없습니다. {cloneError}");
+                    return;
+                }
+
+                LabelClass classItem = currentHost.EnsureAutoLabelClassItem(className);
+                string normalizedClassName = classItem?.Text ?? className;
+                IReadOnlyList<WpfImageQueueItem> queue = BuildBatchQueue(currentHost);
+                currentHost.TryResolveTemplateMatchingSourceSegment(
+                    out IReadOnlyList<Point> sourceSegmentPoints,
+                    out IReadOnlyList<IReadOnlyList<Point>> sourceSegmentCutouts);
+                currentHost.TryResolveTemplateMatchingSourceMask(
+                    out byte[] sourceMaskData,
+                    out Size sourceMaskSize,
+                    out Rectangle sourceMaskBounds);
+                await RunBatchAsync(
                     currentHost,
-                    "이미지가 필요합니다",
-                    "전체 이미지 자동 저장을 실행하려면 먼저 기준 이미지를 열고, 그 이미지에서 기준 라벨 박스 1개를 선택해야 합니다.");
-                return;
+                    queue,
+                    templateImage,
+                    classItem,
+                    normalizedClassName,
+                    templateBounds,
+                    sourceSegmentPoints,
+                    sourceSegmentCutouts,
+                    sourceMaskData,
+                    sourceMaskSize,
+                    sourceMaskBounds).ConfigureAwait(true);
             }
-
-            if (!currentHost.TryResolveTemplateMatchingSource(out Rectangle templateBounds, out string className))
+            catch (OperationCanceledException)
             {
-                ShowTemplateGuide(
-                    currentHost,
-                    "기준 라벨이 필요합니다",
-                    "전체 이미지 자동 저장은 선택한 라벨 박스 모양을 라벨 없는 이미지에 바로 저장합니다. 먼저 기준 이미지에서 라벨 박스 1개를 선택하세요.");
-                return;
+                // The batch finally block owns normal cancellation status and close owns stale UI suppression.
             }
-
-            using Bitmap templateImage = templateMatchingAutoLabelService.CloneTemplateImage(
-                currentHost.ActiveAutoLabelImage,
-                templateBounds,
-                out string cloneError);
-            if (templateImage == null)
+            catch (Exception ex)
             {
-                ShowTemplateGuide(
-                    currentHost,
-                    "기준 라벨을 사용할 수 없습니다",
-                    $"선택한 라벨 박스를 템플릿으로 만들 수 없습니다. {cloneError}");
-                return;
-            }
+                if (currentHost == null || currentHost.IsAutoLabelCloseApproved)
+                {
+                    return;
+                }
 
-            LabelClass classItem = currentHost.EnsureAutoLabelClassItem(className);
-            string normalizedClassName = classItem?.Text ?? className;
-            IReadOnlyList<WpfImageQueueItem> queue = BuildBatchQueue(currentHost);
-            currentHost.TryResolveTemplateMatchingSourceSegment(
-                out IReadOnlyList<Point> sourceSegmentPoints,
-                out IReadOnlyList<IReadOnlyList<Point>> sourceSegmentCutouts);
-            currentHost.TryResolveTemplateMatchingSourceMask(
-                out byte[] sourceMaskData,
-                out Size sourceMaskSize,
-                out Rectangle sourceMaskBounds);
-            await RunBatchAsync(
-                currentHost,
-                queue,
-                templateImage,
-                classItem,
-                normalizedClassName,
-                templateBounds,
-                sourceSegmentPoints,
-                sourceSegmentCutouts,
-                sourceMaskData,
-                sourceMaskSize,
-                sourceMaskBounds).ConfigureAwait(true);
+                string failureStatus = presentationService.BuildBatchFailureStatus(ex.Message);
+                currentHost.SetAutoLabelCommandStatus(failureStatus, isBusy: false);
+                currentHost.SetAutoLabelGlobalInferenceStatus(failureStatus, isBusy: false, isWarning: true);
+                currentHost.SetAutoLabelPythonStatus("Auto label: template batch failed");
+                currentHost.AppendAutoLabelLog($"Template batch exception: {ex.Message}");
+            }
         }
 
         private async Task RunRegisteredTemplateBatchAsync(IWpfTemplateMatchingAutoLabelHost currentHost)
         {
+            if (disposed)
+            {
+                return;
+            }
+
             if (registeredTemplateImage == null)
             {
                 ShowTemplateGuide(
@@ -471,6 +528,11 @@ namespace MvcVisionSystem
 
         private void StoreTemplateSourceSegment(IWpfTemplateMatchingAutoLabelHost currentHost)
         {
+            if (disposed)
+            {
+                return;
+            }
+
             registeredTemplateSourceSegmentPoints = Array.Empty<Point>();
             registeredTemplateSourceSegmentCutouts = Array.Empty<IReadOnlyList<Point>>();
             registeredTemplateSourceMaskData = Array.Empty<byte>();
@@ -571,6 +633,27 @@ namespace MvcVisionSystem
             currentHost.SetAutoLabelPythonStatus($"Template guide: {title}");
             currentHost.AppendAutoLabelLog($"Template guide: {title} / {message}");
             currentHost.ShowAutoLabelGuide(title, guide);
+        }
+
+        public void Dispose()
+        {
+            if (disposed)
+            {
+                return;
+            }
+
+            disposed = true;
+            host = null;
+            registeredTemplateImage?.Dispose();
+            registeredTemplateImage = null;
+            registeredTemplateClassName = string.Empty;
+            registeredTemplateSourceImagePath = string.Empty;
+            registeredTemplateSourceBounds = Rectangle.Empty;
+            registeredTemplateSourceSegmentPoints = Array.Empty<Point>();
+            registeredTemplateSourceSegmentCutouts = Array.Empty<IReadOnlyList<Point>>();
+            registeredTemplateSourceMaskData = Array.Empty<byte>();
+            registeredTemplateSourceMaskSize = Size.Empty;
+            registeredTemplateSourceMaskBounds = Rectangle.Empty;
         }
     }
 }

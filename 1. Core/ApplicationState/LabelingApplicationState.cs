@@ -2,6 +2,7 @@ using MvcVisionSystem._1._Core;
 using System;
 using System.Reflection;
 using MvcVisionSystem._3._Communication.TCP;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace MvcVisionSystem
@@ -75,7 +76,14 @@ namespace MvcVisionSystem
 
         public Task<bool> StartPythonModelClientConnectionAsync(int timeoutMilliseconds = 5000)
         {
-            return ModelRuntime.StartPythonModelClientConnectionAsync(timeoutMilliseconds);
+            return StartPythonModelClientConnectionAsync(timeoutMilliseconds, CancellationToken.None);
+        }
+
+        public Task<bool> StartPythonModelClientConnectionAsync(
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            return ModelRuntime.StartPythonModelClientConnectionAsync(timeoutMilliseconds, cancellationToken);
         }
 
         public void StopPythonModelClientConnection()
@@ -88,8 +96,13 @@ namespace MvcVisionSystem
 
         public Task StopPythonModelClientConnectionAsync()
         {
+            return StopPythonModelClientConnectionAsync(CancellationToken.None);
+        }
+
+        public Task StopPythonModelClientConnectionAsync(CancellationToken cancellationToken)
+        {
             return modelRuntime.IsValueCreated
-                ? modelRuntime.Value.StopPythonModelClientConnectionAsync()
+                ? modelRuntime.Value.StopPythonModelClientConnectionAsync(cancellationToken)
                 : Task.CompletedTask;
         }
 
@@ -100,7 +113,14 @@ namespace MvcVisionSystem
 
         public Task<bool> RestartPythonModelClientConnectionAsync(int timeoutMilliseconds = 5000)
         {
-            return ModelRuntime.RestartPythonModelClientConnectionAsync(timeoutMilliseconds);
+            return RestartPythonModelClientConnectionAsync(timeoutMilliseconds, CancellationToken.None);
+        }
+
+        public Task<bool> RestartPythonModelClientConnectionAsync(
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            return ModelRuntime.RestartPythonModelClientConnectionAsync(timeoutMilliseconds, cancellationToken);
         }
 
         public bool EnsurePythonModelClientReady(int timeoutMilliseconds = 5000)
@@ -110,7 +130,14 @@ namespace MvcVisionSystem
 
         public Task<bool> EnsurePythonModelClientReadyAsync(int timeoutMilliseconds = 5000)
         {
-            return ModelRuntime.EnsurePythonModelClientReadyAsync(timeoutMilliseconds);
+            return EnsurePythonModelClientReadyAsync(timeoutMilliseconds, CancellationToken.None);
+        }
+
+        public Task<bool> EnsurePythonModelClientReadyAsync(
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            return ModelRuntime.EnsurePythonModelClientReadyAsync(timeoutMilliseconds, cancellationToken);
         }
 
         public LabelingApplicationState()

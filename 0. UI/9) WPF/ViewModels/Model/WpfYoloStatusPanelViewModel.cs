@@ -202,7 +202,7 @@ namespace MvcVisionSystem
             }
         }
 
-        public void ApplyWorkflowCommandState(WpfWorkflowCommandState state)
+        public void ApplyWorkflowCommandState(WorkflowCommandState state)
         {
             bool canRunGeneralCommands = state?.CanRunGeneralCommands == true;
             IsFirstCheckEnabled = canRunGeneralCommands;

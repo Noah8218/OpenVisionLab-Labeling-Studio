@@ -16,8 +16,8 @@ namespace MvcVisionSystem
         public WpfCanvasPanel()
         {
             InitializeComponent();
-            WpfLocalizationTextRuntimeService.RegisterRoot(this);
-            WpfLocalizationTextRuntimeService.RegisterRoot(MainCanvasView);
+            LocalizationTextRuntimeService.RegisterRoot(this);
+            LocalizationTextRuntimeService.RegisterRoot(MainCanvasView);
             Loaded += WpfCanvasPanel_Loaded;
             DetectionOverlayTitleText.SetBinding(
                 TextBlock.TextProperty,

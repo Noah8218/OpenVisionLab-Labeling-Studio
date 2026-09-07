@@ -55,25 +55,49 @@ namespace MvcVisionSystem._1._Core
 
         public bool EnsurePythonModelClientStarted()
         {
+            return EnsurePythonModelClientStarted(CancellationToken.None);
+        }
+
+        public bool EnsurePythonModelClientStarted(CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             LabelingProjectData data = EnsureData();
+            cancellationToken.ThrowIfCancellationRequested();
             PythonModelSettings settings = data.ProjectSettings.PythonModel;
             if (!settings.AutoStartClient)
             {
                 return true;
             }
 
-            return PythonClientProcess.EnsureStarted(settings);
+            return PythonClientProcess.EnsureStarted(settings, cancellationToken);
         }
 
         public bool StartPythonModelClientConnection(int timeoutMilliseconds = 5000)
         {
+            return StartPythonModelClientConnection(timeoutMilliseconds, CancellationToken.None);
+        }
+
+        public bool StartPythonModelClientConnection(
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             DeepLearning.Start();
-            return EnsurePythonModelClientReady(timeoutMilliseconds);
+            return EnsurePythonModelClientReady(timeoutMilliseconds, cancellationToken);
         }
 
         public Task<bool> StartPythonModelClientConnectionAsync(int timeoutMilliseconds = 5000)
         {
-            return Task.Run(() => StartPythonModelClientConnection(timeoutMilliseconds));
+            return StartPythonModelClientConnectionAsync(timeoutMilliseconds, CancellationToken.None);
+        }
+
+        public Task<bool> StartPythonModelClientConnectionAsync(
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            return Task.Run(
+                () => StartPythonModelClientConnection(timeoutMilliseconds, cancellationToken),
+                cancellationToken);
         }
 
         public void StopPythonModelClientConnection()
@@ -91,27 +115,58 @@ namespace MvcVisionSystem._1._Core
 
         public Task StopPythonModelClientConnectionAsync()
         {
-            return Task.Run(StopPythonModelClientConnection);
+            return StopPythonModelClientConnectionAsync(CancellationToken.None);
+        }
+
+        public Task StopPythonModelClientConnectionAsync(CancellationToken cancellationToken)
+        {
+            return Task.Run(StopPythonModelClientConnection, cancellationToken);
         }
 
         public bool RestartPythonModelClientConnection(int timeoutMilliseconds = 5000)
         {
+            return RestartPythonModelClientConnection(timeoutMilliseconds, CancellationToken.None);
+        }
+
+        public bool RestartPythonModelClientConnection(
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             StopPythonModelClientConnection();
-            return StartPythonModelClientConnection(timeoutMilliseconds);
+            return StartPythonModelClientConnection(timeoutMilliseconds, cancellationToken);
         }
 
         public Task<bool> RestartPythonModelClientConnectionAsync(int timeoutMilliseconds = 5000)
         {
-            return Task.Run(() => RestartPythonModelClientConnection(timeoutMilliseconds));
+            return RestartPythonModelClientConnectionAsync(timeoutMilliseconds, CancellationToken.None);
+        }
+
+        public Task<bool> RestartPythonModelClientConnectionAsync(
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            return Task.Run(
+                () => RestartPythonModelClientConnection(timeoutMilliseconds, cancellationToken),
+                cancellationToken);
         }
 
         public bool EnsurePythonModelClientReady(int timeoutMilliseconds = 5000)
         {
+            return EnsurePythonModelClientReady(timeoutMilliseconds, CancellationToken.None);
+        }
+
+        public bool EnsurePythonModelClientReady(
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
             LabelingProjectData data = EnsureData();
             DeepLearning.Start();
+            cancellationToken.ThrowIfCancellationRequested();
 
             bool autoStartClient = data.ProjectSettings.PythonModel.AutoStartClient;
-            if (autoStartClient && !EnsurePythonModelClientStarted())
+            if (autoStartClient && !EnsurePythonModelClientStarted(cancellationToken))
             {
                 return false;
             }
@@ -123,6 +178,7 @@ namespace MvcVisionSystem._1._Core
             DateTime? probedConnectionUtc = null;
             while (DateTime.UtcNow <= deadline)
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 PythonCommunicationStatus status = GetPythonCommunicationStatusSnapshot();
                 bool connectedAfterClientStart = !requiredConnectionUtc.HasValue
                     || (status.LastConnectedAtUtc.HasValue && status.LastConnectedAtUtc.Value >= requiredConnectionUtc.Value);
@@ -141,7 +197,7 @@ namespace MvcVisionSystem._1._Core
                         DeepLearning.DropActiveClient(mismatch);
                         pendingStatusRequestId = "";
                         probedConnectionUtc = null;
-                        Thread.Sleep(100);
+                        WaitForRetry(cancellationToken);
                         continue;
                     }
 
@@ -159,7 +215,7 @@ namespace MvcVisionSystem._1._Core
                     }
                 }
 
-                Thread.Sleep(100);
+                WaitForRetry(cancellationToken);
             }
 
             PythonCommunicationStatus finalStatus = GetPythonCommunicationStatusSnapshot();
@@ -172,7 +228,16 @@ namespace MvcVisionSystem._1._Core
 
         public Task<bool> EnsurePythonModelClientReadyAsync(int timeoutMilliseconds = 5000)
         {
-            return Task.Run(() => EnsurePythonModelClientReady(timeoutMilliseconds));
+            return EnsurePythonModelClientReadyAsync(timeoutMilliseconds, CancellationToken.None);
+        }
+
+        public Task<bool> EnsurePythonModelClientReadyAsync(
+            int timeoutMilliseconds,
+            CancellationToken cancellationToken)
+        {
+            return Task.Run(
+                () => EnsurePythonModelClientReady(timeoutMilliseconds, cancellationToken),
+                cancellationToken);
         }
 
         public void SetDeepLearning(PythonModelCommunication communication)
@@ -218,6 +283,17 @@ namespace MvcVisionSystem._1._Core
             }
 
             return "";
+        }
+
+        private static void WaitForRetry(CancellationToken cancellationToken)
+        {
+            if (cancellationToken.CanBeCanceled)
+            {
+                cancellationToken.WaitHandle.WaitOne(100);
+                return;
+            }
+
+            Thread.Sleep(100);
         }
     }
 }

@@ -94,7 +94,7 @@ namespace MvcVisionSystem
                 "빈 라벨 검토" => T("WpfDatasetHealth.VisualQa.EmptyLabelReview"),
                 "저장 라벨 표본" => T("WpfDatasetHealth.VisualQa.SavedLabelSample"),
                 "미검토" => T("WpfDatasetHealth.Metric.Unreviewed"),
-                _ => WpfLocalizationTextRuntimeService.Translate(value ?? string.Empty)
+                _ => LocalizationTextRuntimeService.Translate(value ?? string.Empty)
             };
         }
 
@@ -116,15 +116,15 @@ namespace MvcVisionSystem
                 "저장된 geometry를 읽기 전용으로 확인합니다." => T("WpfDatasetHealth.VisualQa.ReadOnlyGeometry"),
                 "저장된 이미지 판정 표본입니다." => T("WpfDatasetHealth.VisualQa.ReviewedSample"),
                 "학습 전에 정상 또는 이상으로 판정하세요." => T("WpfDatasetHealth.VisualQa.ReviewBeforeTraining"),
-                _ => WpfLocalizationTextRuntimeService.Translate(value ?? string.Empty)
+                _ => LocalizationTextRuntimeService.Translate(value ?? string.Empty)
             };
         }
 
         private static string T(string key)
-            => WpfDatasetHealthTextFormatter.Translate(key);
+            => DatasetHealthTextFormatter.Translate(key);
 
         private static string Format(string key, params object[] arguments)
-            => WpfDatasetHealthTextFormatter.Format(key, arguments);
+            => DatasetHealthTextFormatter.Format(key, arguments);
     }
 
     public sealed class WpfDatasetVisualQaCatalog
@@ -171,6 +171,6 @@ namespace MvcVisionSystem
                 && string.Equals(ClassName, other.ClassName, StringComparison.Ordinal);
 
         private static string T(string key)
-            => WpfDatasetHealthTextFormatter.Translate(key);
+            => DatasetHealthTextFormatter.Translate(key);
     }
 }

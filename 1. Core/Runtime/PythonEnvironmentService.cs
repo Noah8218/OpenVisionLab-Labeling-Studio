@@ -1,10 +1,8 @@
-using Newtonsoft.Json;
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -14,6 +12,7 @@ namespace MvcVisionSystem._1._Core
     {
         private const int CheckTimeoutMilliseconds = 30000;
         private const int InstallTimeoutMilliseconds = 10 * 60 * 1000;
+        private static readonly ExternalProcessRunner ProcessRunner = new ExternalProcessRunner();
 
         public static async Task<PythonEnvironmentCheckResult> CheckRequirementsAsync(
             PythonModelSettings settings,
@@ -30,7 +29,7 @@ namespace MvcVisionSystem._1._Core
 
             string pythonExecutablePath = PythonModelSettingsValidator.ResolvePythonExecutable(settings);
             string requirementsPath = settings.GetRequirementsPath();
-            IReadOnlyList<string> requiredPackages = ReadRequirementPackageNames(requirementsPath, warnings, errors);
+            IReadOnlyList<string> requiredPackages = PythonRequirementsParser.ReadPackageNames(requirementsPath, warnings, errors);
 
             if (errors.Count > 0)
             {
@@ -56,7 +55,7 @@ namespace MvcVisionSystem._1._Core
                 return BuildCheckResult(pythonExecutablePath, requirementsPath, requiredPackages, Array.Empty<string>(), errors, warnings);
             }
 
-            IReadOnlyCollection<string> installedPackages = ParseInstalledPackageNames(pipList.Output);
+            IReadOnlyCollection<string> installedPackages = PythonRequirementsParser.ParseInstalledPackageNames(pipList.Output);
             if (installedPackages.Count == 0)
             {
                 errors.Add("Python 패키지 목록이 비어 있거나 읽을 수 없습니다.");
@@ -64,7 +63,7 @@ namespace MvcVisionSystem._1._Core
             }
 
             List<string> missing = requiredPackages
-                .Where(packageName => !installedPackages.Contains(NormalizePackageName(packageName)))
+                .Where(packageName => !installedPackages.Contains(PythonRequirementsParser.NormalizePackageName(packageName)))
                 .OrderBy(packageName => packageName, StringComparer.OrdinalIgnoreCase)
                 .ToList();
 
@@ -135,119 +134,7 @@ namespace MvcVisionSystem._1._Core
         {
             var warnings = new List<string>();
             var errors = new List<string>();
-            return ReadRequirementPackageNames(requirementsPath, warnings, errors);
-        }
-
-        private static IReadOnlyList<string> ReadRequirementPackageNames(
-            string requirementsPath,
-            List<string> warnings,
-            List<string> errors)
-        {
-            var visited = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
-            var packages = new SortedSet<string>(StringComparer.OrdinalIgnoreCase);
-            ReadRequirementPackageNames(requirementsPath, packages, visited, warnings, errors);
-            return packages.ToList();
-        }
-
-        private static void ReadRequirementPackageNames(
-            string requirementsPath,
-            ISet<string> packages,
-            ISet<string> visited,
-            List<string> warnings,
-            List<string> errors)
-        {
-            if (string.IsNullOrWhiteSpace(requirementsPath) || !File.Exists(requirementsPath))
-            {
-                errors.Add($"requirements.txt 파일을 찾을 수 없습니다: {requirementsPath}");
-                return;
-            }
-
-            string fullPath = Path.GetFullPath(requirementsPath);
-            if (!visited.Add(fullPath))
-            {
-                return;
-            }
-
-            string baseDirectory = Path.GetDirectoryName(fullPath) ?? string.Empty;
-            foreach (string rawLine in File.ReadLines(fullPath))
-            {
-                string line = StripComment(rawLine).Trim();
-                if (string.IsNullOrWhiteSpace(line))
-                {
-                    continue;
-                }
-
-                if (line.StartsWith("-r ", StringComparison.OrdinalIgnoreCase)
-                    || line.StartsWith("--requirement ", StringComparison.OrdinalIgnoreCase))
-                {
-                    string includePath = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries).LastOrDefault() ?? string.Empty;
-                    string nestedPath = Path.IsPathRooted(includePath) ? includePath : Path.Combine(baseDirectory, includePath);
-                    ReadRequirementPackageNames(nestedPath, packages, visited, warnings, errors);
-                    continue;
-                }
-
-                if (line.StartsWith("-", StringComparison.Ordinal)
-                    || line.StartsWith("--", StringComparison.Ordinal))
-                {
-                    continue;
-                }
-
-                string packageName = TryExtractPackageName(line);
-                if (!string.IsNullOrWhiteSpace(packageName))
-                {
-                    packages.Add(packageName);
-                }
-            }
-        }
-
-        private static string StripComment(string line)
-        {
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                return string.Empty;
-            }
-
-            int index = line.IndexOf(" #", StringComparison.Ordinal);
-            return index >= 0 ? line.Substring(0, index) : line;
-        }
-
-        private static string TryExtractPackageName(string requirementLine)
-        {
-            string line = requirementLine.Split(';')[0].Trim();
-            if (string.IsNullOrWhiteSpace(line))
-            {
-                return string.Empty;
-            }
-
-            Match eggMatch = Regex.Match(line, @"[#&]egg=([A-Za-z0-9_.-]+)");
-            if (eggMatch.Success)
-            {
-                return eggMatch.Groups[1].Value;
-            }
-
-            Match packageMatch = Regex.Match(line, @"^([A-Za-z0-9_.-]+)(?:\[[^\]]+\])?\s*(?:[<>=!~]=?.*)?$");
-            return packageMatch.Success ? packageMatch.Groups[1].Value : string.Empty;
-        }
-
-        private static IReadOnlyCollection<string> ParseInstalledPackageNames(string json)
-        {
-            try
-            {
-                List<PipPackageInfo> packages = JsonConvert.DeserializeObject<List<PipPackageInfo>>(json) ?? new List<PipPackageInfo>();
-                return packages
-                    .Select(package => NormalizePackageName(package.Name))
-                    .Where(name => !string.IsNullOrWhiteSpace(name))
-                    .ToHashSet(StringComparer.OrdinalIgnoreCase);
-            }
-            catch
-            {
-                return Array.Empty<string>();
-            }
-        }
-
-        private static string NormalizePackageName(string packageName)
-        {
-            return (packageName ?? string.Empty).Trim().Replace('_', '-').ToLowerInvariant();
+            return PythonRequirementsParser.ReadPackageNames(requirementsPath, warnings, errors);
         }
 
         private static async Task<PythonPackageInstallResult> RunPackageCommandAsync(
@@ -262,7 +149,7 @@ namespace MvcVisionSystem._1._Core
             string trimmedPackage = packageName?.Trim() ?? string.Empty;
             string pythonExecutablePath = PythonModelSettingsValidator.ResolvePythonExecutable(settings);
             string commandLine = $"{pythonExecutablePath} {string.Join(" ", arguments ?? Array.Empty<string>())}";
-            if (!IsSafePackageName(trimmedPackage))
+            if (!PythonRequirementsParser.IsSafePackageName(trimmedPackage))
             {
                 return new PythonPackageInstallResult
                 {
@@ -290,10 +177,6 @@ namespace MvcVisionSystem._1._Core
             };
         }
 
-        private static bool IsSafePackageName(string packageName)
-            => !string.IsNullOrWhiteSpace(packageName)
-                && Regex.IsMatch(packageName, @"^[A-Za-z0-9_.-]+$");
-
         private static PythonEnvironmentCheckResult BuildCheckResult(
             string pythonExecutablePath,
             string requirementsPath,
@@ -320,86 +203,48 @@ namespace MvcVisionSystem._1._Core
             int timeoutMilliseconds,
             CancellationToken cancellationToken)
         {
-            using var process = new Process
+            var startInfo = new ProcessStartInfo
             {
-                StartInfo = new ProcessStartInfo
-                {
-                    FileName = pythonExecutablePath,
-                    WorkingDirectory = Directory.Exists(workingDirectory) ? workingDirectory : AppContext.BaseDirectory,
-                    UseShellExecute = false,
-                    CreateNoWindow = true,
-                    RedirectStandardOutput = true,
-                    RedirectStandardError = true
-                }
+                FileName = pythonExecutablePath,
+                WorkingDirectory = Directory.Exists(workingDirectory) ? workingDirectory : AppContext.BaseDirectory,
+                UseShellExecute = false,
+                CreateNoWindow = true,
+                RedirectStandardOutput = true,
+                RedirectStandardError = true
             };
 
             foreach (string argument in arguments ?? Enumerable.Empty<string>())
             {
-                process.StartInfo.ArgumentList.Add(argument);
+                startInfo.ArgumentList.Add(argument);
             }
 
-            try
+            ExternalProcessRunResult result = await ProcessRunner
+                .RunAsync(
+                    startInfo,
+                    TimeSpan.FromMilliseconds(timeoutMilliseconds),
+                    cancellationToken)
+                .ConfigureAwait(false);
+            if (result.TimedOut)
             {
-                if (!process.Start())
-                {
-                    return new ProcessExecutionResult(-1, string.Empty, "Python 프로세스를 시작하지 못했습니다.");
-                }
+                return new ProcessExecutionResult(-1, result.Output, "Python 명령 시간이 초과되었습니다.");
+            }
 
-                Task<string> outputTask = process.StandardOutput.ReadToEndAsync(cancellationToken);
-                Task<string> errorTask = process.StandardError.ReadToEndAsync(cancellationToken);
-                Task waitTask = process.WaitForExitAsync(cancellationToken);
-                Task completed = await Task.WhenAny(waitTask, Task.Delay(timeoutMilliseconds, cancellationToken)).ConfigureAwait(false);
-                if (completed != waitTask)
-                {
-                    TryKill(process);
-                    return new ProcessExecutionResult(-1, await SafeRead(outputTask).ConfigureAwait(false), "Python 명령 시간이 초과되었습니다.");
-                }
+            if (result.Canceled)
+            {
+                return new ProcessExecutionResult(-1, result.Output, "Python 명령이 취소되었습니다.");
+            }
 
-                string output = await SafeRead(outputTask).ConfigureAwait(false);
-                string error = await SafeRead(errorTask).ConfigureAwait(false);
-                return new ProcessExecutionResult(process.ExitCode, output, error);
-            }
-            catch (Exception ex)
+            if (!result.Started && string.IsNullOrWhiteSpace(result.Error))
             {
-                AppLog.ABNORMAL($"Python 환경 명령 실패: {ex.Message}");
-                return new ProcessExecutionResult(-1, string.Empty, ex.Message);
+                return new ProcessExecutionResult(-1, result.Output, "Python 프로세스를 시작하지 못했습니다.");
             }
-        }
 
-        private static async Task<string> SafeRead(Task<string> task)
-        {
-            try
-            {
-                return await task.ConfigureAwait(false);
-            }
-            catch
-            {
-                return string.Empty;
-            }
-        }
-
-        private static void TryKill(Process process)
-        {
-            try
-            {
-                if (process != null && !process.HasExited)
-                {
-                    process.Kill(entireProcessTree: true);
-                }
-            }
-            catch
-            {
-            }
+            return new ProcessExecutionResult(result.ExitCode, result.Output, result.Error);
         }
 
         private static string FirstNonEmpty(params string[] values)
         {
             return values?.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value)) ?? string.Empty;
-        }
-
-        private sealed class PipPackageInfo
-        {
-            public string Name { get; set; } = string.Empty;
         }
 
         private sealed class ProcessExecutionResult

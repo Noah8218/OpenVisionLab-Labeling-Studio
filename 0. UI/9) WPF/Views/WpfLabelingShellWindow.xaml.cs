@@ -25,7 +25,6 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Input;
-using System.Windows.Threading;
 using CvMat = OpenCvSharp.Mat;
 using DrawingBitmap = System.Drawing.Bitmap;
 using DrawingRectangle = System.Drawing.Rectangle;
@@ -47,72 +46,29 @@ namespace MvcVisionSystem
     {
         private const int BatchReviewStatusSaveInterval = 10;
         private const int TrainingStatusPollTimeoutSeconds = 600;
-        private const int AnnotationHistoryLimit = 50;
         private const int ObjectReviewFullRefreshDeleteLimit = 10_000;
         private const double PreferredInitialShellWidth = 1920D;
         private const double PreferredInitialShellHeight = 1080D;
-        private static readonly string[] SharedThemeResourceKeys =
-        {
-            "AppBackgroundBrush",
-            "FrameBrush",
-            "PanelBrush",
-            "PanelHeaderBrush",
-            "CanvasBrush",
-            "StatusBarBrush",
-            "BorderBrushDark",
-            "PrimaryTextBrush",
-            "SecondaryTextBrush",
-            "AccentBrush",
-            "ModelCenterCandidateBrush",
-            "ModelCenterDecisionBrush",
-            "ModelCenterCandidatePanelBrush",
-            "ModelCenterDecisionPanelBrush",
-            "ToolbarButtonBrush",
-            "ToolbarButtonBorderBrush",
-            "ToolbarButtonHoverBrush",
-            "ToolbarButtonPressedBrush",
-            "ToolbarButtonDisabledBrush",
-            "ToolbarButtonDisabledBorderBrush",
-            "DisabledTextBrush",
-            "InputBrush",
-            "InputBorderBrush",
-            "GridLineBrush",
-            "GridHeaderBrush",
-            "RowHoverBrush",
-            "SelectedRowBrush",
-            "SelectedRowTextBrush",
-            "DetectionOverlayBackgroundBrush",
-            "DetectionOverlayBorderBrush",
-            "DetectionOverlayTitleTextBrush",
-            "DetectionOverlaySummaryTextBrush",
-            "DetectionOverlaySelectedBackgroundBrush",
-            "DetectionOverlaySelectedTextBrush",
-            "DetectionOverlayDetailTextBrush"
-        };
         private readonly LabelingApplicationState global = LabelingApplicationState.Inst;
-        private readonly WpfBulkObservableCollection<WpfImageQueueItem> imageQueueItems = new WpfBulkObservableCollection<WpfImageQueueItem>();
+        private readonly BulkObservableCollection<WpfImageQueueItem> imageQueueItems = new BulkObservableCollection<WpfImageQueueItem>();
         private readonly Dictionary<string, WpfImageQueueItem> imageQueueItemsByPath = new Dictionary<string, WpfImageQueueItem>(StringComparer.OrdinalIgnoreCase);
         private YoloImageReviewStatusService imageReviewStatus = new YoloImageReviewStatusService();
-        private WpfImageQualityReviewWorkflowService imageQualityReviewWorkflowService;
+        private ImageQualityReviewWorkflowService imageQualityReviewWorkflowService;
         private AnomalyImageReviewStatusService anomalyImageReviewStatus = new AnomalyImageReviewStatusService();
-        private WpfAnomalyImageReviewWorkflowService anomalyImageReviewWorkflowService;
+        private AnomalyImageReviewWorkflowService anomalyImageReviewWorkflowService;
         private string dismissedAnomalyFolderStateSuggestionRoot = string.Empty;
-        private int queuedActiveImageQueueStatusRefreshVersion;
-        private readonly WpfImageQueueSelectionService imageQueueSelectionService = new WpfImageQueueSelectionService();
-        private readonly WpfImageQueueCatalogLoadService imageQueueCatalogLoadService;
-        private readonly WpfImageQueueDetailRefreshService imageQueueDetailRefreshService = new WpfImageQueueDetailRefreshService();
-        private readonly WpfDatasetImageRootResolver datasetImageRootResolver = new WpfDatasetImageRootResolver();
-        private readonly WpfImageDecodeCacheService imageDecodeCacheService = new WpfImageDecodeCacheService();
-        private readonly WpfImageDecodeService imageDecodeService = new WpfImageDecodeService();
-        private readonly WpfImageDecodePreloadService imageDecodePreloadService = new WpfImageDecodePreloadService();
-        private readonly WpfImageDisplayAdjustmentService imageDisplayAdjustmentService = new WpfImageDisplayAdjustmentService();
-        private WpfImageLoadDiagnostics lastImageLoadDiagnostics = WpfImageLoadDiagnostics.Empty;
+        private readonly ImageQueueSelectionService imageQueueSelectionService = new ImageQueueSelectionService();
+        private readonly ImageQueueCatalogLoadCoordinator imageQueueCatalogLoadCoordinator;
+        private readonly ImageQueueDetailRefreshCoordinator imageQueueDetailRefreshCoordinator;
+        private readonly ImageQueueReviewStatusRefreshCoordinator imageQueueReviewStatusRefreshCoordinator = new ImageQueueReviewStatusRefreshCoordinator();
+        private readonly DatasetImageRootResolver datasetImageRootResolver = new DatasetImageRootResolver();
+        private readonly ImageDecodeCacheService imageDecodeCacheService = new ImageDecodeCacheService();
+        private readonly ImageDecodeService imageDecodeService = new ImageDecodeService();
+        private readonly ImageDecodePreloadService imageDecodePreloadService = new ImageDecodePreloadService();
+        private readonly ImageDisplayAdjustmentService imageDisplayAdjustmentService = new ImageDisplayAdjustmentService();
+        private ImageLoadDiagnostics lastImageLoadDiagnostics = ImageLoadDiagnostics.Empty;
         private ICollectionView imageQueueView;
-        private CancellationTokenSource imageQueueCatalogLoadCts;
-        private Task imageQueueCatalogLoadTask = Task.CompletedTask;
-        private int imageQueueCatalogLoadVersion;
-        private CancellationTokenSource imageQueueDetailLoadCts;
-        private Task imageQueueDetailLoadTask = Task.CompletedTask;
+        private CancellationTokenSource interactiveDetectionCts;
         private CancellationTokenSource batchDetectionCts;
         private DrawingBitmap activeImageBitmap;
         private string activeImagePath = string.Empty;
@@ -123,68 +79,69 @@ namespace MvcVisionSystem
         private readonly List<CanvasRoiShapeKind> manualRoiShapeKinds = new List<CanvasRoiShapeKind>();
         private readonly List<string> manualRoiOverlayIds = new List<string>();
         private readonly List<LabelingSegmentationObject> manualSegments = new List<LabelingSegmentationObject>();
-        private readonly WpfPolygonAnnotationService polygonAnnotationService = new WpfPolygonAnnotationService();
-        private readonly WpfMaskAnnotationService maskAnnotationService = new WpfMaskAnnotationService();
-        private readonly WpfSegmentationMergeService segmentationMergeService = new WpfSegmentationMergeService();
-        private readonly WpfSegmentationSplitService segmentationSplitService = new WpfSegmentationSplitService();
-        private readonly WpfSegmentationZOrderService segmentationZOrderService = new WpfSegmentationZOrderService();
-        private readonly WpfSegmentationRemoveUnderlyingService segmentationRemoveUnderlyingService = new WpfSegmentationRemoveUnderlyingService();
+        private readonly PolygonAnnotationService polygonAnnotationService = new PolygonAnnotationService();
+        private readonly MaskAnnotationService maskAnnotationService = new MaskAnnotationService();
+        private readonly SegmentationMergeService segmentationMergeService = new SegmentationMergeService();
+        private readonly SegmentationSplitService segmentationSplitService = new SegmentationSplitService();
+        private readonly SegmentationZOrderService segmentationZOrderService = new SegmentationZOrderService();
+        private readonly SegmentationRemoveUnderlyingService segmentationRemoveUnderlyingService = new SegmentationRemoveUnderlyingService();
         private WpfSegmentationRemoveUnderlyingPlan pendingSegmentationRemoveUnderlyingPlan;
-        private readonly WpfObjectSessionStateService objectSessionStateService = new WpfObjectSessionStateService();
-        private readonly WpfObjectMetadataStateService objectMetadataStateService = new WpfObjectMetadataStateService();
-        private readonly WpfObjectReviewWorkflowService objectReviewWorkflowService;
+        private readonly ObjectSessionStateService objectSessionStateService = new ObjectSessionStateService();
+        private readonly ObjectMetadataStateService objectMetadataStateService = new ObjectMetadataStateService();
+        private readonly ObjectReviewWorkflowService objectReviewWorkflowService;
         private LabelingSegmentationObject pendingSegmentationSplitSource;
         private int pendingSegmentationSplitSourceIndex = -1;
         private WpfSegmentationSplitOrientation? pendingSegmentationSplitOrientation;
-        private readonly WpfSegmentationHoleService segmentationHoleService = new WpfSegmentationHoleService();
-        private readonly WpfPolygonAnnotationService holePolygonAnnotationService = new WpfPolygonAnnotationService();
+        private readonly SegmentationHoleService segmentationHoleService = new SegmentationHoleService();
+        private readonly PolygonAnnotationService holePolygonAnnotationService = new PolygonAnnotationService();
         private LabelingSegmentationObject pendingSegmentationHoleSource;
         private int pendingSegmentationHoleSourceIndex = -1;
         private WpfSegmentationHoleEditMode? pendingSegmentationHoleEditMode;
         private LabelingSegmentationObject pendingPolygonVertexSource;
         private int pendingPolygonVertexSourceIndex = -1;
         private WpfPolygonVertexEditMode? pendingPolygonVertexEditMode;
-        private readonly WpfIntelligentScissorsService intelligentScissorsService = new WpfIntelligentScissorsService();
+        private readonly IntelligentScissorsService intelligentScissorsService = new IntelligentScissorsService();
         private LabelingSegmentationObject pendingIntelligentScissorsSource;
         private int pendingIntelligentScissorsSourceIndex = -1;
         private WpfIntelligentScissorsPlan pendingIntelligentScissorsPlan;
-        private readonly List<WpfAnnotationHistorySnapshot> undoAnnotationHistory = new List<WpfAnnotationHistorySnapshot>();
-        private readonly List<WpfAnnotationHistorySnapshot> redoAnnotationHistory = new List<WpfAnnotationHistorySnapshot>();
-        private readonly WpfCandidateReviewStateService candidateReviewState = new WpfCandidateReviewStateService();
-        private readonly WpfCandidateReviewPresentationService candidateReviewPresentationService = new WpfCandidateReviewPresentationService();
-        private readonly WpfCandidateConfirmationService candidateConfirmationService = new WpfCandidateConfirmationService();
-        private readonly WpfPatchCoreHeatmapReviewService patchCoreHeatmapReviewService = new WpfPatchCoreHeatmapReviewService();
+        private readonly AnnotationHistoryStack annotationHistoryStack = new AnnotationHistoryStack();
+        private readonly CandidateReviewStateService candidateReviewState = new CandidateReviewStateService();
+        private readonly CandidateReviewPresentationService candidateReviewPresentationService = new CandidateReviewPresentationService();
+        private readonly CandidateConfirmationService candidateConfirmationService = new CandidateConfirmationService();
+        private readonly PatchCoreHeatmapReviewService patchCoreHeatmapReviewService = new PatchCoreHeatmapReviewService();
         private WpfPatchCoreHeatmapWindow patchCoreHeatmapWindow;
         private YoloWorkerSmokeCandidate patchCoreHeatmapWindowCandidate;
-        private readonly WpfCandidateReviewCompletionPresentationService candidateReviewCompletionPresentationService = new WpfCandidateReviewCompletionPresentationService();
-        private readonly WpfDetectionResultPresentationService detectionResultPresentationService = new WpfDetectionResultPresentationService();
-        private readonly WpfDetectionTargetService detectionTargetService = new WpfDetectionTargetService();
-        private readonly WpfTemplateMatchingSourceService templateMatchingSourceService = new WpfTemplateMatchingSourceService();
-        private readonly WpfBatchDetectionProgressService batchDetectionProgressService = new WpfBatchDetectionProgressService();
-        private readonly WpfImageLoadPresentationService imageLoadPresentationService = new WpfImageLoadPresentationService();
-        private readonly WpfObjectReviewPresentationService objectReviewPresentationService = new WpfObjectReviewPresentationService();
+        private readonly CandidateReviewCompletionPresentationService candidateReviewCompletionPresentationService = new CandidateReviewCompletionPresentationService();
+        private readonly DetectionResultPresentationService detectionResultPresentationService = new DetectionResultPresentationService();
+        private readonly DetectionTargetService detectionTargetService = new DetectionTargetService();
+        private readonly TemplateMatchingSourceService templateMatchingSourceService = new TemplateMatchingSourceService();
+        private readonly BatchDetectionProgressService batchDetectionProgressService = new BatchDetectionProgressService();
+        private readonly ImageLoadPresentationService imageLoadPresentationService = new ImageLoadPresentationService();
+        private readonly ObjectReviewPresentationService objectReviewPresentationService = new ObjectReviewPresentationService();
         private readonly WpfFileDialogService fileDialogService = new WpfFileDialogService();
-        private readonly WpfDatasetSetupPathService datasetSetupPathService = new WpfDatasetSetupPathService();
-        private readonly WpfDatasetSetupExecutionService datasetSetupExecutionService = new WpfDatasetSetupExecutionService();
-        private readonly WpfDatasetSetupPresentationService datasetSetupPresentationService = new WpfDatasetSetupPresentationService();
-        private readonly WpfProjectRecipeSessionService projectRecipeSessionService = new WpfProjectRecipeSessionService();
-        private readonly WpfClassCatalogWorkflowService classCatalogWorkflowService;
+        private readonly DatasetSetupPathService datasetSetupPathService = new DatasetSetupPathService();
+        private readonly DatasetSetupExecutionService datasetSetupExecutionService = new DatasetSetupExecutionService();
+        private readonly DatasetSetupPresentationService datasetSetupPresentationService = new DatasetSetupPresentationService();
+        private readonly ProjectRecipeSessionService projectRecipeSessionService = new ProjectRecipeSessionService();
+        private readonly ClassCatalogWorkflowService classCatalogWorkflowService;
         private readonly CancellationTokenSource projectRecipeSessionCts = new CancellationTokenSource();
-        private readonly WpfTrainingWeightsService trainingWeightsService = new WpfTrainingWeightsService();
-        private readonly WpfModelComparisonReviewService modelComparisonReviewService = new WpfModelComparisonReviewService();
-        private readonly WpfModelComparisonRunService modelComparisonRunService = new WpfModelComparisonRunService();
-        private readonly WpfSegmentationAdapterComparisonRunService segmentationAdapterComparisonRunService = new WpfSegmentationAdapterComparisonRunService();
-        private readonly WpfMobileSamBoxPromptService mobileSamBoxPromptService = new WpfMobileSamBoxPromptService();
-        private readonly WpfSmartMaskPromptSessionService smartMaskPromptSession = new WpfSmartMaskPromptSessionService();
-        private readonly WpfAnomalyClassificationEvaluationRunService anomalyClassificationEvaluationRunService = new WpfAnomalyClassificationEvaluationRunService();
-        private readonly WpfAnomalyClassificationEvaluationSummaryService anomalyClassificationEvaluationSummaryService = new WpfAnomalyClassificationEvaluationSummaryService();
-        private readonly WpfWorkspaceLayoutSettingsService workspaceLayoutSettingsService = new WpfWorkspaceLayoutSettingsService();
-        private readonly WpfApplicationClosePolicyService applicationClosePolicyService = new WpfApplicationClosePolicyService();
-        private readonly WpfCrashRecoveryJournalService crashRecoveryJournalService = new WpfCrashRecoveryJournalService();
-        private readonly WpfCrashRecoverySessionService crashRecoverySessionService = new WpfCrashRecoverySessionService();
-        private readonly WpfTrainingGuideHistoryService trainingGuideHistoryService = new WpfTrainingGuideHistoryService();
-        private readonly WpfMaskEditStateService maskEditStateService = new WpfMaskEditStateService();
-        private readonly WpfMaskStrokeHistoryDraftService maskStrokeHistoryDraftService = new WpfMaskStrokeHistoryDraftService();
+        private readonly CancellationTokenSource yoloSettingsRefreshCancellation = new CancellationTokenSource();
+        private readonly TrainingWeightsService trainingWeightsService = new TrainingWeightsService();
+        private readonly ModelComparisonReviewService modelComparisonReviewService = new ModelComparisonReviewService();
+        private readonly ModelComparisonRunService modelComparisonRunService = new ModelComparisonRunService();
+        private readonly SegmentationAdapterComparisonRunService segmentationAdapterComparisonRunService = new SegmentationAdapterComparisonRunService();
+        private readonly MobileSamBoxPromptService mobileSamBoxPromptService = new MobileSamBoxPromptService();
+        private readonly SmartMaskPromptSessionService smartMaskPromptSession = new SmartMaskPromptSessionService();
+        private readonly AnomalyClassificationEvaluationRunService anomalyClassificationEvaluationRunService = new AnomalyClassificationEvaluationRunService();
+        private readonly AnomalyClassificationEvaluationSummaryService anomalyClassificationEvaluationSummaryService = new AnomalyClassificationEvaluationSummaryService();
+        private readonly WorkspaceLayoutSettingsService workspaceLayoutSettingsService = new WorkspaceLayoutSettingsService();
+        private readonly ApplicationClosePolicyService applicationClosePolicyService = new ApplicationClosePolicyService();
+        private readonly CrashRecoveryJournalService crashRecoveryJournalService = new CrashRecoveryJournalService();
+        private readonly CrashRecoveryJournalWriteCoordinator crashRecoveryJournalWriteCoordinator;
+        private readonly CrashRecoverySessionService crashRecoverySessionService = new CrashRecoverySessionService();
+        private readonly TrainingGuideHistoryService trainingGuideHistoryService = new TrainingGuideHistoryService();
+        private readonly MaskEditStateService maskEditStateService = new MaskEditStateService();
+        private readonly MaskStrokeHistoryDraftService maskStrokeHistoryDraftService = new MaskStrokeHistoryDraftService();
         private bool suppressImageQueueSelection;
         private bool isDetecting;
         private bool isCreatingSmartMask;
@@ -192,19 +149,24 @@ namespace MvcVisionSystem
         private bool isBatchDetectionRunning;
         private bool isYoloEnvironmentCommandRunning;
         private bool isTrainingCommandRunning;
+        private CancellationTokenSource trainingCommandCts;
         private bool isTrainingWorkflowRunning;
         private bool isModelComparisonRunning;
+        private CancellationTokenSource modelComparisonCts;
         private bool isSegmentationAdapterComparisonRunning;
+        private CancellationTokenSource segmentationAdapterComparisonCts;
+        private CancellationTokenSource pythonWorkerOperationCts;
         private bool isAnomalyEvaluationRunning;
+        private CancellationTokenSource anomalyEvaluationCts;
+        private CancellationTokenSource externalYoloDatasetIntakeCts;
+        private CancellationTokenSource externalEvaluationDataAuditCts;
+        private CancellationTokenSource historicalSegmentationRemediationAuditCts;
         private bool suppressProjectRecipeSelection;
         private int batchDetectionTotalCount;
         private int batchDetectionCompletedCount;
         private readonly Stopwatch inferenceStatusPulseStopwatch = new Stopwatch();
-        private readonly DispatcherTimer inferenceStatusPulseTimer;
-        private readonly DispatcherTimer trainingStatusPollTimer;
-        private readonly DispatcherTimer maskStrokePreviewCommitSwapTimer;
-        private readonly DispatcherTimer maskStrokeCommitQueueTimer;
-        private readonly DispatcherTimer displayAdjustmentRefreshTimer;
+        private readonly ShellTimerSet shellTimers;
+        private string pendingAnnotationVisibilityStatusText = string.Empty;
         private DateTime trainingStatusPollStartedUtc = DateTime.MinValue;
         private string lastAutoAppliedTrainingWeightsPath = string.Empty;
         private string pendingTrainingBaselineWeightsPath = string.Empty;
@@ -219,8 +181,8 @@ namespace MvcVisionSystem
         private System.Drawing.Point? lastMaskStrokePoint;
         private long lastMaskStrokeStatusUpdateTicks;
         private readonly HashSet<int> activeMaskStrokeSegmentIndices = new HashSet<int>();
-        private readonly WpfMaskStrokeCommitSession activeMaskStrokeCommitSession = new WpfMaskStrokeCommitSession();
-        private readonly Queue<WpfQueuedMaskStrokeCommit> queuedMaskStrokeCommits = new Queue<WpfQueuedMaskStrokeCommit>();
+        private readonly MaskStrokeCommitSession activeMaskStrokeCommitSession = new MaskStrokeCommitSession();
+        private readonly Queue<QueuedMaskStrokeCommit> queuedMaskStrokeCommits = new Queue<QueuedMaskStrokeCommit>();
         private bool activeMaskStrokeInProgress;
         private bool isMaskStrokeCommitQueueScheduled;
         private bool isMaskStrokeToolEndFlushScheduled;
@@ -242,11 +204,9 @@ namespace MvcVisionSystem
         private WpfAnnotationHistorySnapshot activeSegmentDragSnapshot;
         private bool activeSegmentDragChanged;
         private bool suppressAnnotationHistory;
-        private string annotationDirtyReason = string.Empty;
-        private long crashRecoveryJournalRevision;
+        private readonly AnnotationDirtyState annotationDirtyState = new AnnotationDirtyState();
         private int crashRecoveryCaptureVersion;
         private bool suppressCrashRecoveryJournal;
-        private System.Threading.Tasks.Task crashRecoveryWriteTask = System.Threading.Tasks.Task.CompletedTask;
         private bool isApplicationCloseApproved;
         private bool isApplicationClosePromptOpen;
         private bool modelWorkflowPanelsComposed;
@@ -263,46 +223,33 @@ namespace MvcVisionSystem
         internal WpfLabelingShellWindow(WpfLabelingShellViewModels viewModels)
         {
             this.viewModels = viewModels ?? throw new ArgumentNullException(nameof(viewModels));
-            imageQueueCatalogLoadService = new WpfImageQueueCatalogLoadService(imageQueueSelectionService);
-            imageQualityReviewWorkflowService = new WpfImageQualityReviewWorkflowService(imageReviewStatus);
-            anomalyImageReviewWorkflowService = new WpfAnomalyImageReviewWorkflowService(anomalyImageReviewStatus);
-            classCatalogWorkflowService = new WpfClassCatalogWorkflowService(projectRecipeSessionService);
-            objectReviewWorkflowService = new WpfObjectReviewWorkflowService(
-                new WpfObjectMetadataPersistenceService(),
+            crashRecoveryJournalWriteCoordinator = new CrashRecoveryJournalWriteCoordinator(crashRecoveryJournalService);
+            imageQueueCatalogLoadCoordinator = new ImageQueueCatalogLoadCoordinator(
+                new ImageQueueCatalogLoadService(imageQueueSelectionService));
+            imageQueueDetailRefreshCoordinator = new ImageQueueDetailRefreshCoordinator(
+                new ImageQueueDetailRefreshService());
+            imageQualityReviewWorkflowService = new ImageQualityReviewWorkflowService(imageReviewStatus);
+            anomalyImageReviewWorkflowService = new AnomalyImageReviewWorkflowService(anomalyImageReviewStatus);
+            classCatalogWorkflowService = new ClassCatalogWorkflowService(projectRecipeSessionService);
+            objectReviewWorkflowService = new ObjectReviewWorkflowService(
+                new ObjectMetadataPersistenceService(),
                 projectRecipeSessionService);
             InitializeComponent();
-            WpfLocalizationTextRuntimeService.RegisterWindow(this);
+            LocalizationTextRuntimeService.RegisterWindow(this);
             PromoteSharedThemeResourcesToApplication();
             ApplyInitialWindowSizeToWorkArea();
-            inferenceStatusPulseTimer = new DispatcherTimer(DispatcherPriority.Render, Dispatcher)
-            {
-                Interval = TimeSpan.FromMilliseconds(33)
-            };
-            inferenceStatusPulseTimer.Tick += InferenceStatusPulseTimer_Tick;
-            trainingStatusPollTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher)
-            {
-                Interval = TimeSpan.FromMilliseconds(800)
-            };
-            trainingStatusPollTimer.Tick += TrainingStatusPollTimer_Tick;
-            maskStrokePreviewCommitSwapTimer = new DispatcherTimer(DispatcherPriority.ApplicationIdle, Dispatcher)
-            {
-                Interval = TimeSpan.FromMilliseconds(90)
-            };
-            maskStrokePreviewCommitSwapTimer.Tick += MaskStrokePreviewCommitSwapTimer_Tick;
-            maskStrokeCommitQueueTimer = new DispatcherTimer(DispatcherPriority.ApplicationIdle, Dispatcher)
-            {
-                Interval = TimeSpan.FromMilliseconds(WpfMaskEditStateService.CommitQueueQuietMilliseconds)
-            };
-            maskStrokeCommitQueueTimer.Tick += MaskStrokeCommitQueueTimer_Tick;
-            displayAdjustmentRefreshTimer = new DispatcherTimer(DispatcherPriority.Background, Dispatcher)
-            {
-                Interval = TimeSpan.FromMilliseconds(120)
-            };
-            displayAdjustmentRefreshTimer.Tick += DisplayAdjustmentRefreshTimer_Tick;
+            shellTimers = new ShellTimerSet(
+                Dispatcher,
+                InferenceStatusPulseTimer_Tick,
+                TrainingStatusPollTimer_Tick,
+                MaskStrokePreviewCommitSwapTimer_Tick,
+                MaskStrokeCommitQueueTimer_Tick,
+                DisplayAdjustmentRefreshTimer_Tick,
+                AnnotationVisibilityRefreshTimer_Tick);
             DataContext = viewModels;
             viewModels.LanguageViewModel.LanguageChanged += LanguageViewModel_LanguageChanged;
             RuntimeDiagnosticsViewModel.AttachGraphicsCapabilityProvider(
-                () => WpfOpenGlRuntimeCapabilityProbe.Probe(MainCanvasViewModel.ImageViewer));
+                () => OpenGlRuntimeCapabilityProbe.Probe(MainCanvasViewModel.ImageViewer));
             RuntimeDiagnosticsViewModel.ConfigureOpenSetupCenterAction(ExecuteOpenEnvironmentSetupCenterCommand);
             RestoreWorkspaceLayoutSettings();
             ShellViewModel.RefreshLocalizedPresentation();
@@ -364,7 +311,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            string message = WpfCanvasRenderDiagnosticsPresentationService.BuildLogMessage(diagnostics);
+            string message = CanvasRenderDiagnosticsPresentationService.BuildLogMessage(diagnostics);
             if (!string.IsNullOrWhiteSpace(message))
             {
                 AppendLog(message);
@@ -387,7 +334,7 @@ namespace MvcVisionSystem
                 }
             }
 
-            foreach (string key in SharedThemeResourceKeys)
+            foreach (string key in ThemePalette.SharedResourceKeys)
             {
                 if (Resources.Contains(key))
                 {

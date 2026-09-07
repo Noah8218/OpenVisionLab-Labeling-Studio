@@ -5,6 +5,7 @@ using System.Drawing;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Threading;
 
 namespace MvcVisionSystem.Yolo
 {
@@ -21,8 +22,12 @@ namespace MvcVisionSystem.Yolo
 
         private static readonly string[] ImageExtensions = { ".bmp", ".jpg", ".jpeg", ".png", ".tif", ".tiff" };
 
-        public static YoloSegmentationHistoricalRemediationAuditReport Build(LabelingProjectData data, string sourceImagePath = "")
+        public static YoloSegmentationHistoricalRemediationAuditReport Build(
+            LabelingProjectData data,
+            string sourceImagePath = "",
+            CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var report = new YoloSegmentationHistoricalRemediationAuditReport
             {
                 ExcludedSourceImagePath = sourceImagePath ?? string.Empty
@@ -52,7 +57,8 @@ namespace MvcVisionSystem.Yolo
             string sourceStem = Path.GetFileNameWithoutExtension(sourceImagePath ?? string.Empty);
             foreach (string split in DatasetModes)
             {
-                BuildSplit(report, data.ClassNamedList, outputRootPath, split, sourceStem);
+                cancellationToken.ThrowIfCancellationRequested();
+                BuildSplit(report, data.ClassNamedList, outputRootPath, split, sourceStem, cancellationToken);
             }
 
             if (!string.IsNullOrWhiteSpace(sourceStem) && report.ExcludedSourceImageCount == 0)
@@ -73,8 +79,10 @@ namespace MvcVisionSystem.Yolo
 
         public static YoloSegmentationHistoricalRemediationAuditExportResult ExportMarkdown(
             YoloSegmentationHistoricalRemediationAuditReport report,
-            string outputPath)
+            string outputPath,
+            CancellationToken cancellationToken = default)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             if (report == null)
             {
                 throw new ArgumentNullException(nameof(report));
@@ -91,7 +99,9 @@ namespace MvcVisionSystem.Yolo
                 Directory.CreateDirectory(directory);
             }
 
-            File.WriteAllText(outputPath, BuildMarkdown(report), new UTF8Encoding(false));
+            string markdown = BuildMarkdown(report);
+            cancellationToken.ThrowIfCancellationRequested();
+            File.WriteAllText(outputPath, markdown, new UTF8Encoding(false));
             return new YoloSegmentationHistoricalRemediationAuditExportResult
             {
                 OutputPath = outputPath,
@@ -157,7 +167,8 @@ namespace MvcVisionSystem.Yolo
             IReadOnlyList<LabelClass> classes,
             string outputRootPath,
             string split,
-            string sourceStem)
+            string sourceStem,
+            CancellationToken cancellationToken)
         {
             string splitRoot = Path.Combine(outputRootPath, "data", split);
             string segmentDirectory = Path.Combine(splitRoot, "segments");
@@ -172,6 +183,7 @@ namespace MvcVisionSystem.Yolo
             foreach (string segmentPath in Directory.EnumerateFiles(segmentDirectory, "*.json", SearchOption.TopDirectoryOnly)
                 .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
             {
+                cancellationToken.ThrowIfCancellationRequested();
                 string fileStem = Path.GetFileNameWithoutExtension(segmentPath);
                 if (string.IsNullOrWhiteSpace(fileStem))
                 {
@@ -214,6 +226,7 @@ namespace MvcVisionSystem.Yolo
 
                 foreach (SegmentationPolygonRecord record in annotation.Polygons ?? new List<SegmentationPolygonRecord>())
                 {
+                    cancellationToken.ThrowIfCancellationRequested();
                     if (!YoloSegmentationAnnotationService.IsLegacyRasterMaskCandidate(record, imageSize))
                     {
                         continue;

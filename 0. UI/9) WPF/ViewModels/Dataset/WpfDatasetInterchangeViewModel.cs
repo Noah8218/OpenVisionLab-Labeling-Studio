@@ -9,7 +9,7 @@ using System.Windows.Input;
 
 namespace MvcVisionSystem
 {
-    internal static class WpfDatasetInterchangeTextFormatter
+    internal static class DatasetInterchangeTextFormatter
     {
         public static string Translate(string key)
             => OpenVisionLanguageService.T(key);
@@ -40,7 +40,7 @@ namespace MvcVisionSystem
                 ? "WpfDatasetInterchange.Direction.Import"
                 : "WpfDatasetInterchange.Direction.Export");
 
-        public string PurposeText => WpfDatasetContextPresentationService.FormatPurposeName(
+        public string PurposeText => DatasetContextPresentationService.FormatPurposeName(
             Enum.TryParse(Capability.DatasetPurpose, out LabelingDatasetPurpose purpose)
                 ? purpose
                 : LabelingDatasetPurpose.ObjectDetection);
@@ -85,7 +85,7 @@ namespace MvcVisionSystem
         }
 
         private static string T(string key)
-            => WpfDatasetInterchangeTextFormatter.Translate(key);
+            => DatasetInterchangeTextFormatter.Translate(key);
     }
 
     public sealed class WpfDatasetInterchangeIssueItem
@@ -100,7 +100,7 @@ namespace MvcVisionSystem
 
         public bool IsBlocking { get; }
 
-        public string SeverityText => WpfDatasetInterchangeTextFormatter.Translate(
+        public string SeverityText => DatasetInterchangeTextFormatter.Translate(
             IsBlocking
                 ? "WpfDatasetInterchange.IssueSeverity.Blocking"
                 : "WpfDatasetInterchange.IssueSeverity.Warning");
@@ -351,12 +351,12 @@ namespace MvcVisionSystem
             {
                 recipeName = currentRecipeName;
             }
-            DatasetName = WpfDatasetContextPresentationService.BuildDatasetName(
+            DatasetName = DatasetContextPresentationService.BuildDatasetName(
                 string.Empty,
                 data?.OutputRootPath);
             LabelingDatasetPurpose purpose = data?.ProjectSettings?.DatasetPurpose
                 ?? LabelingDatasetPurpose.ObjectDetection;
-            DatasetPurposeText = WpfDatasetContextPresentationService.FormatPurposeName(purpose);
+            DatasetPurposeText = DatasetContextPresentationService.FormatPurposeName(purpose);
             WpfDatasetInterchangeOption preferred = Operations.FirstOrDefault(item =>
                 !item.IsImport
                 && string.Equals(item.Capability.DatasetPurpose, purpose.ToString(), StringComparison.Ordinal))
@@ -536,18 +536,18 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(SourceLabelText));
             OnPropertyChanged(nameof(TargetLabelText));
             OnPropertyChanged(nameof(OperationContractText));
-            DatasetPurposeText = WpfDatasetContextPresentationService.FormatPurposeName(
+            DatasetPurposeText = DatasetContextPresentationService.FormatPurposeName(
                 data?.ProjectSettings?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection);
             InvalidateDryRun();
         }
 
         private static string T(string key)
-            => WpfDatasetInterchangeTextFormatter.Translate(key);
+            => DatasetInterchangeTextFormatter.Translate(key);
 
         private static string Format(string key, params object[] arguments)
-            => WpfDatasetInterchangeTextFormatter.Format(key, arguments);
+            => DatasetInterchangeTextFormatter.Format(key, arguments);
 
         private static string LocalizeInterchangeText(string value)
-            => WpfLocalizationTextRuntimeService.Translate(value ?? string.Empty);
+            => LocalizationTextRuntimeService.Translate(value ?? string.Empty);
     }
 }

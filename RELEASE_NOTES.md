@@ -1,5 +1,17 @@
 # Release Notes
 
+## 0.3.2 — 2026-09-07
+
+- Consolidated the WPF Shell, queue, review, runtime, and model workflow
+  responsibilities into concrete owners and canonical code-only contracts;
+  framework-bound Window/XAML names remain where their composition contract
+  requires them.
+- Strengthened async close, cancellation, callback, and resource-lifetime
+  boundaries while preserving the existing annotation, Recipe, Dataset
+  Version, model-state, Python-process, and public file-format contracts.
+- Added focused structural regression coverage for the refactored owners.
+  Runtime WPF/DPI/GPU/field-quality evidence remains a separate gate.
+
 ## 0.3.1 — 2026-09-04
 
 - Continued the WPF Shell refactor by moving independently testable presentation,

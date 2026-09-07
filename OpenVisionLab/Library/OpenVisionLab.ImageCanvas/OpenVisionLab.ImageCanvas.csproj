@@ -13,21 +13,6 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <!-- Keep legacy teaching views in the public tree without compiling them
-         alongside the current compatibility implementations. -->
-    <Compile Remove="Converter\BooleanToEyeIconConverter .cs" />
-    <Compile Remove="View\AddRoiArrayView.xaml.cs" />
-    <Compile Remove="View\AutoAlignTeachingView.xaml.cs" />
-    <Compile Remove="View\AutoWarpageTeachingView.xaml.cs" />
-    <Compile Remove="ViewModel\AutoAlignTeachingViewModel.cs" />
-    <Compile Remove="ViewModel\AutoWarpageTeachingViewModel.cs" />
-    <Compile Remove="ViewModel\LayoutItemViewModel.cs" />
-    <Page Remove="View\AddRoiArrayView.xaml" />
-    <Page Remove="View\AutoAlignTeachingView.xaml" />
-    <Page Remove="View\AutoWarpageTeachingView.xaml" />
-  </ItemGroup>
-
-  <ItemGroup>
     <Reference Include="SharpGL">
       <HintPath>..\..\dll\SharpGL\SharpGL.dll</HintPath>
       <Private>true</Private>

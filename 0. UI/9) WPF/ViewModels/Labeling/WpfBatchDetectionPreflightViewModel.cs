@@ -54,7 +54,7 @@ namespace MvcVisionSystem
 
     public sealed class WpfBatchDetectionPreflightViewModel : WpfObservableViewModel, IDisposable
     {
-        private readonly WpfBatchDetectionPreflightService preflightService;
+        private readonly BatchDetectionPreflightService preflightService;
         private bool disposed;
         private LabelingProjectData data;
         private IReadOnlyList<WpfImageQueueItem> items = Array.Empty<WpfImageQueueItem>();
@@ -71,9 +71,9 @@ namespace MvcVisionSystem
             LabelingProjectData data,
             IReadOnlyList<WpfImageQueueItem> items,
             string scopeText,
-            WpfBatchDetectionPreflightService preflightService = null)
+            BatchDetectionPreflightService preflightService = null)
         {
-            this.preflightService = preflightService ?? new WpfBatchDetectionPreflightService();
+            this.preflightService = preflightService ?? new BatchDetectionPreflightService();
             OpenVisionLanguageService.LanguageChanged += OpenVisionLanguageService_LanguageChanged;
             ExistingLabelPolicies.Add(new WpfBatchExistingLabelPolicyOption(
                 WpfBatchExistingLabelPolicy.SkipLabeled,
@@ -316,7 +316,7 @@ namespace MvcVisionSystem
                 return Format("WpfBatch.Finding.IncludeExisting", existingLabelCount);
             }
 
-            return WpfLocalizationTextRuntimeService.Translate(text);
+            return LocalizationTextRuntimeService.Translate(text);
         }
 
         private static bool TryLocalizePathFinding(

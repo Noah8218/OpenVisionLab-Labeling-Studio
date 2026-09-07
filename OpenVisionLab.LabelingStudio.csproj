@@ -49,24 +49,6 @@
     <EmbeddedResource Remove="OpenVisionLab\**\*.resx" />
     <Page Remove="OpenVisionLab\**\*.xaml" />
     <None Remove="OpenVisionLab\**\*" />
-    <Compile Remove="1. Core\ApplicationState\CData.cs" />
-    <Compile Remove="1. Core\ApplicationState\CGlobal.cs" />
-    <Compile Remove="1. Core\ApplicationState\CRecipe.cs" />
-    <Compile Remove="1. Core\ApplicationState\CSystem.cs" />
-    <Compile Remove="1. Core\Display\CDisplayManager.cs" />
-    <Compile Remove="2. Common\CArgument.cs" />
-    <Compile Remove="2. Common\CCommon.cs" />
-    <Compile Remove="2. Common\CDrawBitmap.cs" />
-    <Compile Remove="2. Common\CParameterManager.cs" />
-    <Compile Remove="3. Communication\TCP\CCommunicationLearning.cs" />
-    <Compile Remove="3. Communication\TCP\CTCPAsync.cs" />
-    <Compile Remove="Library\CViewer.cs" />
-    <Compile Remove="Library\CViewer.Image.cs" />
-    <Compile Remove="Library\CViewer.Rendering.cs" />
-    <Compile Remove="Library\CViewerWinFormsHostAdapter.cs" />
-    <Compile Remove="Library\DrawObject\CRectangleObject.cs" />
-    <Compile Remove="Yolo\CClassList.cs" />
-    <Compile Remove="Yolo\CYolov5.cs" />
     <Compile Remove="tests\**\*.cs" />
     <EmbeddedResource Remove="tests\**\*.resx" />
     <None Remove="tests\**\*" />
@@ -126,6 +108,8 @@
     <PackageReference Include="OpenCvSharp4" Version="$(OpenCvSharpVersion)" />
     <PackageReference Include="OpenCvSharp4.Extensions" Version="$(OpenCvSharpVersion)" />
     <PackageReference Include="OpenCvSharp4.runtime.win" Version="$(OpenCvSharpVersion)" />
+    <PackageReference Include="OpenVisionLab.Integration.Contracts" Version="[0.2.0-alpha.1]" />
+    <PackageReference Include="OpenVisionLab.Integration.Transport.Tcp" Version="[0.1.0-alpha.1]" />
     <PackageReference Include="System.Buffers" Version="4.5.1" />
     <PackageReference Include="System.Drawing.Common" Version="8.0.27" />
     <PackageReference Include="System.Memory" Version="4.5.5" />

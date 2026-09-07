@@ -10,7 +10,7 @@ using System.Windows.Input;
 
 namespace MvcVisionSystem
 {
-    internal static class WpfDatasetSelectionTextFormatter
+    internal static class DatasetSelectionTextFormatter
     {
         public static string Translate(string key) => OpenVisionLanguageService.T(key);
 
@@ -21,7 +21,7 @@ namespace MvcVisionSystem
     public sealed class WpfDatasetSelectionWindowViewModel : WpfObservableViewModel, IDisposable
     {
         private static readonly Action NoOpCommand = () => { };
-        private readonly WpfDatasetSelectionCatalogService datasetSelectionCatalogService = new WpfDatasetSelectionCatalogService();
+        private readonly DatasetSelectionCatalogService datasetSelectionCatalogService = new DatasetSelectionCatalogService();
         private WpfDatasetSelectionItem selectedDataset;
         private string statusText = string.Empty;
         private Visibility emptyStateVisibility = Visibility.Collapsed;
@@ -39,35 +39,35 @@ namespace MvcVisionSystem
 
         public string ViewName => nameof(WpfDatasetSelectionWindow);
 
-        public string WindowTitleText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Title");
+        public string WindowTitleText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Title");
 
-        public string DatasetSourceRuleTitleText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.SourceRule.Title");
+        public string DatasetSourceRuleTitleText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.SourceRule.Title");
 
-        public string DatasetSourceRuleDetailText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.SourceRule.Detail");
+        public string DatasetSourceRuleDetailText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.SourceRule.Detail");
 
-        public string ExistingDatasetGuideTitleText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Guide.Existing.Title");
+        public string ExistingDatasetGuideTitleText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Guide.Existing.Title");
 
-        public string ExistingDatasetGuideDetailText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Guide.Existing.Detail");
+        public string ExistingDatasetGuideDetailText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Guide.Existing.Detail");
 
-        public string CreateDatasetGuideTitleText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Guide.Create.Title");
+        public string CreateDatasetGuideTitleText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Guide.Create.Title");
 
-        public string CreateDatasetGuideDetailText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Guide.Create.Detail");
+        public string CreateDatasetGuideDetailText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Guide.Create.Detail");
 
-        public string CreateDatasetGuideButtonText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Action.Create.Short");
+        public string CreateDatasetGuideButtonText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Action.Create.Short");
 
-        public string EmptyStateTitleText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Empty.Title");
+        public string EmptyStateTitleText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Empty.Title");
 
-        public string EmptyStateDetailText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Empty.Detail");
+        public string EmptyStateDetailText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Empty.Detail");
 
-        public string CreateFirstDatasetButtonText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Action.Create");
+        public string CreateFirstDatasetButtonText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Action.Create");
 
-        public string RefreshButtonText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Action.Refresh");
+        public string RefreshButtonText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Action.Refresh");
 
-        public string CreateNewButtonText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Action.Create.Short");
+        public string CreateNewButtonText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Action.Create.Short");
 
-        public string CancelButtonText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Action.Cancel");
+        public string CancelButtonText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Action.Cancel");
 
-        public string OpenSelectedButtonText => WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Action.Open");
+        public string OpenSelectedButtonText => DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Action.Open");
 
         public ObservableCollection<WpfDatasetSelectionItem> Datasets { get; } = new ObservableCollection<WpfDatasetSelectionItem>();
 
@@ -134,10 +134,10 @@ namespace MvcVisionSystem
             }
 
             ReleaseDatasetItems();
-            IReadOnlyList<WpfDatasetSelectionSnapshot> snapshots = datasetSelectionCatalogService.Load(
+            IReadOnlyList<DatasetSelectionSnapshot> snapshots = datasetSelectionCatalogService.Load(
                 recipeRootPath,
                 currentRecipeName);
-            foreach (WpfDatasetSelectionSnapshot snapshot in snapshots)
+            foreach (DatasetSelectionSnapshot snapshot in snapshots)
             {
                 Datasets.Add(BuildDatasetItem(snapshot));
             }
@@ -199,11 +199,11 @@ namespace MvcVisionSystem
         private void RefreshStatusText()
         {
             StatusText = Datasets.Count > 0
-                ? WpfDatasetSelectionTextFormatter.Format("WpfDatasetSelection.Status.Count", Datasets.Count)
-                : WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Status.Empty");
+                ? DatasetSelectionTextFormatter.Format("WpfDatasetSelection.Status.Count", Datasets.Count)
+                : DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Status.Empty");
         }
 
-        private static WpfDatasetSelectionItem BuildDatasetItem(WpfDatasetSelectionSnapshot snapshot)
+        private static WpfDatasetSelectionItem BuildDatasetItem(DatasetSelectionSnapshot snapshot)
         {
             string purposeKey = GetDatasetPurposeKey(snapshot?.DatasetPurpose);
             string classesText = snapshot?.Classes?.Count > 0
@@ -272,7 +272,7 @@ namespace MvcVisionSystem
 
         public string PurposeKey { get; }
 
-        public string PurposeText => WpfDatasetSelectionTextFormatter.Translate(PurposeKey);
+        public string PurposeText => DatasetSelectionTextFormatter.Translate(PurposeKey);
 
         public string OutputRootPath { get; }
 
@@ -290,32 +290,32 @@ namespace MvcVisionSystem
 
         public bool IsCurrent { get; }
 
-        public string ToolTipText => WpfDatasetSelectionTextFormatter.Format(
+        public string ToolTipText => DatasetSelectionTextFormatter.Format(
             "WpfDatasetSelection.Item.Tooltip",
-            string.IsNullOrWhiteSpace(OutputRootPath) ? WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Item.StorageUnknown") : OutputRootPath,
-            string.IsNullOrWhiteSpace(ImageRootPath) ? WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Item.ImageRootUnknown") : ImageRootPath);
+            string.IsNullOrWhiteSpace(OutputRootPath) ? DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Item.StorageUnknown") : OutputRootPath,
+            string.IsNullOrWhiteSpace(ImageRootPath) ? DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Item.ImageRootUnknown") : ImageRootPath);
 
-        public string StoragePathText => WpfDatasetSelectionTextFormatter.Format(
+        public string StoragePathText => DatasetSelectionTextFormatter.Format(
             "WpfDatasetSelection.Item.StoragePath",
-            string.IsNullOrWhiteSpace(OutputRootPath) ? WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Item.StorageUnknown") : OutputRootPath);
+            string.IsNullOrWhiteSpace(OutputRootPath) ? DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Item.StorageUnknown") : OutputRootPath);
 
-        public string ImageRootPathText => WpfDatasetSelectionTextFormatter.Format(
+        public string ImageRootPathText => DatasetSelectionTextFormatter.Format(
             "WpfDatasetSelection.Item.ImageRootPath",
-            string.IsNullOrWhiteSpace(ImageRootPath) ? WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Item.ImageRootUnknown") : ImageRootPath);
+            string.IsNullOrWhiteSpace(ImageRootPath) ? DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Item.ImageRootUnknown") : ImageRootPath);
 
-        public string ClassesLabelText => WpfDatasetSelectionTextFormatter.Format(
+        public string ClassesLabelText => DatasetSelectionTextFormatter.Format(
             "WpfDatasetSelection.Item.Classes",
-            string.IsNullOrWhiteSpace(ClassesText) ? WpfDatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Item.ClassesUnknown") : ClassesText);
+            string.IsNullOrWhiteSpace(ClassesText) ? DatasetSelectionTextFormatter.Translate("WpfDatasetSelection.Item.ClassesUnknown") : ClassesText);
 
-        public string OpenActionText => WpfDatasetSelectionTextFormatter.Translate(IsCurrent
+        public string OpenActionText => DatasetSelectionTextFormatter.Translate(IsCurrent
             ? "WpfDatasetSelection.Item.OpenAction.Current"
             : "WpfDatasetSelection.Item.OpenAction.Open");
 
-        public string StatusText => WpfDatasetSelectionTextFormatter.Translate(IsCurrent
+        public string StatusText => DatasetSelectionTextFormatter.Translate(IsCurrent
             ? "WpfDatasetSelection.Item.Status.Current"
             : (HasManifest ? "WpfDatasetSelection.Item.Status.Ready" : "WpfDatasetSelection.Item.Status.Configured"));
 
-        public string CountText => WpfDatasetSelectionTextFormatter.Format("WpfDatasetSelection.Item.Count", ImageCount, LabelCount);
+        public string CountText => DatasetSelectionTextFormatter.Format("WpfDatasetSelection.Item.Count", ImageCount, LabelCount);
 
         public PackIconMaterialKind IconKind => HasManifest ? PackIconMaterialKind.DatabaseCheckOutline : PackIconMaterialKind.DatabaseAlertOutline;
 
