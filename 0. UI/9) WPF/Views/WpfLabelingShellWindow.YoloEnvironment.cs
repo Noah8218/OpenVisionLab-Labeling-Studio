@@ -300,7 +300,14 @@ namespace MvcVisionSystem
                     global.Data.ProjectSettings.DatasetPurpose);
                 if (pendingWeightsRecipeSave)
                 {
-                    UpdateAppliedTrainingWeightsHistory(global.Data.ProjectSettings.PythonModel.WeightsPath, savedToRecipe: true);
+                    trainingWeightsApplicationWorkflowService.RecordAppliedWeights(
+                        new TrainingWeightsApplicationRecordRequest
+                        {
+                            Data = global.Data,
+                            WeightsPath = global.Data.ProjectSettings.PythonModel.WeightsPath,
+                            BaselineWeightsPath = pendingTrainingBaselineWeightsPath,
+                            SavedToRecipe = true
+                        });
                 }
                 else
                 {
@@ -392,62 +399,62 @@ namespace MvcVisionSystem
 
         #region YoloEnvironmentRuntimeCommands
         // Runtime environment commands manage Python/worker state and should not mix with settings field browsing.
+        // PL-0037: lazy composition and visual adapters only; execution/state live in one owner.
+        private YoloEnvironmentWorkflowService CreateYoloEnvironmentWorkflow()
+        {
+            return new YoloEnvironmentWorkflowService(
+                () =>
+                {
+                    global.Data.ProjectSettings ??= new LabelingProjectSettings();
+                    global.Data.ProjectSettings.PythonModel ??= new PythonModelSettings();
+                    return global.Data.ProjectSettings.PythonModel;
+                },
+                () => YoloModelSettingsViewModel.CreateSettingsSnapshot(global?.Data?.ProjectSettings?.PythonModel),
+                GetPythonModelRuntimeState,
+                (timeout, token) => global.RestartPythonModelClientConnectionAsync(timeout, token),
+                token => global.StopPythonModelClientConnectionAsync(token),
+                requestId =>
+                {
+                    global.ModelRuntime.DeepLearning.SendHealthCheck(requestId);
+                    global.ModelRuntime.DeepLearning.SendModelStatus(requestId, ensureLoaded: false);
+                },
+                () => YoloRuntimePresentationService.BuildPythonWorkerFailureText(
+                    global.GetPythonCommunicationStatusSnapshot(), global.ModelRuntime.PythonClientProcess?.LastError));
+        }
+
+        private YoloEnvironmentCallbacks CreateYoloEnvironmentCallbacks()
+        {
+            return new YoloEnvironmentCallbacks
+            {
+                HasConflictingCommand = () => WorkflowCommandStateService.HasActiveCommand(
+                    false, imageDetectionWorkflowService.IsDetecting, batchDetectionWorkflowService.IsRunning, isTrainingCommandRunning),
+                ClearRecovery = ClearYoloRecoveryStatus,
+                SetCommandStatus = SetYoloCommandStatus,
+                SetCommandBusy = value => YoloStatusViewModel.SetCommandBusy(value),
+                RefreshCommands = UpdateYoloCommandButtons,
+                RefreshStatus = RefreshYoloStatus,
+                RefreshSettingsAsync = result => RefreshYoloSettingsPanelAsync(result),
+                ShowModelCenter = ShowYoloModelCenterWorkflowView,
+                ShowRuntimeUnavailable = ShowModelRuntimeUnavailable,
+                AppendLog = AppendLog,
+                ConfirmPackage = ConfirmUltralyticsPackageOperation,
+                SetRuntimeActionStatus = text => YoloModelSettingsViewModel?.SetRuntimeProfileActionStatus(text),
+                SetPackageResult = SetUltralyticsPackageOperationResult,
+                LoadSettings = settings => YoloModelSettingsViewModel?.LoadFrom(settings),
+                RunDiagnosticAsync = () => RunInteractiveDetectionAsync(allowSmokeFallback: true),
+                SetRecovery = recovery => SetYoloRecoveryStatus(recovery.Title, recovery.Detail, recovery.Action),
+                ApplyWorkerPresentation = ApplyYoloWorkerCommandPresentation
+            };
+        }
+
         private void ExecuteCheckYoloCommand()
         {
             _ = ExecuteCheckYoloCommandAsync();
         }
 
-        private async Task ExecuteCheckYoloCommandAsync()
+        private Task ExecuteCheckYoloCommandAsync()
         {
-            if (!BeginYoloEnvironmentCommand(YoloEnvironmentCommandPresentationService.BuildEnvironmentCheckStartingStatus()))
-            {
-                return;
-            }
-
-            try
-            {
-                global.Data.ProjectSettings ??= new LabelingProjectSettings();
-                global.Data.ProjectSettings.PythonModel ??= new PythonModelSettings();
-                PythonModelRuntimeState runtimeState = GetPythonModelRuntimeState();
-                PythonModelValidationResult result = runtimeState.State == PythonModelRuntimeStateKind.NotInstalled
-                    ? new PythonModelValidationResult(new[] { runtimeState.NextActionText }, Array.Empty<string>())
-                    : PythonModelSettingsValidator.Validate(global.Data.ProjectSettings.PythonModel, requireWeights: true);
-                RefreshYoloStatus();
-                ShowYoloModelCenterWorkflowView();
-                await RefreshYoloSettingsPanelAsync(result).ConfigureAwait(true);
-                if (isApplicationCloseApproved)
-                {
-                    return;
-                }
-
-                if (result.IsValid)
-                {
-                    string readyStatus = YoloEnvironmentCommandPresentationService.BuildEnvironmentReadyStatus();
-                    SetYoloCommandStatus(readyStatus, isBusy: false);
-                    AppendLog(readyStatus);
-                    return;
-                }
-
-                SetYoloCommandStatus(YoloEnvironmentCommandPresentationService.BuildEnvironmentNeedsAttentionStatus(), isBusy: false);
-                AppendLog(YoloEnvironmentCommandPresentationService.BuildEnvironmentNeedsAttentionLogHeader());
-                foreach (string line in result.Errors.Concat(result.Warnings))
-                {
-                    AppendLog($"- {line}");
-                }
-            }
-            catch (Exception ex)
-            {
-                if (!isApplicationCloseApproved)
-                {
-                    string failureStatus = YoloEnvironmentCommandPresentationService.BuildEnvironmentCheckFailureStatus(ex.Message);
-                    SetYoloCommandStatus(failureStatus, isBusy: false);
-                    AppendLog(failureStatus);
-                }
-            }
-            finally
-            {
-                EndYoloEnvironmentCommand();
-            }
+            return yoloEnvironmentWorkflowService.CheckAsync(CreateYoloEnvironmentCallbacks());
         }
 
         private void ExecuteDetectCurrentImageCommand()
@@ -480,73 +487,9 @@ namespace MvcVisionSystem
             _ = ExecuteInstallRequirementsCommandAsync();
         }
 
-        private async Task ExecuteInstallRequirementsCommandAsync()
+        private Task ExecuteInstallRequirementsCommandAsync()
         {
-            if (!BeginYoloEnvironmentCommand(YoloEnvironmentCommandPresentationService.BuildRequirementsCheckStartingStatus()))
-            {
-                return;
-            }
-
-            try
-            {
-                global.Data.ProjectSettings ??= new LabelingProjectSettings();
-                global.Data.ProjectSettings.PythonModel ??= new PythonModelSettings();
-                PythonModelSettings settings = global.Data.ProjectSettings.PythonModel;
-                PythonModelRuntimeState runtimeState = GetPythonModelRuntimeState();
-                if (!runtimeState.IsRuntimeInstalled)
-                {
-                    ShowModelRuntimeUnavailable(runtimeState.NextActionText, runtimeState);
-                    return;
-                }
-
-                PythonEnvironmentCheckResult check = await PythonEnvironmentService
-                    .CheckRequirementsAsync(settings)
-                    .ConfigureAwait(true);
-                if (isApplicationCloseApproved)
-                {
-                    return;
-                }
-
-                RequirementsCheckPresentation checkPresentation =
-                    YoloEnvironmentCommandPresentationService.BuildRequirementsCheckPresentation(check);
-                SetYoloCommandStatus(checkPresentation.StatusText, checkPresentation.IsBusy);
-
-                if (!checkPresentation.ShouldInstallRequirements)
-                {
-                    await RefreshYoloSettingsPanelAsync().ConfigureAwait(true);
-                    if (isApplicationCloseApproved)
-                    {
-                        return;
-                    }
-                    AppendLog(checkPresentation.LogText);
-                    return;
-                }
-
-                AppendLog(checkPresentation.LogText);
-                PythonPackageInstallResult install = await PythonEnvironmentService
-                    .InstallRequirementsAsync(settings)
-                    .ConfigureAwait(true);
-
-                await RefreshYoloSettingsPanelAsync().ConfigureAwait(true);
-                if (isApplicationCloseApproved)
-                {
-                    return;
-                }
-                SetYoloCommandStatus(YoloEnvironmentCommandPresentationService.BuildRequirementsInstallResultStatus(install), isBusy: false);
-                AppendLog(YoloEnvironmentCommandPresentationService.BuildRequirementsInstallResultLog(install));
-            }
-            catch (Exception ex)
-            {
-                if (!isApplicationCloseApproved)
-                {
-                    SetYoloCommandStatus(YoloEnvironmentCommandPresentationService.BuildRequirementsInstallFailureStatus(ex.Message), isBusy: false);
-                    AppendLog(YoloEnvironmentCommandPresentationService.BuildRequirementsInstallFailureLog(ex.Message));
-                }
-            }
-            finally
-            {
-                EndYoloEnvironmentCommand();
-            }
+            return yoloEnvironmentWorkflowService.InstallRequirementsAsync(CreateYoloEnvironmentCallbacks());
         }
 
         private void ExecuteInstallUltralyticsPackageCommand()
@@ -559,86 +502,9 @@ namespace MvcVisionSystem
             _ = ExecuteUltralyticsPackageCommandAsync(uninstall: true);
         }
 
-        private async Task ExecuteUltralyticsPackageCommandAsync(bool uninstall)
+        private Task ExecuteUltralyticsPackageCommandAsync(bool uninstall)
         {
-            if (isApplicationCloseApproved)
-            {
-                return;
-            }
-
-            string operationName = YoloEnvironmentCommandPresentationService.BuildUltralyticsOperationName(uninstall);
-            PythonModelSettings settings = YoloModelSettingsViewModel.CreateSettingsSnapshot(global?.Data?.ProjectSettings?.PythonModel);
-            PythonModelRuntimeInstallPlan plan = PythonModelRuntimeInstallPlanService.BuildPlan(settings);
-            bool canRun = uninstall ? plan.CanRunUninstall : plan.CanRunInstall;
-            if (!plan.IsVisible || !canRun)
-            {
-                string status = YoloEnvironmentCommandPresentationService.BuildUltralyticsUnavailableStatus(operationName, plan);
-                SetYoloCommandStatus(status, isBusy: false);
-                YoloModelSettingsViewModel?.SetRuntimeProfileActionStatus(status);
-                AppendLog(YoloEnvironmentCommandPresentationService.BuildUltralyticsSkippedLog(operationName, status));
-                return;
-            }
-
-            if (!ConfirmUltralyticsPackageOperation(uninstall, plan))
-            {
-                string canceledText = YoloEnvironmentCommandPresentationService.BuildUltralyticsCanceledStatus(operationName);
-                SetYoloCommandStatus(canceledText, isBusy: false);
-                YoloModelSettingsViewModel?.SetRuntimeProfileActionStatus(canceledText);
-                SetUltralyticsPackageOperationResult(
-                    YoloEnvironmentCommandPresentationService.BuildUltralyticsOperationSummary(DateTime.Now, operationName, "\uCDE8\uC18C"),
-                    YoloEnvironmentCommandPresentationService.BuildUltralyticsPackageOperationDetail(plan, uninstall, null, canceledText));
-                AppendLog(canceledText);
-                return;
-            }
-
-            if (!BeginYoloEnvironmentCommand(YoloEnvironmentCommandPresentationService.BuildUltralyticsRunningStatus(operationName)))
-            {
-                return;
-            }
-
-            try
-            {
-                AppendLog(YoloEnvironmentCommandPresentationService.BuildUltralyticsStartLog(operationName, plan));
-                PythonPackageInstallResult result = uninstall
-                    ? await PythonEnvironmentService.UninstallPackageAsync(settings, "ultralytics").ConfigureAwait(true)
-                    : await PythonEnvironmentService.InstallPackageAsync(settings, "ultralytics").ConfigureAwait(true);
-                if (isApplicationCloseApproved)
-                {
-                    return;
-                }
-
-                foreach (string line in YoloEnvironmentCommandPresentationService.BuildUltralyticsPackageOperationLogLines(operationName, result))
-                {
-                    AppendLog(line);
-                }
-                YoloModelSettingsViewModel?.LoadFrom(settings);
-                RefreshYoloStatus();
-
-                string statusText = YoloEnvironmentCommandPresentationService.BuildUltralyticsResultStatus(uninstall, operationName, result);
-                SetYoloCommandStatus(statusText, isBusy: false);
-                YoloModelSettingsViewModel?.SetRuntimeProfileActionStatus(statusText);
-                SetUltralyticsPackageOperationResult(
-                    YoloEnvironmentCommandPresentationService.BuildUltralyticsOperationSummary(DateTime.Now, operationName, result.Succeeded ? "\uC131\uACF5" : "\uC2E4\uD328"),
-                    YoloEnvironmentCommandPresentationService.BuildUltralyticsPackageOperationDetail(plan, uninstall, result, statusText));
-                AppendLog(statusText);
-            }
-            catch (Exception ex)
-            {
-                if (!isApplicationCloseApproved)
-                {
-                    string statusText = YoloEnvironmentCommandPresentationService.BuildUltralyticsFailureStatus(operationName, ex.Message);
-                    SetYoloCommandStatus(statusText, isBusy: false);
-                    YoloModelSettingsViewModel?.SetRuntimeProfileActionStatus(statusText);
-                    SetUltralyticsPackageOperationResult(
-                        YoloEnvironmentCommandPresentationService.BuildUltralyticsOperationSummary(DateTime.Now, operationName, "\uC2E4\uD328"),
-                        YoloEnvironmentCommandPresentationService.BuildUltralyticsPackageOperationDetail(plan, uninstall, null, statusText));
-                    AppendLog(statusText);
-                }
-            }
-            finally
-            {
-                EndYoloEnvironmentCommand();
-            }
+            return yoloEnvironmentWorkflowService.RunPackageAsync(uninstall, CreateYoloEnvironmentCallbacks());
         }
 
         private bool ConfirmUltralyticsPackageOperation(bool uninstall, PythonModelRuntimeInstallPlan plan)
@@ -682,40 +548,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            if (!BeginYoloEnvironmentCommand(YoloEnvironmentCommandPresentationService.BuildModelTestStartingStatus()))
-            {
-                return;
-            }
-
-            try
-            {
-                await RunInteractiveDetectionAsync(allowSmokeFallback: true).ConfigureAwait(true);
-                if (isApplicationCloseApproved)
-                {
-                    return;
-                }
-                await RefreshYoloSettingsPanelAsync().ConfigureAwait(true);
-                if (isApplicationCloseApproved)
-                {
-                    return;
-                }
-                SetYoloCommandStatus(YoloEnvironmentCommandPresentationService.BuildModelTestCompletedStatus(), isBusy: false);
-            }
-            catch (Exception ex)
-            {
-                if (!isApplicationCloseApproved)
-                {
-                    string errorText = YoloEnvironmentCommandPresentationService.BuildModelTestFailureStatus(ex.Message);
-                    YoloEnvironmentRecoveryPresentation recovery = YoloEnvironmentCommandPresentationService.BuildModelTestFailureRecovery(errorText);
-                    SetYoloCommandStatus(errorText, isBusy: false);
-                    SetYoloRecoveryStatus(recovery.Title, recovery.Detail, recovery.Action);
-                    AppendLog(errorText);
-                }
-            }
-            finally
-            {
-                EndYoloEnvironmentCommand();
-            }
+            await yoloEnvironmentWorkflowService.RunModelTestAsync(CreateYoloEnvironmentCallbacks()).ConfigureAwait(true);
         }
 
         private void ExecuteRestartPythonWorkerCommand()
@@ -723,77 +556,9 @@ namespace MvcVisionSystem
             _ = ExecuteRestartPythonWorkerCommandAsync();
         }
 
-        private async Task ExecuteRestartPythonWorkerCommandAsync()
+        private Task ExecuteRestartPythonWorkerCommandAsync()
         {
-            if (!BeginYoloEnvironmentCommand(YoloEnvironmentCommandPresentationService.BuildWorkerRestartStartingStatus()))
-            {
-                return;
-            }
-
-            CancellationTokenSource cancellation = new CancellationTokenSource();
-            pythonWorkerOperationCts = cancellation;
-            CancellationToken cancellationToken = cancellation.Token;
-            try
-            {
-                PythonModelRuntimeState runtimeState = GetPythonModelRuntimeState();
-                if (!runtimeState.IsRuntimeInstalled)
-                {
-                    ShowModelRuntimeUnavailable(runtimeState.NextActionText, runtimeState);
-                    return;
-                }
-
-                bool connected = await global
-                    .RestartPythonModelClientConnectionAsync(
-                        YoloRuntimePresentationService.GetWorkerConnectTimeoutMilliseconds(
-                            global.Data?.ProjectSettings?.PythonModel?.DetectionTimeoutSeconds ?? 30),
-                        cancellationToken)
-                    .ConfigureAwait(true);
-                if (isApplicationCloseApproved || cancellationToken.IsCancellationRequested)
-                {
-                    return;
-                }
-
-                if (connected)
-                {
-                    string requestId = YoloRuntimePresentationService.CreateRequestId();
-                    global.ModelRuntime.DeepLearning.SendHealthCheck(requestId);
-                    global.ModelRuntime.DeepLearning.SendModelStatus(requestId, ensureLoaded: false);
-                }
-
-                await RefreshYoloSettingsPanelAsync().ConfigureAwait(true);
-                if (isApplicationCloseApproved)
-                {
-                    return;
-                }
-                ApplyYoloWorkerCommandPresentation(
-                    YoloEnvironmentCommandPresentationService.BuildWorkerRestartResult(
-                        connected,
-                        YoloRuntimePresentationService.BuildPythonWorkerFailureText(
-                            global.GetPythonCommunicationStatusSnapshot(),
-                            global.ModelRuntime.PythonClientProcess?.LastError)));
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-            catch (Exception ex)
-            {
-                if (!isApplicationCloseApproved)
-                {
-                    ApplyYoloWorkerCommandPresentation(
-                        YoloEnvironmentCommandPresentationService.BuildWorkerRestartFailure(ex.Message));
-                }
-            }
-            finally
-            {
-                if (ReferenceEquals(pythonWorkerOperationCts, cancellation))
-                {
-                    pythonWorkerOperationCts = null;
-                }
-
-                cancellation.Dispose();
-                EndYoloEnvironmentCommand();
-            }
+            return yoloEnvironmentWorkflowService.RestartWorkerAsync(CreateYoloEnvironmentCallbacks());
         }
 
         private void ExecuteStopPythonWorkerCommand()
@@ -801,53 +566,9 @@ namespace MvcVisionSystem
             _ = ExecuteStopPythonWorkerCommandAsync();
         }
 
-        private async Task ExecuteStopPythonWorkerCommandAsync()
+        private Task ExecuteStopPythonWorkerCommandAsync()
         {
-            if (!BeginYoloEnvironmentCommand(YoloEnvironmentCommandPresentationService.BuildWorkerStopStartingStatus()))
-            {
-                return;
-            }
-
-            CancellationTokenSource cancellation = new CancellationTokenSource();
-            pythonWorkerOperationCts = cancellation;
-            CancellationToken cancellationToken = cancellation.Token;
-            try
-            {
-                await global.StopPythonModelClientConnectionAsync(cancellationToken).ConfigureAwait(true);
-                if (isApplicationCloseApproved || cancellationToken.IsCancellationRequested)
-                {
-                    return;
-                }
-                await RefreshYoloSettingsPanelAsync().ConfigureAwait(true);
-                if (isApplicationCloseApproved)
-                {
-                    return;
-                }
-                ApplyYoloWorkerCommandPresentation(
-                    YoloEnvironmentCommandPresentationService.BuildWorkerStopCompleted());
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-            {
-                return;
-            }
-            catch (Exception ex)
-            {
-                if (!isApplicationCloseApproved)
-                {
-                    ApplyYoloWorkerCommandPresentation(
-                        YoloEnvironmentCommandPresentationService.BuildWorkerStopFailure(ex.Message));
-                }
-            }
-            finally
-            {
-                if (ReferenceEquals(pythonWorkerOperationCts, cancellation))
-                {
-                    pythonWorkerOperationCts = null;
-                }
-
-                cancellation.Dispose();
-                EndYoloEnvironmentCommand();
-            }
+            return yoloEnvironmentWorkflowService.StopWorkerAsync(CreateYoloEnvironmentCallbacks());
         }
 
         private void ApplyYoloWorkerCommandPresentation(YoloWorkerCommandPresentation presentation)
@@ -862,45 +583,6 @@ namespace MvcVisionSystem
             }
 
             AppendLog(presentation.LogText);
-        }
-
-        private bool BeginYoloEnvironmentCommand(string statusText)
-        {
-            if (isApplicationCloseApproved
-                || WorkflowCommandStateService.HasActiveCommand(
-                    isYoloEnvironmentCommandRunning,
-                    isDetecting,
-                    isBatchDetectionRunning,
-                    isTrainingCommandRunning))
-            {
-                if (isApplicationCloseApproved)
-                {
-                    return false;
-                }
-
-                AppendLog(YoloEnvironmentCommandPresentationService.BuildBusyCommandLog());
-                return false;
-            }
-
-            isYoloEnvironmentCommandRunning = true;
-            ClearYoloRecoveryStatus();
-            SetYoloCommandStatus(statusText, isBusy: true);
-            UpdateYoloCommandButtons();
-            return true;
-        }
-
-        private void EndYoloEnvironmentCommand()
-        {
-            isYoloEnvironmentCommandRunning = false;
-            if (isApplicationCloseApproved)
-            {
-                return;
-            }
-
-            YoloStatusViewModel.SetCommandBusy(false);
-
-            UpdateYoloCommandButtons();
-            RefreshYoloStatus();
         }
 
         private void SetYoloCommandStatus(string text, bool isBusy)

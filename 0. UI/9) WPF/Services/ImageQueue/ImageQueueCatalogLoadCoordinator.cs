@@ -1,3 +1,4 @@
+using MvcVisionSystem.Yolo;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
@@ -220,6 +221,8 @@ namespace MvcVisionSystem
 
     public class ImageQueueCatalogLoadRequest
     {
+        private readonly string reviewStatusFilePath;
+
         internal ImageQueueCatalogLoadRequest(
             string imageRoot,
             string selectedImagePath,
@@ -235,6 +238,7 @@ namespace MvcVisionSystem
             LoadFirstImage = loadFirstImage;
             RefreshDetails = refreshDetails;
             Data = data;
+            reviewStatusFilePath = YoloImageReviewStatusService.ResolveReviewStatusFilePath(data);
             IsAnomalyPurpose = isAnomalyPurpose;
             Version = version;
             Cancellation = cancellation ?? throw new ArgumentNullException(nameof(cancellation));
@@ -249,6 +253,12 @@ namespace MvcVisionSystem
         public bool RefreshDetails { get; }
 
         public LabelingProjectData Data { get; }
+
+        internal bool MatchesData(LabelingProjectData data)
+        {
+            return ReferenceEquals(Data, data)
+                && string.Equals(reviewStatusFilePath, YoloImageReviewStatusService.ResolveReviewStatusFilePath(data), StringComparison.OrdinalIgnoreCase);
+        }
 
         public bool IsAnomalyPurpose { get; }
 

@@ -4,19 +4,18 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using System;
-using System.Diagnostics;
 using System.Threading;
 using System.Threading.Tasks;
 using System.Windows.Threading;
 
 namespace MvcVisionSystem
 {
-    // Responsibility group: batch detection orchestration and canvas result presentation.
+    // Responsibility group: batch commands and WPF result/progress projection.
     // These members remain WPF Window adapters; independent policy belongs in services.
     public partial class WpfLabelingShellWindow
     {
         #region BatchDetection
-        // Queue-driven detection owns batch progress and review-state writes; single-image worker calls stay in the main detection flow.
+        // BatchDetectionWorkflowService owns batch lifetime; these commands adapt the current queue.
         private void ExecuteDetectSelectedQueueCommand()
         {
             _ = ExecuteDetectSelectedQueueCommandAsync();
@@ -111,12 +110,12 @@ namespace MvcVisionSystem
                 return;
             }
 
-            batchDetectionCts?.Cancel();
+            batchDetectionWorkflowService.Cancel();
             AppendLog("\uC77C\uAD04 \uAC80\uC0AC \uC911\uC9C0\uB97C \uC694\uCCAD\uD588\uC2B5\uB2C8\uB2E4.");
         }
 
         // Queue result and progress projection stay beside the batch commands;
-        // asynchronous execution/lifetime remains in BatchDetectionExecution.cs.
+        // execution and lifetime belong to Services/Detection/BatchDetectionWorkflowService.cs.
         private void ApplyDetectionResultToQueueItem(
             WpfImageQueueItem item,
             YoloWorkerSmokeTestResult result,
@@ -124,7 +123,7 @@ namespace MvcVisionSystem
             bool refreshQueueView = true,
             bool updateQueueStatusText = true)
         {
-            if (item == null || result == null)
+            if (item == null || result == null || !imageQualityReviewWorkflowService.CanReview(global.Data))
             {
                 return;
             }
@@ -164,9 +163,9 @@ namespace MvcVisionSystem
         {
             UpdateYoloCommandButtons();
             BatchDetectionControlState controlState = batchDetectionProgressService.BuildControlState(
-                isBatchDetectionRunning,
-                batchDetectionTotalCount,
-                batchDetectionCompletedCount,
+                batchDetectionWorkflowService.IsRunning,
+                batchDetectionWorkflowService.TotalCount,
+                batchDetectionWorkflowService.CompletedCount,
                 scopeText,
                 currentFileName);
 
@@ -312,10 +311,16 @@ namespace MvcVisionSystem
         #endregion
 
         #region BatchDetectionExecution
-        // The batch loop owns progress and cancellation; per-item result presentation lives in smaller helpers.
+        // PL-0035: execution is owned by BatchDetectionWorkflowService.
         private async Task RunBatchDetectionAsync(IReadOnlyList<WpfImageQueueItem> items, string scopeText)
         {
-            if (isBatchDetectionRunning || isDetecting)
+            if (!anomalyImageReviewSession.CanReview(global.Data) || !imageQualityReviewWorkflowService.CanReview(global.Data))
+            {
+                AppendLog("이미지 목록을 불러온 뒤 일괄 검출을 시작하세요.");
+                return;
+            }
+
+            if (batchDetectionWorkflowService.IsRunning || imageDetectionWorkflowService.IsDetecting)
             {
                 AppendLog("검출이 이미 실행 중입니다.");
                 return;
@@ -328,167 +333,112 @@ namespace MvcVisionSystem
                 return;
             }
 
-            batchDetectionCts?.Cancel();
-            batchDetectionCts?.Dispose();
-            batchDetectionCts = new CancellationTokenSource();
-            CancellationToken token = batchDetectionCts.Token;
-            isBatchDetectionRunning = true;
-            batchDetectionTotalCount = queue.Count;
-            batchDetectionCompletedCount = 0;
-            UpdateBatchDetectionControls(scopeText, string.Empty);
-            SetYoloCommandStatus(batchDetectionProgressService.BuildStartCommandStatus(queue.Count), isBusy: true);
-            SetGlobalInferenceStatus(batchDetectionProgressService.BuildStartInferenceStatus(queue.Count), isBusy: true);
-            string modelSourceText = InferenceStatusPresentationService.BuildRuntimeModelLabel(
-                global.Data?.ProjectSettings?.PythonModel);
-
-            AppendLog(batchDetectionProgressService.BuildStartLog(scopeText, queue.Count, modelSourceText));
-            var batchStopwatch = Stopwatch.StartNew();
-            int pendingReviewStatusSaves = 0;
-            bool batchFailed = false;
-            string batchFailureSummary = string.Empty;
-            try
+            if (queue.Any(item => !ReferenceEquals(FindImageQueueItem(item.ImagePath), item)))
             {
-                SetGlobalInferenceStatus(batchDetectionProgressService.BuildWorkerPreparingInferenceStatus(queue.Count), isBusy: true);
-                SetPythonStatus("\uCD94\uB860: \uC77C\uAD04 \uC5F0\uACB0 \uD655\uC778 \uC911");
-                bool workerReady = await global.ModelRuntime
-                    .EnsurePythonModelClientReadyAsync(
+                AppendLog("이미지 목록이 변경되었습니다. 현재 목록에서 일괄 검출을 다시 시작하세요.");
+                return;
+            }
+
+            BatchDetectionRun run = batchDetectionWorkflowService.TryBegin(queue.Count, CaptureBatchReviewStatusSave());
+            if (run == null) return;
+            string modelSourceText = InferenceStatusPresentationService.BuildRuntimeModelLabel(global.Data?.ProjectSettings?.PythonModel);
+            var queueByPath = queue.ToDictionary(item => item.ImagePath, StringComparer.OrdinalIgnoreCase);
+
+            // Only UI/runtime adapters live here. The service owns iteration,
+            // cancellation, counts, periodic persistence and exception finalization.
+            await batchDetectionWorkflowService.ExecuteAsync(run, queue.Select(item => item.ImagePath).ToArray(), new BatchDetectionCallbacks
+            {
+                PrepareAsync = async token =>
+                {
+                    UpdateBatchDetectionControls(scopeText, string.Empty);
+                    SetYoloCommandStatus(batchDetectionProgressService.BuildStartCommandStatus(queue.Count), isBusy: true);
+                    SetGlobalInferenceStatus(batchDetectionProgressService.BuildStartInferenceStatus(queue.Count), isBusy: true);
+                    AppendLog(batchDetectionProgressService.BuildStartLog(scopeText, queue.Count, modelSourceText));
+                    SetGlobalInferenceStatus(batchDetectionProgressService.BuildWorkerPreparingInferenceStatus(queue.Count), isBusy: true);
+                    SetPythonStatus("추론: 일괄 연결 확인 중");
+                    bool ready = await global.ModelRuntime.EnsurePythonModelClientReadyAsync(
                         YoloRuntimePresentationService.GetWorkerConnectTimeoutMilliseconds(
-                            global.Data?.ProjectSettings?.PythonModel?.DetectionTimeoutSeconds ?? 30),
-                        token)
-                    .ConfigureAwait(true);
-                if (isApplicationCloseApproved)
+                            global.Data?.ProjectSettings?.PythonModel?.DetectionTimeoutSeconds ?? 30), token).ConfigureAwait(true);
+                    if (ready || !run.CanApplyResult) return null;
+                    string failure = YoloRuntimePresentationService.BuildPythonWorkerFailureText(
+                        global.GetPythonCommunicationStatusSnapshot(), global.ModelRuntime.PythonClientProcess?.LastError);
+                    AppendLog($"일괄 검사 시작 실패: {failure}");
+                    return failure;
+                },
+                DetectAsync = (path, token) => RunWorkerDetectionForImageAsync(path, applyToCanvas: false, token, workerReadyAlreadyChecked: true),
+                ItemStarting = path =>
                 {
-                    return;
-                }
-
-                if (!workerReady)
-                {
-                    batchFailed = true;
-                    batchFailureSummary = YoloRuntimePresentationService.BuildPythonWorkerFailureText(
-                        global.GetPythonCommunicationStatusSnapshot(),
-                        global.ModelRuntime.PythonClientProcess?.LastError);
-                    AppendLog($"일괄 검사 시작 실패: {batchFailureSummary}");
-                    return;
-                }
-
-                foreach (WpfImageQueueItem item in queue)
-                {
-                    if (isApplicationCloseApproved || token.IsCancellationRequested)
-                    {
-                        break;
-                    }
-
-                    string imageName = Path.GetFileNameWithoutExtension(item.ImagePath);
-                    ApplyReviewStatusToItem(item, imageQualityReviewWorkflowService.SetDetectionRequested(item.ImagePath, imageName));
+                    WpfImageQueueItem item = queueByPath[path];
+                    ApplyReviewStatusToItem(item, imageQualityReviewWorkflowService.SetDetectionRequested(path, Path.GetFileNameWithoutExtension(path)));
                     ShowBatchDetectionImage(item);
-                    string currentFileName = batchDetectionProgressService.ResolveImageFileName(item.ImagePath);
-                    SetGlobalInferenceStatus(batchDetectionProgressService.BuildItemInferenceStatus(batchDetectionCompletedCount, batchDetectionTotalCount, item.ImagePath), isBusy: true);
-                    UpdateBatchDetectionControls(scopeText, currentFileName);
-
-                    var itemStopwatch = Stopwatch.StartNew();
-                    YoloWorkerSmokeTestResult result = await RunWorkerDetectionForImageAsync(
-                        item.ImagePath,
-                        applyToCanvas: false,
-                        token,
-                        workerReadyAlreadyChecked: true).ConfigureAwait(true);
-                    if (isApplicationCloseApproved)
-                    {
-                        break;
-                    }
-
-                    TimeSpan itemElapsed = itemStopwatch.Elapsed;
-                    result.ElapsedMilliseconds ??= YoloRuntimePresentationService.ClampElapsedMilliseconds(itemElapsed);
-                    int nextCompleted = batchDetectionCompletedCount + 1;
-                    string elapsedText = YoloRuntimePresentationService.FormatElapsed(itemElapsed);
-                    ApplyDetectionResultToQueueItem(
-                        item,
-                        result,
-                        saveReviewStatus: false,
-                        refreshQueueView: false,
-                        updateQueueStatusText: false);
-
-                    bool displayedResult = !token.IsCancellationRequested
-                        && ApplyBatchDetectionResultToCanvas(item, result);
+                    SetGlobalInferenceStatus(batchDetectionProgressService.BuildItemInferenceStatus(run.CompletedCount, run.TotalCount, path), isBusy: true);
+                    UpdateBatchDetectionControls(scopeText, batchDetectionProgressService.ResolveImageFileName(path));
+                },
+                ApplyResult = (path, result, elapsed) =>
+                {
+                    WpfImageQueueItem item = queueByPath[path];
+                    ApplyDetectionResultToQueueItem(item, result, saveReviewStatus: false, refreshQueueView: false, updateQueueStatusText: false);
+                    bool displayed = run.CanApplyResult && ApplyBatchDetectionResultToCanvas(item, result);
+                    string elapsedText = YoloRuntimePresentationService.FormatElapsed(elapsed);
                     if (result.Succeeded)
                     {
-                        AppendLog(batchDetectionProgressService.BuildItemCompletedLog(nextCompleted, batchDetectionTotalCount, item.ImagePath, result.CandidateCount, elapsedText, modelSourceText));
+                        AppendLog(batchDetectionProgressService.BuildItemCompletedLog(run.CompletedCount + 1, run.TotalCount, path, result.CandidateCount, elapsedText, modelSourceText));
                     }
-                    else if (!token.IsCancellationRequested)
+                    else if (run.CanApplyResult)
                     {
-                        AppendLog(batchDetectionProgressService.BuildItemFailedLog(nextCompleted, batchDetectionTotalCount, item.ImagePath, elapsedText, result.Summary, modelSourceText));
+                        AppendLog(batchDetectionProgressService.BuildItemFailedLog(run.CompletedCount + 1, run.TotalCount, path, elapsedText, result.Summary, modelSourceText));
                     }
-
-                    pendingReviewStatusSaves++;
-                    if (pendingReviewStatusSaves >= BatchReviewStatusSaveInterval)
-                    {
-                        imageQualityReviewWorkflowService.SaveReviewStatus(global.Data);
-                        if (IsAnomalyDatasetPurpose())
-                        {
-                            SaveAnomalyImageReviewStatus();
-                        }
-
-                        pendingReviewStatusSaves = 0;
-                    }
-
-                    batchDetectionCompletedCount++;
-                    SetPythonStatus(batchDetectionProgressService.BuildItemPythonStatus(batchDetectionCompletedCount, batchDetectionTotalCount, elapsedText));
-                    UpdateBatchDetectionControls(scopeText, batchDetectionProgressService.BuildLatestFileStatus(item.ImagePath, elapsedText));
-                    if (displayedResult)
-                    {
-                        await YieldBatchDetectionResultFrameAsync(token).ConfigureAwait(true);
-                    }
-                }
-            }
-            catch (OperationCanceledException) when (token.IsCancellationRequested || isApplicationCloseApproved)
-            {
-                // The completion block owns the stopped/closed status projection.
-            }
-            catch (Exception ex)
-            {
-                batchFailed = true;
-                batchFailureSummary = string.IsNullOrWhiteSpace(ex.Message)
-                    ? "일괄 검사 중 알 수 없는 오류가 발생했습니다."
-                    : ex.Message.Trim();
-                if (!isApplicationCloseApproved)
+                    return displayed;
+                },
+                ItemCompleted = (path, elapsed) =>
                 {
-                    AppendLog("일괄 검사 예외: " + batchFailureSummary);
-                }
-            }
-            finally
-            {
-                bool canceled = token.IsCancellationRequested;
-                isBatchDetectionRunning = false;
-                if (!isApplicationCloseApproved)
-                {
-                    if (pendingReviewStatusSaves > 0 || batchDetectionCompletedCount > 0)
-                    {
-                        imageQualityReviewWorkflowService.SaveReviewStatus(global.Data);
-                        if (IsAnomalyDatasetPurpose())
-                        {
-                            SaveAnomalyImageReviewStatus();
-                        }
-                    }
+                    string elapsedText = YoloRuntimePresentationService.FormatElapsed(elapsed);
+                    SetPythonStatus(batchDetectionProgressService.BuildItemPythonStatus(run.CompletedCount, run.TotalCount, elapsedText));
+                    UpdateBatchDetectionControls(scopeText, batchDetectionProgressService.BuildLatestFileStatus(path, elapsedText));
+                },
+                YieldResultFrameAsync = YieldBatchDetectionResultFrameAsync
+            }).ConfigureAwait(true);
 
-                    imageQueueView?.Refresh();
-                    UpdateBatchDetectionControls(canceled ? "중지됨" : "완료", string.Empty);
-                    SetPythonStatus(canceled ? "\uCD94\uB860: \uC77C\uAD04 \uAC80\uC0AC \uC911\uC9C0" : "\uCD94\uB860: \uC77C\uAD04 \uAC80\uC0AC \uC644\uB8CC");
-                    string totalElapsedText = YoloRuntimePresentationService.FormatElapsed(batchStopwatch.Elapsed);
-                    string averageElapsedText = YoloRuntimePresentationService.FormatAverageElapsed(batchStopwatch.Elapsed, batchDetectionCompletedCount);
-                    SetYoloCommandStatus(batchDetectionProgressService.BuildCompletionCommandStatus(canceled, batchDetectionCompletedCount, batchDetectionTotalCount, totalElapsedText), isBusy: false);
-                    SetGlobalInferenceStatus(
-                        batchDetectionProgressService.BuildCompletionInferenceStatus(canceled, batchDetectionCompletedCount, batchDetectionTotalCount, totalElapsedText),
-                        isBusy: false,
-                        isWarning: canceled);
-                    AppendLog(batchDetectionProgressService.BuildCompletionLog(canceled, batchDetectionCompletedCount, batchDetectionTotalCount, totalElapsedText, averageElapsedText, modelSourceText));
-                    if (batchFailed)
-                    {
-                        UpdateBatchDetectionControls("실패", string.Empty);
-                        SetPythonStatus("\uCD94\uB860: \uC77C\uAD04 \uAC80\uC0AC \uC2E4\uD328");
-                        SetYoloCommandStatus(batchDetectionProgressService.BuildFailureCommandStatus(batchDetectionCompletedCount, batchDetectionTotalCount, batchFailureSummary), isBusy: false);
-                        SetGlobalInferenceStatus(batchDetectionProgressService.BuildFailureInferenceStatus(batchDetectionCompletedCount, batchDetectionTotalCount, batchFailureSummary), isBusy: false, isWarning: true);
-                        AppendLog(batchDetectionProgressService.BuildFailureLog(batchDetectionCompletedCount, batchDetectionTotalCount, batchFailureSummary));
-                    }
-                }
+            if (isApplicationCloseApproved) return;
+            PresentBatchDetectionCompletion(run, modelSourceText);
+        }
+
+        private Action CaptureBatchReviewStatusSave()
+        {
+            LabelingProjectData batchData = global.Data;
+            Action saveQualityReviewStatus = imageQualityReviewWorkflowService.CaptureReviewStatusSave(batchData);
+            Action saveAnomalyReviewStatus = IsAnomalyDatasetPurpose()
+                ? anomalyImageReviewSession.CaptureReviewStatusSave(batchData)
+                : null;
+            return () =>
+            {
+                saveQualityReviewStatus();
+                saveAnomalyReviewStatus?.Invoke();
+            };
+        }
+
+        private void PresentBatchDetectionCompletion(BatchDetectionRun run, string modelSourceText)
+        {
+            bool canceled = run.Token.IsCancellationRequested;
+            if (run.HadException) AppendLog("일괄 검사 예외: " + run.FailureSummary);
+            imageQueueView?.Refresh();
+            UpdateBatchDetectionControls(canceled ? "중지됨" : "완료", string.Empty);
+            SetPythonStatus(canceled ? "추론: 일괄 검사 중지" : "추론: 일괄 검사 완료");
+            string totalElapsedText = YoloRuntimePresentationService.FormatElapsed(run.Elapsed);
+            string averageElapsedText = YoloRuntimePresentationService.FormatAverageElapsed(run.Elapsed, run.CompletedCount);
+            SetYoloCommandStatus(batchDetectionProgressService.BuildCompletionCommandStatus(canceled, run.CompletedCount, run.TotalCount, totalElapsedText), isBusy: false);
+            SetGlobalInferenceStatus(
+                batchDetectionProgressService.BuildCompletionInferenceStatus(canceled, run.CompletedCount, run.TotalCount, totalElapsedText),
+                isBusy: false,
+                isWarning: canceled);
+            AppendLog(batchDetectionProgressService.BuildCompletionLog(canceled, run.CompletedCount, run.TotalCount, totalElapsedText, averageElapsedText, modelSourceText));
+            if (!string.IsNullOrEmpty(run.FailureSummary))
+            {
+                UpdateBatchDetectionControls("실패", string.Empty);
+                SetPythonStatus("추론: 일괄 검사 실패");
+                SetYoloCommandStatus(batchDetectionProgressService.BuildFailureCommandStatus(run.CompletedCount, run.TotalCount, run.FailureSummary), isBusy: false);
+                SetGlobalInferenceStatus(batchDetectionProgressService.BuildFailureInferenceStatus(run.CompletedCount, run.TotalCount, run.FailureSummary), isBusy: false, isWarning: true);
+                AppendLog(batchDetectionProgressService.BuildFailureLog(run.CompletedCount, run.TotalCount, run.FailureSummary));
             }
         }
         #endregion

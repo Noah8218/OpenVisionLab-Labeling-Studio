@@ -171,12 +171,12 @@ namespace MvcVisionSystem
                 CancelPendingSegmentationRemoveUnderlying(updateStatus: false);
             }
 
-            if (pendingPolygonVertexEditMode.HasValue)
+            if (polygonBoundaryEditWorkflowService.IsPolygonVertexEditPending)
             {
                 CancelPendingPolygonVertexEdit(updateStatus: false);
             }
 
-            if (pendingIntelligentScissorsSource != null)
+            if (polygonBoundaryEditWorkflowService.IsIntelligentScissorsPending)
             {
                 CancelPendingIntelligentScissors(updateStatus: false);
             }
@@ -322,7 +322,7 @@ namespace MvcVisionSystem
                 CancelPendingSegmentationHoleEdit(updateStatus: false);
             }
 
-            if (pendingPolygonVertexEditMode.HasValue)
+            if (polygonBoundaryEditWorkflowService.IsPolygonVertexEditPending)
             {
                 CancelPendingPolygonVertexEdit(updateStatus: false);
             }

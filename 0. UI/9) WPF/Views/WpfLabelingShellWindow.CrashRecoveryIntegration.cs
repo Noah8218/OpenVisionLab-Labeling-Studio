@@ -16,6 +16,46 @@ namespace MvcVisionSystem
     public partial class WpfLabelingShellWindow
     {
         #region CrashRecovery
+        private void OnCrashRecoveryJournalWriteFailed(
+            object sender,
+            CrashRecoveryJournalWriteFailedEventArgs failure)
+        {
+            void ApplyFailureStatus()
+            {
+                if (isApplicationCloseApproved)
+                {
+                    return;
+                }
+
+                string detail = $"복구 초안 저장 실패 (revision {failure.Revision}): {failure.Message}";
+                AppendLog(detail);
+                StatusBarViewModel?.SetAnnotationSaveStatus(
+                    annotationDirtyState.IsDirty,
+                    "복구 초안 저장 실패",
+                    detail);
+            }
+
+            if (Dispatcher.CheckAccess())
+            {
+                ApplyFailureStatus();
+                return;
+            }
+
+            Dispatcher.BeginInvoke(new Action(ApplyFailureStatus));
+        }
+
+        private void OnCrashRecoveryJournalCaptureFailed(
+            object sender,
+            CrashRecoveryJournalCaptureFailedEventArgs failure)
+        {
+            if (isApplicationCloseApproved)
+            {
+                return;
+            }
+
+            AppendLog($"비정상 종료 복구 초안 캡처 실패: {failure.Message}");
+        }
+
         private bool TryHandleCrashRecoveryOnStartup()
         {
             WpfCrashRecoveryReadResult result = crashRecoveryJournalService.ReadAvailable(
@@ -95,29 +135,27 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            suppressCrashRecoveryJournal = true;
-            try
+            using (crashRecoveryJournalWorkflowService.SuppressCapture())
             {
-                if (!TryLoadImage(draft.ImagePath, populateQueue: true))
+                try
                 {
+                    if (!TryLoadImage(draft.ImagePath, populateQueue: true))
+                    {
+                        return false;
+                    }
+
+                    WpfCrashRecoveryRestorePlan restorePlan =
+                        crashRecoverySessionService.BuildRestorePlan(draft);
+                    PrepareCrashRecoveryRestoreState();
+                    RestoreCrashRecoveryBoxes(restorePlan.Boxes);
+                    RestoreCrashRecoverySegments(restorePlan.Segments);
+                    RefreshCrashRecoveryRestorePresentation();
+                }
+                catch (Exception ex)
+                {
+                    AppendLog($"비정상 종료 편집 복구 실패: {ex.Message}");
                     return false;
                 }
-
-                WpfCrashRecoveryRestorePlan restorePlan =
-                    crashRecoverySessionService.BuildRestorePlan(draft);
-                PrepareCrashRecoveryRestoreState();
-                RestoreCrashRecoveryBoxes(restorePlan.Boxes);
-                RestoreCrashRecoverySegments(restorePlan.Segments);
-                RefreshCrashRecoveryRestorePresentation();
-            }
-            catch (Exception ex)
-            {
-                AppendLog($"비정상 종료 편집 복구 실패: {ex.Message}");
-                return false;
-            }
-            finally
-            {
-                suppressCrashRecoveryJournal = false;
             }
 
             MarkAnnotationsDirty("비정상 종료 편집 복구");
@@ -215,45 +253,13 @@ namespace MvcVisionSystem
 
         private void ScheduleCrashRecoveryJournalWrite()
         {
-            if (isApplicationCloseApproved
-                || suppressCrashRecoveryJournal
-                || activeImageBitmap == null
-                || activeImageSize.IsEmpty
-                || string.IsNullOrWhiteSpace(activeImagePath)
-                || !annotationDirtyState.IsDirty)
-            {
-                return;
-            }
-
-            int captureVersion = ++crashRecoveryCaptureVersion;
-            Dispatcher.BeginInvoke(
-                new Action(() => ApplyScheduledCrashRecoveryJournalWrite(captureVersion)),
-                System.Windows.Threading.DispatcherPriority.ContextIdle);
-        }
-
-        private void ApplyScheduledCrashRecoveryJournalWrite(int captureVersion)
-        {
-            if (isApplicationCloseApproved
-                || captureVersion != crashRecoveryCaptureVersion
-                || suppressCrashRecoveryJournal
-                || !annotationDirtyState.IsDirty
-                || HasPendingMaskStrokeCommitWork())
-            {
-                return;
-            }
-
-            WpfCrashRecoveryDraft draft;
-            try
-            {
-                draft = CaptureCrashRecoveryDraft();
-            }
-            catch (Exception ex)
-            {
-                AppendLog($"비정상 종료 복구 초안 캡처 실패: {ex.Message}");
-                return;
-            }
-
-            crashRecoveryJournalWriteCoordinator.QueueWrite(draft);
+            crashRecoveryJournalWorkflowService.ScheduleWrite(
+                hasActiveImage: activeImageBitmap != null
+                    && !activeImageSize.IsEmpty
+                    && !string.IsNullOrWhiteSpace(activeImagePath),
+                hasDirtyAnnotations: annotationDirtyState.IsDirty,
+                hasPendingCommitWork: HasPendingMaskStrokeCommitWork,
+                captureDraft: CaptureCrashRecoveryDraft);
         }
 
         private WpfCrashRecoveryDraft CaptureCrashRecoveryDraft()
@@ -333,8 +339,7 @@ namespace MvcVisionSystem
 
         private void DiscardCrashRecoveryJournal()
         {
-            crashRecoveryCaptureVersion++;
-            crashRecoveryJournalWriteCoordinator.Discard();
+            crashRecoveryJournalWorkflowService.Discard();
         }
         #endregion
 

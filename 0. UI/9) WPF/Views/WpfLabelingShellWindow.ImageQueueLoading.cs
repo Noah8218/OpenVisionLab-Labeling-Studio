@@ -145,7 +145,7 @@ namespace MvcVisionSystem
 
                 canvasRefreshMilliseconds = ImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
 
-                activeImageBitmap?.Dispose();
+                activeImageBitmap = imageLoadResourceService.ReplaceActiveBitmap(activeImageBitmap, workspaceBitmap);
                 global.ImageWorkspace.SetActiveImage(imageName, imagePath, workspaceBitmap);
                 LabelingImageSnapshot activeImage = global.ImageWorkspace.CaptureSnapshot();
                 activeImageBitmap = activeImage.Image;
@@ -153,7 +153,7 @@ namespace MvcVisionSystem
                 activeImagePath = activeImage.ImagePath;
                 activeImageSize = activeImage.ImageSize;
 
-                DisplayManager.ImageSrc = imageMat;
+                imageLoadResourceService.SetDisplayImage(imageMat);
                 imageMat = null;
                 stateTransferMilliseconds = ImageLoadDiagnosticsService.TakeElapsedMilliseconds(loadStopwatch, ref stepStartTicks);
 
@@ -275,13 +275,13 @@ namespace MvcVisionSystem
             CancelObjectGroupSelection(updateStatus: false);
             objectSessionStateService.Clear();
             objectMetadataStateService.Clear();
-            activeImageBitmap?.Dispose();
+            imageLoadResourceService.Clear(activeImageBitmap);
+            activeImageBitmap = null;
             global.ImageWorkspace.SetActiveImage(string.Empty, string.Empty, null);
             LabelingImageSnapshot activeImage = global.ImageWorkspace.CaptureSnapshot();
             activeImageBitmap = activeImage.Image;
             activeImagePath = activeImage.ImagePath;
             activeImageSize = activeImage.ImageSize;
-            DisplayManager.ImageSrc = null;
 
             manualRois.Clear();
             manualRoiClassNames.Clear();
@@ -529,12 +529,12 @@ namespace MvcVisionSystem
             CancelImageQueueCatalogLoad(waitForCompletion: false);
             CancelImageQueueDetailRefresh(waitForCompletion: false);
 
-            bool imageRootChanged = !imageQueueSelectionService.IsSameRoot(imageRoot, currentImageRoot);
+            // Cancellation flushes the batch's original review state before
+            // the replacement catalog reads its persisted snapshot.
+            batchDetectionWorkflowService.Cancel();
+
             currentImageRoot = imageRoot;
-            if (imageRootChanged)
-            {
-                dismissedAnomalyFolderStateSuggestionRoot = string.Empty;
-            }
+            anomalyImageReviewSession.TrackImageRoot(currentImageRoot);
             ImageQueueViewModel?.SetCurrentImageFolder(currentImageRoot, canOpenFolder: true);
             ImageQueueViewModel?.SetAnomalyImageReviewMode(IsAnomalyDatasetPurpose());
 
@@ -550,6 +550,9 @@ namespace MvcVisionSystem
                 return false;
             }
 
+            imageQualityReviewWorkflowService.BeginCatalogLoad(request.Version);
+            anomalyImageReviewSession.BeginCatalogLoad(request.Version);
+
             SetDatasetStatus("\uB370\uC774\uD130\uC14B: \uD30C\uC77C \uBAA9\uB85D \uC900\uBE44 \uC911...");
             return true;
         }
@@ -563,11 +566,9 @@ namespace MvcVisionSystem
                 return 0;
             }
 
-            imageReviewStatus = snapshot.ReviewStatus;
-            anomalyImageReviewStatus = snapshot.AnomalyReviewStatus;
-            imageQualityReviewWorkflowService = snapshot.ReviewWorkflow;
-            anomalyImageReviewWorkflowService = snapshot.AnomalyReviewWorkflow;
-            UpdateAnomalyFolderStateSuggestion(request, snapshot.AnomalyFolderStateSuggestion);
+            imageQualityReviewWorkflowService.AdoptCatalog(snapshot.ReviewWorkflow);
+            anomalyImageReviewSession.AdoptCatalog(request.ImageRoot, snapshot.AnomalyReviewSession);
+            UpdateAnomalyFolderStateSuggestion(request);
 
             suppressImageQueueSelection = true;
             try
@@ -575,9 +576,12 @@ namespace MvcVisionSystem
                 IReadOnlyList<WpfImageQueueItem> items = imageQueueSelectionService.CreateShellItemsFromCatalog(snapshot.CatalogEntries);
                 if (request.IsAnomalyPurpose)
                 {
+                    AnomalyImageReviewQueueProjection projection = anomalyImageReviewSession.BuildQueue(
+                        items.Select(item => item.ImagePath).ToList(),
+                        isAnomalyPurpose: true);
                     foreach (WpfImageQueueItem item in items)
                     {
-                        WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(item, anomalyImageReviewWorkflowService.GetOrCreate(item.ImagePath));
+                        WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(item, projection.GetStatus(item.ImagePath));
                     }
                 }
                 imageQueueItems.ReplaceAll(items);
@@ -625,11 +629,16 @@ namespace MvcVisionSystem
 
         private bool IsCurrentImageQueueCatalogLoad(ImageQueueCatalogLoadRequest request)
         {
-            return imageQueueCatalogLoadCoordinator.IsCurrent(request);
+            return imageQueueCatalogLoadCoordinator.IsCurrent(request) && request.MatchesData(global.Data);
         }
 
         private void CompleteImageQueueCatalogLoad(ImageQueueCatalogLoadRequest request)
         {
+            if (request != null)
+            {
+                imageQualityReviewWorkflowService.CompleteCatalogLoad(request.Version);
+                anomalyImageReviewSession.CompleteCatalogLoad(request.Version);
+            }
             imageQueueCatalogLoadCoordinator.Complete(request);
         }
 
@@ -656,16 +665,11 @@ namespace MvcVisionSystem
             }
         }
 
-        private void UpdateAnomalyFolderStateSuggestion(
-            ImageQueueCatalogLoadRequest request,
-            AnomalyImageReviewFolderImportResult suggestion)
+        private void UpdateAnomalyFolderStateSuggestion(ImageQueueCatalogLoadRequest request)
         {
-            bool canSuggest = request?.IsAnomalyPurpose == true
-                && suggestion?.HasChanges == true
-                && !imageQueueSelectionService.IsSameRoot(request.ImageRoot, dismissedAnomalyFolderStateSuggestionRoot);
-            if (canSuggest)
+            if (anomalyImageReviewSession.ShouldShowFolderSuggestion(request?.IsAnomalyPurpose == true))
             {
-                ImageQueueViewModel?.SetAnomalyFolderStateSuggestion(suggestion);
+                ImageQueueViewModel?.SetAnomalyFolderStateSuggestion(anomalyImageReviewSession.FolderStateSuggestion);
                 return;
             }
 
@@ -680,18 +684,19 @@ namespace MvcVisionSystem
                 return;
             }
 
-            AnomalyImageReviewFolderImportResult result = anomalyImageReviewWorkflowService.ImportUnreviewedStatesFromParentFolders();
-            dismissedAnomalyFolderStateSuggestionRoot = currentImageRoot;
+            AnomalyFolderStateSuggestionApplyResult applyResult = anomalyImageReviewSession.ApplyFolderSuggestion(isAnomalyPurpose: true, global.Data);
             ImageQueueViewModel?.ClearAnomalyFolderStateSuggestion();
-            if (!result.HasChanges)
+            if (!applyResult.HasChanges)
             {
                 return;
             }
 
-            SaveAnomalyImageReviewStatus();
+            AnomalyImageReviewFolderImportResult result = applyResult.ImportResult;
             foreach (WpfImageQueueItem item in imageQueueItems)
             {
-                WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(item, anomalyImageReviewWorkflowService.GetOrCreate(item.ImagePath));
+                WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(
+                    item,
+                    anomalyImageReviewSession.GetStatus(item.ImagePath, isAnomalyPurpose: true));
             }
             imageQueueView?.Refresh();
             UpdateImageQueueStatusText();
@@ -701,7 +706,7 @@ namespace MvcVisionSystem
 
         private void ExecuteDismissAnomalyFolderStateSuggestionCommand()
         {
-            dismissedAnomalyFolderStateSuggestionRoot = currentImageRoot;
+            anomalyImageReviewSession.DismissFolderSuggestion();
             ImageQueueViewModel?.ClearAnomalyFolderStateSuggestion();
             SetDatasetStatus("OK/NG 이미지 판정: 폴더명은 적용하지 않았습니다. 이미지를 하나씩 정상 또는 이상으로 판정하세요.");
             AppendLog("Anomaly folder-state suggestion dismissed; images remain unreviewed until an operator reviews them.");

@@ -7,7 +7,6 @@ using OpenVisionLab.ImageCanvas.ViewModels;
 using MvcVisionSystem._1._Core;
 using OpenVisionLab.ImageCanvas.CanvasShapes;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace MvcVisionSystem
@@ -208,9 +207,9 @@ namespace MvcVisionSystem
             CancelPendingSegmentationSplit(updateStatus: false);
             CancelPendingSegmentationHoleEdit(updateStatus: false);
             SelectAnnotationTool(WpfAnnotationTool.Select);
-            pendingIntelligentScissorsSourceIndex = selected.Index;
-            pendingIntelligentScissorsSource = manualSegments[selected.Index];
-            pendingIntelligentScissorsPlan = null;
+            polygonBoundaryEditWorkflowService.BeginIntelligentScissors(
+                selected.Index,
+                manualSegments[selected.Index]);
             ObjectReviewViewModel?.SetIntelligentScissorsState(
                 pending: true,
                 hasPreview: false,
@@ -225,7 +224,7 @@ namespace MvcVisionSystem
 
         private bool TryHandlePendingIntelligentScissors(CanvasImagePointEventArgs e)
         {
-            if (pendingIntelligentScissorsSource == null)
+            if (!polygonBoundaryEditWorkflowService.IsIntelligentScissorsPending)
             {
                 return false;
             }
@@ -252,16 +251,14 @@ namespace MvcVisionSystem
 
             int hitTolerance = PolygonAnnotationService.ResolveImageHitTolerance(
                 MainCanvasViewModel?.ImageViewer?.ZoomScale ?? 1F);
-            if (!intelligentScissorsService.TryBuildPlan(
+            if (!polygonBoundaryEditWorkflowService.TryPreviewIntelligentScissors(
                 activeImageBitmap,
-                source,
                 e.ImagePoint,
                 activeImageSize,
                 hitTolerance,
                 out WpfIntelligentScissorsPlan plan,
                 out string error))
             {
-                pendingIntelligentScissorsPlan = null;
                 ObjectReviewViewModel?.SetIntelligentScissorsState(
                     pending: true,
                     hasPreview: false,
@@ -272,7 +269,6 @@ namespace MvcVisionSystem
                 return true;
             }
 
-            pendingIntelligentScissorsPlan = plan;
             string previewStatus = FormattableString.Invariant(
                 $"\uACBD\uACC4 \uBBF8\uB9AC\uBCF4\uAE30: {plan.PathPoints.Count}\uAC1C \uACBD\uB85C\uC810 / {plan.Elapsed.TotalMilliseconds:0.0} ms. \uCE94\uBC84\uC2A4\uB97C \uD655\uC778\uD55C \uD6C4 \uBBF8\uB9AC\uBCF4\uAE30 \uC801\uC6A9\uC744 \uB204\uB974\uC138\uC694.");
             ObjectReviewViewModel?.SetIntelligentScissorsState(
@@ -287,8 +283,7 @@ namespace MvcVisionSystem
 
         private void ExecuteApplyIntelligentScissorsCommand()
         {
-            WpfIntelligentScissorsPlan plan = pendingIntelligentScissorsPlan;
-            if (plan == null
+            if (!polygonBoundaryEditWorkflowService.HasIntelligentScissorsPreview
                 || !TryResolvePendingIntelligentScissorsSource(out int sourceIndex, out LabelingSegmentationObject source))
             {
                 const string previewError = "\uC801\uC6A9\uD560 \uACBD\uACC4 \uBBF8\uB9AC\uBCF4\uAE30\uAC00 \uC5C6\uC2B5\uB2C8\uB2E4.";
@@ -308,10 +303,11 @@ namespace MvcVisionSystem
 
             const string actionName = "\uD3F4\uB9AC\uACE4 \uACBD\uACC4 \uCD94\uC885";
             WpfAnnotationHistorySnapshot beforeChange = CaptureAnnotationHistory(actionName);
-            if (!intelligentScissorsService.TryApplyPlan(
-                source,
-                plan,
+            if (!polygonBoundaryEditWorkflowService.TryApplyIntelligentScissors(
+                manualSegments,
                 activeImageSize,
+                out sourceIndex,
+                out source,
                 out Rectangle _,
                 out string error))
             {
@@ -339,20 +335,15 @@ namespace MvcVisionSystem
             out int sourceIndex,
             out LabelingSegmentationObject source)
         {
-            sourceIndex = pendingIntelligentScissorsSourceIndex;
-            source = pendingIntelligentScissorsSource;
-            return source?.IsRasterMask == false
-                && sourceIndex >= 0
-                && sourceIndex < manualSegments.Count
-                && ReferenceEquals(manualSegments[sourceIndex], source);
+            return polygonBoundaryEditWorkflowService.TryResolveIntelligentScissorsSource(
+                manualSegments,
+                out sourceIndex,
+                out source);
         }
 
         private void CancelPendingIntelligentScissors(bool updateStatus)
         {
-            bool wasPending = pendingIntelligentScissorsSource != null;
-            pendingIntelligentScissorsSource = null;
-            pendingIntelligentScissorsSourceIndex = -1;
-            pendingIntelligentScissorsPlan = null;
+            bool wasPending = polygonBoundaryEditWorkflowService.CancelIntelligentScissors();
             ObjectReviewViewModel?.SetIntelligentScissorsState(
                 pending: false,
                 hasPreview: false);
@@ -391,7 +382,7 @@ namespace MvcVisionSystem
             CancelPendingIntelligentScissors(updateStatus: false);
             CompleteMaskAnnotationStroke();
             FlushQueuedMaskStrokeCommits();
-            if (smartMaskPromptSession.HasSession || isCreatingSmartMask)
+            if (smartMaskPromptSession.HasSession || smartMaskWorkflowService.IsRunning)
             {
                 const string smartMaskError = "\uC2A4\uB9C8\uD2B8 \uB9C8\uC2A4\uD06C \uD6C4\uBCF4\uB97C \uD655\uC815\uD558\uAC70\uB098 \uCDE8\uC18C\uD55C \uB4A4 \uD3F4\uB9AC\uACE4 \uC815\uC810\uC744 \uD3B8\uC9D1\uD558\uC138\uC694.";
                 SetYoloCommandStatus(smartMaskError, isBusy: false);
@@ -420,9 +411,10 @@ namespace MvcVisionSystem
             }
 
             SelectAnnotationTool(WpfAnnotationTool.Select);
-            pendingPolygonVertexSourceIndex = selected.Index;
-            pendingPolygonVertexSource = manualSegments[selected.Index];
-            pendingPolygonVertexEditMode = mode;
+            polygonBoundaryEditWorkflowService.BeginPolygonVertexEdit(
+                selected.Index,
+                manualSegments[selected.Index],
+                mode);
             ObjectReviewViewModel?.SetVertexEditPending(mode);
             MainCanvasViewModel.IsImagePointInputMode = true;
             MainCanvasViewModel.ImageViewer.SetViewMode(CanvasInteractionMode.None);
@@ -437,7 +429,7 @@ namespace MvcVisionSystem
 
         private bool TryApplyPendingPolygonVertexEdit(CanvasImagePointEventArgs e)
         {
-            if (!pendingPolygonVertexEditMode.HasValue)
+            if (!polygonBoundaryEditWorkflowService.IsPolygonVertexEditPending)
             {
                 return false;
             }
@@ -464,28 +456,21 @@ namespace MvcVisionSystem
 
             int hitTolerance = PolygonAnnotationService.ResolveImageHitTolerance(
                 MainCanvasViewModel?.ImageViewer?.ZoomScale ?? 1F);
-            WpfPolygonVertexEditMode mode = pendingPolygonVertexEditMode.Value;
+            WpfPolygonVertexEditMode mode = polygonBoundaryEditWorkflowService.PolygonVertexEditMode.Value;
             string actionName = mode == WpfPolygonVertexEditMode.Insert
                 ? "\uD3F4\uB9AC\uACE4 \uC815\uC810 \uCD94\uAC00"
                 : "\uD3F4\uB9AC\uACE4 \uC815\uC810 \uC0AD\uC81C";
             WpfAnnotationHistorySnapshot beforeChange = CaptureAnnotationHistory(actionName);
-            bool changed = mode == WpfPolygonVertexEditMode.Insert
-                ? PolygonAnnotationService.TryInsertPoint(
-                    source,
-                    e.ImagePoint,
-                    activeImageSize,
-                    hitTolerance,
-                    out int _,
-                    out Rectangle _,
-                    out string error)
-                : PolygonAnnotationService.TryDeletePoint(
-                    source,
-                    e.ImagePoint,
-                    activeImageSize,
-                    hitTolerance,
-                    out int _,
-                    out Rectangle _,
-                    out error);
+            bool changed = polygonBoundaryEditWorkflowService.TryApplyPolygonVertexEdit(
+                manualSegments,
+                e.ImagePoint,
+                activeImageSize,
+                hitTolerance,
+                out sourceIndex,
+                out source,
+                out mode,
+                out Rectangle _,
+                out string error);
             if (!changed)
             {
                 SetYoloCommandStatus(error, isBusy: false);
@@ -509,20 +494,15 @@ namespace MvcVisionSystem
             out int sourceIndex,
             out LabelingSegmentationObject source)
         {
-            sourceIndex = pendingPolygonVertexSourceIndex;
-            source = pendingPolygonVertexSource;
-            return source?.IsRasterMask == false
-                && sourceIndex >= 0
-                && sourceIndex < manualSegments.Count
-                && ReferenceEquals(manualSegments[sourceIndex], source);
+            return polygonBoundaryEditWorkflowService.TryResolvePolygonVertexSource(
+                manualSegments,
+                out sourceIndex,
+                out source);
         }
 
         private void CancelPendingPolygonVertexEdit(bool updateStatus)
         {
-            bool wasPending = pendingPolygonVertexEditMode.HasValue;
-            pendingPolygonVertexSource = null;
-            pendingPolygonVertexSourceIndex = -1;
-            pendingPolygonVertexEditMode = null;
+            bool wasPending = polygonBoundaryEditWorkflowService.CancelPolygonVertexEdit();
             ObjectReviewViewModel?.SetVertexEditPending(null);
             if (MainCanvasViewModel != null)
             {
@@ -552,7 +532,7 @@ namespace MvcVisionSystem
 
         private async Task ExecuteCreateSmartMaskCandidateCommandAsync()
         {
-            if (isApplicationCloseApproved || isCreatingSmartMask)
+            if (isApplicationCloseApproved || smartMaskWorkflowService.IsRunning)
             {
                 return;
             }
@@ -585,7 +565,7 @@ namespace MvcVisionSystem
             }
 
             WpfSmartMaskPromptSnapshot snapshot = smartMaskPromptSession.Capture();
-            MobileSamBoxPromptRequest request = mobileSamBoxPromptService.BuildRequest(
+            MobileSamBoxPromptRequest request = smartMaskWorkflowService.BuildRequest(
                 global.Data.ProjectSettings?.PythonModel,
                 snapshot.ImagePath,
                 snapshot.PromptBounds,
@@ -605,35 +585,42 @@ namespace MvcVisionSystem
                 return;
             }
 
-            isCreatingSmartMask = true;
             if (MainCanvasViewModel != null)
             {
                 MainCanvasViewModel.IsTeachingMode = false;
             }
-            smartMaskCancellation?.Dispose();
-            var cancellation = new CancellationTokenSource();
-            smartMaskCancellation = cancellation;
             RefreshSmartMaskCommandState("MobileSAM이 박스와 보정점을 사용해 후보 경계를 계산하고 있습니다.");
             SetYoloCommandStatus("스마트 마스크 후보 생성 중...", isBusy: true);
-            MobileSamBoxPromptResult result;
-            try
-            {
-                result = await mobileSamBoxPromptService.RunAsync(request, cancellation.Token);
-            }
-            finally
-            {
-                if (ReferenceEquals(smartMaskCancellation, cancellation))
-                {
-                    smartMaskCancellation = null;
-                }
-                cancellation.Dispose();
-                isCreatingSmartMask = false;
-            }
+            SmartMaskWorkflowResult workflowResult = await smartMaskWorkflowService.RunAsync(
+                new SmartMaskWorkflowRequest { Prompt = request });
 
             if (isApplicationCloseApproved)
             {
                 return;
             }
+
+            if (!workflowResult.Started)
+            {
+                RefreshSmartMaskCommandState("스마트 마스크 후보 생성이 이미 실행 중이거나 종료된 상태입니다.");
+                return;
+            }
+            if (workflowResult.IsCanceled)
+            {
+                RefreshSmartMaskCommandState("후보 생성을 취소했습니다. 프롬프트는 유지되며 다시 실행할 수 있습니다.");
+                SetYoloCommandStatus("스마트 마스크 후보 생성 취소", isBusy: false);
+                AppendLog("스마트 마스크 후보 생성을 취소했습니다.");
+                return;
+            }
+            if (workflowResult.Error != null)
+            {
+                string workflowError = workflowResult.Error.Message;
+                RefreshSmartMaskCommandState(workflowError);
+                SetYoloCommandStatus("스마트 마스크 실패: " + workflowError, isBusy: false);
+                AppendLog("스마트 마스크 실패: " + workflowError);
+                return;
+            }
+
+            MobileSamBoxPromptResult result = workflowResult.Result;
 
             if (!smartMaskPromptSession.Matches(
                     snapshot,
@@ -642,13 +629,6 @@ namespace MvcVisionSystem
             {
                 RefreshSmartMaskCommandState("이미지, 레시피 또는 프롬프트가 변경되어 이전 결과를 적용하지 않았습니다.");
                 AppendLog("스마트 마스크 결과 무시: 실행 중 이미지, 레시피 또는 프롬프트가 변경되었습니다.");
-                return;
-            }
-            if (string.Equals(result.ErrorCode, "Canceled", StringComparison.Ordinal))
-            {
-                RefreshSmartMaskCommandState("후보 생성을 취소했습니다. 프롬프트는 유지되며 다시 실행할 수 있습니다.");
-                SetYoloCommandStatus("스마트 마스크 후보 생성 취소", isBusy: false);
-                AppendLog("스마트 마스크 후보 생성을 취소했습니다.");
                 return;
             }
             if (!result.Succeeded || result.Candidate == null)
@@ -693,7 +673,7 @@ namespace MvcVisionSystem
 
         private void ExecuteSetSmartMaskPointModeCommand(WpfSmartMaskPointInputMode mode)
         {
-            if (!smartMaskPromptSession.HasSession || isCreatingSmartMask)
+            if (!smartMaskPromptSession.HasSession || smartMaskWorkflowService.IsRunning)
             {
                 return;
             }
@@ -721,12 +701,12 @@ namespace MvcVisionSystem
 
         private void ExecuteCancelSmartMaskGenerationCommand()
         {
-            if (!isCreatingSmartMask || smartMaskCancellation == null)
+            if (!smartMaskWorkflowService.IsRunning)
             {
                 return;
             }
 
-            smartMaskCancellation.Cancel();
+            smartMaskWorkflowService.Cancel();
             RefreshSmartMaskCommandState("후보 생성을 취소하는 중입니다.");
         }
 
@@ -759,7 +739,7 @@ namespace MvcVisionSystem
             if (!smartMaskPromptSession.HasSession
                 || !smartMaskPromptSession.HasProducedCandidate
                 || candidateReviewState.HasPendingCandidates
-                || isCreatingSmartMask)
+                || smartMaskWorkflowService.IsRunning)
             {
                 RefreshSmartMaskCommandState("현재 후보를 먼저 확정하거나 스킵하세요.");
                 return;
@@ -822,7 +802,7 @@ namespace MvcVisionSystem
                 || activeAnnotationTool != WpfAnnotationTool.Rectangle
                 || smartMaskPromptSession.HasSession
                 || candidateReviewState.HasPendingCandidates
-                || isCreatingSmartMask)
+                || smartMaskWorkflowService.IsRunning)
             {
                 return;
             }
@@ -847,7 +827,7 @@ namespace MvcVisionSystem
 
         private void ExecuteSelectSmartMaskCandidateVersionCommand(WpfSmartMaskCandidateVersion version)
         {
-            if (isCreatingSmartMask
+            if (smartMaskWorkflowService.IsRunning
                 || !candidateReviewState.HasPendingCandidates
                 || !smartMaskPromptSession.TrySelectCandidate(version, out YoloWorkerSmokeCandidate candidate))
             {
@@ -898,7 +878,7 @@ namespace MvcVisionSystem
 
         private void ResetSmartMaskPromptSession()
         {
-            smartMaskCancellation?.Cancel();
+            smartMaskWorkflowService.Cancel();
             smartMaskPromptSession.Reset();
             if (MainCanvasViewModel != null)
             {
@@ -949,7 +929,7 @@ namespace MvcVisionSystem
             int promptIndex = isVisible && !hasSession ? FindSmartMaskPromptIndex() : -1;
             string effectiveDetail = detail;
             bool isReady = false;
-            if (isVisible && !isCreatingSmartMask && !activeImageSize.IsEmpty)
+            if (isVisible && !smartMaskWorkflowService.IsRunning && !activeImageSize.IsEmpty)
             {
                 WpfSmartMaskPromptSnapshot snapshot = hasSession
                     ? smartMaskPromptSession.Capture()
@@ -963,7 +943,7 @@ namespace MvcVisionSystem
                         : null;
                 if (snapshot != null)
                 {
-                    MobileSamBoxPromptRequest request = mobileSamBoxPromptService.BuildRequest(
+                    MobileSamBoxPromptRequest request = smartMaskWorkflowService.BuildRequest(
                         global.Data.ProjectSettings?.PythonModel,
                         snapshot.ImagePath,
                         snapshot.PromptBounds,
@@ -991,12 +971,12 @@ namespace MvcVisionSystem
             CanvasPanelViewModel.SetSmartMaskState(
                 isVisible,
                 isReady,
-                isCreatingSmartMask,
+                smartMaskWorkflowService.IsRunning,
                 effectiveDetail,
                 hasSession);
             CanvasPanelViewModel.SetSmartMaskSessionState(
                 hasSession,
-                isCreatingSmartMask,
+                smartMaskWorkflowService.IsRunning,
                 smartMaskPromptSession.PositivePointCount,
                 smartMaskPromptSession.NegativePointCount,
                 smartMaskPromptSession.InputMode,

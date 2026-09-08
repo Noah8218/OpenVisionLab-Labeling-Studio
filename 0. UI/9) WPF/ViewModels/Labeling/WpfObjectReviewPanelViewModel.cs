@@ -10,9 +10,9 @@ namespace MvcVisionSystem
 {
     public sealed class WpfObjectReviewPanelViewModel : WpfObservableViewModel
     {
-        public const string AllMetadataTagsFilter = "\uC804\uCCB4 \uD0DC\uADF8";
-        public const string AllGroupsFilter = "\uC804\uCCB4 \uADF8\uB8F9";
-        public const string UngroupedFilter = "\uBBF8\uADF8\uB8F9";
+        public const string AllMetadataTagsFilter = ObjectReviewMetadataFilterPresentationService.AllMetadataTagsFilter;
+        public const string AllGroupsFilter = ObjectReviewMetadataFilterPresentationService.AllGroupsFilter;
+        public const string UngroupedFilter = ObjectReviewMetadataFilterPresentationService.UngroupedFilter;
 
         private static readonly Action NoOpCommand = () => { };
         private static readonly Action<object> NoOpSelectionCommand = _ => { };
@@ -85,6 +85,12 @@ namespace MvcVisionSystem
         private bool isQualityNeedsFixActive;
         private bool isQualityReviewedActive;
         private int selectionNotificationSuppressDepth;
+        private readonly ObjectReviewActionAvailabilityService actionAvailabilityService =
+            new ObjectReviewActionAvailabilityService();
+        private readonly ObjectReviewGroupSelectionPresentationService groupSelectionPresentationService =
+            new ObjectReviewGroupSelectionPresentationService();
+        private readonly ObjectReviewMetadataFilterPresentationService metadataFilterPresentationService =
+            new ObjectReviewMetadataFilterPresentationService();
         private ICommand deleteObjectCommand = new RelayCommand(NoOpCommand);
         private ICommand applyObjectClassCommand = new RelayCommand(NoOpCommand);
         private ICommand mergeSelectedSegmentsCommand = new RelayCommand(NoOpCommand);
@@ -1172,56 +1178,11 @@ namespace MvcVisionSystem
 
         public void RefreshGroupSelectionPresentation(string statusText = "")
         {
-            List<WpfObjectReviewListItem> selectedRows = Objects
-                .Where(item => item?.IsGroupSelected == true && item.CanGroupSelect)
-                .ToList();
-            GroupSelectionCount = selectedRows.Count;
-            IsCreateGroupEnabled = IsGroupSelectionMode && GroupSelectionCount >= 2;
-            string selectedTypes = string.Join(
-                " / ",
-                selectedRows
-                    .GroupBy(GetGroupPreviewObjectType, StringComparer.Ordinal)
-                    .Select(group => $"{group.Key} {group.Count()}\uAC1C"));
-            string selectedClasses = string.Join(
-                ", ",
-                selectedRows
-                    .Select(GetGroupPreviewClassName)
-                    .Where(value => !string.IsNullOrWhiteSpace(value))
-                    .Distinct(StringComparer.OrdinalIgnoreCase)
-                    .Take(3));
-            string preview = string.Join(
-                " \u00B7 ",
-                new[]
-                {
-                    $"\uADF8\uB8F9 \uC120\uD0DD {GroupSelectionCount}\uAC1C",
-                    selectedTypes,
-                    string.IsNullOrWhiteSpace(selectedClasses)
-                        ? string.Empty
-                        : $"\uD074\uB798\uC2A4 {selectedClasses}"
-                }.Where(value => !string.IsNullOrWhiteSpace(value)));
-            GroupSelectionStatusText = !string.IsNullOrWhiteSpace(statusText)
-                ? statusText.Trim()
-                : IsGroupSelectionMode
-                    ? $"{preview} \u00B7 2\uAC1C \uC774\uC0C1 \uC120\uD0DD \uD6C4 \uADF8\uB8F9 \uB9CC\uB4E4\uAE30"
-                    : "\uADF8\uB8F9 \uAD6C\uC131\uC744 \uC2DC\uC791\uD558\uBA74 \uC800\uC7A5 \uAC1D\uCCB4\uB97C 2\uAC1C \uC774\uC0C1 \uC120\uD0DD\uD569\uB2C8\uB2E4.";
-        }
-
-        private static string GetGroupPreviewObjectType(WpfObjectReviewListItem item)
-            => item?.IsManualSegment == true
-                ? item.IsManualPolygon ? "\uD3F4\uB9AC\uACE4" : "\uB9C8\uC2A4\uD06C"
-                : "\uBC15\uC2A4";
-
-        private static string GetGroupPreviewClassName(WpfObjectReviewListItem item)
-        {
-            string text = item?.DisplayText ?? string.Empty;
-            int prefixEnd = text.IndexOf(". ", StringComparison.Ordinal);
-            if (prefixEnd >= 0)
-            {
-                text = text.Substring(prefixEnd + 2);
-            }
-
-            int detailStart = text.IndexOf(" /", StringComparison.Ordinal);
-            return (detailStart >= 0 ? text.Substring(0, detailStart) : text).Trim();
+            ObjectReviewGroupSelectionPresentationSnapshot snapshot =
+                groupSelectionPresentationService.Build(Objects, IsGroupSelectionMode, statusText);
+            GroupSelectionCount = snapshot.SelectedCount;
+            IsCreateGroupEnabled = snapshot.IsCreateGroupEnabled;
+            GroupSelectionStatusText = snapshot.StatusText;
         }
 
         public string GetSelectedObjectGroupId()
@@ -1453,106 +1414,39 @@ namespace MvcVisionSystem
 
         private void RefreshActionState(bool refreshSegmentCollectionState)
         {
-            bool hasSelectedObject = SelectedObject?.IsEnabled == true;
-            bool selectedLocked = SelectedObject?.IsLocked == true;
-            bool selectedHidden = SelectedObject?.IsHidden == true;
-            IsSegmentContextVisible = SelectedObject?.IsManualSegment == true;
-            IsPolygonVertexContextVisible = SelectedObject?.IsManualPolygon == true;
-            if (!IsSegmentContextVisible)
+            ObjectReviewActionAvailabilitySnapshot snapshot = actionAvailabilityService.Build(
+                SelectedObject,
+                Objects,
+                SelectedClassName,
+                IsSplitPending,
+                IsHoleEditPending,
+                IsVertexEditPending,
+                IsIntelligentScissorsPending,
+                IsRemoveUnderlyingPreviewPending,
+                refreshSegmentCollectionState);
+
+            IsSegmentContextVisible = snapshot.IsSegmentContextVisible;
+            IsPolygonVertexContextVisible = snapshot.IsPolygonVertexContextVisible;
+            if (!snapshot.IsSegmentContextVisible)
             {
                 IsSegmentAdvancedEditorOpen = false;
             }
-            IsDeleteEnabled = hasSelectedObject && !selectedLocked;
-            IsApplyClassEnabled = hasSelectedObject
-                && !selectedLocked
-                && !string.IsNullOrWhiteSpace(SelectedClassName);
-            IsSplitEnabled = SelectedObject?.IsManualSegment == true
-                && !selectedLocked
-                && !selectedHidden
-                && !IsSplitPending
-                && !IsHoleEditPending
-                && !IsVertexEditPending
-                && !IsIntelligentScissorsPending
-                && !IsRemoveUnderlyingPreviewPending;
-            IsHoleEditEnabled = SelectedObject?.IsManualSegment == true
-                && !selectedLocked
-                && !selectedHidden
-                && !IsSplitPending
-                && !IsHoleEditPending
-                && !IsVertexEditPending
-                && !IsIntelligentScissorsPending
-                && !IsRemoveUnderlyingPreviewPending;
-            IsVertexEditEnabled = SelectedObject?.IsManualPolygon == true
-                && !selectedLocked
-                && !selectedHidden
-                && !IsSplitPending
-                && !IsHoleEditPending
-                && !IsVertexEditPending
-                && !IsIntelligentScissorsPending
-                && !IsRemoveUnderlyingPreviewPending;
-            IsIntelligentScissorsEnabled = SelectedObject?.IsManualPolygon == true
-                && !selectedLocked
-                && !selectedHidden
-                && !IsSplitPending
-                && !IsHoleEditPending
-                && !IsVertexEditPending
-                && !IsIntelligentScissorsPending
-                && !IsRemoveUnderlyingPreviewPending;
-            if (refreshSegmentCollectionState || IsSegmentContextVisible)
-            {
-                int manualSegmentCount = Objects.Count(item => item?.IsManualSegment == true);
-                int selectedSegmentIndex = SelectedObject?.IsManualSegment == true
-                    ? SelectedObject.SourceIndex
-                    : -1;
-                bool canChangeZOrder = selectedSegmentIndex >= 0
-                    && selectedSegmentIndex < manualSegmentCount
-                    && !selectedLocked
-                    && !selectedHidden
-                    && !IsSplitPending
-                    && !IsHoleEditPending
-                    && !IsVertexEditPending
-                    && !IsIntelligentScissorsPending
-                    && !IsRemoveUnderlyingPreviewPending;
-                IsSendToBackEnabled = canChangeZOrder && selectedSegmentIndex > 0;
-                IsSendBackwardEnabled = canChangeZOrder && selectedSegmentIndex > 0;
-                IsBringForwardEnabled = canChangeZOrder && selectedSegmentIndex < manualSegmentCount - 1;
-                IsBringToFrontEnabled = canChangeZOrder && selectedSegmentIndex < manualSegmentCount - 1;
-                ZOrderStatusText = canChangeZOrder
-                    ? FormattableString.Invariant(
-                        $"\uD45C\uC2DC \uC21C\uC11C {selectedSegmentIndex + 1}/{manualSegmentCount} \u00B7 \uC22B\uC790\uAC00 \uD074\uC218\uB85D \uC55E")
-                    : "\uC120\uD0DD\uD55C \uC138\uADF8\uBA3C\uD2B8\uC758 \uC55E\uB4A4 \uD45C\uC2DC \uC21C\uC11C\uB97C \uBCC0\uACBD\uD569\uB2C8\uB2E4.";
-                IsRemoveUnderlyingPreviewEnabled = selectedSegmentIndex >= 0
-                    && manualSegmentCount >= 2
-                    && !selectedLocked
-                    && !selectedHidden
-                    && !IsSplitPending
-                    && !IsHoleEditPending
-                    && !IsVertexEditPending
-                    && !IsIntelligentScissorsPending
-                    && !IsRemoveUnderlyingPreviewPending;
-            }
-            else
-            {
-                IsSendToBackEnabled = false;
-                IsSendBackwardEnabled = false;
-                IsBringForwardEnabled = false;
-                IsBringToFrontEnabled = false;
-                ZOrderStatusText = "\uC120\uD0DD\uD55C \uC138\uADF8\uBA3C\uD2B8\uC758 \uC55E\uB4A4 \uD45C\uC2DC \uC21C\uC11C\uB97C \uBCC0\uACBD\uD569\uB2C8\uB2E4.";
-                IsRemoveUnderlyingPreviewEnabled = false;
-            }
-
+            IsDeleteEnabled = snapshot.IsDeleteEnabled;
+            IsApplyClassEnabled = snapshot.IsApplyClassEnabled;
+            IsSplitEnabled = snapshot.IsSplitEnabled;
+            IsHoleEditEnabled = snapshot.IsHoleEditEnabled;
+            IsVertexEditEnabled = snapshot.IsVertexEditEnabled;
+            IsIntelligentScissorsEnabled = snapshot.IsIntelligentScissorsEnabled;
+            IsSendToBackEnabled = snapshot.IsSendToBackEnabled;
+            IsSendBackwardEnabled = snapshot.IsSendBackwardEnabled;
+            IsBringForwardEnabled = snapshot.IsBringForwardEnabled;
+            IsBringToFrontEnabled = snapshot.IsBringToFrontEnabled;
+            ZOrderStatusText = snapshot.ZOrderStatusText;
+            IsRemoveUnderlyingPreviewEnabled = snapshot.IsRemoveUnderlyingPreviewEnabled;
             if (refreshSegmentCollectionState)
             {
-                int mergeSelectionCount = Objects.Count(item => item?.IsManualSegment == true
-                    && item.IsMergeSelected
-                    && !item.IsHidden
-                    && !item.IsLocked);
-                IsMergeSelectedSegmentsEnabled = mergeSelectionCount >= 2
-                    && !IsVertexEditPending
-                    && !IsIntelligentScissorsPending
-                    && !IsRemoveUnderlyingPreviewPending;
-                MergeSelectionText = FormattableString.Invariant(
-                    $"\uBCD1\uD569 \uC120\uD0DD {mergeSelectionCount}\uAC1C \u00B7 \uAC19\uC740 \uD074\uB798\uC2A4 2\uAC1C \uC774\uC0C1");
+                IsMergeSelectedSegmentsEnabled = snapshot.IsMergeSelectedSegmentsEnabled;
+                MergeSelectionText = snapshot.MergeSelectionText;
             }
             RefreshSelectedObjectSessionState();
             RefreshSelectedObjectPersistentMetadata();
@@ -1575,25 +1469,24 @@ namespace MvcVisionSystem
 
         private void RefreshMetadataTagCatalog()
         {
-            IReadOnlyList<string> tags = ObjectMetadataStateService.NormalizeTags(
-                recipeMetadataTags.Concat(
-                    Objects.SelectMany(item => item?.MetadataTags ?? Array.Empty<string>())));
-            string selectedTag = SelectedMetadataTag;
-            string selectedFilter = SelectedMetadataTagFilter;
+            ObjectReviewMetadataTagCatalogSnapshot snapshot = metadataFilterPresentationService.BuildTagCatalog(
+                recipeMetadataTags,
+                Objects,
+                SelectedMetadataTag,
+                SelectedMetadataTagFilter);
             isRefreshingMetadataTagCatalog = true;
             try
             {
                 MetadataTagOptions.Clear();
-                foreach (string tag in tags)
+                foreach (string tag in snapshot.Tags)
                 {
                     MetadataTagOptions.Add(tag);
                 }
 
                 MetadataTagFilters.Clear();
-                MetadataTagFilters.Add(AllMetadataTagsFilter);
-                foreach (string tag in tags)
+                foreach (string filter in snapshot.Filters)
                 {
-                    MetadataTagFilters.Add(tag);
+                    MetadataTagFilters.Add(filter);
                 }
             }
             finally
@@ -1601,50 +1494,38 @@ namespace MvcVisionSystem
                 isRefreshingMetadataTagCatalog = false;
             }
 
-            if (!string.IsNullOrWhiteSpace(selectedTag))
+            if (!string.IsNullOrWhiteSpace(snapshot.SelectedTag))
             {
-                SelectedMetadataTag = selectedTag;
-            }
-            else if (MetadataTagOptions.Count > 0)
-            {
-                SelectedMetadataTag = MetadataTagOptions[0];
+                SelectedMetadataTag = snapshot.SelectedTag;
             }
 
-            if (!MetadataTagFilters.Any(tag =>
-                string.Equals(tag, selectedFilter, StringComparison.OrdinalIgnoreCase)))
-            {
-                selectedFilter = AllMetadataTagsFilter;
-            }
-
-            selectedMetadataTagFilter = selectedFilter;
+            selectedMetadataTagFilter = snapshot.SelectedFilter;
             OnPropertyChanged(nameof(SelectedMetadataTagFilter));
         }
 
         private void RefreshGroupCatalog()
         {
-            string selectedFilter = SelectedGroupFilter;
-            List<IGrouping<string, WpfObjectReviewListItem>> groups = Objects
-                .Where(item => item?.IsEnabled == true && !string.IsNullOrWhiteSpace(item.GroupId))
-                .GroupBy(item => item.GroupId, StringComparer.Ordinal)
-                .OrderBy(group => Objects.IndexOf(group.First()))
-                .ToList();
+            ObjectReviewGroupCatalogSnapshot snapshot = metadataFilterPresentationService.BuildGroupCatalog(
+                Objects,
+                SelectedGroupFilter);
 
             isRefreshingGroupCatalog = true;
             try
             {
                 GroupFilters.Clear();
-                GroupFilters.Add(AllGroupsFilter);
-                GroupFilters.Add(UngroupedFilter);
-                int ordinal = 1;
-                foreach (IGrouping<string, WpfObjectReviewListItem> group in groups)
+                foreach (string filter in snapshot.Filters)
                 {
-                    string display = $"\uADF8\uB8F9 {ordinal} ({group.Count()}\uAC1C)";
-                    foreach (WpfObjectReviewListItem item in group)
+                    GroupFilters.Add(filter);
+                }
+
+                foreach (ObjectReviewGroupPresentation group in snapshot.Groups)
+                {
+                    foreach (WpfObjectReviewListItem item in Objects.Where(item =>
+                        item?.IsEnabled == true
+                        && string.Equals(item.GroupId, group.GroupId, StringComparison.Ordinal)))
                     {
-                        item.ApplyGroupPresentation(display, group.Count());
+                        item.ApplyGroupPresentation(group.DisplayText, group.MemberCount);
                     }
-                    GroupFilters.Add(display);
-                    ordinal++;
                 }
 
                 foreach (WpfObjectReviewListItem item in Objects.Where(item =>
@@ -1658,13 +1539,7 @@ namespace MvcVisionSystem
                 isRefreshingGroupCatalog = false;
             }
 
-            if (!GroupFilters.Any(value =>
-                string.Equals(value, selectedFilter, StringComparison.OrdinalIgnoreCase)))
-            {
-                selectedFilter = AllGroupsFilter;
-            }
-
-            selectedGroupFilter = selectedFilter;
+            selectedGroupFilter = snapshot.SelectedFilter;
             OnPropertyChanged(nameof(SelectedGroupFilter));
             RefreshSelectedObjectPersistentMetadata();
         }
@@ -1679,50 +1554,25 @@ namespace MvcVisionSystem
 
         private void RefreshMetadataFilter(bool selectFirstMatch = true)
         {
-            string tagFilter = string.Equals(
+            ObjectReviewMetadataFilterSnapshot snapshot = metadataFilterPresentationService.BuildFilter(
+                Objects,
                 SelectedMetadataTagFilter,
-                AllMetadataTagsFilter,
-                StringComparison.OrdinalIgnoreCase)
-                ? string.Empty
-                : SelectedMetadataTagFilter;
-            string groupFilter = SelectedGroupFilter;
-            int enabledCount = 0;
-            int visibleCount = 0;
-            foreach (WpfObjectReviewListItem item in Objects)
+                SelectedGroupFilter,
+                IsOccludedFilterActive,
+                selectFirstMatch);
+            for (int index = 0; index < Objects.Count; index++)
             {
-                if (item?.IsEnabled != true)
-                {
-                    item?.ApplyMetadataFilter(true);
-                    continue;
-                }
-
-                enabledCount++;
-                bool matches = (!IsOccludedFilterActive || item.IsOccluded)
-                    && (string.IsNullOrWhiteSpace(tagFilter)
-                        || item.MetadataTags.Any(tag =>
-                            string.Equals(tag, tagFilter, StringComparison.OrdinalIgnoreCase)))
-                    && (string.Equals(groupFilter, AllGroupsFilter, StringComparison.OrdinalIgnoreCase)
-                        || (string.Equals(groupFilter, UngroupedFilter, StringComparison.OrdinalIgnoreCase)
-                            && string.IsNullOrWhiteSpace(item.GroupId))
-                        || string.Equals(groupFilter, item.GroupDisplayText, StringComparison.OrdinalIgnoreCase));
-                item.ApplyMetadataFilter(matches);
-                if (matches)
-                {
-                    visibleCount++;
-                }
+                Objects[index]?.ApplyMetadataFilter(snapshot.Matches[index]);
             }
 
-            MetadataFilterSummaryText = !IsOccludedFilterActive
-                && string.IsNullOrWhiteSpace(tagFilter)
-                && string.Equals(groupFilter, AllGroupsFilter, StringComparison.OrdinalIgnoreCase)
-                ? $"\uC804\uCCB4 {enabledCount}\uAC1C"
-                : $"\uD544\uD130 {visibleCount}/{enabledCount}\uAC1C";
             if (selectFirstMatch
                 && SelectedObject?.IsMetadataFilterMatch != true)
             {
-                SelectedObject = Objects.FirstOrDefault(item =>
-                    item?.IsEnabled == true && item.IsMetadataFilterMatch);
+                SelectedObject = snapshot.FirstMatchingIndex >= 0
+                    ? Objects[snapshot.FirstMatchingIndex]
+                    : null;
             }
+            MetadataFilterSummaryText = snapshot.SummaryText;
         }
 
         private void RefreshSelectedObjectTaskText()

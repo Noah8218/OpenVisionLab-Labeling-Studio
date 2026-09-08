@@ -105,6 +105,7 @@ namespace MvcVisionSystem._3._Communication.TCP
         public const string TrainingStatusType = "TrainingStatus";
         public const string TaskStatusType = "TaskStatus";
         public const string TrainYoloResultType = "TrainYoloResult";
+        public const string StopTaskResultType = "StopTaskResult";
         public const string DetectionStatusType = "DetectionStatus";
         public const string HealthCheckResultType = "HealthCheckResult";
         public const string ModelStatusResultType = "ModelStatusResult";
@@ -590,6 +591,7 @@ namespace MvcVisionSystem._3._Communication.TCP
             return string.Equals(type, TrainingStatusType, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(type, TaskStatusType, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(type, TrainYoloResultType, StringComparison.OrdinalIgnoreCase)
+                || string.Equals(type, StopTaskResultType, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(type, DetectionStatusType, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(type, HealthCheckResultType, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(type, ModelStatusResultType, StringComparison.OrdinalIgnoreCase);

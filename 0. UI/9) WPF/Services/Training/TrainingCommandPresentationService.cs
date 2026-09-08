@@ -88,7 +88,7 @@ namespace MvcVisionSystem
         public static string BuildStopCommandResultStatus(bool stopped)
         {
             return stopped
-                ? "학습 중지 명령 전송 완료."
+                ? "학습 중지 확인 완료."
                 : "학습 중지 명령을 보내지 못했습니다. 추론 연결을 확인하세요.";
         }
 

@@ -154,7 +154,7 @@ namespace MvcVisionSystem
             }
 
             IReadOnlyList<YoloWorkerSmokeCandidate> visibleCandidates = GetVisibleCandidateList();
-            bool hasVisibleCandidates = visibleCandidates.Count > 0 && !isDetecting;
+            bool hasVisibleCandidates = visibleCandidates.Count > 0 && !imageDetectionWorkflowService.IsDetecting;
             YoloWorkerSmokeCandidate selectedCandidate = GetSelectedCandidate();
             bool hasSelectedCandidate = selectedCandidate != null;
             bool selectedConfirmable = hasVisibleCandidates && hasSelectedCandidate && IsCandidateConfirmable(selectedCandidate);
@@ -165,7 +165,7 @@ namespace MvcVisionSystem
                 ? GetCandidateOverlapInfo(selectedCandidate)
                 : default;
             bool canFocusCurrentLabel = hasVisibleCandidates && hasSelectedCandidate && selectedOverlap.HasCurrentObject;
-            bool hasImage = activeImageBitmap != null && !activeImageSize.IsEmpty && !isDetecting;
+            bool hasImage = activeImageBitmap != null && !activeImageSize.IsEmpty && !imageDetectionWorkflowService.IsDetecting;
             CandidateReviewViewModel?.SetActionState(
                 selectedConfirmable,
                 hasConfirmableCandidates,
@@ -181,7 +181,7 @@ namespace MvcVisionSystem
                     : "\uACB9\uCE58\uB294 \uD604\uC7AC \uB77C\uBCA8\uC774 \uC5C6\uC2B5\uB2C8\uB2E4.");
             CandidateReviewViewModel?.SetCompletionState(candidateReviewCompletionPresentationService.Build(
                 hasImage,
-                isDetecting,
+                imageDetectionWorkflowService.IsDetecting,
                 pendingDetectionCandidates.Count,
                 GetCanvasLabelObjectCount(),
                 annotationDirtyState.IsDirty));
@@ -191,12 +191,12 @@ namespace MvcVisionSystem
 
         private void UpdateCanvasCommandButtons()
         {
-            bool hasImage = activeImageBitmap != null && !activeImageSize.IsEmpty && !isDetecting;
+            bool hasImage = activeImageBitmap != null && !activeImageSize.IsEmpty && !imageDetectionWorkflowService.IsDetecting;
             IReadOnlyList<YoloWorkerSmokeCandidate> visibleCandidates = GetVisibleCandidateList();
             bool hasVisibleCandidates = hasImage && visibleCandidates.Count > 0;
             YoloWorkerSmokeCandidate selectedCandidate = GetSelectedCandidate();
             bool hasSelectedCandidate = hasImage && selectedCandidate != null;
-            bool hasPendingCandidates = hasImage && pendingDetectionCandidates.Count > 0 && !isDetecting;
+            bool hasPendingCandidates = hasImage && pendingDetectionCandidates.Count > 0 && !imageDetectionWorkflowService.IsDetecting;
             bool canNavigateCandidates = hasVisibleCandidates && hasSelectedCandidate && visibleCandidates.Count > 1;
             bool selectedConfirmable = hasVisibleCandidates && hasSelectedCandidate && IsCandidateConfirmable(selectedCandidate);
             WpfCandidateOverlapInfo selectedOverlap = hasSelectedCandidate

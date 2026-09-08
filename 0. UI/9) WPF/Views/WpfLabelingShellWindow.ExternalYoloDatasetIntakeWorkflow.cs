@@ -2,7 +2,6 @@ using MvcVisionSystem.Yolo;
 using System;
 using System.IO;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace MvcVisionSystem
@@ -12,8 +11,6 @@ namespace MvcVisionSystem
     public partial class WpfLabelingShellWindow
     {
         #region ExternalYoloDatasetIntake
-        private bool isExternalYoloDatasetIntakeRunning;
-
         // Dialogs remain in the view adapter; Recipe persistence uses the existing
         // project session owner and validation remains side-effect-free in
         // YoloExternalDatasetIntakeService.
@@ -24,7 +21,7 @@ namespace MvcVisionSystem
 
         private async Task ExecuteSelectExternalYoloDatasetCommandAsync()
         {
-            if (isApplicationCloseApproved || isExternalYoloDatasetIntakeRunning)
+            if (isApplicationCloseApproved || externalYoloDatasetIntakeWorkflowService.IsRunning)
             {
                 return;
             }
@@ -67,7 +64,7 @@ namespace MvcVisionSystem
 
         private async Task ExecuteActivateExternalYoloDatasetCommandAsync()
         {
-            if (isApplicationCloseApproved || isExternalYoloDatasetIntakeRunning)
+            if (isApplicationCloseApproved || externalYoloDatasetIntakeWorkflowService.IsRunning)
             {
                 return;
             }
@@ -96,7 +93,7 @@ namespace MvcVisionSystem
 
         private void ExecuteClearExternalYoloDatasetCommand()
         {
-            if (isApplicationCloseApproved || isExternalYoloDatasetIntakeRunning)
+            if (isApplicationCloseApproved || externalYoloDatasetIntakeWorkflowService.IsRunning)
             {
                 return;
             }
@@ -120,59 +117,49 @@ namespace MvcVisionSystem
             LabelingDatasetPurpose purpose,
             bool useForNextTraining)
         {
-            if (isApplicationCloseApproved || isExternalYoloDatasetIntakeRunning)
+            if (isApplicationCloseApproved || externalYoloDatasetIntakeWorkflowService.IsRunning)
             {
                 return;
             }
 
-            isExternalYoloDatasetIntakeRunning = true;
-            CancellationTokenSource cancellation = new CancellationTokenSource();
-            externalYoloDatasetIntakeCts = cancellation;
-            CancellationToken cancellationToken = cancellation.Token;
             LearningWorkflowViewModel?.SetExternalYoloDatasetIntakeResult(
                 purpose,
                 "외부 YOLO data.yaml: 확인 중",
                 "원본 이미지와 라벨은 수정하지 않고 경로, 분할, 클래스, 라벨 형식만 확인합니다.",
                 dataYamlFilePath);
 
-            YoloExternalDatasetIntakeReport report;
-            try
-            {
-                report = await Task.Run(
-                    () => YoloExternalDatasetIntakeService.Build(dataYamlFilePath, purpose, cancellationToken),
-                    cancellationToken);
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            ExternalYoloDatasetIntakeWorkflowResult workflowResult =
+                await externalYoloDatasetIntakeWorkflowService.RunAsync(
+                    new ExternalYoloDatasetIntakeWorkflowRequest
+                    {
+                        DataYamlFilePath = dataYamlFilePath,
+                        Purpose = purpose
+                    });
+            if (!workflowResult.Started || workflowResult.IsCanceled)
             {
                 return;
             }
-            catch (Exception ex)
+
+            if (workflowResult.Error != null)
             {
-                if (!isApplicationCloseApproved)
+                if (!isApplicationCloseApproved && !externalYoloDatasetIntakeWorkflowService.IsClosed)
                 {
                     LearningWorkflowViewModel?.SetExternalYoloDatasetIntakeResult(
                         purpose,
                         "외부 YOLO data.yaml: 확인 불가",
-                        ex.Message,
+                        workflowResult.Error.Message,
                         dataYamlFilePath);
                 }
+
                 return;
             }
-            finally
-            {
-                if (ReferenceEquals(externalYoloDatasetIntakeCts, cancellation))
-                {
-                    externalYoloDatasetIntakeCts = null;
-                }
 
-                cancellation.Dispose();
-                isExternalYoloDatasetIntakeRunning = false;
-            }
-
-            if (isApplicationCloseApproved || cancellationToken.IsCancellationRequested)
+            if (isApplicationCloseApproved || externalYoloDatasetIntakeWorkflowService.IsClosed)
             {
                 return;
             }
+
+            YoloExternalDatasetIntakeReport report = workflowResult.Report;
 
             ExternalYoloDatasetSettings settings = GetExternalYoloDatasetSettings();
             if (settings == null)

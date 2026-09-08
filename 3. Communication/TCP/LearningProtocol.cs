@@ -70,6 +70,15 @@ namespace MvcVisionSystem._3._Communication.TCP
             });
         }
 
+        public static byte[] BuildStopTrainingPacket(string requestId = "")
+        {
+            return BuildJsonLinePacket(new PythonWorkerRequest
+            {
+                Type = "StopTask",
+                RequestId = FirstNonEmpty(requestId, Guid.NewGuid().ToString("N"))
+            });
+        }
+
         public static byte[] BuildDetectImagePacket(
             string requestId,
             string imageId,

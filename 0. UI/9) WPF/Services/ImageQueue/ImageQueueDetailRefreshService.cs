@@ -15,14 +15,23 @@ namespace MvcVisionSystem
         public const int BatchSize = 64;
         public const int Parallelism = 4;
 
-        public async Task RefreshAsync(
+        public Task RefreshAsync(
             IReadOnlyList<string> imagePaths,
             ImageQualityReviewWorkflowService reviewWorkflow,
             LabelingProjectData data,
             Func<IReadOnlyList<ImageQueueDetailRefreshResult>, int, int, Task> applyBatchAsync,
             CancellationToken token)
         {
-            if (imagePaths == null || imagePaths.Count == 0 || reviewWorkflow == null)
+            return RefreshAsync(imagePaths, reviewWorkflow?.CaptureLabelStatusRefresh(data, isCurrent: () => !token.IsCancellationRequested), applyBatchAsync, token);
+        }
+
+        internal async Task RefreshAsync(
+            IReadOnlyList<string> imagePaths,
+            Func<string, System.Drawing.Size, YoloImageReviewStatus> refreshLabelStatus,
+            Func<IReadOnlyList<ImageQueueDetailRefreshResult>, int, int, Task> applyBatchAsync,
+            CancellationToken token)
+        {
+            if (imagePaths == null || imagePaths.Count == 0 || refreshLabelStatus == null)
             {
                 return;
             }
@@ -43,7 +52,7 @@ namespace MvcVisionSystem
                     var detailTasks = new List<Task<ImageQueueDetailRefreshResult>>(endIndex - startIndex);
                     for (int index = startIndex; index < endIndex; index++)
                     {
-                        detailTasks.Add(BuildResultAsync(imagePaths[index], reviewWorkflow, data, token));
+                        detailTasks.Add(BuildResultAsync(imagePaths[index], refreshLabelStatus, token));
                     }
 
                     ImageQueueDetailRefreshResult[] results = await Task.WhenAll(detailTasks).ConfigureAwait(false);
@@ -76,8 +85,7 @@ namespace MvcVisionSystem
 
         private static Task<ImageQueueDetailRefreshResult> BuildResultAsync(
             string imagePath,
-            ImageQualityReviewWorkflowService reviewWorkflow,
-            LabelingProjectData data,
+            Func<string, System.Drawing.Size, YoloImageReviewStatus> refreshLabelStatus,
             CancellationToken token)
         {
             return Task.Run(
@@ -87,7 +95,7 @@ namespace MvcVisionSystem
                     {
                         return ImageQueueDetailRefreshResult.Success(
                             imagePath,
-                            ImageQueueDetailLoader.Build(imagePath, reviewWorkflow, data));
+                            ImageQueueDetailLoader.Build(imagePath, size => refreshLabelStatus(imagePath, size)));
                     }
                     catch (Exception ex) when (!(ex is OperationCanceledException))
                     {

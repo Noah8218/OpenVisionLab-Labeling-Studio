@@ -18,11 +18,17 @@ namespace MvcVisionSystem
                 throw new ArgumentNullException(nameof(reviewWorkflow));
             }
 
+            Func<string, DrawingSize, YoloImageReviewStatus> refresh = reviewWorkflow.CaptureLabelStatusRefresh(data);
+            return Build(imagePath, size => refresh(imagePath, size));
+        }
+
+        internal static WpfImageQueueDetail Build(string imagePath, Func<DrawingSize, YoloImageReviewStatus> refreshLabelStatus)
+        {
             using DrawingBitmap image = AppImageLoader.LoadBitmap(imagePath);
             return new WpfImageQueueDetail
             {
                 ImageSize = image.Size,
-                ReviewStatus = reviewWorkflow.RefreshLabelStatus(imagePath, image.Size, data)
+                ReviewStatus = refreshLabelStatus(image.Size)
             };
         }
 

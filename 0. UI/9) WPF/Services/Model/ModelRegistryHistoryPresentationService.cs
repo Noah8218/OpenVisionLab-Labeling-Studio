@@ -175,6 +175,8 @@ namespace MvcVisionSystem
                 CandidateId = candidate.CandidateId ?? string.Empty,
                 ProfileId = candidate.ProfileId ?? string.Empty,
                 TrainingRunId = candidate.TrainingRunId ?? string.Empty,
+                DatasetVersionId = run?.DatasetVersionId ?? string.Empty,
+                DatasetContentSha256 = run?.DatasetContentSha256 ?? string.Empty,
                 WeightsPath = candidate.WeightsPath ?? string.Empty,
                 BaselineWeightsPath = candidate.BaselineWeightsPath ?? string.Empty,
                 KindText = titlePrefix,

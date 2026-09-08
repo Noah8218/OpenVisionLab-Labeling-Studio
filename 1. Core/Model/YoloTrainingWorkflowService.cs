@@ -2,6 +2,7 @@ using MvcVisionSystem._3._Communication.TCP;
 using MvcVisionSystem.Yolo;
 using System;
 using System.IO;
+using System.Threading;
 
 namespace MvcVisionSystem._1._Core
 {
@@ -98,7 +99,10 @@ namespace MvcVisionSystem._1._Core
             return sent;
         }
 
-        public bool TryStopTraining(PythonModelCommunication communication)
+        public bool TryStopTraining(
+            PythonModelCommunication communication,
+            YoloPythonClientProcessService processService = null,
+            CancellationToken cancellationToken = default)
         {
             if (communication == null)
             {
@@ -106,13 +110,36 @@ namespace MvcVisionSystem._1._Core
                 return false;
             }
 
-            bool sent = communication.Send(PythonModelCommunication.CommandLearning.StopTraining.ToString());
+            communication.MarkTrainingStopRequested();
+            bool sent = communication.SendStopTraining();
             if (!sent)
             {
                 AppLog.ABNORMAL("Python 모델 클라이언트가 연결되지 않아 학습 중지 명령을 보내지 못했습니다.");
+                return false;
             }
 
-            return sent;
+            if (communication.WaitForTrainingStop(TimeSpan.FromSeconds(30), cancellationToken))
+            {
+                return true;
+            }
+
+            if (processService == null)
+            {
+                AppLog.ABNORMAL("Python 모델 클라이언트가 학습 중지 확인을 반환하지 않았습니다.");
+                return false;
+            }
+
+            bool processStopped = processService.StopAndWait(TimeSpan.FromSeconds(5));
+            if (processStopped)
+            {
+                communication.MarkTrainingStopped("학습 중지 응답 시간 초과 후 Python 프로세스를 종료했습니다.");
+            }
+            else
+            {
+                AppLog.ABNORMAL("Python 모델 클라이언트 프로세스의 종료를 확인하지 못했습니다.");
+            }
+
+            return processStopped;
         }
 
         public bool TryPrepareTrainingDataset(LabelingProjectData data)

@@ -216,7 +216,11 @@ namespace MvcVisionSystem.Yolo
                 return null;
             }
 
-            YoloImageLabelStatus labelStatus = YoloImageLabelStatusService.Build(imagePath, imageSize, data);
+            return ApplyLabelStatus(imagePath, YoloImageLabelStatusService.Build(imagePath, imageSize, data));
+        }
+
+        internal YoloImageReviewStatus ApplyLabelStatus(string imagePath, YoloImageLabelStatus labelStatus)
+        {
             lock (syncRoot)
             {
                 return ApplyLabelStatusCore(imagePath, labelStatus);
@@ -234,7 +238,11 @@ namespace MvcVisionSystem.Yolo
                 return null;
             }
 
-            YoloImageLabelStatus labelStatus = YoloImageLabelStatusService.Build(imagePath, imageSize, data);
+            return ApplyLabelStatusAndReviewState(imagePath, YoloImageLabelStatusService.Build(imagePath, imageSize, data), hasActiveCandidates);
+        }
+
+        internal YoloImageReviewStatus ApplyLabelStatusAndReviewState(string imagePath, YoloImageLabelStatus labelStatus, bool hasActiveCandidates)
+        {
             lock (syncRoot)
             {
                 YoloImageReviewStatus status = ApplyLabelStatusCore(imagePath, labelStatus);

@@ -94,7 +94,7 @@ namespace MvcVisionSystem
         }
 
         // Recipe list, save, and apply commands share the same project-settings
-        // boundary so a junior reader can follow one complete configuration flow.
+        // boundary so a developer reader can follow one complete configuration flow.
         private bool PopulateProjectRecipeList(string selectedRecipeName)
         {
             WpfProjectConfigPanelViewModel viewModel = ProjectConfigViewModel;
@@ -273,16 +273,15 @@ namespace MvcVisionSystem
 
             try
             {
-                string previousRecipeName = await projectRecipeSessionService.ApplyAsync(
+                ProjectRecipeApplyResult applyResult = await projectRecipeApplyWorkflowService.ApplyAsync(
                     global,
-                    recipeName,
-                    projectRecipeSessionCts.Token);
-                if (isApplicationCloseApproved)
+                    recipeName);
+                if (!applyResult.IsApplied || isApplicationCloseApproved)
                 {
                     return false;
                 }
 
-                CompleteProjectRecipeApply(previousRecipeName, recipeName);
+                CompleteProjectRecipeApply(applyResult.PreviousRecipeName, recipeName);
                 return true;
             }
             catch (OperationCanceledException)
@@ -380,7 +379,6 @@ namespace MvcVisionSystem
         {
             SynchronizeDatasetPurposeToCurrentProject(purpose);
             string recipeName = global.Recipe.Name;
-            var recipeSessionCancellationToken = projectRecipeSessionCts.Token;
 
             // The Recipe session commits Data before it publishes the selected
             // Recipe identity, but the previous ListBox selection can still
@@ -393,18 +391,16 @@ namespace MvcVisionSystem
                 new Action(() => ApplyDatasetPurposeAfterBindingsSettle(
                     purpose,
                     recipeName,
-                    persistAfterBindingsSettle,
-                    recipeSessionCancellationToken)));
+                    persistAfterBindingsSettle)));
         }
 
         private void ApplyDatasetPurposeAfterBindingsSettle(
             LabelingDatasetPurpose purpose,
             string recipeName,
-            bool persistAfterBindingsSettle,
-            CancellationToken recipeSessionCancellationToken)
+            bool persistAfterBindingsSettle)
         {
             if (isApplicationCloseApproved
-                || recipeSessionCancellationToken.IsCancellationRequested)
+                || !projectRecipeApplyWorkflowService.CanContinue)
             {
                 return;
             }

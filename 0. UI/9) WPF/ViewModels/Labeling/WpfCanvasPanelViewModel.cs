@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.Globalization;
 using System.Linq;
 using System.Windows.Input;
 using MvcVisionSystem.Yolo;
@@ -14,13 +13,6 @@ using MediaSolidColorBrush = System.Windows.Media.SolidColorBrush;
 
 namespace MvcVisionSystem
 {
-    public enum WpfDetectionOverlayStatus
-    {
-        Confirmable,
-        Duplicate,
-        Review
-    }
-
     public enum WpfCanvasDisplayMode
     {
         LabelsOnly,
@@ -63,14 +55,30 @@ namespace MvcVisionSystem
         private bool isPanEnabled;
         private bool isFocusCandidateEnabled;
         private bool isResetAiOverlayEnabled;
-        private bool isDisplayAdjustmentEnabled;
-        private bool isDisplayAdjustmentOpen;
-        private int displayBrightness;
-        private double displayContrastPercent = 100D;
-        private double displayGamma = 1D;
-        private bool isDisplayInverted;
-        private bool isDisplayHistogramEqualized;
-        private bool suppressDisplayAdjustmentNotification;
+        private readonly CanvasDisplayAdjustmentWorkflowService displayAdjustmentWorkflow =
+            new CanvasDisplayAdjustmentWorkflowService();
+        private readonly CanvasLayerPresentationWorkflowService layerPresentationWorkflow =
+            new CanvasLayerPresentationWorkflowService();
+        private readonly SmartMaskPresentationWorkflowService smartMaskPresentationWorkflow =
+            new SmartMaskPresentationWorkflowService();
+        private readonly BoxDrawingPresentationWorkflowService boxDrawingPresentationWorkflow =
+            new BoxDrawingPresentationWorkflowService();
+        private readonly CanvasLabelClassPresentationWorkflowService labelClassPresentationWorkflow =
+            new CanvasLabelClassPresentationWorkflowService();
+        private readonly CanvasLabelClassCatalogPresentationService labelClassCatalogPresentationWorkflow =
+            new CanvasLabelClassCatalogPresentationService();
+        private readonly CanvasAnnotationToolSelectionWorkflowService annotationToolSelectionWorkflow =
+            new CanvasAnnotationToolSelectionWorkflowService();
+        private readonly CanvasNoObjectCompletionPresentationService noObjectCompletionPresentationWorkflow =
+            new CanvasNoObjectCompletionPresentationService();
+        private readonly CanvasCommandAvailabilityService commandAvailabilityWorkflow =
+            new CanvasCommandAvailabilityService();
+        private readonly CanvasDetectionOverlayPresentationService detectionOverlayPresentationWorkflow =
+            new CanvasDetectionOverlayPresentationService();
+        private readonly CanvasAnomalyReviewPresentationService anomalyReviewPresentation =
+            new CanvasAnomalyReviewPresentationService();
+        private readonly CanvasAnnotationToolbarPresentationService annotationToolbarPresentation =
+            new CanvasAnnotationToolbarPresentationService();
         private Action displayAdjustmentChanged = NoOpCommand;
         private bool isPreviousCandidateEnabled;
         private bool isNextCandidateEnabled;
@@ -111,20 +119,8 @@ namespace MvcVisionSystem
         private string annotationSaveStatusTitleText = "\uC800\uC7A5 \uB300\uAE30";
         private string annotationSaveStatusDetailText = "\uC774\uBBF8\uC9C0\uB97C \uC5F4\uBA74 \uD604\uC7AC \uB77C\uBCA8\uC758 \uD30C\uC77C \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
         private string annotationSaveStatusKey = "Waiting";
-        private string activeLabelClassTitleText = "\uB2E4\uC74C \uB77C\uBCA8 \uD074\uB798\uC2A4";
-        private string activeLabelClassDetailText = "\uD074\uB798\uC2A4\uB97C \uC120\uD0DD\uD558\uBA74 \uB2E4\uC74C\uC5D0 \uADF8\uB9AC\uB294 \uBC15\uC2A4/\uB9C8\uC2A4\uD06C\uC5D0 \uC801\uC6A9\uB429\uB2C8\uB2E4.";
-        private string activeLabelClassActionText = "\uD074\uB798\uC2A4 \uAD00\uB9AC";
-        private string activeLabelClassActionToolTip = "\uC624\uB978\uCABD \uD074\uB798\uC2A4 \uD328\uB110\uC744 \uC5F4\uC5B4 \uC0C8 \uB77C\uBCA8 \uC774\uB984\uC744 \uCD94\uAC00\uD558\uAC70\uB098 \uB2E4\uC74C \uB77C\uBCA8 \uD074\uB798\uC2A4\uB97C \uBC14\uAFC9\uB2C8\uB2E4.";
-        private WpfCanvasDisplayMode layerDisplayMode = WpfCanvasDisplayMode.LabelsOnly;
-        private int layerLabelCount;
-        private int layerInferenceCandidateCount;
-        private bool layerHasUnsavedLabelChanges;
-        private string currentWorkflowStepSource = string.Empty;
-        private string currentWorkflowToolSource = string.Empty;
-        private string currentWorkflowActionSource = string.Empty;
-        private bool isLabelClassSetupMissing = true;
-        private int brushSize = 12;
-        private string brushSizeText = "12px";
+        private CanvasWorkflowContext currentWorkflowContext;
+        private string brushSizeText = CanvasBrushSizePresentationService.Format(CanvasBrushSizePresentationService.DefaultSize);
         private System.Windows.Visibility maskBrushControlVisibility = System.Windows.Visibility.Collapsed;
         private ICommand fitCommand = new RelayCommand(NoOpCommand);
         private ICommand actualSizeCommand = new RelayCommand(NoOpCommand);
@@ -163,36 +159,10 @@ namespace MvcVisionSystem
         private ICommand resetBoxDrawingMethodCommand;
         private ICommand toggleSmartMaskCorrectionOptionsCommand;
         private ICommand toggleShortcutHelpCommand;
-        private System.Windows.Visibility smartMaskVisibility = System.Windows.Visibility.Collapsed;
-        private System.Windows.Visibility smartMaskSessionActionVisibility = System.Windows.Visibility.Collapsed;
-        private System.Windows.Visibility smartMaskSessionVisibility = System.Windows.Visibility.Collapsed;
-        private System.Windows.Visibility smartMaskCorrectionOptionsVisibility = System.Windows.Visibility.Collapsed;
-        private System.Windows.Visibility smartMaskCandidateComparisonVisibility = System.Windows.Visibility.Collapsed;
         private System.Windows.Visibility shortcutHelpVisibility = System.Windows.Visibility.Collapsed;
-        private WpfAnnotationTool? lastDrawingTool;
-        private string lastLabelClassName = string.Empty;
-        private bool isSmartMaskEnabled;
         private bool isSmartMaskAutoContourEnabled;
-        private bool isSmartMaskAutoContourToggleEnabled;
-        private WpfBoxDrawingMethodItem selectedBoxDrawingMethod;
-        private System.Windows.Visibility boxDrawingMethodVisibility = System.Windows.Visibility.Collapsed;
-        private System.Windows.Visibility fourPointBoxProgressVisibility = System.Windows.Visibility.Collapsed;
-        private string fourPointBoxProgressText = "4\uC810 \uADF9\uC810 \u00B7 \uC704 0/4";
         private Action<LabelingBoxDrawingMethod> boxDrawingMethodChanged = _ => { };
         private bool isRestoringBoxDrawingMethod;
-        private string smartMaskActionText = "박스 → 스마트 마스크";
-        private string smartMaskToolTip = "결함 둘레에 박스를 그린 뒤 MobileSAM 후보 마스크를 만듭니다.";
-        private string smartMaskPromptSummaryText = "박스를 그려 첫 후보를 만드세요.";
-        private string smartMaskCandidateComparisonText = string.Empty;
-        private bool isSmartMaskPointActionEnabled;
-        private bool isSmartMaskPointUndoEnabled;
-        private bool isSmartMaskCancelEnabled;
-        private bool isSmartMaskNextInstanceEnabled;
-        private bool isShowInitialSmartMaskCandidateEnabled;
-        private bool isShowLatestSmartMaskCandidateEnabled;
-        private bool isSmartMaskCorrectionOptionsExpanded;
-        private bool isPositiveSmartMaskPointMode;
-        private bool isNegativeSmartMaskPointMode;
         private WpfSmartMaskDetailItem selectedSmartMaskDetail;
         private Action<bool> smartMaskAutoContourChanged = _ => { };
         private Action<WpfSmartMaskPolygonDetail> smartMaskDetailChanged = _ => { };
@@ -290,17 +260,22 @@ namespace MvcVisionSystem
 
         public bool IsDisplayAdjustmentOpen
         {
-            get => isDisplayAdjustmentOpen;
-            set => SetProperty(ref isDisplayAdjustmentOpen, value && IsDisplayAdjustmentEnabled);
+            get => displayAdjustmentWorkflow.IsOpen;
+            set
+            {
+                if (displayAdjustmentWorkflow.SetOpen(value))
+                {
+                    OnPropertyChanged(nameof(IsDisplayAdjustmentOpen));
+                }
+            }
         }
 
         public int DisplayBrightness
         {
-            get => displayBrightness;
+            get => displayAdjustmentWorkflow.Brightness;
             set
             {
-                int normalized = Math.Clamp(value, -100, 100);
-                if (SetProperty(ref displayBrightness, normalized))
+                if (displayAdjustmentWorkflow.SetBrightness(value))
                 {
                     OnPropertyChanged(nameof(DisplayBrightnessText));
                     NotifyDisplayAdjustmentChanged();
@@ -312,11 +287,10 @@ namespace MvcVisionSystem
 
         public double DisplayContrastPercent
         {
-            get => displayContrastPercent;
+            get => displayAdjustmentWorkflow.ContrastPercent;
             set
             {
-                double normalized = Math.Clamp(value, 50D, 200D);
-                if (SetProperty(ref displayContrastPercent, normalized))
+                if (displayAdjustmentWorkflow.SetContrastPercent(value))
                 {
                     OnPropertyChanged(nameof(DisplayContrastText));
                     NotifyDisplayAdjustmentChanged();
@@ -328,11 +302,10 @@ namespace MvcVisionSystem
 
         public double DisplayGamma
         {
-            get => displayGamma;
+            get => displayAdjustmentWorkflow.Gamma;
             set
             {
-                double normalized = Math.Clamp(value, 0.2D, 3D);
-                if (SetProperty(ref displayGamma, normalized))
+                if (displayAdjustmentWorkflow.SetGamma(value))
                 {
                     OnPropertyChanged(nameof(DisplayGammaText));
                     NotifyDisplayAdjustmentChanged();
@@ -344,10 +317,10 @@ namespace MvcVisionSystem
 
         public bool IsDisplayInverted
         {
-            get => isDisplayInverted;
+            get => displayAdjustmentWorkflow.IsInverted;
             set
             {
-                if (SetProperty(ref isDisplayInverted, value))
+                if (displayAdjustmentWorkflow.SetInverted(value))
                 {
                     NotifyDisplayAdjustmentChanged();
                 }
@@ -356,10 +329,10 @@ namespace MvcVisionSystem
 
         public bool IsDisplayHistogramEqualized
         {
-            get => isDisplayHistogramEqualized;
+            get => displayAdjustmentWorkflow.IsHistogramEqualized;
             set
             {
-                if (SetProperty(ref isDisplayHistogramEqualized, value))
+                if (displayAdjustmentWorkflow.SetHistogramEqualized(value))
                 {
                     NotifyDisplayAdjustmentChanged();
                 }
@@ -367,7 +340,7 @@ namespace MvcVisionSystem
         }
 
         public bool IsDisplayAdjustmentActive
-            => !GetDisplayAdjustmentOptions().IsDefault;
+            => displayAdjustmentWorkflow.IsActive;
 
         public ICommand PreviousCandidateCommand
         {
@@ -426,7 +399,18 @@ namespace MvcVisionSystem
         public WpfAnnotationToolItem SelectedAnnotationTool
         {
             get => selectedAnnotationTool;
-            set => SetProperty(ref selectedAnnotationTool, value);
+            set
+            {
+                if (!SetProperty(ref selectedAnnotationTool, value))
+                {
+                    return;
+                }
+
+                CanvasAnnotationToolSelectionSnapshot snapshot = value == null
+                    ? annotationToolSelectionWorkflow.ClearSelectedTool()
+                    : annotationToolSelectionWorkflow.SetSelectedTool(value.Tool);
+                ApplyAnnotationToolSelectionState(snapshot);
+            }
         }
 
         public WpfCanvasLabelClassItem SelectedLabelClass
@@ -438,7 +422,8 @@ namespace MvcVisionSystem
                 {
                     if (value != null)
                     {
-                        lastLabelClassName = value.Text;
+                        labelClassCatalogPresentationWorkflow.SelectByName(value.Text);
+                        annotationToolSelectionWorkflow.SetSelectedLabelClass(value.Text);
                     }
                     RefreshActiveLabelClassPresentation();
                 }
@@ -457,8 +442,17 @@ namespace MvcVisionSystem
         public WpfCanvasDisplayModeItem SelectedDisplayMode
         {
             get => selectedDisplayMode;
-            set => SetProperty(ref selectedDisplayMode, value);
+            set
+            {
+                if (SetProperty(ref selectedDisplayMode, value) && value != null)
+                {
+                    ApplyLayerPresentation(layerPresentationWorkflow.SetDisplayMode(value.Mode));
+                }
+            }
         }
+
+        public WpfCanvasDisplayMode CurrentDisplayMode
+            => layerPresentationWorkflow.CurrentMode;
 
         public WpfAnnotationToolItem UndoAnnotationTool
         {
@@ -563,7 +557,8 @@ namespace MvcVisionSystem
 
         public WpfBoxDrawingMethodItem SelectedBoxDrawingMethod
         {
-            get => selectedBoxDrawingMethod;
+            get => BoxDrawingMethods.FirstOrDefault(
+                item => item.Method == boxDrawingPresentationWorkflow.SelectedMethod);
             set
             {
                 if (value == null || !BoxDrawingMethods.Contains(value))
@@ -571,30 +566,26 @@ namespace MvcVisionSystem
                     return;
                 }
 
-                if (SetProperty(ref selectedBoxDrawingMethod, value))
+                if (value.Method != boxDrawingPresentationWorkflow.SelectedMethod)
                 {
-                    OnPropertyChanged(nameof(BoxDrawingMethodToolTip));
+                    ApplyBoxDrawingPresentation(
+                        boxDrawingPresentationWorkflow.SetSelectedMethod(value.Method));
                 }
             }
         }
 
         public System.Windows.Visibility BoxDrawingMethodVisibility
-        {
-            get => boxDrawingMethodVisibility;
-            private set => SetProperty(ref boxDrawingMethodVisibility, value);
-        }
+            => boxDrawingPresentationWorkflow.GetSnapshot().IsMethodSelectorVisible
+                ? System.Windows.Visibility.Visible
+                : System.Windows.Visibility.Collapsed;
 
         public System.Windows.Visibility FourPointBoxProgressVisibility
-        {
-            get => fourPointBoxProgressVisibility;
-            private set => SetProperty(ref fourPointBoxProgressVisibility, value);
-        }
+            => boxDrawingPresentationWorkflow.GetSnapshot().IsProgressVisible
+                ? System.Windows.Visibility.Visible
+                : System.Windows.Visibility.Collapsed;
 
         public string FourPointBoxProgressText
-        {
-            get => fourPointBoxProgressText;
-            private set => SetProperty(ref fourPointBoxProgressText, value ?? string.Empty);
-        }
+            => boxDrawingPresentationWorkflow.GetSnapshot().ProgressText;
 
         public string BoxDrawingMethodToolTip
             => SelectedBoxDrawingMethod?.ToolTip
@@ -602,53 +593,38 @@ namespace MvcVisionSystem
 
         public ICommand ToggleSmartMaskCorrectionOptionsCommand
             => toggleSmartMaskCorrectionOptionsCommand ??= new RelayCommand(
-                () => IsSmartMaskCorrectionOptionsExpanded = !IsSmartMaskCorrectionOptionsExpanded);
+                () => ApplySmartMaskPresentation(
+                    smartMaskPresentationWorkflow.SetCorrectionOptionsExpanded(
+                        !IsSmartMaskCorrectionOptionsExpanded)));
 
         public System.Windows.Visibility SmartMaskVisibility
-        {
-            get => smartMaskVisibility;
-            private set => SetProperty(ref smartMaskVisibility, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().IsVisible
+                ? System.Windows.Visibility.Visible
+                : System.Windows.Visibility.Collapsed;
 
         public System.Windows.Visibility SmartMaskSessionActionVisibility
-        {
-            get => smartMaskSessionActionVisibility;
-            private set => SetProperty(ref smartMaskSessionActionVisibility, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().IsVisible
+                && smartMaskPresentationWorkflow.GetSnapshot().HasSession
+                    ? System.Windows.Visibility.Visible
+                    : System.Windows.Visibility.Collapsed;
 
         public System.Windows.Visibility SmartMaskSessionVisibility
-        {
-            get => smartMaskSessionVisibility;
-            private set => SetProperty(ref smartMaskSessionVisibility, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().IsSessionVisible
+                ? System.Windows.Visibility.Visible
+                : System.Windows.Visibility.Collapsed;
 
         public System.Windows.Visibility SmartMaskCorrectionOptionsVisibility
-        {
-            get => smartMaskCorrectionOptionsVisibility;
-            private set => SetProperty(ref smartMaskCorrectionOptionsVisibility, value);
-        }
+            => IsSmartMaskCorrectionOptionsExpanded
+                ? System.Windows.Visibility.Visible
+                : System.Windows.Visibility.Collapsed;
 
         public System.Windows.Visibility SmartMaskCandidateComparisonVisibility
-        {
-            get => smartMaskCandidateComparisonVisibility;
-            private set => SetProperty(ref smartMaskCandidateComparisonVisibility, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().IsCandidateComparisonVisible
+                ? System.Windows.Visibility.Visible
+                : System.Windows.Visibility.Collapsed;
 
         public bool IsSmartMaskCorrectionOptionsExpanded
-        {
-            get => isSmartMaskCorrectionOptionsExpanded;
-            private set
-            {
-                if (SetProperty(ref isSmartMaskCorrectionOptionsExpanded, value))
-                {
-                    SmartMaskCorrectionOptionsVisibility = value
-                        ? System.Windows.Visibility.Visible
-                        : System.Windows.Visibility.Collapsed;
-                    OnPropertyChanged(nameof(SmartMaskCorrectionOptionsText));
-                    OnPropertyChanged(nameof(SmartMaskCorrectionOptionsGlyph));
-                }
-            }
-        }
+            => smartMaskPresentationWorkflow.IsCorrectionOptionsExpanded;
 
         public string SmartMaskCorrectionOptionsText
             => IsSmartMaskCorrectionOptionsExpanded ? "보정 닫기" : "보정 옵션";
@@ -657,64 +633,34 @@ namespace MvcVisionSystem
             => IsSmartMaskCorrectionOptionsExpanded ? "⌃" : "⌄";
 
         public string SmartMaskPromptSummaryText
-        {
-            get => smartMaskPromptSummaryText;
-            private set => SetProperty(ref smartMaskPromptSummaryText, value ?? string.Empty);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().PromptSummaryText;
 
         public string SmartMaskCandidateComparisonText
-        {
-            get => smartMaskCandidateComparisonText;
-            private set => SetProperty(ref smartMaskCandidateComparisonText, value ?? string.Empty);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().CandidateComparisonText;
 
         public bool IsSmartMaskPointActionEnabled
-        {
-            get => isSmartMaskPointActionEnabled;
-            private set => SetProperty(ref isSmartMaskPointActionEnabled, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().IsPointActionEnabled;
 
         public bool IsSmartMaskPointUndoEnabled
-        {
-            get => isSmartMaskPointUndoEnabled;
-            private set => SetProperty(ref isSmartMaskPointUndoEnabled, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().IsPointUndoEnabled;
 
         public bool IsSmartMaskCancelEnabled
-        {
-            get => isSmartMaskCancelEnabled;
-            private set => SetProperty(ref isSmartMaskCancelEnabled, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().IsCancelEnabled;
 
         public bool IsSmartMaskNextInstanceEnabled
-        {
-            get => isSmartMaskNextInstanceEnabled;
-            private set => SetProperty(ref isSmartMaskNextInstanceEnabled, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().IsNextInstanceEnabled;
 
         public bool IsShowInitialSmartMaskCandidateEnabled
-        {
-            get => isShowInitialSmartMaskCandidateEnabled;
-            private set => SetProperty(ref isShowInitialSmartMaskCandidateEnabled, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().IsShowInitialCandidateEnabled;
 
         public bool IsShowLatestSmartMaskCandidateEnabled
-        {
-            get => isShowLatestSmartMaskCandidateEnabled;
-            private set => SetProperty(ref isShowLatestSmartMaskCandidateEnabled, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().IsShowLatestCandidateEnabled;
 
         public bool IsPositiveSmartMaskPointMode
-        {
-            get => isPositiveSmartMaskPointMode;
-            private set => SetProperty(ref isPositiveSmartMaskPointMode, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().IsPositivePointMode;
 
         public bool IsNegativeSmartMaskPointMode
-        {
-            get => isNegativeSmartMaskPointMode;
-            private set => SetProperty(ref isNegativeSmartMaskPointMode, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().IsNegativePointMode;
 
         public WpfSmartMaskDetailItem SelectedSmartMaskDetail
         {
@@ -729,10 +675,7 @@ namespace MvcVisionSystem
         }
 
         public bool IsSmartMaskEnabled
-        {
-            get => isSmartMaskEnabled;
-            private set => SetProperty(ref isSmartMaskEnabled, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().IsEnabled;
 
         public bool IsSmartMaskAutoContourEnabled
         {
@@ -748,10 +691,7 @@ namespace MvcVisionSystem
         }
 
         public bool IsSmartMaskAutoContourToggleEnabled
-        {
-            get => isSmartMaskAutoContourToggleEnabled;
-            private set => SetProperty(ref isSmartMaskAutoContourToggleEnabled, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().IsAutoContourToggleEnabled;
 
         public string SmartMaskAutoContourText
             => IsSmartMaskAutoContourEnabled ? "자동 윤곽: 켜짐" : "자동 윤곽: 꺼짐";
@@ -791,8 +731,8 @@ namespace MvcVisionSystem
             isRestoringBoxDrawingMethod = true;
             try
             {
-                SelectedBoxDrawingMethod = BoxDrawingMethods.First(item => item.Method == normalized);
-                SetFourPointBoxProgress(0);
+                ApplyBoxDrawingPresentation(
+                    boxDrawingPresentationWorkflow.SetSelectedMethod(normalized));
             }
             finally
             {
@@ -802,40 +742,29 @@ namespace MvcVisionSystem
 
         public void SetFourPointBoxProgress(int acceptedPointCount)
         {
-            int normalized = Math.Clamp(acceptedPointCount, 0, 4);
-            string nextRole = normalized switch
+            ApplyBoxDrawingPresentation(
+                boxDrawingPresentationWorkflow.SetAcceptedPointCount(acceptedPointCount));
+        }
+
+        private void ApplyBoxDrawingPresentation(BoxDrawingPresentationSnapshot snapshot)
+        {
+            if (snapshot == null)
             {
-                0 => "\uC704",
-                1 => "\uC544\uB798",
-                2 => "\uC67C\uCABD",
-                3 => "\uC624\uB978\uCABD",
-                _ => "\uC644\uB8CC"
-            };
-            FourPointBoxProgressText = $"4\uC810 \uADF9\uC810 \u00B7 {nextRole} {normalized}/4";
-            FourPointBoxProgressVisibility =
-                SelectedBoxDrawingMethod?.Method == LabelingBoxDrawingMethod.FourPointExtreme
-                && BoxDrawingMethodVisibility == System.Windows.Visibility.Visible
-                    ? System.Windows.Visibility.Visible
-                    : System.Windows.Visibility.Collapsed;
+                return;
+            }
+
+            OnPropertyChanged(nameof(SelectedBoxDrawingMethod));
+            OnPropertyChanged(nameof(BoxDrawingMethodVisibility));
+            OnPropertyChanged(nameof(FourPointBoxProgressVisibility));
+            OnPropertyChanged(nameof(FourPointBoxProgressText));
+            OnPropertyChanged(nameof(BoxDrawingMethodToolTip));
         }
 
         public string SmartMaskActionText
-        {
-            get => smartMaskActionText;
-            private set => SetProperty(ref smartMaskActionText, value ?? string.Empty);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().ActionText;
 
         public string SmartMaskToolTip
-        {
-            get => smartMaskToolTip;
-            private set => SetProperty(ref smartMaskToolTip, value ?? string.Empty);
-        }
-
-        public int BrushSize
-        {
-            get => brushSize;
-            private set => SetProperty(ref brushSize, value);
-        }
+            => smartMaskPresentationWorkflow.GetSnapshot().ToolTip;
 
         public string BrushSizeText
         {
@@ -904,34 +833,19 @@ namespace MvcVisionSystem
         }
 
         public string ActiveLabelClassTitleText
-        {
-            get => activeLabelClassTitleText;
-            private set => SetProperty(ref activeLabelClassTitleText, value ?? string.Empty);
-        }
+            => labelClassPresentationWorkflow.GetSnapshot().TitleText;
 
         public string ActiveLabelClassDetailText
-        {
-            get => activeLabelClassDetailText;
-            private set => SetProperty(ref activeLabelClassDetailText, value ?? string.Empty);
-        }
+            => labelClassPresentationWorkflow.GetSnapshot().DetailText;
 
         public string ActiveLabelClassActionText
-        {
-            get => activeLabelClassActionText;
-            private set => SetProperty(ref activeLabelClassActionText, value ?? string.Empty);
-        }
+            => labelClassPresentationWorkflow.GetSnapshot().ActionText;
 
         public string ActiveLabelClassActionToolTip
-        {
-            get => activeLabelClassActionToolTip;
-            private set => SetProperty(ref activeLabelClassActionToolTip, value ?? string.Empty);
-        }
+            => labelClassPresentationWorkflow.GetSnapshot().ActionToolTip;
 
         public bool IsLabelClassSetupMissing
-        {
-            get => isLabelClassSetupMissing;
-            private set => SetProperty(ref isLabelClassSetupMissing, value);
-        }
+            => labelClassPresentationWorkflow.GetSnapshot().IsSetupMissing;
 
         public bool IsFitEnabled
         {
@@ -965,8 +879,15 @@ namespace MvcVisionSystem
 
         public bool IsDisplayAdjustmentEnabled
         {
-            get => isDisplayAdjustmentEnabled;
-            private set => SetProperty(ref isDisplayAdjustmentEnabled, value);
+            get => displayAdjustmentWorkflow.IsEnabled;
+            private set
+            {
+                if (displayAdjustmentWorkflow.SetEnabled(value))
+                {
+                    OnPropertyChanged(nameof(IsDisplayAdjustmentEnabled));
+                    OnPropertyChanged(nameof(IsDisplayAdjustmentOpen));
+                }
+            }
         }
 
         public bool IsPreviousCandidateEnabled
@@ -1115,12 +1036,11 @@ namespace MvcVisionSystem
 
         public void SetAnomalyImageReviewMode(bool enabled)
         {
-            AnnotationWorkspaceVisibility = enabled
-                ? System.Windows.Visibility.Collapsed
-                : System.Windows.Visibility.Visible;
-            AnnotationToolRailWidth = enabled
-                ? new System.Windows.GridLength(0)
-                : new System.Windows.GridLength(46);
+            CanvasAnomalyReviewPresentationSnapshot presentation = anomalyReviewPresentation.Build(enabled);
+            AnnotationWorkspaceVisibility = presentation.IsWorkspaceVisible
+                ? System.Windows.Visibility.Visible
+                : System.Windows.Visibility.Collapsed;
+            AnnotationToolRailWidth = new System.Windows.GridLength(presentation.AnnotationToolRailWidth);
         }
 
         public void ConfigureCommands(
@@ -1144,41 +1064,26 @@ namespace MvcVisionSystem
         }
 
         public ImageDisplayAdjustmentOptions GetDisplayAdjustmentOptions()
-            => new ImageDisplayAdjustmentOptions
-            {
-                Brightness = DisplayBrightness,
-                Contrast = DisplayContrastPercent / 100D,
-                Gamma = DisplayGamma,
-                Invert = IsDisplayInverted,
-                EqualizeHistogram = IsDisplayHistogramEqualized
-            };
+            => displayAdjustmentWorkflow.GetOptions();
 
         public void ResetDisplayAdjustment()
         {
-            suppressDisplayAdjustmentNotification = true;
-            try
-            {
-                DisplayBrightness = 0;
-                DisplayContrastPercent = 100D;
-                DisplayGamma = 1D;
-                IsDisplayInverted = false;
-                IsDisplayHistogramEqualized = false;
-            }
-            finally
-            {
-                suppressDisplayAdjustmentNotification = false;
-            }
-
+            displayAdjustmentWorkflow.Reset();
+            OnPropertyChanged(nameof(DisplayBrightness));
+            OnPropertyChanged(nameof(DisplayBrightnessText));
+            OnPropertyChanged(nameof(DisplayContrastPercent));
+            OnPropertyChanged(nameof(DisplayContrastText));
+            OnPropertyChanged(nameof(DisplayGamma));
+            OnPropertyChanged(nameof(DisplayGammaText));
+            OnPropertyChanged(nameof(IsDisplayInverted));
+            OnPropertyChanged(nameof(IsDisplayHistogramEqualized));
             NotifyDisplayAdjustmentChanged();
         }
 
         private void NotifyDisplayAdjustmentChanged()
         {
             OnPropertyChanged(nameof(IsDisplayAdjustmentActive));
-            if (!suppressDisplayAdjustmentNotification)
-            {
-                displayAdjustmentChanged();
-            }
+            displayAdjustmentChanged();
         }
 
         public void ConfigureBrushSizeCommands(Action decreaseBrushSize, Action increaseBrushSize)
@@ -1229,22 +1134,8 @@ namespace MvcVisionSystem
 
         public void SetSmartMaskState(bool isVisible, bool isEnabled, bool isBusy, string detail, bool hasSession = false)
         {
-            SmartMaskVisibility = isVisible
-                ? System.Windows.Visibility.Visible
-                : System.Windows.Visibility.Collapsed;
-            SmartMaskSessionActionVisibility = isVisible && hasSession
-                ? System.Windows.Visibility.Visible
-                : System.Windows.Visibility.Collapsed;
-            IsSmartMaskEnabled = isVisible && isEnabled && !isBusy;
-            IsSmartMaskAutoContourToggleEnabled = isVisible && !hasSession && !isBusy;
-            SmartMaskActionText = isBusy
-                ? "마스크 생성 중..."
-                : hasSession
-                    ? "후보 다시 생성"
-                    : "박스 → 스마트 마스크";
-            SmartMaskToolTip = string.IsNullOrWhiteSpace(detail)
-                ? "결함 둘레에 박스를 그린 뒤 MobileSAM 후보 마스크를 만듭니다. 결과는 확정 전 후보로만 표시됩니다."
-                : detail;
+            ApplySmartMaskPresentation(
+                smartMaskPresentationWorkflow.SetState(isVisible, isEnabled, isBusy, detail, hasSession));
         }
 
         public void SetSmartMaskSessionState(
@@ -1258,51 +1149,53 @@ namespace MvcVisionSystem
             bool hasCandidateComparison = false,
             WpfSmartMaskCandidateVersion selectedCandidateVersion = WpfSmartMaskCandidateVersion.Latest)
         {
-            SmartMaskSessionVisibility = isVisible
-                ? System.Windows.Visibility.Visible
-                : System.Windows.Visibility.Collapsed;
-            if (!isVisible)
+            ApplySmartMaskPresentation(
+                smartMaskPresentationWorkflow.SetSessionState(
+                    isVisible,
+                    isBusy,
+                    positivePointCount,
+                    negativePointCount,
+                    inputMode,
+                    hasProducedCandidate,
+                    canMoveToNextInstance,
+                    hasCandidateComparison,
+                    selectedCandidateVersion));
+        }
+
+        private void ApplySmartMaskPresentation(SmartMaskPresentationSnapshot snapshot)
+        {
+            if (snapshot == null)
             {
-                IsSmartMaskCorrectionOptionsExpanded = false;
+                return;
             }
-            IsSmartMaskPointActionEnabled = isVisible && !isBusy;
-            IsSmartMaskPointUndoEnabled = isVisible && !isBusy && positivePointCount + negativePointCount > 0;
-            IsSmartMaskCancelEnabled = isVisible && isBusy;
-            IsSmartMaskNextInstanceEnabled = isVisible && !isBusy && canMoveToNextInstance;
-            SmartMaskCandidateComparisonVisibility = isVisible && hasCandidateComparison
-                ? System.Windows.Visibility.Visible
-                : System.Windows.Visibility.Collapsed;
-            IsShowInitialSmartMaskCandidateEnabled = isVisible
-                && !isBusy
-                && hasCandidateComparison
-                && selectedCandidateVersion != WpfSmartMaskCandidateVersion.Initial;
-            IsShowLatestSmartMaskCandidateEnabled = isVisible
-                && !isBusy
-                && hasCandidateComparison
-                && selectedCandidateVersion != WpfSmartMaskCandidateVersion.Latest;
-            SmartMaskCandidateComparisonText = !isVisible || !hasCandidateComparison
-                ? string.Empty
-                : selectedCandidateVersion == WpfSmartMaskCandidateVersion.Initial
-                    ? "이전 후보를 보고 있음 · 확정하면 이 후보만 저장"
-                    : "현재 후보를 보고 있음 · 확정하면 이 후보만 저장";
-            IsPositiveSmartMaskPointMode = inputMode == WpfSmartMaskPointInputMode.Positive;
-            IsNegativeSmartMaskPointMode = inputMode == WpfSmartMaskPointInputMode.Negative;
-            SmartMaskPromptSummaryText = !isVisible
-                ? "박스를 그려 첫 후보를 만드세요."
-                : isBusy
-                    ? "자동 후보를 계산하고 있습니다."
-                    : positivePointCount + negativePointCount > 0
-                        ? $"+ 포함 {positivePointCount} · − 제외 {negativePointCount} · 한 점씩 다시 생성해 비교"
-                        : hasProducedCandidate
-                            ? "자동 후보 준비 · 그대로 확정하거나 필요할 때만 보정"
-                            : "시작 박스로 자동 후보를 준비합니다.";
+
+            OnPropertyChanged(nameof(SmartMaskVisibility));
+            OnPropertyChanged(nameof(SmartMaskSessionActionVisibility));
+            OnPropertyChanged(nameof(SmartMaskSessionVisibility));
+            OnPropertyChanged(nameof(SmartMaskCorrectionOptionsVisibility));
+            OnPropertyChanged(nameof(SmartMaskCandidateComparisonVisibility));
+            OnPropertyChanged(nameof(IsSmartMaskCorrectionOptionsExpanded));
+            OnPropertyChanged(nameof(SmartMaskCorrectionOptionsText));
+            OnPropertyChanged(nameof(SmartMaskCorrectionOptionsGlyph));
+            OnPropertyChanged(nameof(SmartMaskPromptSummaryText));
+            OnPropertyChanged(nameof(SmartMaskCandidateComparisonText));
+            OnPropertyChanged(nameof(IsSmartMaskPointActionEnabled));
+            OnPropertyChanged(nameof(IsSmartMaskPointUndoEnabled));
+            OnPropertyChanged(nameof(IsSmartMaskCancelEnabled));
+            OnPropertyChanged(nameof(IsSmartMaskNextInstanceEnabled));
+            OnPropertyChanged(nameof(IsShowInitialSmartMaskCandidateEnabled));
+            OnPropertyChanged(nameof(IsShowLatestSmartMaskCandidateEnabled));
+            OnPropertyChanged(nameof(IsPositiveSmartMaskPointMode));
+            OnPropertyChanged(nameof(IsNegativeSmartMaskPointMode));
+            OnPropertyChanged(nameof(IsSmartMaskEnabled));
+            OnPropertyChanged(nameof(IsSmartMaskAutoContourToggleEnabled));
+            OnPropertyChanged(nameof(SmartMaskActionText));
+            OnPropertyChanged(nameof(SmartMaskToolTip));
         }
 
         public void SetBrushSize(int size)
         {
-            int normalized = Math.Clamp(size, 2, 64);
-            BrushSize = normalized;
-            BrushSizeText = $"{normalized}px";
+            BrushSizeText = CanvasBrushSizePresentationService.Format(size);
         }
 
         public void ConfigureCandidateReviewCommands(
@@ -1331,16 +1224,15 @@ namespace MvcVisionSystem
             UndoAnnotationTool = null;
             RedoAnnotationTool = null;
             DeleteAnnotationTool = null;
-            foreach (WpfAnnotationToolItem tool in tools ?? Enumerable.Empty<WpfAnnotationToolItem>())
+            CanvasAnnotationToolbarPresentationSnapshot snapshot = annotationToolbarPresentation.Build(tools);
+            foreach (WpfAnnotationToolItem tool in snapshot.SelectableTools)
             {
-                if (TryAssignCommandTool(tool))
-                {
-                    continue;
-                }
-
                 AnnotationTools.Add(tool);
             }
 
+            UndoAnnotationTool = snapshot.UndoTool;
+            RedoAnnotationTool = snapshot.RedoTool;
+            DeleteAnnotationTool = snapshot.DeleteTool;
             SetSelectedAnnotationTool(selectedTool ?? AnnotationTools.FirstOrDefault());
             AnnotationToolSelectionChangedCommand = new RelayCommand<object>(annotationToolSelectionChanged ?? NoOpSelectionCommand);
         }
@@ -1376,46 +1268,11 @@ namespace MvcVisionSystem
             int inferenceCandidateCount,
             bool hasUnsavedLabelChanges)
         {
-            layerDisplayMode = mode;
-            layerLabelCount = labelCount;
-            layerInferenceCandidateCount = inferenceCandidateCount;
-            layerHasUnsavedLabelChanges = hasUnsavedLabelChanges;
-            int normalizedLabelCount = Math.Max(0, labelCount);
-            int normalizedCandidateCount = Math.Max(0, inferenceCandidateCount);
-            bool showLabels = mode != WpfCanvasDisplayMode.InferenceOnly;
-            bool showInference = mode != WpfCanvasDisplayMode.LabelsOnly;
-            IsLabelLayerVisible = showLabels;
-            IsInferenceLayerVisible = showInference;
-
-            string unsavedSuffix = hasUnsavedLabelChanges
-                ? " / \uC800\uC7A5 \uC804 \uBCC0\uACBD \uC788\uC74C"
-                : string.Empty;
-            CanvasLabelLayerText = showLabels
-                ? $"\uB77C\uBCA8 {normalizedLabelCount}\uAC1C \uD45C\uC2DC{unsavedSuffix}"
-                : $"\uB77C\uBCA8 {normalizedLabelCount}\uAC1C \uC228\uAE40{unsavedSuffix}";
-            CanvasInferenceLayerText = showInference
-                ? $"AI \uD6C4\uBCF4 {normalizedCandidateCount}\uAC1C \uD45C\uC2DC"
-                : $"AI \uD6C4\uBCF4 {normalizedCandidateCount}\uAC1C \uC228\uAE40";
-
-            switch (mode)
-            {
-                case WpfCanvasDisplayMode.InferenceOnly:
-                    CanvasLayerModeTitleText = "\uC791\uC5C5: AI \uD6C4\uBCF4 \uAC80\uD1A0";
-                    CanvasLayerModeDetailText = "\uC800\uC7A5 \uB77C\uBCA8\uC740 \uC228\uAE40. AI \uD6C4\uBCF4\uB97C \uD655\uC778\uD55C \uB4A4 \uB77C\uBCA8\uB85C \uD655\uC815\uD558\uAC70\uB098 \uC2A4\uD0B5\uD569\uB2C8\uB2E4.";
-                    break;
-
-                case WpfCanvasDisplayMode.Both:
-                    CanvasLayerModeTitleText = "\uC791\uC5C5: \uB77C\uBCA8+AI \uBE44\uAD50";
-                    CanvasLayerModeDetailText = "\uC800\uC7A5 \uB77C\uBCA8\uACFC AI \uD6C4\uBCF4\uB97C \uD568\uAED8 \uBCF4\uBA70 \uACB9\uCE68/\uB204\uB77D\uC744 \uBE44\uAD50\uD569\uB2C8\uB2E4.";
-                    break;
-
-                default:
-                    CanvasLayerModeTitleText = "\uC791\uC5C5: \uC800\uC7A5 \uB77C\uBCA8 \uD3B8\uC9D1";
-                    CanvasLayerModeDetailText = "AI \uD6C4\uBCF4\uB294 \uC228\uAE40. \uC800\uC7A5\uB41C \uB77C\uBCA8\uB9CC \uC120\uD0DD/\uC218\uC815/\uC800\uC7A5\uD569\uB2C8\uB2E4.";
-                    break;
-            }
-
-            CanvasLayerModeToolTip = $"{CanvasLayerModeDetailText}\n{CanvasLabelLayerText}\n{CanvasInferenceLayerText}";
+            ApplyLayerPresentation(layerPresentationWorkflow.SetState(
+                mode,
+                labelCount,
+                inferenceCandidateCount,
+                hasUnsavedLabelChanges));
         }
 
         public void RefreshLocalizedPresentation()
@@ -1423,39 +1280,19 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(FirstLabelLoopText));
             OnPropertyChanged(nameof(ShortcutSummaryText));
             OnPropertyChanged(nameof(ShortcutHelpText));
+            string workflowStepSource = currentWorkflowContext?.StepText;
+            string workflowToolSource = currentWorkflowContext?.ToolText;
+            string workflowActionSource = currentWorkflowContext?.ActionText;
             CurrentWorkflowStepText = TranslateExact(
-                string.IsNullOrWhiteSpace(currentWorkflowStepSource) ? "단계" : currentWorkflowStepSource);
+                string.IsNullOrWhiteSpace(workflowStepSource) ? "단계" : workflowStepSource);
             CurrentWorkflowToolText = TranslateExact(
-                string.IsNullOrWhiteSpace(currentWorkflowToolSource) ? "선택" : currentWorkflowToolSource);
+                string.IsNullOrWhiteSpace(workflowToolSource) ? "선택" : workflowToolSource);
             CurrentWorkflowActionText = TranslateExact(
-                string.IsNullOrWhiteSpace(currentWorkflowActionSource)
+                string.IsNullOrWhiteSpace(workflowActionSource)
                     ? T("WpfCanvas.Workflow.NoImageAction")
-                    : currentWorkflowActionSource);
+                    : workflowActionSource);
 
-            int normalizedLabelCount = Math.Max(0, layerLabelCount);
-            int normalizedCandidateCount = Math.Max(0, layerInferenceCandidateCount);
-            string unsavedSuffix = layerHasUnsavedLabelChanges
-                ? T("WpfCanvas.Layer.UnsavedSuffix")
-                : string.Empty;
-            CanvasLabelLayerText = layerDisplayMode != WpfCanvasDisplayMode.InferenceOnly
-                ? Format("WpfCanvas.Layer.Labels.Shown", normalizedLabelCount, unsavedSuffix)
-                : Format("WpfCanvas.Layer.Labels.Hidden", normalizedLabelCount, unsavedSuffix);
-            CanvasInferenceLayerText = layerDisplayMode != WpfCanvasDisplayMode.LabelsOnly
-                ? Format("WpfCanvas.Layer.Candidates.Shown", normalizedCandidateCount)
-                : Format("WpfCanvas.Layer.Candidates.Hidden", normalizedCandidateCount);
-            CanvasLayerModeTitleText = layerDisplayMode switch
-            {
-                WpfCanvasDisplayMode.InferenceOnly => T("WpfCanvas.LayerMode.Inference.Title"),
-                WpfCanvasDisplayMode.Both => T("WpfCanvas.LayerMode.Both.Title"),
-                _ => T("WpfCanvas.LayerMode.Labels.Title")
-            };
-            CanvasLayerModeDetailText = layerDisplayMode switch
-            {
-                WpfCanvasDisplayMode.InferenceOnly => T("WpfCanvas.LayerMode.Inference.Detail"),
-                WpfCanvasDisplayMode.Both => T("WpfCanvas.LayerMode.Both.Detail"),
-                _ => T("WpfCanvas.LayerMode.Labels.Detail")
-            };
-            CanvasLayerModeToolTip = $"{CanvasLayerModeDetailText}\n{CanvasLabelLayerText}\n{CanvasInferenceLayerText}";
+            ApplyLayerPresentation(layerPresentationWorkflow.GetSnapshot());
             RefreshActiveLabelClassPresentation();
             OnPropertyChanged(nameof(AnnotationSaveActionText));
             OnPropertyChanged(nameof(AnnotationSaveToolTip));
@@ -1463,10 +1300,17 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(NoObjectCompletionToolTip));
             OnPropertyChanged(nameof(AnnotationSaveStatusTitleText));
             OnPropertyChanged(nameof(AnnotationSaveStatusDetailText));
-            OnPropertyChanged(nameof(ActiveLabelClassTitleText));
-            OnPropertyChanged(nameof(ActiveLabelClassDetailText));
-            OnPropertyChanged(nameof(ActiveLabelClassActionText));
-            OnPropertyChanged(nameof(ActiveLabelClassActionToolTip));
+        }
+
+        private void ApplyLayerPresentation(CanvasLayerPresentationSnapshot snapshot)
+        {
+            IsLabelLayerVisible = snapshot.ShowLabels;
+            IsInferenceLayerVisible = snapshot.ShowInference;
+            CanvasLayerModeTitleText = snapshot.Title;
+            CanvasLayerModeDetailText = snapshot.Detail;
+            CanvasLabelLayerText = snapshot.LabelText;
+            CanvasInferenceLayerText = snapshot.InferenceText;
+            CanvasLayerModeToolTip = snapshot.ToolTip;
         }
 
         public void Dispose()
@@ -1490,14 +1334,6 @@ namespace MvcVisionSystem
             return OpenVisionLanguageService.T(key);
         }
 
-        private static string Format(string key, params object[] arguments)
-        {
-            return string.Format(
-                CultureInfo.InvariantCulture,
-                T(key),
-                arguments ?? Array.Empty<object>());
-        }
-
         private static string TranslateExact(string value)
         {
             return LocalizationTextRuntimeService.Translate(value);
@@ -1505,67 +1341,45 @@ namespace MvcVisionSystem
 
         public void SetLabelClasses(IEnumerable<LabelClass> classItems, string selectedName = "")
         {
-            string normalizedSelectedName = ClassCatalogService.NormalizeClassName(selectedName);
-            WpfCanvasLabelClassItem selectedItem = null;
-
+            CanvasLabelClassCatalogSnapshot snapshot = labelClassCatalogPresentationWorkflow.SetClasses(
+                classItems,
+                selectedName);
             LabelClasses.Clear();
-            int shortcutIndex = 1;
-            int canonicalIndex = 0;
-            foreach (LabelClass classItem in classItems ?? Enumerable.Empty<LabelClass>())
+            foreach (CanvasLabelClassCatalogItem item in snapshot.Items)
             {
-                int currentIndex = canonicalIndex++;
-                if (!ClassCatalogService.IsActiveClass(classItem))
-                {
-                    continue;
-                }
-
-                var labelItem = new WpfCanvasLabelClassItem(classItem, currentIndex, shortcutIndex++);
-                LabelClasses.Add(labelItem);
-                if (!string.IsNullOrWhiteSpace(normalizedSelectedName)
-                    && string.Equals(labelItem.Text, normalizedSelectedName, StringComparison.OrdinalIgnoreCase))
-                {
-                    selectedItem = labelItem;
-                }
+                LabelClasses.Add(new WpfCanvasLabelClassItem(item));
             }
 
-            SelectedLabelClass = selectedItem ?? LabelClasses.FirstOrDefault();
-            IsLabelClassSetupMissing = LabelClasses.Count == 0;
+            SelectedLabelClass = snapshot.SelectedIndex >= 0
+                ? LabelClasses[snapshot.SelectedIndex]
+                : null;
             RefreshActiveLabelClassPresentation();
         }
 
         public void SelectLabelClass(string className)
         {
-            string normalizedName = ClassCatalogService.NormalizeClassName(className);
-            if (string.IsNullOrWhiteSpace(normalizedName))
+            CanvasLabelClassCatalogSnapshot snapshot = labelClassCatalogPresentationWorkflow.SelectByName(className);
+            if (snapshot.SelectedIndex >= 0 && snapshot.SelectedIndex < LabelClasses.Count)
             {
-                return;
-            }
-
-            WpfCanvasLabelClassItem labelItem = LabelClasses.FirstOrDefault(candidate =>
-                string.Equals(candidate.Text, normalizedName, StringComparison.OrdinalIgnoreCase));
-            if (labelItem != null)
-            {
-                SelectedLabelClass = labelItem;
+                SelectedLabelClass = LabelClasses[snapshot.SelectedIndex];
             }
         }
 
         public bool TrySelectLabelClassByShortcut(int zeroBasedIndex)
         {
-            if (zeroBasedIndex < 0 || zeroBasedIndex >= Math.Min(9, LabelClasses.Count))
+            if (!labelClassCatalogPresentationWorkflow.TrySelectByShortcut(
+                zeroBasedIndex,
+                out CanvasLabelClassCatalogSnapshot snapshot))
             {
                 return false;
             }
 
-            SelectedLabelClass = LabelClasses[zeroBasedIndex];
+            SelectedLabelClass = LabelClasses[snapshot.SelectedIndex];
             return true;
         }
 
         public bool TryGetRepeatSelection(out WpfAnnotationTool tool, out string className)
-        {
-            tool = lastDrawingTool ?? WpfAnnotationTool.Select;
-            className = lastLabelClassName;
-            return lastDrawingTool.HasValue && !string.IsNullOrWhiteSpace(className);
-        }
+            => annotationToolSelectionWorkflow.TryGetRepeatSelection(out tool, out className);
 
         public void ToggleShortcutHelp()
         {
@@ -1595,61 +1409,39 @@ namespace MvcVisionSystem
 
         public void SetNoObjectCompletionState(bool hasImage, bool hasLabelObjects, bool hasPendingCandidates)
         {
-            NoObjectCompletionActionText = "\uAC1D\uCCB4 \uC5C6\uC74C";
-            if (!hasImage)
-            {
-                IsNoObjectCompletionEnabled = false;
-                NoObjectCompletionToolTip = "\uC774\uBBF8\uC9C0\uB97C \uBA3C\uC800 \uC5F4\uBA74 \uAC1D\uCCB4 \uC5C6\uC74C\uC73C\uB85C \uC644\uB8CC\uD560 \uC218 \uC788\uC2B5\uB2C8\uB2E4.";
-                return;
-            }
-
-            if (hasLabelObjects)
-            {
-                IsNoObjectCompletionEnabled = false;
-                NoObjectCompletionToolTip = "\uC774\uBBF8 \uB77C\uBCA8\uB41C \uAC1D\uCCB4\uAC00 \uC788\uC2B5\uB2C8\uB2E4. \uAC1D\uCCB4 \uC5C6\uC74C\uC73C\uB85C \uC644\uB8CC\uD558\uB824\uBA74 \uAE30\uC874 \uB77C\uBCA8\uC744 \uBA3C\uC800 \uC0AD\uC81C\uD558\uC138\uC694.";
-                return;
-            }
-
-            if (hasPendingCandidates)
-            {
-                IsNoObjectCompletionEnabled = false;
-                NoObjectCompletionToolTip = "\uB0A8\uC740 AI \uD6C4\uBCF4\uAC00 \uC788\uC2B5\uB2C8\uB2E4. \uD6C4\uBCF4\uB97C \uD655\uC815\uD558\uAC70\uB098 \uC228\uAE34 \uB4A4 \uAC1D\uCCB4 \uC5C6\uC74C\uC73C\uB85C \uC644\uB8CC\uD558\uC138\uC694.";
-                return;
-            }
-
-            IsNoObjectCompletionEnabled = true;
-            NoObjectCompletionToolTip = "\uB77C\uBCA8\uC744 \uB9CC\uB4E4\uC9C0 \uC54A\uACE0 \uBE48 YOLO \uB77C\uBCA8 \uD30C\uC77C\uC744 \uC800\uC7A5\uD55C \uB4A4 \uB2E4\uC74C \uBBF8\uC644\uB8CC \uC774\uBBF8\uC9C0\uB85C \uC774\uB3D9\uD569\uB2C8\uB2E4.";
+            ApplyNoObjectCompletionPresentation(noObjectCompletionPresentationWorkflow.SetState(
+                hasImage,
+                hasLabelObjects,
+                hasPendingCandidates));
         }
 
+        private void ApplyNoObjectCompletionPresentation(CanvasNoObjectCompletionPresentationSnapshot snapshot)
+        {
+            IsNoObjectCompletionEnabled = snapshot.IsEnabled;
+            NoObjectCompletionActionText = snapshot.ActionText;
+            NoObjectCompletionToolTip = snapshot.ToolTip;
+        }
+
+        public void ApplyAnnotationSaveStatePresentation(AnnotationSaveStatePresentation presentation)
+        {
+            if (presentation == null)
+            {
+                return;
+            }
+
+            IsAnnotationSaveEnabled = presentation.IsDirty;
+            AnnotationSaveActionText = presentation.CanvasActionText;
+            AnnotationSaveToolTip = presentation.CanvasToolTip;
+            AnnotationSaveStatusKey = presentation.CanvasStatusKey;
+            AnnotationSaveStatusTitleText = presentation.CanvasStatusTitleText;
+            AnnotationSaveStatusDetailText = presentation.CanvasStatusDetailText;
+        }
+
+        [Obsolete("Use ApplyAnnotationSaveStatePresentation.", false)]
         public void SetAnnotationSaveState(bool isDirty, string actionText, string toolTip)
         {
-            IsAnnotationSaveEnabled = isDirty;
-            AnnotationSaveActionText = string.IsNullOrWhiteSpace(actionText)
-                ? (isDirty ? "\uB77C\uBCA8 \uC800\uC7A5" : "\uC800\uC7A5 \uC644\uB8CC")
-                : actionText;
-            AnnotationSaveToolTip = string.IsNullOrWhiteSpace(toolTip)
-                ? "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 \uB77C\uBCA8 \uC800\uC7A5 \uC0C1\uD0DC\uC785\uB2C8\uB2E4."
-                : toolTip;
-            bool isWaiting = !isDirty
-                && AnnotationSaveActionText.Contains("\uB300\uAE30", StringComparison.Ordinal);
-            if (isDirty)
-            {
-                AnnotationSaveStatusKey = "Dirty";
-                AnnotationSaveStatusTitleText = "\uC800\uC7A5 \uD544\uC694";
-                AnnotationSaveStatusDetailText = "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 \uB77C\uBCA8 \uD3B8\uC9D1\uC774 \uC544\uC9C1 \uD30C\uC77C\uC5D0 \uBC18\uC601\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.";
-            }
-            else if (isWaiting)
-            {
-                AnnotationSaveStatusKey = "Waiting";
-                AnnotationSaveStatusTitleText = "\uC774\uBBF8\uC9C0 \uB300\uAE30";
-                AnnotationSaveStatusDetailText = "\uC774\uBBF8\uC9C0\uB97C \uC5F4\uBA74 \uB77C\uBCA8 \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4.";
-            }
-            else
-            {
-                AnnotationSaveStatusKey = "Saved";
-                AnnotationSaveStatusTitleText = "\uD30C\uC77C \uC800\uC7A5\uB428";
-                AnnotationSaveStatusDetailText = "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 \uB77C\uBCA8\uC774 \uC800\uC7A5 \uD3F4\uB354\uC5D0 \uBC18\uC601\uB418\uC5C8\uC2B5\uB2C8\uB2E4.";
-            }
+            ApplyAnnotationSaveStatePresentation(
+                AnnotationSaveStatePresentationService.BuildLegacyCanvasState(isDirty, actionText, toolTip));
         }
 
         public void SetSelectedAnnotationTool(WpfAnnotationToolItem selectedTool)
@@ -1662,102 +1454,77 @@ namespace MvcVisionSystem
             if (AnnotationTools.Contains(selectedTool))
             {
                 SelectedAnnotationTool = selectedTool;
-                if (AnnotationProductivityService.IsRepeatableDrawingTool(selectedTool.Tool))
-                {
-                    lastDrawingTool = selectedTool.Tool;
-                }
-                RefreshMaskBrushControlVisibility();
                 RefreshBoxDrawingMethodVisibility();
             }
         }
 
-        private void RefreshMaskBrushControlVisibility()
+        private void ApplyAnnotationToolSelectionState(CanvasAnnotationToolSelectionSnapshot snapshot)
         {
-            WpfAnnotationTool? tool = SelectedAnnotationTool?.Tool;
-            MaskBrushControlVisibility = tool == WpfAnnotationTool.Brush || tool == WpfAnnotationTool.Eraser
+            MaskBrushControlVisibility = snapshot != null && snapshot.IsMaskBrushControlVisible
                 ? System.Windows.Visibility.Visible
                 : System.Windows.Visibility.Collapsed;
         }
 
         private void RefreshBoxDrawingMethodVisibility()
         {
-            BoxDrawingMethodVisibility = SelectedAnnotationTool?.Tool == WpfAnnotationTool.Rectangle
-                ? System.Windows.Visibility.Visible
-                : System.Windows.Visibility.Collapsed;
-            SetFourPointBoxProgress(0);
+            ApplyBoxDrawingPresentation(
+                boxDrawingPresentationWorkflow.SetRectangleToolSelected(
+                    SelectedAnnotationTool?.Tool == WpfAnnotationTool.Rectangle));
+        }
+
+        public void SetWorkflowContext(CanvasWorkflowContext context)
+        {
+            // Keep this small status strip as ViewModel state so the canvas view does not
+            // need to reach into the guide panel or shell to explain the current workflow.
+            currentWorkflowContext = context;
+            CurrentWorkflowStepText = string.IsNullOrWhiteSpace(context?.StepText) ? "단계" : context.StepText;
+            CurrentWorkflowToolText = string.IsNullOrWhiteSpace(context?.ToolText) ? "선택" : context.ToolText;
+            CurrentWorkflowActionText = string.IsNullOrWhiteSpace(context?.ActionText) ? "다음 작업을 선택하세요." : context.ActionText;
         }
 
         public void SetWorkflowContext(string stepText, string toolText, string actionText)
         {
-            // Keep this small status strip as ViewModel state so the canvas view does not
-            // need to reach into the guide panel or shell to explain the current workflow.
-            currentWorkflowStepSource = stepText ?? string.Empty;
-            currentWorkflowToolSource = toolText ?? string.Empty;
-            currentWorkflowActionSource = actionText ?? string.Empty;
-            CurrentWorkflowStepText = string.IsNullOrWhiteSpace(stepText) ? "단계" : stepText;
-            CurrentWorkflowToolText = string.IsNullOrWhiteSpace(toolText) ? "선택" : toolText;
-            CurrentWorkflowActionText = string.IsNullOrWhiteSpace(actionText) ? "다음 작업을 선택하세요." : actionText;
-        }
-
-        private bool TryAssignCommandTool(WpfAnnotationToolItem tool)
-        {
-            if (tool == null)
-            {
-                return false;
-            }
-
-            switch (tool.Tool)
-            {
-                case WpfAnnotationTool.Undo:
-                    UndoAnnotationTool = tool;
-                    return true;
-
-                case WpfAnnotationTool.Redo:
-                    RedoAnnotationTool = tool;
-                    return true;
-
-                case WpfAnnotationTool.Delete:
-                    DeleteAnnotationTool = tool;
-                    return true;
-
-                default:
-                    return false;
-            }
+            SetWorkflowContext(new CanvasWorkflowContext(
+                WpfLearningStep.Label,
+                stepText,
+                toolText,
+                actionText));
         }
 
         private void RefreshActiveLabelClassPresentation()
         {
-            string className = SelectedLabelClass?.Text ?? string.Empty;
-            if (string.IsNullOrWhiteSpace(className))
+            string canonicalDisplayText = SelectedLabelClass?.CanonicalDisplayText ?? string.Empty;
+            ApplyLabelClassPresentation(
+                labelClassPresentationWorkflow.SetState(
+                    !string.IsNullOrWhiteSpace(canonicalDisplayText),
+                    canonicalDisplayText));
+        }
+
+        private void ApplyLabelClassPresentation(CanvasLabelClassPresentationSnapshot snapshot)
+        {
+            if (snapshot == null)
             {
-                IsLabelClassSetupMissing = true;
-                ActiveLabelClassTitleText = T("WpfCanvas.ActiveClass.MissingTitle");
-                ActiveLabelClassDetailText = T("WpfCanvas.ActiveClass.MissingDetail");
-                ActiveLabelClassActionText = T("WpfCanvas.ActiveClass.MissingAction");
-                ActiveLabelClassActionToolTip = T("WpfCanvas.ActiveClass.MissingAction.ToolTip");
                 return;
             }
 
-            IsLabelClassSetupMissing = false;
-            string canonicalDisplayText = SelectedLabelClass.CanonicalDisplayText;
-            ActiveLabelClassTitleText = Format("WpfCanvas.ActiveClass.Title", canonicalDisplayText);
-            ActiveLabelClassDetailText = Format("WpfCanvas.ActiveClass.Detail", canonicalDisplayText);
-            ActiveLabelClassActionText = T("WpfCanvas.ActiveClass.Action");
-            ActiveLabelClassActionToolTip = T("WpfCanvas.ActiveClass.Action.ToolTip");
+            OnPropertyChanged(nameof(ActiveLabelClassTitleText));
+            OnPropertyChanged(nameof(ActiveLabelClassDetailText));
+            OnPropertyChanged(nameof(ActiveLabelClassActionText));
+            OnPropertyChanged(nameof(ActiveLabelClassActionToolTip));
+            OnPropertyChanged(nameof(IsLabelClassSetupMissing));
         }
 
         public void SetCommandAvailability(bool hasImage, bool hasSelectedCandidate, bool hasPendingCandidates)
         {
-            IsFitEnabled = hasImage;
-            IsActualSizeEnabled = hasImage;
-            IsPanEnabled = hasImage;
+            ApplyCommandAvailability(commandAvailabilityWorkflow.SetImageState(
+                hasImage,
+                hasSelectedCandidate,
+                hasPendingCandidates));
             IsDisplayAdjustmentEnabled = hasImage;
             if (!hasImage)
             {
                 IsDisplayAdjustmentOpen = false;
             }
-            IsFocusCandidateEnabled = hasImage && hasSelectedCandidate;
-            IsResetAiOverlayEnabled = hasImage && hasPendingCandidates;
         }
 
         public void SetCandidateReviewState(
@@ -1767,21 +1534,31 @@ namespace MvcVisionSystem
             bool canConfirmSelected,
             bool canSkipSelected)
         {
-            IsPreviousCandidateEnabled = canNavigatePrevious;
-            IsNextCandidateEnabled = canNavigateNext;
-            IsFocusCurrentLabelEnabled = canFocusCurrentLabel;
-            IsConfirmSelectedEnabled = canConfirmSelected;
-            IsSkipSelectedEnabled = canSkipSelected;
+            ApplyCommandAvailability(commandAvailabilityWorkflow.SetCandidateReviewState(
+                canNavigatePrevious,
+                canNavigateNext,
+                canFocusCurrentLabel,
+                canConfirmSelected,
+                canSkipSelected));
+        }
+
+        private void ApplyCommandAvailability(CanvasCommandAvailabilitySnapshot snapshot)
+        {
+            IsFitEnabled = snapshot.IsFitEnabled;
+            IsActualSizeEnabled = snapshot.IsActualSizeEnabled;
+            IsPanEnabled = snapshot.IsPanEnabled;
+            IsFocusCandidateEnabled = snapshot.IsFocusCandidateEnabled;
+            IsResetAiOverlayEnabled = snapshot.IsResetAiOverlayEnabled;
+            IsPreviousCandidateEnabled = snapshot.IsPreviousCandidateEnabled;
+            IsNextCandidateEnabled = snapshot.IsNextCandidateEnabled;
+            IsFocusCurrentLabelEnabled = snapshot.IsFocusCurrentLabelEnabled;
+            IsConfirmSelectedEnabled = snapshot.IsConfirmSelectedEnabled;
+            IsSkipSelectedEnabled = snapshot.IsSkipSelectedEnabled;
         }
 
         public void ClearDetectionOverlay()
         {
-            DetectionOverlayVisibility = System.Windows.Visibility.Collapsed;
-            DetectionOverlayActionsVisibility = System.Windows.Visibility.Collapsed;
-            DetectionOverlaySummaryText = string.Empty;
-            DetectionOverlaySelectedText = string.Empty;
-            DetectionOverlayDetailText = string.Empty;
-            DetectionOverlayStatusKey = WpfDetectionOverlayStatus.Confirmable.ToString();
+            ApplyDetectionOverlay(detectionOverlayPresentationWorkflow.Clear());
         }
 
         public void SetDetectionOverlay(
@@ -1791,20 +1568,47 @@ namespace MvcVisionSystem
             string detail,
             WpfDetectionOverlayStatus status)
         {
-            DetectionOverlayVisibility = System.Windows.Visibility.Visible;
-            DetectionOverlayTitleText = string.IsNullOrWhiteSpace(title) ? "\uAC80\uCD9C \uACB0\uACFC" : title;
-            DetectionOverlaySummaryText = summary;
-            DetectionOverlaySelectedText = selected;
-            DetectionOverlayDetailText = detail;
-            DetectionOverlayStatusKey = status.ToString();
-            DetectionOverlayActionsVisibility = status == WpfDetectionOverlayStatus.Confirmable || status == WpfDetectionOverlayStatus.Duplicate
+            ApplyDetectionOverlay(detectionOverlayPresentationWorkflow.Set(
+                title,
+                summary,
+                selected,
+                detail,
+                status));
+        }
+
+        private void ApplyDetectionOverlay(CanvasDetectionOverlayPresentationSnapshot snapshot)
+        {
+            DetectionOverlayVisibility = snapshot.IsVisible
                 ? System.Windows.Visibility.Visible
                 : System.Windows.Visibility.Collapsed;
+            DetectionOverlayActionsVisibility = snapshot.ShowActions
+                ? System.Windows.Visibility.Visible
+                : System.Windows.Visibility.Collapsed;
+            if (snapshot.IsVisible)
+            {
+                DetectionOverlayTitleText = snapshot.Title;
+            }
+
+            DetectionOverlaySummaryText = snapshot.Summary;
+            DetectionOverlaySelectedText = snapshot.SelectedText;
+            DetectionOverlayDetailText = snapshot.Detail;
+            DetectionOverlayStatusKey = snapshot.StatusKey;
         }
     }
 
     public sealed class WpfCanvasLabelClassItem
     {
+        public WpfCanvasLabelClassItem(CanvasLabelClassCatalogItem item)
+        {
+            Text = item?.Text ?? string.Empty;
+            CanonicalIndex = item?.CanonicalIndex ?? 0;
+            ShortcutIndex = item?.ShortcutIndex ?? 0;
+            DrawColor = item?.DrawColor ?? DrawingColor.LimeGreen;
+            var brush = new MediaSolidColorBrush(MediaColor.FromRgb(DrawColor.R, DrawColor.G, DrawColor.B));
+            brush.Freeze();
+            DrawBrush = brush;
+        }
+
         public WpfCanvasLabelClassItem(LabelClass classItem, int canonicalIndex = 0, int shortcutIndex = 0)
         {
             Text = ClassCatalogService.NormalizeClassName(classItem?.Text);

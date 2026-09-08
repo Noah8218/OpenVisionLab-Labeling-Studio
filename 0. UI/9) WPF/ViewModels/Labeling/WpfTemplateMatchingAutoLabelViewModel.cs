@@ -44,6 +44,8 @@ namespace MvcVisionSystem
         void SetAutoLabelPythonStatus(string text);
         void SetAutoLabelCommandStatus(string text, bool isBusy);
         void SetAutoLabelGlobalInferenceStatus(string text, bool isBusy, bool isWarning = false);
+        // A rejected start returns a canceled token. Accepted batches keep one
+        // shared lifetime; result application records progress and pending saves.
         CancellationToken StartAutoLabelBatch(int totalCount, string scopeText);
         void MarkAutoLabelBatchItemRequested(WpfImageQueueItem item);
         void UpdateAutoLabelBatchProgress(string scopeText, string currentFileName, int completedCount, int totalCount);
@@ -414,24 +416,25 @@ namespace MvcVisionSystem
                 return;
             }
 
+            LabelingProjectData autoLabelData = currentHost.AutoLabelData;
+            TemplateMatchingAutoLabelOptions batchOptions = BuildBatchOptions(currentHost);
             const string scopeText = "template";
             CancellationToken token = currentHost.StartAutoLabelBatch(queue.Count, scopeText);
-            currentHost.SetAutoLabelCommandStatus(presentationService.BuildBatchStartCommandStatus(queue.Count), isBusy: true);
-            currentHost.SetAutoLabelGlobalInferenceStatus(presentationService.BuildBatchStartGlobalStatus(queue.Count), isBusy: true);
-            currentHost.SetAutoLabelPythonStatus("Auto label: template batch running");
+            if (token.IsCancellationRequested) return;
 
             var batchStopwatch = Stopwatch.StartNew();
             int savedImageCount = 0;
             int savedObjectCount = 0;
             int noCandidateCount = 0;
             int failedCount = 0;
-            int pendingReviewStatusSaves = 0;
             int completedCount = 0;
-            LabelingProjectData autoLabelData = currentHost.AutoLabelData;
-            TemplateMatchingAutoLabelOptions batchOptions = BuildBatchOptions(currentHost);
 
             try
             {
+                currentHost.SetAutoLabelCommandStatus(presentationService.BuildBatchStartCommandStatus(queue.Count), isBusy: true);
+                currentHost.SetAutoLabelGlobalInferenceStatus(presentationService.BuildBatchStartGlobalStatus(queue.Count), isBusy: true);
+                currentHost.SetAutoLabelPythonStatus("Auto label: template batch running");
+
                 foreach (WpfImageQueueItem item in queue)
                 {
                     if (currentHost.IsAutoLabelCloseApproved || token.IsCancellationRequested)
@@ -461,7 +464,7 @@ namespace MvcVisionSystem
                             sourceMaskBounds))
                         .ConfigureAwait(true);
 
-                    if (currentHost.IsAutoLabelCloseApproved)
+                    if (currentHost.IsAutoLabelCloseApproved || token.IsCancellationRequested)
                     {
                         break;
                     }
@@ -485,12 +488,7 @@ namespace MvcVisionSystem
                     }
 
                     completedCount++;
-                    pendingReviewStatusSaves++;
-                    if (pendingReviewStatusSaves >= 10)
-                    {
-                        currentHost.SaveAutoLabelReviewStatus();
-                        pendingReviewStatusSaves = 0;
-                    }
+                    // The shared batch run owns periodic and cancellation flushes.
 
                     currentHost.SetAutoLabelPythonStatus($"Auto label: template batch {completedCount}/{queue.Count}");
                     await currentHost.YieldAutoLabelBatchFrameAsync(token).ConfigureAwait(true);
@@ -501,12 +499,14 @@ namespace MvcVisionSystem
                 bool canceled = token.IsCancellationRequested;
                 if (!currentHost.IsAutoLabelCloseApproved)
                 {
-                    if (pendingReviewStatusSaves > 0 || completedCount > 0)
+                    try
                     {
-                        currentHost.SaveAutoLabelReviewStatus();
+                        if (completedCount > 0) currentHost.SaveAutoLabelReviewStatus();
                     }
-
-                    currentHost.CompleteAutoLabelBatch(canceled, completedCount, queue.Count, scopeText);
+                    finally
+                    {
+                        currentHost.CompleteAutoLabelBatch(canceled, completedCount, queue.Count, scopeText);
+                    }
                     currentHost.SetAutoLabelPythonStatus(canceled ? "Auto label: template batch canceled" : "Auto label: template batch complete");
                     currentHost.SetAutoLabelCommandStatus(
                         presentationService.BuildBatchCompletionCommandStatus(

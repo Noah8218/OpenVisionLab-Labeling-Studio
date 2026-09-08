@@ -258,18 +258,18 @@ namespace MvcVisionSystem
                 CancelPendingSegmentationHoleEdit(updateStatus: false);
             }
 
-            if (pendingPolygonVertexEditMode.HasValue
+            if (polygonBoundaryEditWorkflowService.IsPolygonVertexEditPending
                 && (selectedItem is not WpfObjectReviewListItem selectedVertexRow
                     || !selectedVertexRow.IsManualPolygon
-                    || selectedVertexRow.SourceIndex != pendingPolygonVertexSourceIndex))
+                    || selectedVertexRow.SourceIndex != polygonBoundaryEditWorkflowService.PolygonVertexSourceIndex))
             {
                 CancelPendingPolygonVertexEdit(updateStatus: false);
             }
 
-            if (pendingIntelligentScissorsSource != null
+            if (polygonBoundaryEditWorkflowService.IsIntelligentScissorsPending
                 && (selectedItem is not WpfObjectReviewListItem selectedScissorsRow
                     || !selectedScissorsRow.IsManualPolygon
-                    || selectedScissorsRow.SourceIndex != pendingIntelligentScissorsSourceIndex))
+                    || selectedScissorsRow.SourceIndex != polygonBoundaryEditWorkflowService.IntelligentScissorsSourceIndex))
             {
                 CancelPendingIntelligentScissors(updateStatus: false);
             }

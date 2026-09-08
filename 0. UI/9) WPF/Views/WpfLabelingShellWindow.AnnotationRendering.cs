@@ -523,10 +523,10 @@ namespace MvcVisionSystem
                         isSelected: true));
                 }
 
-                if (pendingIntelligentScissorsPlan?.PathPoints?.Count > 1)
+                if (polygonBoundaryEditWorkflowService.IntelligentScissorsPlan?.PathPoints?.Count > 1)
                 {
                     overlays.Add(new RoiImageCanvasPolygonOverlay(
-                        pendingIntelligentScissorsPlan.PathPoints,
+                        polygonBoundaryEditWorkflowService.IntelligentScissorsPlan.PathPoints,
                         "EDGE PREVIEW",
                         System.Drawing.Color.Gold,
                         isClosed: false,

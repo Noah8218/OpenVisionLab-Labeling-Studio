@@ -44,32 +44,25 @@ namespace MvcVisionSystem
 {
     public partial class WpfLabelingShellWindow : WpfUiFluentWindow
     {
-        private const int BatchReviewStatusSaveInterval = 10;
-        private const int TrainingStatusPollTimeoutSeconds = 600;
         private const int ObjectReviewFullRefreshDeleteLimit = 10_000;
         private const double PreferredInitialShellWidth = 1920D;
         private const double PreferredInitialShellHeight = 1080D;
         private readonly LabelingApplicationState global = LabelingApplicationState.Inst;
         private readonly BulkObservableCollection<WpfImageQueueItem> imageQueueItems = new BulkObservableCollection<WpfImageQueueItem>();
         private readonly Dictionary<string, WpfImageQueueItem> imageQueueItemsByPath = new Dictionary<string, WpfImageQueueItem>(StringComparer.OrdinalIgnoreCase);
-        private YoloImageReviewStatusService imageReviewStatus = new YoloImageReviewStatusService();
-        private ImageQualityReviewWorkflowService imageQualityReviewWorkflowService;
-        private AnomalyImageReviewStatusService anomalyImageReviewStatus = new AnomalyImageReviewStatusService();
-        private AnomalyImageReviewWorkflowService anomalyImageReviewWorkflowService;
-        private string dismissedAnomalyFolderStateSuggestionRoot = string.Empty;
+        private readonly ImageQualityReviewWorkflowService imageQualityReviewWorkflowService = new ImageQualityReviewWorkflowService();
+        private readonly AnomalyImageReviewSession anomalyImageReviewSession = new AnomalyImageReviewSession();
         private readonly ImageQueueSelectionService imageQueueSelectionService = new ImageQueueSelectionService();
         private readonly ImageQueueCatalogLoadCoordinator imageQueueCatalogLoadCoordinator;
         private readonly ImageQueueDetailRefreshCoordinator imageQueueDetailRefreshCoordinator;
-        private readonly ImageQueueReviewStatusRefreshCoordinator imageQueueReviewStatusRefreshCoordinator = new ImageQueueReviewStatusRefreshCoordinator();
         private readonly DatasetImageRootResolver datasetImageRootResolver = new DatasetImageRootResolver();
         private readonly ImageDecodeCacheService imageDecodeCacheService = new ImageDecodeCacheService();
         private readonly ImageDecodeService imageDecodeService = new ImageDecodeService();
         private readonly ImageDecodePreloadService imageDecodePreloadService = new ImageDecodePreloadService();
+        private readonly ImageLoadResourceService imageLoadResourceService = new ImageLoadResourceService();
         private readonly ImageDisplayAdjustmentService imageDisplayAdjustmentService = new ImageDisplayAdjustmentService();
         private ImageLoadDiagnostics lastImageLoadDiagnostics = ImageLoadDiagnostics.Empty;
         private ICollectionView imageQueueView;
-        private CancellationTokenSource interactiveDetectionCts;
-        private CancellationTokenSource batchDetectionCts;
         private DrawingBitmap activeImageBitmap;
         private string activeImagePath = string.Empty;
         private string currentImageRoot = string.Empty;
@@ -97,14 +90,9 @@ namespace MvcVisionSystem
         private LabelingSegmentationObject pendingSegmentationHoleSource;
         private int pendingSegmentationHoleSourceIndex = -1;
         private WpfSegmentationHoleEditMode? pendingSegmentationHoleEditMode;
-        private LabelingSegmentationObject pendingPolygonVertexSource;
-        private int pendingPolygonVertexSourceIndex = -1;
-        private WpfPolygonVertexEditMode? pendingPolygonVertexEditMode;
-        private readonly IntelligentScissorsService intelligentScissorsService = new IntelligentScissorsService();
-        private LabelingSegmentationObject pendingIntelligentScissorsSource;
-        private int pendingIntelligentScissorsSourceIndex = -1;
-        private WpfIntelligentScissorsPlan pendingIntelligentScissorsPlan;
-        private readonly AnnotationHistoryStack annotationHistoryStack = new AnnotationHistoryStack();
+        private readonly PolygonBoundaryEditWorkflowService polygonBoundaryEditWorkflowService = new PolygonBoundaryEditWorkflowService();
+        private readonly AnnotationHistoryWorkflowService annotationHistoryWorkflowService = new AnnotationHistoryWorkflowService();
+        private readonly AnnotationSaveWorkflowService annotationSaveWorkflowService = new AnnotationSaveWorkflowService();
         private readonly CandidateReviewStateService candidateReviewState = new CandidateReviewStateService();
         private readonly CandidateReviewPresentationService candidateReviewPresentationService = new CandidateReviewPresentationService();
         private readonly CandidateConfirmationService candidateConfirmationService = new CandidateConfirmationService();
@@ -112,9 +100,12 @@ namespace MvcVisionSystem
         private WpfPatchCoreHeatmapWindow patchCoreHeatmapWindow;
         private YoloWorkerSmokeCandidate patchCoreHeatmapWindowCandidate;
         private readonly CandidateReviewCompletionPresentationService candidateReviewCompletionPresentationService = new CandidateReviewCompletionPresentationService();
+        private readonly ImageDetectionWorkflowService imageDetectionWorkflowService;
+        private readonly YoloEnvironmentWorkflowService yoloEnvironmentWorkflowService;
         private readonly DetectionResultPresentationService detectionResultPresentationService = new DetectionResultPresentationService();
         private readonly DetectionTargetService detectionTargetService = new DetectionTargetService();
         private readonly TemplateMatchingSourceService templateMatchingSourceService = new TemplateMatchingSourceService();
+        private readonly BatchDetectionWorkflowService batchDetectionWorkflowService = new BatchDetectionWorkflowService();
         private readonly BatchDetectionProgressService batchDetectionProgressService = new BatchDetectionProgressService();
         private readonly ImageLoadPresentationService imageLoadPresentationService = new ImageLoadPresentationService();
         private readonly ObjectReviewPresentationService objectReviewPresentationService = new ObjectReviewPresentationService();
@@ -123,59 +114,47 @@ namespace MvcVisionSystem
         private readonly DatasetSetupExecutionService datasetSetupExecutionService = new DatasetSetupExecutionService();
         private readonly DatasetSetupPresentationService datasetSetupPresentationService = new DatasetSetupPresentationService();
         private readonly ProjectRecipeSessionService projectRecipeSessionService = new ProjectRecipeSessionService();
+        private readonly ProjectRecipeApplyWorkflowService projectRecipeApplyWorkflowService;
+        private readonly ProjectArchiveWorkflowService projectArchiveWorkflowService = new ProjectArchiveWorkflowService();
         private readonly ClassCatalogWorkflowService classCatalogWorkflowService;
-        private readonly CancellationTokenSource projectRecipeSessionCts = new CancellationTokenSource();
         private readonly CancellationTokenSource yoloSettingsRefreshCancellation = new CancellationTokenSource();
         private readonly TrainingWeightsService trainingWeightsService = new TrainingWeightsService();
+        private readonly ModelCenterDashboardWorkflowService modelCenterDashboardWorkflowService;
+        private readonly TrainingWeightsApplicationWorkflowService trainingWeightsApplicationWorkflowService = new TrainingWeightsApplicationWorkflowService();
+        private readonly TrainingReadinessWorkflowService trainingReadinessWorkflowService = new TrainingReadinessWorkflowService();
+        private readonly ExternalYoloDatasetIntakeWorkflowService externalYoloDatasetIntakeWorkflowService = new ExternalYoloDatasetIntakeWorkflowService();
+        private readonly ExternalAuditWorkflowService externalAuditWorkflowService = new ExternalAuditWorkflowService();
+        private readonly TrainingRuntimeWorkflowService trainingRuntimeWorkflowService;
+        private readonly ModelCandidateLifecycleWorkflowService modelCandidateLifecycleWorkflowService = new ModelCandidateLifecycleWorkflowService();
         private readonly ModelComparisonReviewService modelComparisonReviewService = new ModelComparisonReviewService();
+        private readonly ModelComparisonWorkflowService modelComparisonWorkflowService;
         private readonly ModelComparisonRunService modelComparisonRunService = new ModelComparisonRunService();
         private readonly SegmentationAdapterComparisonRunService segmentationAdapterComparisonRunService = new SegmentationAdapterComparisonRunService();
-        private readonly MobileSamBoxPromptService mobileSamBoxPromptService = new MobileSamBoxPromptService();
+        private readonly SmartMaskWorkflowService smartMaskWorkflowService = new SmartMaskWorkflowService();
         private readonly SmartMaskPromptSessionService smartMaskPromptSession = new SmartMaskPromptSessionService();
-        private readonly AnomalyClassificationEvaluationRunService anomalyClassificationEvaluationRunService = new AnomalyClassificationEvaluationRunService();
-        private readonly AnomalyClassificationEvaluationSummaryService anomalyClassificationEvaluationSummaryService = new AnomalyClassificationEvaluationSummaryService();
+        private readonly AnomalyClassificationEvaluationWorkflowService anomalyClassificationEvaluationWorkflowService;
         private readonly WorkspaceLayoutSettingsService workspaceLayoutSettingsService = new WorkspaceLayoutSettingsService();
         private readonly ApplicationClosePolicyService applicationClosePolicyService = new ApplicationClosePolicyService();
         private readonly CrashRecoveryJournalService crashRecoveryJournalService = new CrashRecoveryJournalService();
-        private readonly CrashRecoveryJournalWriteCoordinator crashRecoveryJournalWriteCoordinator;
+        private readonly CrashRecoveryJournalWorkflowService crashRecoveryJournalWorkflowService;
         private readonly CrashRecoverySessionService crashRecoverySessionService = new CrashRecoverySessionService();
         private readonly TrainingGuideHistoryService trainingGuideHistoryService = new TrainingGuideHistoryService();
+        private readonly TrainingGuideHistoryWorkflowService trainingGuideHistoryWorkflowService;
         private readonly MaskEditStateService maskEditStateService = new MaskEditStateService();
         private readonly MaskStrokeHistoryDraftService maskStrokeHistoryDraftService = new MaskStrokeHistoryDraftService();
         private bool suppressImageQueueSelection;
-        private bool isDetecting;
-        private bool isCreatingSmartMask;
-        private CancellationTokenSource smartMaskCancellation;
-        private bool isBatchDetectionRunning;
-        private bool isYoloEnvironmentCommandRunning;
         private bool isTrainingCommandRunning;
         private CancellationTokenSource trainingCommandCts;
-        private bool isTrainingWorkflowRunning;
-        private bool isModelComparisonRunning;
-        private CancellationTokenSource modelComparisonCts;
-        private bool isSegmentationAdapterComparisonRunning;
-        private CancellationTokenSource segmentationAdapterComparisonCts;
-        private CancellationTokenSource pythonWorkerOperationCts;
-        private bool isAnomalyEvaluationRunning;
-        private CancellationTokenSource anomalyEvaluationCts;
-        private CancellationTokenSource externalYoloDatasetIntakeCts;
-        private CancellationTokenSource externalEvaluationDataAuditCts;
-        private CancellationTokenSource historicalSegmentationRemediationAuditCts;
         private bool suppressProjectRecipeSelection;
-        private int batchDetectionTotalCount;
-        private int batchDetectionCompletedCount;
         private readonly Stopwatch inferenceStatusPulseStopwatch = new Stopwatch();
         private readonly ShellTimerSet shellTimers;
         private string pendingAnnotationVisibilityStatusText = string.Empty;
-        private DateTime trainingStatusPollStartedUtc = DateTime.MinValue;
         private string lastAutoAppliedTrainingWeightsPath = string.Empty;
         private string pendingTrainingBaselineWeightsPath = string.Empty;
         private bool hasPendingTrainingWeightsRecipeSave;
         private YoloDatasetReadinessReport lastYoloTrainingReadinessReport;
-        private string lastRecordedTrainingGuideRunSignature = string.Empty;
         private ShellTheme currentTheme = ShellTheme.Dark;
         private WorkflowMode currentWorkflowMode = WorkflowMode.Labeling;
-        private WpfCanvasDisplayMode canvasDisplayMode = WpfCanvasDisplayMode.LabelsOnly;
         private WpfAnnotationTool activeAnnotationTool = WpfAnnotationTool.Select;
         private bool applyingAnnotationToolSelection;
         private System.Drawing.Point? lastMaskStrokePoint;
@@ -205,8 +184,6 @@ namespace MvcVisionSystem
         private bool activeSegmentDragChanged;
         private bool suppressAnnotationHistory;
         private readonly AnnotationDirtyState annotationDirtyState = new AnnotationDirtyState();
-        private int crashRecoveryCaptureVersion;
-        private bool suppressCrashRecoveryJournal;
         private bool isApplicationCloseApproved;
         private bool isApplicationClosePromptOpen;
         private bool modelWorkflowPanelsComposed;
@@ -223,18 +200,38 @@ namespace MvcVisionSystem
         internal WpfLabelingShellWindow(WpfLabelingShellViewModels viewModels)
         {
             this.viewModels = viewModels ?? throw new ArgumentNullException(nameof(viewModels));
-            crashRecoveryJournalWriteCoordinator = new CrashRecoveryJournalWriteCoordinator(crashRecoveryJournalService);
+            projectRecipeApplyWorkflowService = new ProjectRecipeApplyWorkflowService(projectRecipeSessionService);
+            imageDetectionWorkflowService = CreateImageDetectionWorkflow();
+            yoloEnvironmentWorkflowService = CreateYoloEnvironmentWorkflow();
+            modelCenterDashboardWorkflowService = new ModelCenterDashboardWorkflowService(trainingWeightsService);
+            modelComparisonWorkflowService = CreateModelComparisonWorkflow();
+            anomalyClassificationEvaluationWorkflowService = new AnomalyClassificationEvaluationWorkflowService();
+            crashRecoveryJournalWorkflowService = new CrashRecoveryJournalWorkflowService(
+                crashRecoveryJournalService,
+                callback => Dispatcher.BeginInvoke(
+                    new Action(callback),
+                    System.Windows.Threading.DispatcherPriority.ContextIdle));
+            trainingGuideHistoryWorkflowService = new TrainingGuideHistoryWorkflowService(trainingGuideHistoryService);
+            trainingRuntimeWorkflowService = new TrainingRuntimeWorkflowService(
+                () => global.Data,
+                () => global.ModelRuntime.TrainingWorkflow,
+                () => global.ModelRuntime.PythonClientProcess,
+                () => global.ModelRuntime.DeepLearning,
+                global.GetPythonCommunicationStatusSnapshot,
+                (timeoutMilliseconds, cancellationToken) => global.ModelRuntime.EnsurePythonModelClientReadyAsync(timeoutMilliseconds, cancellationToken),
+                GetCurrentRecipeName);
+            crashRecoveryJournalWorkflowService.WriteFailed += OnCrashRecoveryJournalWriteFailed;
+            crashRecoveryJournalWorkflowService.CaptureFailed += OnCrashRecoveryJournalCaptureFailed;
             imageQueueCatalogLoadCoordinator = new ImageQueueCatalogLoadCoordinator(
                 new ImageQueueCatalogLoadService(imageQueueSelectionService));
             imageQueueDetailRefreshCoordinator = new ImageQueueDetailRefreshCoordinator(
                 new ImageQueueDetailRefreshService());
-            imageQualityReviewWorkflowService = new ImageQualityReviewWorkflowService(imageReviewStatus);
-            anomalyImageReviewWorkflowService = new AnomalyImageReviewWorkflowService(anomalyImageReviewStatus);
             classCatalogWorkflowService = new ClassCatalogWorkflowService(projectRecipeSessionService);
             objectReviewWorkflowService = new ObjectReviewWorkflowService(
                 new ObjectMetadataPersistenceService(),
                 projectRecipeSessionService);
             InitializeComponent();
+            MainCanvasViewModel.ConfigureImageFileDialogHost(new WpfImageFileDialogHost(this, fileDialogService));
             LocalizationTextRuntimeService.RegisterWindow(this);
             PromoteSharedThemeResourcesToApplication();
             ApplyInitialWindowSizeToWorkArea();

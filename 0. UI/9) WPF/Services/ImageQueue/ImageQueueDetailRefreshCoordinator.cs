@@ -184,8 +184,7 @@ namespace MvcVisionSystem
             {
                 await refreshService.RefreshAsync(
                     operation.ImagePaths,
-                    operation.ReviewWorkflow,
-                    operation.Data,
+                    operation.RefreshLabelStatus,
                     (results, loadedCount, totalCount) => operation.ApplyBatchAsync(
                         results,
                         loadedCount,
@@ -245,6 +244,7 @@ namespace MvcVisionSystem
             Func<CancellationToken, Task> completeAsync,
             CancellationTokenSource cancellation)
         {
+            RefreshLabelStatus = reviewWorkflow.CaptureLabelStatusRefresh(data, isCurrent: () => !cancellation.IsCancellationRequested);
             Version = version;
             ImagePaths = imagePaths ?? throw new ArgumentNullException(nameof(imagePaths));
             ReviewWorkflow = reviewWorkflow ?? throw new ArgumentNullException(nameof(reviewWorkflow));
@@ -259,6 +259,8 @@ namespace MvcVisionSystem
         public CancellationToken CancellationToken => Cancellation.Token;
 
         internal IReadOnlyList<string> ImagePaths { get; }
+
+        internal Func<string, System.Drawing.Size, YoloImageReviewStatus> RefreshLabelStatus { get; }
 
         internal ImageQualityReviewWorkflowService ReviewWorkflow { get; }
 

@@ -166,11 +166,15 @@ namespace MvcVisionSystem
             IReadOnlyList<string> orderedPaths = imageQueueItems.Select(item => item.ImagePath).ToList();
             if (IsAnomalyDatasetPurpose())
             {
-                if (anomalyImageReviewWorkflowService.TryFindNextUnreviewed(orderedPaths, currentImagePath, out string nextAnomalyImagePath))
+                AnomalyImageReviewNextResult nextResult = anomalyImageReviewSession.FindNextUnreviewed(
+                    orderedPaths,
+                    currentImagePath,
+                    isAnomalyPurpose: true);
+                if (nextResult.HasNextImage)
                 {
-                    bool loaded = imageQueueNavigationLoadOverride?.Invoke(nextAnomalyImagePath)
+                    bool loaded = imageQueueNavigationLoadOverride?.Invoke(nextResult.NextImagePath)
                         ?? TryLoadImage(
-                            nextAnomalyImagePath,
+                            nextResult.NextImagePath,
                             populateQueue: false,
                             refreshQueueDetails: false,
                             refreshActiveStatus: false,
@@ -178,7 +182,7 @@ namespace MvcVisionSystem
                     if (loaded)
                     {
                         // The queue already contains this image. Keep its rows intact and move only the active selection.
-                        SelectImageQueueItem(nextAnomalyImagePath);
+                        SelectImageQueueItem(nextResult.NextImagePath);
                         return true;
                     }
 
@@ -646,7 +650,9 @@ namespace MvcVisionSystem
             item.Dimensions = ImageQueueDetailLoader.FormatImageSize(detail.ImageSize);
             if (IsAnomalyDatasetPurpose())
             {
-                WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(item, anomalyImageReviewWorkflowService.GetOrCreate(item.ImagePath));
+                WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(
+                    item,
+                    anomalyImageReviewSession.GetStatus(item.ImagePath, isAnomalyPurpose: true));
                 return;
             }
             ApplyReviewStatusToItemCore(item, detail.ReviewStatus, refreshTrainingStepCompletion: false);
@@ -696,6 +702,8 @@ namespace MvcVisionSystem
         private void CancelImageQueueCatalogLoad(bool waitForCompletion)
         {
             Task catalogTask = imageQueueCatalogLoadCoordinator.Cancel();
+            imageQualityReviewWorkflowService.CancelCatalogLoad();
+            anomalyImageReviewSession.CancelCatalogLoad();
             if (waitForCompletion)
             {
                 WaitForImageQueueDetailRefresh(catalogTask);

@@ -778,7 +778,7 @@ namespace MvcVisionSystem
 
         private int GetMaskBrushRadius()
         {
-            int brushSize = LearningWorkflowViewModel?.BrushSize ?? MaskAnnotationService.DefaultBrushRadius * 2;
+            int brushSize = LearningWorkflowViewModel?.BrushSize ?? CanvasBrushSizePresentationService.DefaultSize;
             return Math.Clamp((int)Math.Round(brushSize / 2D), 1, 128);
         }
 
@@ -809,7 +809,7 @@ namespace MvcVisionSystem
 
         // Brush-size commands update the same shared mask-input radius and
         // Canvas toolbar projection, so they stay with this interactive owner.
-        private const int CanvasBrushSizeStep = 2;
+        private const int CanvasBrushSizeStep = CanvasBrushSizePresentationService.Step;
 
         private void ExecuteDecreaseBrushSizeCommand()
             => AdjustBrushSize(-CanvasBrushSizeStep);
@@ -824,16 +824,14 @@ namespace MvcVisionSystem
                 return;
             }
 
-            LearningWorkflowViewModel.BrushSize = Math.Clamp(
-                LearningWorkflowViewModel.BrushSize + delta,
-                2,
-                64);
+            LearningWorkflowViewModel.BrushSize += delta;
             SyncCanvasBrushSizeFromWorkflow();
         }
 
         private void SyncCanvasBrushSizeFromWorkflow()
         {
-            CanvasPanelViewModel?.SetBrushSize(LearningWorkflowViewModel?.BrushSize ?? 12);
+            CanvasPanelViewModel?.SetBrushSize(
+                LearningWorkflowViewModel?.BrushSize ?? CanvasBrushSizePresentationService.DefaultSize);
         }
 
         private void LearningWorkflowViewModel_PropertyChanged(object sender, PropertyChangedEventArgs e)

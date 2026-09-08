@@ -46,16 +46,10 @@ namespace MvcVisionSystem
                 cancellationToken = refreshCancellation.Token;
             }
 
-            Task<YoloImageReviewStatus> completion = Task.Run(
-                () => Refresh(
-                    requestVersion,
-                    imagePath,
-                    imageSize,
-                    reviewWorkflow,
-                    data,
-                    hasActiveCandidates,
-                    cancellationToken),
-                CancellationToken.None);
+            Func<string, Size, YoloImageReviewStatus> refresh = reviewWorkflow.CaptureLabelStatusRefresh(
+                data, hasActiveCandidates, saveReviewStatus: true,
+                isCurrent: () => IsCurrent(requestVersion) && !cancellationToken.IsCancellationRequested);
+            Task<YoloImageReviewStatus> completion = Task.Run(() => refresh(imagePath, imageSize), CancellationToken.None);
             return new ImageQueueReviewStatusRefreshOperation(requestVersion, imagePath, completion);
         }
 
@@ -80,36 +74,9 @@ namespace MvcVisionSystem
             }
         }
 
-        private YoloImageReviewStatus Refresh(
-            int requestVersion,
-            string imagePath,
-            Size imageSize,
-            ImageQualityReviewWorkflowService reviewWorkflow,
-            LabelingProjectData data,
-            bool hasActiveCandidates,
-            CancellationToken cancellationToken)
+        public void Cancel()
         {
-            if (!IsCurrent(requestVersion) || cancellationToken.IsCancellationRequested)
-            {
-                return null;
-            }
-
-            YoloImageReviewStatus status = reviewWorkflow.RefreshLabelStatusAndReviewState(
-                imagePath,
-                imageSize,
-                data,
-                hasActiveCandidates);
-            lock (syncRoot)
-            {
-                if (!IsCurrent(requestVersion) || cancellationToken.IsCancellationRequested)
-                {
-                    return null;
-                }
-
-                reviewWorkflow.SaveReviewStatus(data);
-            }
-
-            return status;
+            lock (syncRoot) ++refreshVersion;
         }
     }
 

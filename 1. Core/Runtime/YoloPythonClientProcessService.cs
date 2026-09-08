@@ -126,13 +126,18 @@ namespace MvcVisionSystem._1._Core
 
         public void Stop()
         {
+            StopAndWait(TimeSpan.FromSeconds(5));
+        }
+
+        public bool StopAndWait(TimeSpan timeout)
+        {
             Process processToStop;
             lock (sync)
             {
                 processToStop = DetachProcessForStopLocked();
             }
 
-            StopDetachedProcess(processToStop);
+            return StopDetachedProcess(processToStop, timeout);
         }
 
         public Task StopAsync()
@@ -145,7 +150,7 @@ namespace MvcVisionSystem._1._Core
 
             return processToStop == null
                 ? Task.CompletedTask
-                : Task.Run(() => StopDetachedProcess(processToStop));
+                : Task.Run(() => StopDetachedProcess(processToStop, TimeSpan.FromSeconds(5)));
         }
 
         public void Dispose()
@@ -165,7 +170,7 @@ namespace MvcVisionSystem._1._Core
 
         private void StopLocked()
         {
-            StopDetachedProcess(DetachProcessForStopLocked());
+            StopDetachedProcess(DetachProcessForStopLocked(), TimeSpan.FromSeconds(5));
         }
 
         private void DisposeFailedProcessLocked()
@@ -179,7 +184,7 @@ namespace MvcVisionSystem._1._Core
                 return;
             }
 
-            StopDetachedProcess(failedProcess);
+            StopDetachedProcess(failedProcess, TimeSpan.FromSeconds(5));
         }
 
         private Process DetachProcessForStopLocked()
@@ -199,20 +204,20 @@ namespace MvcVisionSystem._1._Core
             return processToStop;
         }
 
-        private void StopDetachedProcess(Process processToStop)
+        private bool StopDetachedProcess(Process processToStop, TimeSpan timeout)
         {
             if (processToStop == null)
             {
-                return;
+                return true;
             }
 
+            bool hasExited = false;
             try
             {
                 processToStop.OutputDataReceived -= OnOutputDataReceived;
                 processToStop.ErrorDataReceived -= OnErrorDataReceived;
                 processToStop.Exited -= OnExited;
 
-                bool hasExited;
                 try
                 {
                     hasExited = processToStop.HasExited;
@@ -237,14 +242,32 @@ namespace MvcVisionSystem._1._Core
                     AppLog.COMM(pid > 0
                         ? $"YOLO Python client stop requested. PID:{pid}"
                         : "YOLO Python client stop requested.");
+                    int waitMilliseconds = (int)Math.Max(0, Math.Min(int.MaxValue, timeout.TotalMilliseconds));
+                    hasExited = processToStop.WaitForExit(waitMilliseconds);
+                }
+
+                if (!hasExited)
+                {
+                    LastError = "YOLO Python client process did not exit within the stop timeout.";
+                    AppLog.ABNORMAL(LastError);
+                    return false;
                 }
 
                 LastExitedAtUtc = DateTime.UtcNow;
-                LastExitCode = null;
+                try
+                {
+                    LastExitCode = processToStop.ExitCode;
+                }
+                catch (InvalidOperationException)
+                {
+                    LastExitCode = null;
+                }
+                return true;
             }
             catch (Exception ex)
             {
                 AppLog.ABNORMAL($"YOLO Python client stop failed: {ex.Message}");
+                return false;
             }
             finally
             {

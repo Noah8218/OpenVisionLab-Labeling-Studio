@@ -51,8 +51,7 @@ namespace MvcVisionSystem
 
         private void ApplyCanvasDisplayMode(WpfCanvasDisplayMode mode, bool redraw, bool logChange)
         {
-            bool changed = canvasDisplayMode != mode;
-            canvasDisplayMode = mode;
+            bool changed = CurrentCanvasDisplayMode != mode;
             CanvasPanelViewModel?.SetDisplayMode(mode);
             RefreshCanvasLayerVisibilityState();
 
@@ -72,17 +71,20 @@ namespace MvcVisionSystem
         }
 
         private bool ShouldShowLabelOverlays()
-            => canvasDisplayMode != WpfCanvasDisplayMode.InferenceOnly;
+            => CurrentCanvasDisplayMode != WpfCanvasDisplayMode.InferenceOnly;
 
         private bool ShouldShowInferenceOverlays()
-            => canvasDisplayMode != WpfCanvasDisplayMode.LabelsOnly;
+            => CurrentCanvasDisplayMode != WpfCanvasDisplayMode.LabelsOnly;
+
+        private WpfCanvasDisplayMode CurrentCanvasDisplayMode
+            => CanvasPanelViewModel?.CurrentDisplayMode ?? WpfCanvasDisplayMode.LabelsOnly;
 
         private void RefreshCanvasLayerVisibilityState()
         {
             int labelCount = GetCanvasLabelObjectCount();
             int candidateCount = pendingDetectionCandidates?.Count ?? 0;
             CanvasPanelViewModel?.SetLayerVisibilityState(
-                canvasDisplayMode,
+                CurrentCanvasDisplayMode,
                 labelCount,
                 candidateCount,
                 annotationDirtyState.IsDirty);
@@ -161,7 +163,7 @@ namespace MvcVisionSystem
 
         private void UpdateWorkflowModeUi()
         {
-            bool canSwitchMode = !isDetecting && !isBatchDetectionRunning;
+            bool canSwitchMode = !imageDetectionWorkflowService.IsDetecting && !batchDetectionWorkflowService.IsRunning;
             ShellViewModel?.SetWorkflowModeState(
                 currentWorkflowMode == WorkflowMode.Inference,
                 canSwitchMode);
@@ -305,10 +307,10 @@ namespace MvcVisionSystem
             PythonModelRuntimeState runtimeState = GetPythonModelRuntimeState();
             WorkflowCommandState state = WorkflowCommandStateService.Build(
                 isInferenceMode: currentWorkflowMode == WorkflowMode.Inference,
-                isYoloEnvironmentCommandRunning: isYoloEnvironmentCommandRunning || isModelComparisonRunning || isSegmentationAdapterComparisonRunning || isAnomalyEvaluationRunning,
-                isDetecting: isDetecting,
-                isBatchDetectionRunning: isBatchDetectionRunning,
-                isTrainingCommandRunning: isTrainingCommandRunning || isTrainingWorkflowRunning,
+                isYoloEnvironmentCommandRunning: yoloEnvironmentWorkflowService.IsRunning || modelComparisonWorkflowService.IsModelComparisonRunning || modelComparisonWorkflowService.IsSegmentationComparisonRunning || anomalyClassificationEvaluationWorkflowService.IsRunning,
+                isDetecting: imageDetectionWorkflowService.IsDetecting,
+                isBatchDetectionRunning: batchDetectionWorkflowService.IsRunning,
+                isTrainingCommandRunning: isTrainingCommandRunning || trainingRuntimeWorkflowService.IsTrainingWorkflowRunning,
                 isTrainingStopAvailable: TrainingProgressPresentationService.IsTrainingStopAvailable(global.GetPythonCommunicationStatusSnapshot()),
                 hasCurrentRecipeName: !string.IsNullOrWhiteSpace(GetCurrentRecipeName()),
                 canRunModelTraining: runtimeState.CanRunTraining,
@@ -330,7 +332,7 @@ namespace MvcVisionSystem
         private void ApplyLearningWorkflowCommandState(WorkflowCommandState state)
         {
             ModelComparisonCommandState comparisonState = ModelComparisonCommandStateService.Build(
-                isModelComparisonRunning,
+                modelComparisonWorkflowService.IsModelComparisonRunning,
                 state,
                 lastYoloTrainingReadinessReport);
             LearningWorkflowViewModel?.SetModelComparisonRunState(

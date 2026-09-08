@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Drawing;
 using System.Reflection;
 using System.Text;
+using System.Threading;
 
 namespace MvcVisionSystem._3._Communication.TCP
 {
@@ -80,14 +81,76 @@ namespace MvcVisionSystem._3._Communication.TCP
         {
             try
             {
-                PythonComm.Send(data);
-                return true;
+                if (string.IsNullOrWhiteSpace(data))
+                {
+                    return false;
+                }
+
+                // Commands use the same framed protocol as the worker's legacy command map.
+                return SendPacket(data, LearningProtocol.BuildPacket(data, Array.Empty<byte>()));
             }
             catch (Exception Desc)
             {
                 AppLog.ABNORMAL($"[FAILED] {MethodBase.GetCurrentMethod().ReflectedType.Name}==>{MethodBase.GetCurrentMethod().Name}   Exception ==> {Desc.Message}");
                 return false;
             }
+        }
+
+        public bool SendStopTraining(string requestId = "")
+        {
+            return SendPacket(
+                "StopTask",
+                LearningProtocol.BuildStopTrainingPacket(requestId));
+        }
+
+        public bool WaitForTrainingStop(TimeSpan timeout, CancellationToken cancellationToken = default)
+        {
+            DateTime deadline = DateTime.UtcNow + (timeout < TimeSpan.Zero ? TimeSpan.Zero : timeout);
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                PythonCommunicationStatus snapshot = GetStatusSnapshot();
+                string state = snapshot.LastTrainingState?.Trim() ?? string.Empty;
+                if (string.Equals(state, "stopped", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(state, "completed", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+
+                if (string.Equals(state, "failed", StringComparison.OrdinalIgnoreCase)
+                    || string.Equals(state, "error", StringComparison.OrdinalIgnoreCase))
+                {
+                    return false;
+                }
+
+                if (DateTime.UtcNow >= deadline)
+                {
+                    return false;
+                }
+
+                Thread.Sleep(50);
+            }
+        }
+
+        public void MarkTrainingStopRequested()
+        {
+            UpdateStatus(item =>
+            {
+                item.LastTrainingState = "stopping";
+                item.LastTrainingMessage = "학습 중지 확인을 기다리는 중입니다.";
+                item.LastTrainingStatusAtUtc = DateTime.UtcNow;
+            });
+        }
+
+        public void MarkTrainingStopped(string message)
+        {
+            UpdateStatus(item =>
+            {
+                item.LastTrainingState = "stopped";
+                item.LastTrainingMessage = message ?? string.Empty;
+                item.LastTrainingProgressPercent = null;
+                item.LastTrainingStatusAtUtc = DateTime.UtcNow;
+            });
         }
 
 

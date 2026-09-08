@@ -21,21 +21,20 @@ namespace MvcVisionSystem
         #region TrainingProgressStatus
         // Worker progress polling is isolated from readiness binding so live YOLO state updates can be changed without touching setup UI.
         private void UpdateTrainingProgressFromWorker()
+            => UpdateTrainingProgressFromWorker(trainingRuntimeWorkflowService.PollStatus());
+
+        private void UpdateTrainingProgressFromWorker(TrainingRuntimeStatusSnapshot snapshot)
         {
-            PythonCommunicationStatus status = global.GetPythonCommunicationStatusSnapshot();
-            bool hasStatus = TrainingProgressPresentationService.HasTrainingStatus(status);
-            bool hasCurrentStatus = hasStatus && IsTrainingStatusCurrent(status);
-            bool isLiveTraining = hasCurrentStatus && TrainingProgressPresentationService.IsLiveTrainingStatus(status);
-            if (hasCurrentStatus)
-            {
-                isTrainingWorkflowRunning = isLiveTraining;
-            }
+            snapshot ??= trainingRuntimeWorkflowService.PollStatus();
+            PythonCommunicationStatus status = snapshot.Status;
+            bool hasCurrentStatus = snapshot.HasCurrentStatus;
+            bool isLiveTraining = snapshot.IsLiveTraining;
 
             if (hasCurrentStatus && status.LastTrainingProgressPercent.HasValue)
             {
                 SetTrainingProgressValue(Math.Clamp(status.LastTrainingProgressPercent.Value, 0, 100));
             }
-            else if (!isTrainingCommandRunning && !isTrainingWorkflowRunning)
+            else if (!isTrainingCommandRunning && !trainingRuntimeWorkflowService.IsTrainingWorkflowRunning)
             {
                 SetTrainingProgressValue(0);
             }
@@ -53,7 +52,7 @@ namespace MvcVisionSystem
                     TryApplyLatestTrainingWeightsFromProject(logIfUnchanged: false);
                 }
             }
-            else if (isTrainingWorkflowRunning)
+            else if (trainingRuntimeWorkflowService.IsTrainingWorkflowRunning)
             {
                 SetTrainingProgressStatus(
                     TrainingProgressPresentationService.BuildAcceptedWorkerWaitProgressText(),
@@ -70,7 +69,7 @@ namespace MvcVisionSystem
             UpdateYoloTrainingRecoveryStatus(status);
             RefreshYoloTrainingStepCompletion();
             UpdateYoloCommandButtons();
-            if (hasCurrentStatus && TrainingProgressPresentationService.IsTerminalTrainingState(status.LastTrainingState))
+            if (snapshot.IsTerminal)
             {
                 StopTrainingStatusPolling();
             }
@@ -78,8 +77,7 @@ namespace MvcVisionSystem
 
         private void StartTrainingStatusPolling()
         {
-            trainingStatusPollStartedUtc = DateTime.UtcNow;
-            RequestTrainingStatusSnapshotFromWorker();
+            trainingRuntimeWorkflowService.BeginStatusPolling();
             if (!shellTimers.TrainingStatusPoll.IsEnabled)
             {
                 shellTimers.TrainingStatusPoll.Start();
@@ -88,27 +86,11 @@ namespace MvcVisionSystem
 
         private void StopTrainingStatusPolling()
         {
+            trainingRuntimeWorkflowService.StopStatusPolling();
             if (shellTimers.TrainingStatusPoll.IsEnabled)
             {
                 shellTimers.TrainingStatusPoll.Stop();
             }
-        }
-
-        private bool IsTrainingStatusCurrent(PythonCommunicationStatus status)
-        {
-            if (!TrainingProgressPresentationService.HasTrainingStatus(status))
-            {
-                return false;
-            }
-
-            if (!isTrainingWorkflowRunning
-                || trainingStatusPollStartedUtc == DateTime.MinValue
-                || !status.LastTrainingStatusAtUtc.HasValue)
-            {
-                return true;
-            }
-
-            return status.LastTrainingStatusAtUtc.Value >= trainingStatusPollStartedUtc.AddSeconds(-1);
         }
 
         private void TrainingStatusPollTimer_Tick(object sender, EventArgs e)
@@ -119,19 +101,15 @@ namespace MvcVisionSystem
                 return;
             }
 
-            RequestTrainingStatusSnapshotFromWorker();
-            PythonCommunicationStatus status = global.GetPythonCommunicationStatusSnapshot();
-            UpdateTrainingProgressFromWorker();
-            bool hasCurrentStatus = TrainingProgressPresentationService.HasTrainingStatus(status) && IsTrainingStatusCurrent(status);
-            if (hasCurrentStatus && TrainingProgressPresentationService.IsTerminalTrainingState(status.LastTrainingState))
+            TrainingRuntimeStatusSnapshot snapshot = trainingRuntimeWorkflowService.PollStatus();
+            UpdateTrainingProgressFromWorker(snapshot);
+            if (snapshot.IsTerminal)
             {
                 StopTrainingStatusPolling();
                 return;
             }
 
-            if (!hasCurrentStatus
-                && trainingStatusPollStartedUtc != DateTime.MinValue
-                && DateTime.UtcNow - trainingStatusPollStartedUtc > TimeSpan.FromSeconds(TrainingStatusPollTimeoutSeconds))
+            if (snapshot.TimedOut)
             {
                 string timeoutText = TrainingProgressPresentationService.BuildStatusNoResponseText();
                 TrainingRecoveryStatus recovery = TrainingProgressPresentationService.BuildStatusNoResponseRecovery(timeoutText);
@@ -150,18 +128,6 @@ namespace MvcVisionSystem
                     : ResolveBrushResource("WarningBrush", MediaBrushes.DarkOrange);
             MediaBrush stateBrush = ResolveTrainingStateBrush(status);
             SetTrainingStatusBrushes(readinessBrush, stateBrush);
-        }
-
-        private void RequestTrainingStatusSnapshotFromWorker()
-        {
-            if (!isTrainingWorkflowRunning)
-            {
-                return;
-            }
-
-            global.ModelRuntime.DeepLearning?.SendModelStatus(
-                YoloRuntimePresentationService.CreateRequestId(),
-                ensureLoaded: false);
         }
 
         private void UpdateYoloTrainingRecoveryStatus(PythonCommunicationStatus status)
@@ -213,9 +179,9 @@ namespace MvcVisionSystem
             }
 
             if (WorkflowCommandStateService.HasActiveCommand(
-                    isYoloEnvironmentCommandRunning,
-                    isDetecting,
-                    isBatchDetectionRunning,
+                    yoloEnvironmentWorkflowService.IsRunning,
+                    imageDetectionWorkflowService.IsDetecting,
+                    batchDetectionWorkflowService.IsRunning,
                     isTrainingCommandRunning))
             {
                 AppendLog("YOLO 또는 학습 명령이 이미 실행 중입니다.");
@@ -410,34 +376,19 @@ namespace MvcVisionSystem
                 return;
             }
 
-            EnsureProjectSettings();
-            ExternalYoloDatasetSettings externalDataset = global.Data.ProjectSettings.ExternalYoloDataset;
-            if (externalDataset?.UseForTraining == true)
-            {
-                // A normal UI refresh uses the persisted snapshot. The explicit refresh action and training start still scan the source again.
-                YoloExternalDatasetIntakeReport externalReport = null;
-                if (refreshYaml)
+            TrainingReadinessWorkflowResult result = trainingReadinessWorkflowService.Refresh(
+                new TrainingReadinessWorkflowRequest
                 {
-                    externalReport = YoloExternalDatasetIntakeService.Build(
-                        externalDataset.DataYamlFilePath,
-                        externalDataset.DatasetPurpose);
-                    if (externalReport.IsReady
-                        && !YoloExternalDatasetIntakeService.HasCurrentSourceIdentity(externalDataset, externalReport, out string identityError))
-                    {
-                        YoloExternalDatasetIntakeService.ApplyValidation(externalDataset, externalReport);
-                        YoloExternalDatasetIntakeService.MarkSourceIdentityRequiresReactivation(externalDataset, identityError);
-                    }
-                    else
-                    {
-                        YoloExternalDatasetIntakeService.ApplyValidation(externalDataset, externalReport);
-                    }
-                }
-
-                RefreshExternalTrainingReadinessPanel(externalReport);
+                    Data = global.Data,
+                    RefreshYaml = refreshYaml
+                });
+            if (result.UsesExternalDataset)
+            {
+                RefreshExternalTrainingReadinessPanel(result.ExternalReport);
                 return;
             }
 
-            YoloDatasetReadinessReport report = YoloDatasetReadinessService.Build(global.Data, refreshYaml);
+            YoloDatasetReadinessReport report = result.DatasetReport;
             string readinessText = TrainingReadinessPresentationService.BuildStatusText(global.Data, report);
             SetTrainingReadinessStatus(readinessText);
             UpdateYoloTrainingChecklist(report, recordHistory: refreshYaml);
@@ -489,7 +440,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            if (isTrainingWorkflowRunning || TrainingProgressPresentationService.IsTrainingStopAvailable(global.GetPythonCommunicationStatusSnapshot()))
+            if (trainingRuntimeWorkflowService.IsTrainingStopAvailable())
             {
                 string alreadyRunningText = TrainingCommandPresentationService.BuildAlreadyRunningStatus();
                 SetTrainingReadinessStatus(alreadyRunningText);
@@ -517,39 +468,39 @@ namespace MvcVisionSystem
             {
                 SaveTrainingEditorFields();
                 RefreshTrainingReadinessPanel(refreshYaml: true);
-                bool ready = await global.ModelRuntime
-                    .EnsurePythonModelClientReadyAsync(
-                        YoloRuntimePresentationService.GetWorkerConnectTimeoutMilliseconds(
+                TrainingRuntimeStartResult startResult = await trainingRuntimeWorkflowService.StartAsync(
+                    new TrainingRuntimeStartRequest
+                    {
+                        WorkerReadyTimeoutMilliseconds = YoloRuntimePresentationService.GetWorkerConnectTimeoutMilliseconds(
                             global.Data?.ProjectSettings?.PythonModel?.DetectionTimeoutSeconds ?? 30),
-                        cancellationToken)
+                        RecipeName = GetCurrentRecipeName()
+                    },
+                    cancellationToken)
                     .ConfigureAwait(true);
                 if (isApplicationCloseApproved || cancellationToken.IsCancellationRequested)
                 {
                     return;
                 }
 
-                if (!ready)
+                if (!startResult.WorkerReady)
                 {
                     string readinessText = YoloRuntimePresentationService.BuildPythonWorkerFailureText(
-                        global.GetPythonCommunicationStatusSnapshot(),
-                        global.ModelRuntime.PythonClientProcess?.LastError);
+                        startResult.Status,
+                        startResult.WorkerError);
                     SetTrainingReadinessStatus(readinessText);
                     pendingRecovery = TrainingCommandPresentationService.BuildWorkerConnectionFailureRecovery(readinessText);
                     AppendLog(readinessText);
                     return;
                 }
 
-                bool started = global.ModelRuntime.TrainingWorkflow.TryStartTraining(
-                    global.Data,
-                    global.ModelRuntime.DeepLearning,
-                    recipeName: GetCurrentRecipeName());
+                bool started = startResult.Started;
                 if (global?.Data?.ProjectSettings?.ExternalYoloDataset?.HasSelection == true)
                 {
                     TrySaveExternalYoloDatasetSettings();
                 }
                 string startText = TrainingCommandPresentationService.BuildStartCommandResultStatus(
                     started,
-                    global.ModelRuntime.TrainingWorkflow.LastPreparationFailureMessage);
+                    startResult.PreparationFailureMessage);
                 SetTrainingReadinessStatus(startText);
                 if (!started)
                 {
@@ -559,7 +510,6 @@ namespace MvcVisionSystem
                 AppendLog(startText);
                 if (started)
                 {
-                    isTrainingWorkflowRunning = true;
                     SetTrainingProgressStatus(TrainingCommandPresentationService.BuildTrainingAcceptedProgressText(), string.Empty, 0D, isIndeterminate: true);
                     StartTrainingStatusPolling();
                     UpdateYoloCommandButtons();
@@ -615,19 +565,16 @@ namespace MvcVisionSystem
             TrainingRecoveryStatus pendingRecovery = null;
             try
             {
-                bool stopped = await Task.Run(
-                    () => global.ModelRuntime.TrainingWorkflow.TryStopTraining(global.ModelRuntime.DeepLearning),
-                    cancellationToken).ConfigureAwait(true);
+                TrainingRuntimeStopResult stopResult = await trainingRuntimeWorkflowService
+                    .StopAsync(cancellationToken)
+                    .ConfigureAwait(true);
                 if (isApplicationCloseApproved || cancellationToken.IsCancellationRequested)
                 {
                     return;
                 }
 
+                bool stopped = stopResult.Stopped;
                 string stopText = TrainingCommandPresentationService.BuildStopCommandResultStatus(stopped);
-                if (stopped)
-                {
-                    isTrainingWorkflowRunning = false;
-                }
 
                 SetTrainingReadinessStatus(stopText);
                 if (!stopped)

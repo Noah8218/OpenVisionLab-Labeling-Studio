@@ -93,7 +93,7 @@ namespace MvcVisionSystem
         private bool isYoloFixClassesEnabled = true;
         private bool isYoloFixLabelsEnabled;
         private bool isYoloFixDatasetEnabled = true;
-        private int brushSize = 12;
+        private int brushSize = CanvasBrushSizePresentationService.DefaultSize;
         private double maskOpacity = 0.66;
         private ICommand datasetPurposeSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand datasetSetupStartCommand = new RelayCommand<object>(NoOpSelectionCommand);
@@ -1455,6 +1455,14 @@ namespace MvcVisionSystem
             LabelingTaskVisibility = Visibility.Visible;
         }
 
+        public void SetLiveLabelingTask(CanvasWorkflowContext context)
+        {
+            SetLiveLabelingTask(
+                context?.StepText,
+                context?.ToolText,
+                context?.ActionText);
+        }
+
         public void SetLiveLabelingTask(string stepText, string toolText, string actionText)
         {
             CurrentLabelingTaskStepText = string.IsNullOrWhiteSpace(stepText)
@@ -1568,7 +1576,7 @@ namespace MvcVisionSystem
         public int BrushSize
         {
             get => brushSize;
-            set => SetProperty(ref brushSize, Math.Clamp(value, 2, 64));
+            set => SetProperty(ref brushSize, CanvasBrushSizePresentationService.Normalize(value));
         }
 
         public double MaskOpacity

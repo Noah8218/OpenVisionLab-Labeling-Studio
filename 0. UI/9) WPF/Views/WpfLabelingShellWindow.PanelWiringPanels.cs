@@ -114,14 +114,8 @@ namespace MvcVisionSystem
                 selectedToolText: selectedTool?.Text,
                 activeAnnotationTool: activeAnnotationTool,
                 selectedBoxDrawingMethod: CanvasPanelViewModel?.SelectedBoxDrawingMethod?.Method);
-            CanvasPanelViewModel?.SetWorkflowContext(
-                context.StepText,
-                context.ToolText,
-                context.ActionText);
-            LearningWorkflowViewModel?.SetLiveLabelingTask(
-                context.StepText,
-                context.ToolText,
-                context.ActionText);
+            CanvasPanelViewModel?.SetWorkflowContext(context);
+            LearningWorkflowViewModel?.SetLiveLabelingTask(context);
         }
 
         private bool HasCanvasLabelObjects()

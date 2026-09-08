@@ -7,7 +7,6 @@ using OpenVisionLab.ImageCanvas.Canvas;
 using OpenVisionLab.ImageCanvas.CanvasShapes;
 using OpenVisionLab.ImageCanvas.Overlays;
 using OpenVisionLab.ImageCanvas.OpenGLRendering;
-using Microsoft.Win32;
 using OpenCvSharp;
 using SharpGL;
 using System;
@@ -34,6 +33,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		private const int MaskOverlayReserveMaxPixels = 2048 * 2048;
 		private const uint FramebufferBindingExt = 0x8CA6;
 		private static readonly ConcurrentDictionary<int, BrushPreviewStamp> BrushPreviewStampCache = new ConcurrentDictionary<int, BrushPreviewStamp>();
+		private IImageFileDialogHost _imageFileDialogHost;
 
 		#region Event
 		public event EventHandler<object> LoadImageRequested = delegate { };
@@ -359,6 +359,11 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			InitMenuItems();
 			_imageViewer.SetNameGL(name);
 			InitializeDefaultGroup();
+		}
+
+		public void ConfigureImageFileDialogHost(IImageFileDialogHost dialogHost)
+		{
+			_imageFileDialogHost = dialogHost;
 		}
 
 		private void InitializeDefaultGroup()

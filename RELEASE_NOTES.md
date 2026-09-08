@@ -1,5 +1,16 @@
 # Release Notes
 
+## 0.3.3 — 2026-09-09
+
+- Promoted the completed Dev refactoring wave across the WPF Shell, Canvas,
+  image queue, dataset, anomaly review, Object Review, model, training, and
+  project workflow boundaries.
+- Clarified ownership for annotation save/history, crash recovery, dataset
+  validation, ImageCanvas dialog access, Python execution, and TCP status
+  transitions while preserving existing file-format and model-state contracts.
+- This is a compatible PATCH candidate. Runtime WPF/DPI/GPU/field-quality,
+  tag, Release publication, and deployment evidence remain separate gates.
+
 ## 0.3.2 — 2026-09-07
 
 - Consolidated the WPF Shell, queue, review, runtime, and model workflow

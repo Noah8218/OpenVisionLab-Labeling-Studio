@@ -26,7 +26,7 @@ namespace MvcVisionSystem
             CancelPendingIntelligentScissors(updateStatus: false);
             CompleteMaskAnnotationStroke();
             FlushQueuedMaskStrokeCommits();
-            if (smartMaskPromptSession.HasSession || isCreatingSmartMask)
+            if (smartMaskPromptSession.HasSession || smartMaskWorkflowService.IsRunning)
             {
                 const string smartMaskError = "\uC2A4\uB9C8\uD2B8 \uB9C8\uC2A4\uD06C \uD6C4\uBCF4\uB97C \uD655\uC815\uD558\uAC70\uB098 \uCDE8\uC18C\uD55C \uB4A4 \uAD6C\uBA4D\uC744 \uD3B8\uC9D1\uD558\uC138\uC694.";
                 SetYoloCommandStatus(smartMaskError, isBusy: false);
@@ -370,7 +370,7 @@ namespace MvcVisionSystem
             CancelPendingIntelligentScissors(updateStatus: false);
             CompleteMaskAnnotationStroke();
             FlushQueuedMaskStrokeCommits();
-            if (smartMaskPromptSession.HasSession || isCreatingSmartMask)
+            if (smartMaskPromptSession.HasSession || smartMaskWorkflowService.IsRunning)
             {
                 const string smartMaskError = "\uC2A4\uB9C8\uD2B8 \uB9C8\uC2A4\uD06C \uD6C4\uBCF4\uB97C \uD655\uC815\uD558\uAC70\uB098 \uCDE8\uC18C\uD55C \uB4A4 \uC808\uB2E8\uD558\uC138\uC694.";
                 SetYoloCommandStatus(smartMaskError, isBusy: false);

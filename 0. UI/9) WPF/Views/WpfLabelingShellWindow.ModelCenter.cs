@@ -39,16 +39,12 @@ namespace MvcVisionSystem
                 return;
             }
 
-            PythonModelSettings settings = null;
-            string candidateWeightsPath = string.Empty;
-            string baselineWeightsPath = string.Empty;
-            bool candidateDecisionCommitted = false;
             try
             {
                 EnsureProjectSettings();
-                settings = global.Data.ProjectSettings.PythonModel;
-                candidateWeightsPath = settings.WeightsPath?.Trim() ?? string.Empty;
-                baselineWeightsPath = pendingTrainingBaselineWeightsPath?.Trim() ?? string.Empty;
+                PythonModelSettings settings = global.Data.ProjectSettings.PythonModel;
+                string candidateWeightsPath = settings.WeightsPath?.Trim() ?? string.Empty;
+                string baselineWeightsPath = pendingTrainingBaselineWeightsPath?.Trim() ?? string.Empty;
 
                 if (!hasPendingTrainingWeightsRecipeSave || string.IsNullOrWhiteSpace(candidateWeightsPath))
                 {
@@ -57,44 +53,27 @@ namespace MvcVisionSystem
                     return;
                 }
 
-                using RecipeSettingsStateTransaction recipeSettingsTransaction = new RecipeSettingsStateTransaction(global.Data);
-                using ModelRegistryStateTransaction registryTransaction = new ModelRegistryStateTransaction(global.Data.ProjectSettings.ModelRegistry);
                 WpfTrainingWeightsComparison comparison = BuildCurrentTrainingWeightsComparison();
-                string decisionSummary = ModelCandidateDecisionPresentationService.BuildRejectDecisionSummary();
-                ModelRegistryService.RecordCandidateDecision(
-                    global.Data.ProjectSettings.ModelRegistry,
-                    settings,
-                    global.Data.ProjectSettings.DatasetPurpose,
-                    global.Data.OutputRootPath,
-                    candidateWeightsPath,
-                    baselineWeightsPath,
-                    TrainingComparisonPresentationService.BuildComparisonStatusText(comparison),
-                    ModelRegistryService.CandidateDecisionRejected,
-                    decisionSummary,
-                    savedToRecipe: false,
-                    datasetVersionId: global.Data.ProjectSettings.TrainingGuide.LastTrainingDatasetVersionId,
-                    datasetContentSha256: global.Data.ProjectSettings.TrainingGuide.LastTrainingDatasetContentSha256);
+                ModelCandidateLifecycleResult result = modelCandidateLifecycleWorkflowService.Reject(
+                    new ModelCandidateLifecycleRequest
+                    {
+                        Data = global.Data,
+                        HasPendingCandidate = hasPendingTrainingWeightsRecipeSave,
+                        CandidateWeightsPath = candidateWeightsPath,
+                        BaselineWeightsPath = baselineWeightsPath,
+                        MetricsSummary = TrainingComparisonPresentationService.BuildComparisonStatusText(comparison),
+                        DecisionSummary = ModelCandidateDecisionPresentationService.BuildRejectDecisionSummary(),
+                        SaveModelMetadata = SaveModelMetadataConfigFromPanel
+                    });
 
-                if (!string.IsNullOrWhiteSpace(baselineWeightsPath) && File.Exists(baselineWeightsPath))
+                if (result.ShouldRetainPendingCandidate)
                 {
-                    settings.WeightsPath = baselineWeightsPath;
-                    YoloModelSettingsViewModel?.LoadFrom(settings);
+                    RestorePendingCandidateModelState(settings, result.CandidateWeightsPath, result.BaselineWeightsPath);
                 }
-
-                bool configSaved = SaveModelMetadataConfigFromPanel();
-                if (configSaved)
+                else if (result.IsCommitted)
                 {
-                    recipeSettingsTransaction.Commit();
-                    registryTransaction.Commit();
                     hasPendingTrainingWeightsRecipeSave = false;
                     pendingTrainingBaselineWeightsPath = string.Empty;
-                    candidateDecisionCommitted = true;
-                }
-                else
-                {
-                    recipeSettingsTransaction.Rollback();
-                    registryTransaction.Rollback();
-                    RestorePendingCandidateModelState(settings, candidateWeightsPath, baselineWeightsPath);
                 }
 
                 PopulateYoloEditorFields();
@@ -102,17 +81,21 @@ namespace MvcVisionSystem
                 UpdateYoloTrainingHistoryText();
                 RefreshModelCenterDashboard();
 
-                SetYoloCommandStatus(ModelCandidateDecisionPresentationService.BuildRejectCommandStatus(candidateWeightsPath, configSaved), isBusy: false);
+                bool configSaved = result.IsCommitted;
+                SetYoloCommandStatus(ModelCandidateDecisionPresentationService.BuildRejectCommandStatus(result.CandidateWeightsPath, configSaved), isBusy: false);
                 SetProjectConfigStatus(ModelCandidateDecisionPresentationService.BuildRejectProjectConfigStatus(configSaved));
-                AppendLog(ModelCandidateDecisionPresentationService.BuildRejectLog(candidateWeightsPath, baselineWeightsPath));
+                if (result.Status == ModelCandidateLifecycleStatus.Failed)
+                {
+                    string failureStatus = ModelCandidateDecisionPresentationService.BuildRejectFailureStatus(result.Error?.Message);
+                    SetYoloCommandStatus(failureStatus, isBusy: false);
+                    AppendLog(failureStatus);
+                    return;
+                }
+
+                AppendLog(ModelCandidateDecisionPresentationService.BuildRejectLog(result.CandidateWeightsPath, result.BaselineWeightsPath));
             }
             catch (Exception ex)
             {
-                if (!candidateDecisionCommitted)
-                {
-                    RestorePendingCandidateModelState(settings, candidateWeightsPath, baselineWeightsPath);
-                }
-
                 string failureStatus = ModelCandidateDecisionPresentationService.BuildRejectFailureStatus(ex.Message);
                 SetYoloCommandStatus(failureStatus, isBusy: false);
                 AppendLog(failureStatus);
@@ -175,15 +158,12 @@ namespace MvcVisionSystem
                 return;
             }
 
-            PythonModelSettings settings = null;
-            string candidateWeightsPath = string.Empty;
-            string baselineWeightsPath = string.Empty;
             bool adoptionCommitted = false;
             try
             {
                 EnsureProjectSettings();
                 WpfModelRegistryHistoryItem selected = ShellViewModel?.SelectedModelRegistryHistoryItem;
-                settings = global.Data.ProjectSettings.PythonModel;
+                PythonModelSettings settings = global.Data.ProjectSettings.PythonModel;
                 string previousWeightsPath = settings.WeightsPath?.Trim() ?? string.Empty;
                 ModelHistoryAdoptionPlan plan = ModelHistoryAdoptionPlanningService.Build(
                     new ModelHistoryAdoptionRequest
@@ -194,6 +174,8 @@ namespace MvcVisionSystem
                         FallbackBaselineWeightsPath = selected?.BaselineWeightsPath,
                         MetricText = selected?.MetricText,
                         DecisionText = selected?.DecisionText,
+                        DatasetVersionId = selected?.DatasetVersionId,
+                        DatasetContentSha256 = selected?.DatasetContentSha256,
                         CandidateWeightsFileExists = selected != null && File.Exists(selected.WeightsPath?.Trim() ?? string.Empty)
                     });
 
@@ -219,7 +201,7 @@ namespace MvcVisionSystem
                     return;
                 }
 
-                candidateWeightsPath = plan.CandidateWeightsPath;
+                string candidateWeightsPath = plan.CandidateWeightsPath;
                 if (plan.IsAlreadyCurrent)
                 {
                     SetYoloCommandStatus($"\uC774\uBBF8 \uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378\uC785\uB2C8\uB2E4: {Path.GetFileName(candidateWeightsPath)}", isBusy: false);
@@ -227,45 +209,28 @@ namespace MvcVisionSystem
                     return;
                 }
 
-                baselineWeightsPath = plan.BaselineWeightsPath;
-                string decisionSummary = plan.DecisionSummary;
-                string metricsSummary = plan.MetricsSummary;
-                using RecipeSettingsStateTransaction recipeSettingsTransaction = new RecipeSettingsStateTransaction(global.Data);
-                using ModelRegistryStateTransaction registryTransaction = new ModelRegistryStateTransaction(global.Data.ProjectSettings.ModelRegistry);
+                ModelCandidateLifecycleResult result = modelCandidateLifecycleWorkflowService.Adopt(
+                    new ModelCandidateLifecycleRequest
+                    {
+                        Data = global.Data,
+                        CandidateWeightsPath = plan.CandidateWeightsPath,
+                        BaselineWeightsPath = plan.BaselineWeightsPath,
+                        MetricsSummary = plan.MetricsSummary,
+                        DecisionSummary = plan.DecisionSummary,
+                        AdoptionPlan = plan,
+                        SaveModelMetadata = SaveModelMetadataConfigFromPanel
+                    });
 
-                settings.WeightsPath = candidateWeightsPath;
-                YoloModelSettingsViewModel?.LoadFrom(settings);
-                ModelRegistryService.RecordCandidateDecision(
-                    global.Data.ProjectSettings.ModelRegistry,
-                    settings,
-                    global.Data.ProjectSettings.DatasetPurpose,
-                    global.Data.OutputRootPath,
-                    candidateWeightsPath,
-                    baselineWeightsPath,
-                    metricsSummary,
-                    ModelRegistryService.CandidateDecisionAdopted,
-                    decisionSummary,
-                    savedToRecipe: true,
-                    datasetVersionId: global.Data.ProjectSettings.TrainingGuide.LastTrainingDatasetVersionId,
-                    datasetContentSha256: global.Data.ProjectSettings.TrainingGuide.LastTrainingDatasetContentSha256);
-
-                // Model adoption changes Recipe model metadata, not dataset content.
-                // Keep the existing dataset version manifest untouched for this save.
-                bool configSaved = SaveModelMetadataConfigFromPanel();
-                if (configSaved)
+                if (result.ShouldRetainPendingCandidate)
                 {
-                    recipeSettingsTransaction.Commit();
-                    registryTransaction.Commit();
+                    RestorePendingCandidateModelState(settings, result.CandidateWeightsPath, result.BaselineWeightsPath);
+                }
+                else if (result.IsCommitted)
+                {
                     adoptionCommitted = true;
                     hasPendingTrainingWeightsRecipeSave = false;
                     pendingTrainingBaselineWeightsPath = string.Empty;
-                    lastAutoAppliedTrainingWeightsPath = candidateWeightsPath;
-                }
-                else
-                {
-                    recipeSettingsTransaction.Rollback();
-                    registryTransaction.Rollback();
-                    RestorePendingCandidateModelState(settings, candidateWeightsPath, baselineWeightsPath);
+                    lastAutoAppliedTrainingWeightsPath = result.CandidateWeightsPath;
                 }
 
                 PopulateYoloEditorFields();
@@ -273,13 +238,21 @@ namespace MvcVisionSystem
                 UpdateYoloTrainingHistoryText();
                 RefreshModelCenterDashboard();
 
-                string modelName = Path.GetFileName(candidateWeightsPath);
-                if (configSaved)
+                string modelName = Path.GetFileName(result.CandidateWeightsPath);
+                if (result.IsCommitted)
                 {
                     ShellViewModel?.ClearModelCenterRecoveryState();
                     SetModelStatus($"\uD604\uC7AC \uAC80\uC0AC \uBAA8\uB378: {modelName}");
                     SetYoloCommandStatus($"\uBAA8\uB378 \uC774\uB825 \uC801\uC6A9 \uC644\uB8CC: {modelName}. \uB2E4\uC74C \uAC80\uC0AC\uBD80\uD130 \uC774 \uBAA8\uB378\uC744 \uC0AC\uC6A9\uD569\uB2C8\uB2E4.", isBusy: false);
-                    AppendLog($"Model history adopted as inspection model: {candidateWeightsPath} / previous={baselineWeightsPath}");
+                    AppendLog($"Model history adopted as inspection model: {result.CandidateWeightsPath} / previous={result.BaselineWeightsPath}");
+                    return;
+                }
+
+                if (result.Status == ModelCandidateLifecycleStatus.Failed)
+                {
+                    SetModelCenterHistoryApplyFailure(
+                        "\uBAA8\uB378 \uC774\uB825 \uC801\uC6A9 \uC2E4\uD328",
+                        result.Error?.Message ?? "\uBAA8\uB378 \uBA54\uBAA8\uB9AC \uC0C1\uD0DC\uB97C \uC800\uC7A5\uD558\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4.");
                     return;
                 }
 
@@ -296,8 +269,6 @@ namespace MvcVisionSystem
                     AppendLog(refreshFailureStatus);
                     return;
                 }
-
-                RestorePendingCandidateModelState(settings, candidateWeightsPath, baselineWeightsPath);
 
                 SetModelCenterHistoryApplyFailure(
                     "\uBAA8\uB378 \uC774\uB825 \uC801\uC6A9 \uC2E4\uD328",
@@ -331,31 +302,24 @@ namespace MvcVisionSystem
         #endregion
 
         #region ModelCenterDashboard
-        private string manualModelCenterAnomalyEvaluationSummaryPath = string.Empty;
-
         private void RefreshModelCenterDashboard(
             WpfTrainingWeightsComparison comparison = null,
             string configuredWeightsPathOverride = null,
             bool pendingManualWeightsSelection = false)
         {
-            EnsureProjectSettings();
-            PythonModelSettings settings = global.Data.ProjectSettings.PythonModel;
-            string configuredWeightsPath = configuredWeightsPathOverride ?? settings.WeightsPath ?? string.Empty;
-            comparison ??= trainingWeightsService.BuildComparison(
-                settings.ProjectRootPath,
-                global.Data.OutputRootPath,
-                GetTrainingComparisonCurrentWeightsPath(configuredWeightsPath));
-
-            bool hasPendingModelSelection = pendingManualWeightsSelection || hasPendingTrainingWeightsRecipeSave;
-            bool isModelPromotionHeld = CandidateReviewViewModel?.IsModelPromotionHeld == true;
-                ModelCenterDashboardState dashboardState = ModelCenterDashboardPresentationService.Build(
-                settings,
-                comparison,
-                global.Data.ProjectSettings.TrainingGuide,
-                global.Data.ProjectSettings.ModelRegistry,
-                configuredWeightsPath,
-                hasPendingModelSelection,
-                isModelPromotionHeld);
+            ModelCenterDashboardWorkflowResult workflowResult = modelCenterDashboardWorkflowService.Build(
+                new ModelCenterDashboardWorkflowRequest
+                {
+                    Data = global.Data,
+                    Comparison = comparison,
+                    ConfiguredWeightsPathOverride = configuredWeightsPathOverride,
+                    PendingBaselineWeightsPath = pendingTrainingBaselineWeightsPath,
+                    PendingManualWeightsSelection = pendingManualWeightsSelection,
+                    HasPendingTrainingWeightsRecipeSave = hasPendingTrainingWeightsRecipeSave,
+                    IsModelPromotionHeld = CandidateReviewViewModel?.IsModelPromotionHeld == true
+                });
+            comparison = workflowResult.Comparison;
+            ModelCenterDashboardState dashboardState = workflowResult.DashboardState;
             ShellViewModel?.ApplyModelCenterModelState(dashboardState);
             LearningWorkflowViewModel?.SetTrainingModelLifecycleState(
                 dashboardState.CurrentModelText,
@@ -389,7 +353,7 @@ namespace MvcVisionSystem
 
         private async Task ExecuteRunAnomalyEvaluationCommandAsync()
         {
-            if (isApplicationCloseApproved || isAnomalyEvaluationRunning)
+            if (isApplicationCloseApproved || anomalyClassificationEvaluationWorkflowService.IsRunning)
             {
                 return;
             }
@@ -403,57 +367,36 @@ namespace MvcVisionSystem
 
             SaveYoloEditorFields();
             SaveTrainingEditorFields();
-            AnomalyClassificationEvaluationRunRequest request = anomalyClassificationEvaluationRunService.BuildRequest(global.Data);
-            IReadOnlyList<string> validationErrors = anomalyClassificationEvaluationRunService.ValidateRequest(request);
-            if (validationErrors.Count > 0)
-            {
-                string message = "\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC2E4\uD589 \uBD88\uAC00: " + string.Join(" / ", validationErrors.Take(3));
-                SetYoloCommandStatus(message, isBusy: false);
-                AppendLog(message);
-                return;
-            }
-
-            isAnomalyEvaluationRunning = true;
-            anomalyEvaluationCts?.Cancel();
-            anomalyEvaluationCts?.Dispose();
-            anomalyEvaluationCts = new CancellationTokenSource();
-            CancellationToken anomalyEvaluationToken = anomalyEvaluationCts.Token;
             UpdateYoloCommandButtons();
             SetYoloCommandStatus("\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC2E4\uD589 \uC911...", isBusy: true);
-            AppendLog($"Anomaly classification evaluation started: weights={Path.GetFileName(request.WeightsPath)}, dataset={request.DatasetRootPath}");
+            AppendLog("Anomaly classification evaluation started.");
 
             try
             {
-                AnomalyClassificationEvaluationRunResult result = await anomalyClassificationEvaluationRunService
-                    .RunAsync(request, anomalyEvaluationToken)
+                AnomalyClassificationEvaluationWorkflowRunResult workflowResult = await anomalyClassificationEvaluationWorkflowService
+                    .RunAsync(global.Data)
                     .ConfigureAwait(true);
                 if (isApplicationCloseApproved)
                 {
                     return;
                 }
 
-                if (!result.Succeeded || string.IsNullOrWhiteSpace(result.SummaryPath))
+                if (!workflowResult.Succeeded)
                 {
-                    string errorText = AnomalyEvaluationFailurePresentationService.Build(result);
+                    string errorText = workflowResult.ValidationErrors.Count > 0
+                        ? "\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC2E4\uD589 \uBD88\uAC00: " + string.Join(" / ", workflowResult.ValidationErrors.Take(3))
+                        : AnomalyEvaluationFailurePresentationService.Build(workflowResult.RunResult);
                     SetYoloCommandStatus(errorText, isBusy: false);
                     AppendLog(errorText);
                     return;
                 }
 
-                if (!TryApplyModelCenterAnomalyEvaluationSummary(result.SummaryPath))
-                {
-                    string errorText = "\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 summary\uB97C \uC77D\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. \uC0DD\uC131\uB41C JSON\uC744 \uD655\uC778\uD558\uC138\uC694.";
-                    SetYoloCommandStatus(errorText, isBusy: false);
-                    AppendLog($"{errorText} {result.SummaryPath}");
-                    return;
-                }
-
-                manualModelCenterAnomalyEvaluationSummaryPath = result.SummaryPath;
-                string summaryName = Path.GetFileName(Path.GetDirectoryName(result.SummaryPath) ?? result.SummaryPath);
+                ShellViewModel?.SetModelCenterAnomalyEvaluationState(workflowResult.Presentation);
+                string summaryName = Path.GetFileName(Path.GetDirectoryName(workflowResult.RunResult.SummaryPath) ?? workflowResult.RunResult.SummaryPath);
                 string completeText = $"\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC644\uB8CC: {summaryName}";
                 RefreshModelCenterDashboard();
                 SetYoloCommandStatus(completeText, isBusy: false);
-                AppendLog($"{completeText}: {result.SummaryPath}");
+                AppendLog($"{completeText}: {workflowResult.RunResult.SummaryPath}");
             }
             catch (Exception ex)
             {
@@ -466,9 +409,6 @@ namespace MvcVisionSystem
             }
             finally
             {
-                anomalyEvaluationCts?.Dispose();
-                anomalyEvaluationCts = null;
-                isAnomalyEvaluationRunning = false;
                 if (!isApplicationCloseApproved)
                 {
                     UpdateYoloCommandButtons();
@@ -478,25 +418,14 @@ namespace MvcVisionSystem
 
         private void RefreshModelCenterAnomalyEvaluationState()
         {
-            if (global.Data?.ProjectSettings?.DatasetPurpose != LabelingDatasetPurpose.AnomalyDetection)
+            AnomalyClassificationEvaluationRefreshResult refreshResult = anomalyClassificationEvaluationWorkflowService.Refresh(global.Data);
+            ShellViewModel?.SetModelCenterAnomalyEvaluationPickerVisible(refreshResult.IsVisible);
+            if (refreshResult.HasSummary)
             {
-                manualModelCenterAnomalyEvaluationSummaryPath = string.Empty;
-                ShellViewModel?.SetModelCenterAnomalyEvaluationPickerVisible(false);
-                ShellViewModel?.ClearModelCenterAnomalyEvaluationState();
-                return;
+                ShellViewModel?.SetModelCenterAnomalyEvaluationState(refreshResult.Presentation);
             }
-
-            ShellViewModel?.SetModelCenterAnomalyEvaluationPickerVisible(true);
-            string summaryPath = ResolveModelCenterAnomalyEvaluationSummaryPath(global.Data.OutputRootPath);
-            if (string.IsNullOrWhiteSpace(summaryPath))
+            else
             {
-                ShellViewModel?.ClearModelCenterAnomalyEvaluationState();
-                return;
-            }
-
-            if (!TryApplyModelCenterAnomalyEvaluationSummary(summaryPath))
-            {
-                manualModelCenterAnomalyEvaluationSummaryPath = string.Empty;
                 ShellViewModel?.ClearModelCenterAnomalyEvaluationState();
             }
         }
@@ -510,9 +439,10 @@ namespace MvcVisionSystem
                 return;
             }
 
-            string initialPath = !string.IsNullOrWhiteSpace(manualModelCenterAnomalyEvaluationSummaryPath)
-                ? manualModelCenterAnomalyEvaluationSummaryPath
-                : ResolveModelCenterAnomalyEvaluationSummaryPath(global.Data.OutputRootPath);
+            AnomalyClassificationEvaluationRefreshResult refreshResult = anomalyClassificationEvaluationWorkflowService.Refresh(global.Data);
+            string initialPath = !string.IsNullOrWhiteSpace(anomalyClassificationEvaluationWorkflowService.PreferredSummaryPath)
+                ? anomalyClassificationEvaluationWorkflowService.PreferredSummaryPath
+                : refreshResult.SummaryPath;
             if (string.IsNullOrWhiteSpace(initialPath))
             {
                 initialPath = global.Data.OutputRootPath ?? string.Empty;
@@ -528,49 +458,18 @@ namespace MvcVisionSystem
                 return;
             }
 
-            if (TryApplyModelCenterAnomalyEvaluationSummary(selectedPath))
+            AnomalyClassificationEvaluationSummaryLoadResult loadResult = anomalyClassificationEvaluationWorkflowService.LoadSummary(global.Data, selectedPath);
+            if (loadResult.Succeeded)
             {
-                manualModelCenterAnomalyEvaluationSummaryPath = selectedPath;
+                ShellViewModel?.SetModelCenterAnomalyEvaluationState(loadResult.Presentation);
                 SetYoloCommandStatus($"\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 summary \uBD88\uB7EC\uC624\uAE30 \uC644\uB8CC: {Path.GetFileName(selectedPath)}", isBusy: false);
                 AppendLog($"Anomaly classification evaluation summary loaded: {selectedPath}");
                 return;
             }
 
-            manualModelCenterAnomalyEvaluationSummaryPath = string.Empty;
             ShellViewModel?.ClearModelCenterAnomalyEvaluationState();
             SetYoloCommandStatus("\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 summary\uB97C \uC77D\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. JSON \uD30C\uC77C\uACFC \uD3C9\uAC00 \uACB0\uACFC\uB97C \uD655\uC778\uD558\uC138\uC694.", isBusy: false);
             AppendLog($"Anomaly classification evaluation summary load failed: {selectedPath}");
-        }
-
-        private string ResolveModelCenterAnomalyEvaluationSummaryPath(string outputRootPath)
-        {
-            string preferredPath = manualModelCenterAnomalyEvaluationSummaryPath;
-            string resolvedPath = anomalyClassificationEvaluationSummaryService.ResolveSummaryPath(
-                outputRootPath,
-                preferredPath);
-            if (!string.IsNullOrWhiteSpace(preferredPath)
-                && !string.Equals(resolvedPath, preferredPath.Trim(), StringComparison.Ordinal))
-            {
-                manualModelCenterAnomalyEvaluationSummaryPath = string.Empty;
-            }
-
-            return resolvedPath;
-        }
-
-        private bool TryApplyModelCenterAnomalyEvaluationSummary(string summaryPath)
-        {
-            if (!anomalyClassificationEvaluationSummaryService.TryReadSummary(
-                    summaryPath,
-                    out AnomalyClassificationEvaluationSummary summary))
-            {
-                return false;
-            }
-
-            ShellViewModel?.SetModelCenterAnomalyEvaluationState(
-                AnomalyClassificationEvaluationPresentationService.Build(
-                    summary.Report,
-                    summary.Options));
-            return true;
         }
         #endregion
 

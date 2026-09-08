@@ -29,7 +29,7 @@ namespace MvcVisionSystem
         public const string AllVisualQaClasses = "전체";
         private static readonly Action NoOpCommand = () => { };
         private static readonly string[] VisualQaSplitOrder = { "train", "valid", "test" };
-        private readonly DatasetVisualQaService visualQaService = new DatasetVisualQaService();
+        private readonly DatasetHealthWorkflowService datasetHealthWorkflowService = new DatasetHealthWorkflowService();
         private readonly List<WpfDatasetVisualQaItem> visualQaCatalogItems = new List<WpfDatasetVisualQaItem>();
         private bool disposed;
         private LabelingProjectData data;
@@ -279,7 +279,13 @@ namespace MvcVisionSystem
             data = sourceData;
             try
             {
-                ApplyReport(YoloDatasetHealthService.Build(data));
+                DatasetHealthWorkflowResult analysis = datasetHealthWorkflowService.Analyze(
+                    new DatasetHealthWorkflowRequest
+                    {
+                        Data = data,
+                        IncludeHealthReport = true
+                    });
+                ApplyReport(analysis.HealthReport);
             }
             catch (Exception ex)
             {
@@ -326,12 +332,18 @@ namespace MvcVisionSystem
             {
                 RefreshVisualQaClassFilters();
                 int? selectedClassIndex = SelectedVisualQaClassFilter?.ClassIndex;
-                WpfDatasetVisualQaCatalog catalog =
-                    visualQaService.BuildCatalog(data, selectedClassIndex);
+                DatasetHealthWorkflowResult analysis = datasetHealthWorkflowService.Analyze(
+                    new DatasetHealthWorkflowRequest
+                    {
+                        Data = data,
+                        IncludeVisualQa = true,
+                        VisualQaClassIndex = selectedClassIndex
+                    });
+                WpfDatasetVisualQaCatalog catalog = analysis.VisualQaCatalog;
                 visualQaCatalogItems.Clear();
                 visualQaCatalogItems.AddRange(catalog.Items);
                 string truncationText = catalog.IsTruncated
-                    ? Format("WpfDatasetHealth.VisualQa.Truncated", DatasetVisualQaService.MaximumCatalogItemCount)
+                    ? Format("WpfDatasetHealth.VisualQa.Truncated", DatasetHealthWorkflowService.MaximumVisualQaItemCount)
                     : string.Empty;
                 visualQaCatalogStatusText = selectedClassIndex.HasValue
                     ? Format(
@@ -675,7 +687,23 @@ namespace MvcVisionSystem
                 return;
             }
 
-            Refresh(data);
+            if (datasetHealthWorkflowService.TryReuseLastHealthReport(data, out YoloDatasetHealthReport healthReport))
+            {
+                ApplyReport(healthReport);
+                if (isVisualQaLoaded)
+                {
+                    RefreshVisualQa();
+                }
+                else
+                {
+                    ResetVisualQa();
+                }
+            }
+            else
+            {
+                Refresh(data);
+            }
+
             OnPropertyChanged(nameof(DataScopeText));
             OnPropertyChanged(nameof(EvidenceBoundaryText));
         }

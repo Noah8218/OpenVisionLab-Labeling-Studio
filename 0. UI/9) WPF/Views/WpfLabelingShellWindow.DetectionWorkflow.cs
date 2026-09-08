@@ -1,14 +1,11 @@
 using MvcVisionSystem._1._Core;
 using MvcVisionSystem.Yolo;
 using System;
-using System.Diagnostics;
 using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
-using MvcVisionSystem._3._Communication.TCP;
 using System.Collections.Generic;
 using System.Linq;
-using System.Windows.Threading;
 using DrawingRectangle = System.Drawing.Rectangle;
 using DrawingSize = System.Drawing.Size;
 using OpenVisionLab.ImageCanvas.ViewModels;
@@ -19,369 +16,69 @@ using DrawingPoint = System.Drawing.Point;
 
 namespace MvcVisionSystem
 {
-    // Responsibility group: detection execution, result application, and template matching adapter.
+    // Responsibility group: inference runtime/UI adapters, result application and template matching adapter.
     // These members remain WPF Window adapters; independent policy belongs in services.
     public partial class WpfLabelingShellWindow : IWpfTemplateMatchingAutoLabelHost
     {
         #region DetectionExecution
-        // Detection execution is kept apart from panel wiring so worker latency, fallback, and canvas update paths can be audited in one place.
-        private async Task RunInteractiveDetectionAsync(string imagePath = "", bool allowSmokeFallback = false)
+        // PL-0036: runtime composition and visual projection only. Execution,
+        // cancellation, completion subscription and fallback live in the service.
+        private ImageDetectionWorkflowService CreateImageDetectionWorkflow()
         {
-            if (isApplicationCloseApproved || isDetecting || isBatchDetectionRunning)
-            {
-                return;
-            }
-
-            EnsureProjectSettings();
-            isDetecting = true;
-            CancellationTokenSource cancellation = new CancellationTokenSource();
-            interactiveDetectionCts = cancellation;
-            CancellationToken cancellationToken = cancellation.Token;
-            UpdateYoloCommandButtons();
-            UpdateCandidateActionState();
-            SetYoloCommandStatus(InferenceStatusPresentationService.BuildInteractivePreparingCommandStatus(), isBusy: true);
-            SetGlobalInferenceStatus(InferenceStatusPresentationService.BuildInteractivePreparingInferenceStatus(), isBusy: true);
-            SetPythonStatus("\uCD94\uB860: \uC900\uBE44 \uC911");
-            var totalStopwatch = Stopwatch.StartNew();
-            try
-            {
-                string targetImagePath = detectionTargetService.ResolveInteractiveTargetPath(
-                    imagePath,
-                    activeImagePath,
-                    global.Data.ProjectSettings.PythonModel);
-                string inferencePath = "worker";
-                YoloWorkerSmokeTestResult result = await RunWorkerDetectionForImageAsync(
-                        targetImagePath,
-                        applyToCanvas: true,
-                        cancellationToken,
-                        YoloRuntimePresentationService.GetInteractiveWorkerConnectTimeoutMilliseconds(
-                            global.Data?.ProjectSettings?.PythonModel?.DetectionTimeoutSeconds ?? 30,
-                            global.Data?.ProjectSettings?.PythonModel?.AutoStartClient != false,
-                            allowSmokeFallback))
-                    .ConfigureAwait(true);
-                if (isApplicationCloseApproved)
-                {
-                    return;
-                }
-
-                if (!result.Succeeded && allowSmokeFallback)
-                {
-                    AppendLog($"\uCD94\uB860 \uC2E4\uD328, \uD14C\uC2A4\uD2B8 \uACBD\uB85C\uB85C \uC804\uD658: {Path.GetFileName(targetImagePath)}");
-                    inferencePath = "smoke fallback";
-                    result = await RunDetectionForImageAsync(targetImagePath, applyToCanvas: true, cancellationToken)
-                        .ConfigureAwait(true);
-                    if (isApplicationCloseApproved)
-                    {
-                        return;
-                    }
-                }
-
-                string elapsed = YoloRuntimePresentationService.FormatElapsed(totalStopwatch.Elapsed);
-                string inferencePathText = YoloRuntimePresentationService.FormatInferencePath(inferencePath);
-                SetYoloCommandStatus(
-                    InferenceStatusPresentationService.BuildInteractiveCompletionCommandStatus(result, elapsed),
-                    isBusy: false);
-                SetGlobalInferenceStatus(
-                    InferenceStatusPresentationService.BuildInteractiveCompletionInferenceStatus(result, elapsed),
-                    isBusy: false,
-                    isWarning: !result.Succeeded);
-                AppendLog(InferenceStatusPresentationService.BuildInteractiveCompletionLog(result, elapsed, inferencePathText));
-            }
-            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested || isApplicationCloseApproved)
-            {
-                if (!isApplicationCloseApproved)
-                {
-                    AppendLog("추론이 취소되었습니다.");
-                }
-            }
-            finally
-            {
-                if (ReferenceEquals(interactiveDetectionCts, cancellation))
-                {
-                    interactiveDetectionCts = null;
-                }
-
-                cancellation.Dispose();
-                isDetecting = false;
-                if (!isApplicationCloseApproved)
-                {
-                    UpdateYoloCommandButtons();
-                    UpdateCandidateActionState();
-                }
-            }
+            return new ImageDetectionWorkflowService(
+                () => { EnsureProjectSettings(); return global.Data.ProjectSettings.PythonModel; },
+                () => global.DetectionResults,
+                (timeout, token) => global.ModelRuntime.EnsurePythonModelClientReadyAsync(timeout, token),
+                (currentImage, path, size) => currentImage
+                    ? global.ModelRuntime.DetectionWorkflow.TryStartCurrentImageDetection(
+                        global.Data, global.ModelRuntime.DeepLearning, global.DetectionTransport, () => true)
+                    : global.ModelRuntime.DetectionWorkflow.TryStartImagePathDetection(
+                        global.Data, global.ModelRuntime.DeepLearning, global.DetectionTransport, path, size, () => true),
+                () => YoloRuntimePresentationService.BuildPythonWorkerFailureText(
+                    global.GetPythonCommunicationStatusSnapshot(), global.ModelRuntime.PythonClientProcess?.LastError),
+                () => global.GetPythonCommunicationStatusSnapshot().LastError);
         }
 
-        private async Task<YoloWorkerSmokeTestResult> RunDetectionForImageAsync(
-            string imagePath,
-            bool applyToCanvas,
-            CancellationToken cancellationToken)
+        private ImageDetectionCallbacks CreateImageDetectionCallbacks()
         {
-            if (isApplicationCloseApproved)
+            return new ImageDetectionCallbacks
             {
-                return new YoloWorkerSmokeTestResult
+                PrepareCanvasImage = (path, populateQueue) =>
                 {
-                    ImagePath = imagePath ?? string.Empty
-                };
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var stopwatch = Stopwatch.StartNew();
-            EnsureProjectSettings();
-            if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
-            {
-                AppendLog($"검출 이미지 없음: {imagePath}");
-                return new YoloWorkerSmokeTestResult
-                {
-                    Succeeded = false,
-                    Summary = "검출 이미지를 찾지 못했습니다.",
-                    ImagePath = imagePath ?? string.Empty,
-                    Errors = new[] { $"검출 이미지를 찾지 못했습니다: {imagePath}" }
-                };
-            }
-
-            if (applyToCanvas && !string.Equals(imagePath, activeImagePath, StringComparison.OrdinalIgnoreCase))
-            {
-                TryLoadImage(imagePath);
-            }
-
-            SetPythonStatus("\uCD94\uB860: \uD14C\uC2A4\uD2B8 \uC2E4\uD589 \uC911");
-            AppendLog($"\uD14C\uC2A4\uD2B8 \uCD94\uB860 \uC2DC\uC791: {Path.GetFileName(imagePath)}");
-            YoloWorkerSmokeTestResult result = await YoloWorkerSmokeTestService
-                .RunAsync(global.Data.ProjectSettings.PythonModel, imagePath, cancellationToken)
-                .ConfigureAwait(true);
-            if (isApplicationCloseApproved)
-            {
-                return new YoloWorkerSmokeTestResult
-                {
-                    ImagePath = imagePath ?? string.Empty
-                };
-            }
-
-            if (applyToCanvas)
-            {
-                // Keep existing manual labels when smoke detection returns the already-active image;
-                // Candidate Review needs those labels to compute duplicate/current-label focus.
-                if (!string.IsNullOrWhiteSpace(result.ImagePath)
-                    && File.Exists(result.ImagePath)
-                    && !string.Equals(result.ImagePath, activeImagePath, StringComparison.OrdinalIgnoreCase))
-                {
-                    TryLoadImage(result.ImagePath);
-                }
-
-                ApplyDetectionCandidates(result.Candidates, result.Succeeded);
-                SetPythonStatus(detectionResultPresentationService.BuildSmokeStatus(result));
-                foreach (string error in result.Errors)
-                {
-                    AppendLog($"- {error}");
-                }
-            }
-
-            AppendLog(result.Summary);
-            AppendLog($"\uD14C\uC2A4\uD2B8 \uCD94\uB860 \uC2DC\uAC04: {YoloRuntimePresentationService.FormatElapsed(stopwatch.Elapsed)}");
-            return result;
+                    // Same-image inference must preserve in-progress manual labels.
+                    bool shouldLoadTargetImage = !string.Equals(path, activeImagePath, StringComparison.OrdinalIgnoreCase);
+                    return !shouldLoadTargetImage || TryLoadImage(path, populateQueue: populateQueue)
+                        ? activeImageSize : null;
+                },
+                ApplyCandidates = ApplyDetectionCandidates,
+                RefreshActions = () => { UpdateYoloCommandButtons(); UpdateCandidateActionState(); },
+                SetPythonStatus = SetPythonStatus,
+                SetCommandStatus = (text, busy) => SetYoloCommandStatus(text, busy),
+                SetInferenceStatus = (text, busy, warning) => SetGlobalInferenceStatus(text, busy, warning),
+                AppendLog = AppendLog
+            };
         }
-        #endregion
 
-        #region DetectionWorkerExecution
-        // Worker detection orchestration is kept away from result application to make UI stalls easier to profile.
-        private async Task<YoloWorkerSmokeTestResult> RunWorkerDetectionForImageAsync(
+        private Task RunInteractiveDetectionAsync(string imagePath = "", bool allowSmokeFallback = false)
+        {
+            if (isApplicationCloseApproved || batchDetectionWorkflowService.IsRunning) return Task.CompletedTask;
+            return imageDetectionWorkflowService.RunInteractiveAsync(imagePath, activeImagePath, allowSmokeFallback, CreateImageDetectionCallbacks());
+        }
+
+        private Task<YoloWorkerSmokeTestResult> RunDetectionForImageAsync(string imagePath, bool applyToCanvas, CancellationToken cancellationToken)
+        {
+            return imageDetectionWorkflowService.RunSmokeAsync(imagePath, applyToCanvas, cancellationToken, CreateImageDetectionCallbacks());
+        }
+
+        private Task<YoloWorkerSmokeTestResult> RunWorkerDetectionForImageAsync(
             string imagePath,
             bool applyToCanvas,
             CancellationToken cancellationToken,
             int connectTimeoutMilliseconds = -1,
             bool workerReadyAlreadyChecked = false)
         {
-            cancellationToken.ThrowIfCancellationRequested();
-            var stopwatch = Stopwatch.StartNew();
-            EnsureProjectSettings();
-            string modelSourceText = InferenceStatusPresentationService.BuildRuntimeModelLabel(
-                global.Data?.ProjectSettings?.PythonModel);
-            if (string.IsNullOrWhiteSpace(imagePath) || !File.Exists(imagePath))
-            {
-                return new YoloWorkerSmokeTestResult
-                {
-                    Succeeded = false,
-                    Summary = InferenceStatusPresentationService.BuildWorkerImageMissingSummary(),
-                    ImagePath = imagePath ?? string.Empty,
-                    Errors = new[] { InferenceStatusPresentationService.BuildWorkerImageMissingError(imagePath) }
-                };
-            }
-
-            DrawingSize requestImageSize = activeImageSize;
-            // Running inference on the current image must preserve in-progress labels;
-            // reloading here would erase the manual ROI/mask state before candidate comparison.
-            bool shouldLoadTargetImage = applyToCanvas
-                && !string.Equals(imagePath, activeImagePath, StringComparison.OrdinalIgnoreCase);
-            if (shouldLoadTargetImage && !TryLoadImage(imagePath, populateQueue: false))
-            {
-                return new YoloWorkerSmokeTestResult
-                {
-                    Succeeded = false,
-                    Summary = InferenceStatusPresentationService.BuildWorkerImageLoadFailureSummary(),
-                    ImagePath = imagePath,
-                    Errors = new[] { InferenceStatusPresentationService.BuildWorkerImageLoadFailureError(imagePath) }
-                };
-            }
-
-            if (applyToCanvas)
-            {
-                requestImageSize = activeImageSize;
-            }
-            else if (!ImageQueueDetailLoader.TryReadImageSize(imagePath, out requestImageSize, out string imageSizeError))
-            {
-                return new YoloWorkerSmokeTestResult
-                {
-                    Succeeded = false,
-                    Summary = imageSizeError,
-                    ImagePath = imagePath,
-                    Errors = new[] { imageSizeError }
-                };
-            }
-
-            int timeoutMilliseconds = connectTimeoutMilliseconds > 0
-                ? connectTimeoutMilliseconds
-                : YoloRuntimePresentationService.GetWorkerConnectTimeoutMilliseconds(
-                    global.Data?.ProjectSettings?.PythonModel?.DetectionTimeoutSeconds ?? 30);
-            SetGlobalInferenceStatus(InferenceStatusPresentationService.BuildWorkerPreparingInferenceStatus(applyToCanvas, imagePath), isBusy: true);
-            SetPythonStatus("\uCD94\uB860: \uC5F0\uACB0 \uD655\uC778 \uC911");
-            SetYoloCommandStatus(InferenceStatusPresentationService.BuildWorkerPreparingCommandStatus(), isBusy: true);
-            bool ready = workerReadyAlreadyChecked
-                ? true
-                : await global.ModelRuntime.EnsurePythonModelClientReadyAsync(timeoutMilliseconds, cancellationToken).ConfigureAwait(true);
-            if (isApplicationCloseApproved)
-            {
-                return new YoloWorkerSmokeTestResult
-                {
-                    ImagePath = imagePath
-                };
-            }
-
-            cancellationToken.ThrowIfCancellationRequested();
-
-            if (!ready)
-            {
-                SetGlobalInferenceStatus(InferenceStatusPresentationService.BuildWorkerConnectionFailureInferenceStatus(), isBusy: false, isWarning: true);
-                SetPythonStatus("\uCD94\uB860: \uC5F0\uACB0 \uC2E4\uD328");
-                AppendLog(InferenceStatusPresentationService.BuildWorkerConnectionFailureLog(
-                    YoloRuntimePresentationService.FormatElapsed(stopwatch.Elapsed)));
-                string workerFailureText = YoloRuntimePresentationService.BuildPythonWorkerFailureText(
-                    global.GetPythonCommunicationStatusSnapshot(),
-                    global.ModelRuntime.PythonClientProcess?.LastError);
-                return new YoloWorkerSmokeTestResult
-                {
-                    Succeeded = false,
-                    Summary = workerFailureText,
-                    ImagePath = imagePath,
-                    Errors = new[] { workerFailureText }
-                };
-            }
-
-            using var completionWaiter = new DetectionWorkerCompletionWaiter(
-                global.DetectionResults,
-                imagePath,
-                cancellationToken);
-
-            try
-            {
-                SetGlobalInferenceStatus(InferenceStatusPresentationService.BuildWorkerRunningInferenceStatus(applyToCanvas, imagePath), isBusy: true);
-                SetPythonStatus("\uCD94\uB860: \uC2E4\uD589 \uC911");
-                AppendLog(InferenceStatusPresentationService.BuildWorkerStartLog(imagePath, modelSourceText));
-                SetYoloCommandStatus(InferenceStatusPresentationService.BuildWorkerRequestCommandStatus(), isBusy: true);
-                bool started = applyToCanvas
-                    ? global.ModelRuntime.DetectionWorkflow.TryStartCurrentImageDetection(
-                        global.Data,
-                        global.ModelRuntime.DeepLearning,
-                        global.DetectionTransport,
-                        () => true)
-                    : global.ModelRuntime.DetectionWorkflow.TryStartImagePathDetection(
-                        global.Data,
-                        global.ModelRuntime.DeepLearning,
-                        global.DetectionTransport,
-                        imagePath,
-                        requestImageSize,
-                        () => true);
-                if (!started)
-                {
-                    SetGlobalInferenceStatus(InferenceStatusPresentationService.BuildWorkerRequestFailureInferenceStatus(), isBusy: false, isWarning: true);
-                    SetPythonStatus("\uCD94\uB860: \uC694\uCCAD \uC2E4\uD328");
-                    return new YoloWorkerSmokeTestResult
-                    {
-                        Succeeded = false,
-                        Summary = InferenceStatusPresentationService.BuildWorkerRequestFailureSummary(global.GetPythonCommunicationStatusSnapshot().LastError),
-                        ImagePath = imagePath
-                    };
-                }
-
-                DetectionCandidatesUpdatedEventArgs completed = await completionWaiter.Completion.ConfigureAwait(true);
-                if (isApplicationCloseApproved)
-                {
-                    return new YoloWorkerSmokeTestResult
-                    {
-                        ImagePath = imagePath
-                    };
-                }
-
-                if (completed.Reason == DetectionCandidateUpdateReason.RequestTimedOut)
-                {
-                    SetGlobalInferenceStatus(InferenceStatusPresentationService.BuildWorkerTimedOutInferenceStatus(), isBusy: false, isWarning: true);
-                    string timeoutSummary = InferenceStatusPresentationService.BuildWorkerTimedOutSummary();
-                    return new YoloWorkerSmokeTestResult
-                    {
-                        Succeeded = false,
-                        Summary = timeoutSummary,
-                        ImagePath = imagePath,
-                        Errors = new[] { timeoutSummary }
-                    };
-                }
-
-                IReadOnlyList<DefectInfo> defects = global.DetectionResults.GetLastDefects();
-                IReadOnlyList<YoloWorkerSmokeCandidate> candidates = defects
-                    .Select((defect, index) => CandidateReviewPresentationService.FromDefect(defect, index + 1))
-                    .ToList();
-                YoloWorkerSmokeCandidate first = candidates.FirstOrDefault();
-                var result = new YoloWorkerSmokeTestResult
-                {
-                    Succeeded = true,
-                    Summary = InferenceStatusPresentationService.BuildWorkerSuccessSummary(modelSourceText, candidates.Count),
-                    ImagePath = imagePath,
-                    CandidateCount = candidates.Count,
-                    FirstClassName = first?.ClassName ?? string.Empty,
-                    FirstConfidence = first?.Confidence,
-                    Candidates = candidates
-                };
-
-                if (applyToCanvas)
-                {
-                    ApplyDetectionCandidates(result.Candidates, result.Succeeded);
-                    SetPythonStatus(InferenceStatusPresentationService.BuildWorkerPythonCompletedStatus(modelSourceText, result.CandidateCount));
-                }
-
-                AppendLog(InferenceStatusPresentationService.BuildWorkerElapsedLog(
-                    YoloRuntimePresentationService.FormatElapsed(stopwatch.Elapsed),
-                    modelSourceText));
-                return result;
-            }
-            catch (OperationCanceledException)
-            {
-                if (isApplicationCloseApproved)
-                {
-                    return new YoloWorkerSmokeTestResult
-                    {
-                        ImagePath = imagePath
-                    };
-                }
-
-                SetGlobalInferenceStatus(InferenceStatusPresentationService.BuildWorkerCanceledInferenceStatus(), isBusy: false, isWarning: true);
-                string canceledSummary = InferenceStatusPresentationService.BuildWorkerCanceledSummary();
-                return new YoloWorkerSmokeTestResult
-                {
-                    Succeeded = false,
-                    Summary = canceledSummary,
-                    ImagePath = imagePath,
-                    Errors = new[] { canceledSummary }
-                };
-            }
+            return imageDetectionWorkflowService.RunWorkerAsync(
+                imagePath, applyToCanvas, cancellationToken, connectTimeoutMilliseconds, CreateImageDetectionCallbacks(), workerReadyAlreadyChecked);
         }
         #endregion
 
@@ -503,7 +200,7 @@ namespace MvcVisionSystem
         #endregion
 
         #region TemplateMatchingCommands
-        bool IWpfTemplateMatchingAutoLabelHost.IsAutoLabelBusy => isBatchDetectionRunning || isDetecting;
+        bool IWpfTemplateMatchingAutoLabelHost.IsAutoLabelBusy => batchDetectionWorkflowService.IsRunning || imageDetectionWorkflowService.IsDetecting;
 
         bool IWpfTemplateMatchingAutoLabelHost.IsAutoLabelCloseApproved => isApplicationCloseApproved;
 
@@ -649,19 +346,19 @@ namespace MvcVisionSystem
 
         CancellationToken IWpfTemplateMatchingAutoLabelHost.StartAutoLabelBatch(int totalCount, string scopeText)
         {
-            batchDetectionCts?.Cancel();
-            batchDetectionCts?.Dispose();
-            batchDetectionCts = new CancellationTokenSource();
-            isBatchDetectionRunning = true;
-            batchDetectionTotalCount = Math.Max(0, totalCount);
-            batchDetectionCompletedCount = 0;
+            if (isApplicationCloseApproved || imageDetectionWorkflowService.IsDetecting) return new CancellationToken(canceled: true);
+            BatchDetectionRun run = batchDetectionWorkflowService.TryBegin(totalCount, CaptureBatchReviewStatusSave());
+            if (run == null) return new CancellationToken(canceled: true);
             UpdateBatchDetectionControls(scopeText, string.Empty);
             UpdateYoloCommandButtons();
-            return batchDetectionCts.Token;
+            return run.Token;
         }
 
         void IWpfTemplateMatchingAutoLabelHost.MarkAutoLabelBatchItemRequested(WpfImageQueueItem item)
         {
+            if (!imageQualityReviewWorkflowService.CanReview(global.Data)
+                || (item != null && !ReferenceEquals(FindImageQueueItem(item.ImagePath), item))) return;
+
             if (item == null)
             {
                 return;
@@ -677,8 +374,6 @@ namespace MvcVisionSystem
             int completedCount,
             int totalCount)
         {
-            batchDetectionCompletedCount = Math.Max(0, completedCount);
-            batchDetectionTotalCount = Math.Max(0, totalCount);
             UpdateBatchDetectionControls(scopeText, currentFileName);
         }
 
@@ -687,6 +382,10 @@ namespace MvcVisionSystem
             TemplateMatchingBatchAutoLabelItemResult result,
             bool saveReviewStatus)
         {
+            if (batchDetectionWorkflowService.Current?.CanApplyResult != true
+                || !imageQualityReviewWorkflowService.CanReview(global.Data)
+                || (item != null && !ReferenceEquals(FindImageQueueItem(item.ImagePath), item))) return;
+
             if (item == null || result == null)
             {
                 return;
@@ -713,9 +412,10 @@ namespace MvcVisionSystem
             }
 
             ApplyReviewStatusToItem(item, status);
+            batchDetectionWorkflowService.Current.RecordResult();
             if (saveReviewStatus)
             {
-                imageQualityReviewWorkflowService.SaveReviewStatus(global.Data);
+                batchDetectionWorkflowService.Current.FlushReviewStatus();
             }
 
             UpdateImageQueueStatusText();
@@ -723,7 +423,7 @@ namespace MvcVisionSystem
 
         void IWpfTemplateMatchingAutoLabelHost.SaveAutoLabelReviewStatus()
         {
-            imageQualityReviewWorkflowService.SaveReviewStatus(global.Data);
+            batchDetectionWorkflowService.Current?.FlushReviewStatus();
         }
 
         void IWpfTemplateMatchingAutoLabelHost.CompleteAutoLabelBatch(
@@ -732,9 +432,7 @@ namespace MvcVisionSystem
             int totalCount,
             string scopeText)
         {
-            isBatchDetectionRunning = false;
-            batchDetectionCompletedCount = Math.Max(0, completedCount);
-            batchDetectionTotalCount = Math.Max(0, totalCount);
+            batchDetectionWorkflowService.Current?.Complete();
             imageQueueView?.Refresh();
             RefreshActiveImageQueueStatus(hasActiveCandidates: pendingDetectionCandidates.Count > 0);
             UpdateBatchDetectionControls(canceled ? "canceled" : "complete", string.Empty);

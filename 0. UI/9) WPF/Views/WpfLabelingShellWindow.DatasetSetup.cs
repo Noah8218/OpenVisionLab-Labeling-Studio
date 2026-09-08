@@ -208,7 +208,10 @@ namespace MvcVisionSystem
             ImageQueueViewModel?.SetCurrentImageFolder(currentImageRoot, canOpenFolder: false);
             CancelImageQueueCatalogLoad(waitForCompletion: false);
             CancelImageQueueDetailRefresh(waitForCompletion: false);
-            imageQualityReviewWorkflowService.SetImages(Array.Empty<string>());
+            batchDetectionWorkflowService.Cancel();
+            imageQualityReviewWorkflowService.Reset();
+            anomalyImageReviewSession.Reset();
+            ImageQueueViewModel?.ClearAnomalyFolderStateSuggestion();
             suppressImageQueueSelection = true;
             try
             {
@@ -334,7 +337,15 @@ namespace MvcVisionSystem
 
             // Persistence is complete before this command. Commit the prepared
             // state through the same session owner without loading it a second time.
-            projectRecipeSessionService.ApplyPrepared(global, result.RecipeName, result.Data);
+            if (!projectRecipeApplyWorkflowService.TryApplyPrepared(
+                    global,
+                    result.RecipeName,
+                    result.Data,
+                    out _))
+            {
+                return false;
+            }
+
             ApplyPersistedDatasetPurposeToCurrentProject(request.Purpose);
             RememberLastOpenedDatasetRecipe(result.RecipeName);
 

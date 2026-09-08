@@ -115,6 +115,8 @@ namespace MvcVisionSystem
         // Review-state persistence runs outside the immediate delete/selection hot path and marshals only the latest result back to WPF.
         private void RefreshActiveImageQueueStatus(bool hasActiveCandidates)
         {
+            if (!imageQualityReviewWorkflowService.CanReview(global.Data)) return;
+
             if (string.IsNullOrWhiteSpace(activeImagePath) || activeImageSize.IsEmpty)
             {
                 return;
@@ -123,7 +125,9 @@ namespace MvcVisionSystem
             WpfImageQueueItem item = FindImageQueueItem(activeImagePath);
             if (IsAnomalyDatasetPurpose())
             {
-                WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(item, anomalyImageReviewWorkflowService.GetOrCreate(activeImagePath));
+                WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(
+                    item,
+                    anomalyImageReviewSession.GetStatus(activeImagePath, isAnomalyPurpose: true));
                 RefreshImageQueueViewAfterItemStateChange();
                 UpdateImageQueueStatusText();
                 return;
@@ -152,16 +156,15 @@ namespace MvcVisionSystem
             {
                 WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(
                     FindImageQueueItem(activeImagePath),
-                    anomalyImageReviewWorkflowService.GetOrCreate(activeImagePath));
+                    anomalyImageReviewSession.GetStatus(activeImagePath, isAnomalyPurpose: true));
                 RefreshImageQueueViewAfterItemStateChange();
                 UpdateImageQueueStatusText();
                 return;
             }
 
-            ImageQueueReviewStatusRefreshOperation operation = imageQueueReviewStatusRefreshCoordinator.Queue(
+            ImageQueueReviewStatusRefreshOperation operation = imageQualityReviewWorkflowService.QueueRefresh(
                 activeImagePath,
                 activeImageSize,
-                imageQualityReviewWorkflowService,
                 global.Data,
                 hasActiveCandidates);
             if (operation == null)
@@ -196,7 +199,7 @@ namespace MvcVisionSystem
         private void ApplyQueuedActiveImageQueueStatusRefreshOnUi(ImageQueueReviewStatusRefreshOperation operation)
         {
             if (isApplicationCloseApproved
-                || !imageQueueReviewStatusRefreshCoordinator.IsCurrent(operation.Version)
+                || !imageQualityReviewWorkflowService.IsCurrent(operation.Version)
                 || !string.Equals(activeImagePath, operation.ImagePath, StringComparison.OrdinalIgnoreCase)
                 || operation.Completion.IsCanceled)
             {
@@ -236,6 +239,8 @@ namespace MvcVisionSystem
 
         private void SetActiveImageDetectionStatus(int candidateCount, bool succeeded)
         {
+            if (!imageQualityReviewWorkflowService.CanReview(global.Data)) return;
+
             if (string.IsNullOrWhiteSpace(activeImagePath))
             {
                 return;
@@ -252,7 +257,7 @@ namespace MvcVisionSystem
             {
                 WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(
                     FindImageQueueItem(activeImagePath),
-                    anomalyImageReviewWorkflowService.GetOrCreate(activeImagePath));
+                    anomalyImageReviewSession.GetStatus(activeImagePath, isAnomalyPurpose: true));
             }
             else
             {
@@ -282,7 +287,7 @@ namespace MvcVisionSystem
                 return false;
             }
 
-            AnomalyClassificationResult result = anomalyImageReviewWorkflowService.ApplyClassification(
+            AnomalyClassificationResult result = anomalyImageReviewSession.ApplyClassification(
                 new AnomalyClassificationRequest(
                     imagePath,
                     imageName,
@@ -303,6 +308,8 @@ namespace MvcVisionSystem
 
         private void MarkActiveImageConfirmed()
         {
+            if (!imageQualityReviewWorkflowService.CanReview(global.Data)) return;
+
             if (string.IsNullOrWhiteSpace(activeImagePath))
             {
                 return;
@@ -323,6 +330,8 @@ namespace MvcVisionSystem
 
         private void MarkActiveImageNoCandidate()
         {
+            if (!imageQualityReviewWorkflowService.CanReview(global.Data)) return;
+
             if (string.IsNullOrWhiteSpace(activeImagePath))
             {
                 return;
@@ -344,6 +353,8 @@ namespace MvcVisionSystem
 
         private void MarkActiveImageSkippedOrCandidate()
         {
+            if (!imageQualityReviewWorkflowService.CanReview(global.Data)) return;
+
             if (string.IsNullOrWhiteSpace(activeImagePath))
             {
                 return;
@@ -457,6 +468,8 @@ namespace MvcVisionSystem
 
         private void InvalidateActiveImageQualityReviewAfterEdit()
         {
+            if (!imageQualityReviewWorkflowService.CanReview(global.Data)) return;
+
             if (!IsLabelQualityReviewPurpose() || string.IsNullOrWhiteSpace(activeImagePath))
             {
                 return;
@@ -532,13 +545,23 @@ namespace MvcVisionSystem
                 return;
             }
 
+            TryMarkActiveAnomalyImageReviewState(state);
+        }
+
+        private bool TryMarkActiveAnomalyImageReviewState(AnomalyImageReviewState state)
+        {
+            if (isApplicationCloseApproved)
+            {
+                return false;
+            }
+
             if (!IsAnomalyDatasetPurpose() || string.IsNullOrWhiteSpace(activeImagePath))
             {
-                return;
+                return false;
             }
 
             string imageName = Path.GetFileNameWithoutExtension(activeImagePath);
-            MarkAnomalyImageReviewState(activeImagePath, imageName, state, saveReviewStatus: true);
+            return MarkAnomalyImageReviewState(activeImagePath, imageName, state, saveReviewStatus: true);
         }
 
         private void ExecuteMarkActiveAnomalyNormalAndNextCommand()
@@ -563,7 +586,10 @@ namespace MvcVisionSystem
                 return;
             }
 
-            MarkActiveAnomalyImageReviewState(AnomalyImageReviewState.Unreviewed);
+            if (!TryMarkActiveAnomalyImageReviewState(AnomalyImageReviewState.Unreviewed))
+            {
+                return;
+            }
             SetDatasetStatus($"OK/NG 이미지 판정: 미판정으로 되돌림 / {Path.GetFileName(activeImagePath)}");
             AppendLog($"Anomaly image review cleared: {activeImagePath}");
         }
@@ -581,7 +607,10 @@ namespace MvcVisionSystem
             }
 
             string reviewedPath = activeImagePath;
-            MarkActiveAnomalyImageReviewState(state);
+            if (!TryMarkActiveAnomalyImageReviewState(state))
+            {
+                return;
+            }
             string decisionText = state == AnomalyImageReviewState.Normal ? "정상(OK)" : "이상(NG)";
             SetDatasetStatus($"OK/NG 이미지 판정: {decisionText} 저장 / {Path.GetFileName(reviewedPath)}");
             AppendLog($"Anomaly image reviewed: {reviewedPath} / {state}");
@@ -591,34 +620,39 @@ namespace MvcVisionSystem
             }
         }
 
-        private void MarkAnomalyImageReviewState(string imagePath, string imageName, AnomalyImageReviewState state, bool saveReviewStatus)
+        private bool MarkAnomalyImageReviewState(string imagePath, string imageName, AnomalyImageReviewState state, bool saveReviewStatus)
         {
-            if (!IsAnomalyDatasetPurpose() || string.IsNullOrWhiteSpace(imagePath))
-            {
-                return;
-            }
-
-            AnomalyImageReviewResult result = anomalyImageReviewWorkflowService.ApplyReviewState(
-                new AnomalyImageReviewRequest(imagePath, imageName, state, saveReviewStatus),
-                global.Data);
+            AnomalyImageReviewCommandResult result = anomalyImageReviewSession.Apply(
+                imagePath,
+                imageName,
+                state,
+                isAnomalyPurpose: IsAnomalyDatasetPurpose(),
+                global.Data,
+                saveReviewStatus);
             if (!result.IsApplicable)
             {
-                return;
+                return false;
             }
 
             WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(FindImageQueueItem(imagePath), result.Status);
             // Live filtering observes AnomalyReviewState/IsLabeled. Refresh() would reset and redraw every row.
             UpdateImageQueueStatusText();
+            return true;
         }
 
         private void RefreshImageQueuePurposePresentation()
         {
             bool isAnomalyPurpose = IsAnomalyDatasetPurpose();
+            AnomalyImageReviewQueueProjection anomalyProjection = isAnomalyPurpose
+                ? anomalyImageReviewSession.BuildQueue(
+                    imageQueueItems.Select(queueItem => queueItem.ImagePath).ToList(),
+                    isAnomalyPurpose: true)
+                : null;
             foreach (WpfImageQueueItem item in imageQueueItems)
             {
                 if (isAnomalyPurpose)
                 {
-                    WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(item, anomalyImageReviewWorkflowService.GetOrCreate(item.ImagePath));
+                    WpfImageQueuePresenter.ApplyAnomalyReviewStatusToItem(item, anomalyProjection.GetStatus(item.ImagePath));
                 }
                 else
                 {
@@ -633,12 +667,6 @@ namespace MvcVisionSystem
             UpdateImageQueueStatusText();
         }
 
-        private void SaveAnomalyImageReviewStatus()
-        {
-            anomalyImageReviewWorkflowService.SaveReviewStatus(global.Data);
-            // The manifest is derived and is rebuilt by LabelingProjectData.SaveConfig. Keep the primary review state durable
-            // without rescanning the full dataset on every OK/NG decision.
-        }
         #endregion
 
     }

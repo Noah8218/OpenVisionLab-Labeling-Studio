@@ -11,6 +11,10 @@ namespace MvcVisionSystem
 
         public string TrainingRunId { get; set; } = string.Empty;
 
+        public string DatasetVersionId { get; set; } = string.Empty;
+
+        public string DatasetContentSha256 { get; set; } = string.Empty;
+
         public string WeightsPath { get; set; } = string.Empty;
 
         public string BaselineWeightsPath { get; set; } = string.Empty;

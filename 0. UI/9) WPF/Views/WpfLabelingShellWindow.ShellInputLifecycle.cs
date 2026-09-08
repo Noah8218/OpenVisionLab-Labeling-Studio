@@ -277,7 +277,7 @@ namespace MvcVisionSystem
         {
             if (!IsLoaded)
             {
-                isApplicationCloseApproved = true;
+                ApproveCrashRecoveryClose();
                 base.OnClosing(e);
                 return;
             }
@@ -301,7 +301,7 @@ namespace MvcVisionSystem
             ApplicationClosePlan plan = BuildApplicationClosePlan();
             if (!plan.RequiresPrompt)
             {
-                isApplicationCloseApproved = true;
+                ApproveCrashRecoveryClose();
                 return true;
             }
 
@@ -333,19 +333,19 @@ namespace MvcVisionSystem
                 PendingCandidateCount = candidateReviewState.PendingCount,
                 ActiveWorkNames = applicationClosePolicyService.GetActiveWorkNames(new ApplicationCloseWorkState
                 {
-                    IsCreatingSmartMask = isCreatingSmartMask,
-                    IsDetecting = isDetecting,
-                    IsBatchDetectionRunning = isBatchDetectionRunning,
-                    IsExternalYoloDatasetIntakeRunning = isExternalYoloDatasetIntakeRunning,
-                    IsExternalEvaluationDataAuditRunning = isExternalEvaluationDataAuditRunning,
-                    IsHistoricalSegmentationRemediationAuditRunning = isHistoricalSegmentationRemediationAuditRunning,
+                    IsCreatingSmartMask = smartMaskWorkflowService.IsRunning,
+                    IsDetecting = imageDetectionWorkflowService.IsDetecting,
+                    IsBatchDetectionRunning = batchDetectionWorkflowService.IsRunning,
+                    IsExternalYoloDatasetIntakeRunning = externalYoloDatasetIntakeWorkflowService.IsRunning,
+                    IsExternalEvaluationDataAuditRunning = externalAuditWorkflowService.IsExternalEvaluationDataAuditRunning,
+                    IsHistoricalSegmentationRemediationAuditRunning = externalAuditWorkflowService.IsHistoricalSegmentationRemediationAuditRunning,
                     IsTrainingRunning = isTrainingCommandRunning
-                        || isTrainingWorkflowRunning
+                        || trainingRuntimeWorkflowService.IsTrainingWorkflowRunning
                         || TrainingProgressPresentationService.IsTrainingStopAvailable(global.GetPythonCommunicationStatusSnapshot()),
-                    IsYoloEnvironmentCommandRunning = isYoloEnvironmentCommandRunning,
-                    IsModelComparisonRunning = isModelComparisonRunning,
-                    IsSegmentationAdapterComparisonRunning = isSegmentationAdapterComparisonRunning,
-                    IsAnomalyEvaluationRunning = isAnomalyEvaluationRunning
+                    IsYoloEnvironmentCommandRunning = yoloEnvironmentWorkflowService.IsRunning,
+                    IsModelComparisonRunning = modelComparisonWorkflowService.IsModelComparisonRunning,
+                    IsSegmentationAdapterComparisonRunning = modelComparisonWorkflowService.IsSegmentationComparisonRunning,
+                    IsAnomalyEvaluationRunning = anomalyClassificationEvaluationWorkflowService.IsRunning
                 }),
                 ActiveImagePath = activeImagePath
             };
@@ -423,8 +423,21 @@ namespace MvcVisionSystem
                 }
             }
 
-            isApplicationCloseApproved = true;
+            ApproveCrashRecoveryClose();
             return true;
+        }
+
+        private void ApproveCrashRecoveryClose()
+        {
+            isApplicationCloseApproved = true;
+            modelComparisonWorkflowService.ApproveClose();
+            externalYoloDatasetIntakeWorkflowService.ApproveClose();
+            externalAuditWorkflowService.ApproveClose();
+            yoloEnvironmentWorkflowService.Dispose();
+            imageDetectionWorkflowService.Dispose();
+            // Close approval ends batch application immediately, before child-window cleanup.
+            batchDetectionWorkflowService.Dispose();
+            crashRecoveryJournalWorkflowService.ApproveClose();
         }
 
         #endregion
@@ -435,7 +448,7 @@ namespace MvcVisionSystem
             // Invalidate queued queue-status workers before disposing the Shell-owned state.
             // A worker may still finish its label scan, but it must not persist or marshal
             // its result after the owning Shell has closed.
-            imageQueueReviewStatusRefreshCoordinator.Dispose();
+            imageQualityReviewWorkflowService.Dispose();
             DetachShellEventSubscriptions();
             DisposeShellPersistenceAndChildWindows();
             StopShellTimersAndQueueWorkers();
@@ -465,7 +478,9 @@ namespace MvcVisionSystem
         private void DisposeShellPersistenceAndChildWindows()
         {
             DiscardCrashRecoveryJournal();
-            crashRecoveryJournalWriteCoordinator.Dispose();
+            crashRecoveryJournalWorkflowService.WriteFailed -= OnCrashRecoveryJournalWriteFailed;
+            crashRecoveryJournalWorkflowService.CaptureFailed -= OnCrashRecoveryJournalCaptureFailed;
+            crashRecoveryJournalWorkflowService.Dispose();
             SaveWorkspaceLayoutSettings();
             CloseModelBenchmarkWindow();
             CloseDatasetHealthWindow();
@@ -487,40 +502,18 @@ namespace MvcVisionSystem
 
         private void DisposeShellOperationCancellations()
         {
-            projectRecipeSessionCts.Cancel();
-            projectRecipeSessionCts.Dispose();
+            projectRecipeApplyWorkflowService.Dispose();
             yoloSettingsRefreshCancellation.Cancel();
             yoloSettingsRefreshCancellation.Dispose();
-            smartMaskCancellation?.Cancel();
-            smartMaskCancellation?.Dispose();
-            smartMaskCancellation = null;
-            interactiveDetectionCts?.Cancel();
-            interactiveDetectionCts?.Dispose();
-            interactiveDetectionCts = null;
-            batchDetectionCts?.Cancel();
-            batchDetectionCts?.Dispose();
-            batchDetectionCts = null;
-            modelComparisonCts?.Cancel();
-            modelComparisonCts?.Dispose();
-            modelComparisonCts = null;
-            segmentationAdapterComparisonCts?.Cancel();
-            segmentationAdapterComparisonCts?.Dispose();
-            segmentationAdapterComparisonCts = null;
-            anomalyEvaluationCts?.Cancel();
-            anomalyEvaluationCts?.Dispose();
-            anomalyEvaluationCts = null;
-            externalYoloDatasetIntakeCts?.Cancel();
-            externalYoloDatasetIntakeCts?.Dispose();
-            externalYoloDatasetIntakeCts = null;
-            externalEvaluationDataAuditCts?.Cancel();
-            externalEvaluationDataAuditCts?.Dispose();
-            externalEvaluationDataAuditCts = null;
-            historicalSegmentationRemediationAuditCts?.Cancel();
-            historicalSegmentationRemediationAuditCts?.Dispose();
-            historicalSegmentationRemediationAuditCts = null;
-            pythonWorkerOperationCts?.Cancel();
-            pythonWorkerOperationCts?.Dispose();
-            pythonWorkerOperationCts = null;
+            smartMaskWorkflowService.ApproveClose();
+            smartMaskWorkflowService.Dispose();
+            imageDetectionWorkflowService.Dispose();
+            batchDetectionWorkflowService.Dispose();
+            modelComparisonWorkflowService.Dispose();
+            externalYoloDatasetIntakeWorkflowService.Dispose();
+            externalAuditWorkflowService.Dispose();
+            anomalyClassificationEvaluationWorkflowService.Cancel();
+            yoloEnvironmentWorkflowService.Dispose();
             trainingCommandCts?.Cancel();
             trainingCommandCts?.Dispose();
             trainingCommandCts = null;
@@ -528,24 +521,16 @@ namespace MvcVisionSystem
 
         private void ResetShellOperationState()
         {
-            isCreatingSmartMask = false;
-            isBatchDetectionRunning = false;
-            isDetecting = false;
-            isExternalYoloDatasetIntakeRunning = false;
-            isExternalEvaluationDataAuditRunning = false;
-            isHistoricalSegmentationRemediationAuditRunning = false;
-            isSegmentationAdapterComparisonRunning = false;
-            isModelComparisonRunning = false;
-            isAnomalyEvaluationRunning = false;
-            isYoloEnvironmentCommandRunning = false;
+            anomalyClassificationEvaluationWorkflowService.Reset();
+            anomalyImageReviewSession.Reset();
             isTrainingCommandRunning = false;
-            isTrainingWorkflowRunning = false;
+            trainingRuntimeWorkflowService.Reset();
         }
 
         private void DisposeShellVisualState()
         {
             imageDecodeCacheService.Clear();
-            activeImageBitmap?.Dispose();
+            imageLoadResourceService.Clear(activeImageBitmap);
             activeImageBitmap = null;
             viewModels.Dispose();
         }

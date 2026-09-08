@@ -1,5 +1,4 @@
-﻿using Microsoft.Win32;
-using OpenCvSharp;
+﻿using OpenCvSharp;
 using OpenVisionLab.ImageCanvas.Canvas;
 using OpenVisionLab.ImageCanvas.Commands;
 using OpenVisionLab.ImageCanvas.SharedViewModels;
@@ -140,17 +139,13 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 		private void OpenLoadImage()
 		{
-			OpenFileDialog openFileDialog = new OpenFileDialog
-			{
-				Filter = "Image files (*.bmp;*.jpg;*.jpeg;*.png;*.gif)|*.bmp;*.jpg;*.jpeg;*.png;*.gif|All files (*.*)|*.*"
-			};
-
-			if (openFileDialog.ShowDialog() != true)
+			if (_imageFileDialogHost == null
+				|| !_imageFileDialogHost.TryPickImageFile(out string fileName)
+				|| string.IsNullOrWhiteSpace(fileName))
 			{
 				return;
 			}
 
-			string fileName = openFileDialog.FileName;
 			Stopwatch stopwatch = Stopwatch.StartNew();
 			using (Mat mat = CanvasImageLoader.LoadMatFromFile(fileName))
 			{

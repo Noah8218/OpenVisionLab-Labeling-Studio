@@ -213,9 +213,6 @@ namespace MvcVisionSystem
         #endregion
 
         #region ProjectArchiveCommands
-        private readonly PortableProjectArchiveService portableProjectArchiveService =
-            new PortableProjectArchiveService();
-
         private void ExecuteExportProjectArchiveCommand()
         {
             if (isApplicationCloseApproved)
@@ -226,8 +223,7 @@ namespace MvcVisionSystem
             string recipeName = GetCurrentRecipeName();
             string configPath = GetCurrentRecipeConfigPath();
             string datasetRoot = global.Data?.OutputRootPath ?? string.Empty;
-            WpfProjectArchivePreflightResult preflight = WpfProjectArchivePreflightService.Check(
-                WpfProjectArchiveOperation.Export,
+            WpfProjectArchivePreflightResult preflight = projectArchiveWorkflowService.CheckExport(
                 BuildApplicationCloseState(),
                 recipeName,
                 configPath,
@@ -259,11 +255,16 @@ namespace MvcVisionSystem
 
             try
             {
-                WpfProjectArchiveExportResult result = portableProjectArchiveService.Export(
-                    recipeName,
-                    GetCurrentRecipeConfigDirectory(),
-                    datasetRoot,
-                    archivePath);
+                WpfProjectArchiveExportResult result = projectArchiveWorkflowService.Export(
+                    new ProjectArchiveExportRequest
+                    {
+                        CloseState = BuildApplicationCloseState(),
+                        RecipeName = recipeName,
+                        ConfigPath = configPath,
+                        DatasetRootPath = datasetRoot,
+                        RecipeDirectory = GetCurrentRecipeConfigDirectory(),
+                        ArchivePath = archivePath
+                    });
                 string referenceText = result.ExternalReferenceCount > 0
                     ? $" / 외부 참조 {result.ExternalReferenceCount}개는 경로만 기록"
                     : string.Empty;
@@ -285,8 +286,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            WpfProjectArchivePreflightResult preflight = WpfProjectArchivePreflightService.Check(
-                WpfProjectArchiveOperation.Import,
+            WpfProjectArchivePreflightResult preflight = projectArchiveWorkflowService.CheckImport(
                 BuildApplicationCloseState());
             if (!preflight.CanProceed)
             {
@@ -319,10 +319,14 @@ namespace MvcVisionSystem
 
             try
             {
-                WpfProjectArchiveImportResult result = portableProjectArchiveService.Import(
-                    archivePath,
-                    ProjectRecipeService.GetRecipeRootDirectory(),
-                    datasetParent);
+                WpfProjectArchiveImportResult result = projectArchiveWorkflowService.Import(
+                    new ProjectArchiveImportRequest
+                    {
+                        CloseState = BuildApplicationCloseState(),
+                        ArchivePath = archivePath,
+                        RecipeRootDirectory = ProjectRecipeService.GetRecipeRootDirectory(),
+                        DatasetParentDirectory = datasetParent
+                    });
                 PopulateProjectRecipeList(result.RecipeName);
                 ProjectConfigViewModel?.SelectRecipeFromList(result.RecipeName);
                 string referenceText = result.ExternalReferenceCount > 0

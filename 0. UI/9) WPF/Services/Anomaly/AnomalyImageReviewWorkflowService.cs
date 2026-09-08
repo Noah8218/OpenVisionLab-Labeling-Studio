@@ -15,6 +15,8 @@ namespace MvcVisionSystem
             this.reviewStatus = reviewStatus ?? throw new ArgumentNullException(nameof(reviewStatus));
         }
 
+        internal AnomalyImageReviewStatusService ReviewStatus => reviewStatus;
+
         public IReadOnlyList<AnomalyImageReviewStatus> GetItems()
         {
             return reviewStatus.GetItems();

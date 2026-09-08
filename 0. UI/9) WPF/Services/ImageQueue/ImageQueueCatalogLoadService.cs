@@ -37,28 +37,18 @@ namespace MvcVisionSystem
                 imagePaths,
                 cancellationToken);
 
-            var reviewStatus = new YoloImageReviewStatusService();
-            var reviewWorkflow = new ImageQualityReviewWorkflowService(reviewStatus);
-            reviewWorkflow.SetImages(imagePaths);
+            var reviewWorkflow = new ImageQualityReviewWorkflowService();
             reviewWorkflow.LoadReviewStatus(data, imagePaths);
 
-            var anomalyReviewStatus = new AnomalyImageReviewStatusService();
-            var anomalyReviewWorkflow = new AnomalyImageReviewWorkflowService(anomalyReviewStatus);
-            anomalyReviewWorkflow.SetImages(imagePaths);
-            anomalyReviewWorkflow.LoadReviewStatus(data, imagePaths);
-            AnomalyImageReviewFolderImportResult anomalyFolderStateSuggestion = isAnomalyPurpose
-                ? anomalyReviewWorkflow.PreviewUnreviewedStatesFromParentFolders()
-                : null;
+            AnomalyImageReviewSession anomalyReviewSession = AnomalyImageReviewSession.Load(imagePaths, data, isAnomalyPurpose);
             cancellationToken.ThrowIfCancellationRequested();
 
             return new ImageQueueCatalogLoadResult(
                 imagePaths,
                 catalogEntries,
-                reviewStatus,
-                anomalyReviewStatus,
+                reviewWorkflow.ReviewStatus,
                 reviewWorkflow,
-                anomalyReviewWorkflow,
-                anomalyFolderStateSuggestion);
+                anomalyReviewSession);
         }
     }
 
@@ -77,18 +67,31 @@ namespace MvcVisionSystem
             IReadOnlyList<string> imagePaths,
             IReadOnlyList<WpfImageQueueCatalogEntry> catalogEntries,
             YoloImageReviewStatusService reviewStatus,
-            AnomalyImageReviewStatusService anomalyReviewStatus,
             ImageQualityReviewWorkflowService reviewWorkflow,
-            AnomalyImageReviewWorkflowService anomalyReviewWorkflow,
-            AnomalyImageReviewFolderImportResult anomalyFolderStateSuggestion)
+            AnomalyImageReviewSession anomalyReviewSession)
         {
             ImagePaths = imagePaths ?? Array.Empty<string>();
             CatalogEntries = catalogEntries ?? Array.Empty<WpfImageQueueCatalogEntry>();
             ReviewStatus = reviewStatus ?? new YoloImageReviewStatusService();
-            AnomalyReviewStatus = anomalyReviewStatus ?? new AnomalyImageReviewStatusService();
             ReviewWorkflow = reviewWorkflow ?? new ImageQualityReviewWorkflowService(ReviewStatus);
-            AnomalyReviewWorkflow = anomalyReviewWorkflow ?? new AnomalyImageReviewWorkflowService(AnomalyReviewStatus);
-            AnomalyFolderStateSuggestion = anomalyFolderStateSuggestion;
+            AnomalyReviewSession = anomalyReviewSession ?? new AnomalyImageReviewSession();
+        }
+
+        public ImageQueueCatalogLoadResult(
+            IReadOnlyList<string> imagePaths,
+            IReadOnlyList<WpfImageQueueCatalogEntry> catalogEntries,
+            YoloImageReviewStatusService reviewStatus,
+            AnomalyImageReviewStatusService anomalyReviewStatus,
+            ImageQualityReviewWorkflowService reviewWorkflow,
+            AnomalyImageReviewWorkflowService anomalyReviewWorkflow,
+            AnomalyImageReviewFolderImportResult anomalyFolderStateSuggestion)
+            : this(
+                imagePaths,
+                catalogEntries,
+                reviewStatus,
+                reviewWorkflow,
+                new AnomalyImageReviewSession(anomalyReviewStatus, anomalyReviewWorkflow, anomalyFolderStateSuggestion))
+        {
         }
 
         public IReadOnlyList<string> ImagePaths { get; }
@@ -97,13 +100,15 @@ namespace MvcVisionSystem
 
         public YoloImageReviewStatusService ReviewStatus { get; }
 
-        public AnomalyImageReviewStatusService AnomalyReviewStatus { get; }
+        public AnomalyImageReviewStatusService AnomalyReviewStatus => AnomalyReviewSession.ReviewStatus;
 
         public ImageQualityReviewWorkflowService ReviewWorkflow { get; }
 
-        public AnomalyImageReviewWorkflowService AnomalyReviewWorkflow { get; }
+        public AnomalyImageReviewWorkflowService AnomalyReviewWorkflow => AnomalyReviewSession.ReviewWorkflow;
 
-        public AnomalyImageReviewFolderImportResult AnomalyFolderStateSuggestion { get; }
+        public AnomalyImageReviewFolderImportResult AnomalyFolderStateSuggestion => AnomalyReviewSession.FolderStateSuggestion;
+
+        public AnomalyImageReviewSession AnomalyReviewSession { get; }
     }
 
     [Obsolete("Use ImageQueueCatalogLoadResult.", false)]

@@ -38,21 +38,23 @@ namespace MvcVisionSystem
                     && SaveCurrentEmptyAnnotations();
             }
 
-            bool saved = LabelingAnnotationPersistence.SaveCurrentWithAdditionalArtifacts(
-                activeImage,
-                roisByClass,
-                segmentsByClass,
-                global.Data,
-                () => TrySaveCurrentObjectMetadata(activeImage.ImageName));
+            AnnotationSaveResult saveResult = annotationSaveWorkflowService.Save(
+                new AnnotationSaveRequest(
+                    activeImage,
+                    roisByClass,
+                    segmentsByClass,
+                    global.Data,
+                    savedCount,
+                    () => TrySaveCurrentObjectMetadata(activeImage.ImageName)));
 
-            if (saved)
+            if (saveResult.IsSaved)
             {
                 MarkAnnotationsSaved($"라벨 저장 완료: 객체 {savedCount}개");
                 DiscardCrashRecoveryJournal();
                 global.System?.UpdateData();
             }
 
-            return saved;
+            return saveResult.IsSaved;
         }
 
         private bool SaveCurrentEmptyAnnotations()
@@ -67,21 +69,19 @@ namespace MvcVisionSystem
 
             SaveTrainingEditorFields();
             // Object-detection datasets still need an empty label file for reviewed normal images.
-            bool saved = LabelingAnnotationPersistence.SaveCurrentWithAdditionalArtifacts(
+            AnnotationSaveResult saveResult = annotationSaveWorkflowService.SaveEmpty(
                 activeImage,
-                new Dictionary<string, List<AnnotationRectangleObject>>(StringComparer.OrdinalIgnoreCase),
-                new Dictionary<string, List<LabelingSegmentationObject>>(StringComparer.OrdinalIgnoreCase),
                 global.Data,
                 () => TrySaveCurrentObjectMetadata(activeImage.ImageName));
 
-            if (saved)
+            if (saveResult.IsSaved)
             {
                 MarkAnnotationsSaved("\uBE48 \uB77C\uBCA8 \uD30C\uC77C \uC800\uC7A5 \uC644\uB8CC");
                 DiscardCrashRecoveryJournal();
                 global.System?.UpdateData();
             }
 
-            return saved;
+            return saveResult.IsSaved;
         }
 
         private static int CountAnnotationRois(IReadOnlyDictionary<string, List<AnnotationRectangleObject>> roisByClass)
@@ -237,10 +237,11 @@ namespace MvcVisionSystem
         private void MarkMaskStrokeAnnotationsDirty(string reason)
         {
             annotationDirtyState.MarkDirty(reason, "Mask edit");
+            AnnotationSaveStatePresentation dirtyPresentation = AnnotationSaveStatePresentationService.BuildDirty(annotationDirtyState.Reason);
             StatusBarViewModel?.SetAnnotationSaveStatus(
-                isDirty: true,
-                text: "\uB77C\uBCA8 \uC800\uC7A5 \uD544\uC694",
-                toolTip: $"\uC544\uC9C1 \uD30C\uC77C\uC5D0 \uC800\uC7A5\uB418\uC9C0 \uC54A\uC740 \uD3B8\uC9D1: {annotationDirtyState.Reason}");
+                dirtyPresentation.IsDirty,
+                dirtyPresentation.StatusBarText,
+                dirtyPresentation.StatusBarToolTip);
             if (!string.Equals(annotationDirtyState.Reason, "\0", StringComparison.Ordinal))
             {
                 ScheduleCrashRecoveryJournalWrite();
@@ -264,18 +265,8 @@ namespace MvcVisionSystem
         private void ApplyAnnotationDirtyPresentation()
         {
             InvalidateActiveImageQualityReviewAfterEdit();
-            StatusBarViewModel?.SetAnnotationSaveStatus(
-                isDirty: true,
-                text: "라벨 저장 필요",
-                toolTip: $"아직 파일에 저장되지 않은 편집: {annotationDirtyState.Reason}");
-            CanvasPanelViewModel?.SetAnnotationSaveState(
-                true,
-                "\uB77C\uBCA8 \uC800\uC7A5",
-                "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 \uBC15\uC2A4\uC640 \uC120\uD0DD\uD55C \uD074\uB798\uC2A4\uB97C \uC800\uC7A5\uD569\uB2C8\uB2E4.");
-            ObjectReviewViewModel?.SetLabelSaveState(
-                "Dirty",
-                "\uC800\uC7A5 \uD544\uC694",
-                $"\uD30C\uC77C \uBBF8\uBC18\uC601: {annotationDirtyState.Reason}");
+            ApplyAnnotationSaveStatePresentation(
+                AnnotationSaveStatePresentationService.BuildDirty(annotationDirtyState.Reason));
             ApplyActiveImageQueueSaveRequiredStatus(annotationDirtyState.Reason);
             RefreshActiveImageQualityReviewPresentation();
             RefreshCanvasLayerVisibilityState();
@@ -286,22 +277,8 @@ namespace MvcVisionSystem
         private void MarkAnnotationsSaved(string reason)
         {
             annotationDirtyState.Clear();
-            StatusBarViewModel?.SetAnnotationSaveStatus(
-                isDirty: false,
-                text: "라벨 저장됨",
-                toolTip: string.IsNullOrWhiteSpace(reason)
-                    ? "현재 라벨이 파일에 저장되었습니다."
-                    : reason);
-            CanvasPanelViewModel?.SetAnnotationSaveState(
-                false,
-                "\uC800\uC7A5 \uC644\uB8CC",
-                "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 \uB77C\uBCA8\uC774 \uC800\uC7A5\uB418\uC5B4 \uC788\uC2B5\uB2C8\uB2E4.");
-            ObjectReviewViewModel?.SetLabelSaveState(
-                "Saved",
-                "\uC800\uC7A5\uB428",
-                string.IsNullOrWhiteSpace(reason)
-                    ? "\uD604\uC7AC \uC774\uBBF8\uC9C0\uC758 \uB77C\uBCA8\uC774 \uD30C\uC77C\uC5D0 \uBC18\uC601\uB418\uC5C8\uC2B5\uB2C8\uB2E4."
-                    : reason);
+            ApplyAnnotationSaveStatePresentation(
+                AnnotationSaveStatePresentationService.BuildSaved(reason));
             RefreshCanvasLayerVisibilityState();
             RefreshCanvasWorkflowContext();
             UpdateWorkflowProgressStatus();
@@ -310,18 +287,8 @@ namespace MvcVisionSystem
         private void SetAnnotationSaveStatusWaiting()
         {
             annotationDirtyState.Clear();
-            StatusBarViewModel?.SetAnnotationSaveStatus(
-                isDirty: false,
-                text: "라벨 대기",
-                toolTip: "이미지를 열면 라벨 저장 상태를 표시합니다.");
-            CanvasPanelViewModel?.SetAnnotationSaveState(
-                false,
-                "\uC800\uC7A5 \uB300\uAE30",
-                "\uC774\uBBF8\uC9C0\uB97C \uBD88\uB7EC\uC624\uBA74 \uB77C\uBCA8 \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4.");
-            ObjectReviewViewModel?.SetLabelSaveState(
-                "Waiting",
-                "\uB77C\uBCA8 \uB300\uAE30",
-                "\uC774\uBBF8\uC9C0\uB97C \uC5F4\uBA74 \uC800\uC7A5 \uC0C1\uD0DC\uB97C \uD45C\uC2DC\uD569\uB2C8\uB2E4.");
+            ApplyAnnotationSaveStatePresentation(
+                AnnotationSaveStatePresentationService.BuildWaiting());
             ObjectReviewViewModel?.SetQualityReviewState(
                 YoloImageQualityReviewState.Unreviewed,
                 hasActiveImage: false,
@@ -329,6 +296,24 @@ namespace MvcVisionSystem
             RefreshCanvasLayerVisibilityState();
             RefreshCanvasWorkflowContext();
             UpdateWorkflowProgressStatus();
+        }
+
+        private void ApplyAnnotationSaveStatePresentation(AnnotationSaveStatePresentation presentation)
+        {
+            if (presentation == null)
+            {
+                return;
+            }
+
+            StatusBarViewModel?.SetAnnotationSaveStatus(
+                presentation.IsDirty,
+                presentation.StatusBarText,
+                presentation.StatusBarToolTip);
+            CanvasPanelViewModel?.ApplyAnnotationSaveStatePresentation(presentation);
+            ObjectReviewViewModel?.SetLabelSaveState(
+                presentation.ObjectReviewStateKey,
+                presentation.ObjectReviewBadgeText,
+                presentation.ObjectReviewDetailText);
         }
 
         private int LoadSavedBoxAnnotationsForActiveImage(string imagePath)
@@ -480,8 +465,7 @@ namespace MvcVisionSystem
                 return;
             }
 
-            annotationHistoryStack.Push(snapshot);
-            if (markDirty)
+            if (annotationHistoryWorkflowService.Push(snapshot) && markDirty)
             {
                 MarkAnnotationsDirty(snapshot.ActionName);
             }
@@ -490,7 +474,7 @@ namespace MvcVisionSystem
 
         private void ClearAnnotationHistory()
         {
-            annotationHistoryStack.Clear();
+            annotationHistoryWorkflowService.Clear();
             activeRoiEditHistoryOverlayId = string.Empty;
             RefreshAnnotationHistoryToolState();
         }
@@ -498,21 +482,14 @@ namespace MvcVisionSystem
         private void RefreshAnnotationHistoryToolState()
         {
             bool hasPendingMaskStrokeUndo = HasPendingMaskStrokeUndoWork();
-            bool canUndo = hasPendingMaskStrokeUndo || annotationHistoryStack.UndoCount > 0;
-            bool canRedo = !hasPendingMaskStrokeUndo && annotationHistoryStack.RedoCount > 0;
-            string undoActionName = hasPendingMaskStrokeUndo
-                ? GetPendingMaskStrokeUndoActionName()
-                : annotationHistoryStack.UndoCount > 0
-                    ? NormalizeHistoryActionName(annotationHistoryStack.PeekUndo().ActionName)
-                    : string.Empty;
-            string redoActionName = canRedo
-                ? NormalizeHistoryActionName(annotationHistoryStack.PeekRedo().ActionName)
-                : string.Empty;
+            AnnotationHistoryToolState toolState = annotationHistoryWorkflowService.GetToolState(
+                hasPendingMaskStrokeUndo,
+                GetPendingMaskStrokeUndoActionName());
             LearningWorkflowViewModel?.SetAnnotationHistoryState(
-                canUndo,
-                canRedo,
-                undoActionName,
-                redoActionName);
+                toolState.CanUndo,
+                toolState.CanRedo,
+                toolState.UndoActionName,
+                toolState.RedoActionName);
         }
 
         private bool HasPendingMaskStrokeUndoWork()
@@ -520,51 +497,23 @@ namespace MvcVisionSystem
 
         private string GetPendingMaskStrokeUndoActionName()
             => queuedMaskStrokeCommits.Count > 0
-                ? NormalizeHistoryActionName(queuedMaskStrokeCommits.Peek().ActionName)
+                ? queuedMaskStrokeCommits.Peek().ActionName
                 : string.Empty;
-
-        private static string NormalizeHistoryActionName(string actionName)
-        {
-            string normalized = actionName ?? string.Empty;
-            if (normalized.StartsWith("Undo ", StringComparison.OrdinalIgnoreCase))
-            {
-                return normalized.Substring(5);
-            }
-
-            if (normalized.StartsWith("Redo ", StringComparison.OrdinalIgnoreCase))
-            {
-                return normalized.Substring(5);
-            }
-
-            return normalized;
-        }
-
-        private static string FormatHistoryActionForDisplay(string actionName)
-        {
-            string normalized = NormalizeHistoryActionName(actionName);
-            return string.IsNullOrWhiteSpace(normalized) ? "\uD3B8\uC9D1" : normalized;
-        }
 
         private bool UndoWpfAnnotationHistory()
         {
             CompleteMaskAnnotationStroke();
             FlushQueuedMaskStrokeCommits();
-            if (annotationHistoryStack.UndoCount == 0)
+            if (!annotationHistoryWorkflowService.TryUndo(
+                    CaptureHistoryForOppositeStack,
+                    out AnnotationHistoryTransition transition))
             {
                 SetYoloCommandStatus("되돌릴 편집 이력이 없습니다.", isBusy: false);
                 return false;
             }
 
-            WpfAnnotationHistorySnapshot target = annotationHistoryStack.PeekUndo();
-            WpfAnnotationHistorySnapshot opposite = CaptureHistoryForOppositeStack($"Redo {target.ActionName}", target);
-            if (!annotationHistoryStack.TryMoveUndoToRedo(opposite, out target))
-            {
-                SetYoloCommandStatus("되돌릴 편집 이력이 없습니다.", isBusy: false);
-                return false;
-            }
-
-            RestoreAnnotationHistorySnapshot(target);
-            string displayActionName = FormatHistoryActionForDisplay(target.ActionName);
+            RestoreAnnotationHistorySnapshot(transition.Target);
+            string displayActionName = transition.DisplayActionName;
             SetYoloCommandStatus($"\uB418\uB3CC\uB9AC\uAE30: {displayActionName}", isBusy: false);
             AppendLog($"\uB418\uB3CC\uB9AC\uAE30: {displayActionName}");
             MarkAnnotationsDirty($"\uB418\uB3CC\uB9AC\uAE30 {displayActionName}");
@@ -586,22 +535,16 @@ namespace MvcVisionSystem
         {
             CompleteMaskAnnotationStroke();
             FlushQueuedMaskStrokeCommits();
-            if (annotationHistoryStack.RedoCount == 0)
+            if (!annotationHistoryWorkflowService.TryRedo(
+                    CaptureHistoryForOppositeStack,
+                    out AnnotationHistoryTransition transition))
             {
                 SetYoloCommandStatus("다시 실행할 편집 이력이 없습니다.", isBusy: false);
                 return false;
             }
 
-            WpfAnnotationHistorySnapshot target = annotationHistoryStack.PeekRedo();
-            WpfAnnotationHistorySnapshot opposite = CaptureHistoryForOppositeStack($"Undo {target.ActionName}", target);
-            if (!annotationHistoryStack.TryMoveRedoToUndo(opposite, out target))
-            {
-                SetYoloCommandStatus("다시 실행할 편집 이력이 없습니다.", isBusy: false);
-                return false;
-            }
-
-            RestoreAnnotationHistorySnapshot(target);
-            string displayActionName = FormatHistoryActionForDisplay(target.ActionName);
+            RestoreAnnotationHistorySnapshot(transition.Target);
+            string displayActionName = transition.DisplayActionName;
             SetYoloCommandStatus($"\uB2E4\uC2DC \uC801\uC6A9: {displayActionName}", isBusy: false);
             AppendLog($"\uB2E4\uC2DC \uC801\uC6A9: {displayActionName}");
             MarkAnnotationsDirty($"\uB2E4\uC2DC \uC801\uC6A9 {displayActionName}");

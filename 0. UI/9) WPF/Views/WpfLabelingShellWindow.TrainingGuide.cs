@@ -18,20 +18,18 @@ namespace MvcVisionSystem
             TrainingChecklistPresentation presentation,
             bool recordHistory)
         {
-            EnsureProjectSettings();
-            YoloTrainingGuideHistory history = global.Data.ProjectSettings.TrainingGuide;
-            trainingGuideHistoryService.UpdateDatasetHistory(
-                history,
-                report?.IsReady == true,
-                presentation?.IssueKind,
-                presentation?.DetailText,
-                recordHistory);
+            trainingGuideHistoryWorkflowService.RecordDatasetHistory(
+                new TrainingGuideDatasetHistoryWorkflowRequest
+                {
+                    Data = global.Data,
+                    IsReady = report?.IsReady == true,
+                    IssueKind = presentation?.IssueKind,
+                    Summary = presentation?.DetailText,
+                    RecordHistory = recordHistory,
+                    HasPendingTrainingWeightsRecipeSave = hasPendingTrainingWeightsRecipeSave,
+                    SaveHistoryQuietly = TrySaveTrainingGuideHistoryQuietly
+                });
             UpdateYoloTrainingHistoryText();
-
-            if (!hasPendingTrainingWeightsRecipeSave)
-            {
-                TrySaveTrainingGuideHistoryQuietly();
-            }
         }
 
         private void UpdateYoloTrainingGuideTrainingHistory(PythonCommunicationStatus status)
@@ -41,43 +39,14 @@ namespace MvcVisionSystem
                 return;
             }
 
-            EnsureProjectSettings();
-            YoloTrainingGuideHistory history = global.Data.ProjectSettings.TrainingGuide;
-            trainingGuideHistoryService.UpdateTrainingHistory(
-                history,
-                status,
-                TrainingProgressPresentationService.IsTerminalTrainingState,
-                ref lastRecordedTrainingGuideRunSignature);
-            UpdateYoloTrainingHistoryText();
-
-            if (TrainingProgressPresentationService.IsTerminalTrainingState(history.LastTrainingState) && !hasPendingTrainingWeightsRecipeSave)
-            {
-                TrySaveTrainingGuideHistoryQuietly();
-            }
-        }
-
-        private void UpdateAppliedTrainingWeightsHistory(string weightsPath, bool savedToRecipe)
-        {
-            EnsureProjectSettings();
-            WpfTrainingWeightsComparison comparison = BuildCurrentTrainingWeightsComparison();
-            trainingGuideHistoryService.UpdateAppliedWeightsHistory(
-                global.Data.ProjectSettings.TrainingGuide,
-                weightsPath,
-                savedToRecipe);
-            ModelRegistryService.RecordTrainingCandidate(
-                global.Data.ProjectSettings.ModelRegistry,
-                global.Data.ProjectSettings.PythonModel,
-                global.Data.ProjectSettings.DatasetPurpose,
-                global.Data.OutputRootPath,
-                weightsPath,
-                pendingTrainingBaselineWeightsPath,
-                comparison?.MetricsStatusText,
-                global.Data.ProjectSettings.TrainingGuide.LastTrainingState,
-                global.Data.ProjectSettings.TrainingGuide.LastTrainingProgressPercent,
-                global.Data.ProjectSettings.TrainingGuide.LastTrainingMessage,
-                savedToRecipe,
-                global.Data.ProjectSettings.TrainingGuide.LastTrainingDatasetVersionId,
-                global.Data.ProjectSettings.TrainingGuide.LastTrainingDatasetContentSha256);
+            trainingGuideHistoryWorkflowService.RecordTrainingHistory(
+                new TrainingGuideTrainingHistoryWorkflowRequest
+                {
+                    Data = global.Data,
+                    Status = status,
+                    HasPendingTrainingWeightsRecipeSave = hasPendingTrainingWeightsRecipeSave,
+                    SaveHistoryQuietly = TrySaveTrainingGuideHistoryQuietly
+                });
             UpdateYoloTrainingHistoryText();
         }
 
@@ -238,9 +207,10 @@ namespace MvcVisionSystem
             IReadOnlyList<string> warnings = report.IsReady
                 ? YoloDatasetDiagnosticsService.BuildQualityWarnings(global.Data, statistics)
                 : Array.Empty<string>();
-            AnomalyImageReviewSummary anomalySummary = report.Purpose == LabelingDatasetPurpose.AnomalyDetection
-                ? anomalyImageReviewWorkflowService.LoadPersistedSummary(global.Data, statistics.TotalImageCount)
-                : null;
+            AnomalyImageReviewSummary anomalySummary = anomalyImageReviewSession.LoadSummary(
+                global.Data,
+                statistics.TotalImageCount,
+                isAnomalyPurpose: report.Purpose == LabelingDatasetPurpose.AnomalyDetection);
             YoloDatasetQualityAuditReport qualityAudit = YoloDatasetQualityAuditService.Build(global.Data);
             DatasetDashboardLocalizationSnapshot dashboardLocalization = DatasetDashboardLocalizationService.Build(
                 report,

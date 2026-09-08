@@ -158,10 +158,16 @@ namespace MvcVisionSystem
                         JsonConvert.DeserializeObject<RecipeDatasetVersionSnapshot>(File.ReadAllText(path));
                     if (snapshot != null
                         && snapshot.IdentitySchemaVersion == IdentitySchemaVersion
+                        && string.Equals(snapshot.Algorithm, Algorithm, StringComparison.Ordinal)
                         && !string.IsNullOrWhiteSpace(snapshot.DatasetVersionId)
                         && !string.IsNullOrWhiteSpace(snapshot.ContentSha256))
                     {
-                        snapshots.Add(snapshot);
+                        string fileName = Path.GetFileNameWithoutExtension(path);
+                        if (string.Equals(fileName, snapshot.DatasetVersionId, StringComparison.Ordinal)
+                            && HasCanonicalIdentity(snapshot))
+                        {
+                            snapshots.Add(snapshot);
+                        }
                     }
                 }
                 catch (IOException)
@@ -194,7 +200,9 @@ namespace MvcVisionSystem
         {
             RecipeDatasetVersionSnapshot stored =
                 JsonConvert.DeserializeObject<RecipeDatasetVersionSnapshot>(File.ReadAllText(snapshotPath));
-            if (stored == null
+            if (!HasCanonicalIdentity(stored)
+                || !HasCanonicalIdentity(expected)
+                || !string.Equals(Path.GetFileNameWithoutExtension(snapshotPath), stored?.DatasetVersionId, StringComparison.Ordinal)
                 || !string.Equals(stored.DatasetVersionId, expected.DatasetVersionId, StringComparison.Ordinal)
                 || !string.Equals(stored.ContentSha256, expected.ContentSha256, StringComparison.OrdinalIgnoreCase))
             {
@@ -202,6 +210,45 @@ namespace MvcVisionSystem
             }
 
             return stored;
+        }
+
+        private static bool HasCanonicalIdentity(RecipeDatasetVersionSnapshot snapshot)
+        {
+            if (snapshot == null
+                || snapshot.IdentitySchemaVersion != IdentitySchemaVersion
+                || !string.Equals(snapshot.Algorithm, Algorithm, StringComparison.Ordinal)
+                || snapshot.Classes == null
+                || snapshot.Files == null
+                || snapshot.Classes.Any(string.IsNullOrWhiteSpace)
+                || snapshot.Files.Any(file => file == null
+                    || string.IsNullOrWhiteSpace(file.Kind)
+                    || string.IsNullOrWhiteSpace(file.Split)
+                    || string.IsNullOrWhiteSpace(file.RelativePath)
+                    || string.IsNullOrWhiteSpace(file.Sha256)
+                    || file.Length < 0))
+            {
+                return false;
+            }
+
+            string classContractSha256 = HashingService.ComputeUtf8TextSha256(
+                BuildClassContract(snapshot.Classes),
+                lowerCase: true);
+            string splitContractSha256 = HashingService.ComputeUtf8TextSha256(
+                BuildFileContract(snapshot.Files),
+                lowerCase: true);
+            string contentSha256 = HashingService.ComputeUtf8TextSha256(
+                string.Join(
+                    "\n",
+                    "recipe-dataset-version-v2",
+                    snapshot.DatasetPurpose,
+                    classContractSha256,
+                    splitContractSha256),
+                lowerCase: true);
+            string datasetVersionId = "dsv2-" + contentSha256.ToLowerInvariant();
+            return string.Equals(snapshot.ClassContractSha256, classContractSha256, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(snapshot.SplitContractSha256, splitContractSha256, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(snapshot.ContentSha256, contentSha256, StringComparison.OrdinalIgnoreCase)
+                && string.Equals(snapshot.DatasetVersionId, datasetVersionId, StringComparison.Ordinal);
         }
 
         private static void AddFiles(

@@ -25,6 +25,10 @@ namespace MvcVisionSystem
 
         public string DecisionText { get; set; } = string.Empty;
 
+        public string DatasetVersionId { get; set; } = string.Empty;
+
+        public string DatasetContentSha256 { get; set; } = string.Empty;
+
         public bool CandidateWeightsFileExists { get; set; }
     }
 
@@ -35,13 +39,17 @@ namespace MvcVisionSystem
             string candidateWeightsPath = "",
             string baselineWeightsPath = "",
             string metricsSummary = "",
-            string decisionSummary = "")
+            string decisionSummary = "",
+            string datasetVersionId = "",
+            string datasetContentSha256 = "")
         {
             Status = status;
             CandidateWeightsPath = candidateWeightsPath ?? string.Empty;
             BaselineWeightsPath = baselineWeightsPath ?? string.Empty;
             MetricsSummary = metricsSummary ?? string.Empty;
             DecisionSummary = decisionSummary ?? string.Empty;
+            DatasetVersionId = datasetVersionId?.Trim() ?? string.Empty;
+            DatasetContentSha256 = datasetContentSha256?.Trim() ?? string.Empty;
         }
 
         public ModelHistoryAdoptionPlanStatus Status { get; }
@@ -53,6 +61,10 @@ namespace MvcVisionSystem
         public string MetricsSummary { get; }
 
         public string DecisionSummary { get; }
+
+        public string DatasetVersionId { get; }
+
+        public string DatasetContentSha256 { get; }
 
         public bool IsReady => Status == ModelHistoryAdoptionPlanStatus.Ready;
 
@@ -83,7 +95,9 @@ namespace MvcVisionSystem
             {
                 return new ModelHistoryAdoptionPlan(
                     ModelHistoryAdoptionPlanStatus.CandidateWeightsFileMissing,
-                    candidateWeightsPath: candidateWeightsPath);
+                    candidateWeightsPath: candidateWeightsPath,
+                    datasetVersionId: request.DatasetVersionId,
+                    datasetContentSha256: request.DatasetContentSha256);
             }
 
             string currentWeightsPath = Normalize(request.CurrentWeightsPath);
@@ -91,7 +105,9 @@ namespace MvcVisionSystem
             {
                 return new ModelHistoryAdoptionPlan(
                     ModelHistoryAdoptionPlanStatus.AlreadyCurrent,
-                    candidateWeightsPath: candidateWeightsPath);
+                    candidateWeightsPath: candidateWeightsPath,
+                    datasetVersionId: request.DatasetVersionId,
+                    datasetContentSha256: request.DatasetContentSha256);
             }
 
             string baselineWeightsPath = !string.IsNullOrWhiteSpace(currentWeightsPath)
@@ -106,7 +122,9 @@ namespace MvcVisionSystem
                 candidateWeightsPath,
                 baselineWeightsPath,
                 metricsSummary,
-                "모델 이력에서 검사 모델로 적용");
+                "모델 이력에서 검사 모델로 적용",
+                request.DatasetVersionId,
+                request.DatasetContentSha256);
         }
 
         private static string Normalize(string value)
@@ -136,13 +154,17 @@ namespace MvcVisionSystem
             string candidateWeightsPath = "",
             string baselineWeightsPath = "",
             string metricsSummary = "",
-            string decisionSummary = "")
+            string decisionSummary = "",
+            string datasetVersionId = "",
+            string datasetContentSha256 = "")
             : base(
                 (ModelHistoryAdoptionPlanStatus)status,
                 candidateWeightsPath,
                 baselineWeightsPath,
                 metricsSummary,
-                decisionSummary)
+                decisionSummary,
+                datasetVersionId,
+                datasetContentSha256)
         {
         }
 
@@ -152,7 +174,9 @@ namespace MvcVisionSystem
                 source?.CandidateWeightsPath,
                 source?.BaselineWeightsPath,
                 source?.MetricsSummary,
-                source?.DecisionSummary)
+                source?.DecisionSummary,
+                source?.DatasetVersionId,
+                source?.DatasetContentSha256)
         {
         }
 

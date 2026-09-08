@@ -584,6 +584,7 @@ class LabelingUltralyticsWorker:
         self.started_at_utc = utc_now()
         self.training_lock = threading.Lock()
         self.training_thread: threading.Thread | None = None
+        self.training_stop_requested = threading.Event()
         self.training_status: dict[str, Any] = {
             "type": "TrainingStatus",
             "state": "idle",
@@ -784,6 +785,7 @@ class LabelingUltralyticsWorker:
             payload["task"] = task
             payload["dataYaml"] = str(data_yaml)
             payload["trainingWeights"] = training_weights
+            self.training_stop_requested.clear()
             self.training_status = self._build_training_status(
                 message.request_id,
                 state="started",
@@ -853,10 +855,20 @@ class LabelingUltralyticsWorker:
                 current_epoch = int(getattr(trainer, "epoch", 0)) + 1
                 total_epochs = int(getattr(trainer, "epochs", epochs) or epochs)
                 progress = int(max(0, min(100, round((current_epoch / max(total_epochs, 1)) * 100))))
+                if self.training_stop_requested.is_set():
+                    setattr(trainer, "stop", True)
+                    send_status("stopping", "Training stop requested.", progress=progress, epoch=current_epoch)
+                    return
+
                 send_status("running", f"Epoch {current_epoch}/{total_epochs}", progress=progress, epoch=current_epoch)
+
+            def on_train_batch_end(trainer: Any) -> None:
+                if self.training_stop_requested.is_set():
+                    setattr(trainer, "stop", True)
 
             if hasattr(model, "add_callback"):
                 model.add_callback("on_train_epoch_end", on_train_epoch_end)
+                model.add_callback("on_train_batch_end", on_train_batch_end)
 
             with remove_created_source_label_caches(data_yaml), data_yaml_working_directory(data_yaml), label_cache_directory():
                 result = model.train(
@@ -872,9 +884,15 @@ class LabelingUltralyticsWorker:
                     plots=False,
                 )
             save_dir = str(getattr(result, "save_dir", "") or "")
-            send_status("completed", f"Ultralytics {model_name} {task} training completed. {save_dir}".strip(), progress=100, epoch=epochs)
+            if self.training_stop_requested.is_set():
+                send_status("stopped", f"Ultralytics {model_name} {task} training stopped. {save_dir}".strip(), epoch=0)
+            else:
+                send_status("completed", f"Ultralytics {model_name} {task} training completed. {save_dir}".strip(), progress=100, epoch=epochs)
         except Exception as exc:
-            send_status("failed", "Ultralytics training failed.", error=make_error("TrainingFailed", exc, include_trace=self.debug))
+            if self.training_stop_requested.is_set():
+                send_status("stopped", "Ultralytics training stopped.")
+            else:
+                send_status("failed", "Ultralytics training failed.", error=make_error("TrainingFailed", exc, include_trace=self.debug))
 
     def _training_start_failure(
         self,
@@ -1020,11 +1038,28 @@ class LabelingUltralyticsWorker:
         return f"openvisionlab-{model_name}-{task}"
 
     def handle_stop_task(self, message: IncomingMessage) -> dict[str, Any]:
+        with self.training_lock:
+            is_training = self.training_thread is not None and self.training_thread.is_alive()
+            if is_training:
+                self.training_stop_requested.set()
+                training_request_id = str(self.training_status.get("requestId", ""))
+                self.training_status = self._build_training_status(
+                    training_request_id,
+                    state="stopping",
+                    message="Training stop requested.",
+                    task=str(self.training_status.get("trainingTask", "detect")),
+                    model=str(self.training_status.get("model", default_runtime_model())),
+                    epoch=self.training_status.get("epoch"),
+                    total_epochs=self.training_status.get("totalEpochs"),
+                    training_weights=str(self.training_status.get("trainingWeights", "")),
+                )
+
         return {
             "type": "StopTaskResult",
             "requestId": message.request_id,
             "ok": True,
-            "state": "idle",
+            "state": "stopping" if is_training else "idle",
+            "message": "Training stop requested." if is_training else "No training task is running.",
         }
 
     def _resolve_image_path(self, value: Any) -> Path:
@@ -1416,6 +1451,27 @@ def run_self_test() -> int:
     assert LabelingUltralyticsWorker._resolve_training_task({"task": "segmentation"}) == "segment"
     assert LabelingUltralyticsWorker._resolve_training_task({"task": "classification"}) == "classify"
     worker = LabelingUltralyticsWorker(detector)
+    worker.training_status = worker._build_training_status(
+        "req-running",
+        "running",
+        "training",
+        "segment",
+        "yolov8",
+        progress=25,
+        epoch=1,
+        total_epochs=4,
+    )
+
+    class LiveTrainingThread:
+        def is_alive(self) -> bool:
+            return True
+
+    worker.training_thread = LiveTrainingThread()  # type: ignore[assignment]
+    stop_result = worker.handle_stop_task(IncomingMessage("StopTask", request_id="req-stop"))
+    assert stop_result["state"] == "stopping"
+    assert worker.training_stop_requested.is_set()
+    worker.training_thread = None
+
     if ultralytics_available() and not yolo11_runtime_available():
         unsupported_detect = worker.handle_detect_image(parse_json_line_message(
             b'{"type":"DetectImage","requestId":"req-unsupported-detect","imagePath":"missing.bmp","model":"yolo11"}'

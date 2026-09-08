@@ -113,10 +113,10 @@ namespace MvcVisionSystem
         {
             if (global.Data.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection)
             {
-                string anomalySummaryPath = ResolveModelCenterAnomalyEvaluationSummaryPath(global.Data.OutputRootPath);
-                if (!string.IsNullOrWhiteSpace(anomalySummaryPath) && File.Exists(anomalySummaryPath))
+                AnomalyClassificationEvaluationRefreshResult refreshResult = anomalyClassificationEvaluationWorkflowService.Refresh(global.Data);
+                if (refreshResult.HasSummary)
                 {
-                    return anomalySummaryPath;
+                    return refreshResult.SummaryPath;
                 }
             }
 

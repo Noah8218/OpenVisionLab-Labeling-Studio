@@ -20,6 +20,8 @@ MIT:
 - Microsoft.NETCore.Platforms 2.0.0
 - Microsoft.Win32.SystemEvents 8.0.0
 - Newtonsoft.Json 13.0.3
+- OpenVisionLab.Integration.Contracts 0.2.0-alpha.1
+- OpenVisionLab.Integration.Transport.Tcp 0.1.0-alpha.1
 - System.Buffers 4.5.1
 - System.Configuration.ConfigurationManager 4.5.0
 - System.Drawing.Common 8.0.27

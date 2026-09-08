@@ -50,6 +50,7 @@ namespace MvcVisionSystem
         public bool Write(WpfCrashRecoveryDraft draft, long revision = 1)
         {
             ValidateDraft(draft, DateTime.UtcNow, validateAge: false);
+            ValidateEstimatedPayloadSize(draft);
             string draftJson = JsonSerializer.Serialize(draft, JsonOptions);
             var envelope = new WpfCrashRecoveryEnvelope
             {
@@ -241,6 +242,70 @@ namespace MvcVisionSystem
                         $"복구 폴리곤 점 수가 허용 개수 {MaximumPolygonPointCount}개를 초과했습니다.");
                 }
             }
+        }
+
+        private static void ValidateEstimatedPayloadSize(WpfCrashRecoveryDraft draft)
+        {
+            long estimatedBytes = 0;
+            estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, draft.ApplicationVersion);
+            estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, draft.RecipeName);
+            estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, draft.DatasetRootPath);
+            estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, draft.ImagePath);
+            estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, draft.DirtyReason);
+
+            foreach (WpfCrashRecoveryBox box in draft.Boxes)
+            {
+                estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, box.ClassName);
+                estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, box.ShapeKind);
+                estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, box.Metadata.GroupId);
+                foreach (string tag in box.Metadata.Tags)
+                {
+                    estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, tag);
+                }
+            }
+
+            foreach (WpfCrashRecoverySegment segment in draft.Segments)
+            {
+                estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, segment.ClassName);
+                estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, segment.ObjectId);
+                estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, segment.LastStructuralOperation);
+                estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, segment.Metadata.GroupId);
+                estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, segment.MaskData?.LongLength ?? 0L);
+                estimatedBytes = AddEstimatedPayloadBytes(
+                    estimatedBytes,
+                    (long)segment.Points.Count * 8L);
+                foreach (List<WpfCrashRecoveryPoint> cutout in segment.CutoutPolygons)
+                {
+                    estimatedBytes = AddEstimatedPayloadBytes(
+                        estimatedBytes,
+                        (long)cutout.Count * 8L);
+                }
+                foreach (string tag in segment.Metadata.Tags)
+                {
+                    estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, tag);
+                }
+            }
+
+            if (estimatedBytes > MaximumJournalBytes)
+            {
+                throw new InvalidDataException(
+                    $"복구 초안 원시 데이터가 허용 크기 {MaximumJournalBytes / (1024 * 1024)}MB를 초과했습니다.");
+            }
+        }
+
+        private static long AddEstimatedPayloadBytes(long current, string value)
+            => AddEstimatedPayloadBytes(current, value == null ? 0L : Encoding.UTF8.GetByteCount(value));
+
+        private static long AddEstimatedPayloadBytes(long current, long additional)
+        {
+            if (additional <= 0)
+            {
+                return current;
+            }
+
+            return current > MaximumJournalBytes - additional
+                ? MaximumJournalBytes + 1
+                : current + additional;
         }
 
         private static void ValidateBox(WpfCrashRecoveryBox box, int imageWidth, int imageHeight)
