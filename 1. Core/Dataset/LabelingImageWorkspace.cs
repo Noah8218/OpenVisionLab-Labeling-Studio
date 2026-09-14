@@ -38,6 +38,8 @@ namespace MvcVisionSystem._1._Core
 
         public Bitmap ActiveImage => activeImage.Image;
 
+        public Size ActiveImageSize => activeImage.ImageSize;
+
         public bool MainImageChanged => imageSpace.IsImageChanged(MainImageTitle);
 
         public void SetActiveImage(string imageName, string imagePath, Bitmap image)

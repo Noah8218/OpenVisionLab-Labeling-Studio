@@ -92,6 +92,8 @@ namespace MvcVisionSystem
         private ICommand rejectModelCandidateCommand = new RelayCommand(NoOpCommand);
         private ICommand candidateSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private ICommand candidatePreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(NoOpKeyCommand);
+        private Action<WpfCandidateReviewListItem> candidateSelectionChangedAction = _ => { };
+        private Action<WpfModelComparisonHistoryItem> modelComparisonHistorySelectionChangedAction = _ => { };
         private ICommand togglePatchCoreHeatmapCommand = new RelayCommand(NoOpCommand);
         private Visibility patchCoreHeatmapVisibility = Visibility.Collapsed;
         private Visibility patchCoreHeatmapPreviewVisibility = Visibility.Collapsed;
@@ -706,6 +708,101 @@ namespace MvcVisionSystem
             SaveModelCandidateCommand = new RelayCommand(saveModelCandidate ?? NoOpCommand);
             RejectModelCandidateCommand = new RelayCommand(rejectModelCandidate ?? NoOpCommand);
             TogglePatchCoreHeatmapCommand = new RelayCommand(togglePatchCoreHeatmap ?? NoOpCommand);
+        }
+
+        public void ConfigureCandidatePreviewKeyWorkflow()
+        {
+            CandidatePreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(ExecuteCandidatePreviewKeyDown);
+        }
+
+        public void ConfigureSelectionWorkflow(Action<WpfCandidateReviewListItem> applySelectionAction)
+        {
+            candidateSelectionChangedAction = applySelectionAction ?? (_ => { });
+            CandidateSelectionChangedCommand = new RelayCommand<object>(ExecuteCandidateSelectionChanged);
+        }
+
+        public void ConfigureModelComparisonHistorySelectionWorkflow(Action<WpfModelComparisonHistoryItem> applySelectionAction)
+        {
+            modelComparisonHistorySelectionChangedAction = applySelectionAction ?? (_ => { });
+            ModelComparisonHistorySelectionChangedCommand = new RelayCommand<object>(ExecuteModelComparisonHistorySelectionChanged);
+        }
+
+        private void ExecuteCandidatePreviewKeyDown(KeyInputCommandArgs args)
+        {
+            if (args == null)
+            {
+                return;
+            }
+
+            if (args.Key == Key.Enter)
+            {
+                ConfirmSelectedCommand.Execute(null);
+                args.Handled = true;
+                return;
+            }
+
+            if (args.Key == Key.Delete || args.Key == Key.Back)
+            {
+                SkipSelectedCommand.Execute(null);
+                args.Handled = true;
+                return;
+            }
+
+            if (args.Key == Key.A && (args.Modifiers & ModifierKeys.Control) == ModifierKeys.Control)
+            {
+                ConfirmAllCommand.Execute(null);
+                args.Handled = true;
+                return;
+            }
+
+            if (args.Key == Key.N)
+            {
+                NextCandidateCommand.Execute(null);
+                args.Handled = true;
+                return;
+            }
+
+            if (args.Key == Key.P)
+            {
+                PreviousCandidateCommand.Execute(null);
+                args.Handled = true;
+                return;
+            }
+
+            if (args.Key == Key.F)
+            {
+                FocusCandidateCommand.Execute(null);
+                args.Handled = true;
+            }
+        }
+
+        private void ExecuteCandidateSelectionChanged(object selectedItem)
+        {
+            WpfCandidateReviewListItem selectedCandidate = selectedItem as WpfCandidateReviewListItem;
+            if (selectedItem != null && selectedCandidate == null)
+            {
+                return;
+            }
+
+            if (selectedCandidate != null && !Candidates.Contains(selectedCandidate))
+            {
+                return;
+            }
+
+            SelectedCandidate = selectedCandidate;
+            candidateSelectionChangedAction?.Invoke(SelectedCandidate);
+        }
+
+        private void ExecuteModelComparisonHistorySelectionChanged(object selectedItem)
+        {
+            WpfModelComparisonHistoryItem selectedHistoryItem = selectedItem as WpfModelComparisonHistoryItem;
+            if (selectedHistoryItem == null || !ModelComparisonHistoryItems.Contains(selectedHistoryItem))
+            {
+                return;
+            }
+
+            SelectedModelComparisonHistoryItem = selectedHistoryItem;
+            modelComparisonHistorySelectionChangedAction?.Invoke(selectedHistoryItem);
         }
 
         public void SetCandidates(

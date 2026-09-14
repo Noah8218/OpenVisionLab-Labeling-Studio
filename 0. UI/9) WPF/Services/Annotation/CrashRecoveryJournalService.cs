@@ -76,7 +76,16 @@ namespace MvcVisionSystem
 
                 Directory.CreateDirectory(RecoveryDirectory);
                 File.WriteAllText(TemporaryPath, envelopeJson, new UTF8Encoding(false));
-                File.Move(TemporaryPath, JournalPath, overwrite: true);
+                using (var stream = new FileStream(
+                    TemporaryPath,
+                    FileMode.Open,
+                    FileAccess.ReadWrite,
+                    FileShare.None))
+                {
+                    stream.Flush(flushToDisk: true);
+                }
+
+                ReplaceJournalFile();
                 return true;
             }
         }
@@ -423,11 +432,23 @@ namespace MvcVisionSystem
                 File.Move(JournalPath, target, overwrite: false);
                 return target;
             }
-            catch
+            catch (Exception error)
             {
+                AppLog.ABNORMAL($"Crash recovery journal quarantine failed: {JournalPath} / {error.Message}");
                 TryDeleteFile(JournalPath);
                 return string.Empty;
             }
+        }
+
+        private void ReplaceJournalFile()
+        {
+            if (File.Exists(JournalPath))
+            {
+                File.Replace(TemporaryPath, JournalPath, destinationBackupFileName: null, ignoreMetadataErrors: true);
+                return;
+            }
+
+            File.Move(TemporaryPath, JournalPath);
         }
 
         private static string NormalizeRequired(string value, string fieldName)
@@ -468,8 +489,9 @@ namespace MvcVisionSystem
                     File.Delete(path);
                 }
             }
-            catch
+            catch (Exception error)
             {
+                AppLog.ABNORMAL($"Crash recovery journal cleanup failed: {path} / {error.Message}");
             }
         }
     }

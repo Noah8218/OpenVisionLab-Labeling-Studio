@@ -2,6 +2,8 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Runtime.ExceptionServices;
+using System.Linq;
+using Newtonsoft.Json;
 
 namespace MvcVisionSystem.Yolo
 {
@@ -9,16 +11,54 @@ namespace MvcVisionSystem.Yolo
     {
         BeforeTemporaryFlush,
         BeforeCommit,
-        AfterCommit
+        AfterCommit,
+        AfterTransactionCommit
     }
 
     internal static class AnnotationFilePersistence
     {
+        private static readonly object transactionSync = new object();
+        private static string recoveryDirectory;
+
         [ThreadStatic]
         private static AnnotationFileTransaction currentTransaction;
 
         [ThreadStatic]
         private static Action<AnnotationFilePersistenceFaultPoint, string> testFaultInjector;
+
+        internal static string RecoveryDirectory => recoveryDirectory;
+
+        // The application configures its existing per-user data root before opening a Recipe.
+        // Tests supply an isolated root; the persistence owner does not depend on WPF paths.
+        internal static void ConfigureRecoveryDirectory(string directory)
+        {
+            lock (transactionSync)
+            {
+                if (currentTransaction != null)
+                {
+                    throw new InvalidOperationException("Cannot change recovery storage during a save.");
+                }
+
+                recoveryDirectory = directory == null ? null : Path.GetFullPath(directory);
+                RecoverInterruptedTransactions();
+            }
+        }
+
+        internal static void RecoverInterruptedTransactions()
+        {
+            lock (transactionSync)
+            {
+                if (recoveryDirectory == null || !Directory.Exists(recoveryDirectory))
+                {
+                    return;
+                }
+
+                foreach (string path in Directory.EnumerateFiles(recoveryDirectory, "*.json"))
+                {
+                    AnnotationFileTransaction.Recover(path);
+                }
+            }
+        }
 
         internal static IDisposable PushTestFaultInjector(
             Action<AnnotationFilePersistenceFaultPoint, string> injector)
@@ -31,13 +71,24 @@ namespace MvcVisionSystem.Yolo
 
         public static bool ExecuteTransaction(Func<bool> saveFiles)
         {
+            // ponytail: one writer is sufficient for this single-operator application.
+            // Keep recovery and writes serialized; use dataset locks only if concurrent editing is added.
+            lock (transactionSync)
+            {
+                return ExecuteTransactionCore(saveFiles);
+            }
+        }
+
+        private static bool ExecuteTransactionCore(Func<bool> saveFiles)
+        {
             ArgumentNullException.ThrowIfNull(saveFiles);
             if (currentTransaction != null)
             {
                 return saveFiles();
             }
 
-            var transaction = new AnnotationFileTransaction();
+            RecoverInterruptedTransactions();
+            var transaction = new AnnotationFileTransaction(recoveryDirectory);
             currentTransaction = transaction;
             try
             {
@@ -45,6 +96,10 @@ namespace MvcVisionSystem.Yolo
                 try
                 {
                     shouldCommit = saveFiles();
+                    if (shouldCommit)
+                    {
+                        transaction.Commit();
+                    }
                 }
                 catch (Exception saveFailure)
                 {
@@ -70,7 +125,6 @@ namespace MvcVisionSystem.Yolo
                     return false;
                 }
 
-                transaction.Commit();
                 return true;
             }
             finally
@@ -139,6 +193,22 @@ namespace MvcVisionSystem.Yolo
                     File.Delete(temporaryPath);
                 }
             }
+        }
+
+        internal static void ReplacePreparedFile(string temporaryPath, string path, string backupPath)
+        {
+            if (currentTransaction == null)
+            {
+                ReplaceOrMove(temporaryPath, path, backupPath);
+                return;
+            }
+
+            if (File.Exists(path))
+            {
+                WriteAtomically(backupPath, staged => File.Copy(path, staged));
+            }
+
+            WriteAtomically(path, staged => File.Move(temporaryPath, staged));
         }
 
         public static void Delete(string path)
@@ -210,6 +280,52 @@ namespace MvcVisionSystem.Yolo
             private readonly Dictionary<string, TransactionEntry> entries =
                 new Dictionary<string, TransactionEntry>(StringComparer.OrdinalIgnoreCase);
             private readonly List<TransactionEntry> order = new List<TransactionEntry>();
+            private readonly string id;
+            private readonly string journalPath;
+
+            public AnnotationFileTransaction(string directory)
+            {
+                id = Guid.NewGuid().ToString("N");
+                journalPath = directory == null ? null : Path.Combine(directory, id + ".json");
+            }
+
+            private AnnotationFileTransaction(string path, JournalRecord record)
+            {
+                id = record.Id;
+                journalPath = path;
+                order.AddRange(record.Entries);
+            }
+
+            public static void Recover(string path)
+            {
+                JournalEnvelope envelope = JsonConvert.DeserializeObject<JournalEnvelope>(File.ReadAllText(path));
+                if (envelope?.Payload == null || !string.Equals(envelope.Sha256,
+                    HashingService.ComputeUtf8TextSha256(envelope.Payload, lowerCase: true), StringComparison.Ordinal))
+                {
+                    throw new InvalidDataException("Annotation recovery journal checksum failed: " + path);
+                }
+
+                JournalRecord record = JsonConvert.DeserializeObject<JournalRecord>(envelope.Payload);
+                if (record?.Version != 1 || !Guid.TryParseExact(record.Id, "N", out _)
+                    || Path.GetFileNameWithoutExtension(path) != record.Id || record.Entries == null
+                    || record.Entries.Any(entry => entry == null || !Path.IsPathFullyQualified(entry.TargetPath)
+                        || !string.Equals(entry.BackupPath, entry.OriginalExists ? CreateBackupPath(entry.TargetPath, record.Id) : string.Empty, StringComparison.Ordinal))
+                    || record.Entries.Select(entry => entry.TargetPath).Distinct(StringComparer.OrdinalIgnoreCase).Count() != record.Entries.Count)
+                {
+                    throw new InvalidDataException("Annotation recovery journal is invalid: " + path);
+                }
+
+                var transaction = new AnnotationFileTransaction(path, record);
+                if (record.Committed)
+                {
+                    transaction.CleanupCommitted();
+                }
+                else
+                {
+                    transaction.Rollback();
+                    AppLog.COMM("Recovered interrupted annotation save: " + record.Id);
+                }
+            }
 
             public void Write(string temporaryPath, string targetPath)
             {
@@ -220,10 +336,11 @@ namespace MvcVisionSystem.Yolo
                 }
 
                 bool originalExists = File.Exists(targetPath);
-                string backupPath = originalExists ? CreateBackupPath(targetPath) : string.Empty;
+                string backupPath = originalExists ? CreateBackupPath(targetPath, id) : string.Empty;
                 var entry = new TransactionEntry(targetPath, backupPath, originalExists);
                 entries.Add(targetPath, entry);
                 order.Add(entry);
+                PersistJournal(committed: false);
                 ReplaceOrMove(temporaryPath, targetPath, originalExists ? backupPath : null);
             }
 
@@ -244,18 +361,31 @@ namespace MvcVisionSystem.Yolo
                     return;
                 }
 
-                string backupPath = CreateBackupPath(targetPath);
+                string backupPath = CreateBackupPath(targetPath, id);
                 var entry = new TransactionEntry(targetPath, backupPath, originalExists: true);
                 entries.Add(targetPath, entry);
                 order.Add(entry);
+                PersistJournal(committed: false);
                 File.Move(targetPath, backupPath);
             }
 
             public void Commit()
             {
+                PersistJournal(committed: true);
+                InjectTestFault(AnnotationFilePersistenceFaultPoint.AfterTransactionCommit, journalPath);
+                CleanupCommitted();
+            }
+
+            private void CleanupCommitted()
+            {
                 foreach (TransactionEntry entry in order)
                 {
                     TryDeleteBackup(entry.BackupPath);
+                }
+
+                if (order.All(entry => string.IsNullOrEmpty(entry.BackupPath) || !File.Exists(entry.BackupPath)))
+                {
+                    TryDeleteBackup(journalPath);
                 }
             }
 
@@ -279,6 +409,11 @@ namespace MvcVisionSystem.Yolo
 
                         if (!File.Exists(entry.BackupPath))
                         {
+                            if (!File.Exists(entry.TargetPath))
+                            {
+                                throw new InvalidDataException("Annotation recovery cannot find either original or backup: " + entry.TargetPath);
+                            }
+
                             continue;
                         }
 
@@ -294,15 +429,54 @@ namespace MvcVisionSystem.Yolo
                 {
                     throw new AggregateException("One or more annotation files could not be rolled back.", failures);
                 }
+
+                if (journalPath != null && File.Exists(journalPath))
+                {
+                    File.Delete(journalPath);
+                }
             }
 
-            private static string CreateBackupPath(string targetPath)
+            private void PersistJournal(bool committed)
+            {
+                if (journalPath == null || order.Count == 0)
+                {
+                    return;
+                }
+
+                Directory.CreateDirectory(Path.GetDirectoryName(journalPath));
+                string payload = JsonConvert.SerializeObject(new JournalRecord { Id = id, Committed = committed, Entries = order });
+                string json = JsonConvert.SerializeObject(new JournalEnvelope
+                {
+                    Payload = payload,
+                    Sha256 = HashingService.ComputeUtf8TextSha256(payload, lowerCase: true)
+                });
+                string temporaryPath = journalPath + ".tmp";
+                try
+                {
+                    File.WriteAllText(temporaryPath, json);
+                    using (var stream = new FileStream(temporaryPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                    {
+                        stream.Flush(flushToDisk: true);
+                    }
+
+                    ReplaceOrMove(temporaryPath, journalPath, backupPath: null);
+                }
+                finally
+                {
+                    if (File.Exists(temporaryPath))
+                    {
+                        File.Delete(temporaryPath);
+                    }
+                }
+            }
+
+            private static string CreateBackupPath(string targetPath, string transactionId)
             {
                 string directory = Path.GetDirectoryName(targetPath)
                     ?? throw new InvalidOperationException("Annotation path has no parent directory.");
                 return Path.Combine(
                     directory,
-                    $".{Path.GetFileName(targetPath)}.rollback-{Guid.NewGuid():N}");
+                    $".{Path.GetFileName(targetPath)}.rollback-{transactionId}");
             }
 
             private static void TryDeleteBackup(string backupPath)
@@ -316,15 +490,29 @@ namespace MvcVisionSystem.Yolo
                 {
                     File.Delete(backupPath);
                 }
-                catch (IOException)
+                catch (IOException error)
                 {
-                    // A committed canonical file remains valid even if cleanup must be retried later.
+                    AppLog.ABNORMAL($"Committed annotation cleanup deferred: {backupPath} / {error.Message}");
                 }
-                catch (UnauthorizedAccessException)
+                catch (UnauthorizedAccessException error)
                 {
-                    // A committed canonical file remains valid even if cleanup must be retried later.
+                    AppLog.ABNORMAL($"Committed annotation cleanup deferred: {backupPath} / {error.Message}");
                 }
             }
+        }
+
+        private sealed class JournalEnvelope
+        {
+            public string Payload { get; set; }
+            public string Sha256 { get; set; }
+        }
+
+        private sealed class JournalRecord
+        {
+            public int Version { get; set; } = 1;
+            public string Id { get; set; }
+            public bool Committed { get; set; }
+            public List<TransactionEntry> Entries { get; set; }
         }
 
         private sealed class TransactionEntry

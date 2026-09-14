@@ -211,6 +211,24 @@ namespace MvcVisionSystem._1._Core
         public bool CanInspect { get; }
     }
 
+    public sealed class PythonModelRuntimeRepositoryCheck
+    {
+        public PythonModelRuntimeRepositoryCheck(
+            string repositoryRootPath,
+            IEnumerable<string> requiredRelativePaths,
+            IEnumerable<string> missingRelativePaths)
+        {
+            RepositoryRootPath = repositoryRootPath ?? string.Empty;
+            RequiredRelativePaths = (requiredRelativePaths ?? Enumerable.Empty<string>()).ToArray();
+            MissingRelativePaths = (missingRelativePaths ?? Enumerable.Empty<string>()).ToArray();
+        }
+
+        public string RepositoryRootPath { get; }
+        public IReadOnlyList<string> RequiredRelativePaths { get; }
+        public IReadOnlyList<string> MissingRelativePaths { get; }
+        public bool IsReady => MissingRelativePaths.Count == 0;
+    }
+
     public enum PythonModelRuntimeStateKind
     {
         NotInstalled,

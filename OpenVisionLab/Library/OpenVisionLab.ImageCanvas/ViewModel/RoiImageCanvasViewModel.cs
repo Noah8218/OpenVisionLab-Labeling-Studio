@@ -17,7 +17,6 @@ using System.Diagnostics;
 using System.Drawing;
 using System.Linq;
 using System.Runtime.InteropServices;
-using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using Model = OpenVisionLab.ImageCanvas.Model;
@@ -34,6 +33,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		private const uint FramebufferBindingExt = 0x8CA6;
 		private static readonly ConcurrentDictionary<int, BrushPreviewStamp> BrushPreviewStampCache = new ConcurrentDictionary<int, BrushPreviewStamp>();
 		private IImageFileDialogHost _imageFileDialogHost;
+		private IImageCanvasContextMenuHost _contextMenuHost;
 
 		#region Event
 		public event EventHandler<object> LoadImageRequested = delegate { };
@@ -118,8 +118,6 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		}
 
 		public Predicate<CanvasRect<float>> ShouldDrawOverExistingRoi { get; set; }
-
-		public System.Windows.Controls.ContextMenu ContextMenu { get; set; }
 
 		public int GrayValue
 		{
@@ -364,6 +362,11 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 		public void ConfigureImageFileDialogHost(IImageFileDialogHost dialogHost)
 		{
 			_imageFileDialogHost = dialogHost;
+		}
+
+		public void ConfigureContextMenuHost(IImageCanvasContextMenuHost contextMenuHost)
+		{
+			_contextMenuHost = contextMenuHost;
 		}
 
 		private void InitializeDefaultGroup()
@@ -4470,6 +4473,8 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 			{
 				_imageViewer.Dispose();
 			}
+
+			_contextMenuHost = null;
 		}
 		#endregion
 	}

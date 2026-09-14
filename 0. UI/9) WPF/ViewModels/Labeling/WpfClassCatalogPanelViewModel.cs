@@ -31,6 +31,13 @@ namespace MvcVisionSystem
         private ICommand applyClassColorCommand = new RelayCommand(NoOpCommand);
         private ICommand classSelectionChangedCommand = new RelayCommand<object>(NoOpSelectionCommand);
         private WpfClassCatalogColorPreset selectedColorPreset;
+        private ClassCatalogWorkflowService mutationWorkflowService;
+        private Func<LabelingProjectData> mutationDataProvider;
+        private Func<string> mutationRecipeNameProvider;
+        private Func<bool> mutationCloseApprovedProvider;
+        private Action cancelPendingDraft;
+        private Action<string> selectCanvasLabelClass;
+        private Action<string> refreshObjectClassOptions;
 
         public WpfClassCatalogPanelViewModel()
         {
@@ -42,6 +49,8 @@ namespace MvcVisionSystem
             SelectedColorPreset = ColorPresets.FirstOrDefault();
             Classes.CollectionChanged += (_, _) => NotifyClassCatalogSummaryChanged();
         }
+
+        public event Action<WpfClassCatalogMutationKind, WpfClassCatalogMutationResult> MutationCompleted;
 
         public string ViewName => nameof(WpfClassCatalogPanel);
 
@@ -247,6 +256,49 @@ namespace MvcVisionSystem
             ClassSelectionChangedCommand = new RelayCommand<object>(classSelectionChanged ?? NoOpSelectionCommand);
         }
 
+        public void ConfigureClassNamePreviewKeyWorkflow()
+        {
+            ClassNamePreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(ExecuteClassNamePreviewKeyDown);
+        }
+
+        public void ConfigureMutationWorkflow(
+            ClassCatalogWorkflowService workflowService,
+            Func<LabelingProjectData> dataProvider,
+            Func<string> recipeNameProvider,
+            Func<bool> closeApprovedProvider)
+        {
+            mutationWorkflowService = workflowService ?? throw new ArgumentNullException(nameof(workflowService));
+            mutationDataProvider = dataProvider ?? throw new ArgumentNullException(nameof(dataProvider));
+            mutationRecipeNameProvider = recipeNameProvider ?? throw new ArgumentNullException(nameof(recipeNameProvider));
+            mutationCloseApprovedProvider = closeApprovedProvider ?? throw new ArgumentNullException(nameof(closeApprovedProvider));
+            AddClassCommand = new RelayCommand(ExecuteAddClass);
+            RenameClassCommand = new RelayCommand(ExecuteRenameClass);
+            ArchiveClassCommand = new RelayCommand(ExecuteArchiveClass);
+            ApplyClassColorCommand = new RelayCommand(ExecuteApplyClassColor);
+        }
+
+        private void ExecuteClassNamePreviewKeyDown(KeyInputCommandArgs args)
+        {
+            if (args?.Key != Key.Enter)
+            {
+                return;
+            }
+
+            AddClassCommand.Execute(null);
+            args.Handled = true;
+        }
+
+        public void ConfigureSelectionWorkflow(
+            Action cancelPendingFourPointBoxDraft,
+            Action<string> selectCanvasClass,
+            Action<string> refreshObjectOptions)
+        {
+            cancelPendingDraft = cancelPendingFourPointBoxDraft ?? (() => { });
+            selectCanvasLabelClass = selectCanvasClass ?? (_ => { });
+            refreshObjectClassOptions = refreshObjectOptions ?? (_ => { });
+            ClassSelectionChangedCommand = new RelayCommand<object>(ExecuteClassSelectionChanged);
+        }
+
         public void LoadOutputRoot(string path)
         {
             OutputRootPath = path ?? string.Empty;
@@ -355,6 +407,177 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(ArchiveClassButtonText));
             OnPropertyChanged(nameof(IsArchiveClassEnabled));
             OnPropertyChanged(nameof(IsRenameClassEnabled));
+        }
+
+        private void ExecuteAddClass()
+        {
+            if (IsMutationUnavailable())
+            {
+                return;
+            }
+
+            WpfClassCatalogMutationResult result = mutationWorkflowService.Add(
+                mutationDataProvider(),
+                mutationRecipeNameProvider(),
+                ClassName);
+            MutationCompleted?.Invoke(WpfClassCatalogMutationKind.Add, result);
+            SetMutationStatus(
+                WpfClassCatalogMutationKind.Add,
+                result,
+                string.Format("클래스 추가: {0}", result.ClassItem?.Text));
+        }
+
+        private void ExecuteClassSelectionChanged(object selectedItem)
+        {
+            cancelPendingDraft?.Invoke();
+            WpfClassCatalogListItem selectedClass = selectedItem as WpfClassCatalogListItem;
+            string className = selectedClass?.Text ?? SelectedClass?.Text;
+            if (string.IsNullOrWhiteSpace(className))
+            {
+                return;
+            }
+
+            if (selectedClass != null && !ReferenceEquals(SelectedClass, selectedClass))
+            {
+                SelectedClass = selectedClass;
+            }
+            else
+            {
+                ClassName = className;
+            }
+
+            if (selectedClass?.IsArchived == true)
+            {
+                StatusText = string.Format("보관된 클래스: {0}. 새 라벨에는 사용하지 않습니다.", className);
+                return;
+            }
+
+            selectCanvasLabelClass?.Invoke(className);
+            refreshObjectClassOptions?.Invoke(className);
+        }
+
+        private void ExecuteRenameClass()
+        {
+            if (IsMutationUnavailable())
+            {
+                return;
+            }
+
+            string currentName = SelectedClass?.Text ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(currentName))
+            {
+                StatusText = "클래스를 선택하세요.";
+                return;
+            }
+
+            WpfClassCatalogMutationResult result = mutationWorkflowService.Rename(
+                mutationDataProvider(),
+                mutationRecipeNameProvider(),
+                currentName,
+                ClassName);
+            MutationCompleted?.Invoke(WpfClassCatalogMutationKind.Rename, result);
+            SetMutationStatus(
+                WpfClassCatalogMutationKind.Rename,
+                result,
+                string.Format("클래스 이름 변경: {0} -> {1}", currentName, result.ClassItem?.Text));
+        }
+
+        private void ExecuteArchiveClass()
+        {
+            if (IsMutationUnavailable())
+            {
+                return;
+            }
+
+            string className = SelectedClass?.Text ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(className))
+            {
+                StatusText = "클래스를 선택하세요.";
+                return;
+            }
+
+            WpfClassCatalogMutationResult result = mutationWorkflowService.ToggleArchive(
+                mutationDataProvider(),
+                mutationRecipeNameProvider(),
+                className);
+            MutationCompleted?.Invoke(WpfClassCatalogMutationKind.ToggleArchive, result);
+            string action = result.WasArchived ? "클래스 복원" : "클래스 보관";
+            SetMutationStatus(
+                WpfClassCatalogMutationKind.ToggleArchive,
+                result,
+                string.Format("{0}: {1}", action, className));
+        }
+
+        private void ExecuteApplyClassColor()
+        {
+            if (IsMutationUnavailable())
+            {
+                return;
+            }
+
+            string className = SelectedClass?.Text ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(className))
+            {
+                StatusText = "클래스를 선택하세요.";
+                return;
+            }
+
+            DrawingColor color = SelectedColorPreset?.Color ?? DrawingColor.LimeGreen;
+            WpfClassCatalogMutationResult result = mutationWorkflowService.SetColor(
+                mutationDataProvider(),
+                mutationRecipeNameProvider(),
+                className,
+                color);
+            MutationCompleted?.Invoke(WpfClassCatalogMutationKind.SetColor, result);
+            SetMutationStatus(
+                WpfClassCatalogMutationKind.SetColor,
+                result,
+                string.Format("클래스 색상 변경: {0}", result.ClassItem?.Text));
+        }
+
+        private bool IsMutationUnavailable()
+            => mutationWorkflowService == null
+                || mutationDataProvider == null
+                || mutationRecipeNameProvider == null
+                || mutationCloseApprovedProvider?.Invoke() == true;
+
+        private void SetMutationStatus(
+            WpfClassCatalogMutationKind kind,
+            WpfClassCatalogMutationResult result,
+            string successText)
+        {
+            if (result?.IsSuccess == true)
+            {
+                StatusText = successText;
+                return;
+            }
+
+            StatusText = kind switch
+            {
+                WpfClassCatalogMutationKind.ToggleArchive when result?.Failure == WpfClassCatalogOperationFailure.LastActiveClass
+                    => "최소 1개의 활성 클래스는 유지해야 합니다.",
+                WpfClassCatalogMutationKind.ToggleArchive when result?.Failure == WpfClassCatalogOperationFailure.Persistence
+                    => string.Format("클래스 저장 실패: {0}", result.ErrorMessage),
+                WpfClassCatalogMutationKind.ToggleArchive when result?.Failure == WpfClassCatalogOperationFailure.ClassNotFound
+                    && mutationDataProvider()?.ClassNamedList?.Any(item =>
+                        string.Equals(item?.Text, result.ClassName, StringComparison.OrdinalIgnoreCase) && item.IsArchived) == true
+                    => string.Format("복원할 클래스를 찾지 못했습니다: {0}", result.ClassName),
+                WpfClassCatalogMutationKind.ToggleArchive when result?.Failure == WpfClassCatalogOperationFailure.ClassNotFound
+                    => string.Format("클래스를 찾지 못했습니다: {0}", result.ClassName),
+                WpfClassCatalogMutationKind.SetColor when result?.Failure == WpfClassCatalogOperationFailure.Persistence
+                    => string.Format("클래스 저장 실패: {0}", result.ErrorMessage),
+                WpfClassCatalogMutationKind.SetColor when result?.Failure == WpfClassCatalogOperationFailure.ClassNotFound
+                    => string.Format("삭제할 클래스를 찾지 못했습니다: {0}", result.ClassName),
+                _ when result?.Failure == WpfClassCatalogOperationFailure.InvalidClassName
+                    => "새 클래스 이름을 입력하세요.",
+                _ when result?.Failure == WpfClassCatalogOperationFailure.ArchivedClass
+                    => "보관된 클래스는 먼저 복원한 뒤 이름을 바꿀 수 있습니다.",
+                _ when result?.Failure == WpfClassCatalogOperationFailure.InvalidOutputRoot
+                    => "저장 경로를 입력하거나 선택하세요.",
+                _ when result?.Failure == WpfClassCatalogOperationFailure.Persistence
+                    => string.Format("클래스 저장 실패: {0}", result.ErrorMessage),
+                _ => string.Format("이미 존재하거나 사용할 수 없는 클래스 이름입니다: {0}", result?.ClassName)
+            };
         }
 
         private static string T(string key) => OpenVisionLanguageService.T(key);

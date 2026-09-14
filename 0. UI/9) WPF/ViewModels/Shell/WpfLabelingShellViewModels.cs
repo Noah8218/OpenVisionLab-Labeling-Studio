@@ -71,6 +71,27 @@ namespace MvcVisionSystem
 
         public RoiImageCanvasViewModel MainCanvasViewModel { get; } = new RoiImageCanvasViewModel("Main");
 
+        public void ApplyWorkflowCommandState(WorkflowCommandState state, ModelComparisonCommandState comparisonState)
+        {
+            ShellViewModel.ApplyWorkflowCommandState(state);
+            ImageQueueViewModel.ApplyWorkflowCommandState(state);
+            ProjectConfigViewModel.ApplyWorkflowCommandState(state);
+            LearningWorkflowViewModel.SetModelComparisonRunState(
+                comparisonState?.IsEnabled == true,
+                comparisonState?.ActionText,
+                comparisonState?.ToolTipText,
+                comparisonState?.BasisText);
+
+            if (!IsModelWorkflowCreated)
+            {
+                return;
+            }
+
+            ModelWorkflowViewModels.YoloStatusViewModel.ApplyWorkflowCommandState(state);
+            ModelWorkflowViewModels.YoloModelSettingsViewModel.ApplyWorkflowCommandState(state);
+            ModelWorkflowViewModels.TrainingSettingsViewModel.ApplyWorkflowCommandState(state);
+        }
+
         public void Dispose()
         {
             if (disposed)

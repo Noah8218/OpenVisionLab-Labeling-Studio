@@ -311,6 +311,14 @@ namespace MvcVisionSystem
         Persistence
     }
 
+    public enum WpfClassCatalogMutationKind
+    {
+        Add,
+        Rename,
+        ToggleArchive,
+        SetColor
+    }
+
     [Obsolete("Use ClassCatalogWorkflowService.", false)]
     public sealed class WpfClassCatalogWorkflowService : ClassCatalogWorkflowService
     {

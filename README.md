@@ -32,6 +32,9 @@ OpenVisionLab Labeling Studio는 라벨만 그리는 도구가 아닙니다. 한
 
 처음 사용하는 경우 [단계별 사용 가이드](docs/tutorial/README.md)를 먼저 보세요.
 
+Visual Studio에서는 `OpenVisionLab.LabelingStudio.sln`을 열고
+`OpenVisionLab.LabelingStudio` 프로젝트를 시작 프로젝트로 선택한 뒤 x64로 빌드합니다.
+
 ## 세 가지 라벨링 방식
 
 ### 객체탐지
@@ -90,7 +93,7 @@ Recipe를 저장하거나 학습을 시작하면 이미지·라벨의 실제 내
 | --- | --- |
 | 객체탐지 | YOLOv5, YOLOv8, YOLO11 |
 | 세그멘테이션 | YOLOv8-seg, YOLO11-seg, U-Net |
-| 이상탐지 | YOLOv8 classification |
+| 이상탐지 | YOLOv8/YOLO11 classification, PatchCore pilot |
 
 모델 프로필을 선택하면 등록된 로컬 실행기 기준으로 Python, 프로젝트, 실행 스크립트가 함께 전환됩니다. 자동 탐색이 실패한 첫 연결에서만 실행기 폴더를 지정합니다. GitHub의 임의 모델을 이름만으로 자동 지원하지는 않으며, 클래스·분할·출력 매핑과 focused 검증을 갖춘 어댑터만 실행 대상으로 노출합니다.
 
@@ -120,13 +123,15 @@ flowchart LR
 사용자에게 영향을 주는 변경은 `RELEASE_NOTES.md`에 기록합니다. 이 저장소는
 실제 검증된 변경을 버전별 checkpoint로 계속 갱신합니다.
 
-- 현재 소스 버전: `0.3.3` PATCH 후보 (2026-09-09)
-- 이전 Public 버전: `0.3.2`
+- 현재 소스 버전: `0.3.4` (2026-09-15)
+- 이전 Public 버전: `0.3.3`
 - 최근 버전 기록:
-  - `0.3.3` (2026-09-09): WPF Shell·Canvas·Queue·Model·Dataset·Object Review의
-    독립 책임 owner를 정리하고 annotation 저장, crash recovery, 데이터셋 검증,
-    Python 실행·통신 경계를 명확히 했습니다. 저장 포맷과 모델 상태 경계는
-    변경하지 않았습니다.
+  - `0.3.4` (2026-09-15): WPF Shell의 수동 partial 분산 책임을 기능별
+    View·ViewModel·adapter·lifecycle owner로 정리하고 저장·검수·학습 작업 흐름을
+    보존했습니다. annotation·Recipe·Dataset Version·model-state 공개 형식은 유지됩니다.
+  - `0.3.3` (2026-09-08): 전수조사 결과를 기준으로 WPF Shell·Canvas·Queue·Model
+    책임을 concrete owner로 정리하고, PL-0042~0060의 호출 경로·상태 소유·문서
+    중복 방지 경계를 기록했습니다. 저장 포맷과 모델 상태 경계는 변경하지 않았습니다.
   - `0.3.2` (2026-09-07): Shell partial과 내부 WPF 계약의 책임을 concrete owner로
     정리하고 비동기 종료·수명 경계를 보강했습니다. 저장 포맷과 모델 상태 경계는
     변경하지 않았습니다.
@@ -171,7 +176,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x6
 .\scripts\start-labeling-workbench.ps1 -AppMode Publish
 ```
 
-기본 릴리스는 `artifacts\publish\Release\win-x64\0.3.3`에 생성되는
+기본 릴리스는 `artifacts\publish\Release\win-x64\0.3.4`에 생성되는
 self-contained Windows x64 번들입니다. `release-manifest.json`과
 `publish-manifest.txt`에는 소스 커밋, 빌드 식별 정보, 전체 payload의
 SHA-256이 기록됩니다. 기존 패키지는 다음 명령으로 변경 없이 다시 검증할 수 있습니다.
@@ -181,7 +186,7 @@ SHA-256이 기록됩니다. 기존 패키지는 다음 명령으로 변경 없�
 `OpenVisionLab.LabelingStudio.exe`를 실행합니다.
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.3.3 -VerifyOnly
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.3.4 -VerifyOnly
 ```
 
 ## 샘플 데이터
@@ -209,7 +214,7 @@ dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Release
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File .\scripts\publish-win-x64.ps1 -Configuration Release
-& .\artifacts\publish\Release\win-x64\0.3.3\OpenVisionLab.LabelingStudio.exe `
+& .\artifacts\publish\Release\win-x64\0.3.4\OpenVisionLab.LabelingStudio.exe `
   --environment-self-test --json
 ```
 
@@ -230,8 +235,13 @@ output. Exit code `0` means ready, `2` means the environment needs attention,
 ## CI
 
 The public Windows CI workflow builds the product, publishes and verifies the
-versioned release package, and uploads the verified artifact. Development
-tests and internal evidence checks run only in the Dev repository. Hosted-run
+versioned release package, and uploads the verified artifact. Dev CI keeps the
+automatic path bounded to test build, documentation smoke, and whitespace
+checks. Documentation and internal guidance changes do not
+start a hosted run, and a newer run cancels an older run on the same branch.
+The complete regression and versioned package checks are available through
+`workflow_dispatch` with `full_regression=true`; this prevents every small
+development checkpoint from consuming a full Windows runner window. Hosted-run
 success is claimed only after the corresponding GitHub Actions run is inspected.
 
 GitHub Actions의 `.github/workflows/ci.yml`은 다음을 확인합니다.
@@ -239,7 +249,7 @@ GitHub Actions의 `.github/workflows/ci.yml`은 다음을 확인합니다.
 - README 필수 섹션
 - .NET Release 제품 빌드
 - versioned self-contained `win-x64` publish와 payload 검증
-- `openvisionlab-labeling-studio-0.3.3-win-x64` artifact 업로드
+- `openvisionlab-labeling-studio-0.3.4-win-x64` artifact 업로드
 - `git diff --check`
 
 ## 문서
@@ -256,8 +266,8 @@ GitHub Actions의 `.github/workflows/ci.yml`은 다음을 확인합니다.
 
 ## Roadmap
 
-1. 현재 소스의 빌드·260개 전체 회귀·framework-dependent/self-contained Release 게시·첫 실행 감사가 완료됐습니다. 로컬 게시 가능성은 확인됐지만 상용 릴리스 준비 완료를 의미하지 않습니다.
-2. SDK `8.0.421`, 제품 `0.2.1`에서 완료된 P0-B1 계약을 보존하며, 결정적 self-contained 패키지·전체 payload SHA-256·LICENSE·NOTICE·제3자 고지를 유지합니다.
+1. 과거 P0-B1 기록에는 빌드·260개 회귀·framework-dependent/self-contained 로컬 게시·첫 실행 감사 근거가 있습니다. 최신 변경은 해당 검증 기록의 입력 버전과 실행 항목을 확인해야 합니다. 과거 게시 근거는 현재 소스 전체나 상용 릴리스 준비 완료를 증명하지 않습니다.
+2. 완료된 P0-B1 패키지 계약을 보존하며, 결정적 self-contained 패키지·전체 payload SHA-256·LICENSE·NOTICE·제3자 고지를 유지합니다.
 3. P0-B2의 명시적 환경 self-test, 구조화된 시작 진단, 제한된 로그 보존, 개인정보 안전 support bundle export는 완료됐습니다.
 4. 이식 가능한 프로젝트 아카이브와 한 이미지 제한형 비정상 종료 복구 저널은 구현 완료됐습니다. 승인된 깨끗한 Windows 환경과 설치/서명 결정이 제공되면 설치·업그레이드·제거를 검증합니다.
 5. 승인된 생산 데이터와 목표 하드웨어가 제공되면 정확도·장기 안정성·takt time을 별도 현장 채택 기준으로 검증합니다.
@@ -268,7 +278,8 @@ GitHub Actions의 `.github/workflows/ci.yml`은 다음을 확인합니다.
 - P0-B2 진단은 로컬 사용자 경로와 명시적 support export까지 검증됐지만 텔레메트리·클라우드 지원·자동 업로드를 제공하지 않습니다.
 - `설정/도구 -> 프로젝트 이동`에서 마지막으로 저장된 Recipe와 전체 데이터셋을 SHA-256 프로젝트 아카이브로 내보내고 새 위치로 가져올 수 있습니다. 미저장 라벨·미확정 후보·진행 중 작업은 차단하며, 기존 Recipe/데이터셋을 덮어쓰거나 자동 적용하지 않습니다.
 - 비정상 종료 시 한 이미지의 미저장 박스·세그멘테이션·검수 메타데이터를 명시적으로 복구하거나 폐기할 수 있습니다. 복구는 AI 후보를 승인하거나 라벨을 자동 저장하지 않으며, 7일이 지난 초안과 Recipe·데이터셋·이미지가 달라진 초안은 사용하지 않습니다.
-- 현재 이상탐지는 OK/NG 2클래스 분류이며 one-class novelty detection이나 위치 heatmap 학습이 아닙니다.
+- 명시적 다중 파일 저장 도중 종료되면 다음 시작에서 마지막 완료 상태를 복구합니다. 복구 기록이 손상되거나 대상 파일에 접근할 수 없으면 작업 화면 진입을 중단하고 로그를 남깁니다. 이 검증은 프로세스 강제 종료 기준이며 실제 전원 차단·저장 장치 장애를 보장하지 않습니다.
+- YOLOv8/YOLO11 이상탐지는 OK/NG 2클래스 지도학습이고, PatchCore pilot은 정상 전용 학습과 heatmap 검토를 제공합니다. AI 판정은 미확정 후보이며, 학습용 정답은 수동 OK/NG 검수 또는 명시적으로 승인한 폴더 검수 결과만 저장합니다. 이전 버전의 검수 파일에는 AI/사용자 출처가 없으므로 기존 정답의 출처는 자동 복원하지 않습니다.
 - 합성 데이터는 기능·어댑터·재현성 완료 근거로 사용할 수 있지만 생산 정확도 보장은 아닙니다. 현장 데이터가 없으면 `현장 검증 미평가`로 분리합니다.
 - MobileSAM은 현재 객체 하나당 단일 시작 박스와 여러 포함/제외점을 지원합니다. 고정 평가에서는 정확한 메타데이터 박스와 20% 확대, 10% 축소, 10% 대각선 이동까지 검증했지만 더 큰 오차, 임의 형상, 자동 다중 객체 분리와 현장 정확도는 보장하지 않습니다. 자동 확정·저장, 텍스트·음성 프롬프트와 텍스트 기반 자동 라벨링은 지원하지 않습니다.
 - 모델 비교는 같은 데이터 지문, 클래스, split과 평가 조건이 확인될 때만 의미가 있습니다.

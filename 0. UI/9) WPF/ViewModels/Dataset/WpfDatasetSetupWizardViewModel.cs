@@ -40,6 +40,7 @@ namespace MvcVisionSystem
         private ICommand browseWeightsCommand = new RelayCommand(NoOpCommand);
         private Func<LabelingDatasetPurpose, string> automaticRecipeNameResolver;
         private Func<string, string> automaticOutputRootResolver;
+        private Func<DatasetSetupWizardPathCallbacks> pathCallbacksProvider;
         private string automaticRecipeName = string.Empty;
         private string automaticOutputRootPath = string.Empty;
         private bool automaticPathSyncEnabled;
@@ -288,6 +289,71 @@ namespace MvcVisionSystem
             BrowseOutputRootCommand = new RelayCommand(browseOutputRoot ?? NoOpCommand);
             BrowseImageRootCommand = new RelayCommand(browseImageRoot ?? NoOpCommand);
             BrowseWeightsCommand = new RelayCommand(browseWeights ?? NoOpCommand);
+        }
+
+        public void ConfigurePathSelectionWorkflow(
+            Func<DatasetSetupWizardPathCallbacks> callbacksProvider)
+        {
+            pathCallbacksProvider = callbacksProvider
+                ?? throw new ArgumentNullException(nameof(callbacksProvider));
+            BrowseOutputRootCommand = new RelayCommand(ExecuteBrowseOutputRoot);
+            BrowseImageRootCommand = new RelayCommand(ExecuteBrowseImageRoot);
+            BrowseWeightsCommand = new RelayCommand(ExecuteBrowseWeights);
+        }
+
+        private void ExecuteBrowseOutputRoot()
+        {
+            ExecuteBrowseFolder(
+                "데이터셋 저장 폴더 선택",
+                OutputRootPath,
+                selectedPath => OutputRootPath = selectedPath);
+        }
+
+        private void ExecuteBrowseImageRoot()
+        {
+            ExecuteBrowseFolder(
+                "원본 이미지 폴더 선택",
+                ImageRootPath,
+                selectedPath => ImageRootPath = selectedPath);
+        }
+
+        private void ExecuteBrowseWeights()
+        {
+            DatasetSetupWizardPathCallbacks callbacks = pathCallbacksProvider?.Invoke();
+            if (callbacks?.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            string selectedPath = callbacks?.SelectFile?.Invoke(
+                "초기 검사 모델 파일 선택",
+                "모델 파일 (*.pt;*.pth;*.onnx)|*.pt;*.pth;*.onnx|All files (*.*)|*.*",
+                WeightsPath);
+            if (string.IsNullOrWhiteSpace(selectedPath)
+                || callbacks.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            WeightsPath = selectedPath;
+        }
+
+        private void ExecuteBrowseFolder(string title, string currentPath, Action<string> setPath)
+        {
+            DatasetSetupWizardPathCallbacks callbacks = pathCallbacksProvider?.Invoke();
+            if (callbacks?.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            string selectedPath = callbacks?.SelectFolder?.Invoke(title, currentPath);
+            if (string.IsNullOrWhiteSpace(selectedPath)
+                || callbacks.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            setPath(selectedPath);
         }
 
         public void ConfigureAutomaticPathSync(
@@ -564,6 +630,15 @@ namespace MvcVisionSystem
                 isApplyingAutomaticPathSync = false;
             }
         }
+    }
+
+    public sealed class DatasetSetupWizardPathCallbacks
+    {
+        public Func<string, string, string> SelectFolder { get; init; }
+
+        public Func<string, string, string, string> SelectFile { get; init; }
+
+        public Func<bool> IsApplicationCloseApproved { get; init; }
     }
 
     public enum WpfDatasetSamplePresetKind

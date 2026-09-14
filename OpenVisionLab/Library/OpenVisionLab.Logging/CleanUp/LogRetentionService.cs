@@ -1,7 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,6 +9,10 @@ namespace OpenVisionLab.Logging.Retention
 		private readonly string _logRootDir;
 		private readonly int _retentionDays;
 		private readonly Timer _timer;
+		private readonly CancellationTokenSource _lifetimeCancellation = new CancellationTokenSource();
+		private readonly object _sync = new object();
+		private Task _cleanupTask = Task.CompletedTask;
+		private bool _disposed;
 
 		private static readonly TimeSpan OneDay = TimeSpan.FromDays(1);
 
@@ -19,15 +20,9 @@ namespace OpenVisionLab.Logging.Retention
 		{
 			_logRootDir = logRootDir ?? throw new ArgumentNullException(nameof(logRootDir));
 			_retentionDays = retentionDays;
-			
-			RunCleanupSafe();
-			
 			TimeSpan dueTime = GetInitialDueTime();
-
-			_timer = new Timer(_ =>
-			{
-				RunCleanupSafe();
-			}, null, dueTime, OneDay);
+			_timer = new Timer(_ => RunCleanupSafe(), null, dueTime, OneDay);
+			RunCleanupSafe();
 		}
 
 		private static TimeSpan GetInitialDueTime()
@@ -38,26 +33,62 @@ namespace OpenVisionLab.Logging.Retention
 		}
 
 		private void RunCleanupSafe()
-		{			
-			Task.Run(() =>
+		{
+			lock (_sync)
 			{
-				try
+				if (_disposed || !_cleanupTask.IsCompleted)
 				{
-					int deleted = LogRetentionPruner.DeleteExpiredDateFolders(
-						_logRootDir,
-						_retentionDays
-					);
+					return;
 				}
-				catch
-				{
-					
-				}
-			});
+
+				CancellationToken cancellationToken = _lifetimeCancellation.Token;
+				_cleanupTask = Task.Run(() => RunCleanupCore(cancellationToken), cancellationToken);
+			}
+		}
+
+		private void RunCleanupCore(CancellationToken cancellationToken)
+		{
+			try
+			{
+				cancellationToken.ThrowIfCancellationRequested();
+				LogRetentionPruner.DeleteExpiredDateFolders(_logRootDir, _retentionDays);
+			}
+			catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+			{
+			}
+			catch
+			{
+				// Retention is best-effort; the timer owner remains alive for the next run.
+			}
 		}
 
 		public void Dispose()
 		{
-			_timer?.Dispose();
+			Task cleanupTask;
+			lock (_sync)
+			{
+				if (_disposed)
+				{
+					return;
+				}
+
+				_disposed = true;
+				_timer.Dispose();
+				_lifetimeCancellation.Cancel();
+				cleanupTask = _cleanupTask;
+			}
+
+			try
+			{
+				cleanupTask.GetAwaiter().GetResult();
+			}
+			catch (OperationCanceledException)
+			{
+			}
+			finally
+			{
+				_lifetimeCancellation.Dispose();
+			}
 		}
 	}
 }

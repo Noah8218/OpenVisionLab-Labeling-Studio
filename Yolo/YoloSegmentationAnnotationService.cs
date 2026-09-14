@@ -28,14 +28,15 @@ namespace MvcVisionSystem.Yolo
             Image image,
             IReadOnlyDictionary<string, List<LabelingSegmentationObject>> segmentsByClass,
             IReadOnlyList<LabelClass> classes,
-            LabelingProjectData data)
+            LabelingProjectData data,
+            string sourceImagePath = "")
         {
             if (string.IsNullOrWhiteSpace(imageName) || image == null || data == null)
             {
                 return;
             }
 
-            YoloAnnotationService.EnsureImageIdentity(imageName, image, data);
+            YoloAnnotationService.EnsureImageIdentity(imageName, image, data, sourceImagePath);
             bool writesSegmentation = data.ProjectSettings?.DatasetPurpose == LabelingDatasetPurpose.Segmentation
                 || segmentsByClass?.Values.Any(items => items?.Any(item => item != null) == true) == true;
             if (writesSegmentation)

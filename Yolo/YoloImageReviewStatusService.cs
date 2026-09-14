@@ -114,9 +114,9 @@ namespace MvcVisionSystem.Yolo
                     }
                 }
             }
-            catch
+            catch (Exception error)
             {
-                // Review status is a convenience cache; corrupt files should not block image loading.
+                AppLog.ABNORMAL($"Image review status load failed: {filePath} / {error.Message}");
             }
         }
 
@@ -170,17 +170,18 @@ namespace MvcVisionSystem.Yolo
                 }
 
                 string json = JsonConvert.SerializeObject(persistedItems, Formatting.Indented);
-                if (File.Exists(filePath)
-                    && string.Equals(File.ReadAllText(filePath), json, StringComparison.Ordinal))
+                if (File.Exists(filePath))
                 {
-                    return;
+                    string previousJson = File.ReadAllText(filePath);
+                    JsonConvert.DeserializeObject<List<PersistedReviewStatus>>(previousJson);
+                    if (string.Equals(previousJson, json, StringComparison.Ordinal)) return;
                 }
 
-                File.WriteAllText(filePath, json);
+                AnnotationFilePersistence.WriteAtomically(filePath, temporaryPath => File.WriteAllText(temporaryPath, json));
             }
-            catch
+            catch (Exception error)
             {
-                // Do not interrupt labeling if the optional review-state cache cannot be written.
+                AppLog.ABNORMAL($"Image review status save failed; previous file retained: {filePath} / {error.Message}");
             }
         }
 

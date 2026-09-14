@@ -140,17 +140,35 @@ namespace MvcVisionSystem
                 }
             }
 
-            string summaryText = !isOccludedFilterActive
-                && string.IsNullOrWhiteSpace(tagFilter)
-                && string.Equals(groupFilter, AllGroupsFilter, StringComparison.OrdinalIgnoreCase)
-                ? $"전체 {enabledCount}개"
-                : $"필터 {visibleCount}/{enabledCount}개";
+            string summaryText = BuildFilterSummaryText(
+                enabledCount,
+                visibleCount,
+                selectedMetadataTagFilter,
+                selectedGroupFilter,
+                isOccludedFilterActive);
             return new ObjectReviewMetadataFilterSnapshot(
                 matches,
                 enabledCount,
                 visibleCount,
                 summaryText,
                 selectFirstMatch ? firstMatchingIndex : -1);
+        }
+
+        public string BuildFilterSummaryText(
+            int enabledCount,
+            int visibleCount,
+            string selectedMetadataTagFilter,
+            string selectedGroupFilter,
+            bool isOccludedFilterActive)
+        {
+            bool usesDefaultFilter = !isOccludedFilterActive
+                && (string.IsNullOrWhiteSpace(selectedMetadataTagFilter)
+                    || string.Equals(selectedMetadataTagFilter, AllMetadataTagsFilter, StringComparison.OrdinalIgnoreCase))
+                && (string.IsNullOrWhiteSpace(selectedGroupFilter)
+                    || string.Equals(selectedGroupFilter, AllGroupsFilter, StringComparison.OrdinalIgnoreCase));
+            return usesDefaultFilter
+                ? $"전체 {Math.Max(0, enabledCount)}개"
+                : $"필터 {Math.Max(0, visibleCount)}/{Math.Max(0, enabledCount)}개";
         }
     }
 

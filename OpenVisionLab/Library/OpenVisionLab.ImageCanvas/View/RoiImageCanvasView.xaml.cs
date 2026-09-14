@@ -33,7 +33,7 @@ namespace OpenVisionLab.ImageCanvas.Views
 			if (DataContext is RoiImageCanvasViewModel viewModel && viewModel.ImageViewer != null)
 			{
 				imageBoxCameraTwoD.Child = viewModel.ImageViewer;
-				viewModel.ContextMenu = MainGrid.ContextMenu;
+				viewModel.ConfigureContextMenuHost(new ImageCanvasContextMenuHost(MainGrid.ContextMenu));
 				MainGrid.ContextMenu.DataContext = viewModel;
 
 				if (viewModel.LoadedCommand?.CanExecute(null) == true)

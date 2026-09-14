@@ -1,6 +1,8 @@
 using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Threading;
+using System.Threading.Tasks;
 using System.Windows.Input;
 using OpenVisionLab.Mvvm;
 using MvcVisionSystem.Yolo;
@@ -70,6 +72,13 @@ namespace MvcVisionSystem
         private ICommand browseSegmentationUnetCheckpointCommand = new RelayCommand(NoOpCommand);
         private ICommand browseSegmentationYoloCheckpointCommand = new RelayCommand(NoOpCommand);
         private ICommand runSegmentationAdapterComparisonCommand = new RelayCommand(NoOpCommand);
+        private TrainingRuntimeWorkflowService trainingRuntimeWorkflowService;
+        private TrainingCommandLifecycleService trainingCommandLifecycleService;
+        private Func<TrainingRuntimeCallbacks> trainingRuntimeCallbacksProvider;
+        private ModelComparisonWorkflowService modelComparisonWorkflowService;
+        private Func<ModelComparisonCallbacks> modelComparisonCallbacksProvider;
+        private Func<SegmentationAdapterComparisonContext> segmentationAdapterComparisonContextProvider;
+        private Func<SegmentationCheckpointPathCallbacks> segmentationCheckpointPathCallbacksProvider;
 
         public WpfTrainingSettingsPanelViewModel()
         {
@@ -646,6 +655,106 @@ namespace MvcVisionSystem
             RunSegmentationAdapterComparisonCommand = new RelayCommand(runSegmentationAdapterComparison ?? NoOpCommand);
         }
 
+        public void ConfigureRuntimeWorkflow(
+            TrainingRuntimeWorkflowService workflowService,
+            TrainingCommandLifecycleService commandLifecycleService,
+            Func<TrainingRuntimeCallbacks> callbacksProvider)
+        {
+            trainingRuntimeWorkflowService = workflowService
+                ?? throw new ArgumentNullException(nameof(workflowService));
+            trainingCommandLifecycleService = commandLifecycleService
+                ?? throw new ArgumentNullException(nameof(commandLifecycleService));
+            trainingRuntimeCallbacksProvider = callbacksProvider
+                ?? throw new ArgumentNullException(nameof(callbacksProvider));
+            RefreshReadinessCommand = new RelayCommand(ExecuteRefreshReadinessCommand);
+            StartTrainingCommand = new RelayCommand(() => _ = ExecuteStartTrainingCommandAsync());
+            StopTrainingCommand = new RelayCommand(() => _ = ExecuteStopTrainingCommandAsync());
+        }
+
+        public void ConfigureModelComparisonWorkflow(
+            ModelComparisonWorkflowService workflowService,
+            Func<ModelComparisonCallbacks> callbacksProvider)
+        {
+            modelComparisonWorkflowService = workflowService
+                ?? throw new ArgumentNullException(nameof(workflowService));
+            modelComparisonCallbacksProvider = callbacksProvider
+                ?? throw new ArgumentNullException(nameof(callbacksProvider));
+            RunYoloEngineComparisonCommand = new RelayCommand(() => _ = ExecuteRunYoloEngineComparisonCommandAsync());
+        }
+
+        public void ConfigureSegmentationAdapterComparisonWorkflow(
+            Func<SegmentationAdapterComparisonContext> contextProvider)
+        {
+            segmentationAdapterComparisonContextProvider = contextProvider
+                ?? throw new ArgumentNullException(nameof(contextProvider));
+            RunSegmentationAdapterComparisonCommand = new RelayCommand(() => _ = ExecuteRunSegmentationAdapterComparisonCommandAsync());
+        }
+
+        public void RefreshSegmentationAdapterComparisonContext()
+        {
+            SegmentationAdapterComparisonContext context = segmentationAdapterComparisonContextProvider?.Invoke();
+            if (context != null)
+            {
+                SetSegmentationAdapterComparisonContext(context);
+            }
+        }
+
+        public void ConfigureSegmentationCheckpointSelectionWorkflow(
+            Func<SegmentationCheckpointPathCallbacks> callbacksProvider)
+        {
+            segmentationCheckpointPathCallbacksProvider = callbacksProvider
+                ?? throw new ArgumentNullException(nameof(callbacksProvider));
+            BrowseSegmentationUnetCheckpointCommand = new RelayCommand(ExecuteBrowseSegmentationUnetCheckpointCommand);
+            BrowseSegmentationYoloCheckpointCommand = new RelayCommand(ExecuteBrowseSegmentationYoloCheckpointCommand);
+        }
+
+        private void ExecuteBrowseSegmentationUnetCheckpointCommand()
+        {
+            ExecuteBrowseSegmentationCheckpoint(
+                "U-Net segmentation checkpoint 선택",
+                "PyTorch checkpoint (*.pt;*.pth)|*.pt;*.pth|All files (*.*)|*.*",
+                SegmentationUnetWeightsPath,
+                selectedPath => SegmentationUnetWeightsPath = selectedPath);
+        }
+
+        private void ExecuteBrowseSegmentationYoloCheckpointCommand()
+        {
+            ExecuteBrowseSegmentationCheckpoint(
+                "YOLO segmentation checkpoint 선택",
+                "Ultralytics checkpoint (*.pt;*.pth)|*.pt;*.pth|All files (*.*)|*.*",
+                SegmentationYoloWeightsPath,
+                selectedPath => SegmentationYoloWeightsPath = selectedPath);
+        }
+
+        private void ExecuteBrowseSegmentationCheckpoint(
+            string title,
+            string filter,
+            string currentPath,
+            Action<string> pathWriter)
+        {
+            SegmentationCheckpointPathCallbacks callbacks = segmentationCheckpointPathCallbacksProvider?.Invoke();
+            if (callbacks?.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            string selectedPath = callbacks?.SelectFile?.Invoke(title, filter, currentPath);
+            if (string.IsNullOrWhiteSpace(selectedPath)
+                || callbacks?.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            pathWriter(selectedPath);
+            callbacks.PathSelected?.Invoke();
+        }
+
+        public bool IsTrainingCommandRunning => trainingCommandLifecycleService?.IsRunning == true;
+
+        public bool IsTrainingWorkflowRunning => trainingRuntimeWorkflowService?.IsTrainingWorkflowRunning == true;
+
+        public bool IsTrainingStopAvailable => trainingRuntimeWorkflowService?.IsTrainingStopAvailable() == true;
+
         public void SetSegmentationAdapterComparisonContext(
             SegmentationAdapterComparisonContext context,
             bool preserveSelectedCheckpoints = true)
@@ -854,6 +963,271 @@ namespace MvcVisionSystem
             RefreshSegmentationAdapterComparisonEnabled();
         }
 
+        private void ExecuteRefreshReadinessCommand()
+        {
+            TrainingRuntimeCallbacks callbacks = GetTrainingRuntimeCallbacks();
+            if (callbacks.IsApplicationCloseApproved())
+            {
+                return;
+            }
+
+            callbacks.RefreshReadiness();
+        }
+
+        private async Task ExecuteStartTrainingCommandAsync()
+        {
+            TrainingRuntimeCallbacks callbacks = GetTrainingRuntimeCallbacks();
+            if (callbacks.IsApplicationCloseApproved())
+            {
+                return;
+            }
+
+            if (trainingRuntimeWorkflowService == null || trainingCommandLifecycleService == null)
+            {
+                return;
+            }
+
+            if (trainingRuntimeWorkflowService.IsTrainingStopAvailable())
+            {
+                string alreadyRunningText = TrainingCommandPresentationService.BuildAlreadyRunningStatus();
+                SetTrainingReadinessText(alreadyRunningText);
+                callbacks.AppendLog(alreadyRunningText);
+                callbacks.UpdateCommandState();
+                return;
+            }
+
+            if (!callbacks.EnsureModelRuntime())
+            {
+                callbacks.UpdateCommandState();
+                return;
+            }
+
+            if (!TryBeginTrainingCommand(callbacks, TrainingCommandPresentationService.BuildPreparingDatasetStatus(), out TrainingCommandLease lease))
+            {
+                return;
+            }
+
+            CancellationToken cancellationToken = lease.Token;
+            TrainingRecoveryStatus pendingRecovery = null;
+            try
+            {
+                callbacks.PrepareTraining();
+                TrainingRuntimeStartResult startResult = await trainingRuntimeWorkflowService.StartAsync(
+                    callbacks.CreateStartRequest(),
+                    cancellationToken)
+                    .ConfigureAwait(true);
+                if (callbacks.IsApplicationCloseApproved() || cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                if (!startResult.WorkerReady)
+                {
+                    string readinessText = YoloRuntimePresentationService.BuildPythonWorkerFailureText(
+                        startResult.Status,
+                        startResult.WorkerError);
+                    SetTrainingReadinessText(readinessText);
+                    pendingRecovery = TrainingCommandPresentationService.BuildWorkerConnectionFailureRecovery(readinessText);
+                    callbacks.AppendLog(readinessText);
+                    return;
+                }
+
+                callbacks.PersistExternalDatasetSettings();
+                string startText = TrainingCommandPresentationService.BuildStartCommandResultStatus(
+                    startResult.Started,
+                    startResult.PreparationFailureMessage);
+                SetTrainingReadinessText(startText);
+                if (!startResult.Started)
+                {
+                    pendingRecovery = TrainingCommandPresentationService.BuildStartFailureRecovery(startText);
+                }
+
+                callbacks.AppendLog(startText);
+                if (startResult.Started)
+                {
+                    string acceptedProgressText = TrainingCommandPresentationService.BuildTrainingAcceptedProgressText();
+                    SetTrainingProgress(
+                        acceptedProgressText,
+                        string.Empty,
+                        0D,
+                        isIndeterminate: true);
+                    callbacks.SetModelCenterTrainingState(acceptedProgressText, TrainingReadinessText);
+                    callbacks.StartStatusPolling();
+                    callbacks.UpdateCommandState();
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                if (callbacks.IsApplicationCloseApproved())
+                {
+                    return;
+                }
+
+                string errorText = TrainingCommandPresentationService.BuildStartExceptionStatus(ex.Message);
+                SetTrainingReadinessText(errorText);
+                pendingRecovery = TrainingCommandPresentationService.BuildStartExceptionRecovery(errorText);
+                callbacks.AppendLog(errorText);
+            }
+            finally
+            {
+                trainingCommandLifecycleService.Complete(lease);
+                EndTrainingCommand(callbacks, pendingRecovery);
+            }
+        }
+
+        private async Task ExecuteStopTrainingCommandAsync()
+        {
+            TrainingRuntimeCallbacks callbacks = GetTrainingRuntimeCallbacks();
+            if (callbacks.IsApplicationCloseApproved()
+                || trainingRuntimeWorkflowService == null
+                || trainingCommandLifecycleService == null)
+            {
+                return;
+            }
+
+            if (!TryBeginTrainingCommand(callbacks, TrainingCommandPresentationService.BuildStoppingStatus(), out TrainingCommandLease lease))
+            {
+                return;
+            }
+
+            CancellationToken cancellationToken = lease.Token;
+            TrainingRecoveryStatus pendingRecovery = null;
+            try
+            {
+                TrainingRuntimeStopResult stopResult = await trainingRuntimeWorkflowService
+                    .StopAsync(cancellationToken)
+                    .ConfigureAwait(true);
+                if (callbacks.IsApplicationCloseApproved() || cancellationToken.IsCancellationRequested)
+                {
+                    return;
+                }
+
+                string stopText = TrainingCommandPresentationService.BuildStopCommandResultStatus(stopResult.Stopped);
+                SetTrainingReadinessText(stopText);
+                if (!stopResult.Stopped)
+                {
+                    pendingRecovery = TrainingCommandPresentationService.BuildStopFailureRecovery(stopText);
+                }
+
+                callbacks.AppendLog(stopText);
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+            catch (Exception ex)
+            {
+                if (callbacks.IsApplicationCloseApproved())
+                {
+                    return;
+                }
+
+                string errorText = TrainingCommandPresentationService.BuildStopExceptionStatus(ex.Message);
+                SetTrainingReadinessText(errorText);
+                pendingRecovery = TrainingCommandPresentationService.BuildStopExceptionRecovery(errorText);
+                callbacks.AppendLog(errorText);
+            }
+            finally
+            {
+                trainingCommandLifecycleService.Complete(lease);
+                EndTrainingCommand(callbacks, pendingRecovery);
+            }
+        }
+
+        private bool TryBeginTrainingCommand(
+            TrainingRuntimeCallbacks callbacks,
+            string statusText,
+            out TrainingCommandLease lease)
+        {
+            lease = trainingCommandLifecycleService.TryBegin(callbacks.HasConflictingCommand());
+            if (lease == null)
+            {
+                callbacks.AppendLog("YOLO 또는 학습 명령이 이미 실행 중입니다.");
+                return false;
+            }
+
+            callbacks.ClearRecoveryStatus();
+            SetTrainingReadinessText(statusText);
+            SetTrainingProgress(
+                string.IsNullOrWhiteSpace(statusText) ? "학습 명령 실행 중" : statusText,
+                string.Empty,
+                0D,
+                isIndeterminate: true);
+            callbacks.SetModelCenterTrainingState(
+                string.IsNullOrWhiteSpace(statusText) ? "학습 명령 실행 중" : statusText,
+                TrainingReadinessText);
+            SetTrainingStatusBrushes(
+                TrainingReadinessForeground,
+                callbacks.ResolveInfoBrush());
+            callbacks.UpdateCommandState();
+            return true;
+        }
+
+        private void EndTrainingCommand(TrainingRuntimeCallbacks callbacks, TrainingRecoveryStatus pendingRecovery)
+        {
+            if (callbacks.IsApplicationCloseApproved())
+            {
+                return;
+            }
+
+            SetTrainingProgressBusy(false);
+            callbacks.RefreshTrainingStatus();
+            callbacks.UpdateCommandState();
+            callbacks.RefreshYoloStatus();
+            if (pendingRecovery != null)
+            {
+                callbacks.SetRecoveryStatus(
+                    pendingRecovery.Title,
+                    pendingRecovery.Detail,
+                    pendingRecovery.Action);
+            }
+        }
+
+        private TrainingRuntimeCallbacks GetTrainingRuntimeCallbacks()
+        {
+            return trainingRuntimeCallbacksProvider?.Invoke() ?? new TrainingRuntimeCallbacks();
+        }
+
+        private async Task ExecuteRunYoloEngineComparisonCommandAsync()
+        {
+            if (modelComparisonWorkflowService == null)
+            {
+                return;
+            }
+
+            ModelComparisonCallbacks callbacks = modelComparisonCallbacksProvider?.Invoke();
+            if (callbacks == null)
+            {
+                return;
+            }
+
+            await modelComparisonWorkflowService
+                .RunEngineAsync(callbacks)
+                .ConfigureAwait(true);
+        }
+
+        private async Task ExecuteRunSegmentationAdapterComparisonCommandAsync()
+        {
+            if (modelComparisonWorkflowService == null)
+            {
+                return;
+            }
+
+            ModelComparisonCallbacks callbacks = modelComparisonCallbacksProvider?.Invoke();
+            if (callbacks == null)
+            {
+                return;
+            }
+
+            await modelComparisonWorkflowService
+                .RunSegmentationAsync(callbacks)
+                .ConfigureAwait(true);
+        }
+
         private void RefreshPostTrainingActionAvailability()
         {
             IsReviewTrainedModelEnabled = isReviewTrainedModelAvailable && canRunPostTrainingReviewCommands;
@@ -937,6 +1311,54 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(TrainingSettingsSummaryModelText));
             OnPropertyChanged(nameof(RunYoloEngineComparisonActionText));
             OnPropertyChanged(nameof(RunYoloEngineComparisonToolTipText));
+        }
+    }
+
+    public sealed class SegmentationCheckpointPathCallbacks
+    {
+        public Func<string, string, string, string> SelectFile { get; init; }
+
+        public Func<bool> IsApplicationCloseApproved { get; init; }
+
+        public Action PathSelected { get; init; }
+    }
+
+    public sealed class TrainingRuntimeCallbacks
+    {
+        public Func<bool> IsApplicationCloseApproved { get; set; } = () => false;
+
+        public Func<bool> HasConflictingCommand { get; set; } = () => false;
+
+        public Func<bool> EnsureModelRuntime { get; set; } = () => false;
+
+        public Action PrepareTraining { get; set; } = NoOp;
+
+        public Func<TrainingRuntimeStartRequest> CreateStartRequest { get; set; } = () => new TrainingRuntimeStartRequest();
+
+        public Action RefreshReadiness { get; set; } = NoOp;
+
+        public Action PersistExternalDatasetSettings { get; set; } = NoOp;
+
+        public Action StartStatusPolling { get; set; } = NoOp;
+
+        public Action<string, string> SetModelCenterTrainingState { get; set; } = (_, __) => { };
+
+        public Action RefreshTrainingStatus { get; set; } = NoOp;
+
+        public Action UpdateCommandState { get; set; } = NoOp;
+
+        public Action RefreshYoloStatus { get; set; } = NoOp;
+
+        public Action<string> AppendLog { get; set; } = _ => { };
+
+        public Action<string, string, string> SetRecoveryStatus { get; set; } = (_, __, ___) => { };
+
+        public Action ClearRecoveryStatus { get; set; } = NoOp;
+
+        public Func<MediaBrush> ResolveInfoBrush { get; set; } = () => MediaBrushes.DodgerBlue;
+
+        private static void NoOp()
+        {
         }
     }
 }

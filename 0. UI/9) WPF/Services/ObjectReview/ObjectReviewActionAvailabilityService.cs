@@ -41,16 +41,15 @@ namespace MvcVisionSystem
                 && !string.IsNullOrWhiteSpace(selectedClassName);
             bool canEditSegment = isSegmentContextVisible && canEditSelectedObject && !pendingEdit;
             bool canEditPolygon = isPolygonVertexContextVisible && canEditSelectedObject && !pendingEdit;
-
-            int manualSegmentCount = objects == null
-                ? 0
-                : objects.Count(item => item?.IsManualSegment == true);
             int selectedSegmentIndex = isSegmentContextVisible ? selectedObject.SourceIndex : -1;
+            bool showSegmentCollectionState = refreshSegmentCollectionState || isSegmentContextVisible;
+            int manualSegmentCount = showSegmentCollectionState && objects != null
+                ? objects.Count(item => item?.IsManualSegment == true)
+                : 0;
             bool canChangeZOrder = selectedSegmentIndex >= 0
                 && selectedSegmentIndex < manualSegmentCount
                 && canEditSelectedObject
                 && !pendingEdit;
-            bool showSegmentCollectionState = refreshSegmentCollectionState || isSegmentContextVisible;
 
             bool isSendToBackEnabled = false;
             bool isSendBackwardEnabled = false;

@@ -1,86 +1,33 @@
 # Release Notes
 
-## 0.3.3 — 2026-09-09
-
-- Promoted the completed Dev refactoring wave across the WPF Shell, Canvas,
-  image queue, dataset, anomaly review, Object Review, model, training, and
-  project workflow boundaries.
-- Clarified ownership for annotation save/history, crash recovery, dataset
-  validation, ImageCanvas dialog access, Python execution, and TCP status
-  transitions while preserving existing file-format and model-state contracts.
-- This is a compatible PATCH candidate. Runtime WPF/DPI/GPU/field-quality,
-  tag, Release publication, and deployment evidence remain separate gates.
-
-## 0.3.2 — 2026-09-07
-
-- Consolidated the WPF Shell, queue, review, runtime, and model workflow
-  responsibilities into concrete owners and canonical code-only contracts;
-  framework-bound Window/XAML names remain where their composition contract
-  requires them.
-- Strengthened async close, cancellation, callback, and resource-lifetime
-  boundaries while preserving the existing annotation, Recipe, Dataset
-  Version, model-state, Python-process, and public file-format contracts.
-- Added focused structural regression coverage for the refactored owners.
-  Runtime WPF/DPI/GPU/field-quality evidence remains a separate gate.
-
-## 0.3.1 — 2026-09-04
-
-- Continued the WPF Shell refactor by moving independently testable presentation,
-  catalog, persistence-adapter, and workflow policy slices to concrete owners;
-  the remaining Canvas pointer/rendering and Window lifecycle code stays in the
-  View where WPF requires it.
-- Added close-entry protection for long-running commands and late Canvas/ROI/
-  detection callbacks so shutdown cannot start new mutation work.
-- Preserved the existing annotation, Recipe, Dataset Version, model-state,
-  Python-process, and public file-format contracts. This is a compatible PATCH
-  candidate; runtime WPF/DPI/GPU/field-quality evidence remains a separate gate.
-
-## 0.3.0 — 2026-08-31
-
-- Restored and versioned the integrated OpenVisionLab Labeling Studio workflow
-  across dataset setup, labeling, candidate review, training, and model
-  comparison while keeping the existing save and explicit-action boundaries.
-- Completed the WPF review ownership wave: image quality, anomaly review, and
-  Object Review now have concrete domain workflow owners; the queue presenter
-  retains row icon/color/text decisions and the Shell retains UI and async
-  orchestration.
-- Preserved the existing annotation/Recipe persistence contracts, queue and
-  anomaly transitions, close guards, and the protected `301/301` local
-  regression baseline. This is a compatible MINOR candidate; production
-  field-quality, GPU-target, installer/signing, tag, Release, and deployment
-  evidence remain separate gates.
-
-## 0.2.1 — 2026-08-25
-
-- Fixed the supported Minimum `1100x720` WPF workspace so the image queue
-  remains inside the window with the required right-side safety margin.
-- Preserved the existing panel-width persistence contract, `맞춤` / `1:1`
-  viewer actions, annotation commands, and saved-label behavior.
-- This is a compatible PATCH candidate; no annotation format, Recipe schema,
-  dependency, model, or deployment contract changed.
-
-## 0.2.0 — 2026-08-24
-
-- Versioned Public promotion candidate for the bounded WPF presentation
-  release wave. The existing main-view `한국어` / `English` selector now
-  refreshes the audited nested and representative auxiliary presentation
-  surfaces without changing command, selection, or workflow state.
-- The exercised 125% layouts keep the canvas tool rail reachable and expose
-  the existing Object Review group selection, save, navigation, and reopen
-  behavior through the COCO128 workflow.
-- The candidate retains the protected `272/272` regression baseline and the
-  existing portable self-contained release contract. Full application
-  localization, exhaustive dynamic-value translation, and 100%, 150%, 175%,
-  and 200% DPI coverage remain outside this candidate's verified claim.
-
 ## Unreleased
 
+- No unreleased changes.
+
+## 0.3.4 — 2026-09-15
+
+- Completed the large WPF ownership refactoring by replacing manual Shell
+  partial sprawl with responsibility-oriented Views, ViewModels, adapters, and
+  lifecycle owners while preserving bindings and operator workflows.
+- Hardened annotation and project persistence, queue and reopen behavior, and
+  Python process-tree cancellation. The final PL-0095 whole-repository audit
+  found no remaining independently actionable P0/P1 structural refactor.
+- This is a compatible PATCH checkpoint. Existing annotation, Recipe, Dataset
+  Version, model-state, and public file formats remain compatible. PL-0078 F5
+  startup diagnosis and broad runtime UI, GPU, and field validation remain
+  outside this release's verified scope.
+
+### Detailed changes included in 0.3.4
+
+- Dev CI now skips documentation-only and internal evidence-only changes,
+  cancels superseded branch runs, and keeps the full regression/package path
+  behind an explicit `workflow_dispatch` input to reduce hosted runner usage.
 - The active `Lib.Common.dll` / `Lib.OpenCV.dll` integration has been replaced
   by OpenVisionLab Vision SDK `3.0.0` (`OpenVisionLab.Core` and
   `OpenVisionLab.Vision2D`). Template matching now uses the SDK-owned property
   and execution-result contracts, UI Bitmap/Mat conversion uses the aligned
   OpenCvSharp extension package, and the old or unused binaries are no longer
-  redistributed. The complete `272/272` protected regression remains green.
+  redistributed. The complete `411/411` protected regression remains green.
 - Annotation saves now fail closed across the complete image transaction.
   Existing images, detection labels, segmentation masks/JSON, Object Review
   metadata, split ownership, and changed dataset YAML are restored together
@@ -201,3 +148,78 @@ Not a release claim:
 - Updating the checked-in Vision SDK assemblies requires an intentional,
   versioned SDK build, hash refresh, focused integration tests, and complete
   regression verification.
+
+## 0.3.3 — 2026-09-08
+
+- Completed the current Dev ownership-refactoring checkpoint across the
+  WPF Shell, Canvas, queue, anomaly-review, model, dataset, Object Review, and
+  ImageCanvas dialog, Object Review group-selection, and Object Review metadata/filter boundaries; PL-0042 through PL-0064 now have explicit owners, call paths, state owners,
+  focused evidence, and duplicate-work protection.
+- Added the single Visual Studio solution entry guide and completed the full
+  source, project-reference, documentation, and issue-ledger audit. Existing
+  annotation, Recipe, Dataset Version, model-state, Python-process, and public
+  file-format contracts remain unchanged.
+- This is a compatible PATCH candidate. Runtime WPF/DPI/GPU/field-quality
+  evidence and Public promotion remain separate gates.
+
+## 0.3.2 — 2026-09-07
+
+- Consolidated the WPF Shell, queue, review, runtime, and model workflow
+  responsibilities into concrete owners and canonical code-only contracts;
+  framework-bound Window/XAML names remain where their composition contract
+  requires them.
+- Strengthened async close, cancellation, callback, and resource-lifetime
+  boundaries while preserving the existing annotation, Recipe, Dataset
+  Version, model-state, Python-process, and public file-format contracts.
+- Added focused structural regression coverage for the refactored owners.
+  Runtime WPF/DPI/GPU/field-quality evidence remains a separate gate.
+
+## 0.3.1 — 2026-09-04
+
+- Continued the WPF Shell refactor by moving independently testable presentation,
+  catalog, persistence-adapter, and workflow policy slices to concrete owners;
+  the remaining Canvas pointer/rendering and Window lifecycle code stays in the
+  View where WPF requires it.
+- Added close-entry protection for long-running commands and late Canvas/ROI/
+  detection callbacks so shutdown cannot start new mutation work.
+- Preserved the existing annotation, Recipe, Dataset Version, model-state,
+  Python-process, and public file-format contracts. This is a compatible PATCH
+  candidate; runtime WPF/DPI/GPU/field-quality evidence remains a separate gate.
+
+## 0.3.0 — 2026-08-31
+
+- Restored and versioned the integrated OpenVisionLab Labeling Studio workflow
+  across dataset setup, labeling, candidate review, training, and model
+  comparison while keeping the existing save and explicit-action boundaries.
+- Completed the WPF review ownership wave: image quality, anomaly review, and
+  Object Review now have concrete domain workflow owners; the queue presenter
+  retains row icon/color/text decisions and the Shell retains UI and async
+  orchestration.
+- Preserved the existing annotation/Recipe persistence contracts, queue and
+  anomaly transitions, close guards, and the protected `301/301` local
+  regression baseline. This is a compatible MINOR candidate; production
+  field-quality, GPU-target, installer/signing, tag, Release, and deployment
+  evidence remain separate gates.
+
+## 0.2.1 — 2026-08-25
+
+- Fixed the supported Minimum `1100x720` WPF workspace so the image queue
+  remains inside the window with the required right-side safety margin.
+- Preserved the existing panel-width persistence contract, `맞춤` / `1:1`
+  viewer actions, annotation commands, and saved-label behavior.
+- This is a compatible PATCH candidate; no annotation format, Recipe schema,
+  dependency, model, or deployment contract changed.
+
+## 0.2.0 — 2026-08-24
+
+- Versioned Public promotion candidate for the bounded WPF presentation
+  release wave. The existing main-view `한국어` / `English` selector now
+  refreshes the audited nested and representative auxiliary presentation
+  surfaces without changing command, selection, or workflow state.
+- The exercised 125% layouts keep the canvas tool rail reachable and expose
+  the existing Object Review group selection, save, navigation, and reopen
+  behavior through the COCO128 workflow.
+- The candidate retains the protected `272/272` regression baseline and the
+  existing portable self-contained release contract. Full application
+  localization, exhaustive dynamic-value translation, and 100%, 150%, 175%,
+  and 200% DPI coverage remain outside this candidate's verified claim.

@@ -4,7 +4,6 @@ using OpenVisionLab.Mvvm;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
-using System.IO;
 using System.Linq;
 using System.Windows.Input;
 
@@ -63,7 +62,7 @@ namespace MvcVisionSystem
         public WpfEnvironmentSetupCenterViewModel()
             : this(
                 new RuntimeDiagnosticsService(),
-                () => LabelingApplicationState.Inst.Data.ProjectSettings?.PythonModel ?? new PythonModelSettings(),
+                () => new PythonModelSettings(),
                 null)
         {
         }
@@ -277,25 +276,9 @@ namespace MvcVisionSystem
                 return;
             }
 
-            string projectRoot = settings?.ProjectRootPath?.Trim() ?? string.Empty;
-            string[] requiredRelativePaths =
-            {
-                "hubconf.py",
-                "train.py",
-                "detect.py",
-                Path.Combine("models", "common.py")
-            };
-            var missing = new List<string>();
-            foreach (string relativePath in requiredRelativePaths)
-            {
-                if (string.IsNullOrWhiteSpace(projectRoot)
-                    || !File.Exists(Path.Combine(projectRoot, relativePath)))
-                {
-                    missing.Add(relativePath.Replace('\\', '/'));
-                }
-            }
-
-            bool ready = missing.Count == 0;
+            PythonModelRuntimeRepositoryCheck repositoryCheck =
+                PythonModelRuntimeSelfTestService.CheckYoloV5Repository(settings?.ProjectRootPath);
+            bool ready = repositoryCheck.IsReady;
             Items.Add(new WpfEnvironmentSetupCenterItem(
                 T("WpfEnvironment.Category.ModelRuntime"),
                 T("WpfEnvironment.Name.YoloV5Files"),
@@ -303,7 +286,7 @@ namespace MvcVisionSystem
                 ready ? T("WpfEnvironment.Status.Ready") : T("WpfEnvironment.Status.RecoveryNeeded"),
                 ready
                     ? T("WpfEnvironment.Detail.YoloV5FilesReady")
-                    : Format("WpfEnvironment.Detail.YoloV5FilesMissing", string.Join(", ", missing)),
+                    : Format("WpfEnvironment.Detail.YoloV5FilesMissing", string.Join(", ", repositoryCheck.MissingRelativePaths)),
                 ready
                     ? T("WpfEnvironment.NextAction.None")
                     : T("WpfEnvironment.NextAction.YoloV5Files"),

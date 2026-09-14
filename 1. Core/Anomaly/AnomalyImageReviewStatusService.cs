@@ -82,9 +82,9 @@ namespace MvcVisionSystem
                     }
                 }
             }
-            catch
+            catch (Exception error)
             {
-                // Review status is a convenience cache; corrupt files should not block image loading.
+                AppLog.ABNORMAL($"Anomaly Ground Truth load failed: {filePath} / {error.Message}");
             }
         }
 
@@ -127,17 +127,18 @@ namespace MvcVisionSystem
                     Items = persistedItems
                 };
                 string json = JsonConvert.SerializeObject(persistedFile, Formatting.Indented);
-                if (File.Exists(filePath)
-                    && string.Equals(File.ReadAllText(filePath), json, StringComparison.Ordinal))
+                if (File.Exists(filePath))
                 {
-                    return;
+                    string previousJson = File.ReadAllText(filePath);
+                    DeserializePersistedItems(previousJson); // Preserve unreadable Ground Truth for recovery.
+                    if (string.Equals(previousJson, json, StringComparison.Ordinal)) return;
                 }
 
-                File.WriteAllText(filePath, json);
+                Yolo.AnnotationFilePersistence.WriteAtomically(filePath, temporaryPath => File.WriteAllText(temporaryPath, json));
             }
-            catch
+            catch (Exception error)
             {
-                // Do not interrupt labeling if the optional anomaly review-state cache cannot be written.
+                AppLog.ABNORMAL($"Anomaly Ground Truth save failed; previous file retained: {filePath} / {error.Message}");
             }
         }
 
@@ -289,8 +290,9 @@ namespace MvcVisionSystem
 
                 return BuildSummaryFromCounts(totalImageCount, normalCount, abnormalCount);
             }
-            catch
+            catch (Exception error)
             {
+                AppLog.ABNORMAL($"Anomaly Ground Truth summary failed: {filePath} / {error.Message}");
                 return BuildSummaryFromCounts(totalImageCount, 0, 0);
             }
         }

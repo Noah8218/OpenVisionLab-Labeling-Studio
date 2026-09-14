@@ -1,11 +1,14 @@
 using MahApps.Metro.IconPacks;
 using OpenVisionLab;
 using OpenVisionLab.Mvvm;
+using MvcVisionSystem.Yolo;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 
@@ -110,11 +113,31 @@ namespace MvcVisionSystem
         private ICommand yoloFixDatasetCommand = new RelayCommand(NoOpCommand);
         private ICommand runModelComparisonCommand = new RelayCommand(NoOpCommand);
         private ICommand externalEvaluationDataAuditCommand = new RelayCommand(NoOpCommand);
+        private ICommand historicalSegmentationRemediationAuditCommand = new RelayCommand(NoOpCommand);
         private ICommand selectExternalYoloDatasetCommand = new RelayCommand(NoOpCommand);
         private ICommand activateExternalYoloDatasetCommand = new RelayCommand(NoOpCommand);
         private ICommand clearExternalYoloDatasetCommand = new RelayCommand(NoOpCommand);
         private ICommand templateCurrentImageCommand = new RelayCommand(NoOpCommand);
         private ICommand templateBatchCommand = new RelayCommand(NoOpCommand);
+        private Action<WpfLearningModeWorkflowAction> learningModeWorkflowAction = _ => { };
+        private Action<WpfLearningStepWorkflowAction> learningStepWorkflowAction = _ => { };
+        private Action<WpfAnnotationToolItem> annotationToolSelectionAction = _ => { };
+        private Func<WpfLearningModeItem, bool> datasetPurposeSelectionGuard = _ => true;
+        private Action<LabelingDatasetPurpose> datasetPurposeSelectionAction = _ => { };
+        private ExternalAuditWorkflowService externalAuditWorkflowService;
+        private Func<string> externalEvaluationDataAuditInitialDirectoryProvider;
+        private Func<string, string> externalEvaluationDataAuditDirectorySelector;
+        private Func<IReadOnlyList<string>> externalEvaluationDataAuditReferenceDirectoriesProvider;
+        private Func<bool> externalEvaluationDataAuditCloseApproval;
+        private Action<string> externalEvaluationDataAuditStatusSink;
+        private Func<LabelingProjectData> historicalSegmentationRemediationDataProvider;
+        private Func<string> historicalSegmentationRemediationSourceImagePathProvider;
+        private Func<bool> historicalSegmentationRemediationCloseApproval;
+        private Action<string, string> historicalSegmentationRemediationStatusSink;
+        private ExternalYoloDatasetIntakeWorkflowService externalYoloDatasetIntakeWorkflowService;
+        private Func<ExternalYoloDatasetIntakeCallbacks> externalYoloDatasetIntakeCallbacksProvider;
+        private ModelComparisonWorkflowService modelComparisonWorkflowService;
+        private Func<ModelComparisonCallbacks> modelComparisonCallbacksProvider;
         private TrainingChecklistLocalizationSnapshot trainingChecklistLocalizationSnapshot;
         private TrainingChecklistActionLocalizationSnapshot trainingChecklistActionLocalizationSnapshot;
         private ModelReplacementLocalizationSnapshot modelReplacementLocalizationSnapshot;
@@ -126,6 +149,8 @@ namespace MvcVisionSystem
         private bool refreshingTrainingModelLifecycleLocalization;
         private bool refreshingTrainingComparisonLocalization;
         private bool disposed;
+
+        public event Action<string> ExternalEvaluationDataAuditStatusChanged;
 
         public WpfLearningWorkflowPanelViewModel()
         {
@@ -293,6 +318,12 @@ namespace MvcVisionSystem
         {
             get => externalEvaluationDataAuditCommand;
             private set => SetProperty(ref externalEvaluationDataAuditCommand, value);
+        }
+
+        public ICommand HistoricalSegmentationRemediationAuditCommand
+        {
+            get => historicalSegmentationRemediationAuditCommand;
+            private set => SetProperty(ref historicalSegmentationRemediationAuditCommand, value);
         }
 
         public ICommand SelectExternalYoloDatasetCommand
@@ -1048,6 +1079,153 @@ namespace MvcVisionSystem
             TemplateBatchCommand = new RelayCommand(runTemplateBatch ?? NoOpCommand);
         }
 
+        public void ConfigureLearningModeSelectionWorkflow(Action<WpfLearningModeWorkflowAction> applyModeAction)
+        {
+            learningModeWorkflowAction = applyModeAction ?? (_ => { });
+            LearningModeSelectionChangedCommand = new RelayCommand<object>(ExecuteLearningModeSelectionChanged);
+        }
+
+        private void ExecuteLearningModeSelectionChanged(object selectedItem)
+        {
+            WpfLearningModeItem selectedModeItem = selectedItem as WpfLearningModeItem ?? SelectedMode;
+            if (selectedModeItem == null)
+            {
+                return;
+            }
+
+            SelectedMode = selectedModeItem;
+            learningModeWorkflowAction?.Invoke(AnnotationWorkflowService.ResolveModeAction(selectedModeItem.Mode));
+        }
+
+        public void ConfigureLearningStepSelectionWorkflow(Action<WpfLearningStepWorkflowAction> applyStepAction)
+        {
+            learningStepWorkflowAction = applyStepAction ?? (_ => { });
+            LearningStepSelectionChangedCommand = new RelayCommand<object>(ExecuteLearningStepSelectionChanged);
+        }
+
+        private void ExecuteLearningStepSelectionChanged(object selectedItem)
+        {
+            WpfLearningStepItem selectedStepItem = selectedItem as WpfLearningStepItem ?? SelectedStep;
+            if (selectedStepItem == null)
+            {
+                return;
+            }
+
+            SelectedStep = selectedStepItem;
+            learningStepWorkflowAction?.Invoke(AnnotationWorkflowService.ResolveStepAction(selectedStepItem.Step));
+        }
+
+        public void ConfigureAnnotationToolSelectionWorkflow(Action<WpfAnnotationToolItem> applyToolAction)
+        {
+            annotationToolSelectionAction = applyToolAction ?? (_ => { });
+            AnnotationToolSelectionChangedCommand = new RelayCommand<object>(ExecuteAnnotationToolSelectionChanged);
+        }
+
+        private void ExecuteAnnotationToolSelectionChanged(object selectedItem)
+        {
+            WpfAnnotationToolItem selectedToolItem = selectedItem as WpfAnnotationToolItem ?? SelectedTool;
+            if (selectedToolItem == null)
+            {
+                return;
+            }
+
+            annotationToolSelectionAction?.Invoke(selectedToolItem);
+        }
+
+        public void ConfigureDatasetPurposeSelectionWorkflow(
+            Func<WpfLearningModeItem, bool> selectionGuard,
+            Action<LabelingDatasetPurpose> applyPurposeAction)
+        {
+            datasetPurposeSelectionGuard = selectionGuard ?? (_ => true);
+            datasetPurposeSelectionAction = applyPurposeAction ?? (_ => { });
+            DatasetPurposeSelectionChangedCommand = new RelayCommand<object>(ExecuteDatasetPurposeSelectionChanged);
+        }
+
+        private void ExecuteDatasetPurposeSelectionChanged(object selectedItem)
+        {
+            WpfLearningModeItem selectedPurposeItem = selectedItem as WpfLearningModeItem;
+            if (selectedPurposeItem != null && !datasetPurposeSelectionGuard(selectedPurposeItem))
+            {
+                return;
+            }
+
+            selectedPurposeItem ??= SelectedDatasetPurposeMode;
+            if (selectedPurposeItem == null)
+            {
+                return;
+            }
+
+            SelectedDatasetPurposeMode = selectedPurposeItem;
+            datasetPurposeSelectionAction?.Invoke(ToDatasetPurpose(selectedPurposeItem.Mode));
+        }
+
+        public void ConfigureModelComparisonWorkflow(
+            ModelComparisonWorkflowService workflowService,
+            Func<ModelComparisonCallbacks> callbacksProvider)
+        {
+            modelComparisonWorkflowService = workflowService
+                ?? throw new ArgumentNullException(nameof(workflowService));
+            modelComparisonCallbacksProvider = callbacksProvider
+                ?? throw new ArgumentNullException(nameof(callbacksProvider));
+            RunModelComparisonCommand = new RelayCommand(() => _ = ExecuteRunModelComparisonCommandAsync());
+        }
+
+        public void ConfigureExternalEvaluationDataAuditWorkflow(
+            ExternalAuditWorkflowService workflowService,
+            Func<string> initialDirectoryProvider,
+            Func<string, string> directorySelector,
+            Func<IReadOnlyList<string>> referenceDirectoriesProvider,
+            Func<bool> closeApproval,
+            Action<string> statusSink = null)
+        {
+            externalAuditWorkflowService = workflowService
+                ?? throw new ArgumentNullException(nameof(workflowService));
+            externalEvaluationDataAuditInitialDirectoryProvider = initialDirectoryProvider
+                ?? throw new ArgumentNullException(nameof(initialDirectoryProvider));
+            externalEvaluationDataAuditDirectorySelector = directorySelector
+                ?? throw new ArgumentNullException(nameof(directorySelector));
+            externalEvaluationDataAuditReferenceDirectoriesProvider = referenceDirectoriesProvider
+                ?? throw new ArgumentNullException(nameof(referenceDirectoriesProvider));
+            externalEvaluationDataAuditCloseApproval = closeApproval
+                ?? throw new ArgumentNullException(nameof(closeApproval));
+            externalEvaluationDataAuditStatusSink = statusSink;
+            ExternalEvaluationDataAuditCommand = new RelayCommand(() => _ = ExecuteExternalEvaluationDataAuditAsync());
+        }
+
+        public void ConfigureHistoricalSegmentationRemediationAuditWorkflow(
+            ExternalAuditWorkflowService workflowService,
+            Func<LabelingProjectData> dataProvider,
+            Func<string> sourceImagePathProvider,
+            Func<bool> closeApproval,
+            Action<string, string> statusSink)
+        {
+            externalAuditWorkflowService = workflowService
+                ?? throw new ArgumentNullException(nameof(workflowService));
+            historicalSegmentationRemediationDataProvider = dataProvider
+                ?? throw new ArgumentNullException(nameof(dataProvider));
+            historicalSegmentationRemediationSourceImagePathProvider = sourceImagePathProvider
+                ?? throw new ArgumentNullException(nameof(sourceImagePathProvider));
+            historicalSegmentationRemediationCloseApproval = closeApproval
+                ?? throw new ArgumentNullException(nameof(closeApproval));
+            historicalSegmentationRemediationStatusSink = statusSink
+                ?? throw new ArgumentNullException(nameof(statusSink));
+            HistoricalSegmentationRemediationAuditCommand = new RelayCommand(
+                () => _ = ExecuteHistoricalSegmentationRemediationAuditAsync());
+        }
+
+        public void ConfigureExternalYoloDatasetIntakeWorkflow(
+            ExternalYoloDatasetIntakeWorkflowService workflowService,
+            Func<ExternalYoloDatasetIntakeCallbacks> callbacksProvider)
+        {
+            externalYoloDatasetIntakeWorkflowService = workflowService
+                ?? throw new ArgumentNullException(nameof(workflowService));
+            externalYoloDatasetIntakeCallbacksProvider = callbacksProvider
+                ?? throw new ArgumentNullException(nameof(callbacksProvider));
+            SelectExternalYoloDatasetCommand = new RelayCommand(() => _ = ExecuteSelectExternalYoloDatasetCommandAsync());
+            ActivateExternalYoloDatasetCommand = new RelayCommand(() => _ = ExecuteActivateExternalYoloDatasetCommandAsync());
+            ClearExternalYoloDatasetCommand = new RelayCommand(ExecuteClearExternalYoloDatasetCommand);
+        }
+
         public void SetYoloFixActionAvailability(bool canFixClasses, bool canFixLabels, bool canFixDataset)
         {
             IsYoloFixClassesEnabled = canFixClasses;
@@ -1279,6 +1457,167 @@ namespace MvcVisionSystem
             ExternalEvaluationDataAuditPathText = pathText ?? string.Empty;
         }
 
+        private async Task ExecuteExternalEvaluationDataAuditAsync()
+        {
+            if (externalAuditWorkflowService == null
+                || externalEvaluationDataAuditCloseApproval?.Invoke() == true
+                || externalAuditWorkflowService.IsExternalEvaluationDataAuditRunning)
+            {
+                return;
+            }
+
+            string selectedDirectory = externalEvaluationDataAuditDirectorySelector(
+                externalEvaluationDataAuditInitialDirectoryProvider() ?? string.Empty);
+            if (string.IsNullOrWhiteSpace(selectedDirectory))
+            {
+                SetExternalEvaluationDataAuditResult(
+                    "\uC678\uBD80 \uD3C9\uAC00 \uB300\uC870: \uCDE8\uC18C",
+                    "\uD3F4\uB354\uB97C \uC120\uD0DD\uD558\uBA74 \uD604\uC7AC \uD559\uC2B5/\uAC80\uC99D/\uCD5C\uC885 \uAC80\uC99D \uC774\uBBF8\uC9C0\uC640 \uB3D9\uC77C \uCF58\uD150\uCE20\uC778\uC9C0 \uD655\uC778\uD569\uB2C8\uB2E4.",
+                    string.Empty);
+                return;
+            }
+
+            IReadOnlyList<string> referenceDirectories = externalEvaluationDataAuditReferenceDirectoriesProvider()
+                ?? Array.Empty<string>();
+            SetExternalEvaluationDataAuditResult(
+                "\uC678\uBD80 \uD3C9\uAC00 \uB300\uC870: \uD655\uC778 \uC911",
+                "SHA-256\uB85C \uD604\uC7AC \uD559\uC2B5/\uAC80\uC99D/\uCD5C\uC885 \uAC80\uC99D \uC774\uBBF8\uC9C0\uC640 \uBE44\uAD50\uD569\uB2C8\uB2E4.",
+                selectedDirectory);
+
+            ExternalEvaluationDataAuditWorkflowResult result = await externalAuditWorkflowService.RunExternalEvaluationAsync(
+                new ExternalEvaluationDataAuditWorkflowRequest
+                {
+                    ReferenceDirectories = referenceDirectories,
+                    SelectedDirectory = selectedDirectory
+                });
+            if (externalEvaluationDataAuditCloseApproval?.Invoke() == true
+                || externalAuditWorkflowService.IsClosed
+                || result.IsCanceled
+                || !result.Started)
+            {
+                return;
+            }
+
+            if (result.Error != null)
+            {
+                SetExternalEvaluationDataAuditResult(
+                    "\uC678\uBD80 \uD3C9\uAC00 \uB300\uC870: \uD655\uC778 \uBD88\uAC00",
+                    result.Error.Message,
+                    selectedDirectory);
+                return;
+            }
+
+            YoloExternalEvaluationDataAuditReport report = result.Report;
+            if (!result.Succeeded || report == null)
+            {
+                return;
+            }
+
+            ExternalEvaluationDataAuditPresentation presentation =
+                ExternalEvaluationDataAuditPresentationService.Build(report);
+            SetExternalEvaluationDataAuditResult(
+                presentation.StatusText,
+                presentation.DetailText,
+                selectedDirectory);
+            string status =
+                $"\uC678\uBD80 \uD3C9\uAC00 \uB300\uC870: {selectedDirectory} / \uAE30\uC900 {report.ReferenceImageCount} / \uC678\uBD80 {report.ExternalImageCount} / \uC911\uBCF5 {report.ContentOverlapCount}";
+            ExternalEvaluationDataAuditStatusChanged?.Invoke(status);
+            externalEvaluationDataAuditStatusSink?.Invoke(status);
+        }
+
+        private async Task ExecuteHistoricalSegmentationRemediationAuditAsync()
+        {
+            if (externalAuditWorkflowService == null
+                || historicalSegmentationRemediationCloseApproval?.Invoke() == true
+                || externalAuditWorkflowService.IsHistoricalSegmentationRemediationAuditRunning)
+            {
+                return;
+            }
+
+            LabelingProjectData data = historicalSegmentationRemediationDataProvider?.Invoke();
+            string outputPath = YoloSegmentationHistoricalRemediationAuditService.ResolveDefaultOutputPath(data);
+            if (string.IsNullOrWhiteSpace(outputPath))
+            {
+                historicalSegmentationRemediationStatusSink?.Invoke(
+                    "SEG \uBCF4\uC815 \uAC80\uD1A0 \uC2E4\uD328: \uB370\uC774\uD130\uC14B \uC800\uC7A5 \uD3F4\uB354\uB97C \uBA3C\uC800 \uC9C0\uC815\uD558\uC138\uC694.",
+                    string.Empty);
+                return;
+            }
+
+            string sourceImagePath = historicalSegmentationRemediationSourceImagePathProvider?.Invoke() ?? string.Empty;
+            historicalSegmentationRemediationStatusSink?.Invoke(
+                "SEG \uBCF4\uC815 \uAC80\uD1A0: \uAE30\uC874 \uB9C8\uC2A4\uD06C\uC640 YOLO \uB77C\uBCA8\uC744 \uC77D\uAE30 \uC804\uC6A9\uC73C\uB85C \uBE44\uAD50 \uC911",
+                string.Empty);
+
+            HistoricalSegmentationRemediationAuditWorkflowResult result;
+            try
+            {
+                result = await externalAuditWorkflowService.RunHistoricalRemediationAsync(
+                    new HistoricalSegmentationRemediationAuditWorkflowRequest
+                    {
+                        Data = data,
+                        SourceImagePath = sourceImagePath,
+                        OutputPath = outputPath
+                    }).ConfigureAwait(true);
+            }
+            catch (Exception ex)
+            {
+                historicalSegmentationRemediationStatusSink?.Invoke(
+                    $"SEG \uBCF4\uC815 \uAC80\uD1A0 \uC2E4\uD328: {ex.Message}",
+                    $"SEG remediation dry run failed: {ex.Message}");
+                return;
+            }
+
+            if (historicalSegmentationRemediationCloseApproval?.Invoke() == true
+                || externalAuditWorkflowService.IsClosed
+                || result.IsCanceled
+                || !result.Started)
+            {
+                return;
+            }
+
+            if (result.Error != null)
+            {
+                historicalSegmentationRemediationStatusSink?.Invoke(
+                    $"SEG \uBCF4\uC815 \uAC80\uD1A0 \uC2E4\uD328: {result.Error.Message}",
+                    $"SEG remediation dry run failed: {result.Error.Message}");
+                return;
+            }
+
+            if (!result.Succeeded || result.Report == null || result.Export == null)
+            {
+                return;
+            }
+
+            string sourceSummary = result.Report.ExcludedSourceImageCount > 0
+                ? $"\uAE30\uC900 \uC774\uBBF8\uC9C0 \uC81C\uC678 {result.Report.ExcludedSourceImageCount}\uC7A5"
+                : "\uAE30\uC900 \uC774\uBBF8\uC9C0 \uC81C\uC678 \uC5C6\uC74C";
+            string errorSummary = result.Report.HasErrors
+                ? $" / \uD655\uC778 \uD544\uC694 {result.Report.UnresolvedRecordCount}\uAC74"
+                : string.Empty;
+            historicalSegmentationRemediationStatusSink?.Invoke(
+                $"SEG \uBCF4\uC815 \uAC80\uD1A0 \uBCF4\uACE0\uC11C \uC800\uC7A5: {Path.GetFileName(result.Export.OutputPath)} / \uB300\uC0C1 {result.Report.CandidateImageCount}\uC7A5 / \uB77C\uBCA8 \uCC28\uC774 {result.Report.ChangedYoloLabelImageCount}\uC7A5 / {sourceSummary}{errorSummary}",
+                $"SEG remediation dry run saved: {result.Export.OutputPath} / images {result.Report.CandidateImageCount} / records {result.Report.CandidateRecordCount} / changed labels {result.Report.ChangedYoloLabelImageCount} / excluded sources {result.Report.ExcludedSourceImageCount}");
+        }
+
+        private async Task ExecuteRunModelComparisonCommandAsync()
+        {
+            if (modelComparisonWorkflowService == null)
+            {
+                return;
+            }
+
+            ModelComparisonCallbacks callbacks = modelComparisonCallbacksProvider?.Invoke();
+            if (callbacks == null)
+            {
+                return;
+            }
+
+            await modelComparisonWorkflowService
+                .RunCandidateAsync(callbacks)
+                .ConfigureAwait(true);
+        }
+
         public LabelingDatasetPurpose GetSelectedExternalYoloDatasetPurpose()
             => ToDatasetPurpose(SelectedExternalYoloDatasetPurposeMode?.Mode ?? WpfLearningMode.ObjectDetection);
 
@@ -1296,6 +1635,168 @@ namespace MvcVisionSystem
                 : statusText;
             ExternalYoloDatasetIntakeDetailText = detailText ?? string.Empty;
             ExternalYoloDatasetIntakePathText = pathText ?? string.Empty;
+        }
+
+        private async Task ExecuteSelectExternalYoloDatasetCommandAsync()
+        {
+            ExternalYoloDatasetIntakeCallbacks callbacks = externalYoloDatasetIntakeCallbacksProvider?.Invoke();
+            if (externalYoloDatasetIntakeWorkflowService == null
+                || callbacks == null
+                || callbacks.IsApplicationCloseApproved?.Invoke() == true
+                || externalYoloDatasetIntakeWorkflowService.IsRunning)
+            {
+                return;
+            }
+
+            ExternalYoloDatasetSettings settings = callbacks.SettingsProvider?.Invoke();
+            if (settings == null)
+            {
+                return;
+            }
+
+            string selectedPath = callbacks.SelectDataYamlPath?.Invoke(settings.DataYamlFilePath);
+            if (string.IsNullOrWhiteSpace(selectedPath))
+            {
+                SetExternalYoloDatasetIntakeResult(
+                    settings.DatasetPurpose,
+                    "외부 YOLO data.yaml: 선택 취소",
+                    "파일을 선택하면 읽기 전용 검증 후 다음 학습에 사용할지 별도로 결정합니다.",
+                    settings.DataYamlFilePath);
+                return;
+            }
+
+            if (callbacks.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            await ValidateAndStoreExternalYoloDatasetAsync(
+                callbacks,
+                selectedPath,
+                callbacks.SelectedPurposeProvider?.Invoke() ?? LabelingDatasetPurpose.ObjectDetection,
+                useForNextTraining: false);
+        }
+
+        private async Task ExecuteActivateExternalYoloDatasetCommandAsync()
+        {
+            ExternalYoloDatasetIntakeCallbacks callbacks = externalYoloDatasetIntakeCallbacksProvider?.Invoke();
+            if (externalYoloDatasetIntakeWorkflowService == null
+                || callbacks == null
+                || callbacks.IsApplicationCloseApproved?.Invoke() == true
+                || externalYoloDatasetIntakeWorkflowService.IsRunning)
+            {
+                return;
+            }
+
+            ExternalYoloDatasetSettings settings = callbacks.SettingsProvider?.Invoke();
+            if (settings == null)
+            {
+                return;
+            }
+
+            if (string.IsNullOrWhiteSpace(settings.DataYamlFilePath))
+            {
+                SetExternalYoloDatasetIntakeResult(
+                    settings.DatasetPurpose,
+                    "외부 YOLO data.yaml: 선택 필요",
+                    "먼저 data.yaml을 선택해 검증하세요.",
+                    string.Empty);
+                return;
+            }
+
+            await ValidateAndStoreExternalYoloDatasetAsync(
+                callbacks,
+                settings.DataYamlFilePath,
+                callbacks.SelectedPurposeProvider?.Invoke() ?? settings.DatasetPurpose,
+                useForNextTraining: true);
+        }
+
+        private void ExecuteClearExternalYoloDatasetCommand()
+        {
+            ExternalYoloDatasetIntakeCallbacks callbacks = externalYoloDatasetIntakeCallbacksProvider?.Invoke();
+            if (externalYoloDatasetIntakeWorkflowService == null
+                || callbacks == null
+                || callbacks.IsApplicationCloseApproved?.Invoke() == true
+                || externalYoloDatasetIntakeWorkflowService.IsRunning)
+            {
+                return;
+            }
+
+            if (callbacks.SettingsProvider?.Invoke() == null)
+            {
+                return;
+            }
+
+            callbacks.ClearSelection?.Invoke();
+            callbacks.AppendLog?.Invoke("외부 YOLO data.yaml 선택과 다음 학습 사용을 해제했습니다.");
+        }
+
+        private async Task ValidateAndStoreExternalYoloDatasetAsync(
+            ExternalYoloDatasetIntakeCallbacks callbacks,
+            string dataYamlFilePath,
+            LabelingDatasetPurpose purpose,
+            bool useForNextTraining)
+        {
+            if (externalYoloDatasetIntakeWorkflowService == null
+                || callbacks == null
+                || callbacks.IsApplicationCloseApproved?.Invoke() == true
+                || externalYoloDatasetIntakeWorkflowService.IsRunning)
+            {
+                return;
+            }
+
+            SetExternalYoloDatasetIntakeResult(
+                purpose,
+                "외부 YOLO data.yaml: 확인 중",
+                "원본 이미지와 라벨은 수정하지 않고 경로, 분할, 클래스, 라벨 형식만 확인합니다.",
+                dataYamlFilePath);
+
+            ExternalYoloDatasetIntakeWorkflowResult workflowResult = await externalYoloDatasetIntakeWorkflowService.RunAsync(
+                new ExternalYoloDatasetIntakeWorkflowRequest
+                {
+                    DataYamlFilePath = dataYamlFilePath,
+                    Purpose = purpose
+                });
+            if (!workflowResult.Started || workflowResult.IsCanceled)
+            {
+                return;
+            }
+
+            if (workflowResult.Error != null)
+            {
+                if (callbacks.IsApplicationCloseApproved?.Invoke() != true
+                    && !externalYoloDatasetIntakeWorkflowService.IsClosed)
+                {
+                    SetExternalYoloDatasetIntakeResult(
+                        purpose,
+                        "외부 YOLO data.yaml: 확인 불가",
+                        workflowResult.Error.Message,
+                        dataYamlFilePath);
+                }
+
+                return;
+            }
+
+            if (callbacks.IsApplicationCloseApproved?.Invoke() == true
+                || externalYoloDatasetIntakeWorkflowService.IsClosed)
+            {
+                return;
+            }
+
+            YoloExternalDatasetIntakeReport report = workflowResult.Report;
+            bool useForTraining = callbacks.ApplyValidationResult?.Invoke(
+                report,
+                dataYamlFilePath,
+                purpose,
+                useForNextTraining) == true;
+            if (report.IsReady)
+            {
+                callbacks.AppendLog?.Invoke($"외부 YOLO data.yaml 검증 완료: {System.IO.Path.GetFileName(report.DataYamlFilePath)} / {report.Summary} / 다음 학습 사용:{useForTraining}");
+            }
+            else
+            {
+                callbacks.AppendLog?.Invoke($"외부 YOLO data.yaml 검증 실패: {string.Join(" ", report.Errors.Take(2))}");
+            }
         }
 
         public void SetYoloTrainingStepState(int order, bool isCompleted, string stateText)
@@ -1701,6 +2202,12 @@ namespace MvcVisionSystem
             }
 
             disposed = true;
+            ExternalEvaluationDataAuditStatusChanged = null;
+            externalEvaluationDataAuditStatusSink = null;
+            historicalSegmentationRemediationDataProvider = null;
+            historicalSegmentationRemediationSourceImagePathProvider = null;
+            historicalSegmentationRemediationCloseApproval = null;
+            historicalSegmentationRemediationStatusSink = null;
             OpenVisionLanguageService.LanguageChanged -= OpenVisionLanguageService_LanguageChanged;
         }
 
@@ -1777,5 +2284,16 @@ namespace MvcVisionSystem
             // notification refreshes them without a visual-tree string rewrite.
             OnPropertyChanged(string.Empty);
         }
+    }
+
+    public sealed class ExternalYoloDatasetIntakeCallbacks
+    {
+        public Func<ExternalYoloDatasetSettings> SettingsProvider { get; init; }
+        public Func<LabelingDatasetPurpose> SelectedPurposeProvider { get; init; }
+        public Func<string, string> SelectDataYamlPath { get; init; }
+        public Func<bool> IsApplicationCloseApproved { get; init; }
+        public Action ClearSelection { get; init; }
+        public Func<YoloExternalDatasetIntakeReport, string, LabelingDatasetPurpose, bool, bool> ApplyValidationResult { get; init; }
+        public Action<string> AppendLog { get; init; }
     }
 }

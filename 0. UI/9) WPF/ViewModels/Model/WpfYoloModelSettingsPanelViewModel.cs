@@ -14,8 +14,10 @@ namespace MvcVisionSystem
 {
     public sealed class WpfYoloModelSettingsPanelViewModel : WpfObservableViewModel
     {
+        private static readonly Action<object> NoOpObjectCommand = _ => { };
         private string pythonExecutablePath = string.Empty;
         private string selectedModelEngine = PythonModelSettings.EngineYoloV5;
+        private string modelEngineBeforeDropDown = PythonModelSettings.EngineYoloV5;
         private string projectRootPath = string.Empty;
         private string clientScriptPath = string.Empty;
         private string weightsPath = string.Empty;
@@ -45,10 +47,13 @@ namespace MvcVisionSystem
         private ICommand browseClientScriptCommand = new RelayCommand(NoOpCommand);
         private ICommand browseWeightsCommand = new RelayCommand(NoOpCommand);
         private ICommand browseImageRootCommand = new RelayCommand(NoOpCommand);
+        private Func<YoloModelSettingsPathCallbacks> pathSelectionCallbacksProvider;
         private ICommand saveSettingsCommand = new RelayCommand(NoOpCommand);
         private ICommand resetSettingsCommand = new RelayCommand(NoOpCommand);
         private ICommand cancelChangesCommand = new RelayCommand(NoOpCommand);
         private ICommand runtimeProfileActionCommand = new RelayCommand<string>(NoOpTextCommand);
+        private ICommand modelEngineDropDownOpenedCommand = new RelayCommand<object>(NoOpObjectCommand);
+        private ICommand modelEngineDropDownClosedCommand = new RelayCommand<object>(NoOpObjectCommand);
         private Action<string> runtimeProfileAction = NoOpTextCommand;
         private bool isRuntimeProfileActionEnabled = true;
         private string runtimeProfileActionStatusText = "\uC2E4\uD589\uD560 \uBAA8\uB378\uC744 \uC120\uD0DD\uD558\uBA74 \uB2E4\uC74C \uC791\uC5C5\uC744 \uC5EC\uAE30\uC5D0 \uBCF4\uC5EC\uC90D\uB2C8\uB2E4.";
@@ -143,6 +148,18 @@ namespace MvcVisionSystem
         {
             get => runtimeProfileActionCommand;
             private set => SetProperty(ref runtimeProfileActionCommand, value);
+        }
+
+        public ICommand ModelEngineDropDownOpenedCommand
+        {
+            get => modelEngineDropDownOpenedCommand;
+            private set => SetProperty(ref modelEngineDropDownOpenedCommand, value);
+        }
+
+        public ICommand ModelEngineDropDownClosedCommand
+        {
+            get => modelEngineDropDownClosedCommand;
+            private set => SetProperty(ref modelEngineDropDownClosedCommand, value);
         }
 
         public ICommand RuntimeInstallPackageCommand
@@ -635,10 +652,128 @@ namespace MvcVisionSystem
             CancelChangesCommand = new RelayCommand(cancelChanges ?? NoOpCommand);
             this.runtimeProfileAction = runtimeProfileAction ?? NoOpTextCommand;
             RuntimeProfileActionCommand = new RelayCommand<string>(ExecuteRuntimeProfileAction);
+            ModelEngineDropDownOpenedCommand = new RelayCommand<object>(ExecuteModelEngineDropDownOpened);
+            ModelEngineDropDownClosedCommand = new RelayCommand<object>(ExecuteModelEngineDropDownClosed, _ => IsRuntimeProfileActionEnabled);
             this.runtimeInstallPackageAction = runtimeInstallPackageAction ?? NoOpCommand;
             this.runtimeUninstallPackageAction = runtimeUninstallPackageAction ?? NoOpCommand;
             RuntimeInstallPackageCommand = new RelayCommand(ExecuteRuntimeInstallPackage);
             RuntimeUninstallPackageCommand = new RelayCommand(ExecuteRuntimeUninstallPackage);
+        }
+
+        public void ConfigurePathSelectionWorkflow(Func<YoloModelSettingsPathCallbacks> callbacksProvider)
+        {
+            pathSelectionCallbacksProvider = callbacksProvider
+                ?? throw new ArgumentNullException(nameof(callbacksProvider));
+            BrowsePythonCommand = new RelayCommand(ExecuteBrowsePythonCommand);
+            BrowseProjectRootCommand = new RelayCommand(ExecuteBrowseProjectRootCommand);
+            BrowseClientScriptCommand = new RelayCommand(ExecuteBrowseClientScriptCommand);
+            BrowseWeightsCommand = new RelayCommand(ExecuteBrowseWeightsCommand);
+            BrowseImageRootCommand = new RelayCommand(ExecuteBrowseImageRootCommand);
+        }
+
+        private void ExecuteBrowsePythonCommand()
+        {
+            YoloModelSettingsPathCallbacks callbacks = pathSelectionCallbacksProvider?.Invoke();
+            if (callbacks?.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            string selectedPath = callbacks?.SelectFile?.Invoke(
+                "Select Python executable",
+                "Python executable (python*.exe)|python*.exe|Executable files (*.exe)|*.exe|All files (*.*)|*.*",
+                PythonExecutablePath);
+            if (string.IsNullOrWhiteSpace(selectedPath)
+                || callbacks?.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            PythonExecutablePath = selectedPath;
+            callbacks.PathSelected?.Invoke("Python 실행 파일", selectedPath);
+        }
+
+        private void ExecuteBrowseProjectRootCommand()
+        {
+            YoloModelSettingsPathCallbacks callbacks = pathSelectionCallbacksProvider?.Invoke();
+            if (callbacks?.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            string selectedPath = callbacks?.SelectFolder?.Invoke("YOLO 프로젝트 폴더 선택", ProjectRootPath);
+            if (string.IsNullOrWhiteSpace(selectedPath)
+                || callbacks?.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            ProjectRootPath = selectedPath;
+            callbacks.PathSelected?.Invoke("YOLO 프로젝트 폴더", selectedPath);
+        }
+
+        private void ExecuteBrowseClientScriptCommand()
+        {
+            YoloModelSettingsPathCallbacks callbacks = pathSelectionCallbacksProvider?.Invoke();
+            if (callbacks?.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            string selectedPath = callbacks?.SelectFile?.Invoke(
+                "추론 실행 스크립트 선택",
+                "실행 스크립트 (*.py)|*.py|All files (*.*)|*.*",
+                ClientScriptPath);
+            if (string.IsNullOrWhiteSpace(selectedPath)
+                || callbacks?.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            ClientScriptPath = selectedPath;
+            callbacks.PathSelected?.Invoke("추론 실행 스크립트", selectedPath);
+        }
+
+        private void ExecuteBrowseWeightsCommand()
+        {
+            YoloModelSettingsPathCallbacks callbacks = pathSelectionCallbacksProvider?.Invoke();
+            if (callbacks?.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            string selectedPath = callbacks?.SelectFile?.Invoke(
+                "검사용 모델 파일 선택",
+                "모델 파일 (*.pt;*.pth)|*.pt;*.pth|All files (*.*)|*.*",
+                WeightsPath);
+            if (string.IsNullOrWhiteSpace(selectedPath)
+                || callbacks?.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            WeightsPath = selectedPath;
+            callbacks.WeightsSelected?.Invoke(selectedPath);
+            callbacks.PathSelected?.Invoke("검사용 모델 파일", selectedPath);
+        }
+
+        private void ExecuteBrowseImageRootCommand()
+        {
+            YoloModelSettingsPathCallbacks callbacks = pathSelectionCallbacksProvider?.Invoke();
+            if (callbacks?.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            string selectedPath = callbacks?.SelectFolder?.Invoke("이미지 루트 폴더 선택", ImageRootPath);
+            if (string.IsNullOrWhiteSpace(selectedPath)
+                || callbacks?.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            ImageRootPath = selectedPath;
+            callbacks.PathSelected?.Invoke("이미지 루트 폴더", selectedPath);
         }
 
         public void LoadFrom(PythonModelSettings settings)
@@ -661,6 +796,8 @@ namespace MvcVisionSystem
             {
                 loadingAppliedSettings = false;
             }
+
+            modelEngineBeforeDropDown = selectedModelEngine;
 
             NotifyAppliedSettingsChanged();
             RefreshDirtyState();
@@ -696,6 +833,8 @@ namespace MvcVisionSystem
             {
                 loadingAppliedSettings = false;
             }
+
+            modelEngineBeforeDropDown = selectedModelEngine;
 
             RefreshRuntimeProfiles();
             RefreshDirtyState();
@@ -850,9 +989,31 @@ namespace MvcVisionSystem
         {
         }
 
+        private void ExecuteModelEngineDropDownOpened(object value)
+        {
+            modelEngineBeforeDropDown = SelectedModelEngine;
+        }
+
+        private void ExecuteModelEngineDropDownClosed(object value)
+        {
+            if (loadingAppliedSettings || applyingModelEngineDefaults)
+            {
+                return;
+            }
+
+            string normalizedEngine = PythonModelSettings.NormalizeModelEngine(SelectedModelEngine);
+            if (string.Equals(modelEngineBeforeDropDown, normalizedEngine, StringComparison.Ordinal))
+            {
+                return;
+            }
+
+            ExecuteRuntimeProfileAction(normalizedEngine);
+        }
+
         private void ExecuteRuntimeProfileAction(string engine)
         {
             string normalizedEngine = PythonModelSettings.NormalizeModelEngine(engine);
+            modelEngineBeforeDropDown = normalizedEngine;
             SelectedModelEngine = normalizedEngine;
             RuntimeProfileActionStatusText = FormatRuntimeProfileActionStatusText(normalizedEngine);
             runtimeProfileAction(normalizedEngine);
@@ -1160,5 +1321,14 @@ namespace MvcVisionSystem
                 PythonModelSettings.EngineOnnx => "ONNX \uC120\uD0DD\uB428. \uAC80\uC0AC\uC5D0 \uC4F8 .onnx \uBAA8\uB378 \uD30C\uC77C\uC744 \uC120\uD0DD\uD558\uACE0 \uC800\uC7A5\uD558\uC138\uC694.",
                 _ => "YOLOv5 \uC120\uD0DD\uB428. \uAE30\uC874 YOLOv5 \uD3F4\uB354\uB97C \uC5F0\uACB0\uD55C \uB4A4 \uC800\uC7A5\uD558\uBA74 \uC774 \uD504\uB85C\uD544\uB85C \uD559\uC2B5/\uAC80\uC0AC\uB97C \uC2E4\uD589\uD569\uB2C8\uB2E4."
             };
+    }
+
+    public sealed class YoloModelSettingsPathCallbacks
+    {
+        public Func<string, string, string, string> SelectFile { get; init; }
+        public Func<string, string, string> SelectFolder { get; init; }
+        public Func<bool> IsApplicationCloseApproved { get; init; }
+        public Action<string, string> PathSelected { get; init; }
+        public Action<string> WeightsSelected { get; init; }
     }
 }

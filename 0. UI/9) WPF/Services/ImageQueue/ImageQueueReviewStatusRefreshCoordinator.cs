@@ -14,7 +14,8 @@ namespace MvcVisionSystem
     public class ImageQueueReviewStatusRefreshCoordinator : IDisposable
     {
         private readonly object syncRoot = new object();
-        private readonly CancellationTokenSource refreshCancellation = new CancellationTokenSource();
+        private CancellationTokenSource activeCancellation;
+        private Task activeTask = Task.CompletedTask;
         private int refreshVersion;
         private int disposed;
 
@@ -34,7 +35,9 @@ namespace MvcVisionSystem
             }
 
             int requestVersion;
-            CancellationToken cancellationToken;
+            CancellationTokenSource previousCancellation;
+            CancellationTokenSource cancellation;
+            Task<YoloImageReviewStatus> completion;
             lock (syncRoot)
             {
                 if (Volatile.Read(ref disposed) != 0)
@@ -42,14 +45,33 @@ namespace MvcVisionSystem
                     return null;
                 }
 
+                previousCancellation = activeCancellation;
+                previousCancellation?.Cancel();
                 requestVersion = ++refreshVersion;
-                cancellationToken = refreshCancellation.Token;
+                cancellation = new CancellationTokenSource();
+                activeCancellation = cancellation;
             }
 
+            CancellationToken cancellationToken = cancellation.Token;
             Func<string, Size, YoloImageReviewStatus> refresh = reviewWorkflow.CaptureLabelStatusRefresh(
                 data, hasActiveCandidates, saveReviewStatus: true,
                 isCurrent: () => IsCurrent(requestVersion) && !cancellationToken.IsCancellationRequested);
-            Task<YoloImageReviewStatus> completion = Task.Run(() => refresh(imagePath, imageSize), CancellationToken.None);
+
+            lock (syncRoot)
+            {
+                completion = Task.Run(() => refresh(imagePath, imageSize), CancellationToken.None);
+                if (ReferenceEquals(activeCancellation, cancellation))
+                {
+                    activeTask = completion;
+                }
+
+                completion.ContinueWith(
+                    _ => Complete(cancellation),
+                    CancellationToken.None,
+                    TaskContinuationOptions.ExecuteSynchronously,
+                    TaskScheduler.Default);
+            }
+
             return new ImageQueueReviewStatusRefreshOperation(requestVersion, imagePath, completion);
         }
 
@@ -61,6 +83,7 @@ namespace MvcVisionSystem
 
         public void Dispose()
         {
+            CancellationTokenSource cancellation;
             lock (syncRoot)
             {
                 if (Interlocked.Exchange(ref disposed, 1) != 0)
@@ -69,14 +92,34 @@ namespace MvcVisionSystem
                 }
 
                 ++refreshVersion;
-                refreshCancellation.Cancel();
-                refreshCancellation.Dispose();
+                cancellation = activeCancellation;
+                cancellation?.Cancel();
             }
         }
 
         public void Cancel()
         {
-            lock (syncRoot) ++refreshVersion;
+            CancellationTokenSource cancellation;
+            lock (syncRoot)
+            {
+                ++refreshVersion;
+                cancellation = activeCancellation;
+                cancellation?.Cancel();
+            }
+        }
+
+        private void Complete(CancellationTokenSource cancellation)
+        {
+            lock (syncRoot)
+            {
+                if (ReferenceEquals(activeCancellation, cancellation))
+                {
+                    activeCancellation = null;
+                    activeTask = Task.CompletedTask;
+                }
+            }
+
+            cancellation.Dispose();
         }
     }
 

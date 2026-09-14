@@ -17,22 +17,7 @@ namespace MvcVisionSystem
         }
 
         public static void Save(LabelingProjectData data, string recipeName)
-        {
-            if (data == null)
-            {
-                return;
-            }
-
-            string manifestPath = GetManifestPath(recipeName);
-            string recipeDirectory = Path.GetDirectoryName(manifestPath);
-            Directory.CreateDirectory(recipeDirectory);
-            RecipeDatasetVersionSnapshot snapshot = RecipeDatasetVersionService.RecordSnapshot(
-                recipeDirectory,
-                RecipeDatasetVersionService.CreateSnapshot(data));
-            File.WriteAllText(
-                manifestPath,
-                JsonConvert.SerializeObject(Build(data, recipeName, snapshot), Formatting.Indented));
-        }
+            => Save(data, recipeName, snapshot: null);
 
         public static void Save(LabelingProjectData data, string recipeName, RecipeDatasetVersionSnapshot snapshot)
         {
@@ -47,9 +32,8 @@ namespace MvcVisionSystem
             RecipeDatasetVersionSnapshot stored = RecipeDatasetVersionService.RecordSnapshot(
                 recipeDirectory,
                 snapshot ?? RecipeDatasetVersionService.CreateSnapshot(data));
-            File.WriteAllText(
-                manifestPath,
-                JsonConvert.SerializeObject(Build(data, recipeName, stored), Formatting.Indented));
+            AnnotationFilePersistence.WriteAtomically(manifestPath,
+                temporaryPath => File.WriteAllText(temporaryPath, JsonConvert.SerializeObject(Build(data, recipeName, stored), Formatting.Indented)));
         }
 
         public static LabelingDatasetManifest Build(LabelingProjectData data, string recipeName)

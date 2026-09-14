@@ -47,6 +47,7 @@ namespace MvcVisionSystem
         private bool hasVisualQaItems;
         private bool isVisualQaLoaded;
         private bool isRefreshingVisualQa;
+        private int selectedTabIndex;
         private bool showOnlyVisualQaProblems;
         private IReadOnlyList<string> visualQaSplitFilters = new[] { AllVisualQaSplits };
         private string selectedVisualQaSplitFilter = AllVisualQaSplits;
@@ -169,6 +170,19 @@ namespace MvcVisionSystem
         {
             get => hasVisualQaItems;
             private set => SetProperty(ref hasVisualQaItems, value);
+        }
+
+        public int SelectedTabIndex
+        {
+            get => selectedTabIndex;
+            set
+            {
+                if (SetProperty(ref selectedTabIndex, Math.Max(0, value))
+                    && selectedTabIndex == 2)
+                {
+                    EnsureVisualQaLoaded();
+                }
+            }
         }
 
         public bool ShowOnlyVisualQaProblems

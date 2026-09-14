@@ -17,6 +17,7 @@ namespace MvcVisionSystem
         private static readonly Action<string> NoOpTextCommand = _ => { };
         private static readonly Action NoOpMouseCommand = () => { };
         private static readonly Action<WpfImageQueueItem> NoOpQueueItemCommand = _ => { };
+        private static readonly Action<WpfImageQueueFilter> NoOpFilterCommand = _ => { };
         private bool isOpenSelectedImageEnabled;
         private bool isDetectSelectedEnabled;
         private bool isBatchDetectEnabled;
@@ -30,7 +31,11 @@ namespace MvcVisionSystem
         private string queueFilterConfirmedText = Format("WpfImageQueue.Filter.Confirmed", 0);
         private string queueFilterSkippedText = Format("WpfImageQueue.Filter.Skipped", 0);
         private string queueFilterNoCandidateText = Format("WpfImageQueue.Filter.NoCandidate", 0);
-        private WpfImageQueueFilter selectedFilterForPresentation = WpfImageQueueFilter.All;
+        private string batchStatusText = T("WpfImageQueue.Batch.Waiting");
+        private int batchProgressMaximum = 1;
+        private int batchProgressValue;
+        private WpfImageQueueFilter selectedFilter = WpfImageQueueFilter.All;
+        private string searchText = string.Empty;
         private int unfinishedCountForPresentation;
         private int candidateCountForPresentation;
         private int failedCountForPresentation;
@@ -51,6 +56,8 @@ namespace MvcVisionSystem
         private string currentImageTaskKey = "Waiting";
         private string currentImageTaskToolTip = T("WpfImageQueue.Current.Waiting.ToolTip");
         private Action<WpfImageQueueItem> selectedQueueItemChanged = NoOpQueueItemCommand;
+        private Action<WpfImageQueueFilter> filterChanged = NoOpFilterCommand;
+        private Action<string> searchTextChanged = NoOpTextCommand;
         private string currentImageFolderPath = string.Empty;
         private string currentImageFolderDisplayText = T("WpfImageQueue.Folder.Empty");
         private bool isOpenCurrentImageFolderEnabled;
@@ -98,7 +105,23 @@ namespace MvcVisionSystem
 
         public string PanelTitleText => T("WpfImageQueue.Panel.Title");
 
-        public string BatchStatusText => T("WpfImageQueue.Batch.Waiting");
+        public string BatchStatusText
+        {
+            get => batchStatusText;
+            private set => SetProperty(ref batchStatusText, value ?? string.Empty);
+        }
+
+        public int BatchProgressMaximum
+        {
+            get => batchProgressMaximum;
+            private set => SetProperty(ref batchProgressMaximum, Math.Max(1, value));
+        }
+
+        public int BatchProgressValue
+        {
+            get => batchProgressValue;
+            private set => SetProperty(ref batchProgressValue, Math.Clamp(value, 0, BatchProgressMaximum));
+        }
 
         public string LoadConfiguredImageRootNameText => T("WpfImageQueue.LoadConfigured.Name");
 
@@ -231,6 +254,18 @@ namespace MvcVisionSystem
                     selectedQueueItemChanged(value);
                 }
             }
+        }
+
+        public WpfImageQueueFilter SelectedFilter
+        {
+            get => selectedFilter;
+            private set => SetProperty(ref selectedFilter, value);
+        }
+
+        public string SearchText
+        {
+            get => searchText;
+            private set => SetProperty(ref searchText, value ?? string.Empty);
         }
 
         public string CurrentImageTaskTitleText
@@ -673,8 +708,18 @@ namespace MvcVisionSystem
             QueueFilterSkippedCommand = new RelayCommand(queueFilterSkipped ?? NoOpCommand);
             QueueFilterNoCandidateCommand = new RelayCommand(queueFilterNoCandidate ?? NoOpCommand);
             this.selectedQueueItemChanged = selectedQueueItemChanged ?? NoOpQueueItemCommand;
-            FilterSelectionChangedCommand = new RelayCommand<object>(filterSelectionChanged ?? NoOpSelectionCommand);
-            SearchTextChangedCommand = new RelayCommand<string>(searchTextChanged ?? NoOpTextCommand);
+            Action<object> filterSelectionChangedHandler = filterSelectionChanged ?? NoOpSelectionCommand;
+            FilterSelectionChangedCommand = new RelayCommand<object>(selected =>
+            {
+                if (selected is WpfImageQueueFilterOption filterOption)
+                {
+                    SetSelectedFilter(filterOption.Filter);
+                }
+
+                filterSelectionChangedHandler(selected);
+            });
+            this.searchTextChanged = searchTextChanged ?? NoOpTextCommand;
+            SearchTextChangedCommand = new RelayCommand<string>(ExecuteSearchTextChanged);
             QueueSelectionChangedCommand = new RelayCommand<object>(queueSelectionChanged ?? NoOpSelectionCommand);
             QueueMouseDoubleClickCommand = new RelayCommand(queueMouseDoubleClick ?? NoOpMouseCommand);
             ApplyAnomalyFolderStateSuggestionCommand = new RelayCommand(applyAnomalyFolderStateSuggestion ?? NoOpCommand);
@@ -682,6 +727,50 @@ namespace MvcVisionSystem
             MarkAnomalyNormalCommand = new RelayCommand(markAnomalyNormal ?? NoOpCommand);
             MarkAnomalyAbnormalCommand = new RelayCommand(markAnomalyAbnormal ?? NoOpCommand);
             ClearAnomalyReviewCommand = new RelayCommand(clearAnomalyReview ?? NoOpCommand);
+        }
+
+        public void ConfigureFilterWorkflow(Action<WpfImageQueueFilter> filterChanged)
+        {
+            this.filterChanged = filterChanged ?? NoOpFilterCommand;
+            QueueFilterUnfinishedCommand = new RelayCommand(() => ExecuteFilterCommand(WpfImageQueueFilter.Unlabeled));
+            QueueFilterAllCommand = new RelayCommand(() => ExecuteFilterCommand(WpfImageQueueFilter.All));
+            QueueFilterCandidateCommand = new RelayCommand(() => ExecuteFilterCommand(WpfImageQueueFilter.Candidate));
+            QueueFilterFailedCommand = new RelayCommand(() => ExecuteFilterCommand(WpfImageQueueFilter.Failed));
+            QueueFilterConfirmedCommand = new RelayCommand(() => ExecuteFilterCommand(WpfImageQueueFilter.Confirmed));
+            QueueFilterSkippedCommand = new RelayCommand(() => ExecuteFilterCommand(WpfImageQueueFilter.Skipped));
+            QueueFilterNoCandidateCommand = new RelayCommand(() => ExecuteFilterCommand(WpfImageQueueFilter.NoCandidate));
+        }
+
+        public void ConfigureSearchWorkflow(Action<string> applySearchAction)
+        {
+            searchTextChanged = applySearchAction ?? NoOpTextCommand;
+            SearchTextChangedCommand = new RelayCommand<string>(ExecuteSearchTextChanged);
+        }
+
+        public void ConfigureQueueSelectionWorkflow()
+        {
+            QueueSelectionChangedCommand = new RelayCommand<object>(ExecuteQueueSelectionChanged);
+        }
+
+        private void ExecuteQueueSelectionChanged(object selectedItem)
+        {
+            WpfImageQueueItem item = selectedItem as WpfImageQueueItem;
+            if (!ReferenceEquals(SelectedQueueItem, item))
+            {
+                SelectedQueueItem = item;
+            }
+        }
+
+        private void ExecuteFilterCommand(WpfImageQueueFilter filter)
+        {
+            SetSelectedFilter(filter);
+            filterChanged(filter);
+        }
+
+        private void ExecuteSearchTextChanged(string text)
+        {
+            SetSearchText(text);
+            searchTextChanged(text);
         }
 
         public void RefreshLocalizedPresentation(IEnumerable<WpfImageQueueItem> queueItems = null)
@@ -765,9 +854,31 @@ namespace MvcVisionSystem
             IsOpenCurrentImageFolderEnabled = canOpenFolder && !string.IsNullOrWhiteSpace(normalizedPath);
         }
 
+        public void SetBatchDetectionProgress(int progressMaximum, int progressValue, string statusText)
+        {
+            BatchProgressMaximum = progressMaximum;
+            BatchProgressValue = progressValue;
+            BatchStatusText = statusText;
+        }
+
         public void SetSelectedImageAvailability(bool canOpenSelectedImage)
         {
             IsOpenSelectedImageEnabled = canOpenSelectedImage;
+        }
+
+        public void SetSelectedFilter(WpfImageQueueFilter filter)
+        {
+            SelectedFilter = filter;
+        }
+
+        public void SetSearchText(string text)
+        {
+            SearchText = text ?? string.Empty;
+        }
+
+        public bool ShouldShow(WpfImageQueueItem item)
+        {
+            return ImageQueueFilterService.ShouldShow(item, SearchText, SelectedFilter);
         }
 
         public void ApplyWorkflowCommandState(WorkflowCommandState state)
@@ -789,7 +900,7 @@ namespace MvcVisionSystem
             int noCandidateCount,
             int unfinishedCount = 0)
         {
-            selectedFilterForPresentation = selectedFilter;
+            SelectedFilter = selectedFilter;
             unfinishedCountForPresentation = Math.Max(0, unfinishedCount);
             candidateCountForPresentation = Math.Max(0, candidateCount);
             failedCountForPresentation = Math.Max(0, failedCount);
@@ -809,13 +920,25 @@ namespace MvcVisionSystem
 
         private void RefreshQuickFilterText()
         {
-            QueueFilterUnfinishedText = Format("WpfImageQueue.Filter.Unfinished", unfinishedCountForPresentation);
+            QueueFilterUnfinishedText = Format(
+                "WpfImageQueue.Filter.Unfinished",
+                FormatCountForPresentation(unfinishedCountForPresentation));
             QueueFilterAllText = T("WpfImageQueue.Filter.All");
-            QueueFilterCandidateText = Format("WpfImageQueue.Filter.Candidate", candidateCountForPresentation);
-            QueueFilterFailedText = Format("WpfImageQueue.Filter.Failed", failedCountForPresentation);
-            QueueFilterConfirmedText = Format("WpfImageQueue.Filter.Confirmed", confirmedCountForPresentation);
-            QueueFilterSkippedText = Format("WpfImageQueue.Filter.Skipped", skippedCountForPresentation);
-            QueueFilterNoCandidateText = Format("WpfImageQueue.Filter.NoCandidate", noCandidateCountForPresentation);
+            QueueFilterCandidateText = Format(
+                "WpfImageQueue.Filter.Candidate",
+                FormatCountForPresentation(candidateCountForPresentation));
+            QueueFilterFailedText = Format(
+                "WpfImageQueue.Filter.Failed",
+                FormatCountForPresentation(failedCountForPresentation));
+            QueueFilterConfirmedText = Format(
+                "WpfImageQueue.Filter.Confirmed",
+                FormatCountForPresentation(confirmedCountForPresentation));
+            QueueFilterSkippedText = Format(
+                "WpfImageQueue.Filter.Skipped",
+                FormatCountForPresentation(skippedCountForPresentation));
+            QueueFilterNoCandidateText = Format(
+                "WpfImageQueue.Filter.NoCandidate",
+                FormatCountForPresentation(noCandidateCountForPresentation));
         }
 
         private void RefreshAnomalyFolderStateSuggestionText()
@@ -1257,6 +1380,9 @@ namespace MvcVisionSystem
         }
 
         private static string T(string key) => OpenVisionLanguageService.T(key);
+
+        private static string FormatCountForPresentation(int count)
+            => count > 99 ? "99+" : Math.Max(0, count).ToString(CultureInfo.InvariantCulture);
 
         private static string Format(string key, params object[] arguments)
         {

@@ -196,8 +196,6 @@ OK/NG를 다루고, PatchCore는 이미지 판정과 함께 히트맵·위치 �
 누릅니다. Recipe를 다시 열면 `자동 윤곽` 선택은 복원되지만 추론·확정·저장을
 자동 실행하지 않습니다.
 
-상세 조건: [MobileSAM Smart Mask 가이드](../MOBILE_SAM_SMART_MASK.md)
-
 ## 9. 이상 탐지 라벨링과 PatchCore
 
 ### 9.1 YOLO8/YOLO11 이미지 분류
@@ -233,9 +231,6 @@ OK/NG를 다루고, PatchCore는 이미지 판정과 함께 히트맵·위치 �
 라벨 저장, 후보 확정, 후보 숨김, 활성 레이어 변경, 모델 채택이 일어나지 않습니다.
 히트맵 파일이 없거나 손상되면 안내를 확인하고 검사를 다시 실행합니다.
 
-상세 조건: [PatchCore 파일럿](../PATCHCORE_ANOMALY_PILOT_20260731.md),
-[히트맵 검토 뷰](../PATCHCORE_HEATMAP_REVIEW_VIEW_20260801.md)
-
 ## 10. 저장 라벨, AI 후보, 검수 상태
 
 | 상태 | 의미 | 다음 작업 |
@@ -270,9 +265,6 @@ AI 후보가 맞으면 `확정`, 맞지 않으면 `스킵` 또는 `후보 숨김
 그룹만 허용되며, 두 개 미만이 되거나 객체가 삭제되면 고아 그룹이 정리됩니다.
 메타데이터도 자동 저장되지 않습니다.
 
-상세 조건: [객체 메타데이터](../OBJECT_METADATA_REVIEW_CONSUMER_P4_20260729.md),
-[동일 이미지 객체 그룹](../OBJECT_GROUP_REVIEW_IMPLEMENTATION_P5_20260729.md)
-
 ## 12. Dataset Health로 저장 데이터를 점검하기
 
 메뉴 위치: `4 학습/모델 → 데이터 → 데이터셋 상태 분석`
@@ -290,9 +282,6 @@ Recipe가 바뀌지 않습니다. 목록이 비어 있으면 저장 폴더의 `d
 라벨 폴더 구조를 먼저 확인합니다. 읽을 수 없는 이미지, 같은 split 안의 동일한
 파일명 stem, 이미지 없는 라벨·SEG·마스크, 이미지와 SEG/마스크 크기 불일치는
 학습 준비를 차단하므로 문제 목록에서 원본과 저장 구조를 먼저 수정합니다.
-
-상세 조건: [분할 필터](../DATASET_HEALTH_SPLIT_FILTER_P3_20260729.md),
-[클래스 필터](../DATASET_HEALTH_CLASS_FILTER_20260729.md)
 
 ## 13. 템플릿, 일괄 작업, 데이터 교환
 
@@ -411,11 +400,6 @@ Python 본체, GPU 드라이버, CUDA는 관리자 권한·하드웨어 호환�
 
 명령줄의 `--environment-self-test --json`은 WPF를 열거나 라벨을 수정하지 않는 읽기
 전용 환경 점검입니다. 일괄 추론·학습·라벨링 명령이 아닙니다.
-
-상세 조건: [프로젝트 아카이브](../PORTABLE_PROJECT_ARCHIVE_P1A_20260730.md),
-[편집 복구](../BOUNDED_CRASH_RECOVERY_P1B_20260730.md),
-[진단과 지원 자료](../PACKAGED_RUNTIME_DIAGNOSTICS_P0B2_20260730.md),
-[환경 설정 센터](../ENVIRONMENT_SETUP_CENTER_P1G_20260803.md)
 
 ## 17. 저장과 자동 동작 기준
 

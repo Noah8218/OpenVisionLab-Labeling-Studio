@@ -1,4 +1,4 @@
-﻿<ui:FluentWindow x:Class="MvcVisionSystem.WpfLabelingShellWindow"
+<ui:FluentWindow x:Class="MvcVisionSystem.WpfLabelingShellWindow"
                  x:Name="ShellWindow"
                  xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                  xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
@@ -1798,7 +1798,9 @@
                           ShowsPreview="True"
                           IsEnabled="{Binding ShellViewModel.IsRightWorkflowDockExpanded, ElementName=ShellWindow}"
                           Visibility="{Binding ShellViewModel.IsWorkspaceSplitterVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
-                          DragCompleted="LeftWorkspaceSplitter_DragCompleted" />
+                          mvvm:EventCommandBehavior.EventName="DragCompleted"
+                          mvvm:EventCommandBehavior.Command="{Binding ShellViewModel.WorkflowPaneResizeCommand, ElementName=ShellWindow}"
+                          mvvm:EventCommandBehavior.CommandParameter="{Binding ElementName=RightWorkflowColumn, Path=ActualWidth}" />
 
             <GridSplitter x:Name="RightWorkspaceSplitter"
                           Grid.Column="3"
@@ -1812,7 +1814,9 @@
                           ResizeBehavior="PreviousAndNext"
                           ShowsPreview="True"
                           Visibility="{Binding ShellViewModel.IsWorkspaceSplitterVisible, ElementName=ShellWindow, Converter={StaticResource BooleanToVisibilityConverter}}"
-                          DragCompleted="RightWorkspaceSplitter_DragCompleted" />
+                          mvvm:EventCommandBehavior.EventName="DragCompleted"
+                          mvvm:EventCommandBehavior.Command="{Binding ShellViewModel.ImageQueuePaneResizeCommand, ElementName=ShellWindow}"
+                          mvvm:EventCommandBehavior.CommandParameter="{Binding ElementName=ImageQueueColumn, Path=ActualWidth}" />
 
             <Border x:Name="RightWorkflowDockPanel"
                     Grid.Column="0"

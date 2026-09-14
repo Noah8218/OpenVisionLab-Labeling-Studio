@@ -101,9 +101,7 @@ namespace MvcVisionSystem
                 throw new ArgumentException("Recipe directory is required.", nameof(recipeDirectory));
             }
 
-            if (snapshot == null
-                || string.IsNullOrWhiteSpace(snapshot.DatasetVersionId)
-                || string.IsNullOrWhiteSpace(snapshot.ContentSha256))
+            if (!HasCanonicalIdentity(snapshot))
             {
                 throw new ArgumentException("A complete dataset version snapshot is required.", nameof(snapshot));
             }
@@ -120,6 +118,10 @@ namespace MvcVisionSystem
             try
             {
                 File.WriteAllText(temporaryPath, JsonConvert.SerializeObject(snapshot, Formatting.Indented));
+                using (var stream = new FileStream(temporaryPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None))
+                {
+                    stream.Flush(flushToDisk: true);
+                }
                 try
                 {
                     File.Move(temporaryPath, snapshotPath);
@@ -170,14 +172,17 @@ namespace MvcVisionSystem
                         }
                     }
                 }
-                catch (IOException)
+                catch (IOException error)
                 {
+                    AppLog.ABNORMAL($"Dataset version history could not be read: {path} / {error.Message}");
                 }
-                catch (JsonException)
+                catch (JsonException error)
                 {
+                    AppLog.ABNORMAL($"Dataset version history is corrupt: {path} / {error.Message}");
                 }
-                catch (UnauthorizedAccessException)
+                catch (UnauthorizedAccessException error)
                 {
+                    AppLog.ABNORMAL($"Dataset version history access denied: {path} / {error.Message}");
                 }
             }
 
@@ -219,6 +224,9 @@ namespace MvcVisionSystem
                 || !string.Equals(snapshot.Algorithm, Algorithm, StringComparison.Ordinal)
                 || snapshot.Classes == null
                 || snapshot.Files == null
+                || snapshot.FileCount != snapshot.Files.Count
+                || snapshot.ImageFileCount != snapshot.Files.Count(file => file?.Kind == "image")
+                || snapshot.AnnotationFileCount != snapshot.FileCount - snapshot.ImageFileCount
                 || snapshot.Classes.Any(string.IsNullOrWhiteSpace)
                 || snapshot.Files.Any(file => file == null
                     || string.IsNullOrWhiteSpace(file.Kind)
@@ -266,7 +274,7 @@ namespace MvcVisionSystem
 
             foreach (string path in Directory.EnumerateFiles(directoryPath, "*", SearchOption.AllDirectories))
             {
-                if (include?.Invoke(path) == false)
+                if (IsSaveScratchFile(path) || include?.Invoke(path) == false)
                 {
                     continue;
                 }
@@ -297,6 +305,21 @@ namespace MvcVisionSystem
 
         private static bool IsImageFile(string path)
             => ImageExtensions.Contains(Path.GetExtension(path) ?? string.Empty);
+
+        private static bool IsSaveScratchFile(string path)
+        {
+            string name = Path.GetFileName(path);
+            int marker = name.LastIndexOf(".tmp-", StringComparison.Ordinal);
+            int markerLength = 5;
+            if (marker < 0)
+            {
+                marker = name.LastIndexOf(".rollback-", StringComparison.Ordinal);
+                markerLength = 10;
+            }
+
+            return name.StartsWith(".", StringComparison.Ordinal) && marker > 0
+                && Guid.TryParseExact(name.Substring(marker + markerLength), "N", out _);
+        }
 
         private static string BuildClassContract(IReadOnlyList<string> classes)
         {

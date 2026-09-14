@@ -19,15 +19,15 @@ namespace MvcVisionSystem._3._Communication.TCP
         }
 
         private TcpAsyncConnection PythonComm { get; } = new TcpAsyncConnection();
+        private readonly PythonModelCommunicationLifecycle lifecycle;
         private readonly PythonMessageFramer receiveFramer = new PythonMessageFramer();
         private readonly object statusLock = new object();
         private readonly PythonCommunicationStatus status = new PythonCommunicationStatus();
         private Action<IReadOnlyList<DefectInfo>, string, string> detectionResultSink;
-        private bool isListening;
-        private bool isClosing;
 
         public PythonModelCommunication(bool startListen = true, int port = 5000)
         {
+            lifecycle = new PythonModelCommunicationLifecycle(PythonComm);
             PythonComm.IsStringData = true;                    // 문자열로 데이터를 처리한다.
             PythonComm.IsStringUnicode = false;                 // UTF-8
             PythonComm.TextEncoding = Encoding.UTF8;
@@ -51,21 +51,30 @@ namespace MvcVisionSystem._3._Communication.TCP
 
         public bool Start()
         {
-            isClosing = false;
-            if (isListening)
+            bool started = lifecycle.Start(out bool startedNewListener);
+            if (started && !startedNewListener)
             {
                 return true;
             }
 
-            isListening = PythonComm.SetListen();
+            bool listening = lifecycle.IsListening;
             UpdateStatus(item =>
             {
-                item.IsListening = isListening;
+                item.IsListening = listening;
                 item.ListenerEndpoint = $"{PythonComm.IP}:{PythonComm.Port}";
                 item.ListenerPort = PythonComm.Port;
-                if (!isListening)
+                if (!listening)
                 {
-                    item.LastError = $"TCP listener did not start on {PythonComm.IP}:{PythonComm.Port}.";
+                    if (started)
+                    {
+                        item.LastWorkerState = "stopped";
+                        item.LastWorkerMessage = "Python TCP listener stopped.";
+                        item.LastError = "";
+                    }
+                    else
+                    {
+                        item.LastError = $"TCP listener did not start on {PythonComm.IP}:{PythonComm.Port}.";
+                    }
                 }
                 else
                 {
@@ -74,7 +83,7 @@ namespace MvcVisionSystem._3._Communication.TCP
                     item.LastModelLoaded = false;
                 }
             });
-            return isListening;
+            return started;
         }
 
         public bool Send(String data )
@@ -230,11 +239,9 @@ namespace MvcVisionSystem._3._Communication.TCP
 
         public void Close()
         {
-            isClosing = true;
             try
             {
-                isListening = false;
-                PythonComm.StopListen();
+                lifecycle.Stop();
                 UpdateStatus(item =>
                 {
                     item.IsListening = false;
@@ -308,7 +315,7 @@ namespace MvcVisionSystem._3._Communication.TCP
 
         private void OnServerReceiveFunction(IAsyncResult ar)
         {
-            if (isClosing)
+            if (lifecycle.IsClosing)
             {
                 return;
             }
@@ -317,7 +324,7 @@ namespace MvcVisionSystem._3._Communication.TCP
             string sMsg;
             try
             {
-                while (!isClosing && PythonComm.GetByteData(out byData))
+                while (!lifecycle.IsClosing && PythonComm.GetByteData(out byData))
                 {
                     sMsg = Encoding.UTF8.GetString(byData, 0, byData.Length);
                     foreach (string message in receiveFramer.Append(sMsg))
@@ -328,7 +335,7 @@ namespace MvcVisionSystem._3._Communication.TCP
             }
             catch (Exception ex)
             {
-                if (!isClosing)
+                if (!lifecycle.IsClosing)
                 {
                     AppLog.ABNORMAL($"Python TCP receive failed: {ex.Message}");
                     UpdateStatus(item => item.LastError = ex.Message);
@@ -338,7 +345,7 @@ namespace MvcVisionSystem._3._Communication.TCP
 
         private void HandleServerMessage(string message)
         {
-            if (isClosing)
+            if (lifecycle.IsClosing)
             {
                 return;
             }
@@ -536,7 +543,7 @@ namespace MvcVisionSystem._3._Communication.TCP
         // Client가 연결에 성공했을 때
         private void OnServerConnectFunction(IAsyncResult ar)
         {
-            if (isClosing)
+            if (lifecycle.IsClosing)
             {
                 return;
             }
@@ -561,7 +568,7 @@ namespace MvcVisionSystem._3._Communication.TCP
         // Client가 연결이 끊어졌을 때
         private void OnServerDisconnectFunction(IAsyncResult ar)
         {
-            if (isClosing)
+            if (lifecycle.IsClosing)
             {
                 return;
             }

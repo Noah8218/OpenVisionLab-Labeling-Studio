@@ -77,7 +77,12 @@ namespace OpenVisionLab.Logging
 			}
 
 			string logRoot = logDirectory.EndsWith("\\") ? logDirectory : logDirectory + "\\";
-			logRetention = new LogRetentionService(logRoot, retentionDays);
+			lock (configurationSync)
+			{
+				LogRetentionService previous = logRetention;
+				logRetention = new LogRetentionService(logRoot, retentionDays);
+				previous?.Dispose();
+			}
 		}
 
 		public static void ApplyFilePolicy(string logDirectory, int maxBackupFileCount, int maximumFileSizeInMB)

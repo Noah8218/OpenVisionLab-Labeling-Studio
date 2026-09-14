@@ -100,17 +100,8 @@ namespace MvcVisionSystem
                 return AnomalyClassificationResult.Unmapped(decision);
             }
 
-            AnomalyImageReviewStatus status = ApplyReviewStateCore(new AnomalyImageReviewRequest(
-                request.ImagePath,
-                request.ImageName,
-                decision.ReviewState,
-                request.SaveReviewStatus));
-            if (request.SaveReviewStatus)
-            {
-                reviewStatus.SaveReviewStatus(data);
-            }
-
-            return AnomalyClassificationResult.Mapped(decision, status);
+            // Decision is an AI prediction. Only explicit review commands may change persisted Ground Truth.
+            return AnomalyClassificationResult.Mapped(decision, reviewStatus.GetOrCreate(request.ImagePath));
         }
 
         private AnomalyImageReviewStatus ApplyReviewStateCore(AnomalyImageReviewRequest request)

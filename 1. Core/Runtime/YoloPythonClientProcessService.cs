@@ -9,6 +9,7 @@ namespace MvcVisionSystem._1._Core
     {
         private readonly object sync = new object();
         private Process process;
+        private ProcessTreeLifetime processTree;
         private string currentStartSignature = "";
         private volatile bool stopRequested;
 
@@ -79,6 +80,8 @@ namespace MvcVisionSystem._1._Core
                 try
                 {
                     process?.Dispose();
+                    processTree?.Dispose();
+                    processTree = null;
                     process = new Process
                     {
                         StartInfo = startInfo,
@@ -97,6 +100,7 @@ namespace MvcVisionSystem._1._Core
                         return false;
                     }
 
+                    processTree = new ProcessTreeLifetime(process);
                     cancellationToken.ThrowIfCancellationRequested();
                     process.BeginOutputReadLine();
                     process.BeginErrorReadLine();
@@ -132,25 +136,27 @@ namespace MvcVisionSystem._1._Core
         public bool StopAndWait(TimeSpan timeout)
         {
             Process processToStop;
+            ProcessTreeLifetime treeToStop;
             lock (sync)
             {
-                processToStop = DetachProcessForStopLocked();
+                processToStop = DetachProcessForStopLocked(out treeToStop);
             }
 
-            return StopDetachedProcess(processToStop, timeout);
+            return StopDetachedProcess(processToStop, treeToStop, timeout);
         }
 
         public Task StopAsync()
         {
             Process processToStop;
+            ProcessTreeLifetime treeToStop;
             lock (sync)
             {
-                processToStop = DetachProcessForStopLocked();
+                processToStop = DetachProcessForStopLocked(out treeToStop);
             }
 
             return processToStop == null
                 ? Task.CompletedTask
-                : Task.Run(() => StopDetachedProcess(processToStop, TimeSpan.FromSeconds(5)));
+                : Task.Run(() => StopDetachedProcess(processToStop, treeToStop, TimeSpan.FromSeconds(5)));
         }
 
         public void Dispose()
@@ -170,13 +176,16 @@ namespace MvcVisionSystem._1._Core
 
         private void StopLocked()
         {
-            StopDetachedProcess(DetachProcessForStopLocked(), TimeSpan.FromSeconds(5));
+            Process processToStop = DetachProcessForStopLocked(out ProcessTreeLifetime treeToStop);
+            StopDetachedProcess(processToStop, treeToStop, TimeSpan.FromSeconds(5));
         }
 
         private void DisposeFailedProcessLocked()
         {
             Process failedProcess = process;
+            ProcessTreeLifetime failedTree = processTree;
             process = null;
+            processTree = null;
             currentStartSignature = "";
             stopRequested = true;
             if (failedProcess == null)
@@ -184,11 +193,13 @@ namespace MvcVisionSystem._1._Core
                 return;
             }
 
-            StopDetachedProcess(failedProcess, TimeSpan.FromSeconds(5));
+            StopDetachedProcess(failedProcess, failedTree, TimeSpan.FromSeconds(5));
         }
 
-        private Process DetachProcessForStopLocked()
+        private Process DetachProcessForStopLocked(out ProcessTreeLifetime treeToStop)
         {
+            treeToStop = processTree;
+            processTree = null;
             if (process == null)
             {
                 currentStartSignature = "";
@@ -204,10 +215,11 @@ namespace MvcVisionSystem._1._Core
             return processToStop;
         }
 
-        private bool StopDetachedProcess(Process processToStop, TimeSpan timeout)
+        private bool StopDetachedProcess(Process processToStop, ProcessTreeLifetime treeToStop, TimeSpan timeout)
         {
             if (processToStop == null)
             {
+                treeToStop?.Dispose();
                 return true;
             }
 
@@ -217,6 +229,7 @@ namespace MvcVisionSystem._1._Core
                 processToStop.OutputDataReceived -= OnOutputDataReceived;
                 processToStop.ErrorDataReceived -= OnErrorDataReceived;
                 processToStop.Exited -= OnExited;
+                treeToStop?.Dispose();
 
                 try
                 {
@@ -234,11 +247,15 @@ namespace MvcVisionSystem._1._Core
                     {
                         pid = processToStop.Id;
                     }
-                    catch
+                    catch (Exception error)
                     {
+                        AppLog.COMM($"YOLO Python client PID was unavailable during stop: {error.Message}");
                     }
 
-                    processToStop.Kill(entireProcessTree: true);
+                    if (treeToStop == null)
+                    {
+                        processToStop.Kill(entireProcessTree: true);
+                    }
                     AppLog.COMM(pid > 0
                         ? $"YOLO Python client stop requested. PID:{pid}"
                         : "YOLO Python client stop requested.");
@@ -271,6 +288,7 @@ namespace MvcVisionSystem._1._Core
             }
             finally
             {
+                treeToStop?.Dispose();
                 processToStop.Dispose();
             }
         }
@@ -347,9 +365,9 @@ namespace MvcVisionSystem._1._Core
             {
                 exitCode = exitedProcess?.ExitCode ?? 0;
             }
-            catch
+            catch (Exception error)
             {
-                // Process exit code can be unavailable during shutdown.
+                AppLog.COMM($"YOLO Python client exit code was unavailable during shutdown: {error.Message}");
             }
 
             AppLog.COMM($"YOLO Python client exited. ExitCode:{exitCode}");
@@ -359,6 +377,9 @@ namespace MvcVisionSystem._1._Core
                 {
                     return;
                 }
+
+                processTree?.Dispose();
+                processTree = null;
 
                 LastExitedAtUtc = DateTime.UtcNow;
                 LastExitCode = exitCode;

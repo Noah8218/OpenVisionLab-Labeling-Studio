@@ -37,6 +37,20 @@ namespace OpenVisionLab.Mvvm.Behaviors
                 typeof(InputCommandBehaviors),
                 new PropertyMetadata(null, OnSelectedItemChangedCommandChanged));
 
+        public static readonly DependencyProperty DropDownOpenedCommandProperty =
+            DependencyProperty.RegisterAttached(
+                "DropDownOpenedCommand",
+                typeof(ICommand),
+                typeof(InputCommandBehaviors),
+                new PropertyMetadata(null, OnDropDownOpenedCommandChanged));
+
+        public static readonly DependencyProperty DropDownClosedCommandProperty =
+            DependencyProperty.RegisterAttached(
+                "DropDownClosedCommand",
+                typeof(ICommand),
+                typeof(InputCommandBehaviors),
+                new PropertyMetadata(null, OnDropDownClosedCommandChanged));
+
         public static readonly DependencyProperty PreviewKeyDownCommandProperty =
             DependencyProperty.RegisterAttached(
                 "PreviewKeyDownCommand",
@@ -126,6 +140,26 @@ namespace OpenVisionLab.Mvvm.Behaviors
         public static void SetSelectedItemChangedCommand(DependencyObject target, ICommand value)
         {
             target.SetValue(SelectedItemChangedCommandProperty, value);
+        }
+
+        public static ICommand GetDropDownOpenedCommand(DependencyObject target)
+        {
+            return (ICommand)target.GetValue(DropDownOpenedCommandProperty);
+        }
+
+        public static void SetDropDownOpenedCommand(DependencyObject target, ICommand value)
+        {
+            target.SetValue(DropDownOpenedCommandProperty, value);
+        }
+
+        public static ICommand GetDropDownClosedCommand(DependencyObject target)
+        {
+            return (ICommand)target.GetValue(DropDownClosedCommandProperty);
+        }
+
+        public static void SetDropDownClosedCommand(DependencyObject target, ICommand value)
+        {
+            target.SetValue(DropDownClosedCommandProperty, value);
         }
 
         public static ICommand GetPreviewKeyDownCommand(DependencyObject target)
@@ -278,6 +312,50 @@ namespace OpenVisionLab.Mvvm.Behaviors
             }
 
             Execute(GetSelectedItemChangedCommand(target), selector.SelectedItem);
+        }
+
+        private static void OnDropDownOpenedCommandChanged(DependencyObject target, DependencyPropertyChangedEventArgs e)
+        {
+            if (target is not ComboBox comboBox)
+            {
+                return;
+            }
+
+            comboBox.DropDownOpened -= ComboBox_DropDownOpened;
+            if (e.NewValue != null)
+            {
+                comboBox.DropDownOpened += ComboBox_DropDownOpened;
+            }
+        }
+
+        private static void ComboBox_DropDownOpened(object sender, EventArgs e)
+        {
+            if (sender is DependencyObject target)
+            {
+                Execute(GetDropDownOpenedCommand(target), null);
+            }
+        }
+
+        private static void OnDropDownClosedCommandChanged(DependencyObject target, DependencyPropertyChangedEventArgs e)
+        {
+            if (target is not ComboBox comboBox)
+            {
+                return;
+            }
+
+            comboBox.DropDownClosed -= ComboBox_DropDownClosed;
+            if (e.NewValue != null)
+            {
+                comboBox.DropDownClosed += ComboBox_DropDownClosed;
+            }
+        }
+
+        private static void ComboBox_DropDownClosed(object sender, EventArgs e)
+        {
+            if (sender is DependencyObject target)
+            {
+                Execute(GetDropDownClosedCommand(target), null);
+            }
         }
 
         private static void OnPreviewKeyDownCommandChanged(DependencyObject target, DependencyPropertyChangedEventArgs e)

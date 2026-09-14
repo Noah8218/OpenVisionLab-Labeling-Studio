@@ -552,7 +552,12 @@ class UnetWorker:
             if message.message_type == "TrainYolo":
                 return self.train(message, writer)
             if message.message_type == "StopTask":
-                return {"type": "StopTaskResult", "requestId": message.request_id, "ok": True, "state": "idle"}
+                with self.training_lock:
+                    running = self.training_thread is not None and self.training_thread.is_alive()
+                # The host confirms termination and owns the bounded process-stop fallback.
+                return {"type": "StopTaskResult", "requestId": message.request_id, "ok": not running,
+                        "state": "stopping" if running else "stopped", "taskType": "TrainYolo",
+                        "error": "Training is still running; host process termination is required." if running else ""}
             return {"type": "Error", "requestId": message.request_id, "ok": False, "error": make_error("UnknownMessageType", message.raw_type or message.message_type)}
         except Exception as exc:
             return {"type": "Error", "requestId": message.request_id, "ok": False, "error": make_error("UnhandledWorkerError", exc, self.debug)}

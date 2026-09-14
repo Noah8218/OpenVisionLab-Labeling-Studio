@@ -80,6 +80,7 @@ namespace MvcVisionSystem
         private readonly CanvasAnnotationToolbarPresentationService annotationToolbarPresentation =
             new CanvasAnnotationToolbarPresentationService();
         private Action displayAdjustmentChanged = NoOpCommand;
+        private Action<WpfCanvasDisplayMode> displayModeChanged = _ => { };
         private bool isPreviousCandidateEnabled;
         private bool isNextCandidateEnabled;
         private bool isFocusCurrentLabelEnabled;
@@ -166,6 +167,9 @@ namespace MvcVisionSystem
         private WpfSmartMaskDetailItem selectedSmartMaskDetail;
         private Action<bool> smartMaskAutoContourChanged = _ => { };
         private Action<WpfSmartMaskPolygonDetail> smartMaskDetailChanged = _ => { };
+        private Action cancelPendingLabelClassDraft = NoOpCommand;
+        private Action<string> selectClassCatalog = _ => { };
+        private Action<string> refreshObjectClassOptions = _ => { };
         private bool disposed;
 
         public WpfCanvasPanelViewModel()
@@ -1243,6 +1247,37 @@ namespace MvcVisionSystem
             OpenClassCatalogCommand = new RelayCommand(openClassCatalog ?? NoOpCommand);
         }
 
+        public void ConfigureLabelClassSelectionWorkflow(
+            Action cancelPendingFourPointBoxDraft,
+            Action<string> selectClassCatalogAction,
+            Action<string> refreshObjectClassOptionsAction)
+        {
+            cancelPendingLabelClassDraft = cancelPendingFourPointBoxDraft ?? NoOpCommand;
+            selectClassCatalog = selectClassCatalogAction ?? (_ => { });
+            refreshObjectClassOptions = refreshObjectClassOptionsAction ?? (_ => { });
+            LabelClassSelectionChangedCommand = new RelayCommand<object>(ExecuteLabelClassSelectionChanged);
+        }
+
+        public void ApplyLabelClassSelection(object selectedItem)
+        {
+            ExecuteLabelClassSelectionChanged(selectedItem);
+        }
+
+        private void ExecuteLabelClassSelectionChanged(object selectedItem)
+        {
+            cancelPendingLabelClassDraft?.Invoke();
+            WpfCanvasLabelClassItem selectedClass = selectedItem as WpfCanvasLabelClassItem ?? SelectedLabelClass;
+            string className = selectedClass?.Text;
+            if (string.IsNullOrWhiteSpace(className))
+            {
+                return;
+            }
+
+            selectClassCatalog?.Invoke(className);
+            SelectLabelClass(className);
+            refreshObjectClassOptions?.Invoke(className);
+        }
+
         public void ConfigureDisplayModeSelection(Action<object> displayModeSelectionChanged)
         {
             DisplayModeSelectionChangedCommand = new RelayCommand<object>(displayModeSelectionChanged ?? NoOpSelectionCommand);
@@ -1250,6 +1285,25 @@ namespace MvcVisionSystem
             {
                 SetDisplayMode(WpfCanvasDisplayMode.LabelsOnly);
             }
+        }
+
+        public void ConfigureDisplayModeSelectionWorkflow(Action<WpfCanvasDisplayMode> applyDisplayMode)
+        {
+            displayModeChanged = applyDisplayMode ?? (_ => { });
+            DisplayModeSelectionChangedCommand = new RelayCommand<object>(ExecuteDisplayModeSelectionChanged);
+        }
+
+        private void ExecuteDisplayModeSelectionChanged(object selectedItem)
+        {
+            WpfCanvasDisplayModeItem displayModeItem = selectedItem as WpfCanvasDisplayModeItem
+                ?? SelectedDisplayMode;
+            if (displayModeItem == null)
+            {
+                return;
+            }
+
+            SetDisplayMode(displayModeItem.Mode);
+            displayModeChanged?.Invoke(displayModeItem.Mode);
         }
 
         public void SetDisplayMode(WpfCanvasDisplayMode mode)

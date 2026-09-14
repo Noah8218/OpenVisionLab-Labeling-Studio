@@ -147,14 +147,7 @@ namespace MvcVisionSystem
                     throw new InvalidDataException("Temporary Recipe configuration did not contain a data object.");
                 }
 
-                if (File.Exists(path))
-                {
-                    File.Replace(temporaryPath, path, backupPath, ignoreMetadataErrors: true);
-                }
-                else
-                {
-                    File.Move(temporaryPath, path);
-                }
+                Yolo.AnnotationFilePersistence.ReplacePreparedFile(temporaryPath, path, backupPath);
 
                 return new RecipeConfigurationSaveResult(path, File.Exists(backupPath) ? backupPath : string.Empty);
             }

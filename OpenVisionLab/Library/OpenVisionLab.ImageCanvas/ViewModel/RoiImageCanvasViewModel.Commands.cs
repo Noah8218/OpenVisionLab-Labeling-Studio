@@ -120,7 +120,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 
 		private void ExecuteRightClickCommand()
 		{
-			if (ContextMenu == null)
+			if (_contextMenuHost == null)
 			{
 				return;
 			}
@@ -134,7 +134,7 @@ namespace OpenVisionLab.ImageCanvas.ViewModels
 				return;
 			}
 
-			ContextMenu.IsOpen = true;
+			_contextMenuHost.Show();
 		}
 
 		private void OpenLoadImage()

@@ -7,6 +7,33 @@ namespace MvcVisionSystem._1._Core
 {
     public static class PythonModelRuntimeSelfTestService
     {
+        private static readonly string[] YoloV5RequiredRepositoryFiles =
+        {
+            "hubconf.py",
+            "train.py",
+            "detect.py",
+            Path.Combine("models", "common.py")
+        };
+
+        public static PythonModelRuntimeRepositoryCheck CheckYoloV5Repository(string projectRootPath)
+        {
+            string repositoryRootPath = projectRootPath?.Trim() ?? string.Empty;
+            var missingRelativePaths = new List<string>();
+            foreach (string relativePath in YoloV5RequiredRepositoryFiles)
+            {
+                if (string.IsNullOrWhiteSpace(repositoryRootPath)
+                    || !File.Exists(Path.Combine(repositoryRootPath, relativePath)))
+                {
+                    missingRelativePaths.Add(relativePath.Replace('\\', '/'));
+                }
+            }
+
+            return new PythonModelRuntimeRepositoryCheck(
+                repositoryRootPath,
+                YoloV5RequiredRepositoryFiles.Select(path => path.Replace('\\', '/')),
+                missingRelativePaths);
+        }
+
         public static PythonModelRuntimeSelfTestReport BuildReport(PythonModelSettings settings)
         {
             settings ??= new PythonModelSettings();

@@ -2,9 +2,12 @@ using OpenVisionLab.Mvvm;
 using OpenVisionLab;
 using System;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
+using MvcVisionSystem._1._Core;
 
 namespace MvcVisionSystem
 {
@@ -160,17 +163,26 @@ namespace MvcVisionSystem
         private ICommand openModelBenchmarkCommand = new RelayCommand(NoOpCommand);
         private ICommand openDatasetHealthCommand = new RelayCommand(NoOpCommand);
         private ICommand openDatasetInterchangeCommand = new RelayCommand(NoOpCommand);
+        private AnomalyClassificationEvaluationWorkflowService anomalyClassificationEvaluationWorkflowService;
+        private Func<AnomalyEvaluationCallbacks> anomalyEvaluationCallbacksProvider;
         private ICommand showSavedLabelsViewCommand = new RelayCommand(NoOpCommand);
         private ICommand showLabelingGuideViewCommand = new RelayCommand(NoOpCommand);
         private ICommand showClassCatalogViewCommand = new RelayCommand(NoOpCommand);
         private ICommand toggleRightWorkflowDockCommand;
         private ICommand resetWorkspaceLayoutCommand = new RelayCommand(NoOpCommand);
+        private ICommand workflowPaneResizeCommand = new RelayCommand<double>(_ => { });
+        private ICommand imageQueuePaneResizeCommand = new RelayCommand<double>(_ => { });
         private ICommand checkYoloCommand = new RelayCommand(NoOpCommand);
         private ICommand detectCurrentImageCommand = new RelayCommand(NoOpCommand);
         private ICommand runTemplateMatchingCommand = new RelayCommand(NoOpCommand);
         private ICommand changeDatasetCommand = new RelayCommand(NoOpCommand);
         private ICommand openDatasetFolderCommand = new RelayCommand(NoOpCommand);
         private ICommand changeImageFolderCommand = new RelayCommand(NoOpCommand);
+        private readonly WorkspaceLayoutSettingsService workspaceLayoutSettingsService = new WorkspaceLayoutSettingsService();
+        private string workspaceLayoutLastSaveError = string.Empty;
+
+        public event EventHandler WorkspaceLayoutSaveFailed;
+        public event EventHandler WorkspaceLayoutReset;
 
         public ObservableCollection<WpfModelRegistryHistoryItem> ModelRegistryHistoryItems { get; } = new ObservableCollection<WpfModelRegistryHistoryItem>();
 
@@ -1029,6 +1041,24 @@ namespace MvcVisionSystem
             private set => SetProperty(ref resetWorkspaceLayoutCommand, value);
         }
 
+        public ICommand WorkflowPaneResizeCommand
+        {
+            get => workflowPaneResizeCommand;
+            private set => SetProperty(ref workflowPaneResizeCommand, value);
+        }
+
+        public ICommand ImageQueuePaneResizeCommand
+        {
+            get => imageQueuePaneResizeCommand;
+            private set => SetProperty(ref imageQueuePaneResizeCommand, value);
+        }
+
+        public string WorkspaceLayoutLastSaveError
+        {
+            get => workspaceLayoutLastSaveError;
+            private set => SetProperty(ref workspaceLayoutLastSaveError, value);
+        }
+
         public ICommand CheckYoloCommand
         {
             get => checkYoloCommand;
@@ -1124,10 +1154,38 @@ namespace MvcVisionSystem
             ChangeDatasetCommand = new RelayCommand(changeDataset ?? NoOpCommand);
             OpenDatasetFolderCommand = new RelayCommand(openDatasetFolder ?? NoOpCommand);
             ChangeImageFolderCommand = new RelayCommand(changeImageFolder ?? NoOpCommand);
-            ResetWorkspaceLayoutCommand = new RelayCommand(resetWorkspaceLayout ?? NoOpCommand);
+            ResetWorkspaceLayoutCommand = new RelayCommand(resetWorkspaceLayout ?? ExecuteResetWorkspaceLayoutCommand);
+            WorkflowPaneResizeCommand = new RelayCommand<double>(ExecuteWorkflowPaneResizeCommand);
+            ImageQueuePaneResizeCommand = new RelayCommand<double>(ExecuteImageQueuePaneResizeCommand);
             LoadedCommand = new RelayCommand(loaded ?? NoOpCommand);
             ClosedCommand = new RelayCommand(closed ?? NoOpCommand);
             PreviewKeyDownCommand = new RelayCommand<KeyInputCommandArgs>(previewKeyDown ?? NoOpKeyCommand);
+        }
+
+        public void RestoreWorkspaceLayoutSettings()
+        {
+            ApplyWorkspaceLayoutSettings(workspaceLayoutSettingsService.Load());
+        }
+
+        public void SaveWorkspaceLayoutSettings()
+        {
+            PersistWorkspaceLayoutSettings(new WpfWorkspaceLayoutSettings
+            {
+                WorkflowPaneWidth = rightWorkflowExpandedPaneWidth,
+                ImageQueuePaneWidth = imageQueueExpandedPaneWidth
+            });
+        }
+
+        public void ConfigureAnomalyEvaluationWorkflow(
+            AnomalyClassificationEvaluationWorkflowService workflowService,
+            Func<AnomalyEvaluationCallbacks> callbacksProvider)
+        {
+            anomalyClassificationEvaluationWorkflowService = workflowService
+                ?? throw new ArgumentNullException(nameof(workflowService));
+            anomalyEvaluationCallbacksProvider = callbacksProvider
+                ?? throw new ArgumentNullException(nameof(callbacksProvider));
+            RunAnomalyEvaluationCommand = new RelayCommand(() => _ = ExecuteRunAnomalyEvaluationCommandAsync());
+            LoadAnomalyEvaluationSummaryCommand = new RelayCommand(ExecuteLoadAnomalyEvaluationSummaryCommand);
         }
 
         public void ApplyWorkflowCommandState(WorkflowCommandState state)
@@ -1143,12 +1201,165 @@ namespace MvcVisionSystem
             RefreshModelCenterAnomalyEvaluationPickerEnabled();
         }
 
+        private async Task ExecuteRunAnomalyEvaluationCommandAsync()
+        {
+            AnomalyEvaluationCallbacks callbacks = anomalyEvaluationCallbacksProvider?.Invoke();
+            if (anomalyClassificationEvaluationWorkflowService == null
+                || callbacks == null
+                || callbacks.IsApplicationCloseApproved?.Invoke() == true
+                || anomalyClassificationEvaluationWorkflowService.IsRunning)
+            {
+                return;
+            }
+
+            LabelingProjectData data = callbacks.DataProvider?.Invoke();
+            if (data?.ProjectSettings?.DatasetPurpose != LabelingDatasetPurpose.AnomalyDetection)
+            {
+                callbacks.SetCommandStatus?.Invoke("\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00\ub294 anomaly \uB370\uC774\uD130\uC14B\uC5D0\uC11C\uB9CC \uC2E4\uD589\uD569\uB2C8\uB2E4.", false);
+                return;
+            }
+
+            callbacks.PrepareRun?.Invoke();
+            callbacks.SetCommandStatus?.Invoke("\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC2E4\uD589 \uC911...", true);
+            callbacks.AppendLog?.Invoke("Anomaly classification evaluation started.");
+
+            try
+            {
+                AnomalyClassificationEvaluationWorkflowRunResult workflowResult = await anomalyClassificationEvaluationWorkflowService
+                    .RunAsync(data)
+                    .ConfigureAwait(true);
+                if (callbacks.IsApplicationCloseApproved?.Invoke() == true)
+                {
+                    return;
+                }
+
+                if (!workflowResult.Succeeded)
+                {
+                    string errorText = workflowResult.ValidationErrors.Count > 0
+                        ? "\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC2E4\uD589 \uBD88\uAC00: " + string.Join(" / ", workflowResult.ValidationErrors.Take(3))
+                        : AnomalyEvaluationFailurePresentationService.Build(workflowResult.RunResult);
+                    callbacks.SetCommandStatus?.Invoke(errorText, false);
+                    callbacks.AppendLog?.Invoke(errorText);
+                    return;
+                }
+
+                SetModelCenterAnomalyEvaluationState(workflowResult.Presentation);
+                string summaryName = Path.GetFileName(Path.GetDirectoryName(workflowResult.RunResult.SummaryPath) ?? workflowResult.RunResult.SummaryPath);
+                string completeText = $"\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC644\uB8CC: {summaryName}";
+                callbacks.RefreshDashboard?.Invoke();
+                callbacks.SetCommandStatus?.Invoke(completeText, false);
+                callbacks.AppendLog?.Invoke($"{completeText}: {workflowResult.RunResult.SummaryPath}");
+            }
+            catch (Exception ex)
+            {
+                if (callbacks.IsApplicationCloseApproved?.Invoke() != true)
+                {
+                    string errorText = $"\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 \uC2E4\uD328: {ex.Message}";
+                    callbacks.SetCommandStatus?.Invoke(errorText, false);
+                    callbacks.AppendLog?.Invoke(errorText);
+                }
+            }
+            finally
+            {
+                if (callbacks.IsApplicationCloseApproved?.Invoke() != true)
+                {
+                    callbacks.UpdateCommandState?.Invoke();
+                }
+            }
+        }
+
+        private void ExecuteLoadAnomalyEvaluationSummaryCommand()
+        {
+            AnomalyEvaluationCallbacks callbacks = anomalyEvaluationCallbacksProvider?.Invoke();
+            if (anomalyClassificationEvaluationWorkflowService == null
+                || callbacks == null
+                || callbacks.IsApplicationCloseApproved?.Invoke() == true)
+            {
+                return;
+            }
+
+            LabelingProjectData data = callbacks.DataProvider?.Invoke();
+            if (data?.ProjectSettings?.DatasetPurpose != LabelingDatasetPurpose.AnomalyDetection)
+            {
+                callbacks.SetCommandStatus?.Invoke("\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00\ub294 anomaly \uB370\uC774\uD130\uC14B\uC5D0\uC11C\uB9CC \uBD88\uB7EC\uC635\uB2C8\uB2E4.", false);
+                return;
+            }
+
+            AnomalyClassificationEvaluationRefreshResult refreshResult = anomalyClassificationEvaluationWorkflowService.Refresh(data);
+            string initialPath = !string.IsNullOrWhiteSpace(anomalyClassificationEvaluationWorkflowService.PreferredSummaryPath)
+                ? anomalyClassificationEvaluationWorkflowService.PreferredSummaryPath
+                : refreshResult.SummaryPath;
+            if (string.IsNullOrWhiteSpace(initialPath))
+            {
+                initialPath = data.OutputRootPath ?? string.Empty;
+            }
+
+            string selectedPath = callbacks.SelectSummaryPath?.Invoke(initialPath);
+            if (string.IsNullOrWhiteSpace(selectedPath))
+            {
+                callbacks.SetCommandStatus?.Invoke("\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 summary \uC120\uD0DD\uC744 \uCDE8\uC18C\uD588\uC2B5\uB2C8\uB2E4.", false);
+                return;
+            }
+
+            AnomalyClassificationEvaluationSummaryLoadResult loadResult = anomalyClassificationEvaluationWorkflowService.LoadSummary(data, selectedPath);
+            if (loadResult.Succeeded)
+            {
+                SetModelCenterAnomalyEvaluationState(loadResult.Presentation);
+                callbacks.SetCommandStatus?.Invoke($"\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 summary \uBD88\uB7EC\uC624\uAE30 \uC644\uB8CC: {Path.GetFileName(selectedPath)}", false);
+                callbacks.AppendLog?.Invoke($"Anomaly classification evaluation summary loaded: {selectedPath}");
+                return;
+            }
+
+            ClearModelCenterAnomalyEvaluationState();
+            callbacks.SetCommandStatus?.Invoke("\uC774\uC0C1 \uBD84\uB958 \uD3C9\uAC00 summary\uB97C \uC77D\uC9C0 \uBABB\uD588\uC2B5\uB2C8\uB2E4. JSON \uD30C\uC77C\uACFC \uD3C9\uAC00 \uACB0\uACFC\uB97C \uD655\uC778\uD558\uC138\uC694.", false);
+            callbacks.AppendLog?.Invoke($"Anomaly classification evaluation summary load failed: {selectedPath}");
+        }
+
         public void SetWorkflowModeState(bool isInferenceMode, bool canSwitchMode)
         {
             IsLabelingModeActive = !isInferenceMode;
             IsInferenceModeActive = isInferenceMode;
             IsLabelingModeButtonEnabled = IsLabelingModeActive || canSwitchMode;
             IsInferenceModeButtonEnabled = IsInferenceModeActive || canSwitchMode;
+        }
+
+        public void ShowSavedLabelsWorkflow()
+        {
+            SetWorkflowStage(WpfShellWorkflowStage.Labeling);
+            SetRightWorkflowShortcut(WpfRightWorkflowShortcut.SavedLabels);
+            SetRightWorkflowDockExpanded(true);
+        }
+
+        public void ShowCandidateReviewWorkflow()
+        {
+            SetWorkflowStage(WpfShellWorkflowStage.Inference);
+            SetRightWorkflowDockExpanded(true);
+        }
+
+        public void ShowGuideToolsWorkflow(WpfShellWorkflowStage stage)
+        {
+            SetWorkflowStage(stage);
+            SetRightWorkflowShortcut(stage == WpfShellWorkflowStage.Labeling
+                || stage == WpfShellWorkflowStage.Dataset
+                ? WpfRightWorkflowShortcut.LabelingGuide
+                : WpfRightWorkflowShortcut.None);
+            SetRightWorkflowDockExpanded(true);
+        }
+
+        public void ShowClassCatalogWorkflow(WpfShellWorkflowStage stage)
+        {
+            SetWorkflowStage(stage);
+            SetRightWorkflowShortcut(stage == WpfShellWorkflowStage.Labeling
+                || stage == WpfShellWorkflowStage.Dataset
+                ? WpfRightWorkflowShortcut.ClassCatalog
+                : WpfRightWorkflowShortcut.None);
+            SetRightWorkflowDockExpanded(true);
+        }
+
+        public void ShowModelCenterWorkflow()
+        {
+            SetWorkflowStage(WpfShellWorkflowStage.TrainingModel);
+            SetRightWorkflowDockExpanded(true);
         }
 
         public void SetWorkflowStage(WpfShellWorkflowStage stage)
@@ -1351,6 +1562,48 @@ namespace MvcVisionSystem
             {
                 ImageQueuePaneGridLength = new GridLength(imageQueueExpandedPaneWidth);
             }
+        }
+
+        private void ExecuteWorkflowPaneResizeCommand(double width)
+        {
+            SetRightWorkflowExpandedPaneWidth(width);
+            SaveWorkspaceLayoutSettings();
+        }
+
+        private void ExecuteImageQueuePaneResizeCommand(double width)
+        {
+            SetImageQueueExpandedPaneWidth(width);
+            SaveWorkspaceLayoutSettings();
+        }
+
+        private void ExecuteResetWorkspaceLayoutCommand()
+        {
+            WpfWorkspaceLayoutSettings defaults = WpfWorkspaceLayoutSettings.CreateDefault();
+            ApplyWorkspaceLayoutSettings(defaults);
+            if (PersistWorkspaceLayoutSettings(defaults))
+            {
+                WorkspaceLayoutReset?.Invoke(this, EventArgs.Empty);
+            }
+        }
+
+        private void ApplyWorkspaceLayoutSettings(WpfWorkspaceLayoutSettings settings)
+        {
+            WpfWorkspaceLayoutSettings normalized = WpfWorkspaceLayoutSettings.Normalize(settings);
+            SetRightWorkflowExpandedPaneWidth(normalized.WorkflowPaneWidth);
+            SetImageQueueExpandedPaneWidth(normalized.ImageQueuePaneWidth);
+        }
+
+        private bool PersistWorkspaceLayoutSettings(WpfWorkspaceLayoutSettings settings)
+        {
+            if (workspaceLayoutSettingsService.TrySave(settings, out string error))
+            {
+                WorkspaceLayoutLastSaveError = string.Empty;
+                return true;
+            }
+
+            WorkspaceLayoutLastSaveError = error;
+            WorkspaceLayoutSaveFailed?.Invoke(this, EventArgs.Empty);
+            return false;
         }
 
         private void ToggleRightWorkflowDock()
@@ -1699,5 +1952,17 @@ namespace MvcVisionSystem
         }
 
         private static string T(string key) => OpenVisionLanguageService.T(key);
+    }
+
+    public sealed class AnomalyEvaluationCallbacks
+    {
+        public Func<LabelingProjectData> DataProvider { get; init; }
+        public Func<bool> IsApplicationCloseApproved { get; init; }
+        public Action PrepareRun { get; init; }
+        public Action<string, bool> SetCommandStatus { get; init; }
+        public Action<string> AppendLog { get; init; }
+        public Action RefreshDashboard { get; init; }
+        public Action UpdateCommandState { get; init; }
+        public Func<string, string> SelectSummaryPath { get; init; }
     }
 }

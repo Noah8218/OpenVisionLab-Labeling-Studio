@@ -51,11 +51,14 @@ namespace MvcVisionSystem
 
             try
             {
+                Yolo.AnnotationFilePersistence.ConfigureRecoveryDirectory(System.IO.Path.Combine(
+                    RuntimeDiagnosticsPaths.Resolve().ApplicationDataRoot, "AnnotationTransactions"));
                 application.Run(new WpfLabelingShellWindow());
             }
             catch (Exception Desc)
             {
                 AppLog.ABNORMAL("Ex ==> {0}", Desc.Message);
+                Environment.ExitCode = 1;
             }
             finally
             {

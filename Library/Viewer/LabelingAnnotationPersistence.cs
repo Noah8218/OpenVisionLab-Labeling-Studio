@@ -56,11 +56,13 @@ namespace MvcVisionSystem
             }
 
             IReadOnlyDictionary<string, List<AnnotationRectangleObject>> normalizedRois = NormalizeRoisByClass(rois);
+            List<LabelClass> originalClassItems = data.ClassNamedList?.ToList();
+            bool hadClassList = data.ClassNamedList != null;
             EnsureRoiClasses(data, normalizedRois);
             EnsureSegmentationClasses(data, segments);
             try
             {
-                return AnnotationFilePersistence.ExecuteTransaction(() =>
+                bool committed = AnnotationFilePersistence.ExecuteTransaction(() =>
                 {
                     YoloAnnotationService.SaveAnnotations(
                         imageName,
@@ -74,17 +76,69 @@ namespace MvcVisionSystem
                         image,
                         segments,
                         data.ClassNamedList,
-                        data);
-                    return saveAdditionalArtifacts?.Invoke() ?? true;
+                        data,
+                        sourceImagePath);
+                    bool additionalArtifactsSaved = saveAdditionalArtifacts?.Invoke() ?? true;
+                    AppLog.COMM(
+                        $"Annotation save additional artifacts: {additionalArtifactsSaved} / {imageName}");
+                    return additionalArtifactsSaved;
                 });
+
+                if (!committed)
+                {
+                    AppLog.ABNORMAL($"Annotation save transaction returned false / {imageName}");
+                    RestoreClassCatalog(data, originalClassItems, hadClassList);
+                }
+
+                return committed;
             }
-            catch (YoloImageIdentityCollisionException)
+            catch (YoloImageIdentityCollisionException ex)
             {
+                AppLog.ABNORMAL($"Annotation save image identity collision / {imageName}: {ex.Message}");
+                RestoreClassCatalog(data, originalClassItems, hadClassList);
                 return false;
             }
-            catch (InvalidDataException)
+            catch (InvalidDataException ex)
             {
+                AppLog.ABNORMAL($"Annotation save invalid data / {imageName}: {ex.Message}");
+                RestoreClassCatalog(data, originalClassItems, hadClassList);
                 return false;
+            }
+            catch (IOException ex)
+            {
+                AppLog.ABNORMAL($"Annotation save I/O failure / {imageName}: {ex.Message}");
+                RestoreClassCatalog(data, originalClassItems, hadClassList);
+                return false;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                AppLog.ABNORMAL($"Annotation save access failure / {imageName}: {ex.Message}");
+                RestoreClassCatalog(data, originalClassItems, hadClassList);
+                return false;
+            }
+            catch
+            {
+                RestoreClassCatalog(data, originalClassItems, hadClassList);
+                throw;
+            }
+        }
+
+        private static void RestoreClassCatalog(
+            LabelingProjectData data,
+            IReadOnlyList<LabelClass> originalClassItems,
+            bool hadClassList)
+        {
+            if (!hadClassList)
+            {
+                data.ClassNamedList = null;
+                return;
+            }
+
+            data.ClassNamedList ??= new List<LabelClass>();
+            data.ClassNamedList.Clear();
+            foreach (LabelClass classItem in originalClassItems ?? Array.Empty<LabelClass>())
+            {
+                data.ClassNamedList.Add(classItem);
             }
         }
 

@@ -18,8 +18,9 @@ namespace MvcVisionSystem._3._Communication.Integration
         private readonly string exchangeRoot;
         private readonly byte[] sharedKey;
         private readonly TcpIntegrationOptions options;
-        private TcpIntegrationServer server;
-        private bool disposed;
+        private readonly LabelingIntegrationTcpServerLifecycle serverLifecycle;
+        private readonly object clientCreationLock = new();
+        private int disposeStarted;
 
         public LabelingIntegrationTcpExchange(
             string exchangeRoot,
@@ -37,61 +38,30 @@ namespace MvcVisionSystem._3._Communication.Integration
             this.exchangeRoot = Path.GetFullPath(exchangeRoot);
             this.sharedKey = sharedKey.ToArray();
             this.options = options ?? new TcpIntegrationOptions();
+            serverLifecycle = new LabelingIntegrationTcpServerLifecycle(this.exchangeRoot, this.options);
         }
 
         public string ExchangeRoot => exchangeRoot;
 
-        public IPEndPoint LocalEndpoint => server?.LocalEndpoint;
+        public IPEndPoint LocalEndpoint => serverLifecycle.LocalEndpoint;
 
         public async Task StartAsync(
             IPAddress listenAddress,
             int port,
             CancellationToken cancellationToken = default)
         {
-            ObjectDisposedException.ThrowIf(disposed, this);
-            if (server != null)
-            {
-                throw new InvalidOperationException(
-                    "The Labeling integration TCP server is already started.");
-            }
-
-            var candidate = new TcpIntegrationServer(
-                LabelingIntegrationExchange.ApplicationId,
-                exchangeRoot,
+            ThrowIfDisposed();
+            await serverLifecycle.StartAsync(
                 listenAddress,
                 port,
                 sharedKey,
-                options);
-            try
-            {
-                await candidate.StartAsync(cancellationToken).ConfigureAwait(false);
-                server = candidate;
-            }
-            catch
-            {
-                await candidate.DisposeAsync().ConfigureAwait(false);
-                throw;
-            }
+                cancellationToken).ConfigureAwait(false);
         }
 
         public async Task StopAsync(CancellationToken cancellationToken = default)
         {
-            ObjectDisposedException.ThrowIf(disposed, this);
-            TcpIntegrationServer activeServer = server;
-            if (activeServer == null)
-            {
-                return;
-            }
-
-            server = null;
-            try
-            {
-                await activeServer.StopAsync(cancellationToken).ConfigureAwait(false);
-            }
-            finally
-            {
-                await activeServer.DisposeAsync().ConfigureAwait(false);
-            }
+            ThrowIfDisposed();
+            await serverLifecycle.StopAsync(cancellationToken).ConfigureAwait(false);
         }
 
         public async Task<TcpIntegrationTransferReceipt> PingAsync(
@@ -128,35 +98,41 @@ namespace MvcVisionSystem._3._Communication.Integration
 
         public async ValueTask DisposeAsync()
         {
-            if (disposed)
+            if (Interlocked.Exchange(ref disposeStarted, 1) != 0)
             {
+                await serverLifecycle.DisposeAsync().ConfigureAwait(false);
                 return;
             }
 
-            TcpIntegrationServer activeServer = server;
-            server = null;
             try
             {
-                if (activeServer != null)
-                {
-                    await activeServer.DisposeAsync().ConfigureAwait(false);
-                }
+                await serverLifecycle.DisposeAsync().ConfigureAwait(false);
             }
             finally
             {
-                CryptographicOperations.ZeroMemory(sharedKey);
-                disposed = true;
+                lock (clientCreationLock)
+                {
+                    CryptographicOperations.ZeroMemory(sharedKey);
+                }
             }
         }
 
         private TcpIntegrationClient CreateClient(TcpIntegrationEndpoint endpoint)
         {
-            ObjectDisposedException.ThrowIf(disposed, this);
-            return new TcpIntegrationClient(
-                LabelingIntegrationExchange.ApplicationId,
-                endpoint,
-                sharedKey,
-                options);
+            lock (clientCreationLock)
+            {
+                ThrowIfDisposed();
+                return new TcpIntegrationClient(
+                    LabelingIntegrationExchange.ApplicationId,
+                    endpoint,
+                    sharedKey,
+                    options);
+            }
+        }
+
+        private void ThrowIfDisposed()
+        {
+            ObjectDisposedException.ThrowIf(Volatile.Read(ref disposeStarted) != 0, this);
         }
     }
 }

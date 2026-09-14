@@ -642,7 +642,11 @@ namespace MvcVisionSystem.Yolo
             using Bitmap bitmap = CreateBitmapCopy(image);
             AnnotationFilePersistence.WriteAtomically(
                 imagePath,
-                temporaryPath => bitmap.Save(temporaryPath, ResolveImageFormat(imagePath)));
+                temporaryPath =>
+                {
+                    using var stream = new FileStream(temporaryPath, FileMode.CreateNew, FileAccess.Write, FileShare.None);
+                    bitmap.Save(stream, ResolveImageFormat(imagePath));
+                });
         }
 
         private static Bitmap CreateBitmapCopy(Image image)

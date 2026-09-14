@@ -1,4 +1,5 @@
 using System;
+using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Input;
 using OpenVisionLab.Mvvm;
@@ -27,6 +28,8 @@ namespace MvcVisionSystem
         private ICommand runSmokeCommand = new RelayCommand(NoOpCommand);
         private ICommand restartWorkerCommand = new RelayCommand(NoOpCommand);
         private ICommand stopWorkerCommand = new RelayCommand(NoOpCommand);
+        private YoloEnvironmentWorkflowService runtimeWorkflowService;
+        private Func<YoloEnvironmentCallbacks> runtimeCallbacksProvider;
 
         public string ViewName => nameof(WpfYoloStatusPanel);
 
@@ -157,12 +160,26 @@ namespace MvcVisionSystem
             Action restartWorker,
             Action stopWorker)
         {
-            // Model runtime actions remain shell-owned; this panel only declares the command surface.
+            // Keep this compatibility entry point for callers that supply a complete command surface.
             CheckCommand = new RelayCommand(check ?? NoOpCommand);
             InstallRequirementsCommand = new RelayCommand(installRequirements ?? NoOpCommand);
             RunSmokeCommand = new RelayCommand(runSmoke ?? NoOpCommand);
             RestartWorkerCommand = new RelayCommand(restartWorker ?? NoOpCommand);
             StopWorkerCommand = new RelayCommand(stopWorker ?? NoOpCommand);
+        }
+
+        public void ConfigureRuntimeWorkflow(
+            YoloEnvironmentWorkflowService workflowService,
+            Func<YoloEnvironmentCallbacks> callbacksProvider)
+        {
+            runtimeWorkflowService = workflowService
+                ?? throw new ArgumentNullException(nameof(workflowService));
+            runtimeCallbacksProvider = callbacksProvider
+                ?? throw new ArgumentNullException(nameof(callbacksProvider));
+            CheckCommand = new RelayCommand(() => _ = ExecuteCheckAsync());
+            InstallRequirementsCommand = new RelayCommand(() => _ = ExecuteInstallRequirementsAsync());
+            RestartWorkerCommand = new RelayCommand(() => _ = ExecuteRestartWorkerAsync());
+            StopWorkerCommand = new RelayCommand(() => _ = ExecuteStopWorkerAsync());
         }
 
         public void SetSettingsStatus(string summary, string detail)
@@ -211,6 +228,18 @@ namespace MvcVisionSystem
             IsRestartWorkerEnabled = canRunGeneralCommands;
             IsStopWorkerEnabled = canRunGeneralCommands;
         }
+
+        private Task ExecuteCheckAsync()
+            => runtimeWorkflowService?.CheckAsync(runtimeCallbacksProvider?.Invoke()) ?? Task.CompletedTask;
+
+        private Task ExecuteInstallRequirementsAsync()
+            => runtimeWorkflowService?.InstallRequirementsAsync(runtimeCallbacksProvider?.Invoke()) ?? Task.CompletedTask;
+
+        private Task ExecuteRestartWorkerAsync()
+            => runtimeWorkflowService?.RestartWorkerAsync(runtimeCallbacksProvider?.Invoke()) ?? Task.CompletedTask;
+
+        private Task ExecuteStopWorkerAsync()
+            => runtimeWorkflowService?.StopWorkerAsync(runtimeCallbacksProvider?.Invoke()) ?? Task.CompletedTask;
 
         private static void NoOpCommand()
         {

@@ -44,6 +44,7 @@ namespace MvcVisionSystem._1._Core
             Task<string> outputTask = Task.FromResult(string.Empty);
             Task<string> errorTask = Task.FromResult(string.Empty);
             bool started = false;
+            ProcessTreeLifetime processTree = null;
 
             try
             {
@@ -53,6 +54,7 @@ namespace MvcVisionSystem._1._Core
                 }
 
                 started = true;
+                processTree = new ProcessTreeLifetime(process);
 
                 outputTask = startInfo.RedirectStandardOutput
                     ? process.StandardOutput.ReadToEndAsync()
@@ -73,20 +75,22 @@ namespace MvcVisionSystem._1._Core
                     bool canceled = cancellationToken.IsCancellationRequested;
                     bool timedOut = !canceled && timeoutSource?.IsCancellationRequested == true;
                     TryKill(process);
+                    processTree.Dispose();
                     WaitForExitAfterKill(process);
                     return new ExternalProcessRunResult(
                         exitCode: -1,
-                        output: await ReadOutputAsync(outputTask).ConfigureAwait(false),
-                        error: await ReadOutputAsync(errorTask).ConfigureAwait(false),
+                        output: await ReadOutputAsync(outputTask, "stdout").ConfigureAwait(false),
+                        error: await ReadOutputAsync(errorTask, "stderr").ConfigureAwait(false),
                         started: true,
                         timedOut: timedOut,
                         canceled: canceled);
                 }
 
+                processTree.Dispose();
                 return new ExternalProcessRunResult(
                     process.ExitCode,
-                    await ReadOutputAsync(outputTask).ConfigureAwait(false),
-                    await ReadOutputAsync(errorTask).ConfigureAwait(false),
+                    await ReadOutputAsync(outputTask, "stdout").ConfigureAwait(false),
+                    await ReadOutputAsync(errorTask, "stderr").ConfigureAwait(false),
                     started: true,
                     timedOut: false,
                     canceled: false);
@@ -94,14 +98,23 @@ namespace MvcVisionSystem._1._Core
             catch (Exception ex)
             {
                 TryKill(process);
+                processTree?.Dispose();
                 WaitForExitAfterKill(process);
+                string output = await ReadOutputAsync(outputTask, "stdout").ConfigureAwait(false);
+                string errorOutput = await ReadOutputAsync(errorTask, "stderr").ConfigureAwait(false);
                 return new ExternalProcessRunResult(
                     exitCode: -1,
-                    output: await ReadOutputAsync(outputTask).ConfigureAwait(false),
-                    error: ex.Message,
+                    output: output,
+                    error: string.IsNullOrWhiteSpace(errorOutput)
+                        ? ex.Message
+                        : $"{ex.Message} / {errorOutput}",
                     started: started,
                     timedOut: false,
                     canceled: false);
+            }
+            finally
+            {
+                processTree?.Dispose();
             }
         }
 
@@ -124,7 +137,7 @@ namespace MvcVisionSystem._1._Core
             return CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutSource.Token);
         }
 
-        private static async Task<string> ReadOutputAsync(Task<string> outputTask)
+        private static async Task<string> ReadOutputAsync(Task<string> outputTask, string streamName)
         {
             try
             {
@@ -135,8 +148,9 @@ namespace MvcVisionSystem._1._Core
                     ? await outputTask.ConfigureAwait(false)
                     : string.Empty;
             }
-            catch
+            catch (Exception error)
             {
+                AppLog.ABNORMAL($"External process {streamName} drain failed: {error.Message}");
                 return string.Empty;
             }
         }
@@ -150,8 +164,9 @@ namespace MvcVisionSystem._1._Core
                     process.WaitForExit((int)ProcessExitAfterKillTimeout.TotalMilliseconds);
                 }
             }
-            catch
+            catch (Exception error)
             {
+                AppLog.ABNORMAL($"External process exit wait after kill failed: {error.Message}");
             }
         }
 
@@ -164,8 +179,9 @@ namespace MvcVisionSystem._1._Core
                     process.Kill(entireProcessTree: true);
                 }
             }
-            catch
+            catch (Exception error)
             {
+                AppLog.ABNORMAL($"External process tree kill failed: {error.Message}");
             }
         }
     }

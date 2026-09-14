@@ -47,6 +47,9 @@ namespace MvcVisionSystem
 
         [XmlIgnore] public string TestImagesPath => Path.Combine(OutputRootPath, "data", "test", "images");
 
+        public IReadOnlyList<string> GetDatasetImageDirectories()
+            => new[] { TrainImagesPath, ValidImagesPath, TestImagesPath };
+
         public LabelingProjectData()
         {
             // Dataset folders are created by the selected setup/save workflow.
@@ -103,16 +106,22 @@ namespace MvcVisionSystem
                 return preparationFailure;
             }
 
-            RecipeConfigurationSaveResult result = new RecipeConfigurationStore().Save(GetRecipeConfigPath(recipeName), this);
-            if (!result.IsSuccess)
+            RecipeConfigurationSaveResult result = null;
+            AnnotationFilePersistence.ExecuteTransaction(() =>
             {
-                return result;
-            }
+                result = new RecipeConfigurationStore().Save(GetRecipeConfigPath(recipeName), this);
+                if (!result.IsSuccess)
+                {
+                    return false;
+                }
 
-            if (refreshDatasetVersion)
-            {
-                LabelingDatasetManifestService.Save(this, recipeName);
-            }
+                if (refreshDatasetVersion)
+                {
+                    LabelingDatasetManifestService.Save(this, recipeName);
+                }
+
+                return true;
+            });
 
             return result;
         }
@@ -139,6 +148,10 @@ namespace MvcVisionSystem
                 {
                     SaveYoloDataYaml();
                     recipeResult = new RecipeConfigurationStore().Save(recipeConfigPath, this);
+                    if (recipeResult.IsSuccess && refreshDatasetVersion)
+                    {
+                        LabelingDatasetManifestService.Save(this, recipeName);
+                    }
                     return recipeResult.IsSuccess;
                 });
 
@@ -163,11 +176,6 @@ namespace MvcVisionSystem
                     recipeConfigPath,
                     failureKind: RecipeConfigurationFailureKind.WriteFailed,
                     errorMessage: $"data.yaml was not saved and Recipe configuration was not changed: {errorMessage}");
-            }
-
-            if (refreshDatasetVersion)
-            {
-                LabelingDatasetManifestService.Save(this, recipeName);
             }
 
             return recipeResult;
