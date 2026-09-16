@@ -133,6 +133,8 @@ namespace MvcVisionSystem
                 LastTrainingState = source?.LastTrainingState ?? string.Empty,
                 LastTrainingProgressPercent = source?.LastTrainingProgressPercent ?? -1,
                 LastTrainingMessage = source?.LastTrainingMessage ?? string.Empty,
+                LastTrainingRunId = source?.LastTrainingRunId ?? string.Empty,
+                LastTrainingRunName = source?.LastTrainingRunName ?? string.Empty,
                 LastTrainingDatasetVersionId = source?.LastTrainingDatasetVersionId ?? string.Empty,
                 LastTrainingDatasetContentSha256 = source?.LastTrainingDatasetContentSha256 ?? string.Empty,
                 AppliedWeightsPath = source?.AppliedWeightsPath ?? string.Empty,
@@ -162,6 +164,8 @@ namespace MvcVisionSystem
                     TrainingState = item.TrainingState ?? string.Empty,
                     TrainingProgressPercent = item.TrainingProgressPercent,
                     TrainingMessage = item.TrainingMessage ?? string.Empty,
+                    TrainingRunId = item.TrainingRunId ?? string.Empty,
+                    TrainingRunName = item.TrainingRunName ?? string.Empty,
                     AppliedWeightsPath = item.AppliedWeightsPath ?? string.Empty,
                     AppliedWeightsSavedToRecipe = item.AppliedWeightsSavedToRecipe
                 });
@@ -235,6 +239,8 @@ namespace MvcVisionSystem
             target.LastTrainingState = source.LastTrainingState;
             target.LastTrainingProgressPercent = source.LastTrainingProgressPercent;
             target.LastTrainingMessage = source.LastTrainingMessage;
+            target.LastTrainingRunId = source.LastTrainingRunId;
+            target.LastTrainingRunName = source.LastTrainingRunName;
             target.LastTrainingDatasetVersionId = source.LastTrainingDatasetVersionId;
             target.LastTrainingDatasetContentSha256 = source.LastTrainingDatasetContentSha256;
             target.AppliedWeightsPath = source.AppliedWeightsPath;

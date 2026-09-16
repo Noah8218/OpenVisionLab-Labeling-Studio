@@ -37,6 +37,7 @@ namespace MvcVisionSystem.Yolo
             LabelingDatasetPurpose purpose = ResolveDatasetPurpose(data);
             ValidateFileExists(data.DataYamlFilePath, "data.yaml", errors);
             YoloDatasetManifestValidationService.Validate(data, errors);
+            YoloDatasetSourceGroupService.ValidateOptional(data.OutputRootPath, errors);
             YoloDatasetAnnotationSetValidationService.Validate(data, purpose, errors);
 
             YoloDatasetSplitQualityService.ValidateSeparation("train", data.TrainImagesPath, "valid", data.ValidImagesPath, errors);

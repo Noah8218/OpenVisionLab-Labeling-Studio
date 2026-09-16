@@ -126,6 +126,10 @@ namespace MvcVisionSystem
         private string targetIntegrityText = "\uC694\uCCAD \uB300\uC0C1: \uBBF8\uD655\uC778";
         private string lastDryRunSignature = string.Empty;
         private bool canApply;
+        private bool confirmLossyExport;
+        private bool requiresLossWarningConfirmation;
+        private string lossManifestText = string.Empty;
+        private DatasetInterchangePreflightReport lastDryRunReport;
         private Func<WpfDatasetInterchangeOption, string, string> pickSource =
             (_, current) => current;
         private Func<WpfDatasetInterchangeOption, string, string> pickTarget =
@@ -298,7 +302,49 @@ namespace MvcVisionSystem
         public bool CanApply
         {
             get => canApply;
-            private set => SetProperty(ref canApply, value);
+            private set
+            {
+                if (SetProperty(ref canApply, value))
+                {
+                    CommandManager.InvalidateRequerySuggested();
+                }
+            }
+        }
+
+        public bool ConfirmLossyExport
+        {
+            get => confirmLossyExport;
+            set
+            {
+                if (!SetProperty(ref confirmLossyExport, value))
+                {
+                    return;
+                }
+
+                if (lastDryRunReport != null
+                    && string.Equals(lastDryRunSignature, BuildRequestSignature(), StringComparison.Ordinal))
+                {
+                    CanApply = CanApplyFromLastDryRun();
+                    StatusText = value && lastDryRunReport.RequiresLossConfirmation
+                        ? T("WpfDatasetInterchange.Status.ReadyWithWarnings")
+                        : TranslateStatus(lastDryRunReport);
+                }
+            }
+        }
+
+        public bool RequiresLossWarningConfirmation
+        {
+            get => requiresLossWarningConfirmation;
+            private set => SetProperty(ref requiresLossWarningConfirmation, value);
+        }
+
+        public string LossWarningConfirmationText =>
+            T("WpfDatasetInterchange.LossWarning.Confirm");
+
+        public string LossManifestText
+        {
+            get => lossManifestText;
+            private set => SetProperty(ref lossManifestText, value ?? string.Empty);
         }
 
         public ICommand BrowseSourceCommand { get; }
@@ -396,8 +442,13 @@ namespace MvcVisionSystem
         {
             DatasetInterchangePreflightReport report = preflightService.DryRun(BuildRequest());
             lastDryRunSignature = BuildRequestSignature();
+            lastDryRunReport = report;
+            RequiresLossWarningConfirmation = IsLossExportReport(report) && report.RequiresLossConfirmation;
+            LossManifestText = string.IsNullOrWhiteSpace(report.LossManifestPath)
+                ? string.Empty
+                : Format("WpfDatasetInterchange.LossWarning.Manifest", report.LossManifestPath);
             ApplyReport(report);
-            CanApply = report.CanApply;
+            CanApply = CanApplyFromLastDryRun();
         }
 
         private void Apply()
@@ -410,6 +461,9 @@ namespace MvcVisionSystem
 
             DatasetInterchangePreflightReport report = preflightService.Apply(BuildRequest());
             ApplyReport(report);
+            lastDryRunReport = null;
+            RequiresLossWarningConfirmation = false;
+            LossManifestText = string.Empty;
             CanApply = false;
         }
 
@@ -422,7 +476,8 @@ namespace MvcVisionSystem
                 SourcePath = SourcePath,
                 ImageRoot = ImageRoot,
                 TargetPath = TargetPath,
-                TargetSplit = TargetSplit
+                TargetSplit = TargetSplit,
+                ConfirmLossyExport = ConfirmLossyExport
             };
 
         private string BuildRequestSignature()
@@ -461,6 +516,15 @@ namespace MvcVisionSystem
         private void InvalidateDryRun()
         {
             lastDryRunSignature = string.Empty;
+            lastDryRunReport = null;
+            if (confirmLossyExport)
+            {
+                confirmLossyExport = false;
+                OnPropertyChanged(nameof(ConfirmLossyExport));
+            }
+
+            RequiresLossWarningConfirmation = false;
+            LossManifestText = string.Empty;
             CanApply = false;
             Findings.Clear();
             StatusText = T("WpfDatasetInterchange.Status.Waiting");
@@ -517,9 +581,34 @@ namespace MvcVisionSystem
             }
 
             return report.Warnings.Count > 0
-                ? T("WpfDatasetInterchange.Status.ReadyWithWarnings")
+                ? report.RequiresLossConfirmation && !report.LossConfirmationAccepted
+                    ? T("WpfDatasetInterchange.Status.LossConfirmationRequired")
+                    : T("WpfDatasetInterchange.Status.ReadyWithWarnings")
                 : T("WpfDatasetInterchange.Status.Ready");
         }
+
+        private bool CanApplyFromLastDryRun()
+        {
+            if (lastDryRunReport == null
+                || !lastDryRunReport.IsDryRun
+                || lastDryRunReport.Issues.Count > 0
+                || !lastDryRunReport.SourceUnchanged
+                || !lastDryRunReport.RequestedTargetUnchanged)
+            {
+                return false;
+            }
+
+            return lastDryRunReport.CanApply
+                || (IsLossExportReport(lastDryRunReport)
+                    && lastDryRunReport.RequiresLossConfirmation
+                    && ConfirmLossyExport);
+        }
+
+        private static bool IsLossExportReport(DatasetInterchangePreflightReport report)
+            => string.Equals(
+                report?.Capability?.Direction,
+                "export",
+                StringComparison.OrdinalIgnoreCase);
 
         private static string ShortFingerprint(string value)
             => string.IsNullOrWhiteSpace(value) || value.Length <= 12
@@ -536,6 +625,7 @@ namespace MvcVisionSystem
             OnPropertyChanged(nameof(SourceLabelText));
             OnPropertyChanged(nameof(TargetLabelText));
             OnPropertyChanged(nameof(OperationContractText));
+            OnPropertyChanged(nameof(LossWarningConfirmationText));
             DatasetPurposeText = DatasetContextPresentationService.FormatPurposeName(
                 data?.ProjectSettings?.DatasetPurpose ?? LabelingDatasetPurpose.ObjectDetection);
             InvalidateDryRun();

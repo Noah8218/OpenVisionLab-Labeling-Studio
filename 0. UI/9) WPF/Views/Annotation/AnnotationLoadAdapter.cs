@@ -41,12 +41,22 @@ namespace MvcVisionSystem
             }
 
             LabelingProjectData data = context.DataProvider();
-            IReadOnlyDictionary<string, List<Rectangle>> savedBoxes =
-                YoloAnnotationService.LoadAnnotationRectanglesForImage(
+            YoloAnnotationLoadResult loadResult =
+                YoloAnnotationService.LoadAnnotationRectanglesForImageWithDiagnostics(
                     imagePath,
                     data?.ClassNamedList,
                     data,
                     activeImageSize);
+            if (loadResult.HasErrors)
+            {
+                context.BlockSaveForMalformedLoad?.Invoke(
+                    loadResult.LabelPath,
+                    loadResult.ErrorSummary);
+                return 0;
+            }
+
+            context.ClearSaveBlock?.Invoke();
+            IReadOnlyDictionary<string, List<Rectangle>> savedBoxes = loadResult.Annotations;
             if (savedBoxes == null || savedBoxes.Count == 0)
             {
                 return 0;
@@ -155,5 +165,7 @@ namespace MvcVisionSystem
         internal ClassCatalogWorkflowService ClassCatalogWorkflowService { get; init; }
         internal Action RedrawReviewRois { get; init; }
         internal Action RefreshPolygonOverlays { get; init; }
+        internal Action<string, string> BlockSaveForMalformedLoad { get; init; }
+        internal Action ClearSaveBlock { get; init; }
     }
 }

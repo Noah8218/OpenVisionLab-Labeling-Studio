@@ -59,6 +59,8 @@ namespace MvcVisionSystem
     {
         public string TrainingRunId { get; set; } = "";
 
+        public string RunName { get; set; } = "";
+
         public string ProfileId { get; set; } = "";
 
         public string EventUtc { get; set; } = "";
@@ -72,6 +74,12 @@ namespace MvcVisionSystem
         public string Message { get; set; } = "";
 
         public string CandidateWeightsPath { get; set; } = "";
+
+        public string WeightsSha256 { get; set; } = "";
+
+        public string ArtifactPath { get; set; } = "";
+
+        public string ArtifactStatus { get; set; } = "";
 
         public string BaselineWeightsPath { get; set; } = "";
 
@@ -91,6 +99,12 @@ namespace MvcVisionSystem
         public string TrainingRunId { get; set; } = "";
 
         public string WeightsPath { get; set; } = "";
+
+        public string WeightsSha256 { get; set; } = "";
+
+        public string ArtifactPath { get; set; } = "";
+
+        public string ArtifactStatus { get; set; } = "";
 
         public string BaselineWeightsPath { get; set; } = "";
 
@@ -121,6 +135,10 @@ namespace MvcVisionSystem
 
         public string WeightsPath { get; set; } = "";
 
+        public string WeightsSha256 { get; set; } = "";
+
+        public string ArtifactPath { get; set; } = "";
+
         public string PreviousWeightsPath { get; set; } = "";
 
         public string Decision { get; set; } = "";
@@ -143,6 +161,10 @@ namespace MvcVisionSystem
         public string CandidateId { get; set; } = "";
 
         public string WeightsPath { get; set; } = "";
+
+        public string WeightsSha256 { get; set; } = "";
+
+        public string ArtifactPath { get; set; } = "";
 
         public string PreviousWeightsPath { get; set; } = "";
 

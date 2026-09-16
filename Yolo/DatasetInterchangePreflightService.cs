@@ -5,6 +5,8 @@ using System.Linq;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace MvcVisionSystem.Yolo
 {
@@ -23,6 +25,41 @@ namespace MvcVisionSystem.Yolo
         public string TargetPath { get; set; } = string.Empty;
 
         public string TargetSplit { get; set; } = YoloDatasetSplitService.TrainMode;
+
+        // Exporters do not silently discard semantic data. The caller must
+        // carry an explicit acknowledgement when the preflight manifest has
+        // conditional or lost fields.
+        public bool ConfirmLossyExport { get; set; }
+    }
+
+    public sealed class DatasetInterchangeLossManifest
+    {
+        public int Version { get; set; } = 1;
+
+        public string FormatKey { get; set; } = string.Empty;
+
+        public string TargetPath { get; set; } = string.Empty;
+
+        public List<DatasetInterchangeLossManifestEntry> Entries { get; } =
+            new List<DatasetInterchangeLossManifestEntry>();
+
+        [JsonIgnore]
+        public bool RequiresConfirmation => Entries.Any(entry =>
+            !string.Equals(entry?.Level, nameof(SegmentationPreservationLevel.Preserved), StringComparison.Ordinal));
+
+        [JsonIgnore]
+        public bool IsLossless => !RequiresConfirmation;
+    }
+
+    public sealed class DatasetInterchangeLossManifestEntry
+    {
+        public string Semantic { get; set; } = string.Empty;
+
+        public string Level { get; set; } = string.Empty;
+
+        public int AffectedCount { get; set; }
+
+        public string Detail { get; set; } = string.Empty;
     }
 
     public sealed class DatasetInterchangePreflightReport
@@ -58,6 +95,19 @@ namespace MvcVisionSystem.Yolo
         public List<string> Issues { get; } = new List<string>();
 
         public List<string> Warnings { get; } = new List<string>();
+
+        public DatasetInterchangeLossManifest LossManifest { get; set; } =
+            new DatasetInterchangeLossManifest();
+
+        public string LossManifestPath { get; set; } = string.Empty;
+
+        public bool LossConfirmationAccepted { get; set; }
+
+        public bool RequiresLossConfirmation => string.Equals(
+                Capability?.Direction,
+                "export",
+                StringComparison.OrdinalIgnoreCase)
+            && (LossManifest?.RequiresConfirmation == true || Warnings.Count > 0);
     }
 
     public sealed class DatasetInterchangePreflightService
@@ -114,6 +164,37 @@ namespace MvcVisionSystem.Yolo
                 ? request.Data.OutputRootPath
                 : request.TargetPath;
             string requestedTargetBefore = ComputePathFingerprint(requestedTargetEvidencePath);
+            report.LossConfirmationAccepted = request?.ConfirmLossyExport == true;
+
+            if (!isImport)
+            {
+                report.LossManifestPath = BuildLossManifestPath(request.TargetPath, capability);
+                try
+                {
+                    report.LossManifest = BuildLossManifest(request, capability);
+                    AppendManifestWarnings(report);
+                }
+                catch (Exception ex)
+                {
+                    report.Issues.Add("내보내기 보존 manifest를 계산하지 못했습니다: " + ex.GetBaseException().Message);
+                }
+
+                if (!isDryRun
+                    && report.RequiresLossConfirmation
+                    && !report.LossConfirmationAccepted)
+                {
+                    report.WasApplied = false;
+                    report.SourceFingerprint = sourceBefore;
+                    report.RequestedTargetFingerprint = requestedTargetBefore;
+                    report.SourceUnchanged = true;
+                    report.RequestedTargetUnchanged = true;
+                    report.Issues.Add(
+                        "보존되지 않거나 변환 조건이 있는 annotation 의미가 있습니다. manifest를 확인하고 손실 내보내기를 명시적으로 승인하거나 다른 형식을 선택하세요.");
+                    CompleteReport(report);
+                    return report;
+                }
+            }
+
             string temporaryRoot = string.Empty;
             LabelingProjectData stagedImportData = null;
 
@@ -148,6 +229,10 @@ namespace MvcVisionSystem.Yolo
                 if (!isDryRun && isImport && report.SkippedCount == 0)
                 {
                     PromoteStagedImport(stagedImportData, request.Data, request.RecipeName);
+                }
+                else if (!isDryRun && !isImport && report.Issues.Count == 0)
+                {
+                    WriteLossManifest(report.LossManifest, report.LossManifestPath);
                 }
             }
             catch (Exception ex)
@@ -554,6 +639,185 @@ namespace MvcVisionSystem.Yolo
 
             foreach (string warning in warnings.Where(item => !string.IsNullOrWhiteSpace(item)))
             {
+                bool alreadyRepresentedByManifest = HasManifestWarning(report.LossManifest, warning);
+                if (!alreadyRepresentedByManifest && !report.Warnings.Contains(warning))
+                {
+                    report.Warnings.Add(warning);
+                }
+
+                AppendManifestWarning(report.LossManifest, warning);
+            }
+        }
+
+        private static bool HasManifestWarning(
+            DatasetInterchangeLossManifest manifest,
+            string warning)
+        {
+            if (manifest == null || string.IsNullOrWhiteSpace(warning))
+            {
+                return false;
+            }
+
+            return manifest.Entries.Any(entry =>
+                !string.IsNullOrWhiteSpace(entry?.Semantic)
+                && warning.StartsWith(
+                    $"{entry.Semantic}: {entry.Level} - ",
+                    StringComparison.Ordinal));
+        }
+
+        private static DatasetInterchangeLossManifest BuildLossManifest(
+            DatasetInterchangeRequest request,
+            DatasetExportCapability capability)
+        {
+            var manifest = new DatasetInterchangeLossManifest
+            {
+                FormatKey = capability?.FormatKey ?? string.Empty,
+                TargetPath = request?.TargetPath ?? string.Empty
+            };
+            if (request?.Data == null || capability == null)
+            {
+                return manifest;
+            }
+
+            if (TryResolveSegmentationAuditTarget(capability.FormatKey, out SegmentationInterchangeTarget target))
+            {
+                foreach (string mode in YoloDatasetSplitService.StandardModes)
+                {
+                    string segmentDirectory = Path.Combine(
+                        request.Data.OutputRootPath,
+                        "data",
+                        mode,
+                        "segments");
+                    if (!Directory.Exists(segmentDirectory))
+                    {
+                        continue;
+                    }
+
+                    foreach (string segmentPath in Directory.EnumerateFiles(segmentDirectory, "*.json")
+                        .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+                    {
+                        SegmentationAnnotationFile annotation;
+                        try
+                        {
+                            annotation = JsonConvert.DeserializeObject<SegmentationAnnotationFile>(
+                                File.ReadAllText(segmentPath));
+                        }
+                        catch (Exception ex)
+                        {
+                            AddManifestEntry(
+                                manifest,
+                                "Conversion",
+                                nameof(SegmentationPreservationLevel.Lost),
+                                1,
+                                $"segment JSON {Path.GetFileName(segmentPath)}를 읽지 못했습니다: {ex.GetBaseException().Message}");
+                            continue;
+                        }
+
+                        SegmentationInterchangeAuditResult audit =
+                            SegmentationInterchangeContractService.AuditAnnotation(target, annotation);
+                        foreach (SegmentationInterchangeCapability capabilityItem in audit.Capabilities)
+                        {
+                            AddManifestEntry(
+                                manifest,
+                                capabilityItem.Semantic.ToString(),
+                                capabilityItem.Level.ToString(),
+                                1,
+                                capabilityItem.Explanation);
+                        }
+                    }
+                }
+            }
+
+            AppendObjectMetadataLosses(request.Data.OutputRootPath, manifest);
+            return manifest;
+        }
+
+        private static void AppendObjectMetadataLosses(
+            string outputRootPath,
+            DatasetInterchangeLossManifest manifest)
+        {
+            if (string.IsNullOrWhiteSpace(outputRootPath) || !Directory.Exists(outputRootPath))
+            {
+                return;
+            }
+
+            foreach (string metadataPath in Directory.EnumerateFiles(
+                outputRootPath,
+                "*.json",
+                SearchOption.AllDirectories)
+                .Where(path => string.Equals(
+                    new DirectoryInfo(Path.GetDirectoryName(path) ?? string.Empty).Name,
+                    "object-metadata",
+                    StringComparison.OrdinalIgnoreCase))
+                .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+            {
+                try
+                {
+                    JObject document = JObject.Parse(File.ReadAllText(metadataPath));
+                    JArray objects = FindProperty(document, "Objects") as JArray;
+                    foreach (JToken item in objects ?? new JArray())
+                    {
+                        JArray tags = FindProperty(item, "Tags") as JArray;
+                        if (tags?.Any(tag => !string.IsNullOrWhiteSpace(tag?.ToString())) == true)
+                        {
+                            AddManifestEntry(
+                                manifest,
+                                "ObjectMetadataTags",
+                                nameof(SegmentationPreservationLevel.Lost),
+                                1,
+                                "현재 외부 exporter는 객체 tag를 기록하지 않습니다.");
+                        }
+
+                        if (!string.IsNullOrWhiteSpace(FindProperty(item, "GroupId")?.ToString()))
+                        {
+                            AddManifestEntry(
+                                manifest,
+                                "ObjectMetadataGroups",
+                                nameof(SegmentationPreservationLevel.Lost),
+                                1,
+                                "현재 외부 exporter는 객체 group id를 기록하지 않습니다.");
+                        }
+
+                        if (bool.TryParse(FindProperty(item, "IsOccluded")?.ToString(), out bool isOccluded)
+                            && isOccluded)
+                        {
+                            AddManifestEntry(
+                                manifest,
+                                "ObjectMetadataOcclusion",
+                                nameof(SegmentationPreservationLevel.Lost),
+                                1,
+                                "현재 외부 exporter는 객체 occlusion 상태를 기록하지 않습니다.");
+                        }
+                    }
+                }
+                catch (Exception ex)
+                {
+                    AddManifestEntry(
+                        manifest,
+                        "ObjectMetadataInspection",
+                        nameof(SegmentationPreservationLevel.Lost),
+                        1,
+                        $"객체 metadata {Path.GetFileName(metadataPath)}를 읽지 못했습니다: {ex.GetBaseException().Message}");
+                }
+            }
+        }
+
+        private static JToken FindProperty(JToken token, string name)
+            => token?.Children<JProperty>()
+                .FirstOrDefault(property => string.Equals(property.Name, name, StringComparison.OrdinalIgnoreCase))
+                ?.Value;
+
+        private static void AppendManifestWarnings(DatasetInterchangePreflightReport report)
+        {
+            foreach (DatasetInterchangeLossManifestEntry entry in report.LossManifest?.Entries
+                ?? Enumerable.Empty<DatasetInterchangeLossManifestEntry>())
+            {
+                if (string.Equals(entry?.Level, nameof(SegmentationPreservationLevel.Preserved), StringComparison.Ordinal))
+                {
+                    continue;
+                }
+
+                string warning = FormatManifestWarning(entry);
                 if (!report.Warnings.Contains(warning))
                 {
                     report.Warnings.Add(warning);
@@ -561,12 +825,135 @@ namespace MvcVisionSystem.Yolo
             }
         }
 
+        private static void AppendManifestWarning(
+            DatasetInterchangeLossManifest manifest,
+            string warning)
+        {
+            if (manifest == null || string.IsNullOrWhiteSpace(warning))
+            {
+                return;
+            }
+
+            string semantic = "Conversion";
+            string level = nameof(SegmentationPreservationLevel.Lost);
+            string detail = warning.Trim();
+            int colon = warning.IndexOf(':');
+            int separator = warning.IndexOf(" - ", StringComparison.Ordinal);
+            if (colon > 0)
+            {
+                semantic = warning.Substring(0, colon).Trim();
+                if (separator > colon)
+                {
+                    level = warning.Substring(colon + 1, separator - colon - 1).Trim();
+                    detail = warning.Substring(separator + 3).Trim();
+                }
+            }
+
+            AddManifestEntry(manifest, semantic, level, 1, detail);
+        }
+
+        private static void AddManifestEntry(
+            DatasetInterchangeLossManifest manifest,
+            string semantic,
+            string level,
+            int affectedCount,
+            string detail)
+        {
+            if (manifest == null || string.IsNullOrWhiteSpace(semantic))
+            {
+                return;
+            }
+
+            DatasetInterchangeLossManifestEntry existing = manifest.Entries.FirstOrDefault(entry =>
+                string.Equals(entry.Semantic, semantic, StringComparison.Ordinal)
+                && string.Equals(entry.Level, level, StringComparison.Ordinal)
+                && string.Equals(entry.Detail, detail ?? string.Empty, StringComparison.Ordinal));
+            if (existing != null)
+            {
+                existing.AffectedCount += Math.Max(1, affectedCount);
+                return;
+            }
+
+            manifest.Entries.Add(new DatasetInterchangeLossManifestEntry
+            {
+                Semantic = semantic,
+                Level = level ?? string.Empty,
+                AffectedCount = Math.Max(1, affectedCount),
+                Detail = detail ?? string.Empty
+            });
+        }
+
+        private static string FormatManifestWarning(DatasetInterchangeLossManifestEntry entry)
+            => $"{entry?.Semantic}: {entry?.Level} - {entry?.Detail} (영향 {entry?.AffectedCount ?? 0}건)";
+
+        private static bool TryResolveSegmentationAuditTarget(
+            string formatKey,
+            out SegmentationInterchangeTarget target)
+        {
+            target = default;
+            if (string.Equals(formatKey, "coco-segmentation-json", StringComparison.Ordinal)
+                || string.Equals(formatKey, "label-studio-segmentation-json", StringComparison.Ordinal))
+            {
+                target = SegmentationInterchangeTarget.CocoPolygonSegmentation;
+                return true;
+            }
+
+            if (string.Equals(formatKey, "cvat-segmentation-archive", StringComparison.Ordinal))
+            {
+                target = SegmentationInterchangeTarget.CvatPolygon;
+                return true;
+            }
+
+            return false;
+        }
+
+        private static string BuildLossManifestPath(
+            string targetPath,
+            DatasetExportCapability capability)
+        {
+            if (string.IsNullOrWhiteSpace(targetPath))
+            {
+                return string.Empty;
+            }
+
+            if (string.Equals(capability?.FormatKey, "pascal-voc-detection", StringComparison.Ordinal))
+            {
+                return Path.Combine(targetPath, "interchange-loss-manifest.json");
+            }
+
+            return targetPath + ".loss-manifest.json";
+        }
+
+        private static void WriteLossManifest(
+            DatasetInterchangeLossManifest manifest,
+            string manifestPath)
+        {
+            if (manifest == null || string.IsNullOrWhiteSpace(manifestPath))
+            {
+                return;
+            }
+
+            string directory = Path.GetDirectoryName(manifestPath);
+            if (!string.IsNullOrWhiteSpace(directory))
+            {
+                Directory.CreateDirectory(directory);
+            }
+
+            AnnotationFilePersistence.WriteAtomically(
+                manifestPath,
+                temporaryPath => File.WriteAllText(
+                    temporaryPath,
+                    JsonConvert.SerializeObject(manifest, Formatting.Indented),
+                    new UTF8Encoding(false)));
+        }
+
         private static void CompleteReport(DatasetInterchangePreflightReport report)
         {
             report.CanApply = report.IsDryRun
                 && report.Issues.Count == 0
                 && report.SourceUnchanged
-                && report.RequestedTargetUnchanged;
+                && report.RequestedTargetUnchanged
+                && (!report.RequiresLossConfirmation || report.LossConfirmationAccepted);
             if (report.Issues.Count > 0)
             {
                 report.StatusText = report.IsDryRun ? "Dry-run blocked" : "Apply failed";
@@ -574,12 +961,17 @@ namespace MvcVisionSystem.Yolo
             }
             else if (report.IsDryRun)
             {
-                report.StatusText = report.Warnings.Count > 0
-                    ? "Ready to apply with warnings"
-                    : "Ready to apply";
+                report.StatusText = report.RequiresLossConfirmation && !report.LossConfirmationAccepted
+                    ? "Loss confirmation required"
+                    : report.Warnings.Count > 0
+                        ? "Ready to apply with warnings"
+                        : "Ready to apply";
                 report.DetailText =
                     $"\uC774\uBBF8\uC9C0 {report.ImageCount}, \uC5B4\uB178\uD14C\uC774\uC158 {report.AnnotationCount}, \uD074\uB798\uC2A4 {report.CategoryCount}. "
-                    + "\uC6D0\uBCF8\uACFC \uC694\uCCAD \uB300\uC0C1\uC740 \uBCC0\uACBD\uB418\uC9C0 \uC54A\uC558\uC2B5\uB2C8\uB2E4.";
+                    + "\uC6D0\uBCF8\uACFC \uC694\uCCAD \uB300\uC0C1\uC740 \uBCC0\uACBD\uB418\uC9C0 \uC54C\uC558\uC2B5\uB2C8\uB2E4."
+                    + (string.IsNullOrWhiteSpace(report.LossManifestPath)
+                        ? string.Empty
+                        : $" manifest: {report.LossManifestPath}");
             }
             else
             {

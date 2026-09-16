@@ -20,6 +20,10 @@ namespace MvcVisionSystem
 
         public string LastTrainingMessage { get; set; } = "";
 
+        public string LastTrainingRunId { get; set; } = "";
+
+        public string LastTrainingRunName { get; set; } = "";
+
         public string LastTrainingDatasetVersionId { get; set; } = "";
 
         public string LastTrainingDatasetContentSha256 { get; set; } = "";
@@ -35,6 +39,8 @@ namespace MvcVisionSystem
         public void EnsureDefaults()
         {
             RunHistory ??= new List<YoloTrainingGuideRunRecord>();
+            LastTrainingRunId ??= "";
+            LastTrainingRunName ??= "";
             LastTrainingDatasetVersionId ??= "";
             LastTrainingDatasetContentSha256 ??= "";
         }
@@ -57,6 +63,10 @@ namespace MvcVisionSystem
         public int TrainingProgressPercent { get; set; } = -1;
 
         public string TrainingMessage { get; set; } = "";
+
+        public string TrainingRunId { get; set; } = "";
+
+        public string TrainingRunName { get; set; } = "";
 
         public string AppliedWeightsPath { get; set; } = "";
 

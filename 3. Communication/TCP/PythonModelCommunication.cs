@@ -173,11 +173,12 @@ namespace MvcVisionSystem._3._Communication.TCP
             string dataYaml = "",
             string model = "yolov5",
             string task = "detect",
-            string runName = "")
+            string runName = "",
+            string runId = "")
         {
             try
             {
-                return SendPacket(command, LearningProtocol.BuildTrainingPacket(command, imgSize, batch, epoch, cfg, weight, dataYaml, model, task, runName));
+                return SendPacket(command, LearningProtocol.BuildTrainingPacket(command, imgSize, batch, epoch, cfg, weight, dataYaml, model, task, runName, runId));
             }
             catch (Exception Desc)
             {

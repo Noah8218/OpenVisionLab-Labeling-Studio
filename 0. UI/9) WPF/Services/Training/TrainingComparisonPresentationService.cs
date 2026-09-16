@@ -135,7 +135,7 @@ namespace MvcVisionSystem
                 new WpfTrainingResultReportItem(
                     "새 후보",
                     FormatPath(comparison.LatestWeightsPath),
-                    FormatMetricSource(comparison.LatestMetrics),
+                    FormatCandidateMetricSource(comparison),
                     PackIconMaterialKind.FileDocumentOutline,
                     isWarning: !comparison.HasLatestWeights),
                 new WpfTrainingResultReportItem(
@@ -175,9 +175,27 @@ namespace MvcVisionSystem
         }
 
         private static string FormatMetricSource(WpfTrainingRunMetrics metrics)
-            => string.IsNullOrWhiteSpace(metrics?.ResultsCsvPath)
+        {
+            string source = string.IsNullOrWhiteSpace(metrics?.ResultsCsvPath)
                 ? "results.csv 없음"
                 : $"results.csv: {Path.GetFileName(Path.GetDirectoryName(metrics.ResultsCsvPath) ?? metrics.ResultsCsvPath)}";
+            string checkpoint = TrainingWeightsService.FormatCheckpointIdentity(metrics);
+            return string.IsNullOrWhiteSpace(checkpoint) ? source : $"{source} / {checkpoint}";
+        }
+
+        private static string FormatCandidateMetricSource(WpfTrainingWeightsComparison comparison)
+        {
+            string source = FormatMetricSource(comparison?.LatestMetrics);
+            if (comparison?.LatestLastMetrics == null)
+            {
+                return source;
+            }
+
+            return $"{source} / last.pt {FormatCheckpointIdentity(comparison.LatestLastMetrics)}";
+        }
+
+        private static string FormatCheckpointIdentity(WpfTrainingRunMetrics metrics)
+            => TrainingWeightsService.FormatCheckpointIdentity(metrics);
 
         private static string FormatPath(string path)
             => string.IsNullOrWhiteSpace(path) ? "없음" : Path.GetFileName(path);

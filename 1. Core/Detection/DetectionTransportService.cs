@@ -20,6 +20,9 @@ namespace MvcVisionSystem._1._Core
         private readonly Func<LabelingImageSnapshot> imageSnapshotAccessor;
         private DetectionRequestContext pendingDetectionContext = DetectionRequestContext.Empty;
         private bool pendingDetectionCanceled;
+        private bool hasPendingDetection;
+        private DetectionRequestContext lastCompletedDetectionContext = DetectionRequestContext.Empty;
+        private bool hasCompletedDetection;
         private Timer pendingDetectionTimeoutTimer;
         private int pendingDetectionTimeoutGeneration;
 
@@ -176,10 +179,62 @@ namespace MvcVisionSystem._1._Core
         {
             lock (sync)
             {
+                if (hasPendingDetection)
+                {
+                    lastCompletedDetectionContext = pendingDetectionContext ?? DetectionRequestContext.Empty;
+                    hasCompletedDetection = true;
+                }
+
                 pendingDetectionContext = DetectionRequestContext.Empty;
+                hasPendingDetection = false;
                 pendingDetectionCanceled = true;
                 ++pendingDetectionTimeoutGeneration;
                 ResetPendingDetectionTimeoutTimerLocked();
+            }
+        }
+
+        internal bool HasPendingDetectionContext
+        {
+            get
+            {
+                lock (sync)
+                {
+                    return hasPendingDetection;
+                }
+            }
+        }
+
+        internal bool HasCompletedDetectionContext
+        {
+            get
+            {
+                lock (sync)
+                {
+                    return hasCompletedDetection;
+                }
+            }
+        }
+
+        internal bool TryTakePendingDetectionContext(
+            string requestId,
+            string imageId,
+            out DetectionRequestContext context)
+        {
+            lock (sync)
+            {
+                context = pendingDetectionContext ?? DetectionRequestContext.Empty;
+                if (!hasPendingDetection || !context.MatchesResponse(requestId, imageId))
+                {
+                    context = DetectionRequestContext.Empty;
+                    return false;
+                }
+
+                pendingDetectionContext = DetectionRequestContext.Empty;
+                hasPendingDetection = false;
+                lastCompletedDetectionContext = context;
+                hasCompletedDetection = true;
+                ResetPendingDetectionTimeoutTimerLocked();
+                return true;
             }
         }
 
@@ -189,6 +244,9 @@ namespace MvcVisionSystem._1._Core
             {
                 DetectionRequestContext context = pendingDetectionContext ?? DetectionRequestContext.Empty;
                 pendingDetectionContext = DetectionRequestContext.Empty;
+                hasPendingDetection = false;
+                lastCompletedDetectionContext = context;
+                hasCompletedDetection = !ReferenceEquals(context, DetectionRequestContext.Empty);
                 ResetPendingDetectionTimeoutTimerLocked();
                 return context;
             }
@@ -208,7 +266,14 @@ namespace MvcVisionSystem._1._Core
         {
             lock (sync)
             {
+                if (hasPendingDetection)
+                {
+                    lastCompletedDetectionContext = pendingDetectionContext ?? DetectionRequestContext.Empty;
+                    hasCompletedDetection = true;
+                }
+
                 pendingDetectionContext = DetectionRequestContext.Empty;
+                hasPendingDetection = false;
                 ++pendingDetectionTimeoutGeneration;
                 ResetPendingDetectionTimeoutTimerLocked();
             }
@@ -223,6 +288,9 @@ namespace MvcVisionSystem._1._Core
             lock (sync)
             {
                 pendingDetectionContext = safeContext;
+                hasPendingDetection = true;
+                hasCompletedDetection = false;
+                lastCompletedDetectionContext = DetectionRequestContext.Empty;
                 pendingDetectionCanceled = false;
                 generation = ++pendingDetectionTimeoutGeneration;
                 ResetPendingDetectionTimeoutTimerLocked();
@@ -246,14 +314,18 @@ namespace MvcVisionSystem._1._Core
             lock (sync)
             {
                 if (generation != pendingDetectionTimeoutGeneration
-                    || !ReferenceEquals(pendingDetectionContext, context))
+                    || !ReferenceEquals(pendingDetectionContext, context)
+                    || !hasPendingDetection)
                 {
                     return;
                 }
 
                 pendingDetectionContext = DetectionRequestContext.Empty;
+                hasPendingDetection = false;
                 pendingDetectionCanceled = true;
                 timedOutContext = context;
+                lastCompletedDetectionContext = context;
+                hasCompletedDetection = true;
                 ++pendingDetectionTimeoutGeneration;
                 ResetPendingDetectionTimeoutTimerLocked();
             }

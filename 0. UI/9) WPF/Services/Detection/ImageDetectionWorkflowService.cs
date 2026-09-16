@@ -182,10 +182,38 @@ namespace MvcVisionSystem
             {
                 // Keep existing manual labels when smoke detection returns the already-active image;
                 // Candidate Review needs those labels to compute duplicate/current-label focus.
-                if (!string.IsNullOrWhiteSpace(result.ImagePath)
-                    && File.Exists(result.ImagePath))
+                if (view.IsCurrentImage?.Invoke(imagePath) == false)
                 {
-                    view.PrepareCanvasImage(result.ImagePath, true);
+                    string staleSummary = "추론 결과가 현재 이미지와 달라 폐기되었습니다.";
+                    view.AppendLog(staleSummary);
+                    return new YoloWorkerSmokeTestResult
+                    {
+                        Succeeded = false,
+                        Summary = staleSummary,
+                        ImagePath = imagePath,
+                        Errors = new[] { staleSummary }
+                    };
+                }
+
+                if (!string.IsNullOrWhiteSpace(result.ImagePath))
+                {
+                    if (view.IsCurrentImage?.Invoke(result.ImagePath) == false)
+                    {
+                        string staleSummary = "추론 결과가 현재 이미지와 달라 폐기되었습니다.";
+                        view.AppendLog(staleSummary);
+                        return new YoloWorkerSmokeTestResult
+                        {
+                            Succeeded = false,
+                            Summary = staleSummary,
+                            ImagePath = imagePath,
+                            Errors = new[] { staleSummary }
+                        };
+                    }
+
+                    if (File.Exists(result.ImagePath))
+                    {
+                        view.PrepareCanvasImage(result.ImagePath, true);
+                    }
                 }
 
                 view.ApplyCandidates(result.Candidates, result.Succeeded);
@@ -322,6 +350,19 @@ namespace MvcVisionSystem
                     };
                 }
 
+                if (completed.Reason == DetectionCandidateUpdateReason.StaleResultIgnored)
+                {
+                    string staleSummary = "추론 결과가 현재 이미지와 달라 폐기되었습니다.";
+                    view.AppendLog(staleSummary);
+                    return new YoloWorkerSmokeTestResult
+                    {
+                        Succeeded = false,
+                        Summary = staleSummary,
+                        ImagePath = imagePath,
+                        Errors = new[] { staleSummary }
+                    };
+                }
+
                 if (completed.Reason == DetectionCandidateUpdateReason.RequestTimedOut)
                 {
                     view.SetInferenceStatus(InferenceStatusPresentationService.BuildWorkerTimedOutInferenceStatus(), false, true);
@@ -336,6 +377,18 @@ namespace MvcVisionSystem
                 }
 
                 IReadOnlyList<DefectInfo> defects = detectionResults.GetLastDefects();
+                if (view.IsCurrentImage?.Invoke(imagePath) == false)
+                {
+                    string staleSummary = "추론 결과가 현재 이미지와 달라 폐기되었습니다.";
+                    view.AppendLog(staleSummary);
+                    return new YoloWorkerSmokeTestResult
+                    {
+                        Succeeded = false,
+                        Summary = staleSummary,
+                        ImagePath = imagePath,
+                        Errors = new[] { staleSummary }
+                    };
+                }
                 IReadOnlyList<YoloWorkerSmokeCandidate> candidates = defects
                     .Select((defect, index) => CandidateReviewPresentationService.FromDefect(defect, index + 1))
                     .ToList();
@@ -401,6 +454,7 @@ namespace MvcVisionSystem
     {
         public Func<string, bool, DrawingSize?> PrepareCanvasImage { get; init; }
         public Action<IReadOnlyList<YoloWorkerSmokeCandidate>, bool> ApplyCandidates { get; init; }
+        public Func<string, bool> IsCurrentImage { get; init; }
         public Action RefreshActions { get; init; }
         public Action<string> SetPythonStatus { get; init; }
         public Action<string, bool> SetCommandStatus { get; init; }

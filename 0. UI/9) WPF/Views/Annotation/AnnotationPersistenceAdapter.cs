@@ -44,6 +44,13 @@ namespace MvcVisionSystem
         internal bool SaveCurrentAnnotations(out int savedCount)
         {
             savedCount = 0;
+            if (context.IsAnnotationSaveBlocked?.Invoke() == true)
+            {
+                context.AppendLog?.Invoke(
+                    "라벨 저장 차단: 손상된 원본 라벨을 명시적으로 복구하기 전에는 덮어쓰지 않습니다.");
+                return false;
+            }
+
             context.CompleteMaskAnnotationStroke();
             context.FlushQueuedMaskStrokeCommits();
             context.AppendLog?.Invoke(
@@ -103,6 +110,13 @@ namespace MvcVisionSystem
 
         internal bool SaveCurrentEmptyAnnotations()
         {
+            if (context.IsAnnotationSaveBlocked?.Invoke() == true)
+            {
+                context.AppendLog?.Invoke(
+                    "빈 라벨 저장 차단: 손상된 원본 라벨을 명시적으로 복구하기 전에는 덮어쓰지 않습니다.");
+                return false;
+            }
+
             context.CompleteMaskAnnotationStroke();
             context.FlushQueuedMaskStrokeCommits();
             LabelingImageSnapshot activeImage = context.ActiveImageProvider();
@@ -331,5 +345,6 @@ namespace MvcVisionSystem
         internal IReadOnlyList<LabelingSegmentationObject> ManualSegments { get; init; }
         internal Func<IReadOnlyList<YoloWorkerSmokeCandidate>> ConfirmedDetectionCandidatesProvider { get; init; }
         internal ClassCatalogWorkflowService ClassCatalogWorkflowService { get; init; }
+        internal Func<bool> IsAnnotationSaveBlocked { get; init; }
     }
 }

@@ -170,11 +170,17 @@ namespace MvcVisionSystem._1._Core
             }
 
             mainDisplay.ResetAnnotations();
-            IReadOnlyDictionary<string, List<Rectangle>> annotations = YoloAnnotationService.LoadAnnotationRectanglesForImage(
+            YoloAnnotationLoadResult annotationLoad = YoloAnnotationService.LoadAnnotationRectanglesForImageWithDiagnostics(
                 imagePath,
                 data.ClassNamedList,
                 data,
                 imageSize);
+            if (annotationLoad.HasErrors)
+            {
+                return false;
+            }
+
+            IReadOnlyDictionary<string, List<Rectangle>> annotations = annotationLoad.Annotations;
             IReadOnlyDictionary<string, List<LabelingSegmentationObject>> segments = YoloSegmentationAnnotationService.LoadSegmentationObjectsForImage(
                 imagePath,
                 data.ClassNamedList,

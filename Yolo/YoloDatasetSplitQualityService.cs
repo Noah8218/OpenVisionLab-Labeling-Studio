@@ -12,10 +12,20 @@ namespace MvcVisionSystem.Yolo
     public sealed class YoloDatasetSplitOverlapSummary
     {
         public YoloDatasetSplitOverlapSummary(int nameOverlapCount, int contentOverlapCount, string example)
+            : this(nameOverlapCount, contentOverlapCount, example, string.Empty)
+        {
+        }
+
+        public YoloDatasetSplitOverlapSummary(
+            int nameOverlapCount,
+            int contentOverlapCount,
+            string example,
+            string enumerationError)
         {
             NameOverlapCount = Math.Max(0, nameOverlapCount);
             ContentOverlapCount = Math.Max(0, contentOverlapCount);
             Example = example ?? string.Empty;
+            EnumerationError = enumerationError ?? string.Empty;
         }
 
         public int NameOverlapCount { get; }
@@ -23,10 +33,14 @@ namespace MvcVisionSystem.Yolo
         public int ContentOverlapCount { get; }
 
         public string Example { get; }
+
+        public string EnumerationError { get; }
     }
 
     /// <summary>
     /// Owns read-only split-overlap QA and its statistics projection.
+    /// Local recipe YOLO split roots are intentionally flat because the local exporters and annotation pairing are flat;
+    /// native external YOLO intake owns its separate recursive images/labels contract.
     /// Split assignment and file validation remain with their existing owners.
     /// </summary>
     public static class YoloDatasetSplitQualityService
@@ -40,37 +54,56 @@ namespace MvcVisionSystem.Yolo
             string leftImageDirectory,
             string rightImageDirectory)
         {
-            List<string> leftImages = EnumerateSupportedImages(leftImageDirectory).ToList();
-            List<string> rightImages = EnumerateSupportedImages(rightImageDirectory).ToList();
+            if (!TryEnumerateSupportedImages(leftImageDirectory, out List<string> leftImages, out string leftError))
+            {
+                return new YoloDatasetSplitOverlapSummary(0, 0, string.Empty, leftError);
+            }
+
+            if (!TryEnumerateSupportedImages(rightImageDirectory, out List<string> rightImages, out string rightError))
+            {
+                return new YoloDatasetSplitOverlapSummary(0, 0, string.Empty, rightError);
+            }
+
             if (leftImages.Count == 0 || rightImages.Count == 0)
             {
                 return new YoloDatasetSplitOverlapSummary(0, 0, string.Empty);
             }
 
-            var rightNames = new HashSet<string>(
-                rightImages.Select(Path.GetFileName).Where(name => !string.IsNullOrWhiteSpace(name)),
-                StringComparer.OrdinalIgnoreCase);
-            int nameOverlap = leftImages.Count(path => rightNames.Contains(Path.GetFileName(path)));
-
-            Dictionary<string, string> rightContent = BuildContentMap(rightImages);
-            int contentOverlap = 0;
-            string example = string.Empty;
-            foreach (string leftImage in leftImages)
+            try
             {
-                string hash = BuildFileContentKey(leftImage);
-                if (!rightContent.TryGetValue(hash, out string rightImage))
+                var rightNames = new HashSet<string>(
+                    rightImages.Select(Path.GetFileName).Where(name => !string.IsNullOrWhiteSpace(name)),
+                    StringComparer.OrdinalIgnoreCase);
+                int nameOverlap = leftImages.Count(path => rightNames.Contains(Path.GetFileName(path)));
+
+                Dictionary<string, string> rightContent = BuildContentMap(rightImages);
+                int contentOverlap = 0;
+                string example = string.Empty;
+                foreach (string leftImage in leftImages)
                 {
-                    continue;
+                    string hash = BuildFileContentKey(leftImage);
+                    if (!rightContent.TryGetValue(hash, out string rightImage))
+                    {
+                        continue;
+                    }
+
+                    contentOverlap++;
+                    if (string.IsNullOrWhiteSpace(example))
+                    {
+                        example = $"{Path.GetFileName(leftImage)} == {Path.GetFileName(rightImage)}";
+                    }
                 }
 
-                contentOverlap++;
-                if (string.IsNullOrWhiteSpace(example))
-                {
-                    example = $"{Path.GetFileName(leftImage)} == {Path.GetFileName(rightImage)}";
-                }
+                return new YoloDatasetSplitOverlapSummary(nameOverlap, contentOverlap, example);
             }
-
-            return new YoloDatasetSplitOverlapSummary(nameOverlap, contentOverlap, example);
+            catch (IOException ex)
+            {
+                return new YoloDatasetSplitOverlapSummary(0, 0, string.Empty, BuildEnumerationError($"{leftImageDirectory} and {rightImageDirectory}", ex));
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                return new YoloDatasetSplitOverlapSummary(0, 0, string.Empty, BuildEnumerationError($"{leftImageDirectory} and {rightImageDirectory}", ex));
+            }
         }
 
         public static void ValidateSeparation(
@@ -86,6 +119,16 @@ namespace MvcVisionSystem.Yolo
             }
 
             YoloDatasetSplitOverlapSummary overlap = BuildOverlapSummary(leftImageDirectory, rightImageDirectory);
+            if (!string.IsNullOrWhiteSpace(overlap.EnumerationError))
+            {
+                if (!errors.Contains(overlap.EnumerationError, StringComparer.Ordinal))
+                {
+                    errors.Add(overlap.EnumerationError);
+                }
+
+                return;
+            }
+
             if (overlap.ContentOverlapCount <= 0)
             {
                 return;
@@ -143,15 +186,72 @@ namespace MvcVisionSystem.Yolo
             return $"{info.Length}:{hash}";
         }
 
-        private static IEnumerable<string> EnumerateSupportedImages(string directory)
+        private static bool TryEnumerateSupportedImages(
+            string directory,
+            out List<string> imagePaths,
+            out string error)
         {
+            imagePaths = new List<string>();
+            error = string.Empty;
             if (!Directory.Exists(directory))
             {
-                return Enumerable.Empty<string>();
+                return true;
             }
 
-            return Directory.EnumerateFiles(directory).Where(IsSupportedImageFile);
+            try
+            {
+                if (IsReparsePoint(directory))
+                {
+                    error = BuildUnsupportedStructureError(directory, directory);
+                    return false;
+                }
+
+                string nestedDirectory = Directory.EnumerateDirectories(directory, "*", SearchOption.TopDirectoryOnly)
+                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase)
+                    .FirstOrDefault();
+                if (!string.IsNullOrWhiteSpace(nestedDirectory))
+                {
+                    error = BuildUnsupportedStructureError(directory, nestedDirectory);
+                    return false;
+                }
+
+                foreach (string path in Directory.EnumerateFiles(directory, "*", SearchOption.TopDirectoryOnly)
+                    .OrderBy(path => path, StringComparer.OrdinalIgnoreCase))
+                {
+                    if (IsReparsePoint(path))
+                    {
+                        error = BuildUnsupportedStructureError(directory, path);
+                        return false;
+                    }
+
+                    if (IsSupportedImageFile(path))
+                    {
+                        imagePaths.Add(path);
+                    }
+                }
+
+                return true;
+            }
+            catch (IOException ex)
+            {
+                error = BuildEnumerationError(directory, ex);
+                return false;
+            }
+            catch (UnauthorizedAccessException ex)
+            {
+                error = BuildEnumerationError(directory, ex);
+                return false;
+            }
         }
+
+        private static bool IsReparsePoint(string path)
+            => (File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0;
+
+        private static string BuildUnsupportedStructureError(string datasetDirectory, string unsupportedPath)
+            => $"YOLO dataset split directory must be flat; nested or linked path is unsupported before training: {unsupportedPath} (root: {datasetDirectory}). Remove the child directory/link or export the split again.";
+
+        private static string BuildEnumerationError(string directory, Exception exception)
+            => $"YOLO dataset split image enumeration failed before training: {directory}. {exception.Message}";
 
         private static bool IsSupportedImageFile(string path)
         {

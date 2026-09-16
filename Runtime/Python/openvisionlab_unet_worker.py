@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import csv
+import hashlib
 import json
 import os
 import socket
@@ -24,6 +25,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 PACKET_SEPARATOR = b"\n\n"
+RUN_ID_MAX_LENGTH = 64
 LEGACY_TYPE_MAP = {
     "StartTraining": "TrainYolo",
     "StopTraining": "StopTask",
@@ -49,6 +51,46 @@ def compact_json(value: dict[str, Any]) -> bytes:
     return json.dumps(value, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
 
+def checkpoint_artifact_id(checkpoint_path: Path) -> str:
+    digest = hashlib.sha256()
+    with checkpoint_path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return f"sha256:{digest.hexdigest()}"
+
+
+def write_checkpoint_metadata(
+    checkpoint_path: Path,
+    checkpoint_role: str,
+    epoch: int,
+    results_csv_path: Path,
+    run_name: str,
+    run_id: str = "",
+) -> Path | None:
+    if not checkpoint_path.is_file() or epoch < 0:
+        return None
+
+    metadata_path = Path(f"{checkpoint_path}.metadata.json")
+    temporary_path = Path(f"{metadata_path}.tmp")
+    metadata = {
+        "schemaVersion": 1,
+        "format": "openvisionlab-training-checkpoint-v1",
+        "checkpointRole": checkpoint_role,
+        "epoch": int(epoch),
+        "artifactId": checkpoint_artifact_id(checkpoint_path),
+        "resultsCsvPath": str(results_csv_path.resolve()),
+        "runName": run_name,
+        "runId": run_id,
+    }
+    try:
+        temporary_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary_path.replace(metadata_path)
+    finally:
+        if temporary_path.exists():
+            temporary_path.unlink()
+    return metadata_path.resolve()
+
+
 def make_error(code: str, error: str | Exception, include_trace: bool = False) -> dict[str, Any]:
     result: dict[str, Any] = {"code": code, "message": str(error)}
     if isinstance(error, Exception):
@@ -64,6 +106,28 @@ def first_value(payload: dict[str, Any], names: Iterable[str], default: Any = No
         if value is not None and value != "":
             return value
     return default
+
+
+def normalize_run_id(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if len(text) > RUN_ID_MAX_LENGTH:
+        raise ValueError(f"runId must be at most {RUN_ID_MAX_LENGTH} characters")
+    for character in text:
+        if not ("a" <= character <= "z" or "A" <= character <= "Z" or "0" <= character <= "9" or character in "-_"):
+            raise ValueError("runId may contain only ASCII letters, digits, '-' or '_'")
+    return text
+
+
+def compose_training_run_name(display_name: str, run_id: str, fallback: str) -> str:
+    display = str(display_name or "").strip()
+    safe_display = "".join(
+        character if ("a" <= character <= "z" or "A" <= character <= "Z" or "0" <= character <= "9" or character in "-_") else "-"
+        for character in display
+    ).strip("-_")[:80]
+    safe_display = safe_display or fallback
+    return f"{safe_display}-{run_id}" if run_id else safe_display
 
 
 def positive_int(value: Any, default: int) -> int:
@@ -301,6 +365,7 @@ def train_dataset(
     device_text: str,
     progress: callable | None = None,
     foreground_quality_selection: bool = False,
+    run_id: str = "",
 ) -> dict[str, Any]:
     np, torch, _, _, _ = torch_dependencies()
     from torch.utils.data import DataLoader
@@ -326,6 +391,7 @@ def train_dataset(
     best_loss = float("inf")
     best_foreground_macro_dice = float("-inf")
     best_all_classes_have_overlap = False
+    best_epoch = -1
     best_path = weights_root / "best.pt"
     last_path = weights_root / "last.pt"
     for epoch in range(1, epochs + 1):
@@ -400,22 +466,34 @@ def train_dataset(
             best_loss = validation_loss
             best_foreground_macro_dice = validation_foreground_macro_dice
             best_all_classes_have_overlap = validation_all_classes_have_overlap
+            best_epoch = epoch
             torch.save(checkpoint, best_path)
         metrics.append((epoch, train_loss, validation_loss, validation_foreground_macro_dice, int(validation_all_classes_have_overlap)) if foreground_quality_selection else (epoch, train_loss, validation_loss))
         if progress is not None:
             progress(epoch, epochs, train_loss, validation_loss)
-    with (run_root / "results.csv").open("w", newline="", encoding="utf-8") as stream:
+    results_csv_path = run_root / "results.csv"
+    with results_csv_path.open("w", newline="", encoding="utf-8") as stream:
         writer = csv.writer(stream)
         writer.writerow(["epoch", "train/loss", "val/loss", "val/foreground_macro_dice", "val/all_classes_have_overlap"] if foreground_quality_selection else ["epoch", "train/loss", "val/loss"])
         writer.writerows(metrics)
+    best_metadata_path = write_checkpoint_metadata(best_path, "best", best_epoch, results_csv_path, run_name, run_id)
+    last_metadata_path = write_checkpoint_metadata(last_path, "last", int(metrics[-1][0]), results_csv_path, run_name, run_id)
     result = {
         "weightsPath": str(best_path.resolve()),
         "lastWeightsPath": str(last_path.resolve()),
         "runPath": str(run_root.resolve()),
+        "bestEpoch": best_epoch,
+        "lastEpoch": int(metrics[-1][0]),
+        "bestArtifactId": checkpoint_artifact_id(best_path),
+        "lastArtifactId": checkpoint_artifact_id(last_path),
         "classes": classes,
         "trainLoss": metrics[-1][1],
         "validationLoss": metrics[-1][2],
     }
+    if best_metadata_path is not None:
+        result["bestCheckpointMetadataPath"] = str(best_metadata_path)
+    if last_metadata_path is not None:
+        result["lastCheckpointMetadataPath"] = str(last_metadata_path)
     if foreground_quality_selection:
         result["selectionMetric"] = "valid-all-class-overlap-then-foreground-macro-dice-v1"
         result["validationForegroundMacroDice"] = metrics[-1][3]
@@ -619,34 +697,69 @@ class UnetWorker:
             return self.training_failure(message, "TrainingWriterUnavailable", "TrainYolo requires a TCP response writer.")
         if not runtime_available():
             return self.training_failure(message, "TorchMissing", "torch, numpy, or Pillow is unavailable in the selected Python environment.")
+        try:
+            run_id = normalize_run_id(first_value(message.payload, ["runId", "trainingRunId"], ""))
+        except ValueError as exc:
+            return self.training_failure(message, "InvalidTrainingRunId", str(exc))
         with self.training_lock:
             if self.training_thread is not None and self.training_thread.is_alive():
                 return self.training_failure(message, "TrainingAlreadyRunning", "a U-Net training job is already running.", state="running")
             payload = dict(message.payload)
-            payload.update({"model": "unet", "task": "segment", "dataYaml": str(data_root)})
+            payload.update({"model": "unet", "task": "segment", "dataYaml": str(data_root), "runId": run_id})
             self.training_status = self.training_status_message(message.request_id, "started", "U-Net segmentation training accepted.", 0, 0, positive_int(payload.get("epoch"), 1))
+            if run_id:
+                self.training_status["runId"] = run_id
+                self.training_status["runName"] = str(first_value(message.payload, ["runName", "name"], "") or "").strip()
             self.training_thread = threading.Thread(target=self.train_job, args=(message.request_id, payload, writer), daemon=True, name="openvisionlab-unet-training")
             self.training_thread.start()
-        return {"type": "TrainYoloResult", "requestId": message.request_id, "ok": True, "state": "started", "taskType": "TrainYolo", "trainingTask": "segment", "model": "unet", "progressPercent": 0}
+        result = {"type": "TrainYoloResult", "requestId": message.request_id, "ok": True, "state": "started", "taskType": "TrainYolo", "trainingTask": "segment", "model": "unet", "progressPercent": 0}
+        if run_id:
+            result["runId"] = run_id
+        return result
 
     def train_job(self, request_id: str, payload: dict[str, Any], writer: JsonResponseWriter) -> None:
         epochs = positive_int(first_value(payload, ["epoch", "epochs"], 1), 1)
         image_size = positive_int(first_value(payload, ["imgSize", "imageSize", "imgsz"], self.detector.image_size), self.detector.image_size)
         batch = positive_int(first_value(payload, ["batch", "batchSize"], 1), 1)
         data_root = resolve_data_root(payload.get("dataYaml"), self.detector.image_root)
-        run_name = str(first_value(payload, ["runName", "name"], "") or "").strip() or "openvisionlab-unet-segmentation"
+        run_id = normalize_run_id(payload.get("runId"))
+        display_run_name = str(first_value(payload, ["runName", "name"], "") or "").strip() or "openvisionlab-unet-segmentation"
+        run_name = compose_training_run_name(display_run_name, run_id, "openvisionlab-unet-segmentation")
 
         def report(epoch: int, total: int, train_loss: float, validation_loss: float) -> None:
             progress = int(round((epoch / max(total, 1)) * 100))
             status = self.training_status_message(request_id, "running", f"U-Net epoch {epoch}/{total} (train loss {train_loss:.4f}, val loss {validation_loss:.4f})", progress, epoch, total)
+            if run_id:
+                status["runId"] = run_id
+                status["runName"] = display_run_name
+                status["outputRunName"] = run_name
             self.training_status = status
             writer.send(status)
 
         try:
             self.training_status = self.training_status_message(request_id, "running", "U-Net segmentation training started.", 0, 0, epochs)
+            if run_id:
+                self.training_status["runId"] = run_id
+                self.training_status["runName"] = display_run_name
+                self.training_status["outputRunName"] = run_name
             writer.send(self.training_status)
-            result = train_dataset(data_root, self.detector.model_root, run_name, epochs, batch, image_size, self.detector.device_text, report)
-            self.training_status = self.training_status_message(request_id, "completed", f"U-Net segmentation training completed. {result['runPath']}", 100, epochs, epochs, result["weightsPath"])
+            result = train_dataset(data_root, self.detector.model_root, run_name, epochs, batch, image_size, self.detector.device_text, report, run_id=run_id)
+            self.training_status = self.training_status_message(
+                request_id,
+                "completed",
+                f"U-Net segmentation training completed. {result['runPath']}",
+                100,
+                epochs,
+                epochs,
+                result["weightsPath"],
+                checkpoint_metadata={
+                    "best": {"epoch": result.get("bestEpoch"), "artifactId": result.get("bestArtifactId")},
+                    "last": {"epoch": result.get("lastEpoch"), "artifactId": result.get("lastArtifactId")},
+                })
+            if run_id:
+                self.training_status["runId"] = run_id
+                self.training_status["runName"] = display_run_name
+                self.training_status["outputRunName"] = run_name
             writer.send(self.training_status)
         except Exception as exc:
             self.training_status = self.training_status_message(request_id, "failed", "U-Net segmentation training failed.", None, None, epochs, error=make_error("TrainingFailed", exc, self.debug))
@@ -661,7 +774,17 @@ class UnetWorker:
         return {"type": "TrainYoloResult", "requestId": message.request_id, "ok": False, "state": state, "taskType": "TrainYolo", "error": error}
 
     @staticmethod
-    def training_status_message(request_id: str, state: str, message: str, progress: int | None = None, epoch: int | None = None, total: int | None = None, weights: str = "", error: dict[str, Any] | None = None) -> dict[str, Any]:
+    def training_status_message(
+        request_id: str,
+        state: str,
+        message: str,
+        progress: int | None = None,
+        epoch: int | None = None,
+        total: int | None = None,
+        weights: str = "",
+        error: dict[str, Any] | None = None,
+        checkpoint_metadata: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         result: dict[str, Any] = {"type": "TrainingStatus", "requestId": request_id, "taskType": "TrainYolo", "state": state, "message": message, "trainingTask": "segment", "model": "unet", "updatedAtUtc": utc_now()}
         if progress is not None:
             result["progressPercent"] = max(0, min(100, int(progress)))
@@ -674,6 +797,8 @@ class UnetWorker:
             result["weightsPath"] = weights
         if error is not None:
             result["error"] = error
+        if checkpoint_metadata:
+            result["checkpointMetadata"] = checkpoint_metadata
         return result
 
 

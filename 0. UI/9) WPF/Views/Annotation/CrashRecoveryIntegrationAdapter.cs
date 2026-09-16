@@ -103,7 +103,12 @@ namespace MvcVisionSystem
         {
             WpfCrashRecoveryReadResult result = context.JournalService.ReadAvailable(
                 context.CurrentRecipeNameProvider(),
-                context.DataProvider()?.OutputRootPath);
+                context.DataProvider()?.OutputRootPath,
+                expectedClassOrderSha256: RecipeDatasetVersionService.ComputeClassContractSha256(
+                    context.DataProvider()?.ClassNamedList?
+                        .Select(item => item?.Text?.Trim())
+                        .Where(name => !string.IsNullOrWhiteSpace(name))
+                        .ToList() ?? new List<string>()));
             if (result.Status == WpfCrashRecoveryReadStatus.None)
             {
                 return false;

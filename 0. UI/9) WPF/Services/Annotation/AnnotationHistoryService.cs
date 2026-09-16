@@ -1,4 +1,5 @@
 using MvcVisionSystem._1._Core;
+using MvcVisionSystem._3._Communication.TCP;
 using MvcVisionSystem.Yolo;
 using OpenVisionLab.ImageCanvas.CanvasShapes;
 using System;
@@ -192,8 +193,26 @@ namespace MvcVisionSystem
                 X = source.X,
                 Y = source.Y,
                 Width = source.Width,
-                Height = source.Height
+                Height = source.Height,
+                CandidateType = source.CandidateType ?? string.Empty,
+                PredictionType = source.PredictionType ?? string.Empty,
+                ImageLevel = source.ImageLevel,
+                AnomalyScore = source.AnomalyScore,
+                AnomalyThreshold = source.AnomalyThreshold,
+                HeatmapPath = source.HeatmapPath ?? string.Empty,
+                SegmentationType = source.SegmentationType ?? string.Empty,
+                PolygonPoints = ClonePolygonPoints(source.PolygonPoints),
+                NormalizedPolygonPoints = ClonePolygonPoints(source.NormalizedPolygonPoints)
             };
+        }
+
+        private static IReadOnlyList<DetectionPolygonPoint> ClonePolygonPoints(
+            IReadOnlyList<DetectionPolygonPoint> source)
+        {
+            return (source ?? Array.Empty<DetectionPolygonPoint>())
+                .Where(point => point != null)
+                .Select(point => new DetectionPolygonPoint { X = point.X, Y = point.Y })
+                .ToList();
         }
 
         private static WpfMaskSegmentHistoryDelta CaptureMaskDeltaInverse(
@@ -317,6 +336,7 @@ namespace MvcVisionSystem
             return new LabelClass
             {
                 Text = source.Text ?? string.Empty,
+                IsArchived = source.IsArchived,
                 DrawColor = source.DrawColor
             };
         }
@@ -610,6 +630,7 @@ namespace MvcVisionSystem
                 : new LabelClass
                 {
                     Text = classItem.Text ?? string.Empty,
+                    IsArchived = classItem.IsArchived,
                     DrawColor = classItem.DrawColor
                 };
             ObjectId = objectId ?? string.Empty;

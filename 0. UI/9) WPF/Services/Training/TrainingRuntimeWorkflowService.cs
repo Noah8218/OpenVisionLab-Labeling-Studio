@@ -70,7 +70,8 @@ namespace MvcVisionSystem
                 data,
                 communication,
                 request.RunName,
-                string.IsNullOrWhiteSpace(request.RecipeName) ? recipeNameAccessor() : request.RecipeName);
+                string.IsNullOrWhiteSpace(request.RecipeName) ? recipeNameAccessor() : request.RecipeName,
+                request.RunId);
             return TrainingRuntimeStartResult.Completed(
                 started,
                 readyStatus,
@@ -179,6 +180,8 @@ namespace MvcVisionSystem
         public string RecipeName { get; init; } = string.Empty;
 
         public string RunName { get; init; } = string.Empty;
+
+        public string RunId { get; init; } = string.Empty;
     }
 
     public sealed class TrainingRuntimeStartResult

@@ -30,6 +30,13 @@ namespace MvcVisionSystem
         internal void MarkAnnotationsDirty(string reason)
         {
             context.DirtyState.MarkDirty(reason, "Edit");
+            if (IsAnnotationSaveBlocked())
+            {
+                ApplyAnnotationLoadBlockedPresentation();
+                context.ScheduleCrashRecoveryJournalWrite();
+                return;
+            }
+
             ApplyAnnotationDirtyPresentation();
             context.ScheduleCrashRecoveryJournalWrite();
         }
@@ -37,6 +44,13 @@ namespace MvcVisionSystem
         internal void MarkMaskStrokeAnnotationsDirty(string reason)
         {
             context.DirtyState.MarkDirty(reason, "Mask edit");
+            if (IsAnnotationSaveBlocked())
+            {
+                ApplyAnnotationLoadBlockedPresentation();
+                context.ScheduleCrashRecoveryJournalWrite();
+                return;
+            }
+
             AnnotationSaveStatePresentation dirtyPresentation =
                 AnnotationSaveStatePresentationService.BuildDirty(context.DirtyState.Reason);
             context.SetStatusBarSaveStatus(
@@ -66,6 +80,12 @@ namespace MvcVisionSystem
 
         internal void ApplyAnnotationDirtyPresentation()
         {
+            if (IsAnnotationSaveBlocked())
+            {
+                ApplyAnnotationLoadBlockedPresentation();
+                return;
+            }
+
             context.InvalidateActiveImageQualityReviewAfterEdit();
             ApplyAnnotationSaveStatePresentation(
                 AnnotationSaveStatePresentationService.BuildDirty(context.DirtyState.Reason));
@@ -78,6 +98,12 @@ namespace MvcVisionSystem
 
         internal void MarkAnnotationsSaved(string reason)
         {
+            if (IsAnnotationSaveBlocked())
+            {
+                ApplyAnnotationLoadBlockedPresentation();
+                return;
+            }
+
             context.DirtyState.Clear();
             ApplyAnnotationSaveStatePresentation(
                 AnnotationSaveStatePresentationService.BuildSaved(reason));
@@ -114,6 +140,14 @@ namespace MvcVisionSystem
             context.ApplyCanvasSaveState(presentation);
             context.ApplyObjectReviewSaveState(presentation);
         }
+
+        private bool IsAnnotationSaveBlocked()
+            => context.IsAnnotationSaveBlocked?.Invoke() == true;
+
+        private void ApplyAnnotationLoadBlockedPresentation()
+            => ApplyAnnotationSaveStatePresentation(
+                AnnotationSaveStatePresentationService.BuildLoadBlocked(
+                    context.AnnotationSaveBlockReasonProvider?.Invoke()));
     }
 
     internal sealed class AnnotationSaveStateAdapterContext
@@ -130,5 +164,7 @@ namespace MvcVisionSystem
         internal Action<bool, string, string> SetStatusBarSaveStatus { get; init; }
         internal Action<AnnotationSaveStatePresentation> ApplyCanvasSaveState { get; init; }
         internal Action<AnnotationSaveStatePresentation> ApplyObjectReviewSaveState { get; init; }
+        internal Func<bool> IsAnnotationSaveBlocked { get; init; }
+        internal Func<string> AnnotationSaveBlockReasonProvider { get; init; }
     }
 }

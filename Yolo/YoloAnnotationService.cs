@@ -157,6 +157,24 @@ namespace MvcVisionSystem.Yolo
             return new Dictionary<string, List<Rectangle>>();
         }
 
+        public static YoloAnnotationLoadResult LoadAnnotationRectanglesForImageWithDiagnostics(
+            string imagePath,
+            IReadOnlyList<LabelClass> classes,
+            LabelingProjectData data,
+            Size imageSize)
+        {
+            foreach (string labelPath in GetCandidateLabelPaths(imagePath, data))
+            {
+                if (File.Exists(labelPath))
+                {
+                    EnsureAnnotationImageIdentity(imagePath, labelPath);
+                    return LoadAnnotationRectanglesWithDiagnostics(labelPath, classes, imageSize);
+                }
+            }
+
+            return YoloAnnotationLoadResult.Missing;
+        }
+
         public static IReadOnlyDictionary<string, List<Rectangle>> LoadAnnotationRectangles(
             string labelPath,
             IReadOnlyList<LabelClass> classes,
@@ -198,6 +216,97 @@ namespace MvcVisionSystem.Yolo
             return result;
         }
 
+        public static YoloAnnotationLoadResult LoadAnnotationRectanglesWithDiagnostics(
+            string labelPath,
+            IReadOnlyList<LabelClass> classes,
+            Size imageSize)
+        {
+            var result = new Dictionary<string, List<Rectangle>>(StringComparer.OrdinalIgnoreCase);
+            var errors = new List<YoloAnnotationLoadError>();
+            if (string.IsNullOrWhiteSpace(labelPath) || !File.Exists(labelPath))
+            {
+                return new YoloAnnotationLoadResult(labelPath, result, errors);
+            }
+
+            if (classes == null)
+            {
+                errors.Add(new YoloAnnotationLoadError(0, "클래스 목록이 없습니다.", string.Empty));
+                return new YoloAnnotationLoadResult(labelPath, result, errors);
+            }
+
+            if (imageSize.Width <= 0 || imageSize.Height <= 0)
+            {
+                errors.Add(new YoloAnnotationLoadError(0, "이미지 크기가 올바르지 않습니다.", string.Empty));
+                return new YoloAnnotationLoadResult(labelPath, result, errors);
+            }
+
+            try
+            {
+                int lineNumber = 0;
+                foreach (string line in File.ReadLines(labelPath))
+                {
+                    lineNumber++;
+                    if (string.IsNullOrWhiteSpace(line))
+                    {
+                        continue;
+                    }
+
+                    if (!TryParseYoloLine(
+                        line,
+                        imageSize,
+                        out int classIndex,
+                        out Rectangle rectangle,
+                        out string parseError))
+                    {
+                        errors.Add(new YoloAnnotationLoadError(lineNumber, parseError, line));
+                        continue;
+                    }
+
+                    if (classIndex < 0 || classIndex >= classes.Count)
+                    {
+                        errors.Add(new YoloAnnotationLoadError(
+                            lineNumber,
+                            $"등록되지 않은 class_id입니다: {classIndex}",
+                            line));
+                        continue;
+                    }
+
+                    string className = classes[classIndex]?.Text ?? string.Empty;
+                    if (string.IsNullOrWhiteSpace(className))
+                    {
+                        errors.Add(new YoloAnnotationLoadError(
+                            lineNumber,
+                            $"class_id {classIndex}에 연결된 클래스 이름이 없습니다.",
+                            line));
+                        continue;
+                    }
+
+                    if (!result.TryGetValue(className, out List<Rectangle> rectangles))
+                    {
+                        rectangles = new List<Rectangle>();
+                        result.Add(className, rectangles);
+                    }
+
+                    rectangles.Add(rectangle);
+                }
+            }
+            catch (IOException exception)
+            {
+                errors.Add(new YoloAnnotationLoadError(0, $"라벨 파일을 읽을 수 없습니다: {exception.Message}", string.Empty));
+            }
+            catch (UnauthorizedAccessException exception)
+            {
+                errors.Add(new YoloAnnotationLoadError(0, $"라벨 파일을 읽을 수 없습니다: {exception.Message}", string.Empty));
+            }
+
+            if (errors.Count > 0)
+            {
+                result.Clear();
+            }
+
+            return new YoloAnnotationLoadResult(labelPath, result, errors);
+        }
+
         public static string TryCreateYoloLine(int classIndex, Rectangle roi, Size imageSize)
         {
             Rectangle clipped = Rectangle.Intersect(roi, new Rectangle(Point.Empty, imageSize));
@@ -222,17 +331,32 @@ namespace MvcVisionSystem.Yolo
         }
 
         public static bool TryParseYoloLine(string line, Size imageSize, out int classIndex, out Rectangle rectangle)
+            => TryParseYoloLine(line, imageSize, out classIndex, out rectangle, out _);
+
+        public static bool TryParseYoloLine(
+            string line,
+            Size imageSize,
+            out int classIndex,
+            out Rectangle rectangle,
+            out string error)
         {
             classIndex = -1;
             rectangle = Rectangle.Empty;
+            error = string.Empty;
             if (string.IsNullOrWhiteSpace(line) || imageSize.Width <= 0 || imageSize.Height <= 0)
             {
+                error = string.IsNullOrWhiteSpace(line)
+                    ? "행이 비어 있습니다."
+                    : "이미지 크기가 올바르지 않습니다.";
                 return false;
             }
 
             string[] parts = line.Split(new[] { ' ', '\t' }, StringSplitOptions.RemoveEmptyEntries);
             if (parts.Length != 5 || !int.TryParse(parts[0], NumberStyles.Integer, CultureInfo.InvariantCulture, out classIndex))
             {
+                error = parts.Length != 5
+                    ? "YOLO 행은 class_id와 4개 좌표 값이 필요합니다."
+                    : "class_id가 정수가 아닙니다.";
                 return false;
             }
 
@@ -243,6 +367,7 @@ namespace MvcVisionSystem.Yolo
                 width <= 0 ||
                 height <= 0)
             {
+                error = "좌표 값이 유효하지 않거나 너비·높이가 0 이하입니다.";
                 return false;
             }
 
@@ -255,7 +380,13 @@ namespace MvcVisionSystem.Yolo
                 Rectangle.FromLTRB(left, top, right, bottom),
                 new Rectangle(Point.Empty, imageSize));
 
-            return !rectangle.IsEmpty;
+            if (rectangle.IsEmpty)
+            {
+                error = "라벨 영역이 이미지와 교차하지 않습니다.";
+                return false;
+            }
+
+            return true;
         }
 
         private static string FormatRatio(double value)
@@ -532,10 +663,11 @@ namespace MvcVisionSystem.Yolo
             }
 
             using var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read);
+            byte[] actualBytes = new byte[expectedBytes.Length];
             int offset = 0;
             while (offset < expectedBytes.Length)
             {
-                int read = stream.Read(expectedBytes, offset, expectedBytes.Length - offset);
+                int read = stream.Read(actualBytes, offset, actualBytes.Length - offset);
                 if (read == 0)
                 {
                     return false;
@@ -544,7 +676,7 @@ namespace MvcVisionSystem.Yolo
                 offset += read;
             }
 
-            return true;
+            return actualBytes.AsSpan().SequenceEqual(expectedBytes);
         }
 
         private static bool PathsEqual(string firstPath, string secondPath)
@@ -697,6 +829,60 @@ namespace MvcVisionSystem.Yolo
                 AnnotationFilePersistence.Delete(imagePath);
             }
         }
+    }
+
+    public sealed class YoloAnnotationLoadResult
+    {
+        public static YoloAnnotationLoadResult Missing
+            => new YoloAnnotationLoadResult(
+                string.Empty,
+                new Dictionary<string, List<Rectangle>>(),
+                Array.Empty<YoloAnnotationLoadError>());
+
+        public YoloAnnotationLoadResult(
+            string labelPath,
+            IReadOnlyDictionary<string, List<Rectangle>> annotations,
+            IReadOnlyList<YoloAnnotationLoadError> errors)
+        {
+            LabelPath = labelPath ?? string.Empty;
+            Annotations = annotations ?? new Dictionary<string, List<Rectangle>>();
+            Errors = errors ?? Array.Empty<YoloAnnotationLoadError>();
+        }
+
+        public string LabelPath { get; }
+
+        public IReadOnlyDictionary<string, List<Rectangle>> Annotations { get; }
+
+        public IReadOnlyList<YoloAnnotationLoadError> Errors { get; }
+
+        public bool HasSourceFile => !string.IsNullOrWhiteSpace(LabelPath);
+
+        public bool HasErrors => Errors.Count > 0;
+
+        public string ErrorSummary => string.Join(
+            " / ",
+            Errors.Take(3).Select(error => error.ToString()));
+    }
+
+    public sealed class YoloAnnotationLoadError
+    {
+        public YoloAnnotationLoadError(int lineNumber, string reason, string rawLine)
+        {
+            LineNumber = Math.Max(0, lineNumber);
+            Reason = string.IsNullOrWhiteSpace(reason) ? "알 수 없는 라벨 형식 오류입니다." : reason;
+            RawLine = rawLine ?? string.Empty;
+        }
+
+        public int LineNumber { get; }
+
+        public string Reason { get; }
+
+        public string RawLine { get; }
+
+        public override string ToString()
+            => LineNumber > 0
+                ? $"행 {LineNumber}: {Reason}"
+                : Reason;
     }
 
     internal sealed class YoloImageIdentityCollisionException : InvalidOperationException

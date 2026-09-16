@@ -740,6 +740,9 @@ WpfDatasetInterchange.Status.ApplyFailed	적용 실패	Apply failed
 WpfDatasetInterchange.Status.Applied	변환 적용 완료	Conversion applied
 WpfDatasetInterchange.Status.Ready	적용 가능	Ready to apply
 WpfDatasetInterchange.Status.ReadyWithWarnings	주의사항 확인 후 적용 가능	Ready to apply after reviewing warnings
+WpfDatasetInterchange.Status.LossConfirmationRequired	손실 확인 후 적용 가능	Confirm format-loss warnings before applying
+WpfDatasetInterchange.LossWarning.Confirm	보존되지 않거나 변환되는 annotation 의미를 확인했으며 이 형식으로 내보내겠습니다.	I reviewed the annotation meanings that will be lost or transformed and will export in this format.
+WpfDatasetInterchange.LossWarning.Manifest	손실 manifest: {0}	Loss manifest: {0}
 WpfDatasetInterchange.IssueSeverity.Blocking	차단	Blocking
 WpfDatasetInterchange.IssueSeverity.Warning	주의	Warning
 Pipeline.OverlayLabel	라벨	Label

@@ -38,6 +38,7 @@ namespace MvcVisionSystem
             }
 
             if (e.Reason != DetectionCandidateUpdateReason.ResultCompleted
+                && e.Reason != DetectionCandidateUpdateReason.StaleResultIgnored
                 && e.Reason != DetectionCandidateUpdateReason.RequestTimedOut)
             {
                 return false;
@@ -45,6 +46,11 @@ namespace MvcVisionSystem
 
             string normalizedPath = imagePath ?? string.Empty;
             string imageName = Path.GetFileNameWithoutExtension(normalizedPath);
+            if (!string.IsNullOrWhiteSpace(e.ImagePath) && !string.IsNullOrWhiteSpace(normalizedPath))
+            {
+                return PathsEqual(e.ImagePath, normalizedPath);
+            }
+
             return string.Equals(e.ImagePath, normalizedPath, StringComparison.OrdinalIgnoreCase)
                 || string.Equals(e.ImageName, imageName, StringComparison.OrdinalIgnoreCase);
         }
@@ -73,6 +79,18 @@ namespace MvcVisionSystem
         {
             detectionResults.CancelPendingDetection();
             completion.TrySetCanceled(cancellationToken);
+        }
+
+        private static bool PathsEqual(string left, string right)
+        {
+            try
+            {
+                return string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+            }
         }
     }
 

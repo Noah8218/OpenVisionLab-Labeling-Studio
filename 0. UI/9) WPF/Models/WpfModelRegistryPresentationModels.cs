@@ -17,6 +17,12 @@ namespace MvcVisionSystem
 
         public string WeightsPath { get; set; } = string.Empty;
 
+        public string WeightsSha256 { get; set; } = string.Empty;
+
+        public string ArtifactPath { get; set; } = string.Empty;
+
+        public string ArtifactStatus { get; set; } = string.Empty;
+
         public string BaselineWeightsPath { get; set; } = string.Empty;
 
         public string KindText { get; set; } = string.Empty;

@@ -29,7 +29,11 @@ namespace MvcVisionSystem
             string trainingMessage,
             bool savedToRecipe,
             string datasetVersionId = "",
-            string datasetContentSha256 = "")
+            string datasetContentSha256 = "",
+            string trainingRunId = "",
+            string trainingRunName = "",
+            string candidateWeightsSha256 = "",
+            string candidateArtifactPath = "")
         {
             if (registry == null)
             {
@@ -47,6 +51,11 @@ namespace MvcVisionSystem
             string now = UtcNowText();
             string baselinePath = NormalizePath(baselineWeightsPath);
             EnsureBaselineInspectionCandidate(registry, profile, baselinePath, now);
+            ModelArtifactCaptureResult artifact = ModelArtifactStoreService.Capture(
+                candidatePath,
+                outputRootPath,
+                candidateWeightsSha256,
+                candidateArtifactPath);
 
             TrainingRun run = UpsertTrainingRun(
                 registry,
@@ -60,6 +69,9 @@ namespace MvcVisionSystem
                 trainingMessage,
                 datasetVersionId,
                 datasetContentSha256,
+                trainingRunId,
+                trainingRunName,
+                artifact,
                 now);
 
             ModelCandidate candidate = UpsertCandidate(
@@ -70,6 +82,7 @@ namespace MvcVisionSystem
                 baselinePath,
                 metricsSummary,
                 savedToRecipe,
+                artifact,
                 now);
 
             registry.CurrentProfileId = profile.ProfileId;
@@ -117,7 +130,11 @@ namespace MvcVisionSystem
             string decisionSummary,
             bool savedToRecipe,
             string datasetVersionId = "",
-            string datasetContentSha256 = "")
+            string datasetContentSha256 = "",
+            string trainingRunId = "",
+            string trainingRunName = "",
+            string candidateWeightsSha256 = "",
+            string candidateArtifactPath = "")
         {
             string normalizedDecision = NormalizeCandidateDecision(decision);
             bool adopt = string.Equals(normalizedDecision, CandidateDecisionAdopted, StringComparison.Ordinal);
@@ -134,7 +151,11 @@ namespace MvcVisionSystem
                 decisionSummary,
                 savedToRecipe: adopt && savedToRecipe,
                 datasetVersionId: datasetVersionId,
-                datasetContentSha256: datasetContentSha256);
+                datasetContentSha256: datasetContentSha256,
+                trainingRunId: trainingRunId,
+                trainingRunName: trainingRunName,
+                candidateWeightsSha256: candidateWeightsSha256,
+                candidateArtifactPath: candidateArtifactPath);
             if (registry == null || candidate == null)
             {
                 return candidate;
@@ -352,12 +373,18 @@ namespace MvcVisionSystem
             string trainingMessage,
             string datasetVersionId,
             string datasetContentSha256,
+            string trainingRunId,
+            string trainingRunName,
+            ModelArtifactCaptureResult artifact,
             string now)
         {
             string normalizedDatasetVersionId = datasetVersionId?.Trim() ?? string.Empty;
-            string runId = BuildStableId(
-                "run",
-                $"{candidateWeightsPath}|{NormalizePath(outputRootPath)}|{normalizedDatasetVersionId}");
+            string normalizedTrainingRunId = NormalizeTrainingRunId(trainingRunId);
+            string runId = string.IsNullOrWhiteSpace(normalizedTrainingRunId)
+                ? BuildStableId(
+                    "run",
+                    $"{candidateWeightsPath}|{NormalizePath(outputRootPath)}|{normalizedDatasetVersionId}")
+                : normalizedTrainingRunId;
             TrainingRun run = registry.TrainingRuns
                 .FirstOrDefault(item => string.Equals(item.TrainingRunId, runId, StringComparison.Ordinal));
             if (run == null)
@@ -370,12 +397,16 @@ namespace MvcVisionSystem
             }
 
             run.ProfileId = profile?.ProfileId ?? string.Empty;
+            run.RunName = trainingRunName?.Trim() ?? string.Empty;
             run.EventUtc = now;
             run.OutputRootPath = NormalizePath(outputRootPath);
             run.State = trainingState ?? string.Empty;
             run.ProgressPercent = trainingProgressPercent;
             run.Message = trainingMessage ?? string.Empty;
             run.CandidateWeightsPath = candidateWeightsPath;
+            run.WeightsSha256 = artifact?.Sha256 ?? string.Empty;
+            run.ArtifactPath = artifact?.ArtifactPath ?? string.Empty;
+            run.ArtifactStatus = artifact?.Status ?? string.Empty;
             run.BaselineWeightsPath = baselineWeightsPath;
             run.MetricsSummary = metricsSummary ?? string.Empty;
             run.DatasetVersionId = normalizedDatasetVersionId;
@@ -391,9 +422,12 @@ namespace MvcVisionSystem
             string baselineWeightsPath,
             string metricsSummary,
             bool savedToRecipe,
+            ModelArtifactCaptureResult artifact,
             string now)
         {
-            string candidateId = BuildStableId("candidate", candidateWeightsPath);
+            string candidateId = string.IsNullOrWhiteSpace(artifact?.Sha256)
+                ? BuildStableId("candidate", candidateWeightsPath)
+                : BuildStableId("candidate", $"{profile?.ProfileId}|{artifact.Sha256}");
             ModelCandidate candidate = registry.Candidates
                 .FirstOrDefault(item => string.Equals(item.CandidateId, candidateId, StringComparison.Ordinal));
             if (candidate == null)
@@ -409,6 +443,9 @@ namespace MvcVisionSystem
             candidate.ProfileId = profile?.ProfileId ?? string.Empty;
             candidate.TrainingRunId = run?.TrainingRunId ?? string.Empty;
             candidate.WeightsPath = candidateWeightsPath;
+            candidate.WeightsSha256 = artifact?.Sha256 ?? string.Empty;
+            candidate.ArtifactPath = artifact?.ArtifactPath ?? string.Empty;
+            candidate.ArtifactStatus = artifact?.Status ?? string.Empty;
             candidate.BaselineWeightsPath = baselineWeightsPath;
             candidate.MetricsSummary = metricsSummary ?? string.Empty;
             candidate.LastSeenUtc = now;
@@ -538,6 +575,8 @@ namespace MvcVisionSystem
             record.ProfileId = profile?.ProfileId ?? string.Empty;
             record.CandidateId = candidate.CandidateId ?? string.Empty;
             record.WeightsPath = candidate.WeightsPath ?? string.Empty;
+            record.WeightsSha256 = candidate.WeightsSha256 ?? string.Empty;
+            record.ArtifactPath = candidate.ArtifactPath ?? string.Empty;
             record.PreviousWeightsPath = previousWeightsPath ?? string.Empty;
             record.Decision = normalizedDecision;
             record.DecidedUtc = now ?? string.Empty;
@@ -570,6 +609,8 @@ namespace MvcVisionSystem
             adoption.ProfileId = profile?.ProfileId ?? string.Empty;
             adoption.CandidateId = candidate?.CandidateId ?? string.Empty;
             adoption.WeightsPath = candidate?.WeightsPath ?? string.Empty;
+            adoption.WeightsSha256 = candidate?.WeightsSha256 ?? string.Empty;
+            adoption.ArtifactPath = candidate?.ArtifactPath ?? string.Empty;
             adoption.PreviousWeightsPath = previousWeightsPath ?? string.Empty;
             adoption.AdoptedUtc = now;
             adoption.SavedToRecipe = true;
@@ -668,6 +709,28 @@ namespace MvcVisionSystem
             {
                 return trimmed;
             }
+        }
+
+        private static string NormalizeTrainingRunId(string runId)
+        {
+            string trimmed = runId?.Trim() ?? string.Empty;
+            if (trimmed.Length == 0 || trimmed.Length > 64)
+            {
+                return string.Empty;
+            }
+
+            foreach (char character in trimmed)
+            {
+                bool isAsciiLetter = character >= 'A' && character <= 'Z'
+                    || character >= 'a' && character <= 'z';
+                bool isDigit = character >= '0' && character <= '9';
+                if (!isAsciiLetter && !isDigit && character != '-' && character != '_')
+                {
+                    return string.Empty;
+                }
+            }
+
+            return trimmed;
         }
 
         private static string UtcNowText()

@@ -126,6 +126,14 @@ namespace MvcVisionSystem
             points.Clear();
         }
 
+        public void InvalidatePendingGeneration()
+        {
+            if (HasSession)
+            {
+                generation++;
+            }
+        }
+
         public void SetInputMode(WpfSmartMaskPointInputMode mode)
             => InputMode = HasSession ? mode : WpfSmartMaskPointInputMode.None;
 

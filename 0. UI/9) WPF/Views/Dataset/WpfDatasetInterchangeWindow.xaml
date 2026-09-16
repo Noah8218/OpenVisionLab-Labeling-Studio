@@ -306,6 +306,25 @@
                                            Margin="0,4,0,0" />
                             </StackPanel>
                         </Border>
+                        <StackPanel Margin="0,10,0,0"
+                                    Visibility="{Binding RequiresLossWarningConfirmation, Converter={StaticResource BooleanToVisibilityConverter}}">
+                            <CheckBox x:Name="DatasetInterchangeLossConfirmationCheckBox"
+                                      IsChecked="{Binding ConfirmLossyExport, Mode=TwoWay}"
+                                      Foreground="{DynamicResource PrimaryTextBrush}"
+                                      FontFamily="Segoe UI"
+                                      FontSize="9.5"
+                                      AutomationProperties.AutomationId="DatasetInterchangeLossConfirmationCheckBox"
+                                      AutomationProperties.Name="내보내기 손실 경고 확인">
+                                <TextBlock Text="{Binding LossWarningConfirmationText}"
+                                           TextWrapping="Wrap" />
+                            </CheckBox>
+                            <TextBlock Text="{Binding LossManifestText}"
+                                       Foreground="{DynamicResource SecondaryTextBrush}"
+                                       FontFamily="Segoe UI"
+                                       FontSize="9"
+                                       TextWrapping="Wrap"
+                                       Margin="22,4,0,0" />
+                        </StackPanel>
                     </StackPanel>
                 </ScrollViewer>
             </Border>

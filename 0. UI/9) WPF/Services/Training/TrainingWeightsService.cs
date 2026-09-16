@@ -3,6 +3,9 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
+using Newtonsoft.Json;
+using Newtonsoft.Json.Linq;
 
 namespace MvcVisionSystem
 {
@@ -24,6 +27,10 @@ namespace MvcVisionSystem
 
         public WpfTrainingRunMetrics LatestMetrics { get; set; }
 
+        public string LatestLastWeightsPath { get; set; } = "";
+
+        public WpfTrainingRunMetrics LatestLastMetrics { get; set; }
+
         public WpfTrainingRunMetrics CurrentMetrics { get; set; }
 
         public string MetricVerdictText { get; set; } = "";
@@ -33,18 +40,33 @@ namespace MvcVisionSystem
         public bool LatestWeightsMatchesCurrentDataset { get; set; }
 
         public bool HasCompletedCurrentDatasetTraining
-            => HasLatestWeights && LatestWeightsMatchesCurrentDataset && LatestMetrics != null;
+            => HasLatestWeights && LatestWeightsMatchesCurrentDataset && LatestMetrics?.HasEvaluationMetrics == true;
 
         public string LatestWeightsDisplayName
             => TrainingWeightsService.FormatWeightsDisplayPath(LatestWeightsPath);
 
         public string CurrentWeightsDisplayName
             => TrainingWeightsService.FormatWeightsDisplayPath(CurrentWeightsPath);
+
+        public string LatestLastWeightsDisplayName
+            => TrainingWeightsService.FormatWeightsDisplayPath(LatestLastWeightsPath);
     }
 
     public sealed class WpfTrainingRunMetrics
     {
+        public string WeightsPath { get; set; } = "";
+
         public string ResultsCsvPath { get; set; } = "";
+
+        public string CheckpointRole { get; set; } = "";
+
+        public string ArtifactId { get; set; } = "";
+
+        public string CheckpointMetadataPath { get; set; } = "";
+
+        public bool IsCheckpointEpochMatched { get; set; }
+
+        public string CheckpointReferenceText { get; set; } = "";
 
         public int Epoch { get; set; } = -1;
 
@@ -59,6 +81,11 @@ namespace MvcVisionSystem
         public double? BoxLoss { get; set; }
 
         public bool HasScore => Map5095.HasValue || Map50.HasValue || Precision.HasValue || Recall.HasValue;
+
+        public bool HasEvaluationMetrics => HasScore || BoxLoss.HasValue;
+
+        public bool HasCheckpointIdentity
+            => Epoch >= 0 || !string.IsNullOrWhiteSpace(ArtifactId) || !string.IsNullOrWhiteSpace(CheckpointRole);
 
         public double? PrimaryScore => Map5095 ?? Map50 ?? Precision ?? Recall;
     }
@@ -198,6 +225,8 @@ namespace MvcVisionSystem
                 : null;
             bool shouldApply = ShouldPreferTrainingWeights(latestWeightsPath, currentWeightsPath);
             TryReadTrainingRunMetrics(latestWeightsPath, out WpfTrainingRunMetrics latestMetrics);
+            string latestLastWeightsPath = TryFindSiblingWeightsPath(latestWeightsPath, "last.pt");
+            TryReadTrainingRunMetrics(latestLastWeightsPath, out WpfTrainingRunMetrics latestLastMetrics);
             TryReadTrainingRunMetrics(currentWeightsPath, out WpfTrainingRunMetrics currentMetrics);
             string metricVerdictText = BuildMetricVerdictText(latestMetrics, currentMetrics);
 
@@ -214,11 +243,13 @@ namespace MvcVisionSystem
                     latestUtc,
                     currentUtc,
                     shouldApply,
-                    latestCandidate?.MatchesCurrentDataset == true && latestMetrics != null),
+                    latestCandidate?.MatchesCurrentDataset == true && latestMetrics?.HasEvaluationMetrics == true),
                 LatestMetrics = latestMetrics,
+                LatestLastWeightsPath = latestLastWeightsPath,
+                LatestLastMetrics = latestLastMetrics,
                 CurrentMetrics = currentMetrics,
                 MetricVerdictText = metricVerdictText,
-                MetricsStatusText = BuildMetricsStatusText(latestMetrics, currentMetrics),
+                MetricsStatusText = BuildMetricsStatusText(latestMetrics, currentMetrics, latestLastMetrics),
                 LatestWeightsMatchesCurrentDataset = latestCandidate?.MatchesCurrentDataset == true
             };
         }
@@ -292,43 +323,442 @@ namespace MvcVisionSystem
         public static bool TryReadTrainingRunMetrics(string weightsPath, out WpfTrainingRunMetrics metrics)
         {
             metrics = null;
-            if (!TryFindResultsCsvForWeights(weightsPath, out string resultsCsvPath))
+            if (string.IsNullOrWhiteSpace(weightsPath) || !File.Exists(weightsPath))
             {
                 return false;
             }
 
-            string[] lines = File.ReadAllLines(resultsCsvPath);
-            if (lines.Length < 2)
+            string normalizedWeightsPath = weightsPath.Trim();
+            string checkpointMetadataPath = GetCheckpointMetadataPath(normalizedWeightsPath);
+            bool metadataFileExists = File.Exists(checkpointMetadataPath);
+            bool metadataRead = TryReadCheckpointMetadata(checkpointMetadataPath, out TrainingCheckpointMetadata metadata);
+            string artifactId = ResolveArtifactId(normalizedWeightsPath, metadata?.ArtifactId, out bool artifactIdMismatch);
+            string checkpointRole = NormalizeCheckpointRole(metadata?.CheckpointRole, normalizedWeightsPath);
+
+            string resultsCsvPath = ResolveCheckpointResultsCsvPath(normalizedWeightsPath, metadataRead ? metadata.ResultsCsvPath : string.Empty);
+            if (string.IsNullOrWhiteSpace(resultsCsvPath))
+            {
+                TryFindResultsCsvForWeights(normalizedWeightsPath, out resultsCsvPath);
+            }
+
+            if (string.IsNullOrWhiteSpace(resultsCsvPath))
+            {
+                if (!metadataRead)
+                {
+                    return false;
+                }
+
+                metrics = BuildIdentityOnlyMetrics(
+                    normalizedWeightsPath,
+                    checkpointMetadataPath,
+                    checkpointRole,
+                    artifactId,
+                    metadata,
+                    metadataFileExists,
+                    artifactIdMismatch,
+                    "results.csv 없음");
+                return true;
+            }
+
+            string[] lines;
+            try
+            {
+                lines = File.ReadAllLines(resultsCsvPath);
+            }
+            catch (IOException)
+            {
+                return false;
+            }
+            catch (UnauthorizedAccessException)
             {
                 return false;
             }
 
-            string headerLine = lines.FirstOrDefault(line => !string.IsNullOrWhiteSpace(line));
-            string valueLine = lines.Reverse().FirstOrDefault(line => !string.IsNullOrWhiteSpace(line) && !string.Equals(line, headerLine, StringComparison.Ordinal));
-            if (string.IsNullOrWhiteSpace(headerLine) || string.IsNullOrWhiteSpace(valueLine))
+            int headerIndex = Array.FindIndex(lines, line => !string.IsNullOrWhiteSpace(line));
+            if (headerIndex < 0)
             {
                 return false;
             }
 
+            string headerLine = lines[headerIndex];
             string[] headers = SplitCsvLine(headerLine);
-            string[] values = SplitCsvLine(valueLine);
-            if (headers.Length == 0 || values.Length == 0)
+            if (headers.Length == 0)
             {
                 return false;
             }
 
-            metrics = new WpfTrainingRunMetrics
+            var valueRows = lines
+                .Skip(headerIndex + 1)
+                .Where(line => !string.IsNullOrWhiteSpace(line))
+                .Select(line => new TrainingMetricRow(line, SplitCsvLine(line)))
+                .Where(row => row.Values.Length > 0)
+                .ToList();
+            if (valueRows.Count == 0)
             {
+                if (!metadataRead)
+                {
+                    return false;
+                }
+
+                metrics = BuildIdentityOnlyMetrics(
+                    normalizedWeightsPath,
+                    checkpointMetadataPath,
+                    checkpointRole,
+                    artifactId,
+                    metadata,
+                    metadataFileExists,
+                    artifactIdMismatch,
+                    "results.csv 행 없음");
+                metrics.ResultsCsvPath = resultsCsvPath;
+                return true;
+            }
+
+            TrainingMetricRow selectedRow = valueRows[valueRows.Count - 1];
+            string referenceText = BuildCheckpointReferenceText(metadata, metadataRead, metadataFileExists, artifactIdMismatch);
+            if (metadataRead && metadata.Epoch.HasValue)
+            {
+                TrainingMetricRow matchingRow = valueRows
+                    .LastOrDefault(row => TryReadEpoch(headers, row.Values, out int epoch) && epoch == metadata.Epoch.Value);
+                if (matchingRow != null)
+                {
+                    selectedRow = matchingRow;
+                    referenceText = BuildCheckpointReferenceText(metadata, metadataRead, metadataFileExists, artifactIdMismatch, matched: true);
+                }
+                else
+                {
+                    metrics = BuildIdentityOnlyMetrics(
+                        normalizedWeightsPath,
+                        checkpointMetadataPath,
+                        checkpointRole,
+                        artifactId,
+                        metadata,
+                        metadataFileExists,
+                        artifactIdMismatch,
+                        $"checkpoint epoch {metadata.Epoch.Value} results.csv 행 없음");
+                    metrics.ResultsCsvPath = resultsCsvPath;
+                    return true;
+                }
+            }
+
+            metrics = BuildMetrics(
+                normalizedWeightsPath,
+                resultsCsvPath,
+                checkpointMetadataPath,
+                checkpointRole,
+                artifactId,
+                headers,
+                selectedRow.Values,
+                metadataRead && metadata?.Epoch.HasValue == true,
+                referenceText);
+
+            if (!metrics.HasEvaluationMetrics && metadataRead)
+            {
+                metrics.CheckpointReferenceText = $"{referenceText}; 평가 지표 없음/부분 행";
+                return true;
+            }
+
+            return metrics.HasEvaluationMetrics;
+        }
+
+        public static string GetCheckpointMetadataPath(string weightsPath)
+            => string.IsNullOrWhiteSpace(weightsPath) ? string.Empty : $"{weightsPath.Trim()}.metadata.json";
+
+        public static string FormatCheckpointIdentity(WpfTrainingRunMetrics metrics)
+        {
+            if (metrics == null)
+            {
+                return string.Empty;
+            }
+
+            var parts = new List<string>();
+            if (!string.IsNullOrWhiteSpace(metrics.CheckpointRole))
+            {
+                parts.Add(metrics.CheckpointRole);
+            }
+
+            if (metrics.Epoch >= 0)
+            {
+                parts.Add($"epoch {metrics.Epoch}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(metrics.ArtifactId))
+            {
+                parts.Add($"artifact {metrics.ArtifactId}");
+            }
+
+            if (!string.IsNullOrWhiteSpace(metrics.CheckpointReferenceText))
+            {
+                parts.Add(metrics.CheckpointReferenceText);
+            }
+
+            return string.Join(" / ", parts);
+        }
+
+        private static WpfTrainingRunMetrics BuildMetrics(
+            string weightsPath,
+            string resultsCsvPath,
+            string checkpointMetadataPath,
+            string checkpointRole,
+            string artifactId,
+            string[] headers,
+            string[] values,
+            bool checkpointEpochPresent,
+            string referenceText)
+        {
+            return new WpfTrainingRunMetrics
+            {
+                WeightsPath = weightsPath,
                 ResultsCsvPath = resultsCsvPath,
-                Epoch = (int)(ReadMetric(headers, values, "epoch") ?? -1D),
+                CheckpointMetadataPath = checkpointMetadataPath,
+                CheckpointRole = checkpointRole,
+                ArtifactId = artifactId,
+                IsCheckpointEpochMatched = checkpointEpochPresent,
+                CheckpointReferenceText = referenceText,
+                Epoch = TryReadEpoch(headers, values, out int epoch) ? epoch : -1,
                 Precision = ReadMetric(headers, values, PrecisionMetricAliases),
                 Recall = ReadMetric(headers, values, RecallMetricAliases),
                 Map50 = ReadMetric(headers, values, Map50MetricAliases),
                 Map5095 = ReadMetric(headers, values, Map5095MetricAliases),
                 BoxLoss = ReadMetric(headers, values, LossMetricAliases)
             };
+        }
 
-            return metrics.HasScore || metrics.BoxLoss.HasValue;
+        private static WpfTrainingRunMetrics BuildIdentityOnlyMetrics(
+            string weightsPath,
+            string checkpointMetadataPath,
+            string checkpointRole,
+            string artifactId,
+            TrainingCheckpointMetadata metadata,
+            bool metadataFileExists,
+            bool artifactIdMismatch,
+            string referenceText)
+        {
+            string checkpointReferenceText = BuildCheckpointReferenceText(
+                metadata,
+                metadata != null,
+                metadataFileExists,
+                artifactIdMismatch,
+                matched: false,
+                fallbackText: referenceText);
+            return new WpfTrainingRunMetrics
+            {
+                WeightsPath = weightsPath,
+                CheckpointMetadataPath = checkpointMetadataPath,
+                CheckpointRole = checkpointRole,
+                ArtifactId = artifactId,
+                Epoch = metadata?.Epoch ?? -1,
+                IsCheckpointEpochMatched = false,
+                CheckpointReferenceText = checkpointReferenceText
+            };
+        }
+
+        private static string BuildCheckpointReferenceText(
+            TrainingCheckpointMetadata metadata,
+            bool metadataRead,
+            bool metadataFileExists,
+            bool artifactIdMismatch,
+            bool matched = false,
+            string fallbackText = "")
+        {
+            var parts = new List<string>();
+            if (metadataRead && metadata?.Epoch.HasValue == true)
+            {
+                parts.Add(matched
+                    ? "checkpoint epoch 연결"
+                    : "checkpoint epoch 참고값");
+            }
+            else if (metadataFileExists)
+            {
+                parts.Add(metadataRead
+                    ? "checkpoint epoch 없음; 마지막 epoch 참고값"
+                    : "checkpoint metadata 읽기 실패; 마지막 epoch 참고값");
+            }
+            else
+            {
+                parts.Add("마지막 epoch 참고값 (checkpoint metadata 없음)");
+            }
+
+            if (artifactIdMismatch)
+            {
+                parts.Add("artifact hash 불일치; 파일 hash 사용");
+            }
+
+            if (!string.IsNullOrWhiteSpace(fallbackText))
+            {
+                parts.Add(fallbackText);
+            }
+
+            return string.Join("; ", parts);
+        }
+
+        private static string ResolveArtifactId(string weightsPath, string metadataArtifactId, out bool artifactIdMismatch)
+        {
+            artifactIdMismatch = false;
+            string computedArtifactId = TryComputeArtifactId(weightsPath);
+            if (string.IsNullOrWhiteSpace(metadataArtifactId))
+            {
+                return computedArtifactId;
+            }
+
+            string normalizedMetadataArtifactId = metadataArtifactId.Trim();
+            if (!IsValidArtifactId(normalizedMetadataArtifactId))
+            {
+                artifactIdMismatch = true;
+                return computedArtifactId;
+            }
+
+            if (!string.IsNullOrWhiteSpace(computedArtifactId)
+                && !string.Equals(normalizedMetadataArtifactId, computedArtifactId, StringComparison.OrdinalIgnoreCase))
+            {
+                artifactIdMismatch = true;
+                return computedArtifactId;
+            }
+
+            return normalizedMetadataArtifactId.ToLowerInvariant();
+        }
+
+        private static string TryComputeArtifactId(string weightsPath)
+        {
+            if (string.IsNullOrWhiteSpace(weightsPath) || !File.Exists(weightsPath))
+            {
+                return string.Empty;
+            }
+
+            try
+            {
+                using FileStream stream = File.OpenRead(weightsPath);
+                byte[] hash = SHA256.HashData(stream);
+                return $"sha256:{Convert.ToHexString(hash).ToLowerInvariant()}";
+            }
+            catch (IOException)
+            {
+                return string.Empty;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return string.Empty;
+            }
+        }
+
+        private static bool IsValidArtifactId(string artifactId)
+        {
+            if (string.IsNullOrWhiteSpace(artifactId)
+                || artifactId.Length != "sha256:".Length + 64
+                || !artifactId.StartsWith("sha256:", StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+
+            return artifactId.Substring("sha256:".Length).All(character => Uri.IsHexDigit(character));
+        }
+
+        private static string NormalizeCheckpointRole(string role, string weightsPath)
+        {
+            string normalized = role?.Trim().ToLowerInvariant() ?? string.Empty;
+            if (normalized is "best" or "last")
+            {
+                return normalized;
+            }
+
+            string fileName = Path.GetFileName(weightsPath ?? string.Empty).ToLowerInvariant();
+            return fileName switch
+            {
+                "best.pt" => "best",
+                "last.pt" => "last",
+                _ => string.Empty
+            };
+        }
+
+        private static string ResolveCheckpointResultsCsvPath(string weightsPath, string metadataResultsCsvPath)
+        {
+            if (string.IsNullOrWhiteSpace(metadataResultsCsvPath))
+            {
+                return string.Empty;
+            }
+
+            string candidate = metadataResultsCsvPath.Trim();
+            try
+            {
+                if (!Path.IsPathRooted(candidate))
+                {
+                    string weightsDirectory = Path.GetDirectoryName(weightsPath?.Trim() ?? string.Empty) ?? string.Empty;
+                    candidate = Path.GetFullPath(Path.Combine(weightsDirectory, candidate));
+                }
+                else
+                {
+                    candidate = Path.GetFullPath(candidate);
+                }
+            }
+            catch (ArgumentException)
+            {
+                return string.Empty;
+            }
+            catch (NotSupportedException)
+            {
+                return string.Empty;
+            }
+
+            return File.Exists(candidate) ? candidate : string.Empty;
+        }
+
+        private static bool TryReadCheckpointMetadata(string metadataPath, out TrainingCheckpointMetadata metadata)
+        {
+            metadata = null;
+            if (string.IsNullOrWhiteSpace(metadataPath) || !File.Exists(metadataPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                JObject root = JObject.Parse(File.ReadAllText(metadataPath));
+                string role = (root["checkpointRole"] ?? root["role"])?.Value<string>()?.Trim() ?? string.Empty;
+                int? epoch = TryReadInteger(root["epoch"] ?? root["checkpointEpoch"]);
+                string artifactId = (root["artifactId"] ?? root["artifactID"] ?? root["sha256"])?.Value<string>()?.Trim() ?? string.Empty;
+                metadata = new TrainingCheckpointMetadata
+                {
+                    CheckpointRole = role,
+                    Epoch = epoch,
+                    ArtifactId = artifactId,
+                    ResultsCsvPath = (root["resultsCsvPath"] ?? root["resultsCSVPath"])?.Value<string>()?.Trim() ?? string.Empty
+                };
+                return true;
+            }
+            catch (Exception exception) when (exception is IOException || exception is UnauthorizedAccessException || exception is JsonException)
+            {
+                return false;
+            }
+        }
+
+        private static int? TryReadInteger(JToken token)
+        {
+            if (token == null)
+            {
+                return null;
+            }
+
+            if (token.Type == JTokenType.Integer)
+            {
+                int integerValue = token.Value<int>();
+                return integerValue >= 0 ? integerValue : null;
+            }
+
+            return int.TryParse(token.Value<string>(), NumberStyles.Integer, CultureInfo.InvariantCulture, out int value) && value >= 0
+                ? value
+                : null;
+        }
+
+        private static bool TryReadEpoch(string[] headers, string[] values, out int epoch)
+        {
+            double? value = ReadMetric(headers, values, "epoch");
+            if (value.HasValue && value.Value >= int.MinValue && value.Value <= int.MaxValue)
+            {
+                epoch = (int)value.Value;
+                return true;
+            }
+
+            epoch = -1;
+            return false;
         }
 
         private static string BuildComparisonStatusText(
@@ -396,6 +826,23 @@ namespace MvcVisionSystem
             return string.IsNullOrWhiteSpace(currentWeightsPath)
                 ? $"학습 모델 후보 사용 불가: {latestName}"
                 : $"현재 검사 모델 유지: {Path.GetFileName(currentWeightsPath)}";
+        }
+
+        private static string TryFindSiblingWeightsPath(string weightsPath, string fileName)
+        {
+            if (string.IsNullOrWhiteSpace(weightsPath) || string.IsNullOrWhiteSpace(fileName))
+            {
+                return string.Empty;
+            }
+
+            string directoryPath = Path.GetDirectoryName(weightsPath.Trim());
+            if (string.IsNullOrWhiteSpace(directoryPath))
+            {
+                return string.Empty;
+            }
+
+            string siblingPath = Path.Combine(directoryPath, fileName);
+            return File.Exists(siblingPath) ? siblingPath : string.Empty;
         }
 
         private TrainingWeightCandidate FindLatestTrainingWeightCandidate(string projectRootPath, string outputRootPath)
@@ -630,16 +1077,23 @@ namespace MvcVisionSystem
             return !string.IsNullOrWhiteSpace(resultsCsvPath);
         }
 
-        private static string BuildMetricsStatusText(WpfTrainingRunMetrics latestMetrics, WpfTrainingRunMetrics currentMetrics)
+        private static string BuildMetricsStatusText(
+            WpfTrainingRunMetrics latestMetrics,
+            WpfTrainingRunMetrics currentMetrics,
+            WpfTrainingRunMetrics latestLastMetrics)
         {
-            if (latestMetrics == null || !latestMetrics.HasScore)
+            if (latestMetrics == null || !latestMetrics.HasEvaluationMetrics)
             {
-                return "지표 없음: 학습 실패 아님, 후보 검증 후 저장 판단(results.csv 없음)";
+                string identity = FormatCheckpointIdentity(latestMetrics);
+                string status = string.IsNullOrWhiteSpace(identity)
+                    ? "지표 없음: 학습 실패 아님, 후보 검증 후 저장 판단(results.csv 없음)"
+                    : $"지표 없음: 학습 실패 아님, 후보 검증 후 저장 판단 / {identity}";
+                return AppendLatestLastSummary(status, latestMetrics, null, latestLastMetrics);
             }
 
-            if (currentMetrics == null || !currentMetrics.HasScore)
+            if (currentMetrics == null || !currentMetrics.HasEvaluationMetrics)
             {
-                return $"새 후보 지표: {FormatMetricSnapshot(latestMetrics)}";
+                return AppendLatestLastSummary($"새 후보 지표: {FormatMetricSnapshot(latestMetrics)}", latestMetrics, null, latestLastMetrics);
             }
 
             var parts = new List<string>();
@@ -649,18 +1103,72 @@ namespace MvcVisionSystem
             AddPercentComparison(parts, "recall", latestMetrics.Recall, currentMetrics.Recall);
             AddLossComparison(parts, "loss", latestMetrics.BoxLoss, currentMetrics.BoxLoss);
 
-            return parts.Count == 0
-                ? $"새 후보 지표: {FormatMetricSnapshot(latestMetrics)}"
+            string comparisonText = parts.Count == 0
+                ? $"지표 비교(판정 보류: 공통 지표 없음): {FormatMetricSnapshot(latestMetrics)}"
                 : $"지표 비교({BuildMetricVerdictText(latestMetrics, currentMetrics)}): {string.Join(", ", parts)}";
+            return AppendLatestLastSummary(comparisonText, latestMetrics, currentMetrics, latestLastMetrics);
+        }
+
+        private static string AppendLatestLastSummary(
+            string text,
+            WpfTrainingRunMetrics latestMetrics,
+            WpfTrainingRunMetrics currentMetrics,
+            WpfTrainingRunMetrics latestLastMetrics)
+        {
+            var summaries = new List<string>();
+            string latestIdentity = FormatCheckpointIdentity(latestMetrics);
+            if (!string.IsNullOrWhiteSpace(latestIdentity)
+                && !text.Contains(latestIdentity, StringComparison.Ordinal))
+            {
+                summaries.Add($"best {latestIdentity}");
+            }
+
+            string lastIdentity = FormatCheckpointIdentity(latestLastMetrics);
+            if (!string.IsNullOrWhiteSpace(lastIdentity))
+            {
+                summaries.Add($"last {lastIdentity}");
+            }
+
+            string currentIdentity = FormatCheckpointIdentity(currentMetrics);
+            if (!string.IsNullOrWhiteSpace(currentIdentity))
+            {
+                summaries.Add($"현재 {currentIdentity}");
+            }
+
+            return summaries.Count == 0 ? text : $"{text} / {string.Join(" / ", summaries)}";
         }
 
         private static string BuildMetricVerdictText(WpfTrainingRunMetrics latestMetrics, WpfTrainingRunMetrics currentMetrics)
         {
-            // Keep the learner-facing verdict simple: prefer mAP-style scores when
-            // present, and use loss only when no score metric was recorded.
-            if (latestMetrics?.PrimaryScore.HasValue == true && currentMetrics?.PrimaryScore.HasValue == true)
+            // Compare only a metric that both snapshots actually recorded.  A
+            // precision value must not be compared with a mAP value merely because
+            // it is the first available score in either snapshot.
+            double? latestCommonScore = null;
+            double? currentCommonScore = null;
+            if (latestMetrics?.Map5095.HasValue == true && currentMetrics?.Map5095.HasValue == true)
             {
-                double deltaPercent = ToPercentValue(latestMetrics.PrimaryScore.Value) - ToPercentValue(currentMetrics.PrimaryScore.Value);
+                latestCommonScore = latestMetrics.Map5095;
+                currentCommonScore = currentMetrics.Map5095;
+            }
+            else if (latestMetrics?.Map50.HasValue == true && currentMetrics?.Map50.HasValue == true)
+            {
+                latestCommonScore = latestMetrics.Map50;
+                currentCommonScore = currentMetrics.Map50;
+            }
+            else if (latestMetrics?.Precision.HasValue == true && currentMetrics?.Precision.HasValue == true)
+            {
+                latestCommonScore = latestMetrics.Precision;
+                currentCommonScore = currentMetrics.Precision;
+            }
+            else if (latestMetrics?.Recall.HasValue == true && currentMetrics?.Recall.HasValue == true)
+            {
+                latestCommonScore = latestMetrics.Recall;
+                currentCommonScore = currentMetrics.Recall;
+            }
+
+            if (latestCommonScore.HasValue && currentCommonScore.HasValue)
+            {
+                double deltaPercent = ToPercentValue(latestCommonScore.Value) - ToPercentValue(currentCommonScore.Value);
                 if (deltaPercent > 0.1D)
                 {
                     return "새 모델 우세";
@@ -794,8 +1302,20 @@ namespace MvcVisionSystem
         private static bool TryParseMetricValue(string text, out double value)
         {
             text = (text ?? string.Empty).Trim();
-            return double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
-                || double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value);
+            if (double.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value)
+                && double.IsFinite(value))
+            {
+                return true;
+            }
+
+            if (double.TryParse(text, NumberStyles.Float, CultureInfo.CurrentCulture, out value)
+                && double.IsFinite(value))
+            {
+                return true;
+            }
+
+            value = default;
+            return false;
         }
 
         private static string[] SplitCsvLine(string line)
@@ -834,6 +1354,30 @@ namespace MvcVisionSystem
             public DateTime LastWriteUtc { get; set; }
 
             public bool MatchesCurrentDataset { get; set; }
+        }
+
+        private sealed class TrainingCheckpointMetadata
+        {
+            public string CheckpointRole { get; set; } = string.Empty;
+
+            public int? Epoch { get; set; }
+
+            public string ArtifactId { get; set; } = string.Empty;
+
+            public string ResultsCsvPath { get; set; } = string.Empty;
+        }
+
+        private sealed class TrainingMetricRow
+        {
+            public TrainingMetricRow(string line, string[] values)
+            {
+                Line = line;
+                Values = values ?? Array.Empty<string>();
+            }
+
+            public string Line { get; }
+
+            public string[] Values { get; }
         }
     }
 

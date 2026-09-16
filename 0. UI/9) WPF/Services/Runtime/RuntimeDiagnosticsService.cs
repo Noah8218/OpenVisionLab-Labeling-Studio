@@ -490,13 +490,16 @@ namespace MvcVisionSystem
 
             long includedBytes = 0;
             int includedCount = 0;
+            int inspectedCount = 0;
             foreach (string logPath in Directory
                 .EnumerateFiles(paths.LogDirectory, "*.log", SearchOption.AllDirectories)
                 .OrderByDescending(File.GetLastWriteTimeUtc))
             {
+                inspectedCount++;
+                string safeLogLabel = $"log-{inspectedCount:D2}.log";
                 if (includedCount >= MaximumIncludedLogFiles || includedBytes >= MaximumIncludedLogBytes)
                 {
-                    skippedLogs.Add(Path.GetFileName(logPath) + ": bundle log limit");
+                    skippedLogs.Add(safeLogLabel + ": bundle log limit");
                     continue;
                 }
 
@@ -506,18 +509,18 @@ namespace MvcVisionSystem
                     byte[] content = Encoding.UTF8.GetBytes(sanitized);
                     if (includedBytes + content.Length > MaximumIncludedLogBytes)
                     {
-                        skippedLogs.Add(Path.GetFileName(logPath) + ": bundle byte limit");
+                        skippedLogs.Add(safeLogLabel + ": bundle byte limit");
                         continue;
                     }
 
-                    string entryName = $"logs/{includedCount + 1:D2}-{SanitizeFileName(Path.GetFileName(logPath))}";
+                    string entryName = $"logs/{includedCount + 1:D2}.log";
                     AddBytesEntry(archive, entryName, content, includedEntries);
                     includedBytes += content.Length;
                     includedCount++;
                 }
                 catch (Exception ex)
                 {
-                    skippedLogs.Add(Path.GetFileName(logPath) + ": " + ex.GetType().Name);
+                    skippedLogs.Add(safeLogLabel + ": " + ex.GetType().Name);
                 }
             }
         }
@@ -648,17 +651,6 @@ namespace MvcVisionSystem
                     .OrderByDescending(File.GetLastWriteTimeUtc)
                     .FirstOrDefault()
                 : null;
-        }
-
-        private static string SanitizeFileName(string fileName)
-        {
-            string sanitized = fileName ?? "application.log";
-            foreach (char invalid in Path.GetInvalidFileNameChars())
-            {
-                sanitized = sanitized.Replace(invalid, '_');
-            }
-
-            return sanitized;
         }
 
         private static string GetProductVersion(Assembly productAssembly)

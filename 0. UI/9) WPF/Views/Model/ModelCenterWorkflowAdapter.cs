@@ -184,7 +184,8 @@ namespace MvcVisionSystem
                 bool configSaved = result.IsCommitted;
                 SetYoloCommandStatus(ModelCandidateDecisionPresentationService.BuildRejectCommandStatus(result.CandidateWeightsPath, configSaved), isBusy: false);
                 SetProjectConfigStatus(ModelCandidateDecisionPresentationService.BuildRejectProjectConfigStatus(configSaved));
-                if (result.Status == ModelCandidateLifecycleStatus.Failed)
+                if (result.Status == ModelCandidateLifecycleStatus.Failed
+                    || result.Status == ModelCandidateLifecycleStatus.BaselineUnavailable)
                 {
                     string failureStatus = ModelCandidateDecisionPresentationService.BuildRejectFailureStatus(result.Error?.Message);
                     SetYoloCommandStatus(failureStatus, isBusy: false);
@@ -276,7 +277,13 @@ namespace MvcVisionSystem
                         DecisionText = selected?.DecisionText,
                         DatasetVersionId = selected?.DatasetVersionId,
                         DatasetContentSha256 = selected?.DatasetContentSha256,
-                        CandidateWeightsFileExists = selected != null && File.Exists(selected.WeightsPath?.Trim() ?? string.Empty)
+                        CandidateWeightsSha256 = selected?.WeightsSha256,
+                        CandidateArtifactPath = selected?.ArtifactPath,
+                        CandidateWeightsFileExists = selected != null && File.Exists(selected.WeightsPath?.Trim() ?? string.Empty),
+                        CandidateArtifactExists = selected != null && File.Exists(selected.ArtifactPath?.Trim() ?? string.Empty),
+                        CandidateArtifactHashMatches = selected != null
+                            && (string.IsNullOrWhiteSpace(selected.WeightsSha256)
+                                || ModelArtifactStoreService.Verify(selected.ArtifactPath, selected.WeightsSha256))
                     });
 
                 if (plan.Status == ModelHistoryAdoptionPlanStatus.MissingSelection)
@@ -298,6 +305,15 @@ namespace MvcVisionSystem
                     SetModelCenterHistoryApplyFailure(
                         "\uBAA8\uB378 \uC774\uB825 \uC801\uC6A9 \uBD88\uAC00",
                         $"\uC120\uD0DD\uD55C \uBAA8\uB378 \uD30C\uC77C\uC774 \uC5C6\uC2B5\uB2C8\uB2E4: {plan.CandidateWeightsPath}");
+                    return;
+                }
+
+                if (plan.Status == ModelHistoryAdoptionPlanStatus.CandidateArtifactMissing
+                    || plan.Status == ModelHistoryAdoptionPlanStatus.CandidateArtifactMismatch)
+                {
+                    SetModelCenterHistoryApplyFailure(
+                        "\uBAA8\uB378 \uC774\uB825 \uC801\uC6A9 \uBD88\uAC00",
+                        plan.ArtifactVerificationText);
                     return;
                 }
 

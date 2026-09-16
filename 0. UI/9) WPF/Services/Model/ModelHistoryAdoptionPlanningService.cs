@@ -8,7 +8,9 @@ namespace MvcVisionSystem
         MissingWeightsPath,
         CandidateWeightsFileMissing,
         AlreadyCurrent,
-        Ready
+        Ready,
+        CandidateArtifactMissing,
+        CandidateArtifactMismatch
     }
 
     public class ModelHistoryAdoptionRequest
@@ -29,6 +31,14 @@ namespace MvcVisionSystem
 
         public string DatasetContentSha256 { get; set; } = string.Empty;
 
+        public string CandidateWeightsSha256 { get; set; } = string.Empty;
+
+        public string CandidateArtifactPath { get; set; } = string.Empty;
+
+        public bool CandidateArtifactExists { get; set; }
+
+        public bool CandidateArtifactHashMatches { get; set; }
+
         public bool CandidateWeightsFileExists { get; set; }
     }
 
@@ -41,7 +51,10 @@ namespace MvcVisionSystem
             string metricsSummary = "",
             string decisionSummary = "",
             string datasetVersionId = "",
-            string datasetContentSha256 = "")
+            string datasetContentSha256 = "",
+            string weightsSha256 = "",
+            string artifactPath = "",
+            string artifactVerificationText = "")
         {
             Status = status;
             CandidateWeightsPath = candidateWeightsPath ?? string.Empty;
@@ -50,6 +63,9 @@ namespace MvcVisionSystem
             DecisionSummary = decisionSummary ?? string.Empty;
             DatasetVersionId = datasetVersionId?.Trim() ?? string.Empty;
             DatasetContentSha256 = datasetContentSha256?.Trim() ?? string.Empty;
+            WeightsSha256 = weightsSha256?.Trim() ?? string.Empty;
+            ArtifactPath = artifactPath?.Trim() ?? string.Empty;
+            ArtifactVerificationText = artifactVerificationText?.Trim() ?? string.Empty;
         }
 
         public ModelHistoryAdoptionPlanStatus Status { get; }
@@ -65,6 +81,12 @@ namespace MvcVisionSystem
         public string DatasetVersionId { get; }
 
         public string DatasetContentSha256 { get; }
+
+        public string WeightsSha256 { get; }
+
+        public string ArtifactPath { get; }
+
+        public string ArtifactVerificationText { get; }
 
         public bool IsReady => Status == ModelHistoryAdoptionPlanStatus.Ready;
 
@@ -93,11 +115,64 @@ namespace MvcVisionSystem
 
             if (!request.CandidateWeightsFileExists)
             {
+                if (!request.CandidateArtifactExists)
+                {
+                    return new ModelHistoryAdoptionPlan(
+                        ModelHistoryAdoptionPlanStatus.CandidateWeightsFileMissing,
+                        candidateWeightsPath: candidateWeightsPath,
+                        datasetVersionId: request.DatasetVersionId,
+                        datasetContentSha256: request.DatasetContentSha256,
+                        weightsSha256: request.CandidateWeightsSha256,
+                        artifactPath: request.CandidateArtifactPath);
+                }
+
+                if (!string.IsNullOrWhiteSpace(request.CandidateWeightsSha256)
+                    && !request.CandidateArtifactHashMatches)
+                {
+                    return new ModelHistoryAdoptionPlan(
+                        ModelHistoryAdoptionPlanStatus.CandidateArtifactMismatch,
+                        candidateWeightsPath: candidateWeightsPath,
+                        datasetVersionId: request.DatasetVersionId,
+                        datasetContentSha256: request.DatasetContentSha256,
+                        weightsSha256: request.CandidateWeightsSha256,
+                        artifactPath: request.CandidateArtifactPath,
+                        artifactVerificationText: "artifact hash mismatch");
+                }
+
                 return new ModelHistoryAdoptionPlan(
-                    ModelHistoryAdoptionPlanStatus.CandidateWeightsFileMissing,
+                    ModelHistoryAdoptionPlanStatus.Ready,
                     candidateWeightsPath: candidateWeightsPath,
                     datasetVersionId: request.DatasetVersionId,
-                    datasetContentSha256: request.DatasetContentSha256);
+                    datasetContentSha256: request.DatasetContentSha256,
+                    weightsSha256: request.CandidateWeightsSha256,
+                    artifactPath: request.CandidateArtifactPath,
+                    artifactVerificationText: ResolveArtifactVerificationText(request));
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.CandidateWeightsSha256)
+                && !request.CandidateArtifactExists)
+            {
+                return new ModelHistoryAdoptionPlan(
+                    ModelHistoryAdoptionPlanStatus.CandidateArtifactMissing,
+                    candidateWeightsPath: candidateWeightsPath,
+                    datasetVersionId: request.DatasetVersionId,
+                    datasetContentSha256: request.DatasetContentSha256,
+                    weightsSha256: request.CandidateWeightsSha256,
+                    artifactPath: request.CandidateArtifactPath,
+                    artifactVerificationText: "artifact is missing");
+            }
+
+            if (!string.IsNullOrWhiteSpace(request.CandidateWeightsSha256)
+                && !request.CandidateArtifactHashMatches)
+            {
+                return new ModelHistoryAdoptionPlan(
+                    ModelHistoryAdoptionPlanStatus.CandidateArtifactMismatch,
+                    candidateWeightsPath: candidateWeightsPath,
+                    datasetVersionId: request.DatasetVersionId,
+                    datasetContentSha256: request.DatasetContentSha256,
+                    weightsSha256: request.CandidateWeightsSha256,
+                    artifactPath: request.CandidateArtifactPath,
+                    artifactVerificationText: "artifact hash mismatch");
             }
 
             string currentWeightsPath = Normalize(request.CurrentWeightsPath);
@@ -107,7 +182,10 @@ namespace MvcVisionSystem
                     ModelHistoryAdoptionPlanStatus.AlreadyCurrent,
                     candidateWeightsPath: candidateWeightsPath,
                     datasetVersionId: request.DatasetVersionId,
-                    datasetContentSha256: request.DatasetContentSha256);
+                    datasetContentSha256: request.DatasetContentSha256,
+                    weightsSha256: request.CandidateWeightsSha256,
+                    artifactPath: request.CandidateArtifactPath,
+                    artifactVerificationText: ResolveArtifactVerificationText(request));
             }
 
             string baselineWeightsPath = !string.IsNullOrWhiteSpace(currentWeightsPath)
@@ -124,8 +202,18 @@ namespace MvcVisionSystem
                 metricsSummary,
                 "모델 이력에서 검사 모델로 적용",
                 request.DatasetVersionId,
-                request.DatasetContentSha256);
+                request.DatasetContentSha256,
+                request.CandidateWeightsSha256,
+                request.CandidateArtifactPath,
+                ResolveArtifactVerificationText(request));
         }
+
+        private static string ResolveArtifactVerificationText(ModelHistoryAdoptionRequest request)
+            => string.IsNullOrWhiteSpace(request?.CandidateWeightsSha256)
+                ? "legacy path-only record; artifact hash unavailable"
+                : request.CandidateArtifactHashMatches
+                    ? "artifact hash verified"
+                    : "artifact hash not verified";
 
         private static string Normalize(string value)
             => value?.Trim() ?? string.Empty;
@@ -138,7 +226,9 @@ namespace MvcVisionSystem
         MissingWeightsPath,
         CandidateWeightsFileMissing,
         AlreadyCurrent,
-        Ready
+        Ready,
+        CandidateArtifactMissing,
+        CandidateArtifactMismatch
     }
 
     [Obsolete("Use ModelHistoryAdoptionRequest.", false)]
@@ -156,7 +246,10 @@ namespace MvcVisionSystem
             string metricsSummary = "",
             string decisionSummary = "",
             string datasetVersionId = "",
-            string datasetContentSha256 = "")
+            string datasetContentSha256 = "",
+            string weightsSha256 = "",
+            string artifactPath = "",
+            string artifactVerificationText = "")
             : base(
                 (ModelHistoryAdoptionPlanStatus)status,
                 candidateWeightsPath,
@@ -164,7 +257,10 @@ namespace MvcVisionSystem
                 metricsSummary,
                 decisionSummary,
                 datasetVersionId,
-                datasetContentSha256)
+                datasetContentSha256,
+                weightsSha256,
+                artifactPath,
+                artifactVerificationText)
         {
         }
 
@@ -176,7 +272,10 @@ namespace MvcVisionSystem
                 source?.MetricsSummary,
                 source?.DecisionSummary,
                 source?.DatasetVersionId,
-                source?.DatasetContentSha256)
+                source?.DatasetContentSha256,
+                source?.WeightsSha256,
+                source?.ArtifactPath,
+                source?.ArtifactVerificationText)
         {
         }
 

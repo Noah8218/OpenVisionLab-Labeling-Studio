@@ -10,6 +10,8 @@ from __future__ import annotations
 
 import argparse
 from contextlib import contextmanager
+import csv
+import hashlib
 import importlib.util
 import json
 import os
@@ -27,6 +29,7 @@ from typing import Any, Iterable
 
 
 PACKET_SEPARATOR = b"\n\n"
+RUN_ID_MAX_LENGTH = 64
 BASE_SUPPORTED_MODELS = ("yolov8",)
 YOLO11_MODEL = "yolo11"
 _YOLO11_RUNTIME_AVAILABLE: bool | None = None
@@ -66,6 +69,79 @@ def compact_json(data: dict[str, Any]) -> bytes:
     return json.dumps(data, ensure_ascii=False, separators=(",", ":")).encode("utf-8")
 
 
+def checkpoint_artifact_id(checkpoint_path: Path) -> str:
+    digest = hashlib.sha256()
+    with checkpoint_path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return f"sha256:{digest.hexdigest()}"
+
+
+def checkpoint_epoch(checkpoint_path: Path, results_csv_path: Path) -> int | None:
+    if not checkpoint_path.is_file():
+        return None
+
+    try:
+        import torch
+
+        checkpoint = torch.load(str(checkpoint_path), map_location="cpu")
+        raw_epoch = checkpoint.get("epoch") if isinstance(checkpoint, dict) else None
+        if raw_epoch is None:
+            return None
+        raw_epoch = int(raw_epoch)
+    except Exception:
+        return None
+
+    result_epochs: set[int] = set()
+    if results_csv_path.is_file():
+        try:
+            with results_csv_path.open("r", newline="", encoding="utf-8-sig") as stream:
+                for row in csv.DictReader(stream):
+                    try:
+                        result_epochs.add(int(float(str(row.get("epoch", "")).strip())))
+                    except (TypeError, ValueError):
+                        continue
+        except (OSError, UnicodeError):
+            pass
+
+    for candidate in (raw_epoch, raw_epoch + 1):
+        if candidate in result_epochs:
+            return candidate
+    return raw_epoch + 1
+
+
+def write_checkpoint_metadata(
+    checkpoint_path: Path,
+    checkpoint_role: str,
+    results_csv_path: Path,
+    run_name: str,
+    run_id: str = "",
+) -> dict[str, Any] | None:
+    epoch = checkpoint_epoch(checkpoint_path, results_csv_path)
+    if epoch is None:
+        return None
+
+    metadata_path = Path(f"{checkpoint_path}.metadata.json")
+    temporary_path = Path(f"{metadata_path}.tmp")
+    metadata = {
+        "schemaVersion": 1,
+        "format": "openvisionlab-training-checkpoint-v1",
+        "checkpointRole": checkpoint_role,
+        "epoch": int(epoch),
+        "artifactId": checkpoint_artifact_id(checkpoint_path),
+        "resultsCsvPath": str(results_csv_path.resolve()),
+        "runName": run_name,
+        "runId": run_id,
+    }
+    try:
+        temporary_path.write_text(json.dumps(metadata, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+        temporary_path.replace(metadata_path)
+    finally:
+        if temporary_path.exists():
+            temporary_path.unlink()
+    return metadata
+
+
 def make_error(code: str, message: str | Exception, include_trace: bool = False) -> dict[str, Any]:
     if isinstance(message, Exception):
         error: dict[str, Any] = {
@@ -86,6 +162,28 @@ def get_first(payload: dict[str, Any], names: Iterable[str], default: Any = None
         if value is not None and value != "":
             return value
     return default
+
+
+def normalize_run_id(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if len(text) > RUN_ID_MAX_LENGTH:
+        raise ValueError(f"runId must be at most {RUN_ID_MAX_LENGTH} characters")
+    for character in text:
+        if not ("a" <= character <= "z" or "A" <= character <= "Z" or "0" <= character <= "9" or character in "-_"):
+            raise ValueError("runId may contain only ASCII letters, digits, '-' or '_'")
+    return text
+
+
+def compose_training_run_name(display_name: str, run_id: str, fallback: str) -> str:
+    display = str(display_name or "").strip()
+    safe_display = "".join(
+        character if ("a" <= character <= "z" or "A" <= character <= "Z" or "0" <= character <= "9" or character in "-_") else "-"
+        for character in display
+    ).strip("-_")[:80]
+    safe_display = safe_display or fallback
+    return f"{safe_display}-{run_id}" if run_id else safe_display
 
 
 def as_bool(value: Any) -> bool:
@@ -752,6 +850,11 @@ class LabelingUltralyticsWorker:
                 "TrainYolo requires a TCP response writer for asynchronous status updates.",
             )
 
+        try:
+            run_id = normalize_run_id(get_first(message.payload, ["runId", "trainingRunId"], ""))
+        except ValueError as exc:
+            return self._training_start_failure(message, "InvalidTrainingRunId", str(exc))
+
         if not ultralytics_available():
             return self._training_start_failure(
                 message,
@@ -785,6 +888,7 @@ class LabelingUltralyticsWorker:
             payload["task"] = task
             payload["dataYaml"] = str(data_yaml)
             payload["trainingWeights"] = training_weights
+            payload["runId"] = run_id
             self.training_stop_requested.clear()
             self.training_status = self._build_training_status(
                 message.request_id,
@@ -795,6 +899,9 @@ class LabelingUltralyticsWorker:
                 progress=0,
                 training_weights=training_weights,
             )
+            if run_id:
+                self.training_status["runId"] = run_id
+                self.training_status["runName"] = self._resolve_training_run_name(message.payload, model_name, task)
             self.training_thread = threading.Thread(
                 target=self._run_training_job,
                 args=(message.request_id, payload, writer),
@@ -803,7 +910,7 @@ class LabelingUltralyticsWorker:
             )
             self.training_thread.start()
 
-        return {
+        result = {
             "type": "TrainYoloResult",
             "requestId": message.request_id,
             "ok": True,
@@ -814,6 +921,9 @@ class LabelingUltralyticsWorker:
             "trainingWeights": training_weights,
             "progressPercent": 0,
         }
+        if run_id:
+            result["runId"] = run_id
+        return result
 
     def _run_training_job(self, request_id: str, payload: dict[str, Any], writer: JsonResponseWriter) -> None:
         model_name = normalize_model(payload.get("model")) or default_runtime_model()
@@ -823,10 +933,19 @@ class LabelingUltralyticsWorker:
         image_size = self._resolve_positive_int(payload, ["imgSize", "imageSize", "imgsz"], self.detector.img_size)
         batch = self._resolve_positive_int(payload, ["batch", "batchSize"], 16)
         training_weights = str(payload.get("trainingWeights") or self._resolve_training_weights(payload, model_name, task))
-        run_name = self._resolve_training_run_name(payload, model_name, task)
+        run_id = normalize_run_id(payload.get("runId"))
+        display_run_name = self._resolve_training_run_name(payload, model_name, task)
+        run_name = compose_training_run_name(display_run_name, run_id, f"openvisionlab-{model_name}-{task}")
         project_path = self._resolve_training_project_path(task)
 
-        def send_status(state: str, message: str, progress: int | None = None, epoch: int | None = None, error: dict[str, Any] | None = None) -> None:
+        def send_status(
+            state: str,
+            message: str,
+            progress: int | None = None,
+            epoch: int | None = None,
+            error: dict[str, Any] | None = None,
+            checkpoint_metadata: dict[str, Any] | None = None,
+        ) -> None:
             status = self._build_training_status(
                 request_id,
                 state=state,
@@ -838,7 +957,12 @@ class LabelingUltralyticsWorker:
                 total_epochs=epochs,
                 error=error,
                 training_weights=training_weights,
+                checkpoint_metadata=checkpoint_metadata,
             )
+            if run_id:
+                status["runId"] = run_id
+                status["runName"] = display_run_name
+                status["outputRunName"] = run_name
             self.training_status = status
             try:
                 writer.send(status)
@@ -884,10 +1008,24 @@ class LabelingUltralyticsWorker:
                     plots=False,
                 )
             save_dir = str(getattr(result, "save_dir", "") or "")
+            checkpoint_metadata = {}
+            if save_dir:
+                save_dir_path = Path(save_dir).expanduser().resolve()
+                results_csv_path = save_dir_path / "results.csv"
+                for checkpoint_role in ("best", "last"):
+                    metadata = write_checkpoint_metadata(
+                        save_dir_path / "weights" / f"{checkpoint_role}.pt",
+                        checkpoint_role,
+                        results_csv_path,
+                        display_run_name,
+                        run_id)
+                    if metadata is not None:
+                        checkpoint_metadata[checkpoint_role] = metadata
             if self.training_stop_requested.is_set():
                 send_status("stopped", f"Ultralytics {model_name} {task} training stopped. {save_dir}".strip(), epoch=0)
             else:
-                send_status("completed", f"Ultralytics {model_name} {task} training completed. {save_dir}".strip(), progress=100, epoch=epochs)
+                completed_message = f"Ultralytics {model_name} {task} training completed. {save_dir}".strip()
+                send_status("completed", completed_message, progress=100, epoch=epochs, checkpoint_metadata=checkpoint_metadata)
         except Exception as exc:
             if self.training_stop_requested.is_set():
                 send_status("stopped", "Ultralytics training stopped.")
@@ -936,6 +1074,7 @@ class LabelingUltralyticsWorker:
         total_epochs: int | None = None,
         error: dict[str, Any] | None = None,
         training_weights: str = "",
+        checkpoint_metadata: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         status: dict[str, Any] = {
             "type": "TrainingStatus",
@@ -957,6 +1096,8 @@ class LabelingUltralyticsWorker:
             status["totalEpochs"] = max(0, int(total_epochs))
         if error is not None:
             status["error"] = error
+        if checkpoint_metadata:
+            status["checkpointMetadata"] = checkpoint_metadata
         return status
 
     def _resolve_training_data_path(self, payload: dict[str, Any]) -> Path | None:

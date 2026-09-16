@@ -3,6 +3,7 @@ using MvcVisionSystem.Yolo;
 using System;
 using System.Collections.Generic;
 using System.Drawing;
+using System.IO;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -56,6 +57,7 @@ namespace MvcVisionSystem
                         ? context.ActiveImageSizeProvider()
                         : null;
                 },
+                IsCurrentImage = path => AreSameImagePath(path, context.ActiveImagePathProvider()),
                 ApplyCandidates = context.ApplyCandidates,
                 RefreshActions = context.RefreshActions,
                 SetPythonStatus = context.SetPythonStatus,
@@ -106,6 +108,23 @@ namespace MvcVisionSystem
                 CreateImageDetectionCallbacks(),
                 workerReadyAlreadyChecked);
         }
+
+        private static bool AreSameImagePath(string left, string right)
+        {
+            if (string.IsNullOrWhiteSpace(left) || string.IsNullOrWhiteSpace(right))
+            {
+                return string.Equals(left ?? string.Empty, right ?? string.Empty, StringComparison.OrdinalIgnoreCase);
+            }
+
+            try
+            {
+                return string.Equals(Path.GetFullPath(left), Path.GetFullPath(right), StringComparison.OrdinalIgnoreCase);
+            }
+            catch
+            {
+                return string.Equals(left, right, StringComparison.OrdinalIgnoreCase);
+            }
+        }
     }
 
     internal sealed class DetectionWorkflowAdapterContext
@@ -128,4 +147,5 @@ namespace MvcVisionSystem
         internal Func<bool> IsApplicationCloseApproved { get; init; }
         internal Func<bool> IsBatchDetectionRunning { get; init; }
     }
+
 }

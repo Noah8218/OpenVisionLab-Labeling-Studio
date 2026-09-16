@@ -28,6 +28,8 @@ namespace MvcVisionSystem
                 ImagePath = request.ImagePath,
                 ImageLength = imageInfo.Length,
                 ImageLastWriteUtcTicks = imageInfo.LastWriteTimeUtc.Ticks,
+                ImageSha256 = HashingService.ComputeFileSha256(imageInfo.FullName, lowerCase: true),
+                ClassOrderSha256 = request.ClassOrderSha256,
                 ImageWidth = request.ImageSize.Width,
                 ImageHeight = request.ImageSize.Height,
                 DirtyReason = request.DirtyReason
@@ -218,7 +220,8 @@ namespace MvcVisionSystem
             string dirtyReason,
             IReadOnlyList<WpfCrashRecoveryRoiSnapshot> manualRois,
             IReadOnlyList<WpfCrashRecoveryCandidateSnapshot> confirmedCandidates,
-            IReadOnlyList<WpfCrashRecoverySegmentSnapshot> segments)
+            IReadOnlyList<WpfCrashRecoverySegmentSnapshot> segments,
+            string classOrderSha256 = null)
         {
             ApplicationVersion = applicationVersion ?? string.Empty;
             RecipeName = recipeName ?? string.Empty;
@@ -226,6 +229,7 @@ namespace MvcVisionSystem
             ImagePath = imagePath ?? string.Empty;
             ImageSize = imageSize;
             DirtyReason = dirtyReason ?? string.Empty;
+            ClassOrderSha256 = classOrderSha256 ?? string.Empty;
             ManualRois = (manualRois ?? Array.Empty<WpfCrashRecoveryRoiSnapshot>()).ToList();
             ConfirmedCandidates = (confirmedCandidates
                 ?? Array.Empty<WpfCrashRecoveryCandidateSnapshot>()).ToList();
@@ -238,6 +242,7 @@ namespace MvcVisionSystem
         public string ImagePath { get; }
         public Size ImageSize { get; }
         public string DirtyReason { get; }
+        public string ClassOrderSha256 { get; }
         public IReadOnlyList<WpfCrashRecoveryRoiSnapshot> ManualRois { get; }
         public IReadOnlyList<WpfCrashRecoveryCandidateSnapshot> ConfirmedCandidates { get; }
         public IReadOnlyList<WpfCrashRecoverySegmentSnapshot> Segments { get; }

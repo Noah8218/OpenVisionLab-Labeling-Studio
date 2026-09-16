@@ -8,6 +8,7 @@ namespace MvcVisionSystem._1._Core
         CandidatesChanged,
         RequestStarted,
         ResultCompleted,
+        StaleResultIgnored,
         SelectionChanged,
         CandidatesCleared,
         CandidatesConfirmed,

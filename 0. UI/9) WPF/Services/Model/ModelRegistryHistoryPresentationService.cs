@@ -167,9 +167,12 @@ namespace MvcVisionSystem
                 decisionText = candidate.SavedToRecipe ? "\uCC44\uD0DD" : "\uB300\uAE30";
             }
 
-            bool weightsExists = File.Exists(candidate.WeightsPath ?? string.Empty);
+            bool weightsExists = File.Exists(candidate.WeightsPath ?? string.Empty)
+                || File.Exists(candidate.ArtifactPath ?? string.Empty);
+            bool artifactVerified = string.IsNullOrWhiteSpace(candidate.WeightsSha256)
+                || ModelArtifactStoreService.Verify(candidate.ArtifactPath, candidate.WeightsSha256);
             bool isRejected = string.Equals(decisionCode, ModelRegistryService.CandidateDecisionRejected, StringComparison.Ordinal);
-            bool canPromote = !candidate.IsCurrentInspectionModel && weightsExists && !isRejected;
+            bool canPromote = !candidate.IsCurrentInspectionModel && weightsExists && artifactVerified && !isRejected;
             return new WpfModelRegistryHistoryItem
             {
                 CandidateId = candidate.CandidateId ?? string.Empty,
@@ -178,6 +181,9 @@ namespace MvcVisionSystem
                 DatasetVersionId = run?.DatasetVersionId ?? string.Empty,
                 DatasetContentSha256 = run?.DatasetContentSha256 ?? string.Empty,
                 WeightsPath = candidate.WeightsPath ?? string.Empty,
+                WeightsSha256 = candidate.WeightsSha256 ?? string.Empty,
+                ArtifactPath = candidate.ArtifactPath ?? string.Empty,
+                ArtifactStatus = candidate.ArtifactStatus ?? string.Empty,
                 BaselineWeightsPath = candidate.BaselineWeightsPath ?? string.Empty,
                 KindText = titlePrefix,
                 TitleText = $"{titlePrefix}: {modelPath}",

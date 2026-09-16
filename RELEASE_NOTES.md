@@ -4,6 +4,18 @@
 
 - No unreleased changes.
 
+## 0.3.5 — 2026-09-16
+
+- Hardened annotation load/save, crash-recovery, Object Review, detection, and
+  training workflow state transitions while preserving explicit save and
+  confirmation boundaries.
+- Added dataset source-group and split-quality validation, model
+  artifact/runtime-lock provenance, and safer Python process and diagnostic
+  failure handling.
+- This is a compatible PATCH checkpoint. Existing annotation, Recipe, Dataset
+  Version, model-state, and public file formats remain compatible. Broad WPF,
+  DPI, GPU, and field-quality validation remain separate verification gates.
+
 ## 0.3.4 — 2026-09-15
 
 - Completed the large WPF ownership refactoring by replacing manual Shell

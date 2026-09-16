@@ -11,11 +11,14 @@ contract so no annotation is saved automatically.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import os
+import re
 import socket
 import sys
 import threading
+from urllib.parse import urlparse
 import time
 import traceback
 from dataclasses import dataclass, field
@@ -24,6 +27,7 @@ from pathlib import Path
 from typing import Any, Iterable
 
 PACKET_SEPARATOR = b"\n\n"
+RUN_ID_MAX_LENGTH = 64
 IMAGE_EXTENSIONS = {".bmp", ".jpeg", ".jpg", ".png", ".tif", ".tiff"}
 LEGACY_TYPE_MAP = {
     "StartTraining": "TrainYolo",
@@ -31,6 +35,42 @@ LEGACY_TYPE_MAP = {
     "StartDefect": "DetectImage",
     "StopDefect": "StopTask",
 }
+PATCHCORE_BACKBONE_PATH_ENV = "OPENVISIONLAB_PATCHCORE_BACKBONE_PATH"
+PATCHCORE_BACKBONE_SHA256_ENV = "OPENVISIONLAB_PATCHCORE_BACKBONE_SHA256"
+PATCHCORE_BACKBONE_HASH_MANIFEST_SUFFIX = ".sha256"
+
+
+class PatchCoreBackboneError(RuntimeError):
+    def __init__(
+        self,
+        code: str,
+        message: str,
+        path: Path | None = None,
+        expected_sha256: str = "",
+        actual_sha256: str = "",
+        file_name: str = "",
+        hash_source: str = "",
+    ):
+        super().__init__(message)
+        self.code = code
+        self.path = str(path.resolve()) if path is not None else ""
+        self.expected_sha256 = expected_sha256
+        self.actual_sha256 = actual_sha256
+        self.file_name = file_name or (path.name if path is not None else "")
+        self.hash_source = hash_source
+
+    def details(self) -> dict[str, Any]:
+        path = Path(self.path) if self.path else None
+        return {
+            "offline": True,
+            "downloadAttempted": False,
+            "fileName": self.file_name,
+            "path": self.path,
+            "location": str(path.parent) if path is not None else "",
+            "expectedSha256": self.expected_sha256,
+            "sha256": self.actual_sha256,
+            "hashSource": self.hash_source,
+        }
 
 
 @dataclass
@@ -54,6 +94,9 @@ def make_error(code: str, error: str | Exception, include_trace: bool = False) -
     result: dict[str, Any] = {"code": code, "message": str(error)}
     if isinstance(error, Exception):
         result["exceptionType"] = type(error).__name__
+    if isinstance(error, PatchCoreBackboneError):
+        result["causeCode"] = error.code
+        result["backbone"] = error.details()
     if include_trace:
         result["trace"] = traceback.format_exc()
     return result
@@ -65,6 +108,28 @@ def first_value(payload: dict[str, Any], names: Iterable[str], default: Any = No
         if value is not None and value != "":
             return value
     return default
+
+
+def normalize_run_id(value: Any) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return ""
+    if len(text) > RUN_ID_MAX_LENGTH:
+        raise ValueError(f"runId must be at most {RUN_ID_MAX_LENGTH} characters")
+    for character in text:
+        if not ("a" <= character <= "z" or "A" <= character <= "Z" or "0" <= character <= "9" or character in "-_"):
+            raise ValueError("runId may contain only ASCII letters, digits, '-' or '_'")
+    return text
+
+
+def compose_training_run_name(display_name: str, run_id: str, fallback: str) -> str:
+    display = str(display_name or "").strip()
+    safe_display = "".join(
+        character if ("a" <= character <= "z" or "A" <= character <= "Z" or "0" <= character <= "9" or character in "-_") else "-"
+        for character in display
+    ).strip("-_")[:80]
+    safe_display = safe_display or fallback
+    return f"{safe_display}-{run_id}" if run_id else safe_display
 
 
 def positive_int(value: Any, default: int) -> int:
@@ -103,6 +168,213 @@ def dependencies() -> tuple[Any, Any, Any, Any, Any, Any]:
         raise RuntimeError("PatchCore worker requires torch, torchvision, numpy, and Pillow.") from exc
 
 
+def normalize_sha256(value: Any) -> str:
+    text = str(value or "").strip().lower()
+    if text.startswith("sha256:"):
+        text = text[7:].strip()
+    if text and not re.fullmatch(r"[0-9a-f]{8,64}", text):
+        raise ValueError("SHA-256 must contain 8 to 64 hexadecimal characters")
+    return text
+
+
+def sha256_file(path: Path) -> str:
+    digest = hashlib.sha256()
+    with path.open("rb") as stream:
+        for chunk in iter(lambda: stream.read(1024 * 1024), b""):
+            digest.update(chunk)
+    return digest.hexdigest()
+
+
+def backbone_hash_manifest_path(path: Path) -> Path:
+    return Path(str(path) + PATCHCORE_BACKBONE_HASH_MANIFEST_SUFFIX)
+
+
+def read_backbone_hash_manifest(path: Path) -> str:
+    manifest = backbone_hash_manifest_path(path)
+    if not manifest.is_file():
+        return ""
+    try:
+        match = re.search(r"(?i)(?<![0-9a-f])([0-9a-f]{8,64})(?![0-9a-f])", manifest.read_text(encoding="utf-8"))
+        return normalize_sha256(match.group(1)) if match else ""
+    except (OSError, UnicodeError, ValueError):
+        return ""
+
+
+def write_backbone_hash_manifest(path: Path, sha256: str) -> Path:
+    manifest = backbone_hash_manifest_path(path)
+    temporary = Path(str(manifest) + f".tmp-{os.getpid()}")
+    temporary.write_text(f"{sha256}  {path.name}\n", encoding="ascii")
+    os.replace(temporary, manifest)
+    return manifest
+
+
+def _backbone_url_hash_prefix(url: str) -> str:
+    file_name = Path(urlparse(url).path).name
+    match = re.search(r"-([0-9a-f]{8,64})(?:\.[^.]+)?$", file_name.lower())
+    return match.group(1) if match else ""
+
+
+def resolve_pretrained_backbone_spec(
+    torch: Any,
+    weights_type: Any,
+    backbone_path: Path | None = None,
+    expected_sha256: str = "",
+) -> dict[str, Any]:
+    try:
+        weights = weights_type.IMAGENET1K_V2
+        url = str(weights.url)
+        file_name = Path(urlparse(url).path).name
+        if not file_name:
+            raise ValueError("torchvision did not provide a PatchCore backbone filename")
+        path_value = str(backbone_path or os.environ.get(PATCHCORE_BACKBONE_PATH_ENV, "")).strip()
+        path = Path(path_value).expanduser().resolve() if path_value else Path(torch.hub.get_dir()).expanduser().resolve() / "checkpoints" / file_name
+        supplied_hash = normalize_sha256(expected_sha256 or os.environ.get(PATCHCORE_BACKBONE_SHA256_ENV, ""))
+        manifest_hash = read_backbone_hash_manifest(path) if not supplied_hash else ""
+        url_hash = _backbone_url_hash_prefix(url)
+        expected = supplied_hash or manifest_hash or (url_hash if path.name == file_name else "")
+        return {
+            "weights": weights,
+            "url": url,
+            "fileName": file_name,
+            "path": path,
+            "expectedSha256": expected,
+            "hashSource": "argument/environment" if supplied_hash else "sidecar" if manifest_hash else "torchvision URL prefix" if url_hash and path.name == file_name else "",
+        }
+    except PatchCoreBackboneError:
+        raise
+    except Exception as exc:
+        path = Path(backbone_path).expanduser().resolve() if backbone_path is not None else None
+        raise PatchCoreBackboneError(
+            "PatchCoreBackboneSpecUnavailable",
+            f"PatchCore pretrained backbone specification is unavailable: {exc}",
+            path=path,
+        ) from exc
+
+
+def inspect_pretrained_backbone_cache(
+    path: Path,
+    expected_sha256: str = "",
+    file_name: str = "",
+    hash_source: str = "",
+) -> dict[str, Any]:
+    resolved_path = Path(path).expanduser().resolve()
+    try:
+        expected = normalize_sha256(expected_sha256)
+    except ValueError as exc:
+        raise PatchCoreBackboneError("PatchCoreBackboneHashInvalid", str(exc), path=resolved_path, file_name=file_name, hash_source=hash_source) from exc
+    expected_display = expected or "(provide --backbone-sha256 or a .sha256 sidecar)"
+    if not resolved_path.is_file():
+        raise PatchCoreBackboneError(
+            "PatchCoreBackboneMissing",
+            f"PatchCore pretrained backbone is missing for offline execution: expected '{file_name or resolved_path.name}' at '{resolved_path}'. Expected SHA-256 '{expected_display}'. Place the file under '{resolved_path.parent}' or run --prepare-backbone --allow-backbone-download after explicit approval.",
+            path=resolved_path,
+            expected_sha256=expected,
+            file_name=file_name or resolved_path.name,
+            hash_source=hash_source,
+        )
+    try:
+        actual = sha256_file(resolved_path)
+    except OSError as exc:
+        raise PatchCoreBackboneError(
+            "PatchCoreBackboneUnreadable",
+            f"PatchCore pretrained backbone cannot be read offline: '{resolved_path}'. Check the file and location, then verify SHA-256 '{expected_display}'.",
+            path=resolved_path,
+            expected_sha256=expected,
+            file_name=file_name or resolved_path.name,
+            hash_source=hash_source,
+        ) from exc
+    if not expected:
+        raise PatchCoreBackboneError(
+            "PatchCoreBackboneHashRequired",
+            f"PatchCore pretrained backbone was found at '{resolved_path}' but no trusted SHA-256 was supplied. Record the expected hash with --backbone-sha256 or '{backbone_hash_manifest_path(resolved_path)}'; observed '{actual}'.",
+            path=resolved_path,
+            expected_sha256="",
+            actual_sha256=actual,
+            file_name=file_name or resolved_path.name,
+            hash_source=hash_source,
+        )
+    if not actual.startswith(expected):
+        raise PatchCoreBackboneError(
+            "PatchCoreBackboneHashMismatch",
+            f"PatchCore pretrained backbone SHA-256 mismatch at '{resolved_path}': expected '{expected}', observed '{actual}'. Do not load or download implicitly; replace it only through the approved preparation action.",
+            path=resolved_path,
+            expected_sha256=expected,
+            actual_sha256=actual,
+            file_name=file_name or resolved_path.name,
+            hash_source=hash_source,
+        )
+    return {
+        "offline": True,
+        "downloadAttempted": False,
+        "hashVerified": True,
+        "fileName": file_name or resolved_path.name,
+        "path": str(resolved_path),
+        "location": str(resolved_path.parent),
+        "expectedSha256": expected,
+        "sha256": actual,
+        "hashSource": hash_source,
+    }
+
+
+def require_pretrained_backbone(spec: dict[str, Any]) -> dict[str, Any]:
+    return inspect_pretrained_backbone_cache(
+        spec["path"],
+        spec.get("expectedSha256", ""),
+        spec.get("fileName", ""),
+        spec.get("hashSource", ""),
+    )
+
+
+def prepare_pretrained_backbone(torch: Any, weights_type: Any, backbone_path: Path | None = None, expected_sha256: str = "") -> dict[str, Any]:
+    spec = resolve_pretrained_backbone_spec(torch, weights_type, backbone_path, expected_sha256)
+    destination = spec["path"]
+    destination.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        cached = inspect_pretrained_backbone_cache(destination, spec["expectedSha256"], spec["fileName"], spec["hashSource"])
+        cached["prepared"] = False
+        cached["preparationAction"] = "already-cached"
+        return cached
+    except PatchCoreBackboneError as exc:
+        if exc.code not in {"PatchCoreBackboneMissing", "PatchCoreBackboneHashMismatch", "PatchCoreBackboneHashRequired"}:
+            raise
+    expected = spec.get("expectedSha256", "")
+    if not expected:
+        raise PatchCoreBackboneError(
+            "PatchCoreBackboneHashRequired",
+            f"An expected SHA-256 is required before downloading a custom PatchCore backbone path '{destination}'. Supply --backbone-sha256 with explicit approval.",
+            path=destination,
+            file_name=spec["fileName"],
+            hash_source=spec.get("hashSource", ""),
+        )
+    temporary = Path(str(destination) + f".download-{os.getpid()}")
+    try:
+        torch.hub.download_url_to_file(spec["url"], str(temporary), hash_prefix=expected, progress=True)
+        if not temporary.is_file():
+            raise OSError(f"download did not create '{temporary}'")
+        os.replace(temporary, destination)
+        verified = inspect_pretrained_backbone_cache(destination, expected, spec["fileName"], spec.get("hashSource", ""))
+        manifest = write_backbone_hash_manifest(destination, verified["sha256"])
+        verified.update({"prepared": True, "preparationAction": "approved-download", "hashManifestPath": str(manifest.resolve()), "downloadAttempted": True})
+        return verified
+    except PatchCoreBackboneError:
+        raise
+    except Exception as exc:
+        raise PatchCoreBackboneError(
+            "PatchCoreBackbonePreparationFailed",
+            f"Approved PatchCore backbone preparation failed for '{destination}': {exc}",
+            path=destination,
+            expected_sha256=expected,
+            file_name=spec["fileName"],
+            hash_source=spec.get("hashSource", ""),
+        ) from exc
+    finally:
+        if temporary.exists():
+            try:
+                temporary.unlink()
+            except OSError:
+                pass
+
+
 def runtime_available() -> bool:
     try:
         dependencies()
@@ -137,13 +409,56 @@ def resolve_normal_roots(data_root: Path) -> tuple[Path, Path | None]:
 
 
 class FeatureExtractor:
-    def __init__(self, image_size: int, device_text: str, pretrained: bool, state_dict: dict[str, Any] | None = None):
+    def __init__(
+        self,
+        image_size: int,
+        device_text: str,
+        pretrained: bool,
+        state_dict: dict[str, Any] | None = None,
+        backbone_path: Path | None = None,
+        backbone_sha256: str = "",
+    ):
         _, torch, _, _, transforms, model_api = dependencies()
         weights_type, model_factory = model_api
         self.image_size = max(64, int(image_size))
         self.device = torch.device(device_text if device_text else ("cuda" if torch.cuda.is_available() else "cpu"))
-        weights = weights_type.IMAGENET1K_V2 if pretrained else None
-        self.model = model_factory(weights=weights)
+        if pretrained:
+            backbone_spec = resolve_pretrained_backbone_spec(torch, weights_type, backbone_path, backbone_sha256)
+            backbone = require_pretrained_backbone(backbone_spec)
+            try:
+                local_state_dict = torch.load(backbone["path"], map_location="cpu")
+                if isinstance(local_state_dict, dict) and isinstance(local_state_dict.get("state_dict"), dict):
+                    local_state_dict = local_state_dict["state_dict"]
+                if not isinstance(local_state_dict, dict):
+                    raise ValueError("backbone file did not contain a state-dict mapping")
+            except Exception as exc:
+                if isinstance(exc, PatchCoreBackboneError):
+                    raise
+                raise PatchCoreBackboneError(
+                    "PatchCoreBackboneLoadFailed",
+                    f"PatchCore pretrained backbone passed SHA-256 verification but could not be loaded locally: '{backbone['path']}'. Keep network disabled and replace it only through the approved preparation action.",
+                    path=Path(backbone["path"]),
+                    expected_sha256=backbone.get("expectedSha256", ""),
+                    actual_sha256=backbone.get("sha256", ""),
+                    file_name=backbone.get("fileName", ""),
+                    hash_source=backbone.get("hashSource", ""),
+                ) from exc
+            self.model = model_factory(weights=None)
+            try:
+                self.model.load_state_dict(local_state_dict)
+            except Exception as exc:
+                raise PatchCoreBackboneError(
+                    "PatchCoreBackboneLoadFailed",
+                    f"PatchCore pretrained backbone at '{backbone['path']}' has an incompatible state-dict; replace it only through the approved preparation action.",
+                    path=Path(backbone["path"]),
+                    expected_sha256=backbone.get("expectedSha256", ""),
+                    actual_sha256=backbone.get("sha256", ""),
+                    file_name=backbone.get("fileName", ""),
+                    hash_source=backbone.get("hashSource", ""),
+                ) from exc
+            self.backbone = backbone
+        else:
+            self.model = model_factory(weights=None)
         if state_dict is not None:
             self.model.load_state_dict(state_dict)
         self.model.to(self.device).eval()
@@ -224,6 +539,8 @@ def train_patchcore(
     max_coreset: int,
     threshold_quantile: float,
     seed: int,
+    backbone_path: str = "",
+    backbone_sha256: str = "",
 ) -> dict[str, Any]:
     _, torch, _, Image, _, _ = dependencies()
     train_root, valid_root = resolve_normal_roots(data_root)
@@ -231,7 +548,13 @@ def train_patchcore(
     valid_images = enumerate_images(valid_root) if valid_root is not None else []
     if len(train_images) < 2:
         raise ValueError(f"PatchCore needs at least two reviewed normal train images: {train_root}")
-    extractor = FeatureExtractor(image_size, device_text, pretrained=True)
+    extractor = FeatureExtractor(
+        image_size,
+        device_text,
+        pretrained=True,
+        backbone_path=Path(backbone_path).expanduser().resolve() if str(backbone_path).strip() else None,
+        backbone_sha256=backbone_sha256,
+    )
     feature_batches = []
     grid_size = (0, 0)
     for image_path in train_images:
@@ -257,6 +580,8 @@ def train_patchcore(
     checkpoint = {
         "format": "openvisionlab-patchcore-v1",
         "backbone": "wide_resnet50_2_imagenet1k_v2",
+        "pretrainedBackbonePath": extractor.backbone["path"],
+        "pretrainedBackboneSha256": extractor.backbone["sha256"],
         "backboneStateDict": {key: value.detach().cpu() for key, value in extractor.model.state_dict().items()},
         "memoryBank": memory_bank,
         "threshold": threshold,
@@ -311,13 +636,25 @@ def connected_components(mask: Any, minimum_area: int) -> list[tuple[Any, Any]]:
 
 
 class PatchCoreDetector:
-    def __init__(self, weights: Path, model_root: Path, image_root: Path, image_size: int, device_text: str, maximum_candidates: int):
+    def __init__(
+        self,
+        weights: Path,
+        model_root: Path,
+        image_root: Path,
+        image_size: int,
+        device_text: str,
+        maximum_candidates: int,
+        backbone_path: Path | None = None,
+        backbone_sha256: str = "",
+    ):
         self.weights = weights
         self.model_root = model_root
         self.image_root = image_root
         self.image_size = image_size
         self.device_text = device_text
         self.maximum_candidates = max(1, maximum_candidates)
+        self.backbone_path = backbone_path
+        self.backbone_sha256 = backbone_sha256
         self.extractor: FeatureExtractor | None = None
         self.memory_bank = None
         self.threshold = 0.0
@@ -330,6 +667,8 @@ class PatchCoreDetector:
             "state": "ready" if self.extractor is not None else "unconfigured" if not self.weights.is_file() else "notLoaded",
             "loaded": self.extractor is not None,
             "weightsPath": str(self.weights),
+            "backbonePath": str(self.backbone_path) if self.backbone_path is not None else "",
+            "backboneSha256": self.backbone_sha256,
             "threshold": self.threshold,
             "trainNormalCount": int(self.metadata.get("trainNormalCount", 0)),
             "calibrationNormalCount": int(self.metadata.get("calibrationNormalCount", 0)),
@@ -504,30 +843,51 @@ class PatchCoreWorker:
             return self.training_failure(message, "TrainingDataNotFound", f"PatchCore dataset export was not found: {data_root}")
         if writer is None:
             return self.training_failure(message, "TrainingWriterUnavailable", "TrainYolo requires a TCP response writer.")
+        try:
+            run_id = normalize_run_id(first_value(message.payload, ["runId", "trainingRunId"], ""))
+        except ValueError as exc:
+            return self.training_failure(message, "InvalidTrainingRunId", str(exc))
         with self.training_lock:
             if self.training_thread is not None and self.training_thread.is_alive():
                 return self.training_failure(message, "TrainingAlreadyRunning", "a PatchCore training job is already running.")
             payload = dict(message.payload)
             payload["dataYaml"] = str(data_root)
+            payload["runId"] = run_id
             self.training_thread = threading.Thread(target=self.train_job, args=(message.request_id, payload, writer), daemon=True, name="openvisionlab-patchcore-training")
             self.training_thread.start()
-        return {"type": "TrainYoloResult", "requestId": message.request_id, "ok": True, "state": "started", "taskType": "TrainYolo", "trainingTask": "anomaly", "model": "patchcore", "progressPercent": 0}
+        result = {"type": "TrainYoloResult", "requestId": message.request_id, "ok": True, "state": "started", "taskType": "TrainYolo", "trainingTask": "anomaly", "model": "patchcore", "progressPercent": 0}
+        if run_id:
+            result["runId"] = run_id
+        return result
 
     def train_job(self, request_id: str, payload: dict[str, Any], writer: JsonResponseWriter) -> None:
         try:
+            run_id = normalize_run_id(payload.get("runId"))
+            display_run_name = str(first_value(payload, ["runName", "name"], "") or "").strip() or "openvisionlab-patchcore"
+            run_name = compose_training_run_name(display_run_name, run_id, "openvisionlab-patchcore")
             self.training_status = self.training_status_message(request_id, "running", "PatchCore normal-only memory-bank training started.", 10)
+            if run_id:
+                self.training_status["runId"] = run_id
+                self.training_status["runName"] = display_run_name
+                self.training_status["outputRunName"] = run_name
             writer.send(self.training_status)
             result = train_patchcore(
                 Path(payload["dataYaml"]), self.detector.model_root,
-                str(first_value(payload, ["runName", "name"], "") or "openvisionlab-patchcore"),
+                run_name,
                 positive_int(first_value(payload, ["imgSize", "imageSize", "imgsz"], self.detector.image_size), self.detector.image_size),
                 self.detector.device_text,
                 bounded_float(payload.get("coresetRatio"), 0.01, 0.001, 1.0),
                 positive_int(payload.get("maxCoreset"), 10000),
                 bounded_float(payload.get("thresholdQuantile"), 0.99, 0.5, 1.0),
                 positive_int(payload.get("seed"), 17),
+                str(first_value(payload, ["backbonePath", "pretrainedBackbonePath"], self.detector.backbone_path or "")),
+                str(first_value(payload, ["backboneSha256", "pretrainedBackboneSha256"], self.detector.backbone_sha256)),
             )
             self.training_status = self.training_status_message(request_id, "completed", f"PatchCore training completed. {result['runPath']}", 100, result["weightsPath"])
+            if run_id:
+                self.training_status["runId"] = run_id
+                self.training_status["runName"] = display_run_name
+                self.training_status["outputRunName"] = run_name
             writer.send(self.training_status)
         except Exception as exc:
             self.training_status = self.training_status_message(request_id, "failed", "PatchCore training failed.", error=make_error("TrainingFailed", exc, self.debug))
@@ -624,7 +984,17 @@ def parse_messages(buffer: bytearray) -> Iterable[IncomingMessage]:
 
 
 def build_detector(args: argparse.Namespace) -> PatchCoreDetector:
-    return PatchCoreDetector(Path(args.weights).expanduser().resolve(), Path(args.model_root).expanduser().resolve(), Path(args.image_root).expanduser().resolve(), args.img_size, args.device, args.max_candidates)
+    backbone_path = str(args.backbone_path).strip()
+    return PatchCoreDetector(
+        Path(args.weights).expanduser().resolve(),
+        Path(args.model_root).expanduser().resolve(),
+        Path(args.image_root).expanduser().resolve(),
+        args.img_size,
+        args.device,
+        args.max_candidates,
+        Path(backbone_path).expanduser().resolve() if backbone_path else None,
+        args.backbone_sha256,
+    )
 
 
 def run_client(args: argparse.Namespace) -> int:
@@ -661,9 +1031,75 @@ def run_client(args: argparse.Namespace) -> int:
             time.sleep(args.retry_delay)
 
 
+def run_backbone_preflight(args: argparse.Namespace) -> int:
+    try:
+        explicit_path = str(args.backbone_path).strip()
+        if explicit_path:
+            path = Path(explicit_path).expanduser().resolve()
+            supplied_hash = normalize_sha256(args.backbone_sha256 or os.environ.get(PATCHCORE_BACKBONE_SHA256_ENV, ""))
+            manifest_hash = read_backbone_hash_manifest(path) if not supplied_hash else ""
+            result = inspect_pretrained_backbone_cache(
+                path,
+                supplied_hash or manifest_hash,
+                path.name,
+                "argument/environment" if supplied_hash else "sidecar" if manifest_hash else "",
+            )
+        else:
+            _, torch, _, _, _, model_api = dependencies()
+            weights_type, _ = model_api
+            result = require_pretrained_backbone(resolve_pretrained_backbone_spec(torch, weights_type, expected_sha256=args.backbone_sha256))
+        print(compact_json({"type": "PatchCoreBackbonePreflightResult", "ok": True, "backbone": result}).decode("utf-8"), flush=True)
+        return 0
+    except Exception as exc:
+        code = exc.code if isinstance(exc, PatchCoreBackboneError) else "PatchCoreBackbonePreflightFailed"
+        print(compact_json({"type": "PatchCoreBackbonePreflightResult", "ok": False, "error": make_error(code, exc, args.debug)}).decode("utf-8"), flush=True)
+        return 1
+
+
+def run_prepare_backbone(args: argparse.Namespace) -> int:
+    if not args.allow_backbone_download:
+        path = Path(args.backbone_path).expanduser().resolve() if str(args.backbone_path).strip() else None
+        try:
+            expected = normalize_sha256(args.backbone_sha256 or os.environ.get(PATCHCORE_BACKBONE_SHA256_ENV, ""))
+        except ValueError:
+            expected = ""
+        error = PatchCoreBackboneError(
+            "PatchCoreBackboneDownloadApprovalRequired",
+            "PatchCore backbone preparation is disabled until the operator explicitly supplies --allow-backbone-download; no network or file download was attempted.",
+            path=path,
+            expected_sha256=expected,
+            file_name=path.name if path is not None else "wide_resnet50_2-<torchvision-hash>.pth",
+            hash_source="argument/environment" if expected else "",
+        )
+        print(compact_json({"type": "PatchCoreBackbonePreparationResult", "ok": False, "error": make_error(error.code, error)}).decode("utf-8"), flush=True)
+        return 1
+    try:
+        _, torch, _, _, _, model_api = dependencies()
+        weights_type, _ = model_api
+        result = prepare_pretrained_backbone(torch, weights_type, Path(args.backbone_path).expanduser().resolve() if str(args.backbone_path).strip() else None, args.backbone_sha256)
+        print(compact_json({"type": "PatchCoreBackbonePreparationResult", "ok": True, "backbone": result}).decode("utf-8"), flush=True)
+        return 0
+    except Exception as exc:
+        code = exc.code if isinstance(exc, PatchCoreBackboneError) else "PatchCoreBackbonePreparationFailed"
+        print(compact_json({"type": "PatchCoreBackbonePreparationResult", "ok": False, "error": make_error(code, exc, args.debug)}).decode("utf-8"), flush=True)
+        return 1
+
+
 def run_train_smoke(args: argparse.Namespace) -> int:
     try:
-        result = train_patchcore(Path(args.data_root).resolve(), Path(args.model_root).resolve(), args.run_name or "openvisionlab-patchcore-smoke", args.img_size, args.device, args.coreset_ratio, args.max_coreset, args.threshold_quantile, args.seed)
+        result = train_patchcore(
+            Path(args.data_root).resolve(),
+            Path(args.model_root).resolve(),
+            args.run_name or "openvisionlab-patchcore-smoke",
+            args.img_size,
+            args.device,
+            args.coreset_ratio,
+            args.max_coreset,
+            args.threshold_quantile,
+            args.seed,
+            args.backbone_path,
+            args.backbone_sha256,
+        )
         print(compact_json({"type": "PatchCoreTrainSmokeResult", "ok": True, **result}).decode("utf-8"), flush=True)
         return 0
     except Exception as exc:
@@ -726,6 +1162,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--max-coreset", type=int, default=10000)
     parser.add_argument("--threshold-quantile", type=float, default=0.99)
     parser.add_argument("--seed", type=int, default=17)
+    parser.add_argument("--backbone-path", default="")
+    parser.add_argument("--backbone-sha256", default="")
+    parser.add_argument("--preflight-backbone", action="store_true")
+    parser.add_argument("--prepare-backbone", action="store_true")
+    parser.add_argument("--allow-backbone-download", action="store_true")
     parser.add_argument("--smoke-test", action="store_true")
     parser.add_argument("--detect-file", default="")
     parser.add_argument("--image", default="")
@@ -735,6 +1176,10 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
 
 def main(argv: list[str]) -> int:
     args = parse_args(argv)
+    if args.preflight_backbone:
+        return run_backbone_preflight(args)
+    if args.prepare_backbone:
+        return run_prepare_backbone(args)
     if args.self_test:
         return run_self_test(args)
     if args.train_smoke:

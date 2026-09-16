@@ -182,18 +182,47 @@ namespace MvcVisionSystem._1._Core
                 return DisplayManager.InvokeOnDisplayThread(() => ApplyToDetectLayer(defects, requestId, imageId));
             }
 
-            DetectionRequestContext detectionContext = transport.TakePendingDetectionContext();
-            if (!detectionContext.MatchesResponse(requestId, imageId))
-            {
-                ClearLastResult();
-                AppLog.COMM($"ResultDefect ignored because request/image id changed. Pending:{detectionContext.RequestId}/{detectionContext.ImageId}, Result:{requestId}/{imageId}");
-                return false;
-            }
-
             if (transport.TakePendingDetectionCanceled())
             {
                 ClearLastResult();
                 AppLog.COMM("ResultDefect ignored because the pending detection request was cancelled.");
+                return false;
+            }
+
+            DetectionRequestContext detectionContext;
+            if (!transport.TryTakePendingDetectionContext(requestId, imageId, out detectionContext))
+            {
+                if (transport.HasPendingDetectionContext)
+                {
+                    AppLog.COMM($"ResultDefect ignored because request/image id changed. Result:{requestId}/{imageId}");
+                    return false;
+                }
+
+                if (transport.HasCompletedDetectionContext
+                    || !string.IsNullOrWhiteSpace(requestId)
+                    || !string.IsNullOrWhiteSpace(imageId))
+                {
+                    AppLog.COMM($"ResultDefect ignored because no matching detection run is pending. Result:{requestId}/{imageId}");
+                    return false;
+                }
+
+                detectionContext = DetectionRequestContext.Empty;
+            }
+
+            Size activeImageSize = DisplayManager.ImageSrc == null || DisplayManager.ImageSrc.Empty()
+                ? Size.Empty
+                : new Size(DisplayManager.ImageSrc.Width, DisplayManager.ImageSrc.Height);
+            DetectionRequestContext activeContext = CaptureCurrentContext(activeImageSize);
+            if (!detectionContext.Matches(activeContext))
+            {
+                DetectionRequestContext previousContext = GetLastDetectionContext();
+                if (!previousContext.Matches(activeContext))
+                {
+                    ClearLastResult();
+                }
+
+                AppLog.COMM($"YOLO detection result ignored because the active image changed. Result:{detectionContext.DisplayName}, Current:{activeContext.DisplayName}");
+                RaiseDetectionCandidatesUpdated(detectionContext, 0, DetectionCandidateUpdateReason.StaleResultIgnored);
                 return false;
             }
 
@@ -230,16 +259,6 @@ namespace MvcVisionSystem._1._Core
                 SetLastResult(reviewDefects, detectionContext);
                 AppLog.NORMAL($"YOLO detection completed, but no drawable candidates were produced. Image:{detectionContext.DisplayName}, Raw:{defects.Count}");
                 RaiseDetectionCandidatesUpdated(detectionContext, 0, DetectionCandidateUpdateReason.ResultCompleted);
-                return false;
-            }
-
-            var activeImageSize = new Size(DisplayManager.ImageSrc.Width, DisplayManager.ImageSrc.Height);
-            DetectionRequestContext activeContext = CaptureCurrentContext(activeImageSize);
-            if (!detectionContext.Matches(activeContext))
-            {
-                SetLastResult(reviewDefects, detectionContext);
-                AppLog.NORMAL($"YOLO detection completed for non-active image. Image:{detectionContext.DisplayName}, Current:{activeContext.DisplayName}, Candidates:{reviewDefects.Count}, Raw:{defects.Count}");
-                RaiseDetectionCandidatesUpdated(detectionContext, reviewDefects.Count, DetectionCandidateUpdateReason.ResultCompleted);
                 return false;
             }
 

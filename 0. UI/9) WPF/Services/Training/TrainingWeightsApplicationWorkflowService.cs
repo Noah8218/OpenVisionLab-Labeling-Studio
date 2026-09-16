@@ -192,7 +192,9 @@ namespace MvcVisionSystem
                 history.LastTrainingMessage,
                 savedToRecipe,
                 history.LastTrainingDatasetVersionId,
-                history.LastTrainingDatasetContentSha256);
+                history.LastTrainingDatasetContentSha256,
+                trainingRunId: history.LastTrainingRunId,
+                trainingRunName: history.LastTrainingRunName);
         }
 
         private static void EnsureProjectSettings(LabelingProjectData data)

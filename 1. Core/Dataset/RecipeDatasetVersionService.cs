@@ -13,10 +13,64 @@ namespace MvcVisionSystem
         public const int IdentitySchemaVersion = 2;
         public const string Algorithm = "sha256-relative-path-content-v2";
         public const string HistoryDirectoryName = "dataset.versions";
+        internal const int MaxSnapshotAttempts = 2;
         private static readonly HashSet<string> ImageExtensions = new HashSet<string>(
             new[] { ".bmp", ".jpg", ".jpeg", ".png", ".tif", ".tiff" },
             StringComparer.OrdinalIgnoreCase);
         private static readonly string[] Splits = { "train", "valid", "test" };
+
+        [ThreadStatic]
+        private static Action<string> testSnapshotFileObserver;
+
+        private sealed class DatasetFileCandidate
+        {
+            public string Path { get; set; } = string.Empty;
+            public string Kind { get; set; } = string.Empty;
+            public string Split { get; set; } = string.Empty;
+            public string RelativePath { get; set; } = string.Empty;
+            public long Length { get; set; }
+            public DateTime LastWriteTimeUtc { get; set; }
+            public DateTime CreationTimeUtc { get; set; }
+            public string Key => Kind + "\0" + Split + "\0" + Path;
+        }
+
+        private sealed class DatasetSnapshotObserverScope : IDisposable
+        {
+            private readonly Action<string> previous;
+            private bool disposed;
+
+            public DatasetSnapshotObserverScope(Action<string> previous)
+            {
+                this.previous = previous;
+            }
+
+            public void Dispose()
+            {
+                if (disposed)
+                {
+                    return;
+                }
+
+                disposed = true;
+                testSnapshotFileObserver = previous;
+            }
+        }
+
+        private sealed class DatasetSnapshotChangedException : IOException
+        {
+            public DatasetSnapshotChangedException(string message)
+                : base(message)
+            {
+            }
+        }
+
+        internal static IDisposable PushTestSnapshotFileObserver(Action<string> observer)
+        {
+            ArgumentNullException.ThrowIfNull(observer);
+            Action<string> previous = testSnapshotFileObserver;
+            testSnapshotFileObserver = observer;
+            return new DatasetSnapshotObserverScope(previous);
+        }
 
         public static RecipeDatasetVersionSnapshot CreateSnapshot(LabelingProjectData data)
         {
@@ -24,6 +78,32 @@ namespace MvcVisionSystem
             data.NormalizeOutputPaths();
             data.ProjectSettings ??= new LabelingProjectSettings();
             data.ProjectSettings.EnsureDefaults();
+
+            IOException lastFailure = null;
+            for (int attempt = 1; attempt <= MaxSnapshotAttempts; attempt++)
+            {
+                try
+                {
+                    return CreateSnapshotAttempt(data);
+                }
+                catch (IOException error)
+                {
+                    lastFailure = error;
+                    if (attempt == MaxSnapshotAttempts)
+                    {
+                        throw new IOException(
+                            $"Dataset changed or could not be read consistently after {MaxSnapshotAttempts} attempts.",
+                            error);
+                    }
+                }
+            }
+
+            throw new IOException("Dataset snapshot could not be created.", lastFailure);
+        }
+
+        private static RecipeDatasetVersionSnapshot CreateSnapshotAttempt(LabelingProjectData data)
+        {
+            List<DatasetFileCandidate> beforeCandidates = EnumerateDatasetFiles(data);
 
             var snapshot = new RecipeDatasetVersionSnapshot
             {
@@ -35,44 +115,12 @@ namespace MvcVisionSystem
                     .ToList() ?? new List<string>()
             };
 
-            foreach (string split in Splits)
+            foreach (DatasetFileCandidate candidate in beforeCandidates)
             {
-                string splitRoot = Path.Combine(data.OutputRootPath, "data", split);
-                AddFiles(snapshot.Files, Path.Combine(splitRoot, "images"), "image", split, data.OutputRootPath, IsImageFile);
-                AddFiles(snapshot.Files, Path.Combine(splitRoot, "labels"), "label", split, data.OutputRootPath, _ => true);
-                AddFiles(snapshot.Files, Path.Combine(splitRoot, "segments"), "segment", split, data.OutputRootPath, _ => true);
-                AddFiles(snapshot.Files, Path.Combine(splitRoot, "masks"), "mask", split, data.OutputRootPath, _ => true);
+                snapshot.Files.Add(CreateFileRecord(candidate));
             }
 
-            if (data.ProjectSettings.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection)
-            {
-                foreach (string split in Splits)
-                {
-                    AddFiles(
-                        snapshot.Files,
-                        Path.Combine(data.OutputRootPath, AnomalyClassificationDatasetExportService.DefaultFolderName, split),
-                        "image",
-                        split,
-                        data.OutputRootPath,
-                        IsImageFile);
-                }
-            }
-
-            if (!snapshot.Files.Any(item => string.Equals(item.Kind, "image", StringComparison.Ordinal)))
-            {
-                string imageRootPath = data.ProjectSettings.ResolveImageRootPath();
-                AddFiles(snapshot.Files, imageRootPath, "image", "source", imageRootPath, IsImageFile);
-            }
-
-            string anomalyReviewPath = Path.Combine(data.OutputRootPath, AnomalyImageReviewStatusService.FileName);
-            if (File.Exists(anomalyReviewPath))
-            {
-                snapshot.Files.Add(CreateFileRecord(
-                    anomalyReviewPath,
-                    "image-level-label",
-                    "source",
-                    AnomalyImageReviewStatusService.FileName));
-            }
+            EnsureDatasetFilesStable(beforeCandidates, EnumerateDatasetFiles(data));
 
             snapshot.Files = snapshot.Files
                 .OrderBy(item => item.Kind, StringComparer.Ordinal)
@@ -82,7 +130,7 @@ namespace MvcVisionSystem
             snapshot.FileCount = snapshot.Files.Count;
             snapshot.ImageFileCount = snapshot.Files.Count(item => string.Equals(item.Kind, "image", StringComparison.Ordinal));
             snapshot.AnnotationFileCount = snapshot.FileCount - snapshot.ImageFileCount;
-            snapshot.ClassContractSha256 = HashingService.ComputeUtf8TextSha256(BuildClassContract(snapshot.Classes), lowerCase: true);
+            snapshot.ClassContractSha256 = ComputeClassContractSha256(snapshot.Classes);
             snapshot.SplitContractSha256 = HashingService.ComputeUtf8TextSha256(BuildFileContract(snapshot.Files), lowerCase: true);
             snapshot.ContentSha256 = HashingService.ComputeUtf8TextSha256(string.Join(
                 "\n",
@@ -259,15 +307,62 @@ namespace MvcVisionSystem
                 && string.Equals(snapshot.DatasetVersionId, datasetVersionId, StringComparison.Ordinal);
         }
 
-        private static void AddFiles(
-            ICollection<RecipeDatasetVersionFile> records,
+        private static List<DatasetFileCandidate> EnumerateDatasetFiles(LabelingProjectData data)
+        {
+            var candidates = new List<DatasetFileCandidate>();
+            foreach (string split in Splits)
+            {
+                string splitRoot = Path.Combine(data.OutputRootPath, "data", split);
+                AddFileCandidates(candidates, Path.Combine(splitRoot, "images"), "image", split, data.OutputRootPath, IsImageFile);
+                AddFileCandidates(candidates, Path.Combine(splitRoot, "labels"), "label", split, data.OutputRootPath, _ => true);
+                AddFileCandidates(candidates, Path.Combine(splitRoot, "segments"), "segment", split, data.OutputRootPath, _ => true);
+                AddFileCandidates(candidates, Path.Combine(splitRoot, "masks"), "mask", split, data.OutputRootPath, _ => true);
+            }
+
+            if (data.ProjectSettings.DatasetPurpose == LabelingDatasetPurpose.AnomalyDetection)
+            {
+                foreach (string split in Splits)
+                {
+                    AddFileCandidates(
+                        candidates,
+                        Path.Combine(data.OutputRootPath, AnomalyClassificationDatasetExportService.DefaultFolderName, split),
+                        "image",
+                        split,
+                        data.OutputRootPath,
+                        IsImageFile);
+                }
+            }
+
+            if (!candidates.Any(item => string.Equals(item.Kind, "image", StringComparison.Ordinal)))
+            {
+                string imageRootPath = data.ProjectSettings.ResolveImageRootPath();
+                AddFileCandidates(candidates, imageRootPath, "image", "source", imageRootPath, IsImageFile);
+            }
+
+            string anomalyReviewPath = Path.Combine(data.OutputRootPath, AnomalyImageReviewStatusService.FileName);
+            if (File.Exists(anomalyReviewPath))
+            {
+                candidates.Add(CreateFileCandidate(
+                    anomalyReviewPath,
+                    "image-level-label",
+                    "source",
+                    AnomalyImageReviewStatusService.FileName));
+            }
+
+            return candidates
+                .OrderBy(item => item.Key, StringComparer.Ordinal)
+                .ToList();
+        }
+
+        private static void AddFileCandidates(
+            ICollection<DatasetFileCandidate> candidates,
             string directoryPath,
             string kind,
             string split,
             string relativeRoot,
             Func<string, bool> include)
         {
-            if (records == null || !Directory.Exists(directoryPath))
+            if (candidates == null || !Directory.Exists(directoryPath))
             {
                 return;
             }
@@ -282,29 +377,104 @@ namespace MvcVisionSystem
                 string relativePath = Path.GetRelativePath(relativeRoot, path)
                     .Replace(Path.DirectorySeparatorChar, '/')
                     .Replace(Path.AltDirectorySeparatorChar, '/');
-                records.Add(CreateFileRecord(path, kind, split, relativePath));
+                candidates.Add(CreateFileCandidate(path, kind, split, relativePath));
             }
         }
 
-        private static RecipeDatasetVersionFile CreateFileRecord(
+        private static DatasetFileCandidate CreateFileCandidate(
             string path,
             string kind,
             string split,
             string relativePath)
         {
-            var fileInfo = new FileInfo(path);
-            return new RecipeDatasetVersionFile
+            string normalizedPath = Path.GetFullPath(path);
+            FileInfo fileInfo = ReadFileInfo(normalizedPath);
+            return new DatasetFileCandidate
             {
+                Path = normalizedPath,
                 Kind = kind ?? string.Empty,
                 Split = split ?? string.Empty,
                 RelativePath = relativePath ?? string.Empty,
                 Length = fileInfo.Length,
-                Sha256 = HashingService.ComputeFileSha256(path, lowerCase: true)
+                LastWriteTimeUtc = fileInfo.LastWriteTimeUtc,
+                CreationTimeUtc = fileInfo.CreationTimeUtc
             };
+        }
+
+        private static RecipeDatasetVersionFile CreateFileRecord(DatasetFileCandidate candidate)
+        {
+            FileInfo beforeHash = ReadFileInfo(candidate.Path);
+            EnsureFileStateMatches(candidate, beforeHash);
+            testSnapshotFileObserver?.Invoke(candidate.Path);
+            string sha256 = HashingService.ComputeFileSha256(candidate.Path, lowerCase: true);
+            FileInfo afterHash = ReadFileInfo(candidate.Path);
+            EnsureFileStateMatches(candidate, afterHash);
+            return new RecipeDatasetVersionFile
+            {
+                Kind = candidate.Kind,
+                Split = candidate.Split,
+                RelativePath = candidate.RelativePath,
+                Length = beforeHash.Length,
+                Sha256 = sha256
+            };
+        }
+
+        private static FileInfo ReadFileInfo(string path)
+        {
+            var fileInfo = new FileInfo(path);
+            fileInfo.Refresh();
+            if (!fileInfo.Exists)
+            {
+                throw new DatasetSnapshotChangedException("Dataset file disappeared while its fingerprint was being captured: " + path);
+            }
+
+            return fileInfo;
+        }
+
+        private static void EnsureFileStateMatches(DatasetFileCandidate expected, FileInfo actual)
+        {
+            if (expected.Length != actual.Length
+                || expected.LastWriteTimeUtc != actual.LastWriteTimeUtc
+                || expected.CreationTimeUtc != actual.CreationTimeUtc)
+            {
+                throw new DatasetSnapshotChangedException("Dataset file changed while its fingerprint was being captured: " + expected.Path);
+            }
+        }
+
+        private static void EnsureDatasetFilesStable(
+            IReadOnlyList<DatasetFileCandidate> before,
+            IReadOnlyList<DatasetFileCandidate> after)
+        {
+            if (before == null || after == null || before.Count != after.Count)
+            {
+                throw new DatasetSnapshotChangedException("Dataset file membership changed while its fingerprint was being captured.");
+            }
+
+            var afterByKey = new Dictionary<string, DatasetFileCandidate>(StringComparer.Ordinal);
+            foreach (DatasetFileCandidate candidate in after)
+            {
+                if (!afterByKey.TryAdd(candidate.Key, candidate))
+                {
+                    throw new DatasetSnapshotChangedException("Dataset file identity was duplicated while its fingerprint was being captured.");
+                }
+            }
+            foreach (DatasetFileCandidate candidate in before)
+            {
+                if (!afterByKey.TryGetValue(candidate.Key, out DatasetFileCandidate afterCandidate)
+                    || candidate.Length != afterCandidate.Length
+                    || candidate.LastWriteTimeUtc != afterCandidate.LastWriteTimeUtc
+                    || candidate.CreationTimeUtc != afterCandidate.CreationTimeUtc)
+                {
+                    throw new DatasetSnapshotChangedException("Dataset file membership or metadata changed while its fingerprint was being captured.");
+                }
+            }
         }
 
         private static bool IsImageFile(string path)
             => ImageExtensions.Contains(Path.GetExtension(path) ?? string.Empty);
+
+        public static string ComputeClassContractSha256(IReadOnlyList<string> classes)
+            => HashingService.ComputeUtf8TextSha256(BuildClassContract(classes), lowerCase: true);
 
         private static bool IsSaveScratchFile(string path)
         {

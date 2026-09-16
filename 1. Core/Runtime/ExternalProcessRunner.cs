@@ -1,5 +1,7 @@
 using System;
 using System.Diagnostics;
+using System.IO;
+using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -12,8 +14,14 @@ namespace MvcVisionSystem._1._Core
     /// </summary>
     public sealed class ExternalProcessRunner
     {
+        private const int MaxCapturedOutputCharacters = 256 * 1024;
+        private const int CapturedOutputTailCharacters = 64 * 1024;
+        private const string OutputTruncationMarker = "\n...[external process output truncated; first and last portions retained]...\n";
+        private static readonly int CapturedOutputHeadCharacters =
+            MaxCapturedOutputCharacters - CapturedOutputTailCharacters - OutputTruncationMarker.Length;
         private static readonly TimeSpan OutputDrainTimeout = TimeSpan.FromSeconds(5);
         private static readonly TimeSpan ProcessExitAfterKillTimeout = TimeSpan.FromSeconds(5);
+        private static readonly Encoding Utf8OutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: false);
 
         public ExternalProcessRunResult Run(
             ProcessStartInfo startInfo,
@@ -41,8 +49,9 @@ namespace MvcVisionSystem._1._Core
                 StartInfo = startInfo,
                 EnableRaisingEvents = false
             };
-            Task<string> outputTask = Task.FromResult(string.Empty);
-            Task<string> errorTask = Task.FromResult(string.Empty);
+            ConfigureDefaultOutputEncoding(startInfo);
+            Task<BoundedOutputCapture> outputTask = Task.FromResult(BoundedOutputCapture.Empty);
+            Task<BoundedOutputCapture> errorTask = Task.FromResult(BoundedOutputCapture.Empty);
             bool started = false;
             ProcessTreeLifetime processTree = null;
 
@@ -57,11 +66,11 @@ namespace MvcVisionSystem._1._Core
                 processTree = new ProcessTreeLifetime(process);
 
                 outputTask = startInfo.RedirectStandardOutput
-                    ? process.StandardOutput.ReadToEndAsync()
-                    : Task.FromResult(string.Empty);
+                    ? CaptureOutputAsync(process.StandardOutput)
+                    : Task.FromResult(BoundedOutputCapture.Empty);
                 errorTask = startInfo.RedirectStandardError
-                    ? process.StandardError.ReadToEndAsync()
-                    : Task.FromResult(string.Empty);
+                    ? CaptureOutputAsync(process.StandardError)
+                    : Task.FromResult(BoundedOutputCapture.Empty);
 
                 using CancellationTokenSource timeoutSource = CreateTimeoutSource(timeout);
                 using CancellationTokenSource linkedSource = CreateLinkedSource(cancellationToken, timeoutSource);
@@ -77,40 +86,57 @@ namespace MvcVisionSystem._1._Core
                     TryKill(process);
                     processTree.Dispose();
                     WaitForExitAfterKill(process);
+                    BoundedOutputCapture output = await ReadOutputAsync(outputTask, "stdout").ConfigureAwait(false);
+                    BoundedOutputCapture error = await ReadOutputAsync(errorTask, "stderr").ConfigureAwait(false);
                     return new ExternalProcessRunResult(
                         exitCode: -1,
-                        output: await ReadOutputAsync(outputTask, "stdout").ConfigureAwait(false),
-                        error: await ReadOutputAsync(errorTask, "stderr").ConfigureAwait(false),
+                        output: output.Text,
+                        error: error.Text,
                         started: true,
                         timedOut: timedOut,
-                        canceled: canceled);
+                        canceled: canceled,
+                        outputTruncated: output.Truncated,
+                        errorTruncated: error.Truncated);
                 }
 
                 processTree.Dispose();
+                int exitCode = process.ExitCode;
+                BoundedOutputCapture completedOutput = await ReadOutputAsync(outputTask, "stdout").ConfigureAwait(false);
+                BoundedOutputCapture completedError = await ReadOutputAsync(errorTask, "stderr").ConfigureAwait(false);
+                string errorText = completedError.Text;
+                if (exitCode != 0 && string.IsNullOrWhiteSpace(errorText))
+                {
+                    errorText = $"External process exited with code {exitCode}.";
+                }
+
                 return new ExternalProcessRunResult(
-                    process.ExitCode,
-                    await ReadOutputAsync(outputTask, "stdout").ConfigureAwait(false),
-                    await ReadOutputAsync(errorTask, "stderr").ConfigureAwait(false),
+                    exitCode,
+                    completedOutput.Text,
+                    errorText,
                     started: true,
                     timedOut: false,
-                    canceled: false);
+                    canceled: false,
+                    outputTruncated: completedOutput.Truncated,
+                    errorTruncated: completedError.Truncated);
             }
             catch (Exception ex)
             {
                 TryKill(process);
                 processTree?.Dispose();
                 WaitForExitAfterKill(process);
-                string output = await ReadOutputAsync(outputTask, "stdout").ConfigureAwait(false);
-                string errorOutput = await ReadOutputAsync(errorTask, "stderr").ConfigureAwait(false);
+                BoundedOutputCapture output = await ReadOutputAsync(outputTask, "stdout").ConfigureAwait(false);
+                BoundedOutputCapture errorOutput = await ReadOutputAsync(errorTask, "stderr").ConfigureAwait(false);
                 return new ExternalProcessRunResult(
                     exitCode: -1,
-                    output: output,
-                    error: string.IsNullOrWhiteSpace(errorOutput)
+                    output: output.Text,
+                    error: string.IsNullOrWhiteSpace(errorOutput.Text)
                         ? ex.Message
-                        : $"{ex.Message} / {errorOutput}",
+                        : $"{ex.Message} / {errorOutput.Text}",
                     started: started,
                     timedOut: false,
-                    canceled: false);
+                    canceled: false,
+                    outputTruncated: output.Truncated,
+                    errorTruncated: errorOutput.Truncated);
             }
             finally
             {
@@ -137,7 +163,22 @@ namespace MvcVisionSystem._1._Core
             return CancellationTokenSource.CreateLinkedTokenSource(cancellationToken, timeoutSource.Token);
         }
 
-        private static async Task<string> ReadOutputAsync(Task<string> outputTask, string streamName)
+        private static void ConfigureDefaultOutputEncoding(ProcessStartInfo startInfo)
+        {
+            if (startInfo.RedirectStandardOutput && startInfo.StandardOutputEncoding == null)
+            {
+                startInfo.StandardOutputEncoding = Utf8OutputEncoding;
+            }
+
+            if (startInfo.RedirectStandardError && startInfo.StandardErrorEncoding == null)
+            {
+                startInfo.StandardErrorEncoding = Utf8OutputEncoding;
+            }
+        }
+
+        private static async Task<BoundedOutputCapture> ReadOutputAsync(
+            Task<BoundedOutputCapture> outputTask,
+            string streamName)
         {
             try
             {
@@ -146,13 +187,78 @@ namespace MvcVisionSystem._1._Core
                     Task.Delay(OutputDrainTimeout)).ConfigureAwait(false);
                 return completed == outputTask
                     ? await outputTask.ConfigureAwait(false)
-                    : string.Empty;
+                    : BoundedOutputCapture.Empty;
             }
             catch (Exception error)
             {
                 AppLog.ABNORMAL($"External process {streamName} drain failed: {error.Message}");
-                return string.Empty;
+                return BoundedOutputCapture.Empty;
             }
+        }
+
+        private static async Task<BoundedOutputCapture> CaptureOutputAsync(StreamReader reader)
+        {
+            var head = new StringBuilder(CapturedOutputHeadCharacters);
+            var tail = new StringBuilder(CapturedOutputTailCharacters);
+            char[] buffer = new char[8192];
+            bool truncated = false;
+
+            int read;
+            while ((read = await reader.ReadAsync(buffer, 0, buffer.Length).ConfigureAwait(false)) > 0)
+            {
+                if (!truncated)
+                {
+                    int remainingHead = CapturedOutputHeadCharacters - head.Length;
+                    if (read <= remainingHead)
+                    {
+                        head.Append(buffer, 0, read);
+                        continue;
+                    }
+
+                    if (remainingHead > 0)
+                    {
+                        head.Append(buffer, 0, remainingHead);
+                    }
+
+                    truncated = true;
+                    AppendTail(tail, buffer, remainingHead, read - remainingHead);
+                    continue;
+                }
+
+                AppendTail(tail, buffer, 0, read);
+            }
+
+            if (!truncated)
+            {
+                return new BoundedOutputCapture(head.ToString(), truncated: false);
+            }
+
+            return new BoundedOutputCapture(
+                head.ToString() + OutputTruncationMarker + tail,
+                truncated: true);
+        }
+
+        private static void AppendTail(StringBuilder tail, char[] buffer, int index, int count)
+        {
+            if (count <= 0)
+            {
+                return;
+            }
+
+            if (count >= CapturedOutputTailCharacters)
+            {
+                tail.Clear();
+                tail.Append(buffer, index + count - CapturedOutputTailCharacters, CapturedOutputTailCharacters);
+                return;
+            }
+
+            int overflow = tail.Length + count - CapturedOutputTailCharacters;
+            if (overflow > 0)
+            {
+                tail.Remove(0, overflow);
+            }
+
+            tail.Append(buffer, index, count);
         }
 
         private static void WaitForExitAfterKill(Process process)
@@ -184,6 +290,21 @@ namespace MvcVisionSystem._1._Core
                 AppLog.ABNORMAL($"External process tree kill failed: {error.Message}");
             }
         }
+
+        private sealed class BoundedOutputCapture
+        {
+            public static readonly BoundedOutputCapture Empty = new BoundedOutputCapture(string.Empty, truncated: false);
+
+            public BoundedOutputCapture(string text, bool truncated)
+            {
+                Text = text ?? string.Empty;
+                Truncated = truncated;
+            }
+
+            public string Text { get; }
+
+            public bool Truncated { get; }
+        }
     }
 
     public sealed class ExternalProcessRunResult
@@ -194,7 +315,9 @@ namespace MvcVisionSystem._1._Core
             string error,
             bool started,
             bool timedOut,
-            bool canceled)
+            bool canceled,
+            bool outputTruncated = false,
+            bool errorTruncated = false)
         {
             ExitCode = exitCode;
             Output = output ?? string.Empty;
@@ -202,6 +325,8 @@ namespace MvcVisionSystem._1._Core
             Started = started;
             TimedOut = timedOut;
             Canceled = canceled;
+            OutputTruncated = outputTruncated;
+            ErrorTruncated = errorTruncated;
         }
 
         public int ExitCode { get; }
@@ -215,6 +340,10 @@ namespace MvcVisionSystem._1._Core
         public bool TimedOut { get; }
 
         public bool Canceled { get; }
+
+        public bool OutputTruncated { get; }
+
+        public bool ErrorTruncated { get; }
 
         public static ExternalProcessRunResult CanceledBeforeStart()
             => new ExternalProcessRunResult(-1, string.Empty, string.Empty, false, false, true);

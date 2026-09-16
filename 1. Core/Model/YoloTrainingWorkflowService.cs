@@ -16,11 +16,14 @@ namespace MvcVisionSystem._1._Core
 
         public string LastPreparationFailureMessage { get; private set; } = string.Empty;
 
+        public string LastTrainingRunId { get; private set; } = string.Empty;
+
         public bool TryStartTraining(
             LabelingProjectData data,
             PythonModelCommunication communication,
             string runName = "",
-            string recipeName = "")
+            string recipeName = "",
+            string runId = "")
         {
             if (!TryPrepareTrainingDataset(data, out YoloTrainingDatasetRequest trainingRequest))
             {
@@ -60,6 +63,14 @@ namespace MvcVisionSystem._1._Core
             TrainingSettings training = data.GetTrainingSettings();
             string model = data?.ProjectSettings?.PythonModel?.GetProtocolModelName() ?? "yolov5";
             string weightFile = ResolveTrainingWeightFile(training.Weight, model, trainingRequest.Task);
+            if (!TryResolveTrainingRunId(runId, out string trainingRunId))
+            {
+                LastPreparationFailureMessage = "학습 Run ID는 영문, 숫자, '-' 또는 '_'만 사용할 수 있습니다.";
+                AppLog.ABNORMAL(LastPreparationFailureMessage);
+                return false;
+            }
+
+            string trainingRunName = runName?.Trim() ?? string.Empty;
             bool sent = communication.SendTrainingData(
                 PythonModelCommunication.CommandLearning.StartTraining.ToString(),
                 training.ImageSize.ToString(),
@@ -70,7 +81,8 @@ namespace MvcVisionSystem._1._Core
                 trainingRequest.DataPath,
                 model,
                 trainingRequest.Task,
-                runName);
+                trainingRunName,
+                trainingRunId);
 
             if (!sent)
             {
@@ -82,6 +94,9 @@ namespace MvcVisionSystem._1._Core
                     trainingRequest.DatasetVersionId ?? string.Empty;
                 data.ProjectSettings.TrainingGuide.LastTrainingDatasetContentSha256 =
                     trainingRequest.DatasetContentSha256 ?? string.Empty;
+                data.ProjectSettings.TrainingGuide.LastTrainingRunId = trainingRunId;
+                data.ProjectSettings.TrainingGuide.LastTrainingRunName = trainingRunName;
+                LastTrainingRunId = trainingRunId;
                 if (trainingRequest.IsExternalSource)
                 {
                     YoloExternalDatasetIntakeService.RecordTrainingRequest(
@@ -90,13 +105,45 @@ namespace MvcVisionSystem._1._Core
                         model,
                         trainingRequest.Task,
                         weightFile,
-                        runName,
+                        trainingRunName,
                         trainingRequest.SourceFingerprintSha256,
-                        trainingRequest.RuntimeDataYamlFilePath);
+                        trainingRequest.RuntimeDataYamlFilePath,
+                        trainingRunId);
                 }
             }
 
             return sent;
+        }
+
+        private static bool TryResolveTrainingRunId(string requestedRunId, out string runId)
+        {
+            string trimmed = requestedRunId?.Trim() ?? string.Empty;
+            if (trimmed.Length == 0)
+            {
+                runId = Guid.NewGuid().ToString("N");
+                return true;
+            }
+
+            if (trimmed.Length > 64)
+            {
+                runId = string.Empty;
+                return false;
+            }
+
+            foreach (char character in trimmed)
+            {
+                bool isAsciiLetter = character >= 'A' && character <= 'Z'
+                    || character >= 'a' && character <= 'z';
+                bool isDigit = character >= '0' && character <= '9';
+                if (!isAsciiLetter && !isDigit && character != '-' && character != '_')
+                {
+                    runId = string.Empty;
+                    return false;
+                }
+            }
+
+            runId = trimmed;
+            return true;
         }
 
         public bool TryStopTraining(
@@ -115,10 +162,8 @@ namespace MvcVisionSystem._1._Core
             if (!sent)
             {
                 AppLog.ABNORMAL("Python 모델 클라이언트가 연결되지 않아 학습 중지 명령을 보내지 못했습니다.");
-                return false;
             }
-
-            if (communication.WaitForTrainingStop(TimeSpan.FromSeconds(30), cancellationToken))
+            else if (communication.WaitForTrainingStop(TimeSpan.FromSeconds(30), cancellationToken))
             {
                 return true;
             }
@@ -132,7 +177,10 @@ namespace MvcVisionSystem._1._Core
             bool processStopped = processService.StopAndWait(TimeSpan.FromSeconds(5));
             if (processStopped)
             {
-                communication.MarkTrainingStopped("학습 중지 응답 시간 초과 후 Python 프로세스를 종료했습니다.");
+                communication.MarkTrainingStopped(
+                    sent
+                        ? "학습 중지 응답 시간 초과 후 Python 프로세스를 종료했습니다."
+                        : "학습 중지 명령 전송 실패 후 소유 Python 프로세스를 종료했습니다.");
             }
             else
             {

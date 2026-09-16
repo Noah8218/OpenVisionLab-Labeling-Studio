@@ -20,12 +20,55 @@ namespace MvcVisionSystem
                 return ModelCandidateLifecycleResult.MissingCandidate();
             }
 
-            return ApplyDecision(
-                request,
-                ModelRegistryService.CandidateDecisionRejected,
-                request.DecisionSummary,
-                savedToRecipe: false,
-                restoreBaselineBeforeSave: true);
+            string candidateWeightsPath = Normalize(request.CandidateWeightsPath);
+            string baselineWeightsPath = Normalize(request.BaselineWeightsPath);
+            if (!TryOpenBaselineForReject(baselineWeightsPath, out FileStream baselineStream, out Exception baselineError))
+            {
+                return ModelCandidateLifecycleResult.BaselineUnavailable(
+                    candidateWeightsPath,
+                    baselineWeightsPath,
+                    baselineError);
+            }
+
+            using (baselineStream)
+            {
+                return ApplyDecision(
+                    request,
+                    ModelRegistryService.CandidateDecisionRejected,
+                    request.DecisionSummary,
+                    savedToRecipe: false,
+                    restoreBaselineBeforeSave: true,
+                    baselineStream: baselineStream);
+            }
+        }
+
+        private static bool TryOpenBaselineForReject(
+            string baselineWeightsPath,
+            out FileStream baselineStream,
+            out Exception error)
+        {
+            baselineStream = null;
+            if (string.IsNullOrWhiteSpace(baselineWeightsPath))
+            {
+                error = new InvalidOperationException("기존 검사 모델 경로가 없어 후보를 기각하지 않았습니다.");
+                return false;
+            }
+
+            try
+            {
+                baselineStream = new FileStream(
+                    baselineWeightsPath,
+                    FileMode.Open,
+                    FileAccess.Read,
+                    FileShare.Read);
+                error = null;
+                return true;
+            }
+            catch (Exception ex) when (ex is IOException || ex is UnauthorizedAccessException || ex is ArgumentException || ex is NotSupportedException)
+            {
+                error = new InvalidOperationException("기존 검사 모델을 복원할 수 없어 후보를 기각하지 않았습니다.", ex);
+                return false;
+            }
         }
 
         public ModelCandidateLifecycleResult Adopt(ModelCandidateLifecycleRequest request)
@@ -59,7 +102,8 @@ namespace MvcVisionSystem
             string decision,
             string decisionSummary,
             bool savedToRecipe,
-            bool restoreBaselineBeforeSave)
+            bool restoreBaselineBeforeSave,
+            FileStream baselineStream = null)
         {
             LabelingProjectData data = request.Data ?? throw new ArgumentNullException(nameof(request.Data));
             data.ProjectSettings ??= new LabelingProjectSettings();
@@ -87,17 +131,28 @@ namespace MvcVisionSystem
                     request.AdoptionPlan?.DatasetVersionId
                         ?? data.ProjectSettings.TrainingGuide.LastTrainingDatasetVersionId,
                     request.AdoptionPlan?.DatasetContentSha256
-                        ?? data.ProjectSettings.TrainingGuide.LastTrainingDatasetContentSha256);
+                        ?? data.ProjectSettings.TrainingGuide.LastTrainingDatasetContentSha256,
+                    trainingRunId: data.ProjectSettings.TrainingGuide.LastTrainingRunId,
+                    trainingRunName: data.ProjectSettings.TrainingGuide.LastTrainingRunName,
+                    candidateWeightsSha256: request.AdoptionPlan?.WeightsSha256,
+                    candidateArtifactPath: request.AdoptionPlan?.ArtifactPath);
 
-                if (restoreBaselineBeforeSave
-                    && !string.IsNullOrWhiteSpace(baselineWeightsPath)
-                    && File.Exists(baselineWeightsPath))
+                if (restoreBaselineBeforeSave)
                 {
+                    if (baselineStream == null)
+                    {
+                        throw new InvalidOperationException("기존 검사 모델 복원 확인이 없어 후보를 기각하지 않았습니다.");
+                    }
+
                     settings.WeightsPath = baselineWeightsPath;
                 }
                 else if (!restoreBaselineBeforeSave)
                 {
-                    settings.WeightsPath = candidateWeightsPath;
+                    settings.WeightsPath = Normalize(request.AdoptionPlan?.ArtifactPath);
+                    if (string.IsNullOrWhiteSpace(settings.WeightsPath))
+                    {
+                        settings.WeightsPath = candidateWeightsPath;
+                    }
                 }
 
                 bool configSaved = request.SaveModelMetadata?.Invoke() == true;
@@ -160,7 +215,8 @@ namespace MvcVisionSystem
         AlreadyCurrent,
         PersistenceFailed,
         Committed,
-        Failed
+        Failed,
+        BaselineUnavailable
     }
 
     public sealed class ModelCandidateLifecycleResult
@@ -193,7 +249,8 @@ namespace MvcVisionSystem
 
         public bool ShouldRetainPendingCandidate
             => Status == ModelCandidateLifecycleStatus.PersistenceFailed
-                || Status == ModelCandidateLifecycleStatus.Failed;
+                || Status == ModelCandidateLifecycleStatus.Failed
+                || Status == ModelCandidateLifecycleStatus.BaselineUnavailable;
 
         public static ModelCandidateLifecycleResult MissingCandidate()
             => new ModelCandidateLifecycleResult(ModelCandidateLifecycleStatus.MissingCandidate, string.Empty, string.Empty, false);
@@ -234,6 +291,17 @@ namespace MvcVisionSystem
                 candidateWeightsPath,
                 baselineWeightsPath,
                 savedToRecipe,
+                error);
+
+        public static ModelCandidateLifecycleResult BaselineUnavailable(
+            string candidateWeightsPath,
+            string baselineWeightsPath,
+            Exception error)
+            => new ModelCandidateLifecycleResult(
+                ModelCandidateLifecycleStatus.BaselineUnavailable,
+                candidateWeightsPath,
+                baselineWeightsPath,
+                false,
                 error);
     }
 }

@@ -64,6 +64,25 @@ namespace MvcVisionSystem
                 objectReviewDetailText: statusText);
         }
 
+        public static AnnotationSaveStatePresentation BuildLoadBlocked(string errorSummary)
+        {
+            string detail = string.IsNullOrWhiteSpace(errorSummary)
+                ? "원본 라벨을 보존했으며 명시적 복구 전에는 저장하지 않습니다."
+                : $"원본 라벨을 보존했습니다. {errorSummary}";
+            return new AnnotationSaveStatePresentation(
+                isDirty: false,
+                statusBarText: "라벨 읽기 오류",
+                statusBarToolTip: detail,
+                canvasActionText: "복구 필요",
+                canvasToolTip: "손상된 라벨은 부분 로드하지 않으며 명시적 복구 전에는 덮어쓸 수 없습니다.",
+                canvasStatusKey: "LoadError",
+                canvasStatusTitleText: "라벨 읽기 오류",
+                canvasStatusDetailText: detail,
+                objectReviewStateKey: "LoadError",
+                objectReviewBadgeText: "복구 필요",
+                objectReviewDetailText: detail);
+        }
+
         [Obsolete("Use BuildDirty, BuildSaved, or BuildWaiting and pass the immutable presentation.", false)]
         public static AnnotationSaveStatePresentation BuildLegacyCanvasState(
             bool isDirty,

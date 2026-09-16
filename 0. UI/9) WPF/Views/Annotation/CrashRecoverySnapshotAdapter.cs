@@ -26,6 +26,7 @@ namespace MvcVisionSystem
             ArgumentNullException.ThrowIfNull(context.ActiveImagePathProvider);
             ArgumentNullException.ThrowIfNull(context.ActiveImageSizeProvider);
             ArgumentNullException.ThrowIfNull(context.DirtyReasonProvider);
+            ArgumentNullException.ThrowIfNull(context.ClassOrderSha256Provider);
             ArgumentNullException.ThrowIfNull(context.ManualRois);
             ArgumentNullException.ThrowIfNull(context.ManualRoiClassNames);
             ArgumentNullException.ThrowIfNull(context.ManualRoiShapeKinds);
@@ -50,7 +51,8 @@ namespace MvcVisionSystem
                 context.DirtyReasonProvider(),
                 roiSnapshots,
                 candidateSnapshots,
-                segmentSnapshots));
+                segmentSnapshots,
+                context.ClassOrderSha256Provider()));
         }
 
         private List<WpfCrashRecoveryRoiSnapshot> CaptureCrashRecoveryRoiSnapshots()
@@ -125,6 +127,7 @@ namespace MvcVisionSystem
         internal Func<string> ActiveImagePathProvider { get; init; }
         internal Func<Size> ActiveImageSizeProvider { get; init; }
         internal Func<string> DirtyReasonProvider { get; init; }
+        internal Func<string> ClassOrderSha256Provider { get; init; }
         internal IReadOnlyList<Rectangle> ManualRois { get; init; }
         internal IReadOnlyList<string> ManualRoiClassNames { get; init; }
         internal IReadOnlyList<CanvasRoiShapeKind> ManualRoiShapeKinds { get; init; }

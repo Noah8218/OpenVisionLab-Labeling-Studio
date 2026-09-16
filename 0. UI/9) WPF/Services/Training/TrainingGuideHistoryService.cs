@@ -161,6 +161,8 @@ namespace MvcVisionSystem
                 existing.TrainingState = history.LastTrainingState ?? string.Empty;
                 existing.TrainingProgressPercent = history.LastTrainingProgressPercent;
                 existing.TrainingMessage = history.LastTrainingMessage ?? string.Empty;
+                existing.TrainingRunId = history.LastTrainingRunId ?? string.Empty;
+                existing.TrainingRunName = history.LastTrainingRunName ?? string.Empty;
             }
 
             TrimRunHistory(history);
@@ -178,6 +180,8 @@ namespace MvcVisionSystem
                 TrainingState = history.LastTrainingState ?? string.Empty,
                 TrainingProgressPercent = history.LastTrainingProgressPercent,
                 TrainingMessage = history.LastTrainingMessage ?? string.Empty,
+                TrainingRunId = history.LastTrainingRunId ?? string.Empty,
+                TrainingRunName = history.LastTrainingRunName ?? string.Empty,
                 AppliedWeightsPath = history.AppliedWeightsPath ?? string.Empty,
                 AppliedWeightsSavedToRecipe = history.AppliedWeightsSavedToRecipe
             };

@@ -100,6 +100,7 @@ namespace MvcVisionSystem
                 : new LabelClass
                 {
                     Text = source.Text ?? string.Empty,
+                    IsArchived = source.IsArchived,
                     DrawColor = source.DrawColor
                 };
     }

@@ -123,9 +123,13 @@ flowchart LR
 사용자에게 영향을 주는 변경은 `RELEASE_NOTES.md`에 기록합니다. 이 저장소는
 실제 검증된 변경을 버전별 checkpoint로 계속 갱신합니다.
 
-- 현재 소스 버전: `0.3.4` (2026-09-15)
-- 이전 Public 버전: `0.3.3`
+- 현재 소스 버전: `0.3.5` (2026-09-16)
+- 이전 Public 버전: `0.3.4`
 - 최근 버전 기록:
+  - `0.3.5` (2026-09-16): annotation 로드·저장·복구와 Object Review·검출·학습
+    흐름의 상태 전이를 보강하고, 명시적 저장·확정 경계를 유지했습니다.
+    데이터셋 source group·split 품질 점검, 모델 artifact/runtime lock provenance,
+    Python 프로세스·진단 실패 복구를 추가한 호환 가능한 PATCH checkpoint입니다.
   - `0.3.4` (2026-09-15): WPF Shell의 수동 partial 분산 책임을 기능별
     View·ViewModel·adapter·lifecycle owner로 정리하고 저장·검수·학습 작업 흐름을
     보존했습니다. annotation·Recipe·Dataset Version·model-state 공개 형식은 유지됩니다.
@@ -176,7 +180,7 @@ powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x6
 .\scripts\start-labeling-workbench.ps1 -AppMode Publish
 ```
 
-기본 릴리스는 `artifacts\publish\Release\win-x64\0.3.4`에 생성되는
+기본 릴리스는 `artifacts\publish\Release\win-x64\0.3.5`에 생성되는
 self-contained Windows x64 번들입니다. `release-manifest.json`과
 `publish-manifest.txt`에는 소스 커밋, 빌드 식별 정보, 전체 payload의
 SHA-256이 기록됩니다. 기존 패키지는 다음 명령으로 변경 없이 다시 검증할 수 있습니다.
@@ -186,7 +190,7 @@ SHA-256이 기록됩니다. 기존 패키지는 다음 명령으로 변경 없�
 `OpenVisionLab.LabelingStudio.exe`를 실행합니다.
 
 ```powershell
-powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.3.4 -VerifyOnly
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\scripts\publish-win-x64.ps1 -Configuration Release -ReleaseVersion 0.3.5 -VerifyOnly
 ```
 
 ## 샘플 데이터
@@ -214,7 +218,7 @@ dotnet build .\OpenVisionLab.LabelingStudio.csproj -c Release
 ```powershell
 powershell.exe -NoProfile -ExecutionPolicy Bypass `
   -File .\scripts\publish-win-x64.ps1 -Configuration Release
-& .\artifacts\publish\Release\win-x64\0.3.4\OpenVisionLab.LabelingStudio.exe `
+& .\artifacts\publish\Release\win-x64\0.3.5\OpenVisionLab.LabelingStudio.exe `
   --environment-self-test --json
 ```
 
@@ -249,7 +253,7 @@ GitHub Actions의 `.github/workflows/ci.yml`은 다음을 확인합니다.
 - README 필수 섹션
 - .NET Release 제품 빌드
 - versioned self-contained `win-x64` publish와 payload 검증
-- `openvisionlab-labeling-studio-0.3.4-win-x64` artifact 업로드
+- `openvisionlab-labeling-studio-0.3.5-win-x64` artifact 업로드
 - `git diff --check`
 
 ## 문서

@@ -188,6 +188,7 @@ namespace MvcVisionSystem
         private ShellTheme currentTheme = ShellTheme.Dark;
         private WpfAnnotationTool activeAnnotationTool = WpfAnnotationTool.Select;
         private readonly AnnotationDirtyState annotationDirtyState = new AnnotationDirtyState();
+        private readonly AnnotationLoadState annotationLoadState = new AnnotationLoadState();
         private bool isApplicationCloseApproved;
         private bool modelWorkflowPanelsComposed;
         private readonly WpfLabelingShellViewModels viewModels;
@@ -684,7 +685,9 @@ namespace MvcVisionSystem
                         ObjectReviewViewModel?.SetLabelSaveState(
                             presentation.ObjectReviewStateKey,
                             presentation.ObjectReviewBadgeText,
-                            presentation.ObjectReviewDetailText)
+                            presentation.ObjectReviewDetailText),
+                    IsAnnotationSaveBlocked = () => annotationLoadState.IsSaveBlocked,
+                    AnnotationSaveBlockReasonProvider = () => annotationLoadState.ErrorSummary
                 });
             annotationPersistenceAdapter = new AnnotationPersistenceAdapter(
                 new AnnotationPersistenceAdapterContext
@@ -707,7 +710,8 @@ namespace MvcVisionSystem
                     ManualRoiClassNames = manualRoiClassNames,
                     ManualSegments = manualSegments,
                     ConfirmedDetectionCandidatesProvider = () => confirmedDetectionCandidates,
-                    ClassCatalogWorkflowService = classCatalogWorkflowService
+                    ClassCatalogWorkflowService = classCatalogWorkflowService,
+                    IsAnnotationSaveBlocked = () => annotationLoadState.IsSaveBlocked
                 });
             annotationLoadAdapter = new AnnotationLoadAdapter(
                 new AnnotationLoadAdapterContext
@@ -722,7 +726,9 @@ namespace MvcVisionSystem
                     ManualSegments = manualSegments,
                     ClassCatalogWorkflowService = classCatalogWorkflowService,
                     RedrawReviewRois = RedrawReviewRois,
-                    RefreshPolygonOverlays = RefreshPolygonOverlays
+                    RefreshPolygonOverlays = RefreshPolygonOverlays,
+                    BlockSaveForMalformedLoad = BlockAnnotationSaveForMalformedLoad,
+                    ClearSaveBlock = ClearAnnotationSaveBlock
                 });
             crashRecoverySnapshotAdapter = new CrashRecoverySnapshotAdapter(
                 new CrashRecoverySnapshotAdapterContext
@@ -734,6 +740,11 @@ namespace MvcVisionSystem
                     ActiveImagePathProvider = () => applicationState.ImageWorkspace.ActiveImagePath,
                     ActiveImageSizeProvider = () => applicationState.ImageWorkspace.ActiveImageSize,
                     DirtyReasonProvider = () => annotationDirtyState.Reason,
+                    ClassOrderSha256Provider = () => RecipeDatasetVersionService.ComputeClassContractSha256(
+                        applicationState.Data?.ClassNamedList?
+                            .Select(item => item?.Text?.Trim())
+                            .Where(name => !string.IsNullOrWhiteSpace(name))
+                            .ToList() ?? new List<string>()),
                     ManualRois = manualRois,
                     ManualRoiClassNames = manualRoiClassNames,
                     ManualRoiShapeKinds = manualRoiShapeKinds,
@@ -4710,6 +4721,18 @@ namespace MvcVisionSystem
 
         private int LoadSavedSegmentationAnnotationsForActiveImage(string imagePath)
             => annotationLoadAdapter.LoadSavedSegmentationAnnotationsForActiveImage(imagePath);
+
+        private void BlockAnnotationSaveForMalformedLoad(string labelPath, string errorSummary)
+        {
+            annotationLoadState.BlockSave(labelPath, errorSummary);
+            AppendLog(
+                $"라벨 읽기 오류로 저장을 차단했습니다. 파일:{labelPath ?? string.Empty} 원인:{annotationLoadState.ErrorSummary}");
+            annotationSaveStateAdapter.ApplyAnnotationSaveStatePresentation(
+                AnnotationSaveStatePresentationService.BuildLoadBlocked(annotationLoadState.ErrorSummary));
+        }
+
+        private void ClearAnnotationSaveBlock()
+            => annotationLoadState.Clear();
         #endregion
 
         #region AnnotationSaveStateAdapterFacade
@@ -4729,7 +4752,10 @@ namespace MvcVisionSystem
             => annotationSaveStateAdapter.MarkAnnotationsSaved(reason);
 
         private void SetAnnotationSaveStatusWaiting()
-            => annotationSaveStateAdapter.SetAnnotationSaveStatusWaiting();
+        {
+            annotationLoadState.Clear();
+            annotationSaveStateAdapter.SetAnnotationSaveStatusWaiting();
+        }
 
         private void ApplyAnnotationSaveStatePresentation(AnnotationSaveStatePresentation presentation)
             => annotationSaveStateAdapter.ApplyAnnotationSaveStatePresentation(presentation);

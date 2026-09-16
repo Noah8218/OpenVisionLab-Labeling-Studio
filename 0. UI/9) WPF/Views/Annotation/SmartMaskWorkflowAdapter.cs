@@ -238,6 +238,7 @@ namespace MvcVisionSystem
             }
 
             workflowService.Cancel();
+            promptSession.InvalidatePendingGeneration();
             RefreshSmartMaskCommandState("후보 생성을 취소하는 중입니다.");
         }
 

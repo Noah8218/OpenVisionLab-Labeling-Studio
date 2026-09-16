@@ -239,7 +239,8 @@ namespace MvcVisionSystem.Yolo
             string trainingWeight,
             string runName,
             string sourceFingerprintSha256,
-            string runtimeDataYamlFilePath = "")
+            string runtimeDataYamlFilePath = "",
+            string runId = "")
         {
             if (settings == null)
             {
@@ -253,6 +254,7 @@ namespace MvcVisionSystem.Yolo
             settings.LastTrainingModel = model ?? string.Empty;
             settings.LastTrainingTask = task ?? string.Empty;
             settings.LastTrainingRunName = runName ?? string.Empty;
+            settings.LastTrainingRunId = runId ?? string.Empty;
             settings.LastTrainingWeightFile = trainingWeight ?? string.Empty;
             settings.LastTrainingResolvedWeightFile = ResolveExistingFilePath(
                 trainingWeight,

@@ -782,18 +782,37 @@ namespace MvcVisionSystem
                 }
             }
 
+            var segmentObjectIds = new HashSet<string>(StringComparer.Ordinal);
             foreach (LabelingSegmentationObject segment in manualSegments ?? Array.Empty<LabelingSegmentationObject>())
             {
-                WpfPersistentObjectMetadata metadata = stateService.GetManualSegmentMetadata(segment);
-                if (segment == null || metadata.IsDefault || string.IsNullOrWhiteSpace(segment.ObjectId))
+                if (segment == null)
                 {
                     continue;
+                }
+
+                WpfPersistentObjectMetadata metadata = stateService.GetManualSegmentMetadata(segment);
+                string objectId = segment.ObjectId?.Trim() ?? string.Empty;
+                if (!string.IsNullOrWhiteSpace(objectId) && !segmentObjectIds.Add(objectId))
+                {
+                    throw new InvalidDataException(
+                        $"세그먼트 객체 ID가 중복되었습니다: {objectId}");
+                }
+
+                if (metadata.IsDefault)
+                {
+                    continue;
+                }
+
+                if (string.IsNullOrWhiteSpace(objectId))
+                {
+                    throw new InvalidDataException(
+                        "객체 메타데이터를 저장하려면 세그먼트 객체 ID가 필요합니다.");
                 }
 
                 records.Add(new WpfObjectMetadataRecord
                 {
                     Kind = SegmentKind,
-                    ObjectId = segment.ObjectId.Trim(),
+                    ObjectId = objectId,
                     ClassName = segment.ClassName ?? string.Empty,
                     IsOccluded = metadata.IsOccluded,
                     Tags = metadata.Tags.ToList(),

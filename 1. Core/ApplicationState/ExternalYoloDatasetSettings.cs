@@ -52,6 +52,8 @@ namespace MvcVisionSystem
 
         public string LastTrainingRunName { get; set; } = "";
 
+        public string LastTrainingRunId { get; set; } = "";
+
         public string LastTrainingWeightFile { get; set; } = "";
 
         public string LastTrainingResolvedWeightFile { get; set; } = "";
@@ -86,6 +88,7 @@ namespace MvcVisionSystem
             LastTrainingModel ??= "";
             LastTrainingTask ??= "";
             LastTrainingRunName ??= "";
+            LastTrainingRunId ??= "";
             LastTrainingWeightFile ??= "";
             LastTrainingResolvedWeightFile ??= "";
             LastTrainingWeightSha256 ??= "";
@@ -130,6 +133,7 @@ namespace MvcVisionSystem
             LastTrainingModel = "";
             LastTrainingTask = "";
             LastTrainingRunName = "";
+            LastTrainingRunId = "";
             LastTrainingWeightFile = "";
             LastTrainingResolvedWeightFile = "";
             LastTrainingWeightSha256 = "";

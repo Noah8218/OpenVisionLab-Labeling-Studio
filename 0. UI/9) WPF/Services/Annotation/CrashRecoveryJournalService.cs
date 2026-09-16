@@ -93,7 +93,8 @@ namespace MvcVisionSystem
         public WpfCrashRecoveryReadResult ReadAvailable(
             string expectedRecipeName,
             string expectedDatasetRoot,
-            DateTime? utcNow = null)
+            DateTime? utcNow = null,
+            string expectedClassOrderSha256 = null)
         {
             lock (syncRoot)
             {
@@ -131,7 +132,11 @@ namespace MvcVisionSystem
 
                     DateTime now = utcNow ?? DateTime.UtcNow;
                     ValidateDraft(envelope.Draft, now, validateAge: true);
-                    ValidateContext(envelope.Draft, expectedRecipeName, expectedDatasetRoot);
+                    ValidateContext(
+                        envelope.Draft,
+                        expectedRecipeName,
+                        expectedDatasetRoot,
+                        expectedClassOrderSha256);
                     return WpfCrashRecoveryReadResult.Available(envelope.Draft);
                 }
                 catch (Exception ex) when (
@@ -161,7 +166,8 @@ namespace MvcVisionSystem
         private static void ValidateContext(
             WpfCrashRecoveryDraft draft,
             string expectedRecipeName,
-            string expectedDatasetRoot)
+            string expectedDatasetRoot,
+            string expectedClassOrderSha256)
         {
             string normalizedRecipe = NormalizeRequired(expectedRecipeName, "현재 Recipe");
             if (!string.Equals(draft.RecipeName, normalizedRecipe, StringComparison.OrdinalIgnoreCase))
@@ -174,6 +180,15 @@ namespace MvcVisionSystem
             if (!string.Equals(draft.DatasetRootPath, normalizedExpectedRoot, StringComparison.OrdinalIgnoreCase))
             {
                 throw new InvalidDataException("복구 초안 데이터셋이 현재 Recipe 데이터셋과 다릅니다.");
+            }
+
+            if (!string.IsNullOrWhiteSpace(expectedClassOrderSha256)
+                && !string.Equals(
+                    draft.ClassOrderSha256,
+                    NormalizeSha256(expectedClassOrderSha256, "현재 클래스 순서"),
+                    StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException("복구 초안 클래스 순서가 현재 Recipe와 다릅니다.");
             }
         }
 
@@ -190,6 +205,8 @@ namespace MvcVisionSystem
             draft.RecipeName = NormalizeRequired(draft.RecipeName, "Recipe");
             draft.DatasetRootPath = NormalizePath(draft.DatasetRootPath, "데이터셋");
             draft.ImagePath = NormalizePath(draft.ImagePath, "이미지");
+            draft.ImageSha256 = NormalizeSha256(draft.ImageSha256, "이미지 SHA-256");
+            draft.ClassOrderSha256 = NormalizeSha256(draft.ClassOrderSha256, "클래스 순서 SHA-256");
             draft.DirtyReason = string.IsNullOrWhiteSpace(draft.DirtyReason)
                 ? "저장되지 않은 편집"
                 : draft.DirtyReason.Trim();
@@ -223,6 +240,11 @@ namespace MvcVisionSystem
                 || imageInfo.LastWriteTimeUtc.Ticks != draft.ImageLastWriteUtcTicks)
             {
                 throw new InvalidDataException("복구할 원본 이미지 수정 시간이 변경되었습니다.");
+            }
+            string actualImageSha256 = HashingService.ComputeFileSha256(draft.ImagePath, lowerCase: true);
+            if (!string.Equals(draft.ImageSha256, actualImageSha256, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidDataException("복구할 원본 이미지 내용이 변경되었습니다.");
             }
             if (draft.ImageWidth <= 0 || draft.ImageHeight <= 0)
             {
@@ -260,6 +282,8 @@ namespace MvcVisionSystem
             estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, draft.RecipeName);
             estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, draft.DatasetRootPath);
             estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, draft.ImagePath);
+            estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, draft.ImageSha256);
+            estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, draft.ClassOrderSha256);
             estimatedBytes = AddEstimatedPayloadBytes(estimatedBytes, draft.DirtyReason);
 
             foreach (WpfCrashRecoveryBox box in draft.Boxes)
@@ -480,6 +504,17 @@ namespace MvcVisionSystem
         private static bool IsSha256(string value)
             => value?.Length == 64 && value.All(Uri.IsHexDigit);
 
+        private static string NormalizeSha256(string value, string fieldName)
+        {
+            string normalized = value?.Trim() ?? string.Empty;
+            if (!IsSha256(normalized))
+            {
+                throw new InvalidDataException($"{fieldName} 값이 올바른 SHA-256이 아닙니다.");
+            }
+
+            return normalized.ToLowerInvariant();
+        }
+
         private static void TryDeleteFile(string path)
         {
             try
@@ -530,6 +565,10 @@ namespace MvcVisionSystem
         public long ImageLength { get; set; }
 
         public long ImageLastWriteUtcTicks { get; set; }
+
+        public string ImageSha256 { get; set; } = string.Empty;
+
+        public string ClassOrderSha256 { get; set; } = string.Empty;
 
         public int ImageWidth { get; set; }
 

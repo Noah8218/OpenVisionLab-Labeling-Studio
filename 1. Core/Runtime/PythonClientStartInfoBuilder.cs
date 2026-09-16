@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Text;
 
 namespace MvcVisionSystem._1._Core
 {
@@ -23,6 +24,14 @@ namespace MvcVisionSystem._1._Core
                 return false;
             }
 
+            PythonModelRuntimeLockPreflightResult lockPreflight =
+                PythonModelRuntimeLockManifestService.ValidateIfConfigured(settings);
+            if (!lockPreflight.IsValid)
+            {
+                error = lockPreflight.Summary;
+                return false;
+            }
+
             string projectRootPath = settings.ProjectRootPath?.Trim() ?? "";
             string clientScriptPath = settings.ClientScriptPath?.Trim() ?? "";
             string pythonExecutablePath = PythonModelSettingsValidator.ResolvePythonExecutable(settings);
@@ -35,6 +44,8 @@ namespace MvcVisionSystem._1._Core
                 CreateNoWindow = true,
                 RedirectStandardOutput = true,
                 RedirectStandardError = true,
+                StandardOutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: false),
+                StandardErrorEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false, throwOnInvalidBytes: false),
                 WindowStyle = ProcessWindowStyle.Hidden
             };
             startInfo.ArgumentList.Add(clientScriptPath);
